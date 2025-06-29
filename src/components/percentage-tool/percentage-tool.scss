@@ -722,14 +722,58 @@
   border-radius: 8px;
   padding: 1.5rem;
 
-  h3 {
-    color: #00ff41;
+  .scanner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 1.5rem;
-    text-align: center;
-    font-size: 1.8rem;
-    font-weight: bold;
-    text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
-    letter-spacing: 2px;
+    flex-wrap: wrap;
+    gap: 1rem;
+
+    h3 {
+      color: #00ff41;
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: bold;
+      text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+      letter-spacing: 2px;
+    }
+
+    .next-signal-timer {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      background: rgba(0, 255, 65, 0.1);
+      padding: 0.8rem 1.2rem;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 255, 65, 0.3);
+
+      .timer-label {
+        color: #00ff41;
+        font-size: 0.9rem;
+        font-weight: bold;
+        opacity: 0.8;
+        margin-bottom: 0.2rem;
+      }
+
+      .timer-countdown {
+        color: #ffff41;
+        font-size: 1.4rem;
+        font-weight: bold;
+        text-shadow: 0 0 10px rgba(255, 255, 65, 0.5);
+        font-family: 'Courier New', monospace;
+        animation: pulse 2s infinite;
+      }
+    }
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      text-align: center;
+
+      .next-signal-timer {
+        align-items: center;
+      }
+    }
   }
 
   h4 {
@@ -839,8 +883,9 @@
 
             .volatility-name {
               color: #00ff41;
-              font-size: 1.3rem;
+              font-size: 1.2rem;
               font-weight: bold;
+              text-shadow: 0 0 5px rgba(0, 255, 65, 0.3);
             }
 
             .signal-strength {

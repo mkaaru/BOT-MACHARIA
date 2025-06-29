@@ -25,6 +25,18 @@ interface PercentageData {
     evenOddBias: 'even' | 'odd' | 'neutral';
     overUnderBias: 'over' | 'under' | 'neutral';
   };
+  signalStrength: number;
+  recommendedAction: string;
+}
+
+interface MarketSignal {
+  volatility: string;
+  volatilityName: string;
+  tradeType: string;
+  strength: 'strong' | 'medium' | 'weak';
+  confidence: number;
+  condition: string;
+  signalScore: number;
 }
 
 const PercentageTool: React.FC = () => {
@@ -49,24 +61,84 @@ const PercentageTool: React.FC = () => {
   // Market Scanner States
   const [isScanning, setIsScanning] = useState(true);
   const [scanProgress, setScanProgress] = useState(0);
-  const [marketSuggestions, setMarketSuggestions] = useState([
-    { volatility: 'R_10', tradeType: 'Even/Odd', strength: 'strong', confidence: 85, condition: 'Trending Up' },
-    { volatility: '1HZ25V', tradeType: 'Over/Under', strength: 'weak', confidence: 60, condition: 'Sideways' }
-  ]);
+  const [marketSuggestions, setMarketSuggestions] = useState<MarketSignal[]>([]);
   const [topRecommendation, setTopRecommendation] = useState({
-    volatility: 'R_50',
+    volatility: 'Volatility 50',
     tradeType: 'Rise/Fall',
     reason: 'Consistent Upward Trend'
   });
   const [scanningMessages, setScanningMessages] = useState([
-    'Analyzing Volatility Patterns...',
-    'Identifying Strongest Signals...',
-    'Evaluating Market Conditions...',
-    'Refining Trade Recommendations...',
-    'Finalizing Optimal Strategy...'
+    'Analyzing Real Market Data...',
+    'Processing Last 200 Ticks...',
+    'Calculating Signal Strength...',
+    'Identifying Strongest Patterns...',
+    'Generating Trading Signals...'
   ]);
+  
+  // Signal update timer states
+  const [nextSignalUpdate, setNextSignalUpdate] = useState(180); // 3 minutes in seconds
+  const [lastSignalUpdate, setLastSignalUpdate] = useState(Date.now());
+  
   const wsRef = useRef<WebSocket | null>(null);
   const matrixCanvasRef = useRef<HTMLCanvasElement>(null);
+  const signalTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Signal update timer - updates every 3 minutes
+  useEffect(() => {
+    const updateSignals = () => {
+      setIsScanning(true);
+      setScanProgress(0);
+      setLastSignalUpdate(Date.now());
+      setNextSignalUpdate(180); // Reset to 3 minutes
+      
+      // Simulate progressive scanning
+      const progressInterval = setInterval(() => {
+        setScanProgress(prev => {
+          const newProgress = prev + 20;
+          if (newProgress >= 100) {
+            clearInterval(progressInterval);
+            setTimeout(() => {
+              generateMarketSignals();
+              setIsScanning(false);
+            }, 500);
+            return 100;
+          }
+          return newProgress;
+        });
+      }, 400);
+    };
+
+    // Initial signal generation
+    updateSignals();
+
+    // Set up 3-minute interval for signal updates
+    signalTimerRef.current = setInterval(updateSignals, 180000); // 3 minutes
+
+    return () => {
+      if (signalTimerRef.current) {
+        clearInterval(signalTimerRef.current);
+      }
+    };
+  }, [ticksData]);
+
+  // Countdown timer for next signal update
+  useEffect(() => {
+    countdownTimerRef.current = setInterval(() => {
+      setNextSignalUpdate(prev => {
+        if (prev <= 1) {
+          return 180; // Reset when it reaches 0
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+      }
+    };
+  }, []);
 
   // Matrix rain effect
   useEffect(() => {
@@ -131,20 +203,20 @@ const PercentageTool: React.FC = () => {
     }
   }, [isScanning]);
 
-  // WebSocket connection
+  // WebSocket connection with app_id 69811 and 200 ticks
   useEffect(() => {
     const connectWebSocket = () => {
-      wsRef.current = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
+      wsRef.current = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=69811');
 
       wsRef.current.onopen = () => {
         setIsConnected(true);
-        console.log('WebSocket connected');
+        console.log('WebSocket connected with app_id 69811');
 
-        // Subscribe to volatility indices
+        // Subscribe to volatility indices with 200 ticks for better analysis
         ['1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', 'R_10', 'R_25', 'R_50', 'R_75', 'R_100'].forEach(symbol => {
           wsRef.current?.send(JSON.stringify({
             ticks_history: symbol,
-            count: 100,
+            count: 200, // Increased to 200 ticks for better analysis
             end: 'latest',
             style: 'ticks',
             subscribe: 1
@@ -166,7 +238,7 @@ const PercentageTool: React.FC = () => {
           const { symbol, quote } = data.tick;
           setTicksData(prev => ({
             ...prev,
-            [symbol]: [...(prev[symbol] || []).slice(-99), parseFloat(quote)]
+            [symbol]: [...(prev[symbol] || []).slice(-199), parseFloat(quote)] // Maintain 200 ticks
           }));
         }
       };
@@ -189,13 +261,126 @@ const PercentageTool: React.FC = () => {
     };
   }, []);
 
+  // Generate market signals based on real data analysis
+  const generateMarketSignals = () => {
+    const signals: MarketSignal[] = [];
+    
+    Object.entries(ticksData).forEach(([symbol, ticks]) => {
+      if (ticks.length < 200) return;
+
+      const volatilityName = getVolatilityName(symbol);
+      
+      // Analyze last 200 ticks for signal strength
+      const recentTicks = ticks.slice(-200);
+      const digits = recentTicks.map(tick => parseInt(tick.toString().slice(-1)));
+      
+      // Calculate various signal strengths
+      const evenOddAnalysis = analyzeEvenOdd(digits);
+      const overUnderAnalysis = analyzeOverUnder(digits);
+      const riseFactAnalysis = analyzeRiseFall(recentTicks);
+      
+      // Determine strongest signal
+      const analyses = [
+        { type: 'Even/Odd', ...evenOddAnalysis },
+        { type: 'Over/Under', ...overUnderAnalysis },
+        { type: 'Rise/Fall', ...riseFactAnalysis }
+      ];
+      
+      const strongestSignal = analyses.reduce((prev, current) => 
+        current.strength > prev.strength ? current : prev
+      );
+      
+      signals.push({
+        volatility: symbol,
+        volatilityName,
+        tradeType: strongestSignal.type,
+        strength: strongestSignal.strength > 0.7 ? 'strong' : strongestSignal.strength > 0.4 ? 'medium' : 'weak',
+        confidence: Math.round(strongestSignal.strength * 100),
+        condition: strongestSignal.condition,
+        signalScore: strongestSignal.strength
+      });
+    });
+
+    // Sort by signal strength and take top signals
+    const sortedSignals = signals.sort((a, b) => b.signalScore - a.signalScore);
+    setMarketSuggestions(sortedSignals.slice(0, 6)); // Show top 6 signals
+    
+    // Set top recommendation
+    if (sortedSignals.length > 0) {
+      const topSignal = sortedSignals[0];
+      setTopRecommendation({
+        volatility: topSignal.volatilityName,
+        tradeType: topSignal.tradeType,
+        reason: `${topSignal.confidence}% confidence - ${topSignal.condition}`
+      });
+    }
+  };
+
+  const analyzeEvenOdd = (digits: number[]) => {
+    const evenCount = digits.filter(d => d % 2 === 0).length;
+    const oddCount = digits.length - evenCount;
+    const bias = Math.abs(evenCount - oddCount) / digits.length;
+    
+    return {
+      strength: bias,
+      condition: evenCount > oddCount ? 'Even Bias Detected' : 'Odd Bias Detected',
+      recommendation: evenCount > oddCount ? 'Odd' : 'Even'
+    };
+  };
+
+  const analyzeOverUnder = (digits: number[]) => {
+    const overCount = digits.filter(d => d >= 5).length;
+    const underCount = digits.length - overCount;
+    const bias = Math.abs(overCount - underCount) / digits.length;
+    
+    return {
+      strength: bias,
+      condition: overCount > underCount ? 'Over Bias Detected' : 'Under Bias Detected',
+      recommendation: overCount > underCount ? 'Under' : 'Over'
+    };
+  };
+
+  const analyzeRiseFall = (ticks: number[]) => {
+    let riseCount = 0;
+    let fallCount = 0;
+    
+    for (let i = 1; i < ticks.length; i++) {
+      if (ticks[i] > ticks[i - 1]) riseCount++;
+      else if (ticks[i] < ticks[i - 1]) fallCount++;
+    }
+    
+    const bias = Math.abs(riseCount - fallCount) / (ticks.length - 1);
+    
+    return {
+      strength: bias,
+      condition: riseCount > fallCount ? 'Upward Trend' : 'Downward Trend',
+      recommendation: riseCount > fallCount ? 'Fall' : 'Rise'
+    };
+  };
+
+  const getVolatilityName = (symbol: string): string => {
+    const names: { [key: string]: string } = {
+      '1HZ10V': 'Volatility 10 (1s)',
+      '1HZ25V': 'Volatility 25 (1s)',
+      '1HZ50V': 'Volatility 50 (1s)',
+      '1HZ75V': 'Volatility 75 (1s)',
+      '1HZ100V': 'Volatility 100 (1s)',
+      'R_10': 'Volatility 10',
+      'R_25': 'Volatility 25',
+      'R_50': 'Volatility 50',
+      'R_75': 'Volatility 75',
+      'R_100': 'Volatility 100'
+    };
+    return names[symbol] || symbol;
+  };
+
   // Calculate percentage data
   useEffect(() => {
     const calculatePercentages = () => {
       const newPercentageData: PercentageData[] = [];
 
       Object.entries(ticksData).forEach(([symbol, ticks]) => {
-        if (ticks.length < 2) return;
+        if (ticks.length < 50) return;
 
         const current = ticks[ticks.length - 1];
         const previous = ticks[ticks.length - 2];
@@ -265,6 +450,9 @@ const PercentageTool: React.FC = () => {
         const underCount = digits.length - overCount;
         const overUnderBias = overCount > underCount * 1.1 ? 'under' : underCount > overCount * 1.1 ? 'over' : 'neutral';
 
+        // Calculate signal strength for this volatility
+        const recentAnalysis = ticks.length >= 200 ? analyzeEvenOdd(digits.slice(-200)) : { strength: 0, recommendation: 'Insufficient Data' };
+
         newPercentageData.push({
           symbol,
           current,
@@ -282,7 +470,9 @@ const PercentageTool: React.FC = () => {
             nextDigitProbability,
             evenOddBias,
             overUnderBias
-          }
+          },
+          signalStrength: recentAnalysis.strength,
+          recommendedAction: recentAnalysis.recommendation
         });
       });
 
@@ -293,19 +483,13 @@ const PercentageTool: React.FC = () => {
   }, [ticksData]);
 
   const getSymbolName = (symbol: string) => {
-    const names: { [key: string]: string } = {
-      '1HZ10V': 'Volatility 10 (1s)',
-      '1HZ25V': 'Volatility 25 (1s)',
-      '1HZ50V': 'Volatility 50 (1s)',
-      '1HZ75V': 'Volatility 75 (1s)',
-      '1HZ100V': 'Volatility 100 (1s)',
-      'R_10': 'Volatility 10',
-      'R_25': 'Volatility 25',
-      'R_50': 'Volatility 50',
-      'R_75': 'Volatility 75',
-      'R_100': 'Volatility 100'
-    };
-    return names[symbol] || symbol;
+    return getVolatilityName(symbol);
+  };
+
+  const formatCountdownTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
   const getDigitColor = (count: number, total: number) => {
@@ -442,15 +626,21 @@ const PercentageTool: React.FC = () => {
           </div>
         </div>
         <div className="market-scanner">
-          <h3>INTELLIGENT MARKET SCANNER</h3>
+          <div className="scanner-header">
+            <h3>INTELLIGENT MARKET SCANNER</h3>
+            <div className="next-signal-timer">
+              <span className="timer-label">NEXT SIGNAL UPDATE IN:</span>
+              <span className="timer-countdown">{formatCountdownTime(nextSignalUpdate)}</span>
+            </div>
+          </div>
           <div className="scanner-content">
             {isScanning ? (
               <div className="scanning-animation">
                 <div className="scanner-lines">
-                  {Array.from({ length: 10 }, (_, i) => (
-                    <div key={i} className="scan-line" style={{ animationDelay: `${i * 0.1}s` }}>
+                  {Array.from({ length: 8 }, (_, i) => (
+                    <div key={i} className="scan-line" style={{ animationDelay: `${i * 0.15}s` }}>
                       <span className="scan-text">
-                        {scanningMessages[Math.floor(Math.random() * scanningMessages.length)]}
+                        {scanningMessages[i % scanningMessages.length]}
                       </span>
                     </div>
                   ))}
@@ -459,7 +649,7 @@ const PercentageTool: React.FC = () => {
                   <div className="progress-bar" style={{ width: `${scanProgress}%` }}></div>
                 </div>
                 <div className="scanning-status">
-                  <span className="status-text">ANALYZING MARKET DATA... {scanProgress}%</span>
+                  <span className="status-text">ANALYZING 200 TICKS PER VOLATILITY... {scanProgress}%</span>
                 </div>
               </div>
             ) : (
@@ -470,7 +660,7 @@ const PercentageTool: React.FC = () => {
                     {marketSuggestions.map((suggestion, index) => (
                       <div key={index} className={`signal-card ${suggestion.strength}`}>
                         <div className="signal-header">
-                          <span className="volatility-name">{suggestion.volatility}</span>
+                          <span className="volatility-name">{suggestion.volatilityName}</span>
                           <span className={`signal-strength ${suggestion.strength}`}>
                             {suggestion.strength.toUpperCase()}
                           </span>
