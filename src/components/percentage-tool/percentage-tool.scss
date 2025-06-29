@@ -266,264 +266,6 @@
         color: #00ff41;
         margin: 0 0 15px 0;
         text-shadow: 0 0 5px #00ff41;
-        font-size: 1.4rem;
-        text-align: center;
-        letter-spacing: 2px;
-        font-weight: bold;
-      }
-
-      h5 {
-        color: #00ff41;
-        margin: 20px 0 15px 0;
-        text-shadow: 0 0 5px #00ff41;
-        font-size: 1.1rem;
-      }
-
-      .scanning-section {
-        text-align: center;
-
-        .scanning-header {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 20px;
-
-          .scanning-text {
-            color: #00ff41;
-            font-size: 1.2rem;
-            font-weight: bold;
-            text-shadow: 0 0 10px #00ff41;
-            animation: pulse 1.5s infinite;
-          }
-
-          .scanning-dots {
-            display: flex;
-            gap: 5px;
-
-            .dot {
-              width: 8px;
-              height: 8px;
-              background: #00ff41;
-              border-radius: 50%;
-              animation: blink 1s infinite;
-
-              &:nth-child(2) {
-                animation-delay: 0.3s;
-              }
-
-              &:nth-child(3) {
-                animation-delay: 0.6s;
-              }
-            }
-          }
-        }
-
-        .scan-progress {
-          display: flex;
-          align-items: center;
-          gap: 15px;
-          margin-bottom: 25px;
-
-          .progress-bar {
-            flex: 1;
-            height: 12px;
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid #00ff41;
-            border-radius: 6px;
-            overflow: hidden;
-
-            .progress-fill {
-              height: 100%;
-              background: linear-gradient(90deg, #00ff41, #44ff44);
-              transition: width 0.2s ease;
-              animation: shimmer 2s infinite;
-            }
-          }
-
-          .progress-text {
-            color: #00ff41;
-            font-weight: bold;
-            min-width: 35px;
-            font-size: 0.9rem;
-          }
-        }
-
-        .scanning-items {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 8px;
-
-          .scanning-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 12px;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(0, 255, 65, 0.3);
-            border-radius: 4px;
-            transition: all 0.3s ease;
-
-            &.scanned {
-              border-color: #00ff41;
-              background: rgba(0, 255, 65, 0.1);
-              box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
-            }
-
-            .scanning-symbol {
-              color: #00ff41;
-              font-size: 0.8rem;
-              font-weight: bold;
-            }
-
-            .scanning-status {
-              font-size: 0.7rem;
-              color: #fff;
-              opacity: 0.8;
-            }
-          }
-        }
-      }
-
-      .market-recommendation {
-        margin-bottom: 25px;
-        padding: 20px;
-        background: rgba(0, 255, 65, 0.08);
-        border: 2px solid #00ff41;
-        border-radius: 8px;
-        box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
-
-        .recommendation-header {
-          text-align: center;
-          margin-bottom: 20px;
-
-          .ai-badge {
-            display: inline-block;
-            padding: 8px 16px;
-            background: linear-gradient(45deg, #00ff41, #44ff44);
-            color: #000;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 0.9rem;
-            letter-spacing: 1px;
-            animation: glow 2s infinite;
-          }
-        }
-
-        .recommendation-content {
-          .signal-strength {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 20px;
-
-            .strength-label {
-              color: #00ff41;
-              font-weight: bold;
-              font-size: 0.9rem;
-              min-width: 120px;
-            }
-
-            .strength-indicator {
-              flex: 1;
-              height: 10px;
-              background: rgba(0, 0, 0, 0.5);
-              border: 1px solid #00ff41;
-              border-radius: 5px;
-              overflow: hidden;
-
-              .strength-bar-fill {
-                height: 100%;
-                background: linear-gradient(90deg, #ff4444, #ffff44, #44ff44);
-                transition: width 0.5s ease;
-              }
-            }
-
-            .strength-value {
-              color: #fff;
-              font-weight: bold;
-              min-width: 45px;
-              text-align: right;
-            }
-          }
-
-          .recommendation-details {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 20px;
-
-            .rec-item {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              padding: 10px;
-              background: rgba(0, 0, 0, 0.3);
-              border-radius: 4px;
-              border: 1px solid rgba(0, 255, 65, 0.3);
-
-              .rec-label {
-                color: #00ff41;
-                font-size: 0.9rem;
-                font-weight: bold;
-              }
-
-              .rec-value {
-                font-weight: bold;
-                font-size: 1rem;
-
-                &.volatility {
-                  color: #44ff44;
-                  text-shadow: 0 0 8px #44ff44;
-                }
-
-                &.trade-type {
-                  color: #ffff44;
-                  text-shadow: 0 0 8px #ffff44;
-                }
-
-                &.signal {
-                  padding: 4px 8px;
-                  border-radius: 4px;
-
-                  &.strong-even,
-                  &.strong-odd,
-                  &.strong-over,
-                  &.strong-under,
-                  &.strong-rise,
-                  &.strong-fall {
-                    color: #44ff44;
-                    background: rgba(68, 255, 68, 0.2);
-                    text-shadow: 0 0 8px #44ff44;
-                  }
-                }
-              }
-            }
-          }
-
-          .apply-recommendation-btn {
-            width: 100%;
-            padding: 12px 20px;
-            background: linear-gradient(45deg, #00ff41, #44ff44);
-            color: #000;
-            border: none;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            letter-spacing: 1px;
-
-            &:hover {
-              transform: translateY(-2px);
-              box-shadow: 0 5px 15px rgba(0, 255, 65, 0.5);
-            }
-
-            &:active {
-              transform: translateY(0);
-            }
-          }
-        }
       }
 
       .mini-cards {
@@ -550,40 +292,23 @@
             box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
           }
 
-          &.recommended {
-            border-color: #ffff44;
-            background: rgba(255, 255, 68, 0.1);
-            animation: glow 2s infinite;
-          }
-
           .mini-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            position: relative;
 
             .mini-symbol {
               color: #00ff41;
-              font-size: 13px;
+              font-size: 12px;
               font-weight: bold;
             }
 
             .mini-trend {
-              font-size: 12px;
+              font-size: 11px;
 
               &.up { color: #44ff44; }
               &.down { color: #ff4444; }
               &.neutral { color: #ffff44; }
-            }
-
-            .recommended-badge {
-              position: absolute;
-              top: -8px;
-              right: -8px;
-              color: #ffff44;
-              font-size: 14px;
-              text-shadow: 0 0 10px #ffff44;
-              animation: pulse 1.5s infinite;
             }
           }
         }
@@ -951,24 +676,6 @@
     }
     to {
       width: var(--target-width);
-    }
-  }
-
-  @keyframes blink {
-    0%, 50% {
-      opacity: 1;
-    }
-    51%, 100% {
-      opacity: 0.3;
-    }
-  }
-
-  @keyframes shimmer {
-    0% {
-      background-position: -200% 0;
-    }
-    100% {
-      background-position: 200% 0;
     }
   }
 
