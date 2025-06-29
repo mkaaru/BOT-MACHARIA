@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import './percentage-tool.scss';
 
@@ -41,11 +40,31 @@ const PercentageTool: React.FC = () => {
     'R_75': [],
     'R_100': []
   });
-  
+
   const [percentageData, setPercentageData] = useState<PercentageData[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [selectedVolatility, setSelectedVolatility] = useState<string>('R_10');
   const [selectedTradeType, setSelectedTradeType] = useState<string>('even_odd');
+
+  // Market Scanner States
+  const [isScanning, setIsScanning] = useState(true);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [marketSuggestions, setMarketSuggestions] = useState([
+    { volatility: 'R_10', tradeType: 'Even/Odd', strength: 'strong', confidence: 85, condition: 'Trending Up' },
+    { volatility: '1HZ25V', tradeType: 'Over/Under', strength: 'weak', confidence: 60, condition: 'Sideways' }
+  ]);
+  const [topRecommendation, setTopRecommendation] = useState({
+    volatility: 'R_50',
+    tradeType: 'Rise/Fall',
+    reason: 'Consistent Upward Trend'
+  });
+  const [scanningMessages, setScanningMessages] = useState([
+    'Analyzing Volatility Patterns...',
+    'Identifying Strongest Signals...',
+    'Evaluating Market Conditions...',
+    'Refining Trade Recommendations...',
+    'Finalizing Optimal Strategy...'
+  ]);
   const wsRef = useRef<WebSocket | null>(null);
   const matrixCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -62,7 +81,7 @@ const PercentageTool: React.FC = () => {
 
     const matrix = "0123456789ABCDEF";
     const matrixArray = matrix.split("");
-    
+
     const fontSize = 14;
     const columns = canvas.width / fontSize;
     const drops: number[] = [];
@@ -74,14 +93,14 @@ const PercentageTool: React.FC = () => {
     const draw = () => {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.04)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
+
       ctx.fillStyle = '#00ff41';
       ctx.font = fontSize + 'px monospace';
 
       for (let i = 0; i < drops.length; i++) {
         const text = matrixArray[Math.floor(Math.random() * matrixArray.length)];
         ctx.fillText(text, i * fontSize, drops[i] * fontSize);
-        
+
         if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
           drops[i] = 0;
         }
@@ -93,15 +112,34 @@ const PercentageTool: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Simulate market scanning
+  useEffect(() => {
+    if (isScanning) {
+      const interval = setInterval(() => {
+        setScanProgress((prevProgress) => {
+          const newProgress = prevProgress + 10;
+          if (newProgress >= 100) {
+            clearInterval(interval);
+            setIsScanning(false);
+            return 100;
+          }
+          return newProgress;
+        });
+      }, 500);
+
+      return () => clearInterval(interval);
+    }
+  }, [isScanning]);
+
   // WebSocket connection
   useEffect(() => {
     const connectWebSocket = () => {
       wsRef.current = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
-      
+
       wsRef.current.onopen = () => {
         setIsConnected(true);
         console.log('WebSocket connected');
-        
+
         // Subscribe to volatility indices
         ['1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', 'R_10', 'R_25', 'R_50', 'R_75', 'R_100'].forEach(symbol => {
           wsRef.current?.send(JSON.stringify({
@@ -116,7 +154,7 @@ const PercentageTool: React.FC = () => {
 
       wsRef.current.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        
+
         if (data.history && data.history.prices) {
           const symbol = data.echo_req.ticks_history;
           const prices = data.history.prices.map((price: string) => parseFloat(price));
@@ -162,13 +200,13 @@ const PercentageTool: React.FC = () => {
         const current = ticks[ticks.length - 1];
         const previous = ticks[ticks.length - 2];
         const percentage = ((current - previous) / previous) * 100;
-        
+
         const trend = percentage > 0 ? 'up' : percentage < 0 ? 'down' : 'neutral';
-        
+
         // Calculate last digit statistics
         const digits = ticks.map(tick => parseInt(tick.toString().slice(-1)));
         const lastDigitCounts: { [key: number]: number } = {};
-        
+
         for (let i = 0; i <= 9; i++) {
           lastDigitCounts[i] = digits.filter(d => d === i).length;
         }
@@ -176,7 +214,7 @@ const PercentageTool: React.FC = () => {
         // Calculate streaks
         const recentDigits = digits.slice(-20);
         let evenStreak = 0, oddStreak = 0, overStreak = 0, underStreak = 0;
-        
+
         for (let i = recentDigits.length - 1; i >= 0; i--) {
           const digit = recentDigits[i];
           if (digit % 2 === 0) {
@@ -188,7 +226,7 @@ const PercentageTool: React.FC = () => {
               oddStreak++;
             } else break;
           }
-          
+
           if (digit >= 5) {
             if (i === recentDigits.length - 1 || recentDigits[i + 1] >= 5) {
               overStreak++;
@@ -203,7 +241,7 @@ const PercentageTool: React.FC = () => {
         // Calculate predictions based on recent patterns
         const nextDigitProbability: { [key: number]: number } = {};
         const totalDigits = digits.length;
-        
+
         for (let i = 0; i <= 9; i++) {
           const count = lastDigitCounts[i];
           const expectedFreq = totalDigits / 10;
@@ -262,7 +300,7 @@ const PercentageTool: React.FC = () => {
       '1HZ75V': 'Volatility 75 (1s)',
       '1HZ100V': 'Volatility 100 (1s)',
       'R_10': 'Volatility 10',
-      'R_25': 'Volatility 25', 
+      'R_25': 'Volatility 25',
       'R_50': 'Volatility 50',
       'R_75': 'Volatility 75',
       'R_100': 'Volatility 100'
@@ -280,20 +318,20 @@ const PercentageTool: React.FC = () => {
   const getDigitHighlightClass = (digit: number, data: PercentageData) => {
     const currentTick = data.digits[data.digits.length - 1];
     const lastDigit = currentTick;
-    
+
     // Find highest and lowest frequency digits
     const counts = Object.values(data.lastDigitCounts);
     const maxCount = Math.max(...counts);
     const minCount = Math.min(...counts);
-    
+
     const highestDigits = Object.entries(data.lastDigitCounts)
       .filter(([, count]) => count === maxCount)
       .map(([d]) => parseInt(d));
-    
+
     const lowestDigits = Object.entries(data.lastDigitCounts)
       .filter(([, count]) => count === minCount)
       .map(([d]) => parseInt(d));
-    
+
     // Priority: Last digit (yellow) > Highest (green) > Lowest (red)
     if (digit === lastDigit) {
       return 'last-digit';
@@ -302,13 +340,13 @@ const PercentageTool: React.FC = () => {
     } else if (lowestDigits.includes(digit)) {
       return 'lowest-frequency';
     }
-    
+
     return '';
   };
 
   const getTradeTypeAnalysis = (data: PercentageData, tradeType: string) => {
     const recentTicks = data.digits.slice(-20);
-    
+
     switch (tradeType) {
       case 'even_odd':
         const evenCount = recentTicks.filter(d => d % 2 === 0).length;
@@ -318,7 +356,7 @@ const PercentageTool: React.FC = () => {
           strength: Math.abs(evenCount - oddCount) / recentTicks.length,
           recommendation: evenCount > oddCount * 1.2 ? 'STRONG ODD' : oddCount > evenCount * 1.2 ? 'STRONG EVEN' : 'NEUTRAL'
         };
-      
+
       case 'over_under':
         const overCount = recentTicks.filter(d => d >= 5).length;
         const underCount = recentTicks.length - overCount;
@@ -327,7 +365,7 @@ const PercentageTool: React.FC = () => {
           strength: Math.abs(overCount - underCount) / recentTicks.length,
           recommendation: overCount > underCount * 1.2 ? 'STRONG UNDER' : underCount > overCount * 1.2 ? 'STRONG OVER' : 'NEUTRAL'
         };
-      
+
       case 'rise_fall':
         const riseCount = recentTicks.slice(1).filter((tick, i) => tick > recentTicks[i]).length;
         const fallCount = recentTicks.length - 1 - riseCount;
@@ -336,7 +374,7 @@ const PercentageTool: React.FC = () => {
           strength: Math.abs(riseCount - fallCount) / (recentTicks.length - 1),
           recommendation: riseCount > fallCount * 1.2 ? 'STRONG FALL' : fallCount > riseCount * 1.2 ? 'STRONG RISE' : 'NEUTRAL'
         };
-      
+
       default:
         return {
           signal: 'N/A',
@@ -372,7 +410,7 @@ const PercentageTool: React.FC = () => {
   return (
     <div className="percentage-tool">
       <canvas ref={matrixCanvasRef} className="matrix-bg" />
-      
+
       <div className="tool-overlay">
         <div className="header">
           <div className="title">
@@ -401,6 +439,80 @@ const PercentageTool: React.FC = () => {
           <div className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
             <div className="status-dot"></div>
             {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
+          </div>
+        </div>
+        <div className="market-scanner">
+          <h3>INTELLIGENT MARKET SCANNER</h3>
+          <div className="scanner-content">
+            {isScanning ? (
+              <div className="scanning-animation">
+                <div className="scanner-lines">
+                  {Array.from({ length: 10 }, (_, i) => (
+                    <div key={i} className="scan-line" style={{ animationDelay: `${i * 0.1}s` }}>
+                      <span className="scan-text">
+                        {scanningMessages[Math.floor(Math.random() * scanningMessages.length)]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="scanning-progress">
+                  <div className="progress-bar" style={{ width: `${scanProgress}%` }}></div>
+                </div>
+                <div className="scanning-status">
+                  <span className="status-text">ANALYZING MARKET DATA... {scanProgress}%</span>
+                </div>
+              </div>
+            ) : (
+              <div className="scan-results">
+                <div className="strongest-signals">
+                  <h4>STRONGEST TRADING SIGNALS DETECTED</h4>
+                  <div className="signal-cards">
+                    {marketSuggestions.map((suggestion, index) => (
+                      <div key={index} className={`signal-card ${suggestion.strength}`}>
+                        <div className="signal-header">
+                          <span className="volatility-name">{suggestion.volatility}</span>
+                          <span className={`signal-strength ${suggestion.strength}`}>
+                            {suggestion.strength.toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="signal-details">
+                          <div className="trade-type">
+                            <span className="label">RECOMMENDED:</span>
+                            <span className="value">{suggestion.tradeType}</span>
+                          </div>
+                          <div className="confidence">
+                            <span className="label">CONFIDENCE:</span>
+                            <span className="value">{suggestion.confidence}%</span>
+                          </div>
+                          <div className="market-condition">
+                            <span className="label">CONDITION:</span>
+                            <span className="value">{suggestion.condition}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="top-recommendation">
+                  <h4>🎯 TOP MARKET RECOMMENDATION</h4>
+                  <div className="recommendation-card">
+                    <div className="rec-volatility">
+                      <span className="rec-label">SUGGESTED VOLATILITY:</span>
+                      <span className="rec-value">{topRecommendation.volatility}</span>
+                    </div>
+                    <div className="rec-trade-type">
+                      <span className="rec-label">TRADE TYPE:</span>
+                      <span className="rec-value">{topRecommendation.tradeType}</span>
+                    </div>
+                    <div className="rec-reason">
+                      <span className="rec-label">ANALYSIS:</span>
+                      <span className="rec-value">{topRecommendation.reason}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -444,7 +556,7 @@ const PercentageTool: React.FC = () => {
                 </div></div>
             );
           })}
-          
+
           <div className="volatility-overview">
             <h4>All Volatilities Overview</h4>
             <div className="mini-cards">
@@ -463,13 +575,13 @@ const PercentageTool: React.FC = () => {
               ))}
             </div>
           </div>
-          
+
           {percentageData.filter(data => data.symbol === selectedVolatility).map((data) => (
             <div key={`${data.symbol}-details`} className="analysis-card">
               <div className="card-header">
                 <h3>Detailed Analysis</h3>
               </div>
-              
+
               <div className="digit-analysis">
                 <h4>Last Digit Distribution</h4>
                 <div className="digit-legend">

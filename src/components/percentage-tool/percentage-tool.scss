@@ -398,7 +398,7 @@
             border: 2px solid #ffff41;
             box-shadow: 0 0 20px rgba(255, 255, 65, 0.6);
             transform: scale(1.1);
-            
+
             &::before {
               content: '▲';
               position: absolute;
@@ -423,7 +423,7 @@
             background: rgba(68, 255, 68, 0.15);
             border: 2px solid #44ff44;
             box-shadow: 0 0 15px rgba(68, 255, 68, 0.4);
-            
+
             &::after {
               content: '↑';
               position: absolute;
@@ -446,7 +446,7 @@
             background: rgba(255, 68, 68, 0.15);
             border: 2px solid #ff4444;
             box-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
-            
+
             &::after {
               content: '↓';
               position: absolute;
@@ -712,6 +712,239 @@
       .digit-grid {
         grid-template-columns: repeat(3, 1fr);
       }
+    }
+  }
+
+  .market-scanner {
+  grid-column: 1 / -1;
+  background: rgba(0, 255, 65, 0.05);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  border-radius: 8px;
+  padding: 1.5rem;
+
+  h3 {
+    color: #00ff41;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    font-size: 1.8rem;
+    font-weight: bold;
+    text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+    letter-spacing: 2px;
+  }
+
+  h4 {
+    color: #00ff41;
+    margin-bottom: 1rem;
+    font-size: 1.4rem;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(0, 255, 65, 0.3);
+  }
+
+  .scanning-animation {
+    text-align: center;
+
+    .scanner-lines {
+      height: 200px;
+      overflow: hidden;
+      position: relative;
+      margin-bottom: 1rem;
+
+      .scan-line {
+        position: absolute;
+        width: 100%;
+        height: 20px;
+        background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.3), transparent);
+        animation: scanMove 2s infinite linear;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        .scan-text {
+          color: #00ff41;
+          font-size: 1.1rem;
+          font-weight: bold;
+          text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+        }
+
+        &:nth-child(odd) {
+          animation-direction: reverse;
+        }
+      }
+    }
+
+    .scanning-progress {
+      width: 100%;
+      height: 6px;
+      background: rgba(0, 255, 65, 0.2);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+
+      .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #00ff41, #00cc33);
+        border-radius: 3px;
+        transition: width 0.3s ease;
+        box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+      }
+    }
+
+    .scanning-status {
+      .status-text {
+        color: #00ff41;
+        font-size: 1.2rem;
+        font-weight: bold;
+        text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+        letter-spacing: 1px;
+      }
+    }
+  }
+
+  .scan-results {
+    .strongest-signals {
+      margin-bottom: 2rem;
+
+      .signal-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+
+        .signal-card {
+          background: rgba(0, 255, 65, 0.1);
+          border: 1px solid rgba(0, 255, 65, 0.3);
+          border-radius: 8px;
+          padding: 1rem;
+
+          &.strong {
+            border-color: #00ff41;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+          }
+
+          &.medium {
+            border-color: rgba(255, 255, 0, 0.7);
+            box-shadow: 0 0 10px rgba(255, 255, 0, 0.2);
+          }
+
+          &.weak {
+            border-color: rgba(255, 165, 0, 0.7);
+            box-shadow: 0 0 5px rgba(255, 165, 0, 0.2);
+          }
+
+          .signal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+
+            .volatility-name {
+              color: #00ff41;
+              font-size: 1.3rem;
+              font-weight: bold;
+            }
+
+            .signal-strength {
+              padding: 0.3rem 0.8rem;
+              border-radius: 4px;
+              font-size: 0.9rem;
+              font-weight: bold;
+
+              &.strong {
+                background: rgba(0, 255, 65, 0.2);
+                color: #00ff41;
+              }
+
+              &.medium {
+                background: rgba(255, 255, 0, 0.2);
+                color: #ffff00;
+              }
+
+              &.weak {
+                background: rgba(255, 165, 0, 0.2);
+                color: #ffa500;
+              }
+            }
+          }
+
+          .signal-details {
+            .label {
+              color: rgba(255, 255, 255, 0.7);
+              font-size: 1rem;
+              margin-right: 0.5rem;
+            }
+
+            .value {
+              color: #00ff41;
+              font-weight: bold;
+              font-size: 1.1rem;
+            }
+
+            div {
+              margin-bottom: 0.5rem;
+              display: flex;
+              align-items: center;
+            }
+          }
+        }
+      }
+    }
+
+    .top-recommendation {
+      background: rgba(0, 255, 65, 0.1);
+      border: 2px solid #00ff41;
+      border-radius: 12px;
+      padding: 1.5rem;
+      text-align: center;
+      box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+
+      h4 {
+        font-size: 1.6rem;
+        margin-bottom: 1rem;
+      }
+
+      .recommendation-card {
+        .rec-label {
+          color: rgba(255, 255, 255, 0.8);
+          font-size: 1.1rem;
+          margin-right: 0.8rem;
+        }
+
+        .rec-value {
+          color: #00ff41;
+          font-weight: bold;
+          font-size: 1.3rem;
+          text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+        }
+
+        div {
+          margin-bottom: 1rem;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+
+        .rec-reason .rec-value {
+          font-size: 1.1rem;
+          text-align: center;
+          max-width: 600px;
+        }
+      }
+    }
+  }
+
+  @keyframes scanMove {
+    0% {
+      transform: translateY(-20px);
+      opacity: 0;
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(220px);
+      opacity: 0;
     }
   }
 }
