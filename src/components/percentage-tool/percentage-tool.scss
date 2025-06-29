@@ -1,4 +1,3 @@
-
 .percentage-tool {
   position: relative;
   width: 100%;
@@ -43,44 +42,45 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 30px;
-    border-bottom: 2px solid #00ff41;
-    padding-bottom: 15px;
+    padding: 20px;
+    border-bottom: 1px solid #00ff41;
+    margin-bottom: 20px;
 
     .title {
       .matrix-text {
-        font-size: 2rem;
+        font-size: 24px;
         font-weight: bold;
-        text-shadow: 0 0 20px #00ff41;
-        animation: glow 2s ease-in-out infinite alternate;
+        color: #00ff41;
+        text-shadow: 0 0 10px #00ff41;
+        letter-spacing: 2px;
       }
     }
 
-    .connection-status {
+    .controls {
       display: flex;
+      gap: 15px;
       align-items: center;
-      gap: 10px;
-      font-size: 1rem;
-      padding: 8px 16px;
-      border: 1px solid #00ff41;
-      border-radius: 4px;
-      background: rgba(0, 255, 65, 0.1);
 
-      .status-dot {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        animation: pulse 1.5s infinite;
-      }
+      .volatility-selector,
+      .trade-type-selector {
+        background: rgba(0, 255, 65, 0.1);
+        border: 1px solid #00ff41;
+        color: #00ff41;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+        min-width: 150px;
 
-      &.connected .status-dot {
-        background: #00ff41;
-        box-shadow: 0 0 10px #00ff41;
-      }
+        &:focus {
+          outline: none;
+          box-shadow: 0 0 10px #00ff41;
+        }
 
-      &.disconnected .status-dot {
-        background: #ff4444;
-        box-shadow: 0 0 10px #ff4444;
+        option {
+          background: #000;
+          color: #00ff41;
+        }
       }
     }
   }
@@ -92,60 +92,225 @@
   }
 
   .analysis-card {
-    background: rgba(0, 20, 0, 0.9);
+    background: rgba(0, 255, 65, 0.05);
     border: 1px solid #00ff41;
     border-radius: 8px;
     padding: 20px;
+    margin-bottom: 20px;
     box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
-    backdrop-filter: blur(5px);
+
+    &.main-analysis {
+      border: 2px solid #00ff41;
+      box-shadow: 0 0 30px rgba(0, 255, 65, 0.5);
+    }
 
     .card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
-      border-bottom: 1px solid #00ff41;
+      margin-bottom: 15px;
+      border-bottom: 1px solid rgba(0, 255, 65, 0.3);
       padding-bottom: 10px;
 
       h3 {
-        font-size: 1.2rem;
+        color: #00ff41;
         margin: 0;
-        text-shadow: 0 0 10px #00ff41;
+        font-size: 18px;
+        text-shadow: 0 0 5px #00ff41;
       }
 
       .trend-indicator {
         display: flex;
         flex-direction: column;
         align-items: flex-end;
-        gap: 5px;
 
         .current-price {
-          font-size: 1.1rem;
+          font-size: 16px;
           font-weight: bold;
+          color: #fff;
         }
 
         .percentage {
-          font-size: 0.9rem;
-          padding: 2px 8px;
-          border-radius: 12px;
+          font-size: 14px;
+
+          &.up { color: #44ff44; }
+          &.down { color: #ff4444; }
+          &.neutral { color: #ffff44; }
+        }
+      }
+    }
+
+    .trade-analysis-section {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(0, 255, 65, 0.03);
+      border-radius: 6px;
+      border: 1px solid rgba(0, 255, 65, 0.2);
+
+      h4 {
+        color: #00ff41;
+        margin: 0 0 15px 0;
+        text-shadow: 0 0 5px #00ff41;
+      }
+
+      .trade-signal {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+
+        .signal-box {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 10px;
+          border-radius: 4px;
+          background: rgba(0, 255, 65, 0.1);
+
+          &.strong {
+            background: rgba(68, 255, 68, 0.2);
+            border: 1px solid #44ff44;
+          }
+
+          &.weak {
+            background: rgba(255, 255, 68, 0.1);
+            border: 1px solid #ffff44;
+          }
+
+          .signal-label {
+            color: #00ff41;
+            font-weight: bold;
+          }
+
+          .signal-value {
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #00ff41;
+          }
         }
 
-        &.up .percentage {
-          background: rgba(68, 255, 68, 0.2);
-          color: #44ff44;
-          border: 1px solid #44ff44;
-        }
+        .recommendation {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
 
-        &.down .percentage {
-          background: rgba(255, 68, 68, 0.2);
-          color: #ff4444;
-          border: 1px solid #ff4444;
-        }
+          .rec-label {
+            color: #00ff41;
+          }
 
-        &.neutral .percentage {
-          background: rgba(255, 255, 68, 0.2);
-          color: #ffff44;
-          border: 1px solid #ffff44;
+          .rec-value {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 4px;
+
+            &.strong-even,
+            &.strong-odd,
+            &.strong-over,
+            &.strong-under,
+            &.strong-rise,
+            &.strong-fall {
+              color: #44ff44;
+              background: rgba(68, 255, 68, 0.2);
+              text-shadow: 0 0 5px #44ff44;
+            }
+
+            &.neutral {
+              color: #ffff44;
+              background: rgba(255, 255, 68, 0.1);
+            }
+          }
+
+          .strength-meter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            .strength-label {
+              color: #00ff41;
+              min-width: 60px;
+            }
+
+            .strength-bar {
+              flex: 1;
+              height: 8px;
+              background: rgba(0, 0, 0, 0.5);
+              border-radius: 4px;
+              overflow: hidden;
+              border: 1px solid #00ff41;
+
+              .strength-fill {
+                height: 100%;
+                background: linear-gradient(90deg, #ff4444, #ffff44, #44ff44);
+                transition: width 0.3s ease;
+              }
+            }
+
+            .strength-value {
+              color: #fff;
+              min-width: 40px;
+              text-align: right;
+            }
+          }
+        }
+      }
+    }
+
+    .volatility-overview {
+      background: rgba(0, 255, 65, 0.05);
+      border: 1px solid #00ff41;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+
+      h4 {
+        color: #00ff41;
+        margin: 0 0 15px 0;
+        text-shadow: 0 0 5px #00ff41;
+      }
+
+      .mini-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+
+        .mini-card {
+          background: rgba(0, 255, 65, 0.03);
+          border: 1px solid rgba(0, 255, 65, 0.3);
+          border-radius: 4px;
+          padding: 10px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+
+          &:hover {
+            background: rgba(0, 255, 65, 0.1);
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+          }
+
+          &.active {
+            border-color: #00ff41;
+            background: rgba(0, 255, 65, 0.1);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+          }
+
+          .mini-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            .mini-symbol {
+              color: #00ff41;
+              font-size: 12px;
+              font-weight: bold;
+            }
+
+            .mini-trend {
+              font-size: 11px;
+
+              &.up { color: #44ff44; }
+              &.down { color: #ff4444; }
+              &.neutral { color: #ffff44; }
+            }
+          }
         }
       }
     }

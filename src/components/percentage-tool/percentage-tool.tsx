@@ -30,15 +30,22 @@ interface PercentageData {
 
 const PercentageTool: React.FC = () => {
   const [ticksData, setTicksData] = useState<{ [key: string]: number[] }>({
-    R_10: [],
-    R_25: [],
-    R_50: [],
-    R_75: [],
-    R_100: []
+    '1HZ10V': [],
+    '1HZ25V': [],
+    '1HZ50V': [],
+    '1HZ75V': [],
+    '1HZ100V': [],
+    'R_10': [],
+    'R_25': [],
+    'R_50': [],
+    'R_75': [],
+    'R_100': []
   });
   
   const [percentageData, setPercentageData] = useState<PercentageData[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [selectedVolatility, setSelectedVolatility] = useState<string>('R_10');
+  const [selectedTradeType, setSelectedTradeType] = useState<string>('even_odd');
   const wsRef = useRef<WebSocket | null>(null);
   const matrixCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -96,7 +103,7 @@ const PercentageTool: React.FC = () => {
         console.log('WebSocket connected');
         
         // Subscribe to volatility indices
-        ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'].forEach(symbol => {
+        ['1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', 'R_10', 'R_25', 'R_50', 'R_75', 'R_100'].forEach(symbol => {
           wsRef.current?.send(JSON.stringify({
             ticks_history: symbol,
             count: 100,
@@ -249,11 +256,16 @@ const PercentageTool: React.FC = () => {
 
   const getSymbolName = (symbol: string) => {
     const names: { [key: string]: string } = {
-      R_10: 'Volatility 10',
-      R_25: 'Volatility 25', 
-      R_50: 'Volatility 50',
-      R_75: 'Volatility 75',
-      R_100: 'Volatility 100'
+      '1HZ10V': 'Volatility 10 (1s)',
+      '1HZ25V': 'Volatility 25 (1s)',
+      '1HZ50V': 'Volatility 50 (1s)',
+      '1HZ75V': 'Volatility 75 (1s)',
+      '1HZ100V': 'Volatility 100 (1s)',
+      'R_10': 'Volatility 10',
+      'R_25': 'Volatility 25', 
+      'R_50': 'Volatility 50',
+      'R_75': 'Volatility 75',
+      'R_100': 'Volatility 100'
     };
     return names[symbol] || symbol;
   };
@@ -265,6 +277,69 @@ const PercentageTool: React.FC = () => {
     return '#ffff44';
   };
 
+  const getTradeTypeAnalysis = (data: PercentageData, tradeType: string) => {
+    const recentTicks = data.digits.slice(-20);
+    
+    switch (tradeType) {
+      case 'even_odd':
+        const evenCount = recentTicks.filter(d => d % 2 === 0).length;
+        const oddCount = recentTicks.length - evenCount;
+        return {
+          signal: evenCount > oddCount ? 'ODD' : 'EVEN',
+          strength: Math.abs(evenCount - oddCount) / recentTicks.length,
+          recommendation: evenCount > oddCount * 1.2 ? 'STRONG ODD' : oddCount > evenCount * 1.2 ? 'STRONG EVEN' : 'NEUTRAL'
+        };
+      
+      case 'over_under':
+        const overCount = recentTicks.filter(d => d >= 5).length;
+        const underCount = recentTicks.length - overCount;
+        return {
+          signal: overCount > underCount ? 'UNDER' : 'OVER',
+          strength: Math.abs(overCount - underCount) / recentTicks.length,
+          recommendation: overCount > underCount * 1.2 ? 'STRONG UNDER' : underCount > overCount * 1.2 ? 'STRONG OVER' : 'NEUTRAL'
+        };
+      
+      case 'rise_fall':
+        const riseCount = recentTicks.slice(1).filter((tick, i) => tick > recentTicks[i]).length;
+        const fallCount = recentTicks.length - 1 - riseCount;
+        return {
+          signal: riseCount > fallCount ? 'FALL' : 'RISE',
+          strength: Math.abs(riseCount - fallCount) / (recentTicks.length - 1),
+          recommendation: riseCount > fallCount * 1.2 ? 'STRONG FALL' : fallCount > riseCount * 1.2 ? 'STRONG RISE' : 'NEUTRAL'
+        };
+      
+      default:
+        return {
+          signal: 'N/A',
+          strength: 0,
+          recommendation: 'SELECT TRADE TYPE'
+        };
+    }
+  };
+
+  const getVolatilityList = () => {
+    return [
+      { value: '1HZ10V', label: 'Volatility 10 (1s)' },
+      { value: '1HZ25V', label: 'Volatility 25 (1s)' },
+      { value: '1HZ50V', label: 'Volatility 50 (1s)' },
+      { value: '1HZ75V', label: 'Volatility 75 (1s)' },
+      { value: '1HZ100V', label: 'Volatility 100 (1s)' },
+      { value: 'R_10', label: 'Volatility 10' },
+      { value: 'R_25', label: 'Volatility 25' },
+      { value: 'R_50', label: 'Volatility 50' },
+      { value: 'R_75', label: 'Volatility 75' },
+      { value: 'R_100', label: 'Volatility 100' }
+    ];
+  };
+
+  const getTradeTypes = () => {
+    return [
+      { value: 'even_odd', label: 'Even/Odd' },
+      { value: 'over_under', label: 'Over/Under' },
+      { value: 'rise_fall', label: 'Rise/Fall' }
+    ];
+  };
+
   return (
     <div className="percentage-tool">
       <canvas ref={matrixCanvasRef} className="matrix-bg" />
@@ -274,6 +349,26 @@ const PercentageTool: React.FC = () => {
           <div className="title">
             <span className="matrix-text">PERCENTAGE ANALYSIS TOOL</span>
           </div>
+          <div className="controls">
+            <select 
+              value={selectedVolatility} 
+              onChange={(e) => setSelectedVolatility(e.target.value)}
+              className="volatility-selector"
+            >
+              {getVolatilityList().map(vol => (
+                <option key={vol.value} value={vol.value}>{vol.label}</option>
+              ))}
+            </select>
+            <select 
+              value={selectedTradeType} 
+              onChange={(e) => setSelectedTradeType(e.target.value)}
+              className="trade-type-selector"
+            >
+              {getTradeTypes().map(trade => (
+                <option key={trade.value} value={trade.value}>{trade.label}</option>
+              ))}
+            </select>
+          </div>
           <div className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
             <div className="status-dot"></div>
             {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
@@ -281,14 +376,69 @@ const PercentageTool: React.FC = () => {
         </div>
 
         <div className="analysis-grid">
-          {percentageData.map((data) => (
-            <div key={data.symbol} className="analysis-card">
-              <div className="card-header">
-                <h3>{getSymbolName(data.symbol)}</h3>
-                <div className={`trend-indicator ${data.trend}`}>
-                  <span className="current-price">{data.current.toFixed(5)}</span>
-                  <span className="percentage">{data.percentage.toFixed(3)}%</span>
+          {percentageData.filter(data => data.symbol === selectedVolatility).map((data) => {
+            const tradeAnalysis = getTradeTypeAnalysis(data, selectedTradeType);
+            return (
+              <div key={data.symbol} className="analysis-card main-analysis">
+                <div className="card-header">
+                  <h3>{getSymbolName(data.symbol)}</h3>
+                  <div className={`trend-indicator ${data.trend}`}>
+                    <span className="current-price">{data.current.toFixed(5)}</span>
+                    <span className="percentage">{data.percentage.toFixed(3)}%</span>
+                  </div>
                 </div>
+
+                <div className="trade-analysis-section">
+                  <h4>Trade Type Analysis: {getTradeTypes().find(t => t.value === selectedTradeType)?.label}</h4>
+                  <div className="trade-signal">
+                    <div className={`signal-box ${tradeAnalysis.recommendation.toLowerCase().includes('strong') ? 'strong' : 'weak'}`}>
+                      <span className="signal-label">Signal:</span>
+                      <span className="signal-value">{tradeAnalysis.signal}</span>
+                    </div>
+                    <div className="recommendation">
+                      <span className="rec-label">Recommendation:</span>
+                      <span className={`rec-value ${tradeAnalysis.recommendation.toLowerCase().replace(' ', '-')}`}>
+                        {tradeAnalysis.recommendation}
+                      </span>
+                    </div>
+                    <div className="strength-meter">
+                      <span className="strength-label">Strength:</span>
+                      <div className="strength-bar">
+                        <div 
+                          className="strength-fill"
+                          style={{ width: `${tradeAnalysis.strength * 100}%` }}
+                        />
+                      </div>
+                      <span className="strength-value">{(tradeAnalysis.strength * 100).toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div></div>
+            );
+          })}
+          
+          <div className="volatility-overview">
+            <h4>All Volatilities Overview</h4>
+            <div className="mini-cards">
+              {percentageData.map((data) => (
+                <div 
+                  key={data.symbol} 
+                  className={`mini-card ${data.symbol === selectedVolatility ? 'active' : ''}`}
+                  onClick={() => setSelectedVolatility(data.symbol)}
+                >
+                  <div className="mini-header">
+                    <span className="mini-symbol">{getSymbolName(data.symbol)}</span>
+                    <span className={`mini-trend ${data.trend}`}>
+                      {data.percentage.toFixed(2)}%
+                    </span>
+                  </div></div>
+              ))}
+            </div>
+          </div>
+          
+          {percentageData.filter(data => data.symbol === selectedVolatility).map((data) => (
+            <div key={`${data.symbol}-details`} className="analysis-card">
+              <div className="card-header">
+                <h3>Detailed Analysis</h3>
               </div>
               
               <div className="digit-analysis">
