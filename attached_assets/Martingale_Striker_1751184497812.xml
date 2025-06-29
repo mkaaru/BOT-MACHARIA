@@ -1,0 +1,84 @@
+<xml xmlns="https://developers.google.com/blockly/xml">
+  <variables>
+    <variable id="stake">stake</variable>
+    <variable id="loss_count">loss_count</variable>
+  </variables>
+  <block type="trade" deletable="false" x="20" y="20">
+    <field name="ACCOUNT_TYPE">REAL</field>
+    <field name="MARKET">synthetic_index</field>
+    <field name="SUBMARKET">random_index</field>
+    <field name="SYMBOL">R_100</field>
+    <statement name="TRADE_OPTIONS">
+      <block type="trade_definition_tick">
+        <field name="TRADETYPE">CALL</field>
+        <field name="DURATION">1</field>
+        <field name="DURATIONTYPE">t</field>
+        <field name="CURRENCY">USD</field>
+        <field name="AMOUNT">1</field>
+        <next>
+          <block type="variables_set">
+            <field name="VAR" id="stake">stake</field>
+            <value name="VALUE">
+              <block type="math_number">
+                <field name="NUM">1</field>
+              </block>
+            </value>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="STRATEGY">
+      <block type="purchase">
+        <field name="CONDITION">CALL</field>
+        <next>
+          <block type="after_purchase">
+            <statement name="ON_PURCHASE">
+              <block type="if_statement">
+                <value name="CONDITION">
+                  <block type="purchase_is_won"></block>
+                </value>
+                <statement name="STATEMENT">
+                  <block type="variables_set">
+                    <field name="VAR" id="stake">stake</field>
+                    <value name="VALUE">
+                      <block type="math_number">
+                        <field name="NUM">1</field>
+                      </block>
+                    </value>
+                  </block>
+                </statement>
+                <next>
+                  <block type="if_statement">
+                    <value name="CONDITION">
+                      <block type="purchase_is_lost"></block>
+                    </value>
+                    <statement name="STATEMENT">
+                      <block type="variables_set">
+                        <field name="VAR" id="stake">stake</field>
+                        <value name="VALUE">
+                          <block type="math_arithmetic">
+                            <field name="OP">*</field>
+                            <value name="A">
+                              <block type="variables_get">
+                                <field name="VAR" id="stake">stake</field>
+                              </block>
+                            </value>
+                            <value name="B">
+                              <block type="math_number">
+                                <field name="NUM">2</field>
+                              </block>
+                            </value>
+                          </block>
+                        </value>
+                      </block>
+                    </statement>
+                  </block>
+                </next>
+              </block>
+            </statement>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+</xml>
