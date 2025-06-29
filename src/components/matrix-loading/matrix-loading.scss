@@ -1,0 +1,166 @@
+
+.matrix-loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Courier New', monospace;
+
+  .matrix-rain {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    opacity: 0.6;
+
+    .matrix-column {
+      position: absolute;
+      top: -100px;
+      font-size: 18px;
+      color: #00ff41;
+      white-space: nowrap;
+      animation: matrixFall linear infinite;
+
+      &:nth-child(odd) {
+        animation-duration: 3s;
+      }
+
+      &:nth-child(even) {
+        animation-duration: 4s;
+      }
+
+      &:nth-child(3n) {
+        animation-duration: 2.5s;
+      }
+    }
+  }
+
+  .loading-content {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    color: #00ff41;
+
+    .scanning-text {
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 2rem;
+      text-shadow: 0 0 20px #00ff41;
+      animation: pulse 2s infinite;
+    }
+
+    .scanning-lines {
+      margin-bottom: 2rem;
+
+      .scan-line {
+        font-size: 1.2rem;
+        margin: 0.5rem 0;
+        opacity: 0;
+        animation: fadeInOut 3s infinite;
+
+        &:nth-child(1) { animation-delay: 0s; }
+        &:nth-child(2) { animation-delay: 0.5s; }
+        &:nth-child(3) { animation-delay: 1s; }
+        &:nth-child(4) { animation-delay: 1.5s; }
+        &:nth-child(5) { animation-delay: 2s; }
+      }
+    }
+
+    .progress-bar {
+      width: 300px;
+      height: 4px;
+      background: rgba(0, 255, 65, 0.2);
+      border-radius: 2px;
+      overflow: hidden;
+      margin: 2rem auto;
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #00ff41, #00cc33);
+        border-radius: 2px;
+        animation: progressFill 5s ease-in-out;
+        box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+      }
+    }
+
+    .status-text {
+      font-size: 1rem;
+      opacity: 0.8;
+      animation: blink 1.5s infinite;
+    }
+  }
+
+  @keyframes matrixFall {
+    to {
+      transform: translateY(calc(100vh + 100px));
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes fadeInOut {
+    0%, 100% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes progressFill {
+    from {
+      width: 0%;
+    }
+    to {
+      width: 100%;
+    }
+  }
+
+  @keyframes blink {
+    0%, 50% {
+      opacity: 1;
+    }
+    51%, 100% {
+      opacity: 0.5;
+    }
+  }
+
+  // Mobile responsiveness
+  @media (max-width: 768px) {
+    .loading-content {
+      .scanning-text {
+        font-size: 1.5rem;
+      }
+
+      .scanning-lines .scan-line {
+        font-size: 1rem;
+      }
+
+      .progress-bar {
+        width: 250px;
+      }
+    }
+
+    .matrix-rain .matrix-column {
+      font-size: 14px;
+    }
+  }
+}
