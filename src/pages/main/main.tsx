@@ -20,6 +20,8 @@ import RunPanel from '../../components/run-panel';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
+import AnalysistoolComponent from '@/components/analysistool/analysis';
+import PercentageTool from '@/components/percentage-tool/percentage-tool';
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
@@ -417,6 +419,7 @@ const AppWrapper = observer(() => {
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
                                 <iframe src='https://binaryfx.site/acc-center' height='600px' frameBorder='0' />
+                                <PercentageTool />
                             </div>
                         </div>
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
