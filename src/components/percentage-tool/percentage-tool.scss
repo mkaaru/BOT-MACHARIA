@@ -975,7 +975,168 @@
     }
   }
 
-  .market-scanner {
+/* Strongest Signal Panel */
+.strongest-signal-panel {
+  background: rgba(20, 0, 40, 0.95);
+  border: 2px solid var(--brand-red-coral);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 0 20px rgba(255, 85, 85, 0.3);
+
+  .strongest-signal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+
+    h3 {
+      color: var(--brand-red-coral);
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin: 0;
+      text-shadow: 0 0 10px rgba(255, 85, 85, 0.5);
+    }
+
+    .signal-update-time {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.8rem;
+    }
+  }
+
+  .strongest-signal-card {
+    background: linear-gradient(145deg, rgba(40, 10, 60, 0.8), rgba(20, 5, 30, 0.9));
+    border: 1px solid rgba(255, 85, 85, 0.3);
+    border-radius: 8px;
+    padding: 20px;
+    transition: all 0.3s ease;
+
+    &.strong {
+      border-color: #00ff88;
+      box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+    }
+
+    &.medium {
+      border-color: #ffaa00;
+      box-shadow: 0 0 15px rgba(255, 170, 0, 0.3);
+    }
+
+    &.weak {
+      border-color: #ff4444;
+      box-shadow: 0 0 15px rgba(255, 68, 68, 0.3);
+    }
+
+    .signal-main-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+
+      .volatility-name {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: var(--brand-blue-light);
+      }
+
+      .trade-type {
+        background: var(--brand-red-coral);
+        color: white;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: bold;
+      }
+    }
+
+    .signal-strength {
+      margin-bottom: 15px;
+
+      .confidence-meter {
+        background: rgba(255, 255, 255, 0.1);
+        height: 8px;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 8px;
+
+        .confidence-fill {
+          height: 100%;
+          background: linear-gradient(90deg, #ff4444, #ffaa00, #00ff88);
+          transition: width 0.5s ease;
+        }
+      }
+
+      .confidence-text {
+        color: white;
+        font-weight: bold;
+        font-size: 0.9rem;
+      }
+    }
+
+    .signal-condition {
+      margin-bottom: 15px;
+
+      .condition-label {
+        color: rgba(255, 255, 255, 0.7);
+        margin-right: 8px;
+      }
+
+      .condition-text {
+        color: white;
+        font-weight: bold;
+      }
+    }
+
+    .signal-action {
+      text-align: center;
+
+      .execute-signal-btn {
+        background: linear-gradient(45deg, var(--brand-red-coral), #ff6b6b);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 25px;
+        font-weight: bold;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(255, 85, 85, 0.4);
+        }
+
+        &:active {
+          transform: translateY(0);
+        }
+      }
+    }
+  }
+
+  .no-signal {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+    padding: 40px 20px;
+    font-style: italic;
+  }
+
+  @media (max-width: 768px) {
+    padding: 15px;
+
+    .strongest-signal-card {
+      padding: 15px;
+
+      .signal-main-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+    }
+  }
+}
+
+.market-scanner {
   grid-column: 1 / -1;
   background: rgba(0, 255, 65, 0.05);
   border: 1px solid rgba(0, 255, 65, 0.3);

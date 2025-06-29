@@ -108,6 +108,10 @@ const PercentageTool: React.FC = () => {
   const signalTimerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Add state for the strongest signal and its last update time
+  const [strongestSignal, setStrongestSignal] = useState<MarketSignal | null>(null);
+  const [strongestSignalLastUpdate, setStrongestSignalLastUpdate] = useState<number>(0);
+
   // Signal update timer - updates every 1 minute
   useEffect(() => {
     const updateSignals = () => {
@@ -272,11 +276,11 @@ const PercentageTool: React.FC = () => {
           if (signalUpdateDebounce) {
             clearTimeout(signalUpdateDebounce);
           }
-          
+
           const newDebounce = setTimeout(() => {
             generateMarketSignals();
           }, 60000); // Wait 1 minute after last tick update
-          
+
           setSignalUpdateDebounce(newDebounce);
         }
       };
@@ -363,14 +367,31 @@ const PercentageTool: React.FC = () => {
     if (hasSignificantChange) {
       setMarketSuggestions(topSignals);
 
-      // Set top recommendation only if there's a meaningful signal
-      if (sortedSignals.length > 0 && sortedSignals[0].confidence >= 65) {
-        const topSignal = sortedSignals[0];
+      // Update top recommendation
+      if (topSignals.length > 0) {
+        const topSignal = topSignals[0];
         setTopRecommendation({
           volatility: topSignal.volatilityName,
           tradeType: topSignal.tradeType,
-          reason: `${topSignal.confidence}% confidence - ${topSignal.condition}`
+          reason: topSignal.condition
         });
+      }
+    }
+
+    // Update strongest signal separately (more frequently to prevent flickering)
+    if (sortedSignals.length > 0) {
+      const currentStrongest = sortedSignals[0];
+      const now = Date.now();
+
+      // Only update strongest signal if it's significantly different or enough time has passed
+      if (!strongestSignal || 
+          currentStrongest.volatility !== strongestSignal.volatility ||
+          currentStrongest.tradeType !== strongestSignal.tradeType ||
+          Math.abs(currentStrongest.confidence - strongestSignal.confidence) > 10 ||
+          now - strongestSignalLastUpdate > 30000) { // Update at least every 30 seconds
+
+        setStrongestSignal(currentStrongest);
+        setStrongestSignalLastUpdate(now);
       }
     }
   };
@@ -507,17 +528,17 @@ const PercentageTool: React.FC = () => {
     }
 
     const bias = Math.abs(riseCount - fallCount) / (ticks.length - 1);
-    
+
     // Add momentum factor based on recent trend strength
     const recent20 = ticks.slice(-20);
     let recentRises = 0;
     let recentFalls = 0;
-    
+
     for (let i = 1; i < recent20.length; i++) {
       if (recent20[i] > recent20[i - 1]) recentRises++;
       else if (recent20[i] < recent20[i - 1]) recentFalls++;
     }
-    
+
     const momentumFactor = Math.abs(recentRises - recentFalls) / 19;
     const stabilityFactor = 1 + (momentumFactor * 0.3);
 
@@ -794,6 +815,36 @@ const PercentageTool: React.FC = () => {
             <div className="status-dot"></div>
             {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
           </div>
+        </div>
+         {/* Strongest Signal Panel */}
+        <div className="strongest-signal-panel">
+          <h4>🔥 STRONGEST SIGNAL DETECTED 🔥</h4>
+          {strongestSignal ? (
+            <div className={`signal-card ${strongestSignal.strength}`}>
+              <div className="signal-header">
+                <span className="volatility-name">{strongestSignal.volatilityName}</span>
+                <span className={`signal-strength ${strongestSignal.strength}`}>
+                  {strongestSignal.strength.toUpperCase()}
+                </span>
+              </div>
+              <div className="signal-details">
+                <div className="trade-type">
+                  <span className="label">RECOMMENDED:</span>
+                  <span className="value">{strongestSignal.tradeType}</span>
+                </div>
+                <div className="confidence">
+                  <span className="label">CONFIDENCE:</span>
+                  <span className="value">{strongestSignal.confidence}%</span>
+                </div>
+                <div className="market-condition">
+                  <span className="label">CONDITION:</span>
+                  <span className="value">{strongestSignal.condition}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <span>Scanning for strongest signal...</span>
+          )}
         </div>
         <div className="market-scanner">
           <div className="scanner-header">
