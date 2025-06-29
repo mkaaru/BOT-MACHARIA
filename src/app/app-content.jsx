@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { ToastContainer } from 'react-toastify';
 import useLiveChat from '@/components/chat/useLiveChat';
 import ChunkLoader from '@/components/loader/chunk-loader';
+import MatrixLoading from '@/components/matrix-loading';
 import { getUrlBase } from '@/components/shared';
 import TncStatusUpdateModal from '@/components/tnc-status-update-modal';
 import TransactionDetailsModal from '@/components/transaction-details';
@@ -171,7 +172,7 @@ const AppContent = observer(() => {
     if (common?.error) return null;
 
     return is_loading && !forceShowApp ? (
-        <ChunkLoader message={localize('Initializing your account...')} />
+        <MatrixLoading message={localize('Initializing your account...')} show={true} />
     ) : (
         <>
             <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
