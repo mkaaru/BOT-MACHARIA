@@ -114,35 +114,56 @@ const AppWrapper = observer(() => {
     }, [clear, connectionStatus, stopBot]);
 
     useEffect(() => {
-        // Fetch the XML files and parse them
+        // Fetch all XML bot files from attached_assets
         const fetchBots = async () => {
             const botFiles = [
-                'Upgraded Candlemine.xml',
-                'Envy-differ.xml',
-                'H_L auto vault.xml',
-                'Top-notch 2.xml',
-                // Add more paths to your XML files
+                '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1_1751182890962.xml',
+                '3 2025 Updated Version Of Candle Mine🇬🇧_1751182890964.xml',
+                'Accumulators Pro Bot_1751182890965.xml',
+                'AI with Entry Point_1751182890965.xml',
+                'BINARY FLIPPER AI ROBOT PLUS +_1751182890966.xml',
+                'BINARYTOOL WIZARD  AI BOT_1751182890966.xml',
+                'BINARYTOOL@ DIFFER V2.0 (1) (1)_1751182890967.xml',
+                'BINARYTOOL@EVEN ODD THUNDER AI PRO BOT_1751182890968.xml',
+                'BINARYTOOL@EVEN&ODD AI BOT (2)_1751182890969.xml',
+                'Entry Point Scanner_1751182890970.xml',
+                'Even_Odd_Auto_DBot V1.01 (1)_1751182890971.xml',
+                'Expert Wager V3 (Over Under Bot)_1751182890971.xml',
+                'Expert Wager V4 (Even Odd)_1751182890972.xml',
+                'Expert_Speed_Bot_By_CHOSEN_DOLLAR_PRINTER_FX📉📉📉📈📈📈_1751182890973.xml',
+                'Expert_Speed_Bot_By_CHOSEN_DOLLAR_PRINTER_FX📉📉📉📈📈📈_1_1751182890974.xml',
+                'MKOREAN SV5 SPEED BOT_1751182890974.xml',
+                'Reversal Psychology {Over Auto Bot}_1751182890975.xml',
+                'Updated Expert Wager Version 3_1751182890976.xml'
             ];
+            
             const botPromises = botFiles.map(async (file) => {
                 try {
-                    const response = await fetch(file);
+                    const response = await fetch(`/attached_assets/${file}`);
                     if (!response.ok) {
                         throw new Error(`Failed to fetch ${file}: ${response.statusText}`);
                     }
                     const text = await response.text();
-                    const parser = new DOMParser();
-                    const xml = parser.parseFromString(text, 'application/xml');
+                    
+                    // Clean up the file name for display
+                    let cleanTitle = file
+                        .replace('.xml', '')
+                        .replace(/_\d{13}/, '') // Remove timestamp
+                        .replace(/^\d+_/, '') // Remove leading numbers
+                        .replace(/_/g, ' ') // Replace underscores with spaces
+                        .trim();
+                    
                     return {
-                        title: file.split('/').pop(), // Use the file name as the title
-                        image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
-                        filePath: file,
-                        xmlContent: text, // Store the XML content
+                        title: cleanTitle,
+                        filePath: `/attached_assets/${file}`,
+                        xmlContent: text,
                     };
                 } catch (error) {
-                    console.error(error);
+                    console.error(`Error loading bot ${file}:`, error);
                     return null;
                 }
             });
+            
             const bots = (await Promise.all(botPromises)).filter(Boolean);
             setBots(bots);
         };
