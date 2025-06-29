@@ -114,77 +114,35 @@ const AppWrapper = observer(() => {
     }, [clear, connectionStatus, stopBot]);
 
     useEffect(() => {
-        // Add global error handlers to prevent interruption dialogs
-        const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-            console.error('Unhandled promise rejection:', event.reason);
-            event.preventDefault(); // Prevent the error from being thrown
-        };
-
-        const handleError = (event: ErrorEvent) => {
-            console.error('Global error:', event.error);
-            event.preventDefault(); // Prevent the error from being thrown
-        };
-
-        window.addEventListener('unhandledrejection', handleUnhandledRejection);
-        window.addEventListener('error', handleError);
-
-        return () => {
-            window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-            window.removeEventListener('error', handleError);
-        };
-    }, []);
-
-    useEffect(() => {
-        // Fetch all XML bot files from attached_assets
+        // Fetch the XML files and parse them
         const fetchBots = async () => {
             const botFiles = [
-                '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1_1751182890962.xml',
-                '3 2025 Updated Version Of Candle Mine🇬🇧_1751182890964.xml',
-                'Accumulators Pro Bot_1751182890965.xml',
-                'AI with Entry Point_1751182890965.xml',
-                'BINARY FLIPPER AI ROBOT PLUS +_1751182890966.xml',
-                'BINARYTOOL WIZARD  AI BOT_1751182890966.xml',
-                'BINARYTOOL@ DIFFER V2.0 (1) (1)_1751182890967.xml',
-                'BINARYTOOL@EVEN ODD THUNDER AI PRO BOT_1751182890968.xml',
-                'BINARYTOOL@EVEN&ODD AI BOT (2)_1751182890969.xml',
-                'Entry Point Scanner_1751182890970.xml',
-                'Even_Odd_Auto_DBot V1.01 (1)_1751182890971.xml',
-                'Expert Wager V3 (Over Under Bot)_1751182890971.xml',
-                'Expert Wager V4 (Even Odd)_1751182890972.xml',
-                'Expert_Speed_Bot_By_CHOSEN_DOLLAR_PRINTER_FX📉📉📉📈📈📈_1751182890973.xml',
-                'Expert_Speed_Bot_By_CHOSEN_DOLLAR_PRINTER_FX📉📉📉📈📈📈_1_1751182890974.xml',
-                'MKOREAN SV5 SPEED BOT_1751182890974.xml',
-                'Reversal Psychology {Over Auto Bot}_1751182890975.xml',
-                'Updated Expert Wager Version 3_1751182890976.xml'
+                'Upgraded Candlemine.xml',
+                'Envy-differ.xml',
+                'H_L auto vault.xml',
+                'Top-notch 2.xml',
+                // Add more paths to your XML files
             ];
-            
             const botPromises = botFiles.map(async (file) => {
                 try {
-                    const response = await fetch(`/attached_assets/${file}`);
+                    const response = await fetch(file);
                     if (!response.ok) {
                         throw new Error(`Failed to fetch ${file}: ${response.statusText}`);
                     }
                     const text = await response.text();
-                    
-                    // Clean up the file name for display
-                    let cleanTitle = file
-                        .replace('.xml', '')
-                        .replace(/_\d{13}/, '') // Remove timestamp
-                        .replace(/^\d+_/, '') // Remove leading numbers
-                        .replace(/_/g, ' ') // Replace underscores with spaces
-                        .trim();
-                    
+                    const parser = new DOMParser();
+                    const xml = parser.parseFromString(text, 'application/xml');
                     return {
-                        title: cleanTitle,
-                        filePath: `/attached_assets/${file}`,
-                        xmlContent: text,
+                        title: file.split('/').pop(), // Use the file name as the title
+                        image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
+                        filePath: file,
+                        xmlContent: text, // Store the XML content
                     };
                 } catch (error) {
-                    console.error(`Error loading bot ${file}:`, error);
+                    console.error(error);
                     return null;
                 }
             });
-            
             const bots = (await Promise.all(botPromises)).filter(Boolean);
             setBots(bots);
         };
@@ -206,64 +164,26 @@ const AppWrapper = observer(() => {
     );
 
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string; title?: string }) => {
+        setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
             console.log("Loading bot:", bot.title, bot.filePath);
-            
-            // Switch to bot builder tab first
-            setActiveTab(DBOT_TABS.BOT_BUILDER);
-            
-            // Add a small delay to ensure tab switch completes
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            // Wait for workspace to be available and ready with timeout
-            const waitForWorkspace = () => {
-                return new Promise((resolve, reject) => {
-                    let attempts = 0;
-                    const maxAttempts = 100; // 10 seconds max
-                    
-                    const checkWorkspace = () => {
-                        attempts++;
-                        if (window.Blockly?.derivWorkspace) {
-                            resolve(window.Blockly.derivWorkspace);
-                        } else if (attempts >= maxAttempts) {
-                            reject(new Error('Workspace not available after timeout'));
-                        } else {
-                            setTimeout(checkWorkspace, 100);
-                        }
-                    };
-                    checkWorkspace();
-                });
-            };
-            
-            // Wait for workspace to be ready
-            await waitForWorkspace();
-            
-            // Clear workspace before loading new bot
-            if (window.Blockly?.derivWorkspace) {
-                window.Blockly.derivWorkspace.clear();
+            console.log("XML Content:", bot.xmlContent);
+
+            if (typeof load_modal.loadFileFromContent === 'function') {
+                try {
+                    await load_modal.loadFileFromContent(bot.xmlContent);
+                    console.log("Bot loaded successfully!");
+                } catch (loadError) {
+                    console.error("Error in load_modal.loadFileFromContent:", loadError);
+                }
+            } else {
+                console.error("loadFileFromContent is not defined on load_modal");
             }
-            
-            // Use the load function from bot-skeleton to load the XML content
-            const { load, save_types } = await import('@/external/bot-skeleton');
-            
-            await load({
-                block_string: bot.xmlContent,
-                file_name: bot.title || 'Free Bot',
-                workspace: window.Blockly.derivWorkspace,
-                from: save_types.UNSAVED,
-                drop_event: null,
-                strategy_id: null,
-                showIncompatibleStrategyDialog: false,
-            });
-            
-            console.log("Bot loaded successfully!");
-            
+            updateWorkspaceName(bot.xmlContent);
         } catch (error) {
             console.error("Error loading bot:", error);
-            // Don't show error dialogs to user, just log the error
-            // The user can try again if needed
         }
-    }, [setActiveTab]);
+    }, [setActiveTab, load_modal, updateWorkspaceName]);
 
     const handleOpen = useCallback(async () => {
         await load_modal.loadFileFromRecent();
@@ -288,29 +208,19 @@ const AppWrapper = observer(() => {
                                 <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
                                 <div className='free-bots__content-wrapper'>
                                     <div className='free-bots__content'>
-                                        {bots.length > 0 ? (
-                                            bots.map((bot, index) => (
-                                                <div className='free-bot-card' key={index} onClick={() => {
-                                                    try {
-                                                        handleBotClick(bot);
-                                                    } catch (error) {
-                                                        console.error('Error clicking bot:', error);
-                                                    }
-                                                }}>
-                                                    <div className='free-bot-card__icon'>
-                                                        <BotIcon />
-                                                    </div>
-                                                    <div className='free-bot-card__details'>
-                                                        <h3 className='free-bot-card__title'>{bot.title}</h3>
-                                                        <p className='free-bot-card__description'>Click to load this bot</p>
-                                                    </div>
+                                        {bots.map((bot, index) => (
+                                            <div className='free-bot-card' key={index} onClick={() => {
+                                                handleBotClick(bot);
+                                            }}>
+                                                <div className='free-bot-card__icon'>
+                                                    <BotIcon />
                                                 </div>
-                                            ))
-                                        ) : (
-                                            <div style={{ padding: '20px', textAlign: 'center' }}>
-                                                <p>Loading bots...</p>
+                                                <div className='free-bot-card__details'>
+                                                    <h3 className='free-bot-card__title'>{bot.title}</h3>
+                                                    <p className='free-bot-card__description'>Click to load this bot</p>
+                                                </div>
                                             </div>
-                                        )}
+                                        ))}
                                     </div>
                                 </div>
                             </div>

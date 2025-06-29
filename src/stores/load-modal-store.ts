@@ -76,7 +76,6 @@ export default class LoadModalStore {
             loadStrategyOnBotBuilder: action,
             saveStrategyToLocalStorage: action,
             updateXmlValuesOnStrategySelection: action,
-            loadFileFromContent: action.bound,
         });
 
         this.root_store = root_store;
@@ -525,41 +524,6 @@ export default class LoadModalStore {
         }
         setLoading(false);
         this.setOpenButtonDisabled(false);
-    };
-
-    loadFileFromContent = async (xmlContent: string, fileName?: string): Promise<void> => {
-        try {
-            // Wait for workspace to be available
-            let retries = 0;
-            const maxRetries = 50; // 5 seconds max wait
-            
-            while (!window.Blockly?.derivWorkspace && retries < maxRetries) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-                retries++;
-            }
-            
-            if (!window.Blockly?.derivWorkspace) {
-                console.warn('Blockly workspace not available after waiting');
-                return; // Don't throw error, just return silently
-            }
-            
-            const { load, save_types } = await import('@/external/bot-skeleton');
-            
-            await load({
-                block_string: xmlContent,
-                file_name: fileName || 'Free Bot',
-                workspace: window.Blockly.derivWorkspace,
-                from: save_types.UNSAVED,
-                drop_event: null,
-                strategy_id: null,
-                showIncompatibleStrategyDialog: false,
-            });
-            
-            console.log('Bot loaded successfully via loadFileFromContent');
-        } catch (error) {
-            console.error('Error loading XML content:', error);
-            // Don't re-throw the error to prevent unhandled promise rejections
-        }
     };
 
     loadStrategyOnModalLocalPreview = async load_options => {
