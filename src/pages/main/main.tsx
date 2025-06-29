@@ -203,9 +203,27 @@ const AppWrapper = observer(() => {
             <div className='main'>
                 <div className='main__container'>
                     <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
-                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
-                            <Dashboard handleTabChange={handleTabChange} />
-                            <button onClick={handleOpen}>Load Bot</button>
+                        <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
+                            <div className='free-bots'>
+                                <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
+                                <div className='free-bots__content-wrapper'>
+                                    <div className='free-bots__content'>
+                                        {bots.map((bot, index) => (
+                                            <div className='free-bot-card' key={index} onClick={() => {
+                                                handleBotClick(bot);
+                                            }}>
+                                                <div className='free-bot-card__icon'>
+                                                    <BotIcon />
+                                                </div>
+                                                <div className='free-bot-card__details'>
+                                                    <h3 className='free-bot-card__title'>{bot.title}</h3>
+                                                    <p className='free-bot-card__description'>Click to load this bot</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
                         <div label={<><ChartsIcon /><Localize i18n_default_text='Charts' /></>} id='id-charts'>
