@@ -35,6 +35,7 @@ const AppContent = observer(() => {
     const { app, transactions, common, client } = store;
     const { showDigitalOptionsMaltainvestError } = app;
     const { is_dark_mode_on } = useThemeSwitcher();
+    const [forceShowApp, setForceShowApp] = React.useState(false);
 
     const { recovered_transactions, recoverPendingContracts } = transactions;
     const is_subscribed_to_msg_listener = React.useRef(false);
@@ -127,27 +128,10 @@ const AppContent = observer(() => {
     };
 
     const changeActiveSymbolLoadingState = () => {
-        init();
-
-        const retrieveActiveSymbols = () => {
-            const { active_symbols } = ApiHelpers.instance;
-            active_symbols.retrieveActiveSymbols(true).then(() => {
-                setIsLoading(false);
-            });
-        };
-
-        if (ApiHelpers?.instance?.active_symbols) {
-            retrieveActiveSymbols();
-        } else {
-            // This is a workaround to fix the issue where the active symbols are not loaded immediately
-            // when the API is initialized. Should be replaced with RxJS pubsub
-            const intervalId = setInterval(() => {
-                if (ApiHelpers?.instance?.active_symbols) {
-                    clearInterval(intervalId);
-                    retrieveActiveSymbols();
-                }
-            }, 1000);
-        }
+        const { active_symbols } = ApiHelpers.instance;
+        active_symbols.retrieveActiveSymbols(true).then(() => {
+            setIsLoading(false);
+        });
     };
 
     React.useEffect(() => {
@@ -175,10 +159,18 @@ const AppContent = observer(() => {
             initHotjar(client);
         }
     }, []);
+    
+     React.useEffect(() => {
+        const timeout = setTimeout(() => {
+            setForceShowApp(true);
+        }, 5000); // Show app after 5 seconds regardless
+
+        return () => clearTimeout(timeout);
+    }, []);
 
     if (common?.error) return null;
 
-    return is_loading ? (
+    return is_loading && !forceShowApp ? (
         <ChunkLoader message={localize('Initializing your account...')} />
     ) : (
         <>
