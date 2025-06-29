@@ -332,7 +332,6 @@ const AppWrapper = observer(() => {
 });
 
 export default AppWrapper;
-```    const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string }) => {
         setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
             console.log("Loading bot:", bot.title, bot.filePath);
@@ -400,6 +399,38 @@ export default AppWrapper;
                                     <div className='free-bots__content'>
                                         {bots.map((bot, index) => (
                                             <div className='free-bot-card' key={index} onClick={() => {
+                                                handleBotClick(bot);
+                                            }} style={{ background: 'linear-gradient(to right, #E0F7FA, #B2EBF2)' }}>
+                                                <div className='free-bot-card__icon'>
+                                                    <BotIcon />
+                                                </div>
+                                                <div className='free-bot-card__details'>
+                                                    <h3 className='free-bot-card__title' style={{ fontWeight: 'bold' }}>{bot.title}</h3>
+                                                    <p className='free-bot-card__description'>Click to load this bot</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {/* New bots from attached files */}
+                                        {[
+                                            { title: '2025 Updated Expert Speed Bot', filePath: '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1_1751182890962.xml', xmlContent: '' },
+                                            { title: '2025 Updated Candle Mine', filePath: '3 2025 Updated Version Of Candle Mine🇬🇧_1751182890964.xml', xmlContent: '' },
+                                            { title: 'Accumulators Pro Bot', filePath: 'Accumulators Pro Bot_1751182890965.xml', xmlContent: '' },
+                                            { title: 'AI with Entry Point', filePath: 'AI with Entry Point_1751182890965.xml', xmlContent: '' },
+                                            { title: 'Binary Flipper AI Robot Plus', filePath: 'BINARY FLIPPER AI ROBOT PLUS +_1751182890966.xml', xmlContent: '' },
+                                            { title: 'Binary Tool Wizard AI Bot', filePath: 'BINARYTOOL WIZARD  AI BOT_1751182890966.xml', xmlContent: '' },
+                                            { title: 'Binary Tool Differ V2.0', filePath: 'BINARYTOOL@ DIFFER V2.0 (1) (1)_1751182890967.xml', xmlContent: '' },
+                                            { title: 'Even Odd Thunder AI Pro Bot', filePath: 'BINARYTOOL@EVEN ODD THUNDER AI PRO BOT_1751182890968.xml', xmlContent: '' },
+                                            { title: 'Even & Odd AI Bot', filePath: 'BINARYTOOL@EVEN&ODD AI BOT (2)_1751182890969.xml', xmlContent: '' },
+                                            { title: 'Entry Point Scanner', filePath: 'Entry Point Scanner_1751182890970.xml', xmlContent: '' },
+                                            { title: 'Even Odd Auto DBot V1.01', filePath: 'Even_Odd_Auto_DBot V1.01 (1)_1751182890971.xml', xmlContent: '' },
+                                            { title: 'Expert Wager V3 (Over Under)', filePath: 'Expert Wager V3 (Over Under Bot)_1751182890971.xml', xmlContent: '' },
+                                            { title: 'Expert Wager V4 (Even Odd)', filePath: 'Expert Wager V4 (Even Odd)_1751182890972.xml', xmlContent: '' },
+                                            { title: 'Expert Speed Bot by Dollar Printer', filePath: 'Expert_Speed_Bot_By_CHOSEN_DOLLAR_PRINTER_FX📉📉📉📈📈📈_1751182890973.xml', xmlContent: '' },
+                                            { title: 'MKorean SV5 Speed Bot', filePath: 'MKOREAN SV5 SPEED BOT_1751182890974.xml', xmlContent: '' },
+                                            { title: 'Reversal Psychology Over Auto Bot', filePath: 'Reversal Psychology {Over Auto Bot}_1751182890975.xml', xmlContent: '' },
+                                            { title: 'Updated Expert Wager V3', filePath: 'Updated Expert Wager Version 3_1751182890976.xml', xmlContent: '' }
+                                        ].map((bot, index) => (
+                                            <div className='free-bot-card' key={`new-bot-${index}`} onClick={() => {
                                                 handleBotClick(bot);
                                             }} style={{ background: 'linear-gradient(to right, #E0F7FA, #B2EBF2)' }}>
                                                 <div className='free-bot-card__icon'>
