@@ -418,7 +418,6 @@ const AppWrapper = observer(() => {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <iframe src='https://binaryfx.site/acc-center' height='600px' frameBorder='0' />
                                 <PercentageTool />
                             </div>
                         </div>
