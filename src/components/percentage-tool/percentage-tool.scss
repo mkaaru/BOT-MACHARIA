@@ -324,6 +324,53 @@
         text-shadow: 0 0 8px #00ff41;
       }
 
+      .digit-legend {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 15px;
+        padding: 10px;
+        background: rgba(0, 255, 65, 0.03);
+        border-radius: 4px;
+        border: 1px solid rgba(0, 255, 65, 0.2);
+
+        .legend-item {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 0.85rem;
+
+          .legend-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            border: 1px solid;
+          }
+
+          &.last-digit .legend-indicator {
+            background: rgba(255, 255, 65, 0.3);
+            border-color: #ffff41;
+            box-shadow: 0 0 5px rgba(255, 255, 65, 0.5);
+          }
+
+          &.highest .legend-indicator {
+            background: rgba(68, 255, 68, 0.3);
+            border-color: #44ff44;
+            box-shadow: 0 0 5px rgba(68, 255, 68, 0.5);
+          }
+
+          &.lowest .legend-indicator {
+            background: rgba(255, 68, 68, 0.3);
+            border-color: #ff4444;
+            box-shadow: 0 0 5px rgba(255, 68, 68, 0.5);
+          }
+
+          .legend-text {
+            color: #00ff41;
+            opacity: 0.9;
+          }
+        }
+      }
+
       .digit-grid {
         display: grid;
         grid-template-columns: repeat(5, 1fr);
@@ -338,10 +385,83 @@
           border: 1px solid currentColor;
           border-radius: 4px;
           transition: all 0.3s ease;
+          position: relative;
 
           &:hover {
             transform: scale(1.05);
             box-shadow: 0 0 15px currentColor;
+          }
+
+          // Last digit highlighting (yellow)
+          &.last-digit {
+            background: rgba(255, 255, 65, 0.2);
+            border: 2px solid #ffff41;
+            box-shadow: 0 0 20px rgba(255, 255, 65, 0.6);
+            transform: scale(1.1);
+            
+            &::before {
+              content: '▲';
+              position: absolute;
+              top: -15px;
+              left: 50%;
+              transform: translateX(-50%);
+              color: #ffff41;
+              font-size: 16px;
+              text-shadow: 0 0 10px #ffff41;
+              animation: pulse 1.5s infinite;
+            }
+
+            .digit {
+              color: #ffff41 !important;
+              text-shadow: 0 0 15px #ffff41 !important;
+              font-weight: bold;
+            }
+          }
+
+          // Highest frequency highlighting (green)
+          &.highest-frequency:not(.last-digit) {
+            background: rgba(68, 255, 68, 0.15);
+            border: 2px solid #44ff44;
+            box-shadow: 0 0 15px rgba(68, 255, 68, 0.4);
+            
+            &::after {
+              content: '↑';
+              position: absolute;
+              top: -12px;
+              right: -8px;
+              color: #44ff44;
+              font-size: 14px;
+              text-shadow: 0 0 8px #44ff44;
+              animation: glow 2s infinite;
+            }
+
+            .digit {
+              color: #44ff44 !important;
+              text-shadow: 0 0 12px #44ff44 !important;
+            }
+          }
+
+          // Lowest frequency highlighting (red)
+          &.lowest-frequency:not(.last-digit):not(.highest-frequency) {
+            background: rgba(255, 68, 68, 0.15);
+            border: 2px solid #ff4444;
+            box-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
+            
+            &::after {
+              content: '↓';
+              position: absolute;
+              top: -12px;
+              right: -8px;
+              color: #ff4444;
+              font-size: 14px;
+              text-shadow: 0 0 8px #ff4444;
+              animation: glow 2s infinite;
+            }
+
+            .digit {
+              color: #ff4444 !important;
+              text-shadow: 0 0 12px #ff4444 !important;
+            }
           }
 
           .digit {

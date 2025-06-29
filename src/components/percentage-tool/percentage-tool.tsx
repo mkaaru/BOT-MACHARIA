@@ -277,6 +277,35 @@ const PercentageTool: React.FC = () => {
     return '#ffff44';
   };
 
+  const getDigitHighlightClass = (digit: number, data: PercentageData) => {
+    const currentTick = data.digits[data.digits.length - 1];
+    const lastDigit = currentTick;
+    
+    // Find highest and lowest frequency digits
+    const counts = Object.values(data.lastDigitCounts);
+    const maxCount = Math.max(...counts);
+    const minCount = Math.min(...counts);
+    
+    const highestDigits = Object.entries(data.lastDigitCounts)
+      .filter(([, count]) => count === maxCount)
+      .map(([d]) => parseInt(d));
+    
+    const lowestDigits = Object.entries(data.lastDigitCounts)
+      .filter(([, count]) => count === minCount)
+      .map(([d]) => parseInt(d));
+    
+    // Priority: Last digit (yellow) > Highest (green) > Lowest (red)
+    if (digit === lastDigit) {
+      return 'last-digit';
+    } else if (highestDigits.includes(digit)) {
+      return 'highest-frequency';
+    } else if (lowestDigits.includes(digit)) {
+      return 'lowest-frequency';
+    }
+    
+    return '';
+  };
+
   const getTradeTypeAnalysis = (data: PercentageData, tradeType: string) => {
     const recentTicks = data.digits.slice(-20);
     
@@ -443,23 +472,40 @@ const PercentageTool: React.FC = () => {
               
               <div className="digit-analysis">
                 <h4>Last Digit Distribution</h4>
+                <div className="digit-legend">
+                  <div className="legend-item last-digit">
+                    <div className="legend-indicator"></div>
+                    <span className="legend-text">Last Tick</span>
+                  </div>
+                  <div className="legend-item highest">
+                    <div className="legend-indicator"></div>
+                    <span className="legend-text">Highest %</span>
+                  </div>
+                  <div className="legend-item lowest">
+                    <div className="legend-indicator"></div>
+                    <span className="legend-text">Lowest %</span>
+                  </div>
+                </div>
                 <div className="digit-grid">
-                  {Object.entries(data.lastDigitCounts).map(([digit, count]) => (
-                    <div 
-                      key={digit}
-                      className="digit-cell"
-                      style={{ 
-                        color: getDigitColor(count, data.digits.length),
-                        textShadow: `0 0 10px ${getDigitColor(count, data.digits.length)}`
-                      }}
-                    >
-                      <div className="digit">{digit}</div>
-                      <div className="count">{count}</div>
-                      <div className="percentage">
-                        {((count / data.digits.length) * 100).toFixed(1)}%
+                  {Object.entries(data.lastDigitCounts).map(([digit, count]) => {
+                    const highlightClass = getDigitHighlightClass(parseInt(digit), data);
+                    return (
+                      <div 
+                        key={digit}
+                        className={`digit-cell ${highlightClass}`}
+                        style={{ 
+                          color: getDigitColor(count, data.digits.length),
+                          textShadow: `0 0 10px ${getDigitColor(count, data.digits.length)}`
+                        }}
+                      >
+                        <div className="digit">{digit}</div>
+                        <div className="count">{count}</div>
+                        <div className="percentage">
+                          {((count / data.digits.length) * 100).toFixed(1)}%
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
