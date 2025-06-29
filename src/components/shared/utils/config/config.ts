@@ -71,7 +71,7 @@ export const getDefaultAppIdAndUrl = () => {
 export const getAppId = () => {
     let app_id = window.localStorage.getItem('config.app_id');
 
-    if (!app_id || app_id === '69811') {
+    if (!app_id || app_id === '69811' || app_id === '75771') {
         console.warn("⚠️ App ID is invalid, forcing correct App ID...");
         app_id = '75771'; // ✅ Corrected App ID for your domain
         window.localStorage.setItem('config.app_id', app_id);
@@ -113,8 +113,13 @@ export const getDebugServiceWorker = () => !!parseInt(window.localStorage.getIte
 
 export const generateOAuthURL = () => {
     const { getOauthURL } = URLUtils;
+    const app_id = getAppId();
     const oauth_url = getOauthURL();
     const original_url = new URL(oauth_url);
+    
+    // Ensure we're using the correct app ID
+    original_url.searchParams.set('app_id', app_id);
+    
     const configured_server_url =
         LocalStorageUtils.getValue(LocalStorageConstants.configServerURL) ||
         localStorage.getItem('config.server_url') ||
