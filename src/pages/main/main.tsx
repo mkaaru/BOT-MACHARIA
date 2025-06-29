@@ -199,7 +199,7 @@ const AppWrapper = observer(() => {
     const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.CHART, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.SIGNALS].includes(active_tab);
 
     return (
-        <React.Fragment>
+        <>
             <div className='main'>
                 <div className='main__container'>
                     <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
@@ -327,7 +327,7 @@ const AppWrapper = observer(() => {
             <Dialog cancel_button_text={cancel_button_text || localize('Cancel')} confirm_button_text={ok_button_text || localize('Ok')} has_close_icon is_visible={is_dialog_open} onCancel={onCancelButtonClick} onClose={onCloseDialog} onConfirm={onOkButtonClick || onCloseDialog} title={title}>
                 {message}
             </Dialog>
-        </React.Fragment>
+        </>
     );
 });
 
