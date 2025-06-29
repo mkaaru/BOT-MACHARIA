@@ -950,3 +950,209 @@
         left: 100%;
     }
 }
+
+.free-bots-container {
+    padding: 2rem;
+    background: var(--general-main-1);
+
+    &.matrix-style {
+        background: #000;
+        position: relative;
+
+        &::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 50% 50%, rgba(0, 255, 0, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+        }
+    }
+}
+
+.free-bots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.bot-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 2rem;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+
+    &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    &.placeholder {
+        opacity: 0.7;
+        cursor: not-allowed;
+        background: linear-gradient(135deg, #555 0%, #777 100%);
+    }
+
+    &.matrix-card {
+        background: rgba(0, 20, 0, 0.9);
+        border: 1px solid #00ff00;
+        border-radius: 4px;
+        box-shadow: 
+            0 0 20px rgba(0, 255, 0, 0.3),
+            inset 0 0 20px rgba(0, 255, 0, 0.1);
+        backdrop-filter: blur(10px);
+
+        &:hover {
+            box-shadow: 
+                0 0 30px rgba(0, 255, 0, 0.5),
+                inset 0 0 30px rgba(0, 255, 0, 0.2);
+            border-color: #00ff41;
+        }
+
+        &.placeholder {
+            background: rgba(0, 10, 0, 0.6);
+            border-color: #004400;
+            box-shadow: 
+                0 0 10px rgba(0, 255, 0, 0.1),
+                inset 0 0 10px rgba(0, 255, 0, 0.05);
+        }
+    }
+}
+
+.matrix-border {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    background: linear-gradient(45deg, transparent, rgba(0, 255, 0, 0.2), transparent);
+    background-size: 200% 200%;
+    animation: matrixBorderGlow 3s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.matrix-code-rain {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0.1;
+
+    &::before {
+        content: '01010101 11001100 10101010 01110111 00110011 11111111 00000000 10101010';
+        position: absolute;
+        top: -20px;
+        left: 0;
+        right: 0;
+        font-family: 'Courier New', monospace;
+        font-size: 8px;
+        color: #00ff00;
+        white-space: pre-wrap;
+        line-height: 12px;
+        animation: matrixRain 10s linear infinite;
+    }
+}
+
+@keyframes matrixBorderGlow {
+    0%, 100% {
+        background-position: 0% 50%;
+        box-shadow: 0 0 5px rgba(0, 255, 0, 0.2);
+    }
+    50% {
+        background-position: 100% 50%;
+        box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+    }
+}
+
+@keyframes matrixRain {
+    from {
+        transform: translateY(-100%);
+    }
+    to {
+        transform: translateY(100vh);
+    }
+}
+
+.bot-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 2;
+
+    h3 {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 600;
+
+        .matrix-card & {
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            letter-spacing: 1px;
+        }
+    }
+}
+
+.bot-card-status {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+
+    &.matrix-status {
+        background: rgba(0, 255, 0, 0.2);
+        border: 1px solid #00ff00;
+        border-radius: 2px;
+        color: #00ff00;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        text-shadow: 0 0 5px rgba(0, 255, 0, 0.7);
+        animation: matrixPulse 2s ease-in-out infinite;
+    }
+}
+
+@keyframes matrixPulse {
+    0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+    }
+    50% {
+        opacity: 0.7;
+        box-shadow: 0 0 10px rgba(0, 255, 0, 0.6);
+    }
+}
+
+.bot-card-content {
+    position: relative;
+    z-index: 2;
+
+    .bot-description {
+        margin: 0;
+        font-size: 0.9rem;
+        opacity: 0.9;
+        line-height: 1.4;
+
+        .matrix-card & {
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+            opacity: 0.8;
+        }
+    }
+}
