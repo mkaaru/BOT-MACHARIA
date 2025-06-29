@@ -210,6 +210,72 @@
     95% { opacity: 1; }
 }
 
+.interruption-modal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    
+    .interruption-content {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 3rem 2rem;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        min-width: 300px;
+        
+        .interruption-icon {
+            margin-bottom: 1.5rem;
+            
+            svg {
+                animation: pulse 2s ease-in-out infinite;
+            }
+        }
+        
+        h2 {
+            color: #333;
+            margin-bottom: 2rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .refresh-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            
+            &:hover {
+                transform: translateY(-2px);
+            }
+        }
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+.matrix-loading-content.blurred {
+    filter: blur(5px);
+    opacity: 0.5;
+}
+
 @media (max-width: 768px) {
     .matrix-logo h1 {
         font-size: 2rem;
@@ -222,5 +288,15 @@
     
     .scanning-text .scanning-label {
         font-size: 1rem;
+    }
+    
+    .interruption-modal .interruption-content {
+        padding: 2rem 1.5rem;
+        margin: 0 1rem;
+        min-width: 280px;
+        
+        h2 {
+            font-size: 1.3rem;
+        }
     }
 }
