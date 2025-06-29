@@ -100,18 +100,21 @@ const PercentageTool: React.FC = () => {
     { name: 'Bull Market Index', price: '7777.77777', signal: 'EVEN', strength: 88, volume: '3.3K', change: 3.4 }
   ]);
 
+  // Risk disclaimer state
+  const [showRiskDisclaimer, setShowRiskDisclaimer] = useState(false);
+
   const wsRef = useRef<WebSocket | null>(null);
   const matrixCanvasRef = useRef<HTMLCanvasElement>(null);
   const signalTimerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Signal update timer - updates every 3 minutes
+  // Signal update timer - updates every 1 minute
   useEffect(() => {
     const updateSignals = () => {
       setIsScanning(true);
       setScanProgress(0);
       setLastSignalUpdate(Date.now());
-      setNextSignalUpdate(180); // Reset to 3 minutes
+      setNextSignalUpdate(60); // Reset to 1 minute
 
       // Simulate progressive scanning
       const progressInterval = setInterval(() => {
@@ -133,8 +136,8 @@ const PercentageTool: React.FC = () => {
     // Initial signal generation
     updateSignals();
 
-    // Set up 3-minute interval for signal updates
-    signalTimerRef.current = setInterval(updateSignals, 180000); // 3 minutes
+    // Set up 1-minute interval for signal updates
+    signalTimerRef.current = setInterval(updateSignals, 60000); // 1 minute
 
     return () => {
       if (signalTimerRef.current) {
@@ -151,7 +154,7 @@ const PercentageTool: React.FC = () => {
     countdownTimerRef.current = setInterval(() => {
       setNextSignalUpdate(prev => {
         if (prev <= 1) {
-          return 180; // Reset when it reaches 0
+          return 60; // Reset when it reaches 0
         }
         return prev - 1;
       });
@@ -265,14 +268,14 @@ const PercentageTool: React.FC = () => {
             [symbol]: [...(prev[symbol] || []).slice(-199), parseFloat(quote)] // Maintain 200 ticks
           }));
 
-          // Debounce signal generation to prevent flickering
+          // Debounce signal generation to prevent flickering - wait 1 minute
           if (signalUpdateDebounce) {
             clearTimeout(signalUpdateDebounce);
           }
           
           const newDebounce = setTimeout(() => {
             generateMarketSignals();
-          }, 2000); // Wait 2 seconds after last tick update
+          }, 60000); // Wait 1 minute after last tick update
           
           setSignalUpdateDebounce(newDebounce);
         }
@@ -1072,6 +1075,45 @@ const PercentageTool: React.FC = () => {
             ))}
           </div>
         </div>
+
+        {/* Floating Risk Disclaimer Button */}
+        <button 
+          className="risk-disclaimer-button"
+          onClick={() => setShowRiskDisclaimer(true)}
+        >
+          <span className="warning-icon">⚠</span>
+          Risk Disclaimer
+        </button>
+
+        {/* Risk Disclaimer Modal */}
+        {showRiskDisclaimer && (
+          <div className="risk-disclaimer-overlay">
+            <div className="risk-disclaimer-modal">
+              <h3>Risk Disclaimer</h3>
+              <div className="risk-disclaimer-content">
+                <p>
+                  Deriv offers complex derivatives, such as options and contracts for 
+                  difference ("CFDs"). These products may not be suitable for all clients, and 
+                  trading them puts you at risk. Please make sure that you understand the 
+                  following risks before trading Deriv products: a) you may lose some or all 
+                  of the money you invest in the trade, b) if your trade involves currency 
+                  conversion, exchange rates will affect your profit and loss. You should 
+                  never trade with borrowed money or with money that you cannot afford to 
+                  lose.
+                </p>
+                <p>
+                  <strong>Trading signals and analysis provided are for informational purposes only and should not be considered as financial advice. Past performance does not guarantee future results. Always conduct your own research and risk assessment before making trading decisions.</strong>
+                </p>
+              </div>
+              <button 
+                className="risk-disclaimer-understand-btn"
+                onClick={() => setShowRiskDisclaimer(false)}
+              >
+                I UNDERSTAND
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
