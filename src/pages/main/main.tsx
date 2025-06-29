@@ -375,25 +375,24 @@ const AppWrapper = observer(() => {
                                 <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
                                 <div className='free-bots__content-wrapper'>
                                     <div className='free-bots__content'>
-                                        {bots.map((bot, index) => (
+                                        {bots.filter(bot => !bot.isPlaceholder).map((bot, index) => (
                                             <div 
-                                                className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--placeholder' : ''}`} 
+                                                className='free-bot-card' 
                                                 key={index} 
                                                 onClick={() => {
                                                     handleBotClick(bot);
                                                 }}
                                                 style={{
-                                                    opacity: bot.isPlaceholder ? 0.7 : 1,
                                                     cursor: 'pointer'
                                                 }}
                                             >
                                                 <div className='free-bot-card__icon'>
-                                                    {bot.isPlaceholder ? '⚠️' : <BotIcon />}
+                                                    <BotIcon />
                                                 </div>
                                                 <div className='free-bot-card__details'>
                                                     <h3 className='free-bot-card__title'>{bot.title}</h3>
                                                     <p className='free-bot-card__description'>
-                                                        {bot.isPlaceholder ? 'Click to load this bot (will attempt download)' : 'Click to load this bot'}
+                                                        Click to load this bot
                                                     </p>
                                                 </div>
                                             </div>
