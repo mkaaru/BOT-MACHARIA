@@ -114,6 +114,27 @@ const AppWrapper = observer(() => {
     }, [clear, connectionStatus, stopBot]);
 
     useEffect(() => {
+        // Add global error handlers to prevent interruption dialogs
+        const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+            console.error('Unhandled promise rejection:', event.reason);
+            event.preventDefault(); // Prevent the error from being thrown
+        };
+
+        const handleError = (event: ErrorEvent) => {
+            console.error('Global error:', event.error);
+            event.preventDefault(); // Prevent the error from being thrown
+        };
+
+        window.addEventListener('unhandledrejection', handleUnhandledRejection);
+        window.addEventListener('error', handleError);
+
+        return () => {
+            window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+            window.removeEventListener('error', handleError);
+        };
+    }, []);
+
+    useEffect(() => {
         // Fetch all XML bot files from attached_assets
         const fetchBots = async () => {
             const botFiles = [
@@ -191,12 +212,21 @@ const AppWrapper = observer(() => {
             // Switch to bot builder tab first
             setActiveTab(DBOT_TABS.BOT_BUILDER);
             
-            // Wait for workspace to be available and ready
+            // Add a small delay to ensure tab switch completes
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Wait for workspace to be available and ready with timeout
             const waitForWorkspace = () => {
-                return new Promise((resolve) => {
+                return new Promise((resolve, reject) => {
+                    let attempts = 0;
+                    const maxAttempts = 100; // 10 seconds max
+                    
                     const checkWorkspace = () => {
+                        attempts++;
                         if (window.Blockly?.derivWorkspace) {
                             resolve(window.Blockly.derivWorkspace);
+                        } else if (attempts >= maxAttempts) {
+                            reject(new Error('Workspace not available after timeout'));
                         } else {
                             setTimeout(checkWorkspace, 100);
                         }
@@ -208,37 +238,32 @@ const AppWrapper = observer(() => {
             // Wait for workspace to be ready
             await waitForWorkspace();
             
-            // Use the load function from bot-skeleton to load the XML content
-            const { load } = await import('@/external/bot-skeleton');
-            const { save_types } = await import('@/external/bot-skeleton');
-            
-            try {
-                await load({
-                    block_string: bot.xmlContent,
-                    file_name: bot.title || 'Free Bot',
-                    workspace: window.Blockly.derivWorkspace,
-                    from: save_types.UNSAVED,
-                    drop_event: null,
-                    strategy_id: null,
-                    showIncompatibleStrategyDialog: false,
-                });
-                
-                console.log("Bot loaded successfully!");
-            } catch (loadError) {
-                console.error("Error loading bot:", loadError);
-                // Fallback: try using the load modal store method
-                try {
-                    await load_modal.loadFileFromContent(bot.xmlContent, bot.title);
-                    console.log("Bot loaded via fallback method!");
-                } catch (fallbackError) {
-                    console.error("Fallback loading also failed:", fallbackError);
-                }
+            // Clear workspace before loading new bot
+            if (window.Blockly?.derivWorkspace) {
+                window.Blockly.derivWorkspace.clear();
             }
+            
+            // Use the load function from bot-skeleton to load the XML content
+            const { load, save_types } = await import('@/external/bot-skeleton');
+            
+            await load({
+                block_string: bot.xmlContent,
+                file_name: bot.title || 'Free Bot',
+                workspace: window.Blockly.derivWorkspace,
+                from: save_types.UNSAVED,
+                drop_event: null,
+                strategy_id: null,
+                showIncompatibleStrategyDialog: false,
+            });
+            
+            console.log("Bot loaded successfully!");
             
         } catch (error) {
             console.error("Error loading bot:", error);
+            // Don't show error dialogs to user, just log the error
+            // The user can try again if needed
         }
-    }, [setActiveTab, load_modal]);
+    }, [setActiveTab]);
 
     const handleOpen = useCallback(async () => {
         await load_modal.loadFileFromRecent();

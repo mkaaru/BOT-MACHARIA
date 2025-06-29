@@ -539,11 +539,11 @@ export default class LoadModalStore {
             }
             
             if (!window.Blockly?.derivWorkspace) {
-                throw new Error('Blockly workspace not available after waiting');
+                console.warn('Blockly workspace not available after waiting');
+                return; // Don't throw error, just return silently
             }
             
-            const { load } = await import('@/external/bot-skeleton');
-            const { save_types } = await import('@/external/bot-skeleton');
+            const { load, save_types } = await import('@/external/bot-skeleton');
             
             await load({
                 block_string: xmlContent,
@@ -558,7 +558,7 @@ export default class LoadModalStore {
             console.log('Bot loaded successfully via loadFileFromContent');
         } catch (error) {
             console.error('Error loading XML content:', error);
-            throw error;
+            // Don't re-throw the error to prevent unhandled promise rejections
         }
     };
 
