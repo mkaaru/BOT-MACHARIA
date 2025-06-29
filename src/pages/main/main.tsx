@@ -138,15 +138,15 @@ const AppWrapper = observer(() => {
                 'Super Speed Even n\' Odd.xml',
                 'Updated Expert Wager Version 3.xml',
             ];
-            
+
             const loadedBots = [];
-            
+
             for (const file of botFiles) {
                 try {
                     // Try multiple fetch approaches for better compatibility
                     let response;
                     let text = null;
-                    
+
                     // Try public directory with encoded URI
                     try {
                         const encodedFile = encodeURIComponent(file);
@@ -157,7 +157,7 @@ const AppWrapper = observer(() => {
                     } catch (e) {
                         console.log(`Failed to fetch encoded: ${file}`);
                     }
-                    
+
                     // Try normal fetch if encoded didn't work
                     if (!text) {
                         try {
@@ -169,7 +169,7 @@ const AppWrapper = observer(() => {
                             console.log(`Failed to fetch normal: ${file}`);
                         }
                     }
-                    
+
                     // Try without leading slash
                     if (!text) {
                         try {
@@ -181,7 +181,7 @@ const AppWrapper = observer(() => {
                             console.log(`Failed to fetch without slash: ${file}`);
                         }
                     }
-                    
+
                     if (!text) {
                         console.warn(`Could not load bot file: ${file}`);
                         loadedBots.push({
@@ -193,7 +193,7 @@ const AppWrapper = observer(() => {
                         });
                         continue;
                     }
-                    
+
                     // Validate XML content
                     if (!text.trim().startsWith('<xml') && !text.trim().startsWith('<?xml')) {
                         console.warn(`Invalid XML content for ${file}`);
@@ -206,10 +206,10 @@ const AppWrapper = observer(() => {
                         });
                         continue;
                     }
-                    
+
                     const parser = new DOMParser();
                     const xml = parser.parseFromString(text, 'application/xml');
-                    
+
                     // Check if XML parsing was successful
                     const parseError = xml.getElementsByTagName('parsererror')[0];
                     if (parseError) {
@@ -223,7 +223,7 @@ const AppWrapper = observer(() => {
                         });
                         continue;
                     }
-                    
+
                     loadedBots.push({
                         title: file.replace('.xml', ''),
                         image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
@@ -231,9 +231,9 @@ const AppWrapper = observer(() => {
                         xmlContent: text,
                         isPlaceholder: false
                     });
-                    
+
                     console.log(`Successfully loaded: ${file}`);
-                    
+
                 } catch (error) {
                     console.error(`Error loading bot ${file}:`, error);
                     loadedBots.push({
@@ -245,7 +245,7 @@ const AppWrapper = observer(() => {
                     });
                 }
             }
-            
+
             setBots(loadedBots);
             console.log(`Loaded ${loadedBots.length} bots total`);
             console.log(`Successful: ${loadedBots.filter(b => !b.isPlaceholder).length}`);
@@ -272,23 +272,23 @@ const AppWrapper = observer(() => {
         setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
             console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
-            
+
             let xmlContent = bot.xmlContent;
-            
+
             // If it's a placeholder bot or no content, try to load the content now
             if (bot.isPlaceholder || !xmlContent) {
                 console.log("Attempting to load XML content for bot...");
                 try {
                     let response;
                     let success = false;
-                    
+
                     // Try multiple approaches
                     const attempts = [
                         `/${encodeURIComponent(bot.filePath)}`,
                         `/${bot.filePath}`,
                         bot.filePath
                     ];
-                    
+
                     for (const url of attempts) {
                         try {
                             response = await fetch(url);
@@ -302,19 +302,19 @@ const AppWrapper = observer(() => {
                             console.log(`Failed attempt with URL: ${url}`);
                         }
                     }
-                    
+
                     if (!success) {
                         throw new Error(`Could not fetch ${bot.filePath} from any URL`);
                     }
                 } catch (fetchError) {
                     console.error("Failed to load bot content:", fetchError);
-                    alert(`Sorry, could not load the bot "${bot.title}". The file may not be available. Please check that the XML file exists in the public directory.`);
+                    // Removed alert message
                     return;
                 }
             }
 
             if (!xmlContent || xmlContent.trim().length === 0) {
-                alert(`Error: Bot "${bot.title}" has no content to load.`);
+                //Removed alert message
                 return;
             }
 
@@ -323,7 +323,7 @@ const AppWrapper = observer(() => {
 
             // Validate XML content
             if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
-                alert(`Error: "${bot.title}" does not appear to be a valid XML file.`);
+                //Removed alert message
                 return;
             }
 
@@ -331,24 +331,24 @@ const AppWrapper = observer(() => {
                 try {
                     await load_modal.loadFileFromContent(xmlContent);
                     console.log("Bot loaded successfully!");
-                    
+
                     // Also update workspace name
                     if (typeof updateWorkspaceName === 'function') {
                         updateWorkspaceName(xmlContent);
                     }
                 } catch (loadError) {
                     console.error("Error in load_modal.loadFileFromContent:", loadError);
-                    alert(`Error loading bot into workspace: ${loadError.message || 'Unknown error'}`);
+                    //Removed alert message
                 }
             } else {
                 console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
                 console.log("load_modal object:", load_modal);
-                alert("Error: Bot loading function not available. Please try refreshing the page.");
+                //Removed alert message
             }
-            
+
         } catch (error) {
             console.error("Error loading bot:", error);
-            alert(`Error loading bot "${bot.title}": ${error.message || 'Unknown error'}`);
+             //Removed alert message
         }
     }, [setActiveTab, load_modal]);
 
@@ -387,15 +387,16 @@ const AppWrapper = observer(() => {
                                                     opacity: bot.isPlaceholder ? 0.7 : 1
                                                 }}
                                             >
-                                                <div className='free-bot-card__icon'>
-                                                    {bot.isPlaceholder ? (
-                                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
-                                                            <circle cx="12" cy="12" r="10" stroke="#1976D2" strokeWidth="2"/>
-                                                            <path d="M12 6v6l4 2" stroke="#1976D2" strokeWidth="2" strokeLinecap="round"/>
-                                                        </svg>
-                                                    ) : (
-                                                        <BotIcon />
-                                                    )}
+                                                 <div className='free-bot-card__icon'>
+                                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="#1976D2">
+                                                        <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
+                                                        <rect x="6" y="10" width="12" height="8" rx="2" fill="#1976D2"/>
+                                                        <circle cx="9" cy="13" r="1.5" fill="white"/>
+                                                        <circle cx="15" cy="13" r="1.5" fill="white"/>
+                                                        <rect x="10" y="15" width="4" height="1" rx="0.5" fill="white"/>
+                                                        <rect x="4" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
+                                                        <rect x="18" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
+                                                    </svg>
                                                 </div>
                                                 <div className='free-bot-card__details'>
                                                     <h3 className='free-bot-card__title'>{bot.title}</h3>
