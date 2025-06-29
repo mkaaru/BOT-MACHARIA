@@ -137,30 +137,65 @@ const AppWrapper = observer(() => {
                 'Super Speed Bot.xml',
                 'Super Speed Even n\' Odd.xml',
                 'Updated Expert Wager Version 3.xml',
-                // Add more paths to your XML files
             ];
-            const botPromises = botFiles.map(async (file) => {
+            
+            const loadedBots = [];
+            
+            for (const file of botFiles) {
                 try {
-                    const response = await fetch(file);
+                    // Try to fetch from public directory first
+                    let response = await fetch(`/${file}`);
+                    
                     if (!response.ok) {
-                        throw new Error(`Failed to fetch ${file}: ${response.statusText}`);
+                        // If that fails, try without leading slash
+                        response = await fetch(file);
                     }
+                    
+                    if (!response.ok) {
+                        console.warn(`Could not load bot file: ${file}`);
+                        // Create a placeholder bot entry even if file can't be loaded
+                        loadedBots.push({
+                            title: file.replace('.xml', ''),
+                            image: 'default_image_path',
+                            filePath: file,
+                            xmlContent: null, // Will be handled in handleBotClick
+                            isPlaceholder: true
+                        });
+                        continue;
+                    }
+                    
                     const text = await response.text();
                     const parser = new DOMParser();
                     const xml = parser.parseFromString(text, 'application/xml');
-                    return {
-                        title: file.split('/').pop(), // Use the file name as the title
+                    
+                    // Check if XML parsing was successful
+                    const parseError = xml.getElementsByTagName('parsererror')[0];
+                    if (parseError) {
+                        console.warn(`XML parsing error for ${file}:`, parseError.textContent);
+                    }
+                    
+                    loadedBots.push({
+                        title: file.replace('.xml', ''),
                         image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
                         filePath: file,
-                        xmlContent: text, // Store the XML content
-                    };
+                        xmlContent: text,
+                        isPlaceholder: false
+                    });
                 } catch (error) {
-                    console.error(error);
-                    return null;
+                    console.error(`Error loading bot ${file}:`, error);
+                    // Still add placeholder so bot appears in list
+                    loadedBots.push({
+                        title: file.replace('.xml', ''),
+                        image: 'default_image_path',
+                        filePath: file,
+                        xmlContent: null,
+                        isPlaceholder: true
+                    });
                 }
-            });
-            const bots = (await Promise.all(botPromises)).filter(Boolean);
-            setBots(bots);
+            }
+            
+            setBots(loadedBots);
+            console.log(`Loaded ${loadedBots.length} bots (${loadedBots.filter(b => !b.isPlaceholder).length} successful, ${loadedBots.filter(b => b.isPlaceholder).length} placeholders)`);
         };
 
         fetchBots();
@@ -179,25 +214,55 @@ const AppWrapper = observer(() => {
         [setActiveTab]
     );
 
-    const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string; title?: string }) => {
+    const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
         setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
             console.log("Loading bot:", bot.title, bot.filePath);
-            console.log("XML Content:", bot.xmlContent);
-
-            if (typeof load_modal.loadFileFromContent === 'function') {
+            
+            let xmlContent = bot.xmlContent;
+            
+            // If it's a placeholder bot, try to load the content now
+            if (bot.isPlaceholder || !xmlContent) {
+                console.log("Attempting to load XML content for placeholder bot...");
                 try {
-                    await load_modal.loadFileFromContent(bot.xmlContent);
+                    let response = await fetch(`/${bot.filePath}`);
+                    if (!response.ok) {
+                        response = await fetch(bot.filePath);
+                    }
+                    if (response.ok) {
+                        xmlContent = await response.text();
+                        console.log("Successfully loaded XML content on demand");
+                    } else {
+                        throw new Error(`Could not fetch ${bot.filePath}`);
+                    }
+                } catch (fetchError) {
+                    console.error("Failed to load bot content:", fetchError);
+                    alert(`Sorry, could not load the bot "${bot.title}". The file may not be available.`);
+                    return;
+                }
+            }
+
+            console.log("XML Content length:", xmlContent?.length);
+
+            if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
+                try {
+                    await load_modal.loadFileFromContent(xmlContent);
                     console.log("Bot loaded successfully!");
                 } catch (loadError) {
                     console.error("Error in load_modal.loadFileFromContent:", loadError);
+                    alert(`Error loading bot: ${loadError.message || 'Unknown error'}`);
                 }
             } else {
-                console.error("loadFileFromContent is not defined on load_modal");
+                console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
+                alert("Error: Bot loading function not available");
             }
-            updateWorkspaceName(bot.xmlContent);
+            
+            if (xmlContent) {
+                updateWorkspaceName(xmlContent);
+            }
         } catch (error) {
             console.error("Error loading bot:", error);
+            alert(`Error loading bot: ${error.message || 'Unknown error'}`);
         }
     }, [setActiveTab, load_modal, updateWorkspaceName]);
 
@@ -225,15 +290,25 @@ const AppWrapper = observer(() => {
                                 <div className='free-bots__content-wrapper'>
                                     <div className='free-bots__content'>
                                         {bots.map((bot, index) => (
-                                            <div className='free-bot-card' key={index} onClick={() => {
-                                                handleBotClick(bot);
-                                            }}>
+                                            <div 
+                                                className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--placeholder' : ''}`} 
+                                                key={index} 
+                                                onClick={() => {
+                                                    handleBotClick(bot);
+                                                }}
+                                                style={{
+                                                    opacity: bot.isPlaceholder ? 0.7 : 1,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
                                                 <div className='free-bot-card__icon'>
-                                                    <BotIcon />
+                                                    {bot.isPlaceholder ? '⚠️' : <BotIcon />}
                                                 </div>
                                                 <div className='free-bot-card__details'>
                                                     <h3 className='free-bot-card__title'>{bot.title}</h3>
-                                                    <p className='free-bot-card__description'>Click to load this bot</p>
+                                                    <p className='free-bot-card__description'>
+                                                        {bot.isPlaceholder ? 'Click to load this bot (will attempt download)' : 'Click to load this bot'}
+                                                    </p>
                                                 </div>
                                             </div>
                                         ))}
