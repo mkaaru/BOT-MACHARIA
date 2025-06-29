@@ -114,6 +114,10 @@ const PercentageTool: React.FC = () => {
   const [strongestSignal, setStrongestSignal] = useState<MarketSignal | null>(null);
   const [strongestSignalLastUpdate, setStrongestSignalLastUpdate] = useState<number>(0);
 
+   // Add state for popup notification
+  const [showSignalPopup, setShowSignalPopup] = useState(false);
+  const [popupSignal, setPopupSignal] = useState<MarketSignal | null>(null);
+
   // Signal update timer - updates every 1 minute
   useEffect(() => {
     const updateSignals = () => {
@@ -387,12 +391,25 @@ const PercentageTool: React.FC = () => {
       const currentStrongest = sortedSignals[0];
       const now = Date.now();
 
-      // Only update strongest signal if it's significantly different or enough time has passed
+      // Only update strongest signal if:
+      // 1. No existing signal, or
+      // 2. Significant change in volatility/trade type, or
+      // 3. Confidence improvement > 15%, or
+      // 4. At least 1 minute has passed and new signal strength is higher
       if (!strongestSignal || 
           currentStrongest.volatility !== strongestSignal.volatility ||
           currentStrongest.tradeType !== strongestSignal.tradeType ||
-          Math.abs(currentStrongest.confidence - strongestSignal.confidence) > 10 ||
-          now - strongestSignalLastUpdate > 30000) { // Update at least every 30 seconds
+          (currentStrongest.confidence - strongestSignal.confidence) > 15 ||
+          ((now - strongestSignalLastUpdate) > 60000 && currentStrongest.signalScore > strongestSignal.signalScore)) {
+
+        // Show popup notification for new strongest signal
+        setPopupSignal(currentStrongest);
+        setShowSignalPopup(true);
+
+        // Auto-hide popup after 5 seconds
+        setTimeout(() => {
+          setShowSignalPopup(false);
+        }, 5000);
 
         setStrongestSignal(currentStrongest);
         setStrongestSignalLastUpdate(now);
@@ -821,6 +838,33 @@ const PercentageTool: React.FC = () => {
           </div>
         </div>
          {/* Strongest Signal Panel */}
+         {showSignalPopup && popupSignal && (
+          <div className="popup-notification">
+            <h4>🔥 NEW STRONGEST SIGNAL DETECTED 🔥</h4>
+            <div className={`signal-card ${popupSignal.strength}`}>
+              <div className="signal-header">
+                <span className="volatility-name">{popupSignal.volatilityName}</span>
+                <span className={`signal-strength ${popupSignal.strength}`}>
+                  {popupSignal.strength.toUpperCase()}
+                </span>
+              </div>
+              <div className="signal-details">
+                <div className="trade-type">
+                  <span className="label">RECOMMENDED:</span>
+                  <span className="value">{popupSignal.tradeType}</span>
+                </div>
+                <div className="confidence">
+                  <span className="label">CONFIDENCE:</span>
+                  <span className="value">{popupSignal.confidence}%</span>
+                </div>
+                <div className="market-condition">
+                  <span className="label">CONDITION:</span>
+                  <span className="value">{popupSignal.condition}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="strongest-signal-panel">
           <h4>🔥 STRONGEST SIGNAL DETECTED 🔥</h4>
           {strongestSignal ? (
@@ -1139,7 +1183,7 @@ const PercentageTool: React.FC = () => {
         </div>
          <div className="comprehensive-analytics">
           <h4>COMPREHENSIVE MARKET ANALYTICS</h4>
-          
+
           {/* Market Overview Cards */}
           <div className="market-overview-cards">
             <div className="analytics-card market-sentiment">
@@ -1153,7 +1197,7 @@ const PercentageTool: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="analytics-card market-volatility">
               <h5>Market Volatility</h5>
               <div className="volatility-level">
@@ -1163,7 +1207,7 @@ const PercentageTool: React.FC = () => {
                 <span className="volatility-text">HIGH VOLATILITY</span>
               </div>
             </div>
-            
+
             <div className="analytics-card success-rate">
               <h5>AI Success Rate</h5>
               <div className="success-indicator">
