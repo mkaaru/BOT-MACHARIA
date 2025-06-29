@@ -1,0 +1,108 @@
+Compilation failed
+
+File: /home/runner/workspace/src/pages/main/main.tsx:1:1
+  × Module build failed:
+  ├─▶   ×   × Expected ';', '}' or <eof>
+  │     │      ╭─[/home/runner/workspace/src/pages/main/main.tsx:335:1]
+  │     │  332 │     });
+  │     │  333 │
+  │     │  334 │     export default AppWrapper;
+  │     │  335 │ ╭─▶ ```    const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string }) => {
+  │     │  336 │ │           setActiveTab(DBOT_TABS.BOT_BUILDER);
+  │     │  337 │ │           try {
+  │     │  338 │ │               console.log("Loading bot:", bot.title, bot.filePath);
+  │     │  339 │ │               console.log("XML Content:", bot.xmlContent);
+  │     │  340 │ │
+  │     │  341 │ │               if (typeof load_modal.loadFileFromContent === 'function') {
+  │     │  342 │ │                   try {
+  │     │  343 │ │                       await load_modal.loadFileFromContent(bot.xmlContent);
+  │     │  344 │ │                       console.log("Bot loaded successfully!");
+  │     │  345 │ │                   } catch (loadError) {
+  │     │  346 │ │                       console.error("Error in load_modal.loadFileFromContent:", loadError);
+  │     │  347 │ │                   }
+  │     │  348 │ │               } else {
+  │     │  349 │ │                   console.error("loadFileFromContent is not defined on load_modal");
+  │     │  350 │ │               }
+  │     │  351 │ │
+  │     │  352 │ │               // Load the strategy into the bot builder
+  │     │  353 │ │               const parser = new DOMParser();
+  │     │  354 │ │               const xmlDoc = parser.parseFromString(bot.xmlContent, 'application/xml');
+  │     │  355 │ │
+  │     │  356 │ │               // Update workspace with the loaded strategy
+  │     │  357 │ │               updateWorkspaceName(bot.title);
+  │     │  358 │ │
+  │     │  359 │ │               // Import the strategy (you may need to implement this based on your bot-skeleton)
+  │     │  360 │ │               if (window.Blockly && window.Blockly.Xml) {
+  │     │  361 │ │                   try {
+  │     │  362 │ │                       const workspace = window.Blockly.getMainWorkspace();
+  │     │  363 │ │                       if (workspace) {
+  │     │  364 │ │                           workspace.clear();
+  │     │  365 │ │                           window.Blockly.Xml.domToWorkspace(xmlDoc.documentElement, workspace);
+  │     │  366 │ │                       }
+  │     │  367 │ │                   } catch (blocklyError) {
+  │     │  368 │ │                       console.error('Error loading blocks:', blocklyError);
+  │     │  369 │ │                   }
+  │     │  370 │ │               }
+  │     │  371 │ │
+  │     │  372 │ │               console.log('Successfully loaded bot:', bot.title);
+  │     │  373 │ │           } catch (error) {
+  │     │  374 │ │               console.error('Error loading bot:', error);
+  │     │  375 │ │           }
+  │     │  376 │ │       }, [setActiveTab, load_modal, updateWorkspaceName]);
+  │     │  377 │ │
+  │     │  378 │ │       const handleOpen = useCallback(async () => {
+  │     │  379 │ │           await load_modal.loadFileFromRecent();
+  │     │  380 │ │           setActiveTab(DBOT_TABS.BOT_BUILDER);
+  │     │  381 │ │           // rudderStackSendDashboardClickEvent({ dashboard_click_name: 'open', subpage_name: 'bot_builder' });
+  │     │  382 │ │       }, [load_modal, setActiveTab]);
+  │     │  383 │ │
+  │     │  384 │ │       // Add toggle function
+  │     │  385 │ │       const toggleAnalysisTool = (url: string) => {
+  │     │  386 │ │           setAnalysisToolUrl(url);
+  │     │  387 │ │       };
+  │     │  388 │ │
+  │     │  389 │ │       const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.CHART, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.SIGNALS].includes(active_tab);
+  │     │  390 │ │
+  │     │  391 │ │       return (
+  │     │  392 │ │           <>
+  │     │  393 │ │               <div className='main'>
+  │     │  394 │ │                   <div className='main__container'>
+  │     │  395 │ │                       <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
+  │     │  396 │ │                           <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
+  │     │  397 │ │                               <div className='free-bots'>
+  │     │  398 │ │                                   <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
+  │     │  399 │ │                                   <div className='free-bots__content-wrapper'>
+  │     │  400 │ │                                       <div className='free-bots__content'>
+  │     │  401 │ │                                           {bots.map((bot, index) => (
+  │     │  402 │ │                                               <div className='free-bot-card' key={index} onClick={() => {
+  │     │  403 │ │                                                   handleBotClick(bot);
+  │     │  404 │ │                                               }} style={{ background: 'linear-gradient(to right, #E0F7FA, #B2EBF2)' }}>
+  │     │  405 │ │                                                   <div className='free-bot-card__icon'>
+  │     │  406 │ │                                                       <BotIcon />
+  │     │  407 │ │                                                   </div>
+  │     │  408 │ │                                                   <div className='free-bot-card__details'>
+  │     │  409 │ │                                                       <h3 className='free-bot-card__title' style={{ fontWeight: 'bold' }}>{bot.title}</h3>
+  │     │  410 │ │                                                       <p className='free-bot-card__description'>Click to load this bot</p>
+  │     │  411 │ │                                                   </div>
+  │     │  412 │ │                                               </div>
+  │     │  413 │ │                                           ))}
+  │     │  414 │ │                                            {/* New bots added here */}
+  │     │  415 │ │                                            <div className='free-bots__content'>
+  │     │  416 │ │                                           {[
+  │     │  417 │ │                                               { title: 'RSI Trading Bot', filePath: 'rsi_trading_bot.xml' },
+  │     │  418 │ │                                               { title: 'Martingale Bot', filePath: 'martingale_bot.xml' },
+  │     │  419 │ │                                               { title: 'Custom Bot 1', filePath: 'custom_bot_1.xml' },
+  │     │  420 │ │                                           ].map((bot, index) => (
+  │     │  421 │ ├─▶                                             <div className='free-bot-card' key={`new-bot-${index}`} onClick={() => {
+  │     │      · ╰───                                                                                 ───
+  │     │      · ╰──── This is the expression part of an expression statement
+  │     │  422 │                                                     handleBotClick(bot);
+  │     │  423 │                                                 }} style={{ background: 'linear-gradient(to right, #E0F7FA, #B2EBF2)' }}>
+  │     │  424 │                                                     <div className='free-bot-card__icon'>
+  │     │      ╰────
+  │     │
+  │   
+  ╰─▶ Syntax Error
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
