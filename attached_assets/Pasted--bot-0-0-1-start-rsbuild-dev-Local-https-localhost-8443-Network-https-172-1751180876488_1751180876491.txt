@@ -1,0 +1,58 @@
+> bot@0.0.1 start
+> rsbuild dev
+
+  ➜ Local:    https://localhost:8443/
+  ➜ Network:  https://172.31.128.52:8443/
+  ➜ press h + enter to show shortcuts
+
+start   Building...
+ready   Built in 5.38 s (web)
+warn    Compile Warning: 
+File: /home/runner/workspace/src/pages/bot-builder/quick-strategy/quick-strategy.scss:1:1
+  ⚠ ModuleWarning: Deprecation Warning on line 288, column 4 of file:///home/runner/workspace/src/components/shared/styles/_mixins.scss:288:4:
+  │ Sass's behavior for declarations that appear after nested
+  │ rules will be changing to match the behavior specified by CSS in an upcoming
+  │ version. To keep the existing behavior, move the declaration above the nested
+  │ rule. To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 288 |     display: flex;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 289:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+
+File: /home/runner/workspace/src/pages/bot-builder/quick-strategy/quick-strategy.scss:1:1
+  ⚠ ModuleWarning: Deprecation Warning on line 289, column 4 of file:///home/runner/workspace/src/components/shared/styles/_mixins.scss:289:4:
+  │ Sass's behavior for declarations that appear after nested
+  │ rules will be changing to match the behavior specified by CSS in an upcoming
+  │ version. To keep the existing behavior, move the declaration above the nested
+  │ rule. To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 289 |     align-items: $align-items;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 290:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+
+File: /home/runner/workspace/src/pages/bot-builder/quick-strategy/quick-strategy.scss:1:1
+  ⚠ ModuleWarning: Deprecation Warning on line 290, column 4 of file:///home/runner/workspace/src/components/shared/styles/_mixins.scss:290:4:
+  │ Sass's behavior for declarations that appear after nested
+  │ rules will be changing to match the behavior specified by CSS in an upcoming
+  │ version. To keep the existing behavior, move the declaration above the nested
+  │ rule. To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 290 |     justify-content: $justify-content;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 291:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+
