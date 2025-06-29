@@ -40,7 +40,7 @@ const PercentageTool: React.FC = () => {
     'R_75': [],
     'R_100': []
   });
-
+  const [ticksStorage, setTicksStorage] = useState<{ [key: string]: number[] }>({});
   const [percentageData, setPercentageData] = useState<PercentageData[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [selectedVolatility, setSelectedVolatility] = useState<string>('R_10');
@@ -67,6 +67,10 @@ const PercentageTool: React.FC = () => {
   ]);
   const wsRef = useRef<WebSocket | null>(null);
   const matrixCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const [nextSignalCountdown, setNextSignalCountdown] = useState(180); // Initial countdown value in seconds
+  const countdownIntervalRef = useRef<number | null>(null);
+  const signalUpdateIntervalRef = useRef<number | null>(null);
 
   // Matrix rain effect
   useEffect(() => {
@@ -131,61 +135,137 @@ const PercentageTool: React.FC = () => {
     }
   }, [isScanning]);
 
-  // WebSocket connection
+  // Initialize WebSocket connection and signal update logic
   useEffect(() => {
-    const connectWebSocket = () => {
-      wsRef.current = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
+    // Initialize WebSocket for real-time data
+    const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=52152');
+    wsRef.current = ws;
 
-      wsRef.current.onopen = () => {
-        setIsConnected(true);
-        console.log('WebSocket connected');
-
-        // Subscribe to volatility indices
-        ['1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', 'R_10', 'R_25', 'R_50', 'R_75', 'R_100'].forEach(symbol => {
-          wsRef.current?.send(JSON.stringify({
-            ticks_history: symbol,
-            count: 100,
-            end: 'latest',
-            style: 'ticks',
-            subscribe: 1
-          }));
-        });
-      };
-
-      wsRef.current.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-
-        if (data.history && data.history.prices) {
-          const symbol = data.echo_req.ticks_history;
-          const prices = data.history.prices.map((price: string) => parseFloat(price));
-          setTicksData(prev => ({
-            ...prev,
-            [symbol]: prices
-          }));
-        } else if (data.tick) {
-          const { symbol, quote } = data.tick;
-          setTicksData(prev => ({
-            ...prev,
-            [symbol]: [...(prev[symbol] || []).slice(-99), parseFloat(quote)]
-          }));
-        }
-      };
-
-      wsRef.current.onclose = () => {
-        setIsConnected(false);
-        setTimeout(connectWebSocket, 3000);
-      };
-
-      wsRef.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        setIsConnected(false);
-      };
+    ws.onopen = () => {
+      setIsConnected(true);
+      console.log('WebSocket connected');
+      // Subscribe to volatility indices with history
+      const symbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+      symbols.forEach(symbol => {
+        ws.send(JSON.stringify({
+          ticks_history: symbol,
+          count: 200,
+          end: 'latest',
+          style: 'ticks',
+          subscribe: 1
+        }));
+      });
     };
 
-    connectWebSocket();
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.history && data.history.prices) {
+        const symbol = data.echo_req.ticks_history;
+        setTicksStorage(prev => ({
+          ...prev,
+          [symbol]: data.history.prices.map((price: string) => parseFloat(price))
+        }));
+      } else if (data.tick) {
+        const { symbol, quote } = data.tick;
+        setTicksStorage(prev => {
+          const currentTicks = prev[symbol] || [];
+          const updatedTicks = [...currentTicks, parseFloat(quote)];
+          // Keep only last 200 ticks
+          return {
+            ...prev,
+            [symbol]: updatedTicks.slice(-200)
+          };
+        });
+      }
+    };
+
+    ws.onerror = (error) => {
+      setIsConnected(false);
+      console.error('WebSocket error:', error);
+    };
+
+    ws.onclose = () => {
+      setIsConnected(false);
+      console.log('WebSocket disconnected');
+    };
 
     return () => {
-      wsRef.current?.close();
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
+  }, []);
+
+  // Signal update and countdown logic
+  useEffect(() => {
+    const updateSignals = () => {
+      const symbols = Object.keys(ticksStorage);
+      const tradeTypes = ['rise_fall', 'even_odd', 'over_under'];
+      const newSuggestions = [];
+      let bestRecommendation = { volatility: '', tradeType: '', reason: '', confidence: 0 };
+
+      symbols.forEach(symbol => {
+        if (ticksStorage[symbol]?.length >= 50) {
+          tradeTypes.forEach(tradeType => {
+            const analysis = calculateAnalysis(symbol, tradeType);
+            const confidence = Math.round(analysis.strength * 100);
+
+            if (confidence > 50) {
+              newSuggestions.push({
+                volatility: getVolatilityDisplayName(symbol),
+                tradeType: getTradeTypes().find(t => t.value === tradeType)?.label || tradeType,
+                strength: confidence > 70 ? 'strong' : 'moderate',
+                confidence,
+                condition: analysis.recommendation
+              });
+
+              if (confidence > bestRecommendation.confidence) {
+                bestRecommendation = {
+                  volatility: getVolatilityDisplayName(symbol),
+                  tradeType: getTradeTypes().find(t => t.value === tradeType)?.label || tradeType,
+                  reason: analysis.recommendation,
+                  confidence
+                };
+              }
+            }
+          });
+        }
+      });
+
+      setMarketSuggestions(newSuggestions.slice(0, 5)); // Show top 5 suggestions
+      if (bestRecommendation.volatility) {
+        setTopRecommendation(bestRecommendation);
+      }
+    };
+
+    // Update signals every 3 minutes
+    signalUpdateIntervalRef.current = setInterval(updateSignals, 180000);
+
+    // Initial update after 5 seconds to allow data collection
+    setTimeout(updateSignals, 5000);
+
+    return () => {
+      if (signalUpdateIntervalRef.current) {
+        clearInterval(signalUpdateIntervalRef.current);
+      }
+    };
+  }, [ticksStorage]);
+
+  // Countdown timer
+  useEffect(() => {
+    countdownIntervalRef.current = setInterval(() => {
+      setNextSignalCountdown(prev => {
+        if (prev <= 1) {
+          return 180; // Reset to 3 minutes
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
     };
   }, []);
 
@@ -344,35 +424,51 @@ const PercentageTool: React.FC = () => {
     return '';
   };
 
-  const getTradeTypeAnalysis = (data: PercentageData, tradeType: string) => {
-    const recentTicks = data.digits.slice(-20);
+  const calculateAnalysis = (symbol: string, tradeType: string) => {
+    const ticks = ticksStorage[symbol];
+    if (!ticks?.length || ticks.length < 50) return { signal: 'NO DATA', strength: 0, recommendation: 'INSUFFICIENT DATA' };
+
+    // Use last 200 ticks for analysis, or all available if less than 200
+    const analysisLength = Math.min(ticks.length, 200);
+    const recentTicks = ticks.slice(-analysisLength);
+    const lastDigits = recentTicks.map(t => parseInt(t.toString().slice(-1)));
 
     switch (tradeType) {
       case 'even_odd':
-        const evenCount = recentTicks.filter(d => d % 2 === 0).length;
-        const oddCount = recentTicks.length - evenCount;
+        const evenCount = lastDigits.filter(d => d % 2 === 0).length;
+        const oddCount = lastDigits.length - evenCount;
+        const evenPercentage = (evenCount / lastDigits.length) * 100;
+        const oddPercentage = (oddCount / lastDigits.length) * 100;
         return {
-          signal: evenCount > oddCount ? 'ODD' : 'EVEN',
-          strength: Math.abs(evenCount - oddCount) / recentTicks.length,
-          recommendation: evenCount > oddCount * 1.2 ? 'STRONG ODD' : oddCount > evenCount * 1.2 ? 'STRONG EVEN' : 'NEUTRAL'
+          signal: evenPercentage > 55 ? 'EVEN' : oddPercentage > 55 ? 'ODD' : 'NEUTRAL',
+          strength: Math.abs(evenPercentage - oddPercentage) / 100,
+          recommendation: evenPercentage > 60 ? 'STRONG EVEN' : oddPercentage > 60 ? 'STRONG ODD' : 'NEUTRAL'
         };
 
       case 'over_under':
-        const overCount = recentTicks.filter(d => d >= 5).length;
-        const underCount = recentTicks.length - overCount;
+        const over5Count = lastDigits.filter(d => d > 4).length;
+        const under5Count = lastDigits.length - over5Count;
+        const overPercentage = (over5Count / lastDigits.length) * 100;
+        const underPercentage = (under5Count / lastDigits.length) * 100;
         return {
-          signal: overCount > underCount ? 'UNDER' : 'OVER',
-          strength: Math.abs(overCount - underCount) / recentTicks.length,
-          recommendation: overCount > underCount * 1.2 ? 'STRONG UNDER' : underCount > overCount * 1.2 ? 'STRONG OVER' : 'NEUTRAL'
+          signal: overPercentage > 55 ? 'OVER' : underPercentage > 55 ? 'UNDER' : 'NEUTRAL',
+          strength: Math.abs(overPercentage - underPercentage) / 100,
+          recommendation: overPercentage > 60 ? 'STRONG OVER' : underPercentage > 60 ? 'STRONG UNDER' : 'NEUTRAL'
         };
 
       case 'rise_fall':
-        const riseCount = recentTicks.slice(1).filter((tick, i) => tick > recentTicks[i]).length;
-        const fallCount = recentTicks.length - 1 - riseCount;
+        let riseCount = 0;
+        let fallCount = 0;
+        for (let i = 1; i < recentTicks.length; i++) {
+          if (recentTicks[i] > recentTicks[i - 1]) riseCount++;
+          else if (recentTicks[i] < recentTicks[i - 1]) fallCount++;
+        }
+        const risePercentage = (riseCount / (riseCount + fallCount)) * 100;
+        const fallPercentage = (fallCount / (riseCount + fallCount)) * 100;
         return {
-          signal: riseCount > fallCount ? 'FALL' : 'RISE',
-          strength: Math.abs(riseCount - fallCount) / (recentTicks.length - 1),
-          recommendation: riseCount > fallCount * 1.2 ? 'STRONG FALL' : fallCount > riseCount * 1.2 ? 'STRONG RISE' : 'NEUTRAL'
+          signal: risePercentage > 55 ? 'RISE' : fallPercentage > 55 ? 'FALL' : 'NEUTRAL',
+          strength: Math.abs(risePercentage - fallPercentage) / 100,
+          recommendation: risePercentage > 60 ? 'STRONG RISE' : fallPercentage > 60 ? 'STRONG FALL' : 'NEUTRAL'
         };
 
       default:
@@ -405,6 +501,31 @@ const PercentageTool: React.FC = () => {
       { value: 'over_under', label: 'Over/Under' },
       { value: 'rise_fall', label: 'Rise/Fall' }
     ];
+  };
+
+  const getMarketVolatilities = () => [
+    { value: 'R_10', label: 'Volatility 10 Index' },
+    { value: 'R_25', label: 'Volatility 25 Index' },
+    { value: 'R_50', label: 'Volatility 50 Index' },
+    { value: 'R_75', label: 'Volatility 75 Index' },
+    { value: 'R_100', label: 'Volatility 100 Index' }
+  ];
+
+  const getVolatilityDisplayName = (symbol: string) => {
+    const mapping: {[key: string]: string} = {
+      'R_10': 'Volatility 10 Index',
+      'R_25': 'Volatility 25 Index',
+      'R_50': 'Volatility 50 Index',
+      'R_75': 'Volatility 75 Index',
+      'R_100': 'Volatility 100 Index'
+    };
+    return mapping[symbol] || symbol;
+  };
+
+  const formatCountdown = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -444,26 +565,55 @@ const PercentageTool: React.FC = () => {
         <div className="market-scanner">
           <h3>INTELLIGENT MARKET SCANNER</h3>
           <div className="scanner-content">
-            {isScanning ? (
-              <div className="scanning-animation">
-                <div className="scanner-lines">
-                  {Array.from({ length: 10 }, (_, i) => (
-                    <div key={i} className="scan-line" style={{ animationDelay: `${i * 0.1}s` }}>
-                      <span className="scan-text">
-                        {scanningMessages[Math.floor(Math.random() * scanningMessages.length)]}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="scanning-progress">
-                  <div className="progress-bar" style={{ width: `${scanProgress}%` }}></div>
-                </div>
+            <div className="scanner-header">
+              <h3>🎯 Market Scanner</h3>
+              <div className="signal-countdown">
+                <span className="countdown-label">Next Signal in:</span>
+                <span className="countdown-timer">{formatCountdown(nextSignalCountdown)}</span>
+              </div>
+              {isScanning && (
                 <div className="scanning-status">
-                  <span className="status-text">ANALYZING MARKET DATA... {scanProgress}%</span>
+                  <div className="scanning-dots">
+                    <div className="dot"></div>
+                    <div className="dot"></div>
+                    <div className="dot"></div>
+                  </div>
+                  <span>Scanning...</span>
+                </div>
+              )}
+            </div>
+
+            {isScanning ? (
+              <div className="scanning-progress">
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${scanProgress}%` }}></div>
+                </div>
+                <div className="scanning-messages">
+                  {scanningMessages.map((message, index) => (
+                    <div key={index} className="scan-message">{message}</div>
+                  ))}
                 </div>
               </div>
             ) : (
               <div className="scan-results">
+                <div className="top-recommendation">
+                  <h4>🎯 TOP MARKET RECOMMENDATION</h4>
+                  <div className="recommendation-card">
+                    <div className="rec-volatility">
+                      <span className="rec-label">SUGGESTED VOLATILITY:</span>
+                      <span className="rec-value">{topRecommendation.volatility}</span>
+                    </div>
+                    <div className="rec-trade-type">
+                      <span className="rec-label">TRADE TYPE:</span>
+                      <span className="rec-value">{topRecommendation.tradeType}</span>
+                    </div>
+                    <div className="rec-reason">
+                      <span className="rec-label">ANALYSIS:</span>
+                      <span className="rec-value">{topRecommendation.reason}</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="strongest-signals">
                   <h4>STRONGEST TRADING SIGNALS DETECTED</h4>
                   <div className="signal-cards">
@@ -493,24 +643,6 @@ const PercentageTool: React.FC = () => {
                     ))}
                   </div>
                 </div>
-
-                <div className="top-recommendation">
-                  <h4>🎯 TOP MARKET RECOMMENDATION</h4>
-                  <div className="recommendation-card">
-                    <div className="rec-volatility">
-                      <span className="rec-label">SUGGESTED VOLATILITY:</span>
-                      <span className="rec-value">{topRecommendation.volatility}</span>
-                    </div>
-                    <div className="rec-trade-type">
-                      <span className="rec-label">TRADE TYPE:</span>
-                      <span className="rec-value">{topRecommendation.tradeType}</span>
-                    </div>
-                    <div className="rec-reason">
-                      <span className="rec-label">ANALYSIS:</span>
-                      <span className="rec-value">{topRecommendation.reason}</span>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
           </div>
@@ -518,7 +650,7 @@ const PercentageTool: React.FC = () => {
 
         <div className="analysis-grid">
           {percentageData.filter(data => data.symbol === selectedVolatility).map((data) => {
-            const tradeAnalysis = getTradeTypeAnalysis(data, selectedTradeType);
+            const tradeAnalysis = calculateAnalysis(data.symbol, selectedTradeType);
             return (
               <div key={data.symbol} className="analysis-card main-analysis">
                 <div className="card-header">
