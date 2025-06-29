@@ -820,7 +820,8 @@ const PercentageTool: React.FC = () => {
             {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
           </div>
         </div>
-         {/* Strongest Signal Panel */}
+         {/* Strongest Signal Panel - Hidden */}
+        {/* 
         <div className="strongest-signal-panel">
           <h4>🔥 STRONGEST SIGNAL DETECTED 🔥</h4>
           {strongestSignal ? (
@@ -850,6 +851,7 @@ const PercentageTool: React.FC = () => {
             <span>Scanning for strongest signal...</span>
           )}
         </div>
+        */}
         <div className="market-scanner">
           <div className="scanner-header">
             <h3>INTELLIGENT MARKET SCANNER</h3>
