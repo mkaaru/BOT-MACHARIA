@@ -21,8 +21,4 @@ args = "npm run start"
 
 [[ports]]
 localPort = 5001
-externalPort = 3000
-
-[[ports]]
-localPort = 8443
 externalPort = 80
