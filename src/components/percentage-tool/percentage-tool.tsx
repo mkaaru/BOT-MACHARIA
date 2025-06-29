@@ -74,11 +74,31 @@ const PercentageTool: React.FC = () => {
     'Identifying Strongest Patterns...',
     'Generating Trading Signals...'
   ]);
-  
+
   // Signal update timer states
   const [nextSignalUpdate, setNextSignalUpdate] = useState(180); // 3 minutes in seconds
   const [lastSignalUpdate, setLastSignalUpdate] = useState(Date.now());
-  
+
+  const [tradeAnalysis, setTradeAnalysis] = useState({
+    signal: 'EVEN',
+    recommendation: 'Strong Buy',
+    strength: 0.87,
+    confidence: 92
+  });
+
+  const [volatilitySignals, setVolatilitySignals] = useState([
+    { name: 'Volatility 10 Index', price: '6303.55600', signal: 'EVEN', strength: 87, volume: '2.4K', change: 2.3 },
+    { name: 'Volatility 25 Index', price: '4521.33421', signal: 'ODD', strength: 73, volume: '1.8K', change: -1.2 },
+    { name: 'Volatility 50 Index', price: '3987.12456', signal: 'MATCH', strength: 91, volume: '3.1K', change: 4.1 },
+    { name: 'Volatility 75 Index', price: '5432.87654', signal: 'EVEN', strength: 65, volume: '1.5K', change: -0.8 },
+    { name: 'Volatility 100 Index', price: '7845.23198', signal: 'ODD', strength: 82, volume: '2.9K', change: 3.7 },
+    { name: 'Boom 1000 Index', price: '9876.54321', signal: 'MATCH', strength: 78, volume: '2.2K', change: 1.5 },
+    { name: 'Crash 1000 Index', price: '1234.56789', signal: 'EVEN', strength: 69, volume: '1.7K', change: -2.1 },
+    { name: 'Step Index', price: '5555.55555', signal: 'ODD', strength: 84, volume: '2.6K', change: 2.8 },
+    { name: 'Bear Market Index', price: '3333.33333', signal: 'MATCH', strength: 76, volume: '1.9K', change: 0.9 },
+    { name: 'Bull Market Index', price: '7777.77777', signal: 'EVEN', strength: 88, volume: '3.3K', change: 3.4 }
+  ]);
+
   const wsRef = useRef<WebSocket | null>(null);
   const matrixCanvasRef = useRef<HTMLCanvasElement>(null);
   const signalTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -91,7 +111,7 @@ const PercentageTool: React.FC = () => {
       setScanProgress(0);
       setLastSignalUpdate(Date.now());
       setNextSignalUpdate(180); // Reset to 3 minutes
-      
+
       // Simulate progressive scanning
       const progressInterval = setInterval(() => {
         setScanProgress(prev => {
@@ -264,32 +284,32 @@ const PercentageTool: React.FC = () => {
   // Generate market signals based on real data analysis
   const generateMarketSignals = () => {
     const signals: MarketSignal[] = [];
-    
+
     Object.entries(ticksData).forEach(([symbol, ticks]) => {
       if (ticks.length < 200) return;
 
       const volatilityName = getVolatilityName(symbol);
-      
+
       // Analyze last 200 ticks for signal strength
       const recentTicks = ticks.slice(-200);
       const digits = recentTicks.map(tick => parseInt(tick.toString().slice(-1)));
-      
+
       // Calculate various signal strengths
       const evenOddAnalysis = analyzeEvenOdd(digits);
       const overUnderAnalysis = analyzeOverUnder(digits);
       const riseFactAnalysis = analyzeRiseFall(recentTicks);
-      
+
       // Determine strongest signal
       const analyses = [
         { type: 'Even/Odd', ...evenOddAnalysis },
         { type: 'Over/Under', ...overUnderAnalysis },
         { type: 'Rise/Fall', ...riseFactAnalysis }
       ];
-      
+
       const strongestSignal = analyses.reduce((prev, current) => 
         current.strength > prev.strength ? current : prev
       );
-      
+
       signals.push({
         volatility: symbol,
         volatilityName,
@@ -304,7 +324,7 @@ const PercentageTool: React.FC = () => {
     // Sort by signal strength and take top signals
     const sortedSignals = signals.sort((a, b) => b.signalScore - a.signalScore);
     setMarketSuggestions(sortedSignals.slice(0, 6)); // Show top 6 signals
-    
+
     // Set top recommendation
     if (sortedSignals.length > 0) {
       const topSignal = sortedSignals[0];
@@ -320,7 +340,7 @@ const PercentageTool: React.FC = () => {
     const evenCount = digits.filter(d => d % 2 === 0).length;
     const oddCount = digits.length - evenCount;
     const bias = Math.abs(evenCount - oddCount) / digits.length;
-    
+
     return {
       strength: bias,
       condition: evenCount > oddCount ? 'Even Bias Detected' : 'Odd Bias Detected',
@@ -332,7 +352,7 @@ const PercentageTool: React.FC = () => {
     const overCount = digits.filter(d => d >= 5).length;
     const underCount = digits.length - overCount;
     const bias = Math.abs(overCount - underCount) / digits.length;
-    
+
     return {
       strength: bias,
       condition: overCount > underCount ? 'Over Bias Detected' : 'Under Bias Detected',
@@ -343,14 +363,14 @@ const PercentageTool: React.FC = () => {
   const analyzeRiseFall = (ticks: number[]) => {
     let riseCount = 0;
     let fallCount = 0;
-    
+
     for (let i = 1; i < ticks.length; i++) {
       if (ticks[i] > ticks[i - 1]) riseCount++;
       else if (ticks[i] < ticks[i - 1]) fallCount++;
     }
-    
+
     const bias = Math.abs(riseCount - fallCount) / (ticks.length - 1);
-    
+
     return {
       strength: bias,
       condition: riseCount > fallCount ? 'Upward Trend' : 'Downward Trend',
@@ -889,6 +909,21 @@ const PercentageTool: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+         <div className="volatility-signals">
+          <h4>Volatility Indices Signals</h4>
+          <div className="signals-grid">
+            {volatilitySignals.map((signal, index) => (
+              <div className="signal-item" key={index}>
+                <span className="signal-name">{signal.name}</span>
+                <span className="signal-price">Price: {signal.price}</span>
+                <span className="signal-type">Signal: {signal.signal}</span>
+                <span className="signal-strength">Strength: {signal.strength}%</span>
+                <span className="signal-volume">Volume: {signal.volume}</span>
+                <span className="signal-change">Change: {signal.change}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
