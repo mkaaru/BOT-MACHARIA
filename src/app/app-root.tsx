@@ -3,7 +3,6 @@ import { observer } from 'mobx-react-lite';
 import ErrorBoundary from '@/components/error-component/error-boundary';
 import ErrorComponent from '@/components/error-component/error-component';
 import ChunkLoader from '@/components/loader/chunk-loader';
-import MatrixLoading from '@/components/matrix-loading';
 import TradingAssesmentModal from '@/components/trading-assesment-modal';
 import { api_base } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
@@ -39,8 +38,6 @@ const AppRoot = () => {
     const store = useStore();
     const api_base_initialized = useRef(false);
     const [is_api_initialized, setIsApiInitialized] = useState(false);
-    const [show_matrix_loading, setShowMatrixLoading] = useState(true);
-    const [app_ready, setAppReady] = useState(false);
 
     useEffect(() => {
         const initializeApi = async () => {
@@ -54,31 +51,7 @@ const AppRoot = () => {
         initializeApi();
     }, []);
 
-    const handleMatrixLoadingComplete = () => {
-        setShowMatrixLoading(false);
-        setAppReady(true);
-    };
-
-    if (!store || !is_api_initialized) {
-        return (
-            <>
-                <MatrixLoading 
-                    isVisible={show_matrix_loading} 
-                    onComplete={handleMatrixLoadingComplete}
-                />
-                {!show_matrix_loading && <AppRootLoader />}
-            </>
-        );
-    }
-
-    if (show_matrix_loading) {
-        return (
-            <MatrixLoading 
-                isVisible={show_matrix_loading} 
-                onComplete={handleMatrixLoadingComplete}
-            />
-        );
-    }
+    if (!store || !is_api_initialized) return <AppRootLoader />;
 
     return (
         <Suspense fallback={<AppRootLoader />}>
