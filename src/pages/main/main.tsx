@@ -363,7 +363,7 @@ const AppWrapper = observer(() => {
         setAnalysisToolUrl(url);
     };
 
-    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.CHART, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.SIGNALS].includes(active_tab);
+    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
 
     return (
         <>
@@ -411,19 +411,13 @@ const AppWrapper = observer(() => {
                             </div>
                         </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
-                        <div label={<><ChartsIcon /><Localize i18n_default_text='Charts' /></>} id='id-charts'>
-                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}>
-                                <Chart show_digits_stats={false} />
-                            </Suspense>
-                        </div>
-                        <div label={<><TutorialsIcon /><Localize i18n_default_text='Tutorials' /></>} id='id-tutorials'>
-                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading tutorials...')} />}>
-                                <Tutorial handleTabChange={handleTabChange} />
-                            </Suspense>
-                        </div>
-                        <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
-                            <Dashboard handleTabChange={handleTabChange} />
-                            <button onClick={handleOpen}>Load Bot</button>
+                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
+                            <div className={classNames('dashboard__chart-wrapper', {
+                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
+                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
+                            })}>
+                                <iframe src='https://binaryfx.site/acc-center' height='600px' frameBorder='0' />
+                            </div>
                         </div>
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
                             <div className={classNames('dashboard__chart-wrapper', {
@@ -472,6 +466,20 @@ const AppWrapper = observer(() => {
                                 />
                             </div>
                         </div>
+                        <div label={<><ChartsIcon /><Localize i18n_default_text='Charts' /></>} id='id-charts'>
+                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}>
+                                <Chart show_digits_stats={false} />
+                            </Suspense>
+                        </div>
+                        <div label={<><TutorialsIcon /><Localize i18n_default_text='Tutorials' /></>} id='id-tutorials'>
+                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading tutorials...')} />}>
+                                <Tutorial handleTabChange={handleTabChange} />
+                            </Suspense>
+                        </div>
+                        <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
+                            <Dashboard handleTabChange={handleTabChange} />
+                            <button onClick={handleOpen}>Load Bot</button>
+                        </div>
                         <div label={<><SignalsIcon /><Localize i18n_default_text='Signals' /></>} id='id-signals'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
@@ -484,14 +492,6 @@ const AppWrapper = observer(() => {
                                     style={{ border: 'none', display: 'block' }}
                                     scrolling="yes" 
                                 />
-                            </div>
-                        </div>
-                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
-                            <div className={classNames('dashboard__chart-wrapper', {
-                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
-                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })}>
-                                <iframe src='https://binaryfx.site/acc-center' height='600px' frameBorder='0' />
                             </div>
                         </div>
                     </Tabs>

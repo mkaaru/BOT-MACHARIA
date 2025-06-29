@@ -11,16 +11,16 @@ export const tabs_title: TTabsTitle = Object.freeze({
     CHART: 'Chart',
 });
 
-export const DBOT_TABS: TDashboardTabIndex = Object.freeze({
+export const DBOT_TABS = {
     FREE_BOTS: 0,
     BOT_BUILDER: 1,
-    CHART: 2,
-    TUTORIAL: 3,
-    ANALYSIS_TOOL: 4,
-    SIGNALS: 5,
+    TRADING_HUB: 2,
+    ANALYSIS_TOOL: 3,
+    CHART: 4,
+    TUTORIAL: 5,
     DASHBOARD: 6,
-
-});
+    SIGNALS: 7,
+} as const;
 
 export const MAX_STRATEGIES = 10;
 
