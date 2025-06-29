@@ -1,0 +1,103 @@
+
+<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <variables>
+    <variable id="XSBe.@kGe^oO{Q}qzhuN">% return</variable>
+    <variable id="La:_zTw{G0#OAi$rQ/.d">stake</variable>
+    <variable id="04q-.{_G9CBq.X?}P%IO">initial_stake</variable>
+    <variable id="PT$/n3r(93P7|v+-%Z:1">Take Profit</variable>
+    <variable id="T4K2eTJ*aWG9)14(IbLA">Expected Profit</variable>
+    <variable id="[JqTezGs|XI__n+r|^=z">total_lost</variable>
+    <variable id="S[tY,FqC12p:kfT^VLxC">initial_acc_take_profit</variable>
+    <variable id="[^Q7)A01y-@q!py6Gk`q">TP</variable>
+    <variable id="(^zcuRk{$#v1bMFGn-V[">Max Loss</variable>
+    <variable id="lYL57o(*helT*W(/I6XE">martingale</variable>
+  </variables>
+  <block type="trade_definition" id="_X.p:m=oq%~ovM~5/*bZ" deletable="false" x="0" y="60">
+    <statement name="TRADE_OPTIONS">
+      <block type="trade_definition_market" id="wwpO4C}AF`{rMt#;TAno" deletable="false" movable="false">
+        <field name="MARKET_LIST">synthetic_index</field>
+        <field name="SUBMARKET_LIST">random_index</field>
+        <field name="SYMBOL_LIST">1HZ10V</field>
+        <next>
+          <block type="trade_definition_tradetype" id="qfW2S=SdF?D!umatJ8|[" deletable="false" movable="false">
+            <field name="TRADETYPECAT_LIST">accumulator</field>
+            <field name="TRADETYPE_LIST">accumulator</field>
+            <next>
+              <block type="trade_definition_contracttype" id="%q,#{iUx9mab].$97lz#" deletable="false" movable="false">
+                <field name="TYPE_LIST">ACCU</field>
+                <next>
+                  <block type="trade_definition_candleinterval" id="{k#;S%V)wG~4r]{o,|/G" deletable="false" movable="false">
+                    <field name="CANDLEINTERVAL_LIST">60</field>
+                    <next>
+                      <block type="trade_definition_restartbuysell" id=".33J:D3i^%ZlP{[ndN]@" deletable="false" movable="false">
+                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                        <next>
+                          <block type="trade_definition_restartonerror" id=":Se/q/Q[vY!DjSWCQh4@" deletable="false" movable="false">
+                            <field name="RESTARTONERROR">TRUE</field>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="INITIALIZATION">
+      <block type="variables_set" id="1k.{ZgG/T1|`~)MQ6`u|">
+        <field name="VAR" id="La:_zTw{G0#OAi$rQ/.d">stake</field>
+        <value name="VALUE">
+          <block type="math_number" id="b}O;@tW?a2qx#:]3@EZb">
+            <field name="NUM">2</field>
+          </block>
+        </value>
+        <next>
+          <block type="variables_set" id="yN0Rx~0a4v[AsR7`haXV">
+            <field name="VAR" id="T4K2eTJ*aWG9)14(IbLA">Expected Profit</field>
+            <value name="VALUE">
+              <block type="math_number" id="fSXRt2MnM[?U8Jtn1w0R">
+                <field name="NUM">5</field>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id="M,BNE)U]ddbP`pP=C(z.">
+                <field name="VAR" id="(^zcuRk{$#v1bMFGn-V[">Max Loss</field>
+                <value name="VALUE">
+                  <block type="math_number" id="c5)~~MkSwD)d9OjVVOF^">
+                    <field name="NUM">35</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="r7K):8|XT*PrZ?~ocY`@">
+                    <field name="VAR" id="lYL57o(*helT*W(/I6XE">martingale</field>
+                    <value name="VALUE">
+                      <block type="math_number" id="F)]E0]E.l~wGx.,xPu6D">
+                        <field name="NUM">3</field>
+                      </block>
+                    </value>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="SUBMARKET">
+      <block type="trade_definition_accumulator" id="#/,5Gyyr.:=|xiHHF=,R">
+        <field name="GROWTHRATE_LIST">0.03</field>
+        <value name="AMOUNT">
+          <shadow type="math_number_positive" id="ae@W?P9),$0UYfg-T(Np">
+            <field name="NUM">1</field>
+          </shadow>
+          <block type="variables_get" id="(6x4sSmCujjK+%9-tlkZ">
+            <field name="VAR" id="La:_zTw{G0#OAi$rQ/.d">stake</field>
+          </block>
+        </value>
+      </block>
+    </statement>
+  </block>
+</xml>

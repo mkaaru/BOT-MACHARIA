@@ -1,0 +1,316 @@
+
+<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  
+  <variables>
+    
+    <variable id="*S5@jR!:6fNu_jGh29XP">Target Profit</variable>
+    
+    <variable id="#zfdvs@F;$O(rYcB/,RJ">Stop Loss</variable>
+    
+    <variable id="l/g[COS_p$y={!V:[u*:">First Stake</variable>
+    
+    <variable id="}PYb?[K00*b[IHmPgA7k">Martingale Factor</variable>
+    
+    <variable id="X#UMfnUF|OeyRcxIN~Y4">Martingale Level</variable>
+    
+    <variable id="-sYH8a;P)v}g?!iatjL,">Do Martingale After</variable>
+    
+    <variable id="BPsrb}:o?nCP7t]1@Rfq">[Win Result]</variable>
+    
+    <variable id="dK=o~;7~9dr8wCZ%hyh,">Detail Profit</variable>
+    
+    <variable id="ddH0?/^#_8u1VjM/!`t|">Profit</variable>
+    
+    <variable id="#S5]i9_E6vE_6t^_dYeJ">Continue</variable>
+    
+    <variable id="RMbK)by1LEnp^9@HKC(*">Stake</variable>
+    
+    <variable id="k:EcRUy)u-26FkWUoszO">FirstStake</variable>
+    
+    <variable id="RRH]M7%0M)Zi;ridyo7}">Win Count</variable>
+    
+    <variable id="^(Gy/YRFAMn6r6Ekap/J">Loss Count</variable>
+    
+    <variable id="!c%d*XBHYNv0h]4+]*nj">TargetProfit</variable>
+    
+    <variable id="m(@~SI$PI9_=9gVd*zl9">Stoploss</variable>
+    
+    <variable id="0+2#g0Tyh=0b=a(l6T@n">text</variable>
+    
+    <variable id="JIZO[e-A^9:9$zy?Kuw-">text1</variable>
+    
+    <variable id="[~%IWPApAWAU4`63rDfr">MartiLossLevel</variable>
+    
+    <variable id="/VJ7O.)sAJmm47`,|W=v">Loss Level</variable>
+    
+    <variable id="umJ^/{8q8p55:]m_8J^^">text2</variable>
+    
+    <variable id=":A(nDZDt5~/IS:5Q7?jx">text3</variable>
+    
+    <variable id="ezm;s,8YY7`S_pxNx+{s">MartiFactor</variable>
+    
+    <variable id="Nxx}Lsm5Mjf|D~2!Dj%V">MartiStart</variable>
+  
+  </variables>
+  
+  <block type="trade_definition" id="/x_@CLlCS^G^#AyDs=HT" deletable="false" x="0" y="110">
+    
+    <statement name="TRADE_OPTIONS">
+      
+      <block type="trade_definition_market" id="Rzmw$jP6|=me%`BiOh)q" deletable="false" movable="false">
+        
+        <field name="MARKET_LIST">synthetic_index</field>
+        
+        <field name="SUBMARKET_LIST">random_index</field>
+        
+        <field name="SYMBOL_LIST">1HZ100V</field>
+        
+        <next>
+          
+          <block type="trade_definition_tradetype" id="d}hrB!ZF!]yev+5!Ib2G" deletable="false" movable="false">
+            
+            <field name="TRADETYPECAT_LIST">callput</field>
+            
+            <field name="TRADETYPE_LIST">callput</field>
+            
+            <next>
+              
+              <block type="trade_definition_contracttype" id="R|7eJ^85+SiP`z1[Z)^O" deletable="false" movable="false">
+                
+                <field name="TYPE_LIST">PUT</field>
+                
+                <next>
+                  
+                  <block type="trade_definition_candleinterval" id="HK(?MF0V2Ix!gIo5`K3L" deletable="false" movable="false">
+                    
+                    <field name="CANDLEINTERVAL_LIST">60</field>
+                    
+                    <next>
+                      
+                      <block type="trade_definition_restartbuysell" id="9[7aOA!Aw=18%#g@@`zf" deletable="false" movable="false">
+                        
+                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                        
+                        <next>
+                          
+                          <block type="trade_definition_restartonerror" id="W}=HD~WV}a9ww;jHuOO=" deletable="false" movable="false">
+                            
+                            <field name="RESTARTONERROR">TRUE</field>
+                          
+                          </block>
+                        
+                        </next>
+                      
+                      </block>
+                    
+                    </next>
+                  
+                  </block>
+                
+                </next>
+              
+              </block>
+            
+            </next>
+          
+          </block>
+        
+        </next>
+      
+      </block>
+    
+    </statement>
+    
+    <statement name="INITIALIZATION">
+      
+      <block type="procedures_callnoreturn" id="eP/^XD=g@h_l8kgpnWV`">
+        
+        <mutation xmlns="http://www.w3.org/1999/xhtml" name="Daily Profit's System">
+          
+          <arg name="Target Profit"></arg>
+          
+          <arg name="Stop Loss"></arg>
+          
+          <arg name="First Stake"></arg>
+          
+          <arg name="Martingale Factor"></arg>
+          
+          <arg name="Martingale Level"></arg>
+          
+          <arg name="Do Martingale After"></arg>
+        
+        </mutation>
+        
+        <value name="ARG0">
+          
+          <block type="math_number" id="yvjGDiLTH9{oE}E[Ugcr">
+            
+            <field name="NUM">300</field>
+          
+          </block>
+        
+        </value>
+        
+        <value name="ARG1">
+          
+          <block type="math_number" id="wf/G-u}1:C]]HmvYUAU7">
+            
+            <field name="NUM">150</field>
+          
+          </block>
+        
+        </value>
+        
+        <value name="ARG2">
+          
+          <block type="math_number" id="nyccI$!UUt/Fhbdj{GG;">
+            
+            <field name="NUM">100</field>
+          
+          </block>
+        
+        </value>
+        
+        <value name="ARG3">
+          
+          <block type="math_number" id="EA{iVZBt2Y}Bv8vQO[)O">
+            
+            <field name="NUM">2</field>
+          
+          </block>
+        
+        </value>
+        
+        <value name="ARG4">
+          
+          <block type="math_number" id="k?60Te%+I(Bv-z`S4B*/">
+            
+            <field name="NUM">1</field>
+          
+          </block>
+        
+        </value>
+        
+        <value name="ARG5">
+          
+          <block type="math_number" id="hGY_gUl}p^8`8fdLRm3N">
+            
+            <field name="NUM">1</field>
+          
+          </block>
+        
+        </value>
+      
+      </block>
+    
+    </statement>
+    
+    <statement name="SUBMARKET">
+      
+      <block type="trade_definition_tradeoptions" id=";[Ns/i15.H[/Q/[h*?%^">
+        
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="false"></mutation>
+        
+        <field name="DURATIONTYPE_LIST">t</field>
+        
+        <value name="DURATION">
+          
+          <shadow type="math_number" id="Ia#w0tyx*0+vf=EH{:TA">
+            
+            <field name="NUM">1</field>
+          
+          </shadow>
+        
+        </value>
+        
+        <value name="AMOUNT">
+          
+          <shadow type="math_number" id="f#sNG`I(V*^T)Mb3;!n.">
+            
+            <field name="NUM">0.35</field>
+          
+          </shadow>
+          
+          <block type="variables_get" id="MpL156$Kf4FnXUmr2:Lj">
+            
+            <field name="VAR" id="RMbK)by1LEnp^9@HKC(*">Stake</field>
+          
+          </block>
+        
+        </value>
+      
+      </block>
+    
+    </statement>
+  
+  </block>
+  
+  <block type="after_purchase" id="Zc4VeKaW1/F_j$%QK^.H" x="1354" y="110">
+    
+    <statement name="AFTERPURCHASE_STACK">
+      
+      <block type="controls_if" id="!RqD2`C:Q/FssWS`ZiMX">
+        
+        <value name="IF0">
+          
+          <block type="procedures_callreturn" id="$f6^)PtfgsT51EC]w6ar">
+            
+            <mutation xmlns="http://www.w3.org/1999/xhtml" name="Daily Profit's Trade Again">
+              
+              <arg name="[Win Result]"></arg>
+              
+              <arg name="Detail Profit"></arg>
+            
+            </mutation>
+            
+            <value name="ARG0">
+              
+              <block type="contract_check_result" id=")C[@1{;gA)zxX(%Job7)">
+                
+                <field name="CHECK_RESULT">win</field>
+              
+              </block>
+            
+            </value>
+            
+            <value name="ARG1">
+              
+              <block type="read_details" id="3!Y}DH=?uR?e%[/|bF$-">
+                
+                <field name="DETAIL_INDEX">4</field>
+              
+              </block>
+            
+            </value>
+          
+          </block>
+        
+        </value>
+        
+        <statement name="DO0">
+          
+          <block type="trade_again" id="=It{G{[c{NMlDVo{(iWL"></block>
+        
+        </statement>
+      
+      </block>
+    
+    </statement>
+  
+  </block>
+  
+  <block type="before_purchase" id="WKBhcIx=}gmy*a5P*vga" deletable="false" x="0" y="788">
+    
+    <statement name="BEFOREPURCHASE_STACK">
+      
+      <block type="purchase" id=",{0hGLktcVm;D_NDd`$U">
+        
+        <field name="PURCHASE_LIST">PUT</field>
+      
+      </block>
+    
+    </statement>
+  
+  </block>
+
+</xml>
