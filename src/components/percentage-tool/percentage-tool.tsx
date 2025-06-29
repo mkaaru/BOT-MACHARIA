@@ -78,6 +78,7 @@ const PercentageTool: React.FC = () => {
   // Signal update timer states
   const [nextSignalUpdate, setNextSignalUpdate] = useState(180); // 3 minutes in seconds
   const [lastSignalUpdate, setLastSignalUpdate] = useState(Date.now());
+  const [signalUpdateDebounce, setSignalUpdateDebounce] = useState<NodeJS.Timeout | null>(null);
 
   const [tradeAnalysis, setTradeAnalysis] = useState({
     signal: 'EVEN',
@@ -138,6 +139,9 @@ const PercentageTool: React.FC = () => {
     return () => {
       if (signalTimerRef.current) {
         clearInterval(signalTimerRef.current);
+      }
+      if (signalUpdateDebounce) {
+        clearTimeout(signalUpdateDebounce);
       }
     };
   }, [ticksData]);
@@ -260,6 +264,17 @@ const PercentageTool: React.FC = () => {
             ...prev,
             [symbol]: [...(prev[symbol] || []).slice(-199), parseFloat(quote)] // Maintain 200 ticks
           }));
+
+          // Debounce signal generation to prevent flickering
+          if (signalUpdateDebounce) {
+            clearTimeout(signalUpdateDebounce);
+          }
+          
+          const newDebounce = setTimeout(() => {
+            generateMarketSignals();
+          }, 2000); // Wait 2 seconds after last tick update
+          
+          setSignalUpdateDebounce(newDebounce);
         }
       };
 
@@ -281,7 +296,7 @@ const PercentageTool: React.FC = () => {
     };
   }, []);
 
-  // Generate market signals based on real data analysis
+  // Generate market signals based on real data analysis with stability checks
   const generateMarketSignals = () => {
     const signals: MarketSignal[] = [];
 
@@ -290,49 +305,70 @@ const PercentageTool: React.FC = () => {
 
       const volatilityName = getVolatilityName(symbol);
 
-      // Analyze last 200 ticks for signal strength
+      // Analyze last 200 ticks for signal strength with stability
       const recentTicks = ticks.slice(-200);
       const digits = recentTicks.map(tick => parseInt(tick.toString().slice(-1)));
 
-      // Calculate various signal strengths
-      const evenOddAnalysis = analyzeEvenOdd(digits);
-      const overUnderAnalysis = analyzeOverUnder(digits);
-      const riseFactAnalysis = analyzeRiseFall(recentTicks);
+      // Calculate various signal strengths with minimum threshold
+      const evenOddAnalysis = analyzeEvenOddStable(digits);
+      const overUnderAnalysis = analyzeOverUnderStable(digits);
+      const riseFactAnalysis = analyzeRiseFallStable(recentTicks);
 
-      // Determine strongest signal
+      // Only include signals with minimum strength to avoid flickering
       const analyses = [
         { type: 'Even/Odd', ...evenOddAnalysis },
         { type: 'Over/Under', ...overUnderAnalysis },
         { type: 'Rise/Fall', ...riseFactAnalysis }
-      ];
+      ].filter(analysis => analysis.strength >= 0.15); // Minimum threshold
 
+      if (analyses.length === 0) return; // Skip if no stable signals
+
+      // Determine strongest signal with stability factor
       const strongestSignal = analyses.reduce((prev, current) => 
         current.strength > prev.strength ? current : prev
       );
 
-      signals.push({
-        volatility: symbol,
-        volatilityName,
-        tradeType: strongestSignal.type,
-        strength: strongestSignal.strength > 0.7 ? 'strong' : strongestSignal.strength > 0.4 ? 'medium' : 'weak',
-        confidence: Math.round(strongestSignal.strength * 100),
-        condition: strongestSignal.condition,
-        signalScore: strongestSignal.strength
-      });
+      // Only add signals that meet stability criteria
+      if (strongestSignal.strength >= 0.2) {
+        signals.push({
+          volatility: symbol,
+          volatilityName,
+          tradeType: strongestSignal.type,
+          strength: strongestSignal.strength > 0.6 ? 'strong' : strongestSignal.strength > 0.35 ? 'medium' : 'weak',
+          confidence: Math.round(Math.min(strongestSignal.strength * 100, 95)), // Cap at 95%
+          condition: strongestSignal.condition,
+          signalScore: strongestSignal.strength
+        });
+      }
     });
 
-    // Sort by signal strength and take top signals
+    // Only update if there's a significant change in top signals
     const sortedSignals = signals.sort((a, b) => b.signalScore - a.signalScore);
-    setMarketSuggestions(sortedSignals.slice(0, 6)); // Show top 6 signals
+    const topSignals = sortedSignals.slice(0, 6);
 
-    // Set top recommendation
-    if (sortedSignals.length > 0) {
-      const topSignal = sortedSignals[0];
-      setTopRecommendation({
-        volatility: topSignal.volatilityName,
-        tradeType: topSignal.tradeType,
-        reason: `${topSignal.confidence}% confidence - ${topSignal.condition}`
+    // Check if signals have changed significantly
+    const hasSignificantChange = marketSuggestions.length === 0 || 
+      topSignals.length !== marketSuggestions.length ||
+      topSignals.some((signal, index) => {
+        const existing = marketSuggestions[index];
+        return !existing || 
+               signal.volatility !== existing.volatility ||
+               signal.tradeType !== existing.tradeType ||
+               Math.abs(signal.confidence - existing.confidence) > 5;
       });
+
+    if (hasSignificantChange) {
+      setMarketSuggestions(topSignals);
+
+      // Set top recommendation only if there's a meaningful signal
+      if (sortedSignals.length > 0 && sortedSignals[0].confidence >= 65) {
+        const topSignal = sortedSignals[0];
+        setTopRecommendation({
+          volatility: topSignal.volatilityName,
+          tradeType: topSignal.tradeType,
+          reason: `${topSignal.confidence}% confidence - ${topSignal.condition}`
+        });
+      }
     }
   };
 
@@ -374,6 +410,117 @@ const PercentageTool: React.FC = () => {
     return {
       strength: bias,
       condition: riseCount > fallCount ? 'Upward Trend' : 'Downward Trend',
+      recommendation: riseCount > fallCount ? 'Fall' : 'Rise'
+    };
+  };
+
+  // Stable analysis functions with improved thresholds and consistency checks
+  const analyzeEvenOddStable = (digits: number[]) => {
+    const evenCount = digits.filter(d => d % 2 === 0).length;
+    const oddCount = digits.length - evenCount;
+    const bias = Math.abs(evenCount - oddCount) / digits.length;
+
+    // Check consistency across different segments
+    const segment1 = digits.slice(0, 50);
+    const segment2 = digits.slice(50, 100);
+    const segment3 = digits.slice(100, 150);
+    const segment4 = digits.slice(150, 200);
+
+    const segments = [segment1, segment2, segment3, segment4];
+    const segmentBiases = segments.map(segment => {
+      const evenSeg = segment.filter(d => d % 2 === 0).length;
+      const oddSeg = segment.length - evenSeg;
+      return evenSeg > oddSeg ? 'even' : 'odd';
+    });
+
+    // Check if bias is consistent across segments
+    const consistentBias = segmentBiases.filter(b => b === (evenCount > oddCount ? 'even' : 'odd')).length >= 3;
+    const stabilityFactor = consistentBias ? 1.2 : 0.8;
+
+    return {
+      strength: bias * stabilityFactor,
+      condition: evenCount > oddCount ? 'Consistent Even Bias Pattern' : 'Consistent Odd Bias Pattern',
+      recommendation: evenCount > oddCount ? 'Odd' : 'Even'
+    };
+  };
+
+  const analyzeOverUnderStable = (digits: number[]) => {
+    const overCount = digits.filter(d => d >= 5).length;
+    const underCount = digits.length - overCount;
+    const bias = Math.abs(overCount - underCount) / digits.length;
+
+    // Check for streak patterns
+    let overStreaks = 0;
+    let underStreaks = 0;
+    let currentStreak = 0;
+    let currentType = digits[0] >= 5 ? 'over' : 'under';
+
+    for (let i = 1; i < digits.length; i++) {
+      const type = digits[i] >= 5 ? 'over' : 'under';
+      if (type === currentType) {
+        currentStreak++;
+      } else {
+        if (currentStreak >= 2) {
+          if (currentType === 'over') overStreaks++;
+          else underStreaks++;
+        }
+        currentStreak = 1;
+        currentType = type;
+      }
+    }
+
+    const streakConsistency = Math.abs(overStreaks - underStreaks) > 0 ? 1.1 : 1.0;
+
+    return {
+      strength: bias * streakConsistency,
+      condition: overCount > underCount ? 'Strong Over Pattern with Streaks' : 'Strong Under Pattern with Streaks',
+      recommendation: overCount > underCount ? 'Under' : 'Over'
+    };
+  };
+
+  const analyzeRiseFallStable = (ticks: number[]) => {
+    let riseCount = 0;
+    let fallCount = 0;
+    let consecutiveRises = 0;
+    let consecutiveFalls = 0;
+    let maxRiseStreak = 0;
+    let maxFallStreak = 0;
+
+    for (let i = 1; i < ticks.length; i++) {
+      if (ticks[i] > ticks[i - 1]) {
+        riseCount++;
+        consecutiveRises++;
+        consecutiveFalls = 0;
+        maxRiseStreak = Math.max(maxRiseStreak, consecutiveRises);
+      } else if (ticks[i] < ticks[i - 1]) {
+        fallCount++;
+        consecutiveFalls++;
+        consecutiveRises = 0;
+        maxFallStreak = Math.max(maxFallStreak, consecutiveFalls);
+      } else {
+        consecutiveRises = 0;
+        consecutiveFalls = 0;
+      }
+    }
+
+    const bias = Math.abs(riseCount - fallCount) / (ticks.length - 1);
+    
+    // Add momentum factor based on recent trend strength
+    const recent20 = ticks.slice(-20);
+    let recentRises = 0;
+    let recentFalls = 0;
+    
+    for (let i = 1; i < recent20.length; i++) {
+      if (recent20[i] > recent20[i - 1]) recentRises++;
+      else if (recent20[i] < recent20[i - 1]) recentFalls++;
+    }
+    
+    const momentumFactor = Math.abs(recentRises - recentFalls) / 19;
+    const stabilityFactor = 1 + (momentumFactor * 0.3);
+
+    return {
+      strength: bias * stabilityFactor,
+      condition: riseCount > fallCount ? 'Strong Upward Momentum Detected' : 'Strong Downward Momentum Detected',
       recommendation: riseCount > fallCount ? 'Fall' : 'Rise'
     };
   };
