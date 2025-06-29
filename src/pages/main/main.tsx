@@ -1,4 +1,3 @@
-typescript
 import React, { lazy, Suspense, useEffect, useState, useCallback } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
@@ -164,7 +163,7 @@ const AppWrapper = observer(() => {
         [setActiveTab]
     );
 
-    const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string }) => {
+    const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string; title?: string }) => {
         setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
             console.log("Loading bot:", bot.title, bot.filePath);
@@ -182,7 +181,7 @@ const AppWrapper = observer(() => {
             }
             updateWorkspaceName(bot.xmlContent);
         } catch (error) {
-            console.error("Error loading bot file:", error);
+            console.error("Error loading bot:", error);
         }
     }, [setActiveTab, load_modal, updateWorkspaceName]);
 
@@ -222,246 +221,6 @@ const AppWrapper = observer(() => {
                                                 </div>
                                             </div>
                                         ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
-                        <div label={<><ChartsIcon /><Localize i18n_default_text='Charts' /></>} id='id-charts'>
-                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}>
-                                <Chart show_digits_stats={false} />
-                            </Suspense>
-                        </div>
-                        <div label={<><TutorialsIcon /><Localize i18n_default_text='Tutorials' /></>} id='id-tutorials'>
-                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading tutorials...')} />}>
-                                <Tutorial handleTabChange={handleTabChange} />
-                            </Suspense>
-                        </div>
-                        <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
-                            <Dashboard handleTabChange={handleTabChange} />
-                            <button onClick={handleOpen}>Load Bot</button>
-                        </div>
-                        <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
-                            <div className={classNames('dashboard__chart-wrapper', {
-                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
-                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })}>
-                                <div style={{ 
-                                    display: 'flex', 
-                                    gap: '8px', 
-                                    padding: '8px', 
-                                    borderBottom: '1px solid var(--border-normal)'
-                                }}>
-                                    <button 
-                                        onClick={() => toggleAnalysisTool('ai')}
-                                        style={{ 
-                                            backgroundColor: analysisToolUrl === 'ai' ? 'var(--button-primary-default)' : 'transparent',
-                                            color: analysisToolUrl === 'ai' ? 'white' : 'var(--text-general)',
-                                            padding: '8px 16px',
-                                            border: '1px solid var(--border-normal)',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        A Tool
-                                    </button>
-                                    <button 
-                                        onClick={() => toggleAnalysisTool('ldpanalyzer')}
-                                        style={{ 
-                                            backgroundColor: analysisToolUrl === 'ldpanalyzer' ? 'var(--button-primary-default)' : 'transparent',
-                                            color: analysisToolUrl === 'ldpanalyzer' ? 'white' : 'var(--text-general)',
-                                            padding: '8px 16px',
-                                            border: '1px solid var(--border-normal)',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        LDP Tool
-                                    </button>
-                                </div>
-                                <iframe 
-                                    src={analysisToolUrl} 
-                                    width="100%"
-                                    height="600px"
-                                    style={{ border: 'none', display: 'block' }}
-                                    scrolling="yes"
-                                />
-                            </div>
-                        </div>
-                        <div label={<><SignalsIcon /><Localize i18n_default_text='Signals' /></>} id='id-signals'>
-                            <div className={classNames('dashboard__chart-wrapper', {
-                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
-                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })}>
-                                <iframe 
-                                    src='signals' 
-                                    width="100%"
-                                    height="600px"
-                                    style={{ border: 'none', display: 'block' }}
-                                    scrolling="yes" 
-                                />
-                            </div>
-                        </div>
-                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
-                            <div className={classNames('dashboard__chart-wrapper', {
-                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
-                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })}>
-                                <iframe src='https://binaryfx.site/acc-center' height='600px' frameBorder='0' />
-                            </div>
-                        </div>
-                    </Tabs>
-                </div>
-            </div>
-            <DesktopWrapper>
-                <div className='main__run-strategy-wrapper'>
-                    <RunStrategy />
-                    {showRunPanel && <RunPanel />}
-                </div>
-                <ChartModal />
-                <TradingViewModal />
-            </DesktopWrapper>
-            <MobileWrapper>
-                <RunPanel />
-            </MobileWrapper>
-            <Dialog cancel_button_text={cancel_button_text || localize('Cancel')} confirm_button_text={ok_button_text || localize('Ok')} has_close_icon is_visible={is_dialog_open} onCancel={onCancelButtonClick} onClose={onCloseDialog} onConfirm={onOkButtonClick || onCloseDialog} title={title}>
-                {message}
-            </Dialog>
-        </>
-    );
-});
-
-export default AppWrapper;
-        setActiveTab(DBOT_TABS.BOT_BUILDER);
-        try {
-            console.log("Loading bot:", bot.title, bot.filePath);
-            console.log("XML Content:", bot.xmlContent);
-
-            if (typeof load_modal.loadFileFromContent === 'function') {
-                try {
-                    await load_modal.loadFileFromContent(bot.xmlContent);
-                    console.log("Bot loaded successfully!");
-                } catch (loadError) {
-                    console.error("Error in load_modal.loadFileFromContent:", loadError);
-                }
-            } else {
-                console.error("loadFileFromContent is not defined on load_modal");
-            }
-
-            // Load the strategy into the bot builder
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(bot.xmlContent, 'application/xml');
-
-            // Update workspace with the loaded strategy
-            updateWorkspaceName(bot.title);
-
-            // Import the strategy (you may need to implement this based on your bot-skeleton)
-            if (window.Blockly && window.Blockly.Xml) {
-                try {
-                    const workspace = window.Blockly.getMainWorkspace();
-                    if (workspace) {
-                        workspace.clear();
-                        window.Blockly.Xml.domToWorkspace(xmlDoc.documentElement, workspace);
-                    }
-                } catch (blocklyError) {
-                    console.error('Error loading blocks:', blocklyError);
-                }
-            }
-
-            console.log('Successfully loaded bot:', bot.title);
-        } catch (error) {
-            console.error('Error loading bot:', error);
-        }
-    }, [setActiveTab, load_modal, updateWorkspaceName]);
-
-    const handleOpen = useCallback(async () => {
-        await load_modal.loadFileFromRecent();
-        setActiveTab(DBOT_TABS.BOT_BUILDER);
-        // rudderStackSendDashboardClickEvent({ dashboard_click_name: 'open', subpage_name: 'bot_builder' });
-    }, [load_modal, setActiveTab]);
-
-    // Add toggle function
-    const toggleAnalysisTool = (url: string) => {
-        setAnalysisToolUrl(url);
-    };
-
-    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.CHART, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.SIGNALS].includes(active_tab);
-
-    return (
-        <>
-            <div className='main'>
-                <div className='main__container'>
-                    <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
-                        <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
-                            <div className='free-bots'>
-                                <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
-                                <div className='free-bots__content-wrapper'>
-                                    <div className='free-bots__content'>
-                                        {bots.map((bot, index) => (
-                                            <div className='free-bot-card' key={index} onClick={() => {
-                                                handleBotClick(bot);
-                                            }} style={{ background: 'linear-gradient(to right, #E0F7FA, #B2EBF2)' }}>
-                                                <div className='free-bot-card__icon'>
-                                                    <BotIcon />
-                                                </div>
-                                                <div className='free-bot-card__details'>
-                                                    <h3 className='free-bot-card__title' style={{ fontWeight: 'bold' }}>{bot.title}</h3>
-                                                    <p className='free-bot-card__description'>Click to load this bot</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {/* New bots from attached files */}
-                                        {[
-                                            { title: '2025 Updated Expert Speed Bot', filePath: '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1_1751182890962.xml', xmlContent: '' },
-                                            { title: '2025 Updated Candle Mine', filePath: '3 2025 Updated Version Of Candle Mine🇬🇧_1751182890964.xml', xmlContent: '' },
-                                            { title: 'Accumulators Pro Bot', filePath: 'Accumulators Pro Bot_1751182890965.xml', xmlContent: '' },
-                                            { title: 'AI with Entry Point', filePath: 'AI with Entry Point_1751182890965.xml', xmlContent: '' },
-                                            { title: 'Binary Flipper AI Robot Plus', filePath: 'BINARY FLIPPER AI ROBOT PLUS +_1751182890966.xml', xmlContent: '' },
-                                            { title: 'Binary Tool Wizard AI Bot', filePath: 'BINARYTOOL WIZARD  AI BOT_1751182890966.xml', xmlContent: '' },
-                                            { title: 'Binary Tool Differ V2.0', filePath: 'BINARYTOOL@ DIFFER V2.0 (1) (1)_1751182890967.xml', xmlContent: '' },
-                                            { title: 'Even Odd Thunder AI Pro Bot', filePath: 'BINARYTOOL@EVEN ODD THUNDER AI PRO BOT_1751182890968.xml', xmlContent: '' },
-                                            { title: 'Even & Odd AI Bot', filePath: 'BINARYTOOL@EVEN&ODD AI BOT (2)_1751182890969.xml', xmlContent: '' },
-                                            { title: 'Entry Point Scanner', filePath: 'Entry Point Scanner_1751182890970.xml', xmlContent: '' },
-                                            { title: 'Even Odd Auto DBot V1.01', filePath: 'Even_Odd_Auto_DBot V1.01 (1)_1751182890971.xml', xmlContent: '' },
-                                            { title: 'Expert Wager V3 (Over Under)', filePath: 'Expert Wager V3 (Over Under Bot)_1751182890971.xml', xmlContent: '' },
-                                            { title: 'Expert Wager V4 (Even Odd)', filePath: 'Expert Wager V4 (Even Odd)_1751182890972.xml', xmlContent: '' },
-                                            { title: 'Expert Speed Bot by Dollar Printer', filePath: 'Expert_Speed_Bot_By_CHOSEN_DOLLAR_PRINTER_FX📉📉📉📈📈📈_1751182890973.xml', xmlContent: '' },
-                                            { title: 'MKorean SV5 Speed Bot', filePath: 'MKOREAN SV5 SPEED BOT_1751182890974.xml', xmlContent: '' },
-                                            { title: 'Reversal Psychology Over Auto Bot', filePath: 'Reversal Psychology {Over Auto Bot}_1751182890975.xml', xmlContent: '' },
-                                            { title: 'Updated Expert Wager V3', filePath: 'Updated Expert Wager Version 3_1751182890976.xml', xmlContent: '' }
-                                        ].map((bot, index) => (
-                                            <div className='free-bot-card' key={`new-bot-${index}`} onClick={() => {
-                                                handleBotClick(bot);
-                                            }} style={{ background: 'linear-gradient(to right, #E0F7FA, #B2EBF2)' }}>
-                                                <div className='free-bot-card__icon'>
-                                                    <BotIcon />
-                                                </div>
-                                                <div className='free-bot-card__details'>
-                                                    <h3 className='free-bot-card__title' style={{ fontWeight: 'bold' }}>{bot.title}</h3>
-                                                    <p className='free-bot-card__description'>Click to load this bot</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                         {/* New bots added here */}
-                                         <div className='free-bots__content'>
-                                        {[
-                                            { title: 'RSI Trading Bot', filePath: 'rsi_trading_bot.xml' },
-                                            { title: 'Martingale Bot', filePath: 'martingale_bot.xml' },
-                                            { title: 'Custom Bot 1', filePath: 'custom_bot_1.xml' },
-                                        ].map((bot, index) => (
-                                            <div className='free-bot-card' key={`new-bot-${index}`} onClick={() => {
-                                                handleBotClick(bot);
-                                            }} style={{ background: 'linear-gradient(to right, #E0F7FA, #B2EBF2)' }}>
-                                                <div className='free-bot-card__icon'>
-                                                    <BotIcon />
-                                                </div>
-                                                <div className='free-bot-card__details'>
-                                                    <h3 className='free-bot-card__title' style={{ fontWeight: 'bold' }}>{bot.title}</h3>
-                                                    <p className='free-bot-card__description'>Click to load this bot</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
                                     </div>
                                 </div>
                             </div>
