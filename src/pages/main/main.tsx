@@ -191,33 +191,54 @@ const AppWrapper = observer(() => {
             // Switch to bot builder tab first
             setActiveTab(DBOT_TABS.BOT_BUILDER);
             
+            // Wait for workspace to be available and ready
+            const waitForWorkspace = () => {
+                return new Promise((resolve) => {
+                    const checkWorkspace = () => {
+                        if (window.Blockly?.derivWorkspace) {
+                            resolve(window.Blockly.derivWorkspace);
+                        } else {
+                            setTimeout(checkWorkspace, 100);
+                        }
+                    };
+                    checkWorkspace();
+                });
+            };
+            
+            // Wait for workspace to be ready
+            await waitForWorkspace();
+            
             // Use the load function from bot-skeleton to load the XML content
             const { load } = await import('@/external/bot-skeleton');
             const { save_types } = await import('@/external/bot-skeleton');
             
-            // Wait a bit for the workspace to be ready
-            setTimeout(async () => {
+            try {
+                await load({
+                    block_string: bot.xmlContent,
+                    file_name: bot.title || 'Free Bot',
+                    workspace: window.Blockly.derivWorkspace,
+                    from: save_types.UNSAVED,
+                    drop_event: null,
+                    strategy_id: null,
+                    showIncompatibleStrategyDialog: false,
+                });
+                
+                console.log("Bot loaded successfully!");
+            } catch (loadError) {
+                console.error("Error loading bot:", loadError);
+                // Fallback: try using the load modal store method
                 try {
-                    await load({
-                        block_string: bot.xmlContent,
-                        file_name: bot.title || 'Free Bot',
-                        workspace: window.Blockly?.derivWorkspace,
-                        from: save_types.UNSAVED,
-                        drop_event: null,
-                        strategy_id: null,
-                        showIncompatibleStrategyDialog: false,
-                    });
-                    
-                    console.log("Bot loaded successfully!");
-                } catch (loadError) {
-                    console.error("Error loading bot:", loadError);
+                    await load_modal.loadFileFromContent(bot.xmlContent, bot.title);
+                    console.log("Bot loaded via fallback method!");
+                } catch (fallbackError) {
+                    console.error("Fallback loading also failed:", fallbackError);
                 }
-            }, 500);
+            }
             
         } catch (error) {
             console.error("Error loading bot:", error);
         }
-    }, [setActiveTab]);
+    }, [setActiveTab, load_modal]);
 
     const handleOpen = useCallback(async () => {
         await load_modal.loadFileFromRecent();
@@ -242,19 +263,29 @@ const AppWrapper = observer(() => {
                                 <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
                                 <div className='free-bots__content-wrapper'>
                                     <div className='free-bots__content'>
-                                        {bots.map((bot, index) => (
-                                            <div className='free-bot-card' key={index} onClick={() => {
-                                                handleBotClick(bot);
-                                            }}>
-                                                <div className='free-bot-card__icon'>
-                                                    <BotIcon />
+                                        {bots.length > 0 ? (
+                                            bots.map((bot, index) => (
+                                                <div className='free-bot-card' key={index} onClick={() => {
+                                                    try {
+                                                        handleBotClick(bot);
+                                                    } catch (error) {
+                                                        console.error('Error clicking bot:', error);
+                                                    }
+                                                }}>
+                                                    <div className='free-bot-card__icon'>
+                                                        <BotIcon />
+                                                    </div>
+                                                    <div className='free-bot-card__details'>
+                                                        <h3 className='free-bot-card__title'>{bot.title}</h3>
+                                                        <p className='free-bot-card__description'>Click to load this bot</p>
+                                                    </div>
                                                 </div>
-                                                <div className='free-bot-card__details'>
-                                                    <h3 className='free-bot-card__title'>{bot.title}</h3>
-                                                    <p className='free-bot-card__description'>Click to load this bot</p>
-                                                </div>
+                                            ))
+                                        ) : (
+                                            <div style={{ padding: '20px', textAlign: 'center' }}>
+                                                <p>Loading bots...</p>
                                             </div>
-                                        ))}
+                                        )}
                                     </div>
                                 </div>
                             </div>

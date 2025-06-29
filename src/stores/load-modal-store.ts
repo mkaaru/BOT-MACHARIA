@@ -529,18 +529,33 @@ export default class LoadModalStore {
 
     loadFileFromContent = async (xmlContent: string, fileName?: string): Promise<void> => {
         try {
+            // Wait for workspace to be available
+            let retries = 0;
+            const maxRetries = 50; // 5 seconds max wait
+            
+            while (!window.Blockly?.derivWorkspace && retries < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                retries++;
+            }
+            
+            if (!window.Blockly?.derivWorkspace) {
+                throw new Error('Blockly workspace not available after waiting');
+            }
+            
             const { load } = await import('@/external/bot-skeleton');
             const { save_types } = await import('@/external/bot-skeleton');
             
             await load({
                 block_string: xmlContent,
                 file_name: fileName || 'Free Bot',
-                workspace: window.Blockly?.derivWorkspace,
+                workspace: window.Blockly.derivWorkspace,
                 from: save_types.UNSAVED,
                 drop_event: null,
                 strategy_id: null,
                 showIncompatibleStrategyDialog: false,
             });
+            
+            console.log('Bot loaded successfully via loadFileFromContent');
         } catch (error) {
             console.error('Error loading XML content:', error);
             throw error;
