@@ -185,26 +185,39 @@ const AppWrapper = observer(() => {
     );
 
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string; title?: string }) => {
-        setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
             console.log("Loading bot:", bot.title, bot.filePath);
-            console.log("XML Content:", bot.xmlContent);
-
-            if (typeof load_modal.loadFileFromContent === 'function') {
+            
+            // Switch to bot builder tab first
+            setActiveTab(DBOT_TABS.BOT_BUILDER);
+            
+            // Use the load function from bot-skeleton to load the XML content
+            const { load } = await import('@/external/bot-skeleton');
+            const { save_types } = await import('@/external/bot-skeleton');
+            
+            // Wait a bit for the workspace to be ready
+            setTimeout(async () => {
                 try {
-                    await load_modal.loadFileFromContent(bot.xmlContent);
+                    await load({
+                        block_string: bot.xmlContent,
+                        file_name: bot.title || 'Free Bot',
+                        workspace: window.Blockly?.derivWorkspace,
+                        from: save_types.UNSAVED,
+                        drop_event: null,
+                        strategy_id: null,
+                        showIncompatibleStrategyDialog: false,
+                    });
+                    
                     console.log("Bot loaded successfully!");
                 } catch (loadError) {
-                    console.error("Error in load_modal.loadFileFromContent:", loadError);
+                    console.error("Error loading bot:", loadError);
                 }
-            } else {
-                console.error("loadFileFromContent is not defined on load_modal");
-            }
-            updateWorkspaceName(bot.xmlContent);
+            }, 500);
+            
         } catch (error) {
             console.error("Error loading bot:", error);
         }
-    }, [setActiveTab, load_modal, updateWorkspaceName]);
+    }, [setActiveTab]);
 
     const handleOpen = useCallback(async () => {
         await load_modal.loadFileFromRecent();

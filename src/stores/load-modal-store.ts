@@ -76,6 +76,7 @@ export default class LoadModalStore {
             loadStrategyOnBotBuilder: action,
             saveStrategyToLocalStorage: action,
             updateXmlValuesOnStrategySelection: action,
+            loadFileFromContent: action.bound,
         });
 
         this.root_store = root_store;
@@ -524,6 +525,26 @@ export default class LoadModalStore {
         }
         setLoading(false);
         this.setOpenButtonDisabled(false);
+    };
+
+    loadFileFromContent = async (xmlContent: string, fileName?: string): Promise<void> => {
+        try {
+            const { load } = await import('@/external/bot-skeleton');
+            const { save_types } = await import('@/external/bot-skeleton');
+            
+            await load({
+                block_string: xmlContent,
+                file_name: fileName || 'Free Bot',
+                workspace: window.Blockly?.derivWorkspace,
+                from: save_types.UNSAVED,
+                drop_event: null,
+                strategy_id: null,
+                showIncompatibleStrategyDialog: false,
+            });
+        } catch (error) {
+            console.error('Error loading XML content:', error);
+            throw error;
+        }
     };
 
     loadStrategyOnModalLocalPreview = async load_options => {
