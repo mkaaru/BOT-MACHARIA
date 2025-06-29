@@ -46,6 +46,21 @@ const PercentageTool: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [selectedVolatility, setSelectedVolatility] = useState<string>('R_10');
   const [selectedTradeType, setSelectedTradeType] = useState<string>('even_odd');
+  const [isScanning, setIsScanning] = useState<boolean>(true);
+  const [scanProgress, setScanProgress] = useState<number>(0);
+  const [marketAnalysis, setMarketAnalysis] = useState<{
+    strongestSignal: string;
+    recommendedVolatility: string;
+    recommendedTradeType: string;
+    signalStrength: number;
+    analysisComplete: boolean;
+  }>({
+    strongestSignal: '',
+    recommendedVolatility: '',
+    recommendedTradeType: '',
+    signalStrength: 0,
+    analysisComplete: false
+  });
   const wsRef = useRef<WebSocket | null>(null);
   const matrixCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -151,6 +166,23 @@ const PercentageTool: React.FC = () => {
     };
   }, []);
 
+  // Market scanning simulation
+  useEffect(() => {
+    if (isScanning) {
+      const scanInterval = setInterval(() => {
+        setScanProgress(prev => {
+          if (prev >= 100) {
+            setIsScanning(false);
+            return 100;
+          }
+          return prev + 2;
+        });
+      }, 100);
+
+      return () => clearInterval(scanInterval);
+    }
+  }, [isScanning]);
+
   // Calculate percentage data
   useEffect(() => {
     const calculatePercentages = () => {
@@ -249,10 +281,43 @@ const PercentageTool: React.FC = () => {
       });
 
       setPercentageData(newPercentageData);
+
+      // Perform market analysis to find strongest signal
+      if (newPercentageData.length > 0 && !isScanning) {
+        analyzeMarketSignals(newPercentageData);
+      }
     };
 
     calculatePercentages();
-  }, [ticksData]);
+  }, [ticksData, isScanning]);
+
+  const analyzeMarketSignals = (data: PercentageData[]) => {
+    let strongestSignal = '';
+    let bestVolatility = '';
+    let bestTradeType = '';
+    let maxStrength = 0;
+
+    data.forEach(volatilityData => {
+      ['even_odd', 'over_under', 'rise_fall'].forEach(tradeType => {
+        const analysis = getTradeTypeAnalysis(volatilityData, tradeType);
+        
+        if (analysis.strength > maxStrength && analysis.recommendation.includes('STRONG')) {
+          maxStrength = analysis.strength;
+          strongestSignal = analysis.recommendation;
+          bestVolatility = volatilityData.symbol;
+          bestTradeType = tradeType;
+        }
+      });
+    });
+
+    setMarketAnalysis({
+      strongestSignal,
+      recommendedVolatility: bestVolatility,
+      recommendedTradeType: bestTradeType,
+      signalStrength: maxStrength,
+      analysisComplete: true
+    });
+  };
 
   const getSymbolName = (symbol: string) => {
     const names: { [key: string]: string } = {
@@ -446,22 +511,118 @@ const PercentageTool: React.FC = () => {
           })}
           
           <div className="volatility-overview">
-            <h4>All Volatilities Overview</h4>
-            <div className="mini-cards">
-              {percentageData.map((data) => (
-                <div 
-                  key={data.symbol} 
-                  className={`mini-card ${data.symbol === selectedVolatility ? 'active' : ''}`}
-                  onClick={() => setSelectedVolatility(data.symbol)}
-                >
-                  <div className="mini-header">
-                    <span className="mini-symbol">{getSymbolName(data.symbol)}</span>
-                    <span className={`mini-trend ${data.trend}`}>
-                      {data.percentage.toFixed(2)}%
-                    </span>
-                  </div></div>
-              ))}
-            </div>
+            <h4>MARKET INTELLIGENCE SCANNER</h4>
+            
+            {isScanning ? (
+              <div className="scanning-section">
+                <div className="scanning-header">
+                  <span className="scanning-text">SCANNING MARKETS...</span>
+                  <div className="scanning-dots">
+                    <span className="dot"></span>
+                    <span className="dot"></span>
+                    <span className="dot"></span>
+                  </div>
+                </div>
+                <div className="scan-progress">
+                  <div className="progress-bar">
+                    <div 
+                      className="progress-fill" 
+                      style={{ width: `${scanProgress}%` }}
+                    ></div>
+                  </div>
+                  <span className="progress-text">{scanProgress.toFixed(0)}%</span>
+                </div>
+                <div className="scanning-items">
+                  {getVolatilityList().map((vol, index) => (
+                    <div 
+                      key={vol.value}
+                      className={`scanning-item ${scanProgress > (index * 10) ? 'scanned' : ''}`}
+                    >
+                      <span className="scanning-symbol">{vol.label}</span>
+                      <span className="scanning-status">
+                        {scanProgress > (index * 10) ? '✓ ANALYZED' : '○ PENDING'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                {marketAnalysis.analysisComplete && (
+                  <div className="market-recommendation">
+                    <div className="recommendation-header">
+                      <span className="ai-badge">AI RECOMMENDATION</span>
+                    </div>
+                    <div className="recommendation-content">
+                      <div className="signal-strength">
+                        <span className="strength-label">SIGNAL STRENGTH:</span>
+                        <div className="strength-indicator">
+                          <div 
+                            className="strength-bar-fill"
+                            style={{ width: `${marketAnalysis.signalStrength * 100}%` }}
+                          ></div>
+                        </div>
+                        <span className="strength-value">{(marketAnalysis.signalStrength * 100).toFixed(1)}%</span>
+                      </div>
+                      
+                      <div className="recommendation-details">
+                        <div className="rec-item">
+                          <span className="rec-label">SUGGESTED VOLATILITY:</span>
+                          <span className="rec-value volatility">
+                            {getSymbolName(marketAnalysis.recommendedVolatility)}
+                          </span>
+                        </div>
+                        <div className="rec-item">
+                          <span className="rec-label">TRADE TYPE:</span>
+                          <span className="rec-value trade-type">
+                            {getTradeTypes().find(t => t.value === marketAnalysis.recommendedTradeType)?.label}
+                          </span>
+                        </div>
+                        <div className="rec-item">
+                          <span className="rec-label">SIGNAL:</span>
+                          <span className={`rec-value signal ${marketAnalysis.strongestSignal.toLowerCase().replace(' ', '-')}`}>
+                            {marketAnalysis.strongestSignal}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <button 
+                        className="apply-recommendation-btn"
+                        onClick={() => {
+                          setSelectedVolatility(marketAnalysis.recommendedVolatility);
+                          setSelectedTradeType(marketAnalysis.recommendedTradeType);
+                        }}
+                      >
+                        APPLY RECOMMENDATION
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                <h5>All Volatilities Overview</h5>
+                <div className="mini-cards">
+                  {percentageData.map((data) => (
+                    <div 
+                      key={data.symbol} 
+                      className={`mini-card ${data.symbol === selectedVolatility ? 'active' : ''} ${
+                        data.symbol === marketAnalysis.recommendedVolatility ? 'recommended' : ''
+                      }`}
+                      onClick={() => setSelectedVolatility(data.symbol)}
+                    >
+                      <div className="mini-header">
+                        <span className="mini-symbol">{getSymbolName(data.symbol)}</span>
+                        <span className={`mini-trend ${data.trend}`}>
+                          {data.percentage.toFixed(2)}%
+                        </span>
+                        {data.symbol === marketAnalysis.recommendedVolatility && (
+                          <span className="recommended-badge">★</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
           
           {percentageData.filter(data => data.symbol === selectedVolatility).map((data) => (
