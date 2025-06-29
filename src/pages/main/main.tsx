@@ -375,24 +375,32 @@ const AppWrapper = observer(() => {
                                 <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
                                 <div className='free-bots__content-wrapper'>
                                     <div className='free-bots__content'>
-                                        {bots.filter(bot => !bot.isPlaceholder).map((bot, index) => (
+                                        {bots.map((bot, index) => (
                                             <div 
-                                                className='free-bot-card' 
+                                                className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
                                                 key={index} 
                                                 onClick={() => {
                                                     handleBotClick(bot);
                                                 }}
                                                 style={{
-                                                    cursor: 'pointer'
+                                                    cursor: 'pointer',
+                                                    opacity: bot.isPlaceholder ? 0.7 : 1
                                                 }}
                                             >
                                                 <div className='free-bot-card__icon'>
-                                                    <BotIcon />
+                                                    {bot.isPlaceholder ? (
+                                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                                                            <circle cx="12" cy="12" r="10" stroke="#1976D2" strokeWidth="2"/>
+                                                            <path d="M12 6v6l4 2" stroke="#1976D2" strokeWidth="2" strokeLinecap="round"/>
+                                                        </svg>
+                                                    ) : (
+                                                        <BotIcon />
+                                                    )}
                                                 </div>
                                                 <div className='free-bot-card__details'>
                                                     <h3 className='free-bot-card__title'>{bot.title}</h3>
                                                     <p className='free-bot-card__description'>
-                                                        Click to load this bot
+                                                        {bot.isPlaceholder ? 'Loading bot...' : 'Click to load this bot'}
                                                     </p>
                                                 </div>
                                             </div>
