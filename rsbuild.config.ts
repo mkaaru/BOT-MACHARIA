@@ -73,6 +73,7 @@ export default defineConfig({
     },
     server: {
         port: 8443,
+        host: '0.0.0.0',
         compress: true,
     },
     dev: {
