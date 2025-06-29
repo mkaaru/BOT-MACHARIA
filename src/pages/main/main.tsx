@@ -143,28 +143,70 @@ const AppWrapper = observer(() => {
             
             for (const file of botFiles) {
                 try {
-                    // Try to fetch from public directory first
-                    let response = await fetch(`/${file}`);
+                    // Try multiple fetch approaches for better compatibility
+                    let response;
+                    let text = null;
                     
-                    if (!response.ok) {
-                        // If that fails, try without leading slash
-                        response = await fetch(file);
+                    // Try public directory with encoded URI
+                    try {
+                        const encodedFile = encodeURIComponent(file);
+                        response = await fetch(`/${encodedFile}`);
+                        if (response.ok) {
+                            text = await response.text();
+                        }
+                    } catch (e) {
+                        console.log(`Failed to fetch encoded: ${file}`);
                     }
                     
-                    if (!response.ok) {
+                    // Try normal fetch if encoded didn't work
+                    if (!text) {
+                        try {
+                            response = await fetch(`/${file}`);
+                            if (response.ok) {
+                                text = await response.text();
+                            }
+                        } catch (e) {
+                            console.log(`Failed to fetch normal: ${file}`);
+                        }
+                    }
+                    
+                    // Try without leading slash
+                    if (!text) {
+                        try {
+                            response = await fetch(file);
+                            if (response.ok) {
+                                text = await response.text();
+                            }
+                        } catch (e) {
+                            console.log(`Failed to fetch without slash: ${file}`);
+                        }
+                    }
+                    
+                    if (!text) {
                         console.warn(`Could not load bot file: ${file}`);
-                        // Create a placeholder bot entry even if file can't be loaded
                         loadedBots.push({
                             title: file.replace('.xml', ''),
                             image: 'default_image_path',
                             filePath: file,
-                            xmlContent: null, // Will be handled in handleBotClick
+                            xmlContent: null,
                             isPlaceholder: true
                         });
                         continue;
                     }
                     
-                    const text = await response.text();
+                    // Validate XML content
+                    if (!text.trim().startsWith('<xml') && !text.trim().startsWith('<?xml')) {
+                        console.warn(`Invalid XML content for ${file}`);
+                        loadedBots.push({
+                            title: file.replace('.xml', ''),
+                            image: 'default_image_path',
+                            filePath: file,
+                            xmlContent: null,
+                            isPlaceholder: true
+                        });
+                        continue;
+                    }
+                    
                     const parser = new DOMParser();
                     const xml = parser.parseFromString(text, 'application/xml');
                     
@@ -172,6 +214,14 @@ const AppWrapper = observer(() => {
                     const parseError = xml.getElementsByTagName('parsererror')[0];
                     if (parseError) {
                         console.warn(`XML parsing error for ${file}:`, parseError.textContent);
+                        loadedBots.push({
+                            title: file.replace('.xml', ''),
+                            image: 'default_image_path',
+                            filePath: file,
+                            xmlContent: text, // Still include the content even if parsing failed
+                            isPlaceholder: false
+                        });
+                        continue;
                     }
                     
                     loadedBots.push({
@@ -181,9 +231,11 @@ const AppWrapper = observer(() => {
                         xmlContent: text,
                         isPlaceholder: false
                     });
+                    
+                    console.log(`Successfully loaded: ${file}`);
+                    
                 } catch (error) {
                     console.error(`Error loading bot ${file}:`, error);
-                    // Still add placeholder so bot appears in list
                     loadedBots.push({
                         title: file.replace('.xml', ''),
                         image: 'default_image_path',
@@ -195,7 +247,9 @@ const AppWrapper = observer(() => {
             }
             
             setBots(loadedBots);
-            console.log(`Loaded ${loadedBots.length} bots (${loadedBots.filter(b => !b.isPlaceholder).length} successful, ${loadedBots.filter(b => b.isPlaceholder).length} placeholders)`);
+            console.log(`Loaded ${loadedBots.length} bots total`);
+            console.log(`Successful: ${loadedBots.filter(b => !b.isPlaceholder).length}`);
+            console.log(`Placeholders: ${loadedBots.filter(b => b.isPlaceholder).length}`);
         };
 
         fetchBots();
@@ -217,54 +271,86 @@ const AppWrapper = observer(() => {
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
         setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
-            console.log("Loading bot:", bot.title, bot.filePath);
+            console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
             
             let xmlContent = bot.xmlContent;
             
-            // If it's a placeholder bot, try to load the content now
+            // If it's a placeholder bot or no content, try to load the content now
             if (bot.isPlaceholder || !xmlContent) {
-                console.log("Attempting to load XML content for placeholder bot...");
+                console.log("Attempting to load XML content for bot...");
                 try {
-                    let response = await fetch(`/${bot.filePath}`);
-                    if (!response.ok) {
-                        response = await fetch(bot.filePath);
+                    let response;
+                    let success = false;
+                    
+                    // Try multiple approaches
+                    const attempts = [
+                        `/${encodeURIComponent(bot.filePath)}`,
+                        `/${bot.filePath}`,
+                        bot.filePath
+                    ];
+                    
+                    for (const url of attempts) {
+                        try {
+                            response = await fetch(url);
+                            if (response.ok) {
+                                xmlContent = await response.text();
+                                console.log(`Successfully loaded XML from: ${url}`);
+                                success = true;
+                                break;
+                            }
+                        } catch (e) {
+                            console.log(`Failed attempt with URL: ${url}`);
+                        }
                     }
-                    if (response.ok) {
-                        xmlContent = await response.text();
-                        console.log("Successfully loaded XML content on demand");
-                    } else {
-                        throw new Error(`Could not fetch ${bot.filePath}`);
+                    
+                    if (!success) {
+                        throw new Error(`Could not fetch ${bot.filePath} from any URL`);
                     }
                 } catch (fetchError) {
                     console.error("Failed to load bot content:", fetchError);
-                    alert(`Sorry, could not load the bot "${bot.title}". The file may not be available.`);
+                    alert(`Sorry, could not load the bot "${bot.title}". The file may not be available. Please check that the XML file exists in the public directory.`);
                     return;
                 }
             }
 
+            if (!xmlContent || xmlContent.trim().length === 0) {
+                alert(`Error: Bot "${bot.title}" has no content to load.`);
+                return;
+            }
+
             console.log("XML Content length:", xmlContent?.length);
+            console.log("XML Content preview:", xmlContent?.substring(0, 200));
+
+            // Validate XML content
+            if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
+                alert(`Error: "${bot.title}" does not appear to be a valid XML file.`);
+                return;
+            }
 
             if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
                 try {
                     await load_modal.loadFileFromContent(xmlContent);
                     console.log("Bot loaded successfully!");
+                    
+                    // Also update workspace name
+                    if (typeof updateWorkspaceName === 'function') {
+                        updateWorkspaceName(xmlContent);
+                    }
                 } catch (loadError) {
                     console.error("Error in load_modal.loadFileFromContent:", loadError);
-                    alert(`Error loading bot: ${loadError.message || 'Unknown error'}`);
+                    alert(`Error loading bot into workspace: ${loadError.message || 'Unknown error'}`);
                 }
             } else {
                 console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
-                alert("Error: Bot loading function not available");
+                console.log("load_modal object:", load_modal);
+                alert("Error: Bot loading function not available. Please try refreshing the page.");
             }
             
-            if (xmlContent) {
-                updateWorkspaceName(xmlContent);
-            }
         } catch (error) {
             console.error("Error loading bot:", error);
-            alert(`Error loading bot: ${error.message || 'Unknown error'}`);
+            alert(`Error loading bot "${bot.title}": ${error.message || 'Unknown error'}`);
         }
-    }, [setActiveTab, load_modal, updateWorkspaceName]);
+    }, [setActiveTab, load_modal]);
 
     const handleOpen = useCallback(async () => {
         await load_modal.loadFileFromRecent();
