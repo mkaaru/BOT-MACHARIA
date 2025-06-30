@@ -19,6 +19,8 @@ Allow: /chart
 Allow: /ai
 Allow: /signals
 Allow: /ldpanalyzer
+Allow: /trade-cortex-seo.html
+Allow: /tradecortex-seo.html
 
 # Web crawlers
 User-agent: Googlebot

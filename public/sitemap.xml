@@ -8,6 +8,18 @@
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>https://www.tradecortex.com/trade-cortex</loc>
+    <lastmod>2025-01-29</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.tradecortex.com/tradecortex</loc>
+    <lastmod>2025-01-29</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://www.tradecortex.com/dashboard</loc>
     <lastmod>2025-01-29</lastmod>
     <changefreq>daily</changefreq>

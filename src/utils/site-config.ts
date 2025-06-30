@@ -1,4 +1,5 @@
-export const website_domain = 'bot.derivlite.com';
-export const website_name = 'TradeCortex';
-export const default_title = website_name;
+export const website_domain = 'www.tradecortex.com';
+export const website_name = 'Trade Cortex';
+export const website_name_no_space = 'TradeCortex';
+export const default_title = `${website_name} | ${website_name_no_space}`;
 export const TRACKING_STATUS_KEY = 'tracking_status';
