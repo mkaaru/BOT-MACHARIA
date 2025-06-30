@@ -1098,15 +1098,13 @@ const PercentageTool: React.FC = () => {
                 <iframe 
                   src="https://tracktool.netlify.app/signals.html" 
                   width="100%" 
-                  height="100vh" 
+                  height="800px" 
                   frameBorder="0"
                   title="Trading Signals"
                   style={{
-                    border: '1px solid rgba(0, 255, 65, 0.3)',
+                    border: '1px solid #ccc',
                     borderRadius: '8px',
-                    backgroundColor: '#000',
-                    minHeight: '600px',
-                    maxHeight: 'calc(100vh - 200px)'
+                    backgroundColor: '#fff'
                   }}
                 />
               </div>
