@@ -5,6 +5,11 @@
   background: #000;
   overflow: hidden;
   font-family: 'Courier New', monospace;
+  
+  * {
+    position: relative;
+    z-index: 5;
+  }
 
   .matrix-bg {
     position: absolute;
@@ -12,17 +17,19 @@
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 1;
+    z-index: 0;
     opacity: 0.3;
+    pointer-events: none;
   }
 
   .tool-overlay {
     position: relative;
-    z-index: 2;
+    z-index: 10;
     height: 100%;
     padding: 20px;
     color: #00ff41;
     overflow-y: auto;
+    background: rgba(0, 0, 0, 0.1);
 
     &::-webkit-scrollbar {
       width: 8px;

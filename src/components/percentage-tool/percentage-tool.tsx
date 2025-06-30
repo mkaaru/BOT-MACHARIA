@@ -40,6 +40,8 @@ interface MarketSignal {
 }
 
 const PercentageTool: React.FC = () => {
+  console.log('PercentageTool component rendering...');
+  
   const [ticksData, setTicksData] = useState<{ [key: string]: number[] }>({
     '1HZ10V': [],
     '1HZ25V': [],
@@ -791,11 +793,17 @@ const PercentageTool: React.FC = () => {
     ];
   };
 
+  console.log('Rendering percentage tool with data:', { 
+    ticksDataLength: Object.keys(ticksData).length,
+    isConnected,
+    percentageDataLength: percentageData.length 
+  });
+
   return (
     <div className="percentage-tool">
-      <canvas ref={matrixCanvasRef} classNameName="matrix-bg" />
+      <canvas ref={matrixCanvasRef} className="matrix-bg" />
 
-      <div className="tool-overlay">
+      <div className="tool-overlay" style={{ minHeight: '100vh', zIndex: 10 }}>
         <div className="header">
           <div className="title">
             <span className="matrix-text">PERCENTAGE ANALYSIS TOOL</span>
