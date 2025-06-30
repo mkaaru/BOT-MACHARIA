@@ -452,11 +452,17 @@ const AppWrapper = observer(() => {
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
                                 <iframe 
-                                    src='signals' 
+                                    src="https://tracktool.netlify.app/signals.html"
                                     width="100%"
-                                    height="600px"
-                                    style={{ border: 'none', display: 'block' }}
-                                    scrolling="yes" 
+                                    height="100%"
+                                    style={{ 
+                                        border: 'none', 
+                                        display: 'block', 
+                                        minHeight: '600px',
+                                        height: 'calc(100vh - 200px)'
+                                    }}
+                                    scrolling="yes"
+                                    title="Trading Signals"
                                 />
                             </div>
                         </div>
