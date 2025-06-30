@@ -45,7 +45,7 @@ const DashboardComponent = observer(({ handleTabChange }: TMobileIconGuide) => {
                                     lineHeight='xxl'
                                     weight='bold'
                                 >
-                                    {localize('Load or build your bot')}
+                                    Welcome to TradeCortex
                                 </Text>
                             )}
                             <Text

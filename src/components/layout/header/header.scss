@@ -372,7 +372,7 @@
     align-items: center;
     justify-content: center;
     transition: transform 0.2s ease;
-    
+
     &:hover {
         transform: scale(1.1);
     }
@@ -387,7 +387,7 @@
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
-    
+
 
     .social-link {
         display: flex;
@@ -427,4 +427,11 @@
             color: var(--text-prominent);
         }
     }
+}
+.app-header {
+    background: linear-gradient(135deg, #2d5a2d 0%, #4a7c4a 50%, #2d5a2d 100%);
+    border-bottom: 1px solid var(--general-section-1);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
 }
