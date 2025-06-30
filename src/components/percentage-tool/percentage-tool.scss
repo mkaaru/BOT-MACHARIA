@@ -5,7 +5,7 @@
   background: #000;
   overflow: hidden;
   font-family: 'Courier New', monospace;
-  
+
   * {
     position: relative;
     z-index: 5;
@@ -1028,8 +1028,7 @@
           border-color: rgba(0, 255, 65, 0.5);
         }
 
-        &.active {
-          background: rgba(0, 255, 65, 0.3);
+        &.active {          background: rgba(0, 255, 65, 0.3);
           border-color: #00ff41;
           box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
         }
