@@ -3,7 +3,8 @@
 
 body {
     font-family: 'IBM Plex Sans', sans-serif;
-    background: var(--general-main-1);
+    background: linear-gradient(135deg, #e8f5e8 0%, #d4f1d4 50%, #c8ecc8 100%);
+    min-height: 100vh;
 }
 
 .icon-general-fill-path {

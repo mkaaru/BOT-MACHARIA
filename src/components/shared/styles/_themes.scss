@@ -53,36 +53,36 @@
 
     .theme--light {
         // General
-        --general-main-1: #{constants.$color-white};
-        --general-main-2: #{constants.$color-white};
+        --general-main-1: linear-gradient(135deg, #e8f5e8 0%, #d4f1d4 50%, #c8ecc8 100%);
+        --general-main-2: linear-gradient(135deg, #f0f8f0 0%, #e0f2e0 100%);
         --general-main-3: #{constants.$color-grey-1};
         --general-main-4: #{constants.$alpha-color-white-4};
-        --general-section-1: #{constants.$color-grey-2};
-        --general-section-2: #{constants.$color-grey-2};
-        --general-section-3: #{constants.$color-grey-11};
+        --general-section-1: linear-gradient(135deg, #f5faf5 0%, #eaf6ea 100%);
+        --general-section-2: linear-gradient(135deg, #e8f5e8 0%, #d4f1d4 100%);
+        --general-section-3: linear-gradient(135deg, #d4f1d4 0%, #c0ecc0 100%);
         --general-section-4: #{constants.$color-grey-12};
-        --general-section-5: #{constants.$color-grey-2};
+        --general-section-5: linear-gradient(135deg, #ace7ac 0%, #98e298 100%);
         --general-section-6: #{constants.$color-grey-2};
-        --general-disabled: #{constants.$color-grey-3};
-        --general-hover: #{constants.$color-grey-4};
-        --general-active: #{constants.$color-grey-5};
+        --general-disabled: #d4f1d4;
+        --general-hover: linear-gradient(135deg, #d4f1d4 0%, #c0ecc0 100%);
+        --general-active: linear-gradient(135deg, #c0ecc0 0%, #ace7ac 100%);
 
         // Icons and Texts
-        --text-general: #{constants.$color-black-1};
+        --text-general: #1a4d1a;
         --text-primary: #{constants.$color-grey-1};
         --text-less-prominent: #{constants.$color-grey-1};
-        --text-prominent: #{constants.$color-black-1};
-        --text-disabled: #{constants.$color-grey-1};
+        --text-prominent: #0d330d;
+        --text-disabled: #7a9b7a;
         --text-disabled-1: #{constants.$color-grey-6};
-        --text-loss-danger: #{constants.$color-red-1};
-        --text-profit-success: #{constants.$color-green-1};
+        --text-loss-danger: #d73027;
+        --text-profit-success: #2d8659;
         --text-warning: #{constants.$color-yellow};
-        --text-red: #{constants.$color-red};
+        --text-red: #d73027;
         --text-green: #{constants.$color-green-6};
         --text-blue: #{constants.$color-blue-3};
         --text-info-blue: #{constants.$color-blue};
         --text-info-blue-background: #{constants.$color-blue-5};
-        --text-colored-background: #{constants.$color-white};
+        --text-colored-background: #ffffff;
         --icon-light-background: #{constants.$color-black-9};
         --icon-dark-background: #{constants.$color-white};
         --icon-grey-background: #{constants.$color-grey-2};
@@ -99,12 +99,12 @@
         --purchase-disabled-section: #{constants.$color-grey-4};
 
         // Buttons
-        --button-primary-default: var(--brand-red-coral);
-        --button-secondary-default: #{constants.$color-grey-1};
+        --button-primary-default: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+        --button-secondary-default: linear-gradient(135deg, #e8f5e8 0%, #d4f1d4 100%);
         --button-tertiary-default: transparent;
         --button-primary-light-default: #{constants.$alpha-color-red-2};
-        --button-primary-hover: #{constants.$color-red-5};
-        --button-secondary-hover: #{constants.$alpha-color-black-3};
+        --button-primary-hover: linear-gradient(135deg, #45a049 0%, #3e8e41 100%);
+        --button-secondary-hover: linear-gradient(135deg, #d4f1d4 0%, #c0ecc0 100%);
         --button-tertiary-hover: #{constants.$alpha-color-red-1};
         --button-primary-light-hover: #{constants.$alpha-color-red-3};
         --button-toggle-primary: #{constants.$color-blue-3};
@@ -130,32 +130,32 @@
         --sidebar-tab: #{constants.$color-grey-6};
 
         // Border
-        --border-normal: #{constants.$color-grey-5};
+        --border-normal: #b3d9b3;
         --border-normal-1: #{constants.$color-grey-5};
         --border-normal-2: #{constants.$color-grey-5};
         --border-normal-3: #{constants.$color-grey-6};
-        --border-hover: #{constants.$color-grey-1};
+        --border-hover: #7a9b7a;
         --border-hover-1: #{constants.$color-black-9};
-        --border-active: var(--brand-secondary);
-        --border-disabled: #{constants.$color-grey-3};
+        --border-active: #66b366;
+        --border-disabled: #d4f1d4;
         --border-divider: #{constants.$color-grey-2};
 
         // Fill
-        --fill-normal: #{constants.$color-white};
+        --fill-normal: #ffffff;
         --fill-normal-1: #{constants.$color-grey};
-        --fill-hover: #{constants.$color-grey-1};
-        --fill-active: var(--brand-secondary);
-        --fill-disabled: #{constants.$color-grey-3};
+        --fill-hover: linear-gradient(135deg, #f0f8f0 0%, #e0f2e0 100%);
+        --fill-active: linear-gradient(135deg, #e8f5e8 0%, #d4f1d4 100%);
+        --fill-disabled: #f0f8f0;
 
         // Status
         --status-default: #{constants.$color-grey-3};
         --status-adjustment: #{constants.$color-grey-1};
-        --status-danger: #{constants.$color-red-1};
-        --status-success: #{constants.$color-green-1};
-        --status-warning: #{constants.$color-yellow};
+        --status-danger: #d73027;
+        --status-success: #4caf50;
+        --status-warning: #ff9800;
         --status-warning-transparent: #{constants.$alpha-color-yellow-1};
         --status-transfer: #{constants.$color-orange};
-        --status-info: #{constants.$color-blue};
+        --status-info: #2196f3;
         --status-colored-background: #{constants.$color-white};
         --status-alert-background: #{constants.$color-yellow-3};
 
