@@ -1,6 +1,6 @@
-
 import React, { useEffect, useState } from 'react';
 import './matrix-loading.scss';
+import { localize } from '@deriv-com/translations';
 
 interface MatrixLoadingProps {
     message?: string;
@@ -8,18 +8,18 @@ interface MatrixLoadingProps {
 }
 
 const MatrixLoading: React.FC<MatrixLoadingProps> = ({ 
-    message = 'Initializing Deriv Bot...', 
+    message = localize('Initializing TradeCortex Ai...'), 
     show = true 
 }) => {
     const [currentStep, setCurrentStep] = useState(0);
     const [progress, setProgress] = useState(0);
 
     const scanningSteps = [
-        'Initializing Deriv Bot...',
-        'Connecting to servers...',
-        'Scanning market data...',
-        'Loading trading engine...',
-        'Preparing workspace...'
+        localize('Initializing TradeCortex Ai...'),
+        localize('Connecting to servers...'),
+        localize('Scanning market data...'),
+        localize('Loading trading engine...'),
+        localize('Preparing workspace...')
     ];
 
     useEffect(() => {
@@ -50,11 +50,11 @@ const MatrixLoading: React.FC<MatrixLoadingProps> = ({
         for (let i = 0; i < columns; i++) {
             const columnChars = [];
             const charCount = Math.floor(Math.random() * 20) + 10;
-            
+
             for (let j = 0; j < charCount; j++) {
                 columnChars.push(chars[Math.floor(Math.random() * chars.length)]);
             }
-            
+
             matrixColumns.push(
                 <div 
                     key={i} 
@@ -69,7 +69,7 @@ const MatrixLoading: React.FC<MatrixLoadingProps> = ({
                 </div>
             );
         }
-        
+
         return matrixColumns;
     };
 
@@ -77,36 +77,16 @@ const MatrixLoading: React.FC<MatrixLoadingProps> = ({
 
     return (
         <div className="matrix-loading">
-            <div className="matrix-rain">
-                {generateMatrixChars()}
-            </div>
-            
-            <div className="loading-content">
-                <div className="scanning-text">
-                    DERIV BOT SYSTEM
-                </div>
-                
-                <div className="scanning-lines">
-                    {scanningSteps.map((step, index) => (
-                        <div 
-                            key={index}
-                            className={`scan-line ${index === currentStep ? 'active' : ''}`}
-                        >
-                            {index === currentStep && '> '}{step}
-                        </div>
+            <div className='matrix-loading__content'>
+                <h1 className='matrix-loading__title'>TradeCortex Ai</h1>
+                <div className='matrix-loading__animation'>
+                    {Array.from({ length: 100 }, (_, i) => (
+                        <span key={i} className='matrix-loading__char'>
+                            {String.fromCharCode(Math.floor(Math.random() * 26) + 65)}
+                        </span>
                     ))}
                 </div>
-                
-                <div className="progress-bar">
-                    <div 
-                        className="progress-fill" 
-                        style={{ width: `${progress}%` }}
-                    />
-                </div>
-                
-                <div className="status-text">
-                    System Status: ACTIVE • Scanning Markets...
-                </div>
+                <p className='matrix-loading__message'>{message}</p>
             </div>
         </div>
     );
