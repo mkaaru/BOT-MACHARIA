@@ -53,19 +53,19 @@
 
     .theme--light {
         // General
-        --general-main-1: linear-gradient(135deg, #e8f5e8 0%, #d4f1d4 50%, #c8ecc8 100%);
-        --general-main-2: linear-gradient(135deg, #f0f8f0 0%, #e0f2e0 100%);
+        --general-main-1: linear-gradient(135deg, #f3e8f8 0%, #e4d4f1 50%, #d8c8ec 100%);
+        --general-main-2: linear-gradient(135deg, #f8f0f8 0%, #f2e0f2 100%);
         --general-main-3: #{constants.$color-grey-1};
         --general-main-4: #{constants.$alpha-color-white-4};
-        --general-section-1: linear-gradient(135deg, #f5faf5 0%, #eaf6ea 100%);
-        --general-section-2: linear-gradient(135deg, #e8f5e8 0%, #d4f1d4 100%);
-        --general-section-3: linear-gradient(135deg, #d4f1d4 0%, #c0ecc0 100%);
+        --general-section-1: linear-gradient(135deg, #faf5fa 0%, #f6eaf6 100%);
+        --general-section-2: linear-gradient(135deg, #f3e8f8 0%, #e4d4f1 100%);
+        --general-section-3: linear-gradient(135deg, #e4d4f1 0%, #d5c0ec 100%);
         --general-section-4: #{constants.$color-grey-12};
-        --general-section-5: linear-gradient(135deg, #ace7ac 0%, #98e298 100%);
+        --general-section-5: linear-gradient(135deg, #c7ace7 0%, #b898e2 100%);
         --general-section-6: #{constants.$color-grey-2};
-        --general-disabled: #d4f1d4;
-        --general-hover: linear-gradient(135deg, #d4f1d4 0%, #c0ecc0 100%);
-        --general-active: linear-gradient(135deg, #c0ecc0 0%, #ace7ac 100%);
+        --general-disabled: #e4d4f1;
+        --general-hover: linear-gradient(135deg, #e4d4f1 0%, #d5c0ec 100%);
+        --general-active: linear-gradient(135deg, #d5c0ec 0%, #c7ace7 100%);
 
         // Icons and Texts
         --text-general: #{constants.$color-black-7};
@@ -99,12 +99,12 @@
         --purchase-disabled-section: #{constants.$color-grey-4};
 
         // Buttons
-        --button-primary-default: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
-        --button-secondary-default: linear-gradient(135deg, #e8f5e8 0%, #d4f1d4 100%);
+        --button-primary-default: linear-gradient(135deg, #8e4ec6 0%, #7b3da3 100%);
+        --button-secondary-default: linear-gradient(135deg, #f3e8f8 0%, #e4d4f1 100%);
         --button-tertiary-default: transparent;
         --button-primary-light-default: #{constants.$alpha-color-red-2};
-        --button-primary-hover: linear-gradient(135deg, #45a049 0%, #3e8e41 100%);
-        --button-secondary-hover: linear-gradient(135deg, #d4f1d4 0%, #c0ecc0 100%);
+        --button-primary-hover: linear-gradient(135deg, #7b3da3 0%, #6d2c8f 100%);
+        --button-secondary-hover: linear-gradient(135deg, #e4d4f1 0%, #d5c0ec 100%);
         --button-tertiary-hover: #{constants.$alpha-color-red-1};
         --button-primary-light-hover: #{constants.$alpha-color-red-3};
         --button-toggle-primary: #{constants.$color-blue-3};
@@ -130,32 +130,32 @@
         --sidebar-tab: #{constants.$color-grey-6};
 
         // Border
-        --border-normal: #b3d9b3;
+        --border-normal: #c4b3d9;
         --border-normal-1: #{constants.$color-grey-5};
         --border-normal-2: #{constants.$color-grey-5};
         --border-normal-3: #{constants.$color-grey-6};
-        --border-hover: #7a9b7a;
+        --border-hover: #9a7a9b;
         --border-hover-1: #{constants.$color-black-9};
-        --border-active: #66b366;
-        --border-disabled: #d4f1d4;
+        --border-active: #8866b3;
+        --border-disabled: #e4d4f1;
         --border-divider: #{constants.$color-grey-2};
 
         // Fill
         --fill-normal: #ffffff;
         --fill-normal-1: #{constants.$color-grey};
-        --fill-hover: linear-gradient(135deg, #f0f8f0 0%, #e0f2e0 100%);
-        --fill-active: linear-gradient(135deg, #e8f5e8 0%, #d4f1d4 100%);
-        --fill-disabled: #f0f8f0;
+        --fill-hover: linear-gradient(135deg, #f8f0f8 0%, #f2e0f2 100%);
+        --fill-active: linear-gradient(135deg, #f3e8f8 0%, #e4d4f1 100%);
+        --fill-disabled: #f8f0f8;
 
         // Status
         --status-default: #{constants.$color-grey-3};
         --status-adjustment: #{constants.$color-grey-1};
         --status-danger: #d73027;
-        --status-success: #4caf50;
+        --status-success: #8e4ec6;
         --status-warning: #ff9800;
         --status-warning-transparent: #{constants.$alpha-color-yellow-1};
         --status-transfer: #{constants.$color-orange};
-        --status-info: #2196f3;
+        --status-info: #7b3da3;
         --status-colored-background: #{constants.$color-white};
         --status-alert-background: #{constants.$color-yellow-3};
 
