@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import './matrix-loading.scss';
 
@@ -50,11 +49,11 @@ const MatrixLoading: React.FC<MatrixLoadingProps> = ({
         for (let i = 0; i < columns; i++) {
             const columnChars = [];
             const charCount = Math.floor(Math.random() * 20) + 10;
-            
+
             for (let j = 0; j < charCount; j++) {
                 columnChars.push(chars[Math.floor(Math.random() * chars.length)]);
             }
-            
+
             matrixColumns.push(
                 <div 
                     key={i} 
@@ -69,7 +68,7 @@ const MatrixLoading: React.FC<MatrixLoadingProps> = ({
                 </div>
             );
         }
-        
+
         return matrixColumns;
     };
 
@@ -80,12 +79,12 @@ const MatrixLoading: React.FC<MatrixLoadingProps> = ({
             <div className="matrix-rain">
                 {generateMatrixChars()}
             </div>
-            
+
             <div className="loading-content">
                 <div className="scanning-text">
-                    DERIV BOT SYSTEM
+                    TradeCortex AI
                 </div>
-                
+
                 <div className="scanning-lines">
                     {scanningSteps.map((step, index) => (
                         <div 
@@ -96,14 +95,14 @@ const MatrixLoading: React.FC<MatrixLoadingProps> = ({
                         </div>
                     ))}
                 </div>
-                
+
                 <div className="progress-bar">
                     <div 
                         className="progress-fill" 
                         style={{ width: `${progress}%` }}
                     />
                 </div>
-                
+
                 <div className="status-text">
                     System Status: ACTIVE • Scanning Markets...
                 </div>
