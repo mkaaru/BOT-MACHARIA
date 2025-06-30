@@ -13,7 +13,7 @@ import './app-root.scss';
 const AppContent = lazy(() => import('./app-content'));
 
 const AppRootLoader = () => {
-    return <MatrixLoading message={localize('Initializing TradeCortex Ai...')} show={true} />;
+    return <MatrixLoading message={localize('Initializing Deriv Bot...')} show={true} />;
 };
 
 const ErrorComponentWrapper = observer(() => {
