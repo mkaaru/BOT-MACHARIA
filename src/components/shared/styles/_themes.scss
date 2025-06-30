@@ -68,10 +68,10 @@
         --general-active: linear-gradient(135deg, #c0ecc0 0%, #ace7ac 100%);
 
         // Icons and Texts
-        --text-general: #1a4d1a;
-        --text-primary: #{constants.$color-grey-1};
-        --text-less-prominent: #{constants.$color-grey-1};
-        --text-prominent: #0d330d;
+        --text-general: #{$color-black-7};
+        --text-primary: #{$color-black-7};
+        --text-less-prominent: #{$color-black-7};
+        --text-prominent: #{$color-black-7};
         --text-disabled: #7a9b7a;
         --text-disabled-1: #{constants.$color-grey-6};
         --text-loss-danger: #d73027;
@@ -215,10 +215,10 @@
         --general-active: #{constants.$color-black-8};
 
         // Icons and Texts
-        --text-prominent: #{constants.$color-white};
-        --text-general: #{constants.$color-grey};
-        --text-less-prominent: #{constants.$color-grey-7};
-        --text-primary: #{constants.$color-grey-1};
+        --text-prominent: #{$color-black-7};
+        --text-general: #{$color-black-7};
+        --text-less-prominent: #{$color-black-7};
+        --text-primary: #{$color-black-7};
         --text-disabled: #{constants.$color-black-6};
         --text-disabled-1: #{constants.$color-black-6};
         --text-profit-success: #{constants.$color-green-3};
