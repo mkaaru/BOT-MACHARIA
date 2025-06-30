@@ -41,7 +41,7 @@ interface MarketSignal {
 
 const PercentageTool: React.FC = () => {
   console.log('PercentageTool component rendering...');
-  
+
   const [ticksData, setTicksData] = useState<{ [key: string]: number[] }>({
     '1HZ10V': [],
     '1HZ25V': [],
@@ -87,7 +87,7 @@ const PercentageTool: React.FC = () => {
   const [nextSignalUpdate, setNextSignalUpdate] = useState(60); // 1 minute in seconds
   const [lastSignalUpdate, setLastSignalUpdate] = useState(Date.now());
   const [signalUpdateDebounce, setSignalUpdateDebounce] = useState<NodeJS.Timeout | null>(null);
-  
+
   // Tick buffering states
   const [tickBuffer, setTickBuffer] = useState<{ [key: string]: number[] }>({});
   const [lastBufferFlush, setLastBufferFlush] = useState(Date.now());
@@ -129,14 +129,14 @@ const PercentageTool: React.FC = () => {
   useEffect(() => {
     const flushSignalBuffer = () => {
       const now = Date.now();
-      
+
       // STRICT 1-minute flush for signal generation ONLY
       if (now - lastBufferFlush >= 60000) {
         // Generate new signals based on buffered data
         if (!isScanning) {
           generateMarketSignals();
         }
-        
+
         // Clear signal buffer and update flush time for next minute cycle
         setTickBuffer({});
         setLastBufferFlush(now);
@@ -308,19 +308,19 @@ const PercentageTool: React.FC = () => {
         } else if (data.tick) {
           const { symbol, quote } = data.tick;
           const price = parseFloat(quote);
-          
+
           // IMMEDIATE update for live detailed analysis - NO BUFFERING for prices
           setTicksData(prev => ({
             ...prev,
             [symbol]: [...(prev[symbol] || []).slice(-199), price].slice(-200)
           }));
-          
+
           // ONLY buffer for signal generation (strict 1-minute intervals)
           setTickBuffer(prev => ({
             ...prev,
             [symbol]: [...(prev[symbol] || []).slice(-199), price].slice(-200)
           }));
-          
+
           // LIVE price updates for detailed analysis tab - NO DELAYS
           setVolatilitySignals(prevSignals => 
             prevSignals.map(signal => {
@@ -1095,71 +1095,18 @@ const PercentageTool: React.FC = () => {
 
             {activeTab === 'signals' && (
               <div className="signals-tab">
-                <div className="signals-controls">
-                  <div className="signal-timing-control">
-                    <label htmlFor="signal-interval">Signal Update Interval:</label>
-                    <select 
-                      id="signal-interval"
-                      value={signalUpdateInterval} 
-                      onChange={(e) => setSignalUpdateInterval(Number(e.target.value))}
-                      className="interval-selector"
-                    >
-                      <option value={60}>1 minute</option>
-                      <option value={120}>2 minutes</option>
-                      <option value={180}>3 minutes</option>
-                      <option value={300}>5 minutes</option>
-                      <option value={600}>10 minutes</option>
-                    </select>
-                  </div>
-                  <div className="next-signal-timer">
-                    <span className="timer-label">NEXT UPDATE IN:</span>
-                    <span className="timer-countdown">{formatCountdownTime(nextSignalUpdate)}</span>
-                  </div>
-                </div>
-
-                <div className={`strongest-signal-panel ${isSignalTransitioning ? 'transitioning' : ''}`}>
-                  <div className="panel-header">
-                    <span className="panel-title">🎯 STRONGEST SIGNAL DETECTED</span>
-                    <span className={`live-indicator ${isSignalTransitioning ? 'updating' : ''}`}>
-                      {isSignalTransitioning ? '⟳ UPDATING' : '● LIVE'}
-                    </span>
-                  </div>
-                  {strongestSignal ? (
-                    <div className={`strongest-signal-content ${isSignalTransitioning ? 'fade-transition' : ''}`}>
-                      <div className="signal-main">
-                        <div className="volatility-name">{strongestSignal.volatilityName}</div>
-                        <div className="signal-badge-large">
-                          <span className={`signal-type ${strongestSignal.tradeType.toLowerCase().replace('/', '_')}`}>
-                            {strongestSignal.tradeType}
-                          </span>
-                          <span className={`signal-strength ${strongestSignal.strength}`}>
-                            {strongestSignal.strength.toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="confidence-display">
-                          <span className="confidence-label">CONFIDENCE</span>
-                          <span className="confidence-value">{strongestSignal.confidence}%</span>
-                          <div className="confidence-stability">
-                            <span className="stability-indicator">STABLE</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="signal-details">
-                        <span className="condition-text">{strongestSignal.condition}</span>
-                        <div className="last-update">
-                          Updated {Math.floor((Date.now() - strongestSignalLastUpdate) / 1000)}s ago
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="no-signal">
-                      <span>Analyzing market conditions...</span>
-                      <div className="scanning-dots">
-                        <span></span><span></span><span></span>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <iframe 
+                  src="https://tracktool.netlify.app/signals.html" 
+                  width="100%" 
+                  height="800px" 
+                  frameBorder="0"
+                  title="Trading Signals"
+                  style={{
+                    border: '1px solid #ccc',
+                    borderRadius: '8px',
+                    backgroundColor: '#fff'
+                  }}
+                />
               </div>
             )}
           </div>
@@ -1263,7 +1210,7 @@ const PercentageTool: React.FC = () => {
           </div>
         </div>
 
-        
+
          <div className="comprehensive-analytics">
           <h4>COMPREHENSIVE MARKET ANALYTICS</h4>
 
