@@ -84,9 +84,13 @@ const PercentageTool: React.FC = () => {
   ]);
 
   // Signal update timer states
-  const [nextSignalUpdate, setNextSignalUpdate] = useState(180); // 3 minutes in seconds
+  const [nextSignalUpdate, setNextSignalUpdate] = useState(60); // 1 minute in seconds
   const [lastSignalUpdate, setLastSignalUpdate] = useState(Date.now());
   const [signalUpdateDebounce, setSignalUpdateDebounce] = useState<NodeJS.Timeout | null>(null);
+  
+  // Tick buffering states
+  const [tickBuffer, setTickBuffer] = useState<{ [key: string]: number[] }>({});
+  const [lastBufferFlush, setLastBufferFlush] = useState(Date.now());
 
   const [tradeAnalysis, setTradeAnalysis] = useState({
     signal: 'EVEN',
@@ -121,6 +125,37 @@ const PercentageTool: React.FC = () => {
   const [strongestSignalLastUpdate, setStrongestSignalLastUpdate] = useState<number>(0);
   const [isSignalTransitioning, setIsSignalTransitioning] = useState(false);
 
+  // Tick buffer flush mechanism - flushes buffer every minute minimum
+  useEffect(() => {
+    const flushBuffer = () => {
+      const now = Date.now();
+      
+      // Only flush if at least 1 minute has passed
+      if (now - lastBufferFlush >= 60000) {
+        setTicksData(prev => {
+          const newData = { ...prev };
+          Object.entries(tickBuffer).forEach(([symbol, bufferedTicks]) => {
+            if (bufferedTicks.length > 0) {
+              newData[symbol] = [...(prev[symbol] || []).slice(-(200 - bufferedTicks.length)), ...bufferedTicks].slice(-200);
+            }
+          });
+          return newData;
+        });
+        
+        // Clear buffer and update flush time
+        setTickBuffer({});
+        setLastBufferFlush(now);
+      }
+    };
+
+    // Check for buffer flush every 5 seconds
+    const bufferFlushInterval = setInterval(flushBuffer, 5000);
+
+    return () => {
+      clearInterval(bufferFlushInterval);
+    };
+  }, [tickBuffer, lastBufferFlush]);
+
   // Signal update timer - updates based on configurable interval
   useEffect(() => {
     const updateSignals = () => {
@@ -149,8 +184,9 @@ const PercentageTool: React.FC = () => {
     // Initial signal generation
     updateSignals();
 
-    // Set up interval for signal updates based on configuration
-    signalTimerRef.current = setInterval(updateSignals, signalUpdateInterval * 1000); // Convert to milliseconds
+    // Set up interval for signal updates based on configuration (minimum 1 minute)
+    const actualInterval = Math.max(signalUpdateInterval, 60) * 1000; // Ensure minimum 1 minute
+    signalTimerRef.current = setInterval(updateSignals, actualInterval);
 
     return () => {
       if (signalTimerRef.current) {
@@ -167,7 +203,7 @@ const PercentageTool: React.FC = () => {
     countdownTimerRef.current = setInterval(() => {
       setNextSignalUpdate(prev => {
         if (prev <= 1) {
-          return signalUpdateInterval; // Reset when it reaches 0
+          return Math.max(signalUpdateInterval, 60); // Reset when it reaches 0, minimum 60 seconds
         }
         return prev - 1;
       });
@@ -178,7 +214,7 @@ const PercentageTool: React.FC = () => {
         clearInterval(countdownTimerRef.current);
       }
     };
-  }, []);
+  }, [signalUpdateInterval]);
 
   // Matrix rain effect
   useEffect(() => {
@@ -276,21 +312,12 @@ const PercentageTool: React.FC = () => {
           }));
         } else if (data.tick) {
           const { symbol, quote } = data.tick;
-          setTicksData(prev => ({
+          
+          // Add tick to buffer instead of directly updating
+          setTickBuffer(prev => ({
             ...prev,
-            [symbol]: [...(prev[symbol] || []).slice(-199), parseFloat(quote)] // Maintain 200 ticks
+            [symbol]: [...(prev[symbol] || []).slice(-199), parseFloat(quote)] // Maintain 200 ticks in buffer
           }));
-
-          // Debounce signal generation to prevent flickering - wait 1 minute
-          if (signalUpdateDebounce) {
-            clearTimeout(signalUpdateDebounce);
-          }
-
-          const newDebounce = setTimeout(() => {
-            generateMarketSignals();
-          }, 60000); // Wait 1 minute after last tick update
-
-          setSignalUpdateDebounce(newDebounce);
         }
       };
 
@@ -1060,11 +1087,11 @@ const PercentageTool: React.FC = () => {
                       onChange={(e) => setSignalUpdateInterval(Number(e.target.value))}
                       className="interval-selector"
                     >
-                      <option value={30}>30 seconds</option>
                       <option value={60}>1 minute</option>
                       <option value={120}>2 minutes</option>
                       <option value={180}>3 minutes</option>
                       <option value={300}>5 minutes</option>
+                      <option value={600}>10 minutes</option>
                     </select>
                   </div>
                   <div className="next-signal-timer">
@@ -1319,7 +1346,7 @@ const PercentageTool: React.FC = () => {
           onClick={() => setShowRiskDisclaimer(true)}
         >
           <span className="warning-icon">⚠</span>
-          Risk Disclaimer
+          <span className="disclaimer-text">Risk Disclaimer</span>
         </button>
 
         {/* Risk Disclaimer Modal */}
