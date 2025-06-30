@@ -2014,6 +2014,125 @@
   }
 }
 
+/* Live Tick Display Styles */
+.live-tick-display {
+  background: rgba(0, 255, 65, 0.05);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
+
+  .live-tick-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid rgba(0, 255, 65, 0.2);
+    padding-bottom: 10px;
+
+    h4 {
+      color: #00ff41;
+      margin: 0;
+      font-size: 1.2rem;
+      text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+    }
+
+    .tick-count {
+      color: #ffff41;
+      font-size: 0.9rem;
+      font-weight: bold;
+      padding: 5px 12px;
+      background: rgba(255, 255, 65, 0.1);
+      border-radius: 15px;
+      border: 1px solid rgba(255, 255, 65, 0.3);
+    }
+  }
+
+  .live-tick-stream {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+
+    .live-tick-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: rgba(0, 255, 65, 0.1);
+      border: 1px solid rgba(0, 255, 65, 0.2);
+      border-radius: 6px;
+      transition: all 0.3s ease;
+      animation: tickFadeIn 0.5s ease-in;
+
+      &:hover {
+        background: rgba(0, 255, 65, 0.2);
+        border-color: rgba(0, 255, 65, 0.4);
+        transform: scale(1.02);
+      }
+
+      .tick-timestamp {
+        color: #888;
+        font-size: 0.8rem;
+        min-width: 80px;
+      }
+
+      .tick-price {
+        color: #00ff41;
+        font-weight: bold;
+        font-size: 1rem;
+        text-shadow: 0 0 8px rgba(0, 255, 65, 0.5);
+        flex: 1;
+        text-align: center;
+      }
+
+      .tick-last-digit {
+        color: #ffff41;
+        font-weight: bold;
+        font-size: 1.1rem;
+        background: rgba(255, 255, 65, 0.2);
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 65, 0.3);
+        min-width: 30px;
+        text-align: center;
+        text-shadow: 0 0 8px rgba(255, 255, 65, 0.5);
+      }
+    }
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(0, 255, 65, 0.5);
+      border-radius: 3px;
+
+      &:hover {
+        background: rgba(0, 255, 65, 0.7);
+      }
+    }
+  }
+}
+
+@keyframes tickFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 /* Risk Disclaimer Styles */
 .risk-disclaimer-button {
   position: fixed;
@@ -2033,7 +2152,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 160px;
+  min-width: 180px;
   justify-content: center;
 
   .warning-icon {
@@ -2043,6 +2162,7 @@
 
   .disclaimer-text {
     white-space: nowrap;
+    font-size: 14px;
   }
 
   &:hover {
@@ -2154,21 +2274,61 @@
   }
 }
 
-/* Mobile responsiveness for risk disclaimer */
+/* Mobile responsiveness for risk disclaimer and live tick display */
 @media (max-width: 768px) {
+  .live-tick-display {
+    padding: 15px;
+    margin-bottom: 15px;
+
+    .live-tick-header {
+      flex-direction: column;
+      gap: 10px;
+      text-align: center;
+
+      h4 {
+        font-size: 1rem;
+      }
+    }
+
+    .live-tick-stream {
+      max-height: 200px;
+
+      .live-tick-item {
+        padding: 6px 10px;
+        flex-direction: column;
+        gap: 5px;
+        text-align: center;
+
+        .tick-timestamp {
+          font-size: 0.7rem;
+          min-width: auto;
+        }
+
+        .tick-price {
+          font-size: 0.9rem;
+        }
+
+        .tick-last-digit {
+          font-size: 1rem;
+          padding: 3px 6px;
+        }
+      }
+    }
+  }
+
   .risk-disclaimer-button {
     bottom: 15px;
     right: 15px;
     padding: 10px 15px;
     font-size: 12px;
-    min-width: 140px;
+    min-width: 160px;
 
     .warning-icon {
       font-size: 14px;
     }
 
     .disclaimer-text {
-      font-size: 11px;
+      font-size: 12px;
     }
   }
 

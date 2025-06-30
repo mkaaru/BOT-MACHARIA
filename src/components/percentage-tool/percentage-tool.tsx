@@ -1340,6 +1340,32 @@ const PercentageTool: React.FC = () => {
           </div>
         </div>
 
+        {/* Live Tick Display for Selected Volatility */}
+        <div className="live-tick-display">
+          <div className="live-tick-header">
+            <h4>📊 LIVE TICKS - {getSymbolName(selectedVolatility)}</h4>
+            <div className="tick-count">
+              {ticksData[selectedVolatility]?.length || 0} ticks received
+            </div>
+          </div>
+          <div className="live-tick-stream">
+            {ticksData[selectedVolatility]?.slice(-10).map((tick, index) => (
+              <div 
+                key={index}
+                className="live-tick-item"
+                style={{ 
+                  animationDelay: `${index * 0.1}s`,
+                  opacity: 0.3 + (index / 10) * 0.7
+                }}
+              >
+                <span className="tick-timestamp">{new Date().toLocaleTimeString()}</span>
+                <span className="tick-price">{tick.toFixed(5)}</span>
+                <span className="tick-last-digit">{tick.toString().slice(-1)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Floating Risk Disclaimer Button */}
         <button 
           className="risk-disclaimer-button"
