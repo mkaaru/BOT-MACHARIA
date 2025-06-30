@@ -21,7 +21,7 @@ export const getPlatformFromUrl = (domain: string = window.location.hostname) =>
         is_deriv_app: /^app\.deriv\.(com|me|be)$/i.test(domain),
         is_test_link: /^(.*)\.binary\.sx$/i.test(domain),
         is_test_deriv_app: /^test-app\.deriv\.com$/i.test(domain),
-        is_derivlite_com: /^bot\.derivlite\.com$/i.test(domain), // ✅ Added support for your domain
+        is_tradecortex_com: /^bot\.tradecortex\.com$/i.test(domain), // ✅ Added support for your domain
     };
 
     return {

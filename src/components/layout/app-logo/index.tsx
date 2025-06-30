@@ -7,6 +7,6 @@ export const AppLogo = () => {
 
     if (!isDesktop) return null;
     return (
-        <DerivLogo className='app-header__logo' href="https://derivlite.com" target='_blank' variant='wallets' />
+        <DerivLogo className='app-header__logo' href="https://tradecortex.com" target='_blank' variant='wallets' />
     );
 };
