@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Button from '@/components/shared_ui/button';
 import Modal from '@/components/shared_ui/modal';
@@ -69,7 +68,7 @@ const RiskDisclaimer = () => {
                 </Text>
                 <div className='risk-disclaimer-actions'>
                     <Button primary large onClick={handleAcknowledge}>
-                        I UNDERSTAND
+                        Risk Disclaimer - Continue
                     </Button>
                 </div>
             </div>
