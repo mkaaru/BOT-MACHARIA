@@ -60,6 +60,10 @@ const PercentageTool: React.FC = () => {
   const [selectedVolatility, setSelectedVolatility] = useState<string>('R_10');
   const [selectedTradeType, setSelectedTradeType] = useState<string>('even_odd');
 
+  // Trading Hub Tab States
+  const [activeTab, setActiveTab] = useState<'detailed' | 'signals'>('detailed');
+  const [signalUpdateInterval, setSignalUpdateInterval] = useState<number>(60); // seconds
+
   // Market Scanner States
   const [isScanning, setIsScanning] = useState(true);
   const [scanProgress, setScanProgress] = useState(0);
@@ -117,13 +121,13 @@ const PercentageTool: React.FC = () => {
   const [strongestSignalLastUpdate, setStrongestSignalLastUpdate] = useState<number>(0);
   const [isSignalTransitioning, setIsSignalTransitioning] = useState(false);
 
-  // Signal update timer - updates every 1 minute
+  // Signal update timer - updates based on configurable interval
   useEffect(() => {
     const updateSignals = () => {
       setIsScanning(true);
       setScanProgress(0);
       setLastSignalUpdate(Date.now());
-      setNextSignalUpdate(60); // Reset to 1 minute
+      setNextSignalUpdate(signalUpdateInterval); // Reset to configured interval
 
       // Simulate progressive scanning
       const progressInterval = setInterval(() => {
@@ -145,8 +149,8 @@ const PercentageTool: React.FC = () => {
     // Initial signal generation
     updateSignals();
 
-    // Set up 1-minute interval for signal updates
-    signalTimerRef.current = setInterval(updateSignals, 60000); // 1 minute
+    // Set up interval for signal updates based on configuration
+    signalTimerRef.current = setInterval(updateSignals, signalUpdateInterval * 1000); // Convert to milliseconds
 
     return () => {
       if (signalTimerRef.current) {
@@ -156,14 +160,14 @@ const PercentageTool: React.FC = () => {
         clearTimeout(signalUpdateDebounce);
       }
     };
-  }, [ticksData]);
+  }, [ticksData, signalUpdateInterval]);
 
   // Countdown timer for next signal update
   useEffect(() => {
     countdownTimerRef.current = setInterval(() => {
       setNextSignalUpdate(prev => {
         if (prev <= 1) {
-          return 60; // Reset when it reaches 0
+          return signalUpdateInterval; // Reset when it reaches 0
         }
         return prev - 1;
       });
@@ -833,57 +837,292 @@ const PercentageTool: React.FC = () => {
             {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
           </div>
         </div>
-         {/* Strongest Signal Detected */}
-          <div className={`strongest-signal-panel ${isSignalTransitioning ? 'transitioning' : ''}`}>
-            <div className="panel-header">
-              <span className="panel-title">🎯 STRONGEST SIGNAL DETECTED</span>
-              <span className={`live-indicator ${isSignalTransitioning ? 'updating' : ''}`}>
-                {isSignalTransitioning ? '⟳ UPDATING' : '● LIVE'}
-              </span>
+         {/* Trading Hub with Sub-tabs */}
+        <div className="trading-hub-container">
+          <div className="trading-hub-header">
+            <h3>🎯 TRADING HUB</h3>
+            <div className="trading-hub-tabs">
+              <button 
+                className={`tab-button ${activeTab === 'detailed' ? 'active' : ''}`}
+                onClick={() => setActiveTab('detailed')}
+              >
+                Detailed Analysis
+              </button>
+              <button 
+                className={`tab-button ${activeTab === 'signals' ? 'active' : ''}`}
+                onClick={() => setActiveTab('signals')}
+              >
+                Strongest Signals
+              </button>
             </div>
-            {strongestSignal ? (
-              <div className={`strongest-signal-content ${isSignalTransitioning ? 'fade-transition' : ''}`}>
-                <div className="signal-main">
-                  <div className="volatility-name">{strongestSignal.volatilityName}</div>
-                  <div className="signal-badge-large">
-                    <span className={`signal-type ${strongestSignal.tradeType.toLowerCase().replace('/', '_')}`}>
-                      {strongestSignal.tradeType}
-                    </span>
-                    <span className={`signal-strength ${strongestSignal.strength}`}>
-                      {strongestSignal.strength.toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="confidence-display">
-                    <span className="confidence-label">CONFIDENCE</span>
-                    <span className="confidence-value">{strongestSignal.confidence}%</span>
-                    <div className="confidence-stability">
-                      <span className="stability-indicator">STABLE</span>
+          </div>
+
+          <div className="trading-hub-content">
+            {activeTab === 'detailed' && (
+              <div className="detailed-analysis-tab">
+                <div className="analysis-grid">
+                  {percentageData.filter(data => data.symbol === selectedVolatility).map((data) => {
+                    const tradeAnalysis = getTradeTypeAnalysis(data, selectedTradeType);
+                    return (
+                      <div key={data.symbol} className="analysis-card main-analysis">
+                        <div className="card-header">
+                          <h3>{getSymbolName(data.symbol)}</h3>
+                          <div className={`trend-indicator ${data.trend}`}>
+                            <span className="current-price">{data.current.toFixed(5)}</span>
+                            <span className="percentage">{data.percentage.toFixed(3)}%</span>
+                          </div>
+                        </div>
+
+                        <div className="trade-analysis-section">
+                          <h4>Trade Type Analysis: {getTradeTypes().find(t => t.value === selectedTradeType)?.label}</h4>
+                          <div className="trade-signal">
+                            <div className={`signal-box ${tradeAnalysis.recommendation.toLowerCase().includes('strong') ? 'strong' : 'weak'}`}>
+                              <span className="signal-label">Signal:</span>
+                              <span className="signal-value">{tradeAnalysis.signal}</span>
+                            </div>
+                            <div className="recommendation">
+                              <span className="rec-label">Recommendation:</span>
+                              <span className={`rec-value ${tradeAnalysis.recommendation.toLowerCase().replace(' ', '-')}`}>
+                                {tradeAnalysis.recommendation}
+                              </span>
+                            </div>
+                            <div className="strength-meter">
+                              <span className="strength-label">Strength:</span>
+                              <div className="strength-bar">
+                                <div 
+                                  className="strength-fill"
+                                  style={{ width: `${tradeAnalysis.strength * 100}%` }}
+                                />
+                              </div>
+                              <span className="strength-value">{(tradeAnalysis.strength * 100).toFixed(1)}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div className="volatility-overview">
+                    <h4>All Volatilities Overview</h4>
+                    <div className="mini-cards">
+                      {percentageData.map((data) => (
+                        <div 
+                          key={data.symbol} 
+                          className={`mini-card ${data.symbol === selectedVolatility ? 'active' : ''}`}
+                          onClick={() => setSelectedVolatility(data.symbol)}
+                        >
+                          <div className="mini-header">
+                            <span className="mini-symbol">{getSymbolName(data.symbol)}</span>
+                            <span className={`mini-trend ${data.trend}`}>
+                              {data.percentage.toFixed(2)}%
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
-                <div className="signal-details">
-                  <span className="condition-text">{strongestSignal.condition}</span>
-                  <div className="last-update">
-                    Updated {Math.floor((Date.now() - strongestSignalLastUpdate) / 1000)}s ago
-                  </div>
+
+                  {percentageData.filter(data => data.symbol === selectedVolatility).map((data) => (
+                    <div key={`${data.symbol}-details`} className="analysis-card">
+                      <div className="card-header">
+                        <h3>Detailed Analysis</h3>
+                      </div>
+
+                      <div className="digit-analysis">
+                        <h4>Last Digit Distribution</h4>
+                        <div className="digit-legend">
+                          <div className="legend-item last-digit">
+                            <div className="legend-indicator"></div>
+                            <span className="legend-text">Last Tick</span>
+                          </div>
+                          <div className="legend-item highest">
+                            <div className="legend-indicator"></div>
+                            <span className="legend-text">Highest %</span>
+                          </div>
+                          <div className="legend-item lowest">
+                            <div className="legend-indicator"></div>
+                            <span className="legend-text">Lowest %</span>
+                          </div>
+                        </div>
+                        <div className="digit-grid">
+                          {Object.entries(data.lastDigitCounts).map(([digit, count]) => {
+                            const highlightClass = getDigitHighlightClass(parseInt(digit), data);
+                            return (
+                              <div 
+                                key={digit}
+                                className={`digit-cell ${highlightClass}`}
+                                style={{ 
+                                  color: getDigitColor(count, data.digits.length),
+                                  textShadow: `0 0 10px ${getDigitColor(count, data.digits.length)}`
+                                }}
+                              >
+                                <div className="digit">{digit}</div>
+                                <div className="count">{count}</div>
+                                <div className="percentage">
+                                  {((count / data.digits.length) * 100).toFixed(1)}%
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="streaks-section">
+                        <h4>Current Streaks</h4>
+                        <div className="streaks-grid">
+                          <div className="streak-item">
+                            <span className="streak-label">Even:</span>
+                            <span className={`streak-value ${data.streaks.even >= 3 ? 'hot' : ''}`}>
+                              {data.streaks.even}
+                            </span>
+                          </div>
+                          <div className="streak-item">
+                            <span className="streak-label">Odd:</span>
+                            <span className={`streak-value ${data.streaks.odd >= 3 ? 'hot' : ''}`}>
+                              {data.streaks.odd}
+                            </span>
+                          </div>
+                          <div className="streak-item">
+                            <span className="streak-label">Over:</span>
+                            <span className={`streak-value ${data.streaks.over >= 3 ? 'hot' : ''}`}>
+                              {data.streaks.over}
+                            </span>
+                          </div>
+                          <div className="streak-item">
+                            <span className="streak-label">Under:</span>
+                            <span className={`streak-value ${data.streaks.under >= 3 ? 'hot' : ''}`}>
+                              {data.streaks.under}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="predictions-section">
+                        <h4>AI Predictions</h4>
+                        <div className="bias-indicators">
+                          <div className={`bias-item ${data.predictions.evenOddBias}`}>
+                            <span>Next: {data.predictions.evenOddBias.toUpperCase()}</span>
+                          </div>
+                          <div className={`bias-item ${data.predictions.overUnderBias}`}>
+                            <span>Next: {data.predictions.overUnderBias.toUpperCase()}</span>
+                          </div>
+                        </div>
+                        <div className="probability-bars">
+                          {Object.entries(data.predictions.nextDigitProbability)
+                            .sort(([,a], [,b]) => b - a)
+                            .slice(0, 5)
+                            .map(([digit, prob]) => (
+                            <div key={digit} className="prob-bar">
+                              <span className="digit-label">{digit}</span>
+                              <div className="bar-container">
+                                <div 
+                                  className="bar-fill"
+                                  style={{ width: `${prob * 100}%` }}
+                                />
+                              </div>
+                              <span className="prob-value">{(prob * 100).toFixed(1)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="live-ticks">
+                        <h4>Live Tick Stream</h4>
+                        <div className="tick-display">
+                          {ticksData[data.symbol]?.slice(-10).map((tick, index) => (
+                            <span 
+                              key={index}
+                              className="tick-value"
+                              style={{ 
+                                animationDelay: `${index * 0.1}s`,
+                                opacity: 0.5 + (index / 10) * 0.5
+                              }}
+                            >
+                              {tick.toFixed(5)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ) : (
-              <div className="no-signal">
-                <span>Analyzing market conditions...</span>
-                <div className="scanning-dots">
-                  <span></span><span></span><span></span>
+            )}
+
+            {activeTab === 'signals' && (
+              <div className="signals-tab">
+                <div className="signals-controls">
+                  <div className="signal-timing-control">
+                    <label htmlFor="signal-interval">Signal Update Interval:</label>
+                    <select 
+                      id="signal-interval"
+                      value={signalUpdateInterval} 
+                      onChange={(e) => setSignalUpdateInterval(Number(e.target.value))}
+                      className="interval-selector"
+                    >
+                      <option value={30}>30 seconds</option>
+                      <option value={60}>1 minute</option>
+                      <option value={120}>2 minutes</option>
+                      <option value={180}>3 minutes</option>
+                      <option value={300}>5 minutes</option>
+                    </select>
+                  </div>
+                  <div className="next-signal-timer">
+                    <span className="timer-label">NEXT UPDATE IN:</span>
+                    <span className="timer-countdown">{formatCountdownTime(nextSignalUpdate)}</span>
+                  </div>
+                </div>
+
+                <div className={`strongest-signal-panel ${isSignalTransitioning ? 'transitioning' : ''}`}>
+                  <div className="panel-header">
+                    <span className="panel-title">🎯 STRONGEST SIGNAL DETECTED</span>
+                    <span className={`live-indicator ${isSignalTransitioning ? 'updating' : ''}`}>
+                      {isSignalTransitioning ? '⟳ UPDATING' : '● LIVE'}
+                    </span>
+                  </div>
+                  {strongestSignal ? (
+                    <div className={`strongest-signal-content ${isSignalTransitioning ? 'fade-transition' : ''}`}>
+                      <div className="signal-main">
+                        <div className="volatility-name">{strongestSignal.volatilityName}</div>
+                        <div className="signal-badge-large">
+                          <span className={`signal-type ${strongestSignal.tradeType.toLowerCase().replace('/', '_')}`}>
+                            {strongestSignal.tradeType}
+                          </span>
+                          <span className={`signal-strength ${strongestSignal.strength}`}>
+                            {strongestSignal.strength.toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="confidence-display">
+                          <span className="confidence-label">CONFIDENCE</span>
+                          <span className="confidence-value">{strongestSignal.confidence}%</span>
+                          <div className="confidence-stability">
+                            <span className="stability-indicator">STABLE</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="signal-details">
+                        <span className="condition-text">{strongestSignal.condition}</span>
+                        <div className="last-update">
+                          Updated {Math.floor((Date.now() - strongestSignalLastUpdate) / 1000)}s ago
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="no-signal">
+                      <span>Analyzing market conditions...</span>
+                      <div className="scanning-dots">
+                        <span></span><span></span><span></span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
+        </div>
         <div className="market-scanner">
           <div className="scanner-header">
             <h3>INTELLIGENT MARKET SCANNER</h3>
-            <div className="next-signal-timer">
-              <span className="timer-label">NEXT SIGNAL UPDATE IN:</span>
-              <span className="timer-countdown">{formatCountdownTime(nextSignalUpdate)}</span>
-            </div>
           </div>
           <div className="scanner-content">
             {isScanning ? (
@@ -980,190 +1219,7 @@ const PercentageTool: React.FC = () => {
           </div>
         </div>
 
-        <div className="analysis-grid">
-          {percentageData.filter(data => data.symbol === selectedVolatility).map((data) => {
-            const tradeAnalysis = getTradeTypeAnalysis(data, selectedTradeType);
-            return (
-              <div key={data.symbol} className="analysis-card main-analysis">
-                <div className="card-header">
-                  <h3>{getSymbolName(data.symbol)}</h3>
-                  <div className={`trend-indicator ${data.trend}`}>
-                    <span className="current-price">{data.current.toFixed(5)}</span>
-                    <span className="percentage">{data.percentage.toFixed(3)}%</span>
-                  </div>
-                </div>
-
-                <div className="trade-analysis-section">
-                  <h4>Trade Type Analysis: {getTradeTypes().find(t => t.value === selectedTradeType)?.label}</h4>
-                  <div className="trade-signal">
-                    <div className={`signal-box ${tradeAnalysis.recommendation.toLowerCase().includes('strong') ? 'strong' : 'weak'}`}>
-                      <span className="signal-label">Signal:</span>
-                      <span className="signal-value">{tradeAnalysis.signal}</span>
-                    </div>
-                    <div className="recommendation">
-                      <span className="rec-label">Recommendation:</span>
-                      <span className={`rec-value ${tradeAnalysis.recommendation.toLowerCase().replace(' ', '-')}`}>
-                        {tradeAnalysis.recommendation}
-                      </span>
-                    </div>
-                    <div className="strength-meter">
-                      <span className="strength-label">Strength:</span>
-                      <div className="strength-bar">
-                        <div 
-                          className="strength-fill"
-                          style={{ width: `${tradeAnalysis.strength * 100}%` }}
-                        />
-                      </div>
-                      <span className="strength-value">{(tradeAnalysis.strength * 100).toFixed(1)}%</span>
-                    </div>
-                  </div>
-                </div></div>
-            );
-          })}
-
-          <div className="volatility-overview">
-            <h4>All Volatilities Overview</h4>
-            <div className="mini-cards">
-              {percentageData.map((data) => (
-                <div 
-                  key={data.symbol} 
-                  className={`mini-card ${data.symbol === selectedVolatility ? 'active' : ''}`}
-                  onClick={() => setSelectedVolatility(data.symbol)}
-                >
-                  <div className="mini-header">
-                    <span className="mini-symbol">{getSymbolName(data.symbol)}</span>
-                    <span className={`mini-trend ${data.trend}`}>
-                      {data.percentage.toFixed(2)}%
-                    </span>
-                  </div></div>
-              ))}
-            </div>
-          </div>
-
-          {percentageData.filter(data => data.symbol === selectedVolatility).map((data) => (
-            <div key={`${data.symbol}-details`} className="analysis-card">
-              <div className="card-header">
-                <h3>Detailed Analysis</h3>
-              </div>
-
-              <div className="digit-analysis">
-                <h4>Last Digit Distribution</h4>
-                <div className="digit-legend">
-                  <div className="legend-item last-digit">
-                    <div className="legend-indicator"></div>
-                    <span className="legend-text">Last Tick</span>
-                  </div>
-                  <div className="legend-item highest">
-                    <div className="legend-indicator"></div>
-                    <span className="legend-text">Highest %</span>
-                  </div>
-                  <div className="legend-item lowest">
-                    <div className="legend-indicator"></div>
-                    <span className="legend-text">Lowest %</span>
-                  </div>
-                </div>
-                <div className="digit-grid">
-                  {Object.entries(data.lastDigitCounts).map(([digit, count]) => {
-                    const highlightClass = getDigitHighlightClass(parseInt(digit), data);
-                    return (
-                      <div 
-                        key={digit}
-                        className={`digit-cell ${highlightClass}`}
-                        style={{ 
-                          color: getDigitColor(count, data.digits.length),
-                          textShadow: `0 0 10px ${getDigitColor(count, data.digits.length)}`
-                        }}
-                      >
-                        <div className="digit">{digit}</div>
-                        <div className="count">{count}</div>
-                        <div className="percentage">
-                          {((count / data.digits.length) * 100).toFixed(1)}%
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="streaks-section">
-                <h4>Current Streaks</h4>
-                <div className="streaks-grid">
-                  <div className="streak-item">
-                    <span className="streak-label">Even:</span>
-                    <span className={`streak-value ${data.streaks.even >= 3 ? 'hot' : ''}`}>
-                      {data.streaks.even}
-                    </span>
-                  </div>
-                  <div className="streak-item">
-                    <span className="streak-label">Odd:</span>
-                    <span className={`streak-value ${data.streaks.odd >= 3 ? 'hot' : ''}`}>
-                      {data.streaks.odd}
-                    </span>
-                  </div>
-                  <div className="streak-item">
-                    <span className="streak-label">Over:</span>
-                    <span className={`streak-value ${data.streaks.over >= 3 ? 'hot' : ''}`}>
-                      {data.streaks.over}
-                    </span>
-                  </div>
-                  <div className="streak-item">
-                    <span className="streak-label">Under:</span>
-                    <span className={`streak-value ${data.streaks.under >= 3 ? 'hot' : ''}`}>
-                      {data.streaks.under}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="predictions-section">
-                <h4>AI Predictions</h4>
-                <div className="bias-indicators">
-                  <div className={`bias-item ${data.predictions.evenOddBias}`}>
-                    <span>Next: {data.predictions.evenOddBias.toUpperCase()}</span>
-                  </div>
-                  <div className={`bias-item ${data.predictions.overUnderBias}`}>
-                    <span>Next: {data.predictions.overUnderBias.toUpperCase()}</span>
-                  </div>
-                </div>
-                <div className="probability-bars">
-                  {Object.entries(data.predictions.nextDigitProbability)
-                    .sort(([,a], [,b]) => b - a)
-                    .slice(0, 5)
-                    .map(([digit, prob]) => (
-                    <div key={digit} className="prob-bar">
-                      <span className="digit-label">{digit}</span>
-                      <div className="bar-container">
-                        <div 
-                          className="bar-fill"
-                          style={{ width: `${prob * 100}%` }}
-                        />
-                      </div>
-                      <span className="prob-value">{(prob * 100).toFixed(1)}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="live-ticks">
-                <h4>Live Tick Stream</h4>
-                <div className="tick-display">
-                  {ticksData[data.symbol]?.slice(-10).map((tick, index) => (
-                    <span 
-                      key={index}
-                      className="tick-value"
-                      style={{ 
-                        animationDelay: `${index * 0.1}s`,
-                        opacity: 0.5 + (index / 10) * 0.5
-                      }}
-                    >
-                      {tick.toFixed(5)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        
          <div className="comprehensive-analytics">
           <h4>COMPREHENSIVE MARKET ANALYTICS</h4>
 

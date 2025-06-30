@@ -982,6 +982,162 @@
     }
   }
 
+/* Trading Hub Container */
+.trading-hub-container {
+  background: rgba(0, 255, 65, 0.05);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+
+  .trading-hub-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+
+    h3 {
+      color: #00ff41;
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: bold;
+      text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+      letter-spacing: 2px;
+    }
+
+    .trading-hub-tabs {
+      display: flex;
+      gap: 10px;
+
+      .tab-button {
+        background: rgba(0, 255, 65, 0.1);
+        border: 1px solid rgba(0, 255, 65, 0.3);
+        color: #00ff41;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        &:hover {
+          background: rgba(0, 255, 65, 0.2);
+          border-color: rgba(0, 255, 65, 0.5);
+        }
+
+        &.active {
+          background: rgba(0, 255, 65, 0.3);
+          border-color: #00ff41;
+          box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+        }
+      }
+    }
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      text-align: center;
+
+      .trading-hub-tabs {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  }
+
+  .trading-hub-content {
+    .detailed-analysis-tab {
+      .analysis-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 20px;
+      }
+    }
+
+    .signals-tab {
+      .signals-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding: 15px;
+        background: rgba(0, 255, 65, 0.1);
+        border-radius: 8px;
+        border: 1px solid rgba(0, 255, 65, 0.2);
+        flex-wrap: wrap;
+        gap: 15px;
+
+        .signal-timing-control {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+
+          label {
+            color: #00ff41;
+            font-weight: bold;
+            font-size: 14px;
+          }
+
+          .interval-selector {
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid #00ff41;
+            color: #00ff41;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            min-width: 120px;
+
+            &:focus {
+              outline: none;
+              box-shadow: 0 0 10px #00ff41;
+            }
+
+            option {
+              background: #000;
+              color: #00ff41;
+            }
+          }
+        }
+
+        .next-signal-timer {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+
+          .timer-label {
+            color: #00ff41;
+            font-size: 0.9rem;
+            font-weight: bold;
+            opacity: 0.8;
+            margin-bottom: 0.2rem;
+          }
+
+          .timer-countdown {
+            color: #ffff41;
+            font-size: 1.4rem;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 255, 65, 0.5);
+            font-family: 'Courier New', monospace;
+            animation: pulse 2s infinite;
+          }
+        }
+
+        @media (max-width: 768px) {
+          flex-direction: column;
+          text-align: center;
+
+          .next-signal-timer {
+            align-items: center;
+          }
+        }
+      }
+    }
+  }
+}
+
 /* Strongest Signal Panel */
 .strongest-signal-panel {
   background: rgba(20, 0, 40, 0.95);
