@@ -410,6 +410,26 @@ const AppWrapper = observer(() => {
                             </div>
                         </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
+                        <div label={<><SignalsIcon /><Localize i18n_default_text='Signals' /></>} id='id-signals'>
+                            <div className={classNames('dashboard__chart-wrapper', {
+                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
+                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
+                            })}>
+                                <iframe 
+                                    src="https://tracktool.netlify.app/signals.html"
+                                    width="100%"
+                                    height="100%"
+                                    style={{ 
+                                        border: 'none', 
+                                        display: 'block', 
+                                        minHeight: '600px',
+                                        height: 'calc(100vh - 200px)'
+                                    }}
+                                    scrolling="yes"
+                                    title="Trading Signals"
+                                />
+                            </div>
+                        </div>
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
@@ -445,26 +465,6 @@ const AppWrapper = observer(() => {
                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
                             <Dashboard handleTabChange={handleTabChange} />
                             <button onClick={handleOpen}>Load Bot</button>
-                        </div>
-                        <div label={<><SignalsIcon /><Localize i18n_default_text='Signals' /></>} id='id-signals'>
-                            <div className={classNames('dashboard__chart-wrapper', {
-                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
-                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })}>
-                                <iframe 
-                                    src="https://tracktool.netlify.app/signals.html"
-                                    width="100%"
-                                    height="100%"
-                                    style={{ 
-                                        border: 'none', 
-                                        display: 'block', 
-                                        minHeight: '600px',
-                                        height: 'calc(100vh - 200px)'
-                                    }}
-                                    scrolling="yes"
-                                    title="Trading Signals"
-                                />
-                            </div>
                         </div>
                     </Tabs>
                 </div>
