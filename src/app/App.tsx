@@ -10,19 +10,8 @@ import { TAuthData } from '@/types/api-types';
 import { initializeI18n, localize, TranslationProvider } from '@deriv-com/translations';
 import CoreStoreProvider from './CoreStoreProvider';
 import './app-root.scss';
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Layout from '@/components/layout';
-import Main from '@/pages/main';
-import BotBuilder from '@/pages/bot-builder';
-import Chart from '@/pages/chart';
-import Dashboard from '@/pages/dashboard';
-import Tutorials from '@/pages/tutorials';
-import PercentageTool from '@/components/percentage-tool';
-import { observer } from 'mobx-react-lite';
-import { useStore } from '@/hooks/useStore';
 
-const Layout2 = lazy(() => import('../components/layout'));
+const Layout = lazy(() => import('../components/layout'));
 const AppRoot = lazy(() => import('./app-root'));
 
 const { TRANSLATIONS_CDN_URL, R2_PROJECT_NAME, CROWDIN_BRANCH_NAME } = process.env;
@@ -40,7 +29,7 @@ const router = createBrowserRouter(
                         <StoreProvider>
                             <RoutePromptDialog />
                             <CoreStoreProvider>
-                                <Layout2 />
+                                <Layout />
                             </CoreStoreProvider>
                         </StoreProvider>
                     </TranslationProvider>
@@ -54,27 +43,7 @@ const router = createBrowserRouter(
     )
 );
 
-const App = observer(() => {
-    const { common } = useStore();
-    const { is_socket_opened } = common;
-
-    return (
-        <Router>
-            <Layout>
-                <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/bot-builder" element={<BotBuilder />} />
-                    <Route path="/chart" element={<Chart />} />
-                    <Route path="/main" element={<Main />} />
-                    <Route path="/tutorials" element={<Tutorials />} />
-                    <Route path="/percentage-tool" element={<PercentageTool />} />
-                </Routes>
-            </Layout>
-        </Router>
-    );
-});
-
-function AppWrapper() {
+function App() {
     useEffect(() => {
         initSurvicate();
         window?.dataLayer?.push({ event: 'page_load' });
@@ -160,4 +129,4 @@ function AppWrapper() {
     return <RouterProvider router={router} />;
 }
 
-export default AppWrapper;
+export default App;
