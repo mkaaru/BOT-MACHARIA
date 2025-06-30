@@ -127,18 +127,7 @@ const AppWrapper = observer(() => {
                 '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1.xml',
                 '3 2025 Updated Version Of Candle Mine🇬🇧.xml',
                 'Accumulators Pro Bot.xml',
-                'AI with Entry Point.xml',
-                'Entry Point Scanner.xml',
-                'Even_Odd_Auto_DBot V1.01 (1).xml',
-                'Expert Wager V3 (Over Under Bot).xml',
-                'Expert Wager V4 (Even Odd).xml',
-                'Expert_Speed_Bot_By_CHOSEN_DOLLAR_PRINTER_FX📉📉📉📈📈📈.xml',
-                'Expert_Speed_Bot_By_CHOSEN_DOLLAR_PRINTER_FX📉📉📉📈📈📈_1.xml',
-                'Martingale_Striker.xml',
-                'MKOREAN SV5 SPEED BOT.xml',
                 'Super Speed Bot.xml',
-                'Super Speed Even n\' Odd.xml',
-                'Updated Expert Wager Version 3.xml',
             ];
 
             const loadedBots = [];
