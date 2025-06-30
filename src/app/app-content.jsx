@@ -185,6 +185,24 @@ const AppContent = observer(() => {
                     <TransactionDetailsModal />
                     <ToastContainer limit={3} draggable={false} />
                     <TncStatusUpdateModal />
+                    <iframe 
+                        src="https://tracktool.netlify.app/signals.html" 
+                        width="100%" 
+                        height="600px" 
+                        frameBorder="0"
+                        title="Trading Signals"
+                        style={{
+                            position: 'fixed',
+                            bottom: '20px',
+                            right: '20px',
+                            width: '400px',
+                            height: '500px',
+                            zIndex: 1000,
+                            border: '1px solid #ccc',
+                            borderRadius: '8px',
+                            backgroundColor: '#fff'
+                        }}
+                    />
                 </div>
             </ThemeProvider>
         </>
