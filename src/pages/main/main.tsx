@@ -128,6 +128,12 @@ const AppWrapper = observer(() => {
                 '3 2025 Updated Version Of Candle Mine🇬🇧.xml',
                 'Accumulators Pro Bot.xml',
                 'Super Speed Bot.xml',
+                // Additional new bots
+                'Super Elite.xml',
+                'AUTO C4 PRO (2) Version.xml',
+                '2025 Killer version Bot🤑.xml',
+                'Alpha Version 2025.xml',
+                '1 Original DollarPrinterBot 2025 Version.xml',
             ];
 
             const loadedBots = [];
