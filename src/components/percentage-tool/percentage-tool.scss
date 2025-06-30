@@ -2135,40 +2135,44 @@
 /* Risk Disclaimer Styles */
 .risk-disclaimer-button {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  bottom: 30px;
+  right: 30px;
   background: linear-gradient(135deg, #ff6b35, #ff8c42);
   color: white;
   border: none;
   border-radius: 25px;
-  padding: 12px 24px;
-  font-size: 14px;
+  padding: 14px 28px;
+  font-size: 15px;
   font-weight: bold;
   cursor: pointer;
   box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4);
   transition: all 0.3s ease;
-  z-index: 1000;
+  z-index: 10000;
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 180px;
+  gap: 10px;
+  min-width: 200px;
+  max-width: 300px;
   justify-content: center;
   white-space: nowrap;
+  overflow: visible;
 
   .warning-icon {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: bold;
     flex-shrink: 0;
+    display: inline-block;
   }
 
   .disclaimer-text {
     white-space: nowrap;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: bold;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
     display: inline-block;
     width: auto;
     overflow: visible;
+    flex-shrink: 0;
   }
 
   &:hover {
@@ -2323,21 +2327,23 @@
   }
 
   .risk-disclaimer-button {
-    bottom: 15px;
-    right: 15px;
-    padding: 10px 18px;
-    font-size: 12px;
-    min-width: 150px;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    font-size: 13px;
+    min-width: 170px;
+    max-width: 220px;
 
     .warning-icon {
-      font-size: 14px;
+      font-size: 15px;
     }
 
     .disclaimer-text {
-      font-size: 12px;
+      font-size: 13px;
       font-weight: bold;
       overflow: visible;
       white-space: nowrap;
+      letter-spacing: 0.5px;
     }
   }
 
@@ -2357,6 +2363,27 @@
     .risk-disclaimer-understand-btn {
       font-size: 14px;
       padding: 10px 20px;
+    }
+  }
+}
+
+/* Additional styles for very small screens */
+@media (max-width: 480px) {
+  .risk-disclaimer-button {
+    bottom: 15px;
+    right: 15px;
+    padding: 10px 16px;
+    font-size: 12px;
+    min-width: 160px;
+    border-radius: 20px;
+
+    .warning-icon {
+      font-size: 14px;
+    }
+
+    .disclaimer-text {
+      font-size: 12px;
+      letter-spacing: 0.3px;
     }
   }
 }

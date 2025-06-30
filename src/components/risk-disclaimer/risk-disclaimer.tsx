@@ -30,7 +30,7 @@ const RiskDisclaimer = () => {
             <>
                 <button className='risk-disclaimer-button' onClick={handleOpenModal}>
                     <Text size='xs' weight='bold' color='colored-background'>
-                        Risk
+                        Risk Disclaimer
                     </Text>
                 </button>
                 {isModalOpen && (
