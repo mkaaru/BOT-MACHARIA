@@ -2152,8 +2152,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 180px;
+  min-width: 200px;
   justify-content: center;
+  white-space: nowrap;
 
   .warning-icon {
     font-size: 16px;
@@ -2321,7 +2322,7 @@
     right: 15px;
     padding: 10px 15px;
     font-size: 12px;
-    min-width: 160px;
+    min-width: 180px;
 
     .warning-icon {
       font-size: 14px;

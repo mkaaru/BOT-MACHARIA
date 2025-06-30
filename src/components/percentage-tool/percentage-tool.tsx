@@ -279,14 +279,14 @@ const PercentageTool: React.FC = () => {
     }
   }, [isScanning]);
 
-  // WebSocket connection with app_id 69811 and 200 ticks
+  // WebSocket connection with app_id 75771 and 200 ticks
   useEffect(() => {
     const connectWebSocket = () => {
-      wsRef.current = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=69811');
+      wsRef.current = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
 
       wsRef.current.onopen = () => {
         setIsConnected(true);
-        console.log('WebSocket connected with app_id 69811');
+        console.log('WebSocket connected with app_id 75771');
 
         // Subscribe to volatility indices with 200 ticks for better analysis
         ['1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', 'R_10', 'R_25', 'R_50', 'R_75', 'R_100'].forEach(symbol => {
@@ -312,11 +312,18 @@ const PercentageTool: React.FC = () => {
           }));
         } else if (data.tick) {
           const { symbol, quote } = data.tick;
+          const price = parseFloat(quote);
           
-          // Add tick to buffer instead of directly updating
+          // Update ticks data immediately for live updates
+          setTicksData(prev => ({
+            ...prev,
+            [symbol]: [...(prev[symbol] || []).slice(-199), price].slice(-200)
+          }));
+          
+          // Also add to buffer for batch processing
           setTickBuffer(prev => ({
             ...prev,
-            [symbol]: [...(prev[symbol] || []).slice(-199), parseFloat(quote)] // Maintain 200 ticks in buffer
+            [symbol]: [...(prev[symbol] || []).slice(-199), price] // Maintain 200 ticks in buffer
           }));
         }
       };
