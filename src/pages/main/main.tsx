@@ -430,20 +430,6 @@ const AppWrapper = observer(() => {
                                 />
                             </div>
                         </div>
-                        <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
-                            <div className={classNames('dashboard__chart-wrapper', {
-                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
-                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })}>
-                                <iframe 
-                                    src="https://bot-analysis-tool-belex.web.app/" 
-                                    width="100%"
-                                    height="100%"
-                                    style={{ border: 'none', display: 'block', minHeight: '600px' }}
-                                    scrolling="yes"
-                                />
-                            </div>
-                        </div>
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
@@ -452,6 +438,7 @@ const AppWrapper = observer(() => {
                                 <PercentageTool />
                             </div>
                         </div>
+                        <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
