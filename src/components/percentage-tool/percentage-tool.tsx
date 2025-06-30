@@ -113,6 +113,7 @@ const PercentageTool: React.FC = () => {
   // Add state for the strongest signal and its last update time
   const [strongestSignal, setStrongestSignal] = useState<MarketSignal | null>(null);
   const [strongestSignalLastUpdate, setStrongestSignalLastUpdate] = useState<number>(0);
+  const [isSignalTransitioning, setIsSignalTransitioning] = useState(false);
 
   // Signal update timer - updates every 1 minute
   useEffect(() => {
@@ -394,8 +395,12 @@ const PercentageTool: React.FC = () => {
           Math.abs(currentStrongest.confidence - strongestSignal.confidence) > 10 ||
           now - strongestSignalLastUpdate > 30000) { // Update at least every 30 seconds
 
-        setStrongestSignal(currentStrongest);
-        setStrongestSignalLastUpdate(now);
+        setIsSignalTransitioning(true);
+        setTimeout(() => {
+          setStrongestSignal(currentStrongest);
+          setStrongestSignalLastUpdate(now);
+          setIsSignalTransitioning(false);
+        }, 300);
       }
     }
   };
@@ -788,7 +793,7 @@ const PercentageTool: React.FC = () => {
 
   return (
     <div className="percentage-tool">
-      <canvas ref={matrixCanvasRef} className="matrix-bg" />
+      <canvas ref={matrixCanvasRef} classNameName="matrix-bg" />
 
       <div className="tool-overlay">
         <div className="header">
@@ -820,38 +825,50 @@ const PercentageTool: React.FC = () => {
             {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
           </div>
         </div>
-         {/* Strongest Signal Panel - Hidden */}
-        {/* 
-        <div className="strongest-signal-panel">
-          <h4>🔥 STRONGEST SIGNAL DETECTED 🔥</h4>
-          {strongestSignal ? (
-            <div className={`signal-card ${strongestSignal.strength}`}>
-              <div className="signal-header">
-                <span className="volatility-name">{strongestSignal.volatilityName}</span>
-                <span className={`signal-strength ${strongestSignal.strength}`}>
-                  {strongestSignal.strength.toUpperCase()}
-                </span>
-              </div>
-              <div className="signal-details">
-                <div className="trade-type">
-                  <span className="label">RECOMMENDED:</span>
-                  <span className="value">{strongestSignal.tradeType}</span>
-                </div>
-                <div className="confidence">
-                  <span className="label">CONFIDENCE:</span>
-                  <span className="value">{strongestSignal.confidence}%</span>
-                </div>
-                <div className="market-condition">
-                  <span className="label">CONDITION:</span>
-                  <span className="value">{strongestSignal.condition}</span>
-                </div>
-              </div>
+         {/* Strongest Signal Detected */}
+          <div className={`strongest-signal-panel ${isSignalTransitioning ? 'transitioning' : ''}`}>
+            <div className="panel-header">
+              <span className="panel-title">🎯 STRONGEST SIGNAL DETECTED</span>
+              <span className={`live-indicator ${isSignalTransitioning ? 'updating' : ''}`}>
+                {isSignalTransitioning ? '⟳ UPDATING' : '● LIVE'}
+              </span>
             </div>
-          ) : (
-            <span>Scanning for strongest signal...</span>
-          )}
-        </div>
-        */}
+            {strongestSignal ? (
+              <div className={`strongest-signal-content ${isSignalTransitioning ? 'fade-transition' : ''}`}>
+                <div className="signal-main">
+                  <div className="volatility-name">{strongestSignal.volatilityName}</div>
+                  <div className="signal-badge-large">
+                    <span className={`signal-type ${strongestSignal.tradeType.toLowerCase().replace('/', '_')}`}>
+                      {strongestSignal.tradeType}
+                    </span>
+                    <span className={`signal-strength ${strongestSignal.strength}`}>
+                      {strongestSignal.strength.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="confidence-display">
+                    <span className="confidence-label">CONFIDENCE</span>
+                    <span className="confidence-value">{strongestSignal.confidence}%</span>
+                    <div className="confidence-stability">
+                      <span className="stability-indicator">STABLE</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="signal-details">
+                  <span className="condition-text">{strongestSignal.condition}</span>
+                  <div className="last-update">
+                    Updated {Math.floor((Date.now() - strongestSignalLastUpdate) / 1000)}s ago
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="no-signal">
+                <span>Analyzing market conditions...</span>
+                <div className="scanning-dots">
+                  <span></span><span></span><span></span>
+                </div>
+              </div>
+            )}
+          </div>
         <div className="market-scanner">
           <div className="scanner-header">
             <h3>INTELLIGENT MARKET SCANNER</h3>
@@ -1141,7 +1158,7 @@ const PercentageTool: React.FC = () => {
         </div>
          <div className="comprehensive-analytics">
           <h4>COMPREHENSIVE MARKET ANALYTICS</h4>
-          
+
           {/* Market Overview Cards */}
           <div className="market-overview-cards">
             <div className="analytics-card market-sentiment">
@@ -1155,7 +1172,7 @@ const PercentageTool: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="analytics-card market-volatility">
               <h5>Market Volatility</h5>
               <div className="volatility-level">
@@ -1165,7 +1182,7 @@ const PercentageTool: React.FC = () => {
                 <span className="volatility-text">HIGH VOLATILITY</span>
               </div>
             </div>
-            
+
             <div className="analytics-card success-rate">
               <h5>AI Success Rate</h5>
               <div className="success-indicator">
