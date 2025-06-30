@@ -1056,17 +1056,47 @@
     }
 
     .signals-tab {
-  padding: 20px;
-  height: 100%;
+      padding: 10px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
 
-  iframe {
-    width: 100%;
-    height: 800px;
-    border: 1px solid var(--border-normal);
-    border-radius: 8px;
-    background: var(--general-main-1);
-  }
-}
+      iframe {
+        width: 100%;
+        height: calc(100vh - 200px);
+        min-height: 600px;
+        border: 1px solid rgba(0, 255, 65, 0.3);
+        border-radius: 8px;
+        background: #000;
+        flex: 1;
+        transition: all 0.3s ease;
+
+        &:hover {
+          border-color: rgba(0, 255, 65, 0.5);
+          box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+        }
+      }
+
+      @media (max-width: 768px) {
+        padding: 5px;
+
+        iframe {
+          height: calc(100vh - 150px);
+          min-height: 500px;
+          border-radius: 4px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        padding: 2px;
+
+        iframe {
+          height: calc(100vh - 120px);
+          min-height: 400px;
+          border-radius: 4px;
+        }
+      }
+    }
   }
 }
 
