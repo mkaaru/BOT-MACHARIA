@@ -1,0 +1,28 @@
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://tradecortex.com/sitemap.xml
+
+# Block access to admin and private areas
+Disallow: /admin/
+Disallow: /api/
+Disallow: /*.xml$
+Disallow: /attached_assets/
+
+# Allow access to main pages
+Allow: /dashboard
+Allow: /bot-builder
+Allow: /tutorials
+Allow: /chart
+Allow: /ai
+Allow: /signals
+Allow: /ldpanalyzer
+
+# Web crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
