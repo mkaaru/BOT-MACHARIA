@@ -7,6 +7,7 @@ channel = "stable-24_05"
 [deployment]
 run = ["sh", "-c", "npm run serve "]
 deploymentTarget = "cloudrun"
+build = ["sh", "-c", "npm run build"]
 
 [workflows]
 runButton = "Development Server"
