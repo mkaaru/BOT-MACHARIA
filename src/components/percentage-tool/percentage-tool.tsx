@@ -125,49 +125,39 @@ const PercentageTool: React.FC = () => {
   const [strongestSignalLastUpdate, setStrongestSignalLastUpdate] = useState<number>(0);
   const [isSignalTransitioning, setIsSignalTransitioning] = useState(false);
 
-  // Tick buffer flush mechanism - flushes buffer every minute for intelligent scanner
+  // Signal buffer flush mechanism - STRICTLY 1-minute buffering for signals ONLY
   useEffect(() => {
-    const flushBuffer = () => {
+    const flushSignalBuffer = () => {
       const now = Date.now();
       
-      // Flush buffer every minute for intelligent scanner stability
+      // STRICT 1-minute flush for signal generation ONLY
       if (now - lastBufferFlush >= 60000) {
-        setTicksData(prev => {
-          const newData = { ...prev };
-          Object.entries(tickBuffer).forEach(([symbol, bufferedTicks]) => {
-            if (bufferedTicks.length > 0) {
-              newData[symbol] = [...(prev[symbol] || []).slice(-(200 - bufferedTicks.length)), ...bufferedTicks].slice(-200);
-            }
-          });
-          return newData;
-        });
-        
-        // Clear buffer and update flush time for next minute cycle
-        setTickBuffer({});
-        setLastBufferFlush(now);
-        
-        // Update intelligent scanner with new buffered data
+        // Generate new signals based on buffered data
         if (!isScanning) {
           generateMarketSignals();
         }
+        
+        // Clear signal buffer and update flush time for next minute cycle
+        setTickBuffer({});
+        setLastBufferFlush(now);
       }
     };
 
-    // Check for buffer flush every 10 seconds for better performance
-    const bufferFlushInterval = setInterval(flushBuffer, 10000);
+    // Check for signal buffer flush every 10 seconds
+    const signalBufferInterval = setInterval(flushSignalBuffer, 10000);
 
     return () => {
-      clearInterval(bufferFlushInterval);
+      clearInterval(signalBufferInterval);
     };
   }, [tickBuffer, lastBufferFlush, isScanning]);
 
-  // Signal update timer - updates based on configurable interval
+  // STRICT 1-minute minimum signal update timer - NO EXCEPTIONS
   useEffect(() => {
     const updateSignals = () => {
       setIsScanning(true);
       setScanProgress(0);
       setLastSignalUpdate(Date.now());
-      setNextSignalUpdate(signalUpdateInterval); // Reset to configured interval
+      setNextSignalUpdate(Math.max(signalUpdateInterval, 60)); // ENFORCE minimum 1 minute
 
       // Simulate progressive scanning
       const progressInterval = setInterval(() => {
@@ -189,8 +179,8 @@ const PercentageTool: React.FC = () => {
     // Initial signal generation
     updateSignals();
 
-    // Set up interval for signal updates based on configuration (minimum 1 minute)
-    const actualInterval = Math.max(signalUpdateInterval, 60) * 1000; // Ensure minimum 1 minute
+    // STRICT enforcement: minimum 1 minute (60 seconds) for signal updates
+    const actualInterval = Math.max(signalUpdateInterval, 60) * 1000;
     signalTimerRef.current = setInterval(updateSignals, actualInterval);
 
     return () => {
@@ -201,7 +191,7 @@ const PercentageTool: React.FC = () => {
         clearTimeout(signalUpdateDebounce);
       }
     };
-  }, [ticksData, signalUpdateInterval]);
+  }, [signalUpdateInterval]); // Removed ticksData dependency to prevent interference with live updates
 
   // Countdown timer for next signal update
   useEffect(() => {
@@ -319,26 +309,27 @@ const PercentageTool: React.FC = () => {
           const { symbol, quote } = data.tick;
           const price = parseFloat(quote);
           
-          // Update ticks data immediately for real-time detailed analysis
+          // IMMEDIATE update for live detailed analysis - NO BUFFERING for prices
           setTicksData(prev => ({
             ...prev,
             [symbol]: [...(prev[symbol] || []).slice(-199), price].slice(-200)
           }));
           
-          // Add to buffer for intelligent scanner (1-minute batching)
+          // ONLY buffer for signal generation (strict 1-minute intervals)
           setTickBuffer(prev => ({
             ...prev,
             [symbol]: [...(prev[symbol] || []).slice(-199), price].slice(-200)
           }));
           
-          // Update volatility signals with real-time data for detailed analysis
+          // LIVE price updates for detailed analysis tab - NO DELAYS
           setVolatilitySignals(prevSignals => 
             prevSignals.map(signal => {
               if (signal.name.includes(getVolatilityName(symbol))) {
                 return {
                   ...signal,
                   price: price.toFixed(5),
-                  change: Math.random() * 10 - 5 // Real calculation would be based on previous price
+                  change: Math.random() * 10 - 5, // Real calculation would be based on previous price
+                  lastUpdate: Date.now() // Track when price was last updated
                 };
               }
               return signal;

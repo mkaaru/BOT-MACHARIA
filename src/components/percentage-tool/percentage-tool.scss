@@ -2152,7 +2152,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 180px;
+  min-width: 200px;
   justify-content: center;
   white-space: nowrap;
 
@@ -2167,6 +2167,8 @@
     font-size: 14px;
     font-weight: bold;
     letter-spacing: 0.5px;
+    display: inline-block;
+    width: auto;
   }
 
   &:hover {
