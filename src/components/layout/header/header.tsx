@@ -199,7 +199,7 @@ const AppHeader = observer(() => {
                     <Button
                         primary
                         onClick={() => {
-                            window.open(standalone_routes.signup);
+                            window.open('https://track.deriv.com/_cjFwFCL6Iy0KqFKZ7JdnQ2Nd7ZgqdRLk/1/');
                         }}
                     >
                         <Localize i18n_default_text='Sign up' />
