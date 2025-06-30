@@ -71,7 +71,7 @@ const useMobileMenuConfig = (client?: RootStore['client']) => {
                 cs_chat_whatsapp
                     ? {
                           as: 'a',
-                          href: 'https://wa.link/ugr27w',
+                          href: 'https://chat.whatsapp.com/DoaEcjPhMoy0j6h4euMpsA',
                           label: localize('WhatsApp'),
                           LeftComponent: LegacyWhatsappIcon,
                           target: '_blank',
