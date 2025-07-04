@@ -39,18 +39,28 @@ const AppRoot = () => {
     const store = useStore();
     const api_base_initialized = useRef(false);
     const [is_api_initialized, setIsApiInitialized] = useState(false);
+    const [appContentError, setAppContentError] = useState(null);
 
     useEffect(() => {
         const initializeApi = async () => {
             if (!api_base_initialized.current) {
-                await api_base.init();
-                api_base_initialized.current = true;
-                setIsApiInitialized(true);
+                try {
+                    await api_base.init();
+                    api_base_initialized.current = true;
+                    setIsApiInitialized(true);
+                } catch (error) {
+                    console.error("Failed to initialize API:", error);
+                    store.common.setError({
+                        header: localize("API Initialization Error"),
+                        message: localize("Failed to initialize the API. Please refresh the page."),
+                    });
+                    setIsApiInitialized(false);
+                }
             }
         };
 
         initializeApi();
-    }, []);
+    }, [store.common]);
 
     if (!store || !is_api_initialized) return <AppRootLoader />;
 
@@ -58,7 +68,19 @@ const AppRoot = () => {
         <Suspense fallback={<AppRootLoader />}>
             <ErrorBoundary root_store={store}>
                 <ErrorComponentWrapper />
-                <AppContent />
+                {appContentError ? (
+                    <ErrorComponent
+                        header={localize("App Content Error")}
+                        message={appContentError.message || localize("Failed to load application content.")}
+                        setError={setAppContentError}
+                    />
+                ) : (
+                    <ErrorBoundary>
+                        <Suspense fallback={<ChunkLoader />}>
+                            <AppContent />
+                        </Suspense>
+                    </ErrorBoundary>
+                )}
                 <TradingAssesmentModal />
             </ErrorBoundary>
         </Suspense>
