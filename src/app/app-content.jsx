@@ -28,6 +28,10 @@ import Main from '../pages/main';
 import './app.scss';
 import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
+import Tutorials from '../pages/tutorials';
+import Dashboard from '../pages/dashboard';
+import Signals from '../pages/signals';
+import AutoBots from '../pages/auto-bots';
 
 const AppContent = observer(() => {
     const [is_api_initialized, setIsApiInitialized] = React.useState(false);
@@ -160,7 +164,7 @@ const AppContent = observer(() => {
             initHotjar(client);
         }
     }, []);
-    
+
      React.useEffect(() => {
         const timeout = setTimeout(() => {
             setForceShowApp(true);
