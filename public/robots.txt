@@ -4,11 +4,14 @@ Allow: /
 
 # Sitemap location
 Sitemap: https://tradecortex.com/sitemap.xml
+Sitemap: https://tradecortex.com/sitemap-news.xml
 
 # Block access to admin and private areas
 Disallow: /admin/
 Disallow: /api/
 Disallow: /attached_assets/
+Disallow: /*.xml$
+Disallow: /*.json$
 
 # Allow access to main pages
 Allow: /dashboard
@@ -17,12 +20,21 @@ Allow: /tutorials
 Allow: /chart
 Allow: /ai
 Allow: /signals
-Allow: /ldpanalyzer
 Allow: /signal-center
+Allow: /ldpanalyzer
 
 # Web crawlers
 User-agent: Googlebot
 Allow: /
+Crawl-delay: 1
 
 User-agent: Bingbot
 Allow: /
+Crawl-delay: 1
+
+# Block common crawlers that might cause issues
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /

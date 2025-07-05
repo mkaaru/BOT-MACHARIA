@@ -38,12 +38,6 @@
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://tradecortex.com/ldpanalyzer</loc>
-    <lastmod>2025-01-29</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
     <loc>https://tradecortex.com/signals</loc>
     <lastmod>2025-01-29</lastmod>
     <changefreq>daily</changefreq>
@@ -54,5 +48,11 @@
     <lastmod>2025-01-29</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://tradecortex.com/ldpanalyzer</loc>
+    <lastmod>2025-01-29</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.3</priority>
   </url>
 </urlset>
