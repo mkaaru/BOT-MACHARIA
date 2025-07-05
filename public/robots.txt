@@ -3,12 +3,11 @@ User-agent: *
 Allow: /
 
 # Sitemap location
-Sitemap: https://www.tradecortex.com/sitemap.xml
+Sitemap: https://tradecortex.com/sitemap.xml
 
 # Block access to admin and private areas
 Disallow: /admin/
 Disallow: /api/
-Disallow: /*.xml$
 Disallow: /attached_assets/
 
 # Allow access to main pages
@@ -19,8 +18,7 @@ Allow: /chart
 Allow: /ai
 Allow: /signals
 Allow: /ldpanalyzer
-Allow: /trade-cortex-seo.html
-Allow: /tradecortex-seo.html
+Allow: /signal-center
 
 # Web crawlers
 User-agent: Googlebot
