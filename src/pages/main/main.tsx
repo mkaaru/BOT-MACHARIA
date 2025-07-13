@@ -391,6 +391,7 @@ const AppWrapper = observer(() => {
         websocket.close()
       }
 
+      setCurrentPrice('Connecting...')
       const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089')
 
       ws.onopen = () => {
@@ -422,6 +423,7 @@ const AppWrapper = observer(() => {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
+          console.log('WebSocket message received:', data)
           
           if (data.tick && data.tick.symbol === selectedIndex) {
             handleNewTick(data.tick.quote, data.tick.symbol)
@@ -442,6 +444,7 @@ const AppWrapper = observer(() => {
 
           if (data.error) {
             console.error('WebSocket API error:', data.error)
+            setCurrentPrice('Error: ' + data.error.message)
             if (data.error.code === 'InvalidSymbol') {
               console.log('Invalid symbol, trying alternative format...')
               // Try alternative symbol format if initial fails
@@ -457,12 +460,14 @@ const AppWrapper = observer(() => {
           }
         } catch (parseError) {
           console.error('Error parsing WebSocket message:', parseError)
+          setCurrentPrice('Parse Error')
         }
       }
 
       ws.onclose = () => {
         setIsConnected(false)
         setWebsocket(null)
+        setCurrentPrice('Disconnected')
         console.log('WebSocket connection closed')
       }
 
@@ -470,11 +475,13 @@ const AppWrapper = observer(() => {
         console.error('WebSocket error:', error)
         setIsConnected(false)
         setWebsocket(null)
+        setCurrentPrice('Connection Error')
       }
 
     } catch (error) {
       console.error('Connection failed:', error)
       setIsConnected(false)
+      setCurrentPrice('Failed to connect')
     }
   }
 
@@ -507,6 +514,7 @@ const AppWrapper = observer(() => {
         return
       }
 
+      console.log('Received tick:', tick, 'for symbol:', symbol)
       setCurrentTick(tick)
       setCurrentPrice(tick.toFixed(5))
 

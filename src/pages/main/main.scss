@@ -1231,55 +1231,83 @@
   min-height: 100vh;
   color: #00ff00;
   font-family: 'Courier New', monospace;
+  padding: 10px;
 
   .matrix-header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     border-bottom: 2px solid #00ff00;
-    padding-bottom: 20px;
+    padding-bottom: 15px;
 
     .matrix-title {
-      font-size: 2.5rem;
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
       color: #00ff00;
       text-shadow: 0 0 10px #00ff00;
       margin-bottom: 10px;
-      letter-spacing: 3px;
+      letter-spacing: 2px;
       animation: matrix-glow 2s ease-in-out infinite alternate;
     }
 
     .matrix-subtitle {
       color: #00ff41;
-      font-size: 1.1rem;
+      font-size: clamp(0.8rem, 2.5vw, 1.1rem);
       letter-spacing: 1px;
     }
   }
 
   .trading-dashboard {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto auto;
-    gap: 20px;
+    grid-template-columns: 1fr;
+    gap: 15px;
+
+    @media (min-width: 768px) {
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (min-width: 1200px) {
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto auto;
+      gap: 20px;
+    }
 
     .control-panel {
       grid-column: 1 / -1;
       background: rgba(0, 255, 0, 0.05);
       border: 1px solid #00ff00;
       border-radius: 8px;
-      padding: 20px;
+      padding: 15px;
       box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+
+      @media (min-width: 768px) {
+        padding: 20px;
+      }
 
       h3 {
         color: #00ff00;
         margin-bottom: 15px;
         text-transform: uppercase;
         letter-spacing: 2px;
+        font-size: clamp(0.9rem, 2.5vw, 1.1rem);
       }
 
       .config-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        grid-template-columns: 1fr;
         gap: 15px;
         margin-bottom: 20px;
+
+        @media (min-width: 480px) {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        @media (min-width: 768px) {
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+
+        @media (min-width: 1024px) {
+          grid-template-columns: repeat(4, 1fr);
+        }
 
         .config-item {
           label {
@@ -1288,7 +1316,7 @@
             margin-bottom: 5px;
             font-weight: bold;
             text-transform: uppercase;
-            font-size: 0.9rem;
+            font-size: clamp(0.7rem, 2vw, 0.9rem);
           }
 
           select, input {
@@ -1299,6 +1327,7 @@
             padding: 8px 12px;
             border-radius: 4px;
             font-family: inherit;
+            font-size: clamp(0.8rem, 2vw, 0.9rem);
 
             &:focus {
               outline: none;
@@ -1311,10 +1340,16 @@
 
       .control-buttons {
         display: flex;
-        gap: 15px;
+        flex-direction: column;
+        gap: 10px;
+
+        @media (min-width: 480px) {
+          flex-direction: row;
+          gap: 15px;
+        }
 
         button {
-          padding: 12px 24px;
+          padding: 10px 16px;
           border: 2px solid #00ff00;
           background: transparent;
           color: #00ff00;
@@ -1324,6 +1359,12 @@
           letter-spacing: 1px;
           transition: all 0.3s ease;
           font-family: inherit;
+          font-size: clamp(0.7rem, 2vw, 0.9rem);
+          border-radius: 4px;
+
+          @media (min-width: 768px) {
+            padding: 12px 24px;
+          }
 
           &:hover:not(:disabled) {
             background: #00ff00;
@@ -1363,54 +1404,83 @@
       background: rgba(0, 255, 0, 0.05);
       border: 1px solid #00ff00;
       border-radius: 8px;
-      padding: 20px;
+      padding: 15px;
+
+      @media (min-width: 768px) {
+        padding: 20px;
+      }
 
       .tick-analysis, .prediction-panel {
-        margin-bottom: 20px;
+        margin-bottom: 15px;
+
+        @media (min-width: 768px) {
+          margin-bottom: 20px;
+        }
 
         h3 {
           color: #00ff00;
           margin-bottom: 10px;
           text-transform: uppercase;
           letter-spacing: 1px;
-          font-size: 1rem;
+          font-size: clamp(0.9rem, 2.5vw, 1rem);
         }
 
         .price-display {
     background: rgba(0, 255, 136, 0.1);
     border: 1px solid #00ff88;
     border-radius: 8px;
-    padding: 15px;
+    padding: 10px;
     margin-top: 10px;
+
+    @media (min-width: 768px) {
+      padding: 15px;
+    }
 
     .current-price {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       margin-bottom: 10px;
+      flex-wrap: wrap;
+
+      @media (min-width: 480px) {
+        gap: 10px;
+        flex-wrap: nowrap;
+      }
 
       .price-label {
-        font-size: 14px;
+        font-size: clamp(0.7rem, 2vw, 0.9rem);
         opacity: 0.8;
       }
 
       .price-value {
-        font-size: 24px;
+        font-size: clamp(1.2rem, 4vw, 1.8rem);
         font-weight: bold;
         color: #00ff88;
         text-shadow: 0 0 10px #00ff88;
         font-family: monospace;
+        word-break: break-all;
+
+        @media (min-width: 768px) {
+          font-size: clamp(1.5rem, 3vw, 2rem);
+        }
       }
 
       .last-digit {
-        font-size: 20px;
+        font-size: clamp(1rem, 3vw, 1.2rem);
         background: #00ff88;
         color: #0f0f23;
-        padding: 5px 10px;
+        padding: 4px 8px;
         border-radius: 5px;
         font-weight: bold;
-        min-width: 35px;
+        min-width: 30px;
         text-align: center;
+
+        @media (min-width: 768px) {
+          font-size: clamp(1.2rem, 2.5vw, 1.5rem);
+          padding: 5px 10px;
+          min-width: 35px;
+        }
       }
     }
   }
@@ -1504,27 +1574,49 @@
     background: rgba(0, 255, 136, 0.05);
     border: 1px solid rgba(0, 255, 136, 0.3);
     border-radius: 8px;
-    padding: 15px;
+    padding: 10px;
     margin-top: 15px;
+
+    @media (min-width: 768px) {
+      padding: 15px;
+    }
 
     h3 {
       margin-bottom: 15px;
       color: #00ff88;
       text-align: center;
+      font-size: clamp(0.9rem, 2.5vw, 1rem);
     }
 
     .digits-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 10px;
+      gap: 5px;
+
+      @media (min-width: 480px) {
+        gap: 8px;
+      }
+
+      @media (min-width: 768px) {
+        gap: 10px;
+      }
 
       .digit-box {
         background: rgba(0, 255, 136, 0.1);
         border: 1px solid rgba(0, 255, 136, 0.3);
-        border-radius: 6px;
-        padding: 10px;
+        border-radius: 4px;
+        padding: 6px;
         text-align: center;
         transition: all 0.3s ease;
+
+        @media (min-width: 480px) {
+          padding: 8px;
+          border-radius: 6px;
+        }
+
+        @media (min-width: 768px) {
+          padding: 10px;
+        }
 
         &.current {
           background: rgba(0, 255, 136, 0.3);
@@ -1534,30 +1626,49 @@
         }
 
         .digit-number {
-          font-size: 18px;
+          font-size: clamp(0.9rem, 3vw, 1.2rem);
           font-weight: bold;
           color: #00ff88;
-          margin-bottom: 5px;
+          margin-bottom: 3px;
+
+          @media (min-width: 768px) {
+            font-size: clamp(1rem, 2.5vw, 1.4rem);
+            margin-bottom: 5px;
+          }
         }
 
         .digit-percentage {
-          font-size: 14px;
+          font-size: clamp(0.6rem, 2vw, 0.8rem);
           color: #ffffff;
-          margin-bottom: 3px;
+          margin-bottom: 2px;
+
+          @media (min-width: 768px) {
+            font-size: clamp(0.7rem, 2vw, 0.9rem);
+            margin-bottom: 3px;
+          }
         }
 
         .digit-count {
-          font-size: 10px;
+          font-size: clamp(0.5rem, 1.5vw, 0.6rem);
           opacity: 0.7;
-          margin-bottom: 5px;
+          margin-bottom: 3px;
+
+          @media (min-width: 768px) {
+            font-size: clamp(0.6rem, 1.5vw, 0.7rem);
+            margin-bottom: 5px;
+          }
         }
 
         .digit-bar {
           width: 100%;
-          height: 4px;
+          height: 3px;
           background: rgba(0, 255, 136, 0.2);
           border-radius: 2px;
           overflow: hidden;
+
+          @media (min-width: 768px) {
+            height: 4px;
+          }
 
           .digit-fill {
             height: 100%;
@@ -1710,29 +1821,78 @@
   }
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
+/* Enhanced Responsive Design */
+@media (max-width: 480px) {
   .auto-trades-container.matrix-theme {
-    padding: 10px;
+    padding: 5px;
 
     .trading-dashboard {
-      grid-template-columns: 1fr;
+      gap: 10px;
 
-      .control-panel .config-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .control-panel .control-buttons {
-        flex-direction: column;
+      .control-panel, .analytics-panel, .trading-log, .performance-metrics {
+        padding: 10px;
       }
 
       .performance-metrics .metrics-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .trading-log .log-container {
+        max-height: 200px;
+
+        .log-entry {
+          grid-template-columns: 1fr;
+          gap: 5px;
+          padding: 8px;
+          font-size: 0.7rem;
+        }
       }
     }
+  }
+}
 
-    .matrix-header .matrix-title {
-      font-size: 1.8rem;
+@media (min-width: 481px) and (max-width: 768px) {
+  .auto-trades-container.matrix-theme {
+    .trading-dashboard {
+      .performance-metrics .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .trading-log .log-container .log-entry {
+        font-size: 0.75rem;
+      }
+    }
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .auto-trades-container.matrix-theme {
+    .trading-dashboard {
+      .analytics-panel {
+        order: 2;
+      }
+
+      .trading-log {
+        grid-column: 1 / -1;
+        order: 3;
+      }
+
+      .performance-metrics {
+        grid-column: 1 / -1;
+        order: 4;
+      }
+    }
+  }
+}
+
+@media (min-width: 1025px) {
+  .auto-trades-container.matrix-theme {
+    padding: 20px;
+
+    .trading-dashboard {
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto auto;
     }
   }
 }
