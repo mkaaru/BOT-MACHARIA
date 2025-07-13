@@ -389,35 +389,28 @@ const AppWrapper = observer(() => {
       // Close existing connection if any
       if (websocket) {
         websocket.close()
+        setWebsocket(null)
       }
 
       setCurrentPrice('Connecting...')
+      setIsConnected(false)
+      
       const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089')
 
       ws.onopen = () => {
+        console.log('WebSocket connected successfully')
         setIsConnected(true)
         setWebsocket(ws)
-        console.log('Connected to Deriv WebSocket for symbol:', selectedIndex)
+        setCurrentPrice('Connected - Waiting for ticks...')
 
         // Subscribe to tick stream for selected volatility
-        ws.send(JSON.stringify({
+        const tickRequest = {
           ticks: selectedIndex,
           subscribe: 1,
           req_id: 1
-        }))
-
-        // Also subscribe to active symbols to get proper symbol names and details
-        ws.send(JSON.stringify({
-          active_symbols: "brief",
-          product_type: "basic",
-          req_id: 2
-        }))
-
-        // Get trading times for the symbol
-        ws.send(JSON.stringify({
-          trading_times: selectedIndex,
-          req_id: 3
-        }))
+        }
+        console.log('Sending tick subscription request:', tickRequest)
+        ws.send(JSON.stringify(tickRequest))
       }
 
       ws.onmessage = (event) => {
@@ -425,36 +418,37 @@ const AppWrapper = observer(() => {
           const data = JSON.parse(event.data)
           console.log('WebSocket message received:', data)
           
+          // Handle tick data
           if (data.tick && data.tick.symbol === selectedIndex) {
-            handleNewTick(data.tick.quote, data.tick.symbol)
-          }
-          
-          if (data.active_symbols) {
-            console.log('Active symbols received:', data.active_symbols.length, 'symbols')
-            // Find our current symbol and log details
-            const currentSymbol = data.active_symbols.find(s => s.symbol === selectedIndex)
-            if (currentSymbol) {
-              console.log('Current symbol details:', currentSymbol)
+            console.log('Tick received for', selectedIndex, ':', data.tick.quote)
+            const price = parseFloat(data.tick.quote)
+            if (!isNaN(price)) {
+              handleNewTick(price, data.tick.symbol)
             }
           }
-
-          if (data.trading_times) {
-            console.log('Trading times for', selectedIndex, ':', data.trading_times)
+          
+          // Handle subscription confirmation
+          if (data.msg_type === 'tick' && data.subscription) {
+            console.log('Tick subscription confirmed for:', data.subscription.id)
           }
 
+          // Handle errors
           if (data.error) {
             console.error('WebSocket API error:', data.error)
-            setCurrentPrice('Error: ' + data.error.message)
+            setCurrentPrice(`Error: ${data.error.message}`)
+            
+            // Try alternative symbol formats for common volatility indices
             if (data.error.code === 'InvalidSymbol') {
               console.log('Invalid symbol, trying alternative format...')
-              // Try alternative symbol format if initial fails
               const altSymbol = getAlternativeSymbol(selectedIndex)
               if (altSymbol && altSymbol !== selectedIndex) {
-                ws.send(JSON.stringify({
+                console.log('Trying alternative symbol:', altSymbol)
+                const altRequest = {
                   ticks: altSymbol,
                   subscribe: 1,
-                  req_id: 4
-                }))
+                  req_id: 2
+                }
+                ws.send(JSON.stringify(altRequest))
               }
             }
           }
@@ -464,11 +458,19 @@ const AppWrapper = observer(() => {
         }
       }
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        console.log('WebSocket connection closed:', event.code, event.reason)
         setIsConnected(false)
         setWebsocket(null)
         setCurrentPrice('Disconnected')
-        console.log('WebSocket connection closed')
+        
+        // Auto-reconnect after 3 seconds if not manually closed
+        if (event.code !== 1000) {
+          setTimeout(() => {
+            console.log('Attempting to reconnect...')
+            connectToAPI()
+          }, 3000)
+        }
       }
 
       ws.onerror = (error) => {
@@ -488,8 +490,19 @@ const AppWrapper = observer(() => {
   // Helper function to get alternative symbol formats
   const getAlternativeSymbol = (symbol) => {
     const symbolMap = {
+      // Forward mapping
+      'R_10': '1HZ10V',
+      'R_25': '1HZ25V', 
+      'R_50': '1HZ50V',
+      'R_75': '1HZ75V',
+      'R_100': '1HZ100V',
+      'R_150': '1HZ150V',
+      'R_200': '1HZ200V',
+      'R_250': '1HZ250V',
+      'R_300': '1HZ300V',
+      // Reverse mapping
       '1HZ10V': 'R_10',
-      '1HZ25V': 'R_25', 
+      '1HZ25V': 'R_25',
       '1HZ50V': 'R_50',
       '1HZ75V': 'R_75',
       '1HZ100V': 'R_100',
@@ -497,12 +510,13 @@ const AppWrapper = observer(() => {
       '1HZ200V': 'R_200',
       '1HZ250V': 'R_250',
       '1HZ300V': 'R_300',
-      'BOOM1000': '1HZ150V',
-      'CRASH1000': '1HZ250V',
-      'BOOM500': '1HZ300V', 
-      'CRASH500': '1HZ400V',
-      'BOOM300': '1HZ200V',
-      'CRASH300': '1HZ100V'
+      // Boom/Crash indices
+      'BOOM1000': 'BOOM1000',
+      'CRASH1000': 'CRASH1000',
+      'BOOM500': 'BOOM500',
+      'CRASH500': 'CRASH500',
+      'BOOM300': 'BOOM300',
+      'CRASH300': 'CRASH300'
     }
     return symbolMap[symbol] || symbol
   }
@@ -514,25 +528,31 @@ const AppWrapper = observer(() => {
         return
       }
 
-      console.log('Received tick:', tick, 'for symbol:', symbol)
+      console.log('Processing tick:', tick, 'for symbol:', symbol)
+      
+      // Update current tick and price display
       setCurrentTick(tick)
-      setCurrentPrice(tick.toFixed(5))
+      const priceStr = tick.toFixed(5)
+      setCurrentPrice(priceStr)
 
       // Store in tick history (keep last 10,000)
       setTickHistory(prev => {
         const newHistory = [...prev, tick].slice(-10000)
 
-        // Calculate digit distribution with real-time updates
-        calculateDigitDistribution(newHistory)
-        
-        // Perform enhanced pattern analysis
-        analyzePatterns(newHistory)
-        
-        // Make AI-powered prediction
-        makePrediction(newHistory)
+        // Only run analysis if we have enough data
+        if (newHistory.length >= 10) {
+          // Calculate digit distribution with real-time updates
+          calculateDigitDistribution(newHistory)
+          
+          // Perform enhanced pattern analysis
+          analyzePatterns(newHistory)
+          
+          // Make AI-powered prediction
+          makePrediction(newHistory)
 
-        // Calculate contract-specific probabilities
-        calculateContractProbabilities(newHistory)
+          // Calculate contract-specific probabilities
+          calculateContractProbabilities(newHistory)
+        }
 
         return newHistory
       })
@@ -1082,25 +1102,40 @@ if __name__ == "__main__":
 
     // Reconnect when volatility changes
     useEffect(() => {
-      if (isConnected && websocket) {
-        // Unsubscribe from previous symbol and subscribe to new one
+      if (isConnected && websocket && websocket.readyState === WebSocket.OPEN) {
+        console.log('Volatility changed to:', selectedIndex, 'Resubscribing...')
+        
+        // Unsubscribe from all ticks first
         websocket.send(JSON.stringify({
-          forget_all: "ticks"
+          forget_all: "ticks",
+          req_id: 99
         }))
         
+        // Subscribe to new symbol after a short delay
         setTimeout(() => {
-          websocket.send(JSON.stringify({
+          const newTickRequest = {
             ticks: selectedIndex,
             subscribe: 1,
             req_id: 1
-          }))
-        }, 100)
+          }
+          console.log('Sending new tick subscription:', newTickRequest)
+          websocket.send(JSON.stringify(newTickRequest))
+        }, 500)
 
         // Reset data for new volatility
         setTickHistory([])
         setDigitDistribution(new Array(10).fill(0))
         setDigitPercentages(new Array(10).fill(10))
-        setCurrentPrice('---')
+        setCurrentPrice('Switching symbol...')
+        setCurrentTick(null)
+        setNextPrediction('')
+        setConfidence(0)
+      } else if (!isConnected) {
+        // If not connected, reset display
+        setCurrentPrice('Not connected')
+        setTickHistory([])
+        setDigitDistribution(new Array(10).fill(0))
+        setDigitPercentages(new Array(10).fill(10))
         setCurrentTick(null)
       }
     }, [selectedIndex, isConnected, websocket])
