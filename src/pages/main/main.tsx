@@ -1263,11 +1263,7 @@ if __name__ == "__main__":
                                         </div>
                                     </div>
                                     <div label={<Localize i18n_default_text='Auto Trades' />} id='id-auto-trades'>
-                                         {(() => {
-          switch ('auto-trades') {
-           case 'auto-trades':
-          return (
-            <div className="auto-trades-container matrix-theme">
+                                        <div className="auto-trades-container matrix-theme">
               <div className="matrix-header">
                 <h2 className="matrix-title">DIGITS TRADING MATRIX</h2>
                 <div className="matrix-subtitle">Advanced Volatility Index Analysis & Prediction System</div>
@@ -1520,11 +1516,6 @@ if __name__ == "__main__":
                 </div>
               </div>
             </div>
-          );
-            default:
-              return null;
-          }
-         })()}
                                     </div>
                                 </Tabs>
                             </div>
