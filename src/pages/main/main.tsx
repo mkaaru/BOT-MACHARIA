@@ -382,6 +382,11 @@ const AppWrapper = observer(() => {
     // Digits Trading Bot Functions
   const connectToAPI = async () => {
     try {
+      // Close existing connection if any
+      if (websocket) {
+        websocket.close()
+      }
+
       const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089')
 
       ws.onopen = () => {
@@ -397,9 +402,13 @@ const AppWrapper = observer(() => {
       }
 
       ws.onmessage = (event) => {
-        const data = JSON.parse(event.data)
-        if (data.tick) {
-          handleNewTick(data.tick.quote)
+        try {
+          const data = JSON.parse(event.data)
+          if (data.tick) {
+            handleNewTick(data.tick.quote)
+          }
+        } catch (parseError) {
+          console.error('Error parsing WebSocket message:', parseError)
         }
       }
 
@@ -408,94 +417,124 @@ const AppWrapper = observer(() => {
         setWebsocket(null)
       }
 
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error)
+        setIsConnected(false)
+        setWebsocket(null)
+      }
+
     } catch (error) {
       console.error('Connection failed:', error)
+      setIsConnected(false)
     }
   }
 
   const handleNewTick = (tick: number) => {
-    setCurrentTick(tick)
+    try {
+      if (typeof tick !== 'number' || isNaN(tick)) {
+        console.warn('Invalid tick received:', tick)
+        return
+      }
 
-    // Store in tick history (keep last 10,000)
-    setTickHistory(prev => {
-      const newHistory = [...prev, tick].slice(-10000)
+      setCurrentTick(tick)
 
-      // Perform analysis and prediction
-      analyzePatterns(newHistory)
-      makePrediction(newHistory)
+      // Store in tick history (keep last 10,000)
+      setTickHistory(prev => {
+        const newHistory = [...prev, tick].slice(-10000)
 
-      return newHistory
-    })
+        // Perform analysis and prediction
+        analyzePatterns(newHistory)
+        makePrediction(newHistory)
 
-    // Execute trade if trading is active
-    if (isTrading) {
-      executeTradeDecision(tick)
+        return newHistory
+      })
+
+      // Execute trade if trading is active
+      if (isTrading) {
+        executeTradeDecision(tick)
+      }
+    } catch (error) {
+      console.error('Error handling new tick:', error)
     }
   }
 
   const analyzePatterns = (history: number[]) => {
     if (history.length < 100) return
 
-    const recentTicks = history.slice(-100)
-    const lastDigits = recentTicks.map(tick => tick % 10)
+    try {
+      const recentTicks = history.slice(-100)
+      const lastDigits = recentTicks.map(tick => Math.floor(tick) % 10)
 
-    // Analyze even/odd bias
-    const evenCount = lastDigits.filter(d => d % 2 === 0).length
-    const oddCount = lastDigits.filter(d => d % 2 === 1).length
+      // Analyze even/odd bias
+      const evenCount = lastDigits.filter(d => d % 2 === 0).length
+      const oddCount = lastDigits.filter(d => d % 2 === 1).length
 
-    if (evenCount > oddCount * 1.2) {
-      setEvenOddBias('EVEN BIAS')
-    } else if (oddCount > evenCount * 1.2) {
-      setEvenOddBias('ODD BIAS')
-    } else {
-      setEvenOddBias('NEUTRAL')
-    }
-
-    // Analyze streak patterns
-    const streaks = []
-    let currentStreakType = lastDigits[0] % 2
-    let streakLength = 1
-
-    for (let i = 1; i < lastDigits.length; i++) {
-      if (lastDigits[i] % 2 === currentStreakType) {
-        streakLength++
+      if (evenCount > oddCount * 1.2) {
+        setEvenOddBias('EVEN BIAS')
+      } else if (oddCount > evenCount * 1.2) {
+        setEvenOddBias('ODD BIAS')
       } else {
-        streaks.push(streakLength)
-        currentStreakType = lastDigits[i] % 2
-        streakLength = 1
+        setEvenOddBias('NEUTRAL')
       }
-    }
 
-    const avgStreak = streaks.reduce((a, b) => a + b, 0) / streaks.length
-    setStreakPattern(`AVG: ${avgStreak.toFixed(1)}`)
+      // Analyze streak patterns
+      const streaks = []
+      if (lastDigits.length > 0) {
+        let currentStreakType = lastDigits[0] % 2
+        let streakLength = 1
+
+        for (let i = 1; i < lastDigits.length; i++) {
+          if (lastDigits[i] % 2 === currentStreakType) {
+            streakLength++
+          } else {
+            streaks.push(streakLength)
+            currentStreakType = lastDigits[i] % 2
+            streakLength = 1
+          }
+        }
+
+        if (streaks.length > 0) {
+          const avgStreak = streaks.reduce((a, b) => a + b, 0) / streaks.length
+          setStreakPattern(`AVG: ${avgStreak.toFixed(1)}`)
+        } else {
+          setStreakPattern('---')
+        }
+      }
+    } catch (error) {
+      console.error('Error in pattern analysis:', error)
+    }
   }
 
   const makePrediction = (history: number[]) => {
     if (history.length < 50) return
 
-    const recentTicks = history.slice(-50)
-    const lastDigits = recentTicks.map(tick => tick % 10)
+    try {
+      const recentTicks = history.slice(-50)
+      const lastDigits = recentTicks.map(tick => Math.floor(tick) % 10)
 
-    // Simple neural network-like prediction
-    if (predictionModel === 'neural_network') {
-      const weights = [0.1, 0.15, 0.2, 0.25, 0.3] // Last 5 ticks weights
-      let prediction = 0
+      // Simple neural network-like prediction
+      if (predictionModel === 'neural_network') {
+        const weights = [0.1, 0.15, 0.2, 0.25, 0.3] // Last 5 ticks weights
+        let prediction = 0
 
-      for (let i = 0; i < 5; i++) {
-        if (lastDigits[lastDigits.length - 1 - i] !== undefined) {
-          prediction += lastDigits[lastDigits.length - 1 - i] * weights[i]
+        for (let i = 0; i < 5; i++) {
+          if (lastDigits[lastDigits.length - 1 - i] !== undefined) {
+            prediction += lastDigits[lastDigits.length - 1 - i] * weights[i]
+          }
+        }
+
+        const predictedDigit = Math.round(prediction) % 10
+
+        if (contractType === 'DIGITEVEN' || contractType === 'DIGITODD') {
+          setNextPrediction(predictedDigit % 2 === 0 ? 'EVEN' : 'ODD')
+          setConfidence(65 + Math.random() * 25)
+        } else {
+          setNextPrediction(predictedDigit.toString())
+          setConfidence(55 + Math.random() * 30)
         }
       }
-
-      const predictedDigit = Math.round(prediction) % 10
-
-      if (contractType === 'DIGITEVEN' || contractType === 'DIGITODD') {
-        setNextPrediction(predictedDigit % 2 === 0 ? 'EVEN' : 'ODD')
-        setConfidence(65 + Math.random() * 25)
-      } else {
-        setNextPrediction(predictedDigit.toString())
-        setConfidence(55 + Math.random() * 30)
-      }
+    } catch (error) {
+      console.error('Error in prediction:', error)
     }
   }
 
@@ -853,17 +892,19 @@ if __name__ == "__main__":
     }, []);
 
     useEffect(() => {
-    if (activeTab === 'auto-trades') {
-      // Auto trades specific logic can go here
-    }
-
-    // Cleanup WebSocket connection on unmount
-    return () => {
-      if (websocket) {
-        websocket.close()
+      if (active_tab === 'auto-trades') {
+        // Auto trades specific logic can go here
       }
-    }
-  }, [activeTab, websocket])
+
+      // Cleanup WebSocket connection on unmount
+      return () => {
+        if (websocket) {
+          websocket.close()
+          setWebsocket(null)
+          setIsConnected(false)
+        }
+      }
+    }, [active_tab])
 
 
     const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
