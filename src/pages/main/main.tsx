@@ -418,11 +418,12 @@ const AppWrapper = observer(() => {
           const data = JSON.parse(event.data)
           console.log('WebSocket message received:', data)
           
-          // Handle tick data
-          if (data.tick && data.tick.symbol === selectedIndex) {
-            console.log('Tick received for', selectedIndex, ':', data.tick.quote)
+          // Handle tick data - check if it matches current selected volatility
+          if (data.tick && (data.tick.symbol === selectedIndex || getAlternativeSymbol(data.tick.symbol) === selectedIndex)) {
+            console.log('Tick received for', data.tick.symbol, ':', data.tick.quote)
             const price = parseFloat(data.tick.quote)
             if (!isNaN(price)) {
+              setCurrentPrice(price.toFixed(5))
               handleNewTick(price, data.tick.symbol)
             }
           }
@@ -430,6 +431,7 @@ const AppWrapper = observer(() => {
           // Handle subscription confirmation
           if (data.msg_type === 'tick' && data.subscription) {
             console.log('Tick subscription confirmed for:', data.subscription.id)
+            setCurrentPrice('Connected - Receiving ticks for ' + selectedIndex)
           }
 
           // Handle errors
@@ -446,11 +448,16 @@ const AppWrapper = observer(() => {
                 const altRequest = {
                   ticks: altSymbol,
                   subscribe: 1,
-                  req_id: 2
+                  req_id: Date.now()
                 }
                 ws.send(JSON.stringify(altRequest))
               }
             }
+          }
+
+          // Handle forget_all response
+          if (data.msg_type === 'forget_all') {
+            console.log('All subscriptions forgotten successfully')
           }
         } catch (parseError) {
           console.error('Error parsing WebSocket message:', parseError)
@@ -1116,7 +1123,7 @@ if __name__ == "__main__":
           const newTickRequest = {
             ticks: selectedIndex,
             subscribe: 1,
-            req_id: 1
+            req_id: Date.now() // Use unique req_id
           }
           console.log('Sending new tick subscription:', newTickRequest)
           websocket.send(JSON.stringify(newTickRequest))
@@ -1126,13 +1133,13 @@ if __name__ == "__main__":
         setTickHistory([])
         setDigitDistribution(new Array(10).fill(0))
         setDigitPercentages(new Array(10).fill(10))
-        setCurrentPrice('Switching symbol...')
+        setCurrentPrice('Switching to ' + selectedIndex + '...')
         setCurrentTick(null)
         setNextPrediction('')
         setConfidence(0)
       } else if (!isConnected) {
         // If not connected, reset display
-        setCurrentPrice('Not connected')
+        setCurrentPrice('Not connected - Select ' + selectedIndex)
         setTickHistory([])
         setDigitDistribution(new Array(10).fill(0))
         setDigitPercentages(new Array(10).fill(10))
@@ -1311,7 +1318,7 @@ if __name__ == "__main__":
                     <h3>Real-Time Price & Analysis</h3>
                     <div className="price-display">
                       <div className="current-price">
-                        <span className="price-label">Current Price:</span>
+                        <span className="price-label">Current Price ({selectedIndex}):</span>
                         <span className="price-value">{currentPrice}</span>
                         <span className="last-digit">{currentTick ? Math.floor(Math.abs(currentTick * 100000)) % 10 : '-'}</span>
                       </div>
@@ -1323,6 +1330,12 @@ if __name__ == "__main__":
                         <div className="stat-item">
                           <span>Symbol:</span>
                           <span>{selectedIndex}</span>
+                        </div>
+                        <div className="stat-item">
+                          <span>Status:</span>
+                          <span className={isConnected ? 'connected' : 'disconnected'}>
+                            {isConnected ? 'LIVE' : 'OFFLINE'}
+                          </span>
                         </div>
                       </div>
                     </div>
