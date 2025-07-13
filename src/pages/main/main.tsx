@@ -107,7 +107,7 @@ const AppWrapper = observer(() => {
   const [isTrading, setIsTrading] = useState(false)
   const [currentTick, setCurrentTick] = useState<number | null>(null)
   const [currentPrice, setCurrentPrice] = useState<string>('---')
-  const [tickHistory, setTickHistory] = useState<number[]>([])
+  const [tickHistory, setTickHistory] = useState<{[key: string]: number[]}>({})
   const [digitDistribution, setDigitDistribution] = useState<number[]>(new Array(10).fill(0))
   const [digitPercentages, setDigitPercentages] = useState<number[]>(new Array(10).fill(10))
   const [nextPrediction, setNextPrediction] = useState<string>('')
@@ -403,7 +403,18 @@ const AppWrapper = observer(() => {
         setWebsocket(ws)
         setCurrentPrice('Connected - Waiting for ticks...')
 
-        // Subscribe to tick stream for selected volatility
+        // First, get historical ticks for the selected volatility
+        const historyRequest = {
+          ticks_history: selectedIndex,
+          count: 5000,
+          end: 'latest',
+          style: 'ticks',
+          req_id: 2
+        }
+        console.log('Requesting historical ticks:', historyRequest)
+        ws.send(JSON.stringify(historyRequest))
+
+        // Then subscribe to real-time tick stream
         const tickRequest = {
           ticks: selectedIndex,
           subscribe: 1,
@@ -418,9 +429,34 @@ const AppWrapper = observer(() => {
           const data = JSON.parse(event.data)
           console.log('WebSocket message received:', data)
           
-          // Handle tick data - check if it matches current selected volatility
+          // Handle historical tick data
+          if (data.history && data.history.prices) {
+            const symbol = data.echo_req.ticks_history
+            const prices = data.history.prices.map(price => parseFloat(price))
+            console.log(`Received ${prices.length} historical ticks for ${symbol}`)
+            
+            // Store historical ticks for this volatility
+            setTickHistory(prev => ({
+              ...prev,
+              [symbol]: prices
+            }))
+
+            // Set current price to latest historical tick
+            if (prices.length > 0) {
+              const latestPrice = prices[prices.length - 1]
+              setCurrentPrice(latestPrice.toFixed(5))
+              
+              // Calculate distributions for historical data
+              calculateDigitDistribution(prices)
+              analyzePatterns(prices)
+              makePrediction(prices)
+              calculateContractProbabilities(prices)
+            }
+          }
+          
+          // Handle real-time tick data
           if (data.tick && (data.tick.symbol === selectedIndex || getAlternativeSymbol(data.tick.symbol) === selectedIndex)) {
-            console.log('Tick received for', data.tick.symbol, ':', data.tick.quote)
+            console.log('Real-time tick received for', data.tick.symbol, ':', data.tick.quote)
             const price = parseFloat(data.tick.quote)
             if (!isNaN(price)) {
               setCurrentPrice(price.toFixed(5))
@@ -446,8 +482,10 @@ const AppWrapper = observer(() => {
               if (altSymbol && altSymbol !== selectedIndex) {
                 console.log('Trying alternative symbol:', altSymbol)
                 const altRequest = {
-                  ticks: altSymbol,
-                  subscribe: 1,
+                  ticks_history: altSymbol,
+                  count: 5000,
+                  end: 'latest',
+                  style: 'ticks',
                   req_id: Date.now()
                 }
                 ws.send(JSON.stringify(altRequest))
@@ -542,11 +580,17 @@ const AppWrapper = observer(() => {
       const priceStr = tick.toFixed(5)
       setCurrentPrice(priceStr)
 
-      // Store in tick history (keep last 10,000)
+      // Store in tick history per volatility (keep last 5000 per symbol)
       setTickHistory(prev => {
-        const newHistory = [...prev, tick].slice(-10000)
+        const currentHistory = prev[symbol] || []
+        const newHistory = [...currentHistory, tick].slice(-5000)
+        
+        const updated = {
+          ...prev,
+          [symbol]: newHistory
+        }
 
-        // Only run analysis if we have enough data
+        // Only run analysis if we have enough data for current symbol
         if (newHistory.length >= 10) {
           // Calculate digit distribution with real-time updates
           calculateDigitDistribution(newHistory)
@@ -561,7 +605,7 @@ const AppWrapper = observer(() => {
           calculateContractProbabilities(newHistory)
         }
 
-        return newHistory
+        return updated
       })
 
       // Execute trade if trading is active
@@ -1110,7 +1154,7 @@ if __name__ == "__main__":
     // Reconnect when volatility changes
     useEffect(() => {
       if (isConnected && websocket && websocket.readyState === WebSocket.OPEN) {
-        console.log('Volatility changed to:', selectedIndex, 'Resubscribing...')
+        console.log('Volatility changed to:', selectedIndex, 'Getting data...')
         
         // Unsubscribe from all ticks first
         websocket.send(JSON.stringify({
@@ -1118,34 +1162,53 @@ if __name__ == "__main__":
           req_id: 99
         }))
         
-        // Subscribe to new symbol after a short delay
+        // Get historical data and subscribe to new symbol after a short delay
         setTimeout(() => {
+          // Check if we already have data for this volatility
+          const currentVolatilityHistory = tickHistory[selectedIndex]
+          
+          if (!currentVolatilityHistory || currentVolatilityHistory.length === 0) {
+            // Request historical ticks if we don't have them
+            const historyRequest = {
+              ticks_history: selectedIndex,
+              count: 5000,
+              end: 'latest',
+              style: 'ticks',
+              req_id: Date.now()
+            }
+            console.log('Requesting historical ticks for new volatility:', historyRequest)
+            websocket.send(JSON.stringify(historyRequest))
+          } else {
+            // Use existing data for immediate display
+            calculateDigitDistribution(currentVolatilityHistory)
+            analyzePatterns(currentVolatilityHistory)
+            makePrediction(currentVolatilityHistory)
+            calculateContractProbabilities(currentVolatilityHistory)
+            
+            if (currentVolatilityHistory.length > 0) {
+              const latestPrice = currentVolatilityHistory[currentVolatilityHistory.length - 1]
+              setCurrentPrice(latestPrice.toFixed(5))
+            }
+          }
+
+          // Subscribe to real-time ticks
           const newTickRequest = {
             ticks: selectedIndex,
             subscribe: 1,
-            req_id: Date.now() // Use unique req_id
+            req_id: Date.now() + 1
           }
           console.log('Sending new tick subscription:', newTickRequest)
           websocket.send(JSON.stringify(newTickRequest))
         }, 500)
 
-        // Reset data for new volatility
-        setTickHistory([])
-        setDigitDistribution(new Array(10).fill(0))
-        setDigitPercentages(new Array(10).fill(10))
-        setCurrentPrice('Switching to ' + selectedIndex + '...')
+        setCurrentPrice('Loading ' + selectedIndex + ' data...')
         setCurrentTick(null)
-        setNextPrediction('')
-        setConfidence(0)
       } else if (!isConnected) {
         // If not connected, reset display
         setCurrentPrice('Not connected - Select ' + selectedIndex)
-        setTickHistory([])
-        setDigitDistribution(new Array(10).fill(0))
-        setDigitPercentages(new Array(10).fill(10))
         setCurrentTick(null)
       }
-    }, [selectedIndex, isConnected, websocket])
+    }, [selectedIndex, isConnected, websocket, tickHistory])
 
 
     const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
@@ -1325,7 +1388,7 @@ if __name__ == "__main__":
                       <div className="tick-stats">
                         <div className="stat-item">
                           <span>Ticks Stored:</span>
-                          <span>{tickHistory.length}/10,000</span>
+                          <span>{tickHistory[selectedIndex]?.length || 0}/5,000</span>
                         </div>
                         <div className="stat-item">
                           <span>Symbol:</span>
@@ -1336,6 +1399,10 @@ if __name__ == "__main__":
                           <span className={isConnected ? 'connected' : 'disconnected'}>
                             {isConnected ? 'LIVE' : 'OFFLINE'}
                           </span>
+                        </div>
+                        <div className="stat-item">
+                          <span>Total Volatilities:</span>
+                          <span>{Object.keys(tickHistory).length}</span>
                         </div>
                       </div>
                     </div>
