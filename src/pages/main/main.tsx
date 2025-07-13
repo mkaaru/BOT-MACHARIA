@@ -396,7 +396,7 @@ const AppWrapper = observer(() => {
       ws.onopen = () => {
         setIsConnected(true)
         setWebsocket(ws)
-        console.log('Connected to Deriv WebSocket')
+        console.log('Connected to Deriv WebSocket for symbol:', selectedIndex)
 
         // Subscribe to tick stream for selected volatility
         ws.send(JSON.stringify({
@@ -405,11 +405,17 @@ const AppWrapper = observer(() => {
           req_id: 1
         }))
 
-        // Also subscribe to active symbols to get proper symbol names
+        // Also subscribe to active symbols to get proper symbol names and details
         ws.send(JSON.stringify({
           active_symbols: "brief",
           product_type: "basic",
           req_id: 2
+        }))
+
+        // Get trading times for the symbol
+        ws.send(JSON.stringify({
+          trading_times: selectedIndex,
+          req_id: 3
         }))
       }
 
@@ -422,7 +428,32 @@ const AppWrapper = observer(() => {
           }
           
           if (data.active_symbols) {
-            console.log('Active symbols received:', data.active_symbols)
+            console.log('Active symbols received:', data.active_symbols.length, 'symbols')
+            // Find our current symbol and log details
+            const currentSymbol = data.active_symbols.find(s => s.symbol === selectedIndex)
+            if (currentSymbol) {
+              console.log('Current symbol details:', currentSymbol)
+            }
+          }
+
+          if (data.trading_times) {
+            console.log('Trading times for', selectedIndex, ':', data.trading_times)
+          }
+
+          if (data.error) {
+            console.error('WebSocket API error:', data.error)
+            if (data.error.code === 'InvalidSymbol') {
+              console.log('Invalid symbol, trying alternative format...')
+              // Try alternative symbol format if initial fails
+              const altSymbol = getAlternativeSymbol(selectedIndex)
+              if (altSymbol && altSymbol !== selectedIndex) {
+                ws.send(JSON.stringify({
+                  ticks: altSymbol,
+                  subscribe: 1,
+                  req_id: 4
+                }))
+              }
+            }
           }
         } catch (parseError) {
           console.error('Error parsing WebSocket message:', parseError)
@@ -447,6 +478,28 @@ const AppWrapper = observer(() => {
     }
   }
 
+  // Helper function to get alternative symbol formats
+  const getAlternativeSymbol = (symbol) => {
+    const symbolMap = {
+      '1HZ10V': 'R_10',
+      '1HZ25V': 'R_25', 
+      '1HZ50V': 'R_50',
+      '1HZ75V': 'R_75',
+      '1HZ100V': 'R_100',
+      '1HZ150V': 'R_150',
+      '1HZ200V': 'R_200',
+      '1HZ250V': 'R_250',
+      '1HZ300V': 'R_300',
+      'BOOM1000': '1HZ150V',
+      'CRASH1000': '1HZ250V',
+      'BOOM500': '1HZ300V', 
+      'CRASH500': '1HZ400V',
+      'BOOM300': '1HZ200V',
+      'CRASH300': '1HZ100V'
+    }
+    return symbolMap[symbol] || symbol
+  }
+
   const handleNewTick = (tick: number, symbol: string) => {
     try {
       if (typeof tick !== 'number' || isNaN(tick)) {
@@ -461,12 +514,17 @@ const AppWrapper = observer(() => {
       setTickHistory(prev => {
         const newHistory = [...prev, tick].slice(-10000)
 
-        // Calculate digit distribution
+        // Calculate digit distribution with real-time updates
         calculateDigitDistribution(newHistory)
         
-        // Perform analysis and prediction
+        // Perform enhanced pattern analysis
         analyzePatterns(newHistory)
+        
+        // Make AI-powered prediction
         makePrediction(newHistory)
+
+        // Calculate contract-specific probabilities
+        calculateContractProbabilities(newHistory)
 
         return newHistory
       })
@@ -478,6 +536,49 @@ const AppWrapper = observer(() => {
     } catch (error) {
       console.error('Error handling new tick:', error)
     }
+  }
+
+  const calculateContractProbabilities = (history: number[]) => {
+    if (history.length < 10) return
+
+    const recentTicks = history.slice(-100) // Use last 100 ticks for probability calculation
+    const lastDigits = recentTicks.map(tick => Math.floor(Math.abs(tick * 100000)) % 10)
+
+    // Calculate probabilities based on contract type
+    let probabilities = {}
+
+    if (contractType === 'DIGITEVEN' || contractType === 'DIGITODD') {
+      const evenCount = lastDigits.filter(d => d % 2 === 0).length
+      const oddCount = lastDigits.length - evenCount
+      const total = lastDigits.length
+      
+      probabilities = {
+        even: ((evenCount / total) * 100).toFixed(1),
+        odd: ((oddCount / total) * 100).toFixed(1)
+      }
+    } else if (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') {
+      const underCount = lastDigits.filter(d => d < 5).length // 0,1,2,3,4
+      const overCount = lastDigits.filter(d => d >= 5).length // 5,6,7,8,9
+      const total = lastDigits.length
+      
+      probabilities = {
+        under: ((underCount / total) * 100).toFixed(1),
+        over: ((overCount / total) * 100).toFixed(1)
+      }
+    } else if (contractType === 'DIGITMATCH' || contractType === 'DIGITDIFF') {
+      // For match/differs, show probability for each digit
+      const digitCounts = new Array(10).fill(0)
+      lastDigits.forEach(d => digitCounts[d]++)
+      const total = lastDigits.length
+      
+      probabilities = {}
+      for (let i = 0; i < 10; i++) {
+        probabilities[`digit_${i}`] = ((digitCounts[i] / total) * 100).toFixed(1)
+      }
+    }
+
+    // You can use these probabilities to update UI or make trading decisions
+    console.log('Contract probabilities:', probabilities)
   }
 
   const calculateDigitDistribution = (history: number[]) => {
@@ -1080,12 +1181,21 @@ if __name__ == "__main__":
                             <option value="1HZ50V">Volatility 50 Index</option>
                             <option value="1HZ75V">Volatility 75 Index</option>
                             <option value="1HZ100V">Volatility 100 Index</option>
+                            <option value="1HZ150V">Volatility 150 Index</option>
+                            <option value="1HZ200V">Volatility 200 Index</option>
+                            <option value="1HZ250V">Volatility 250 Index</option>
+                            <option value="1HZ300V">Volatility 300 Index</option>
                           </optgroup>
                           <optgroup label="Crash/Boom Indices">
-                            <option value="1HZ150V">Boom 1000 Index</option>
-                            <option value="1HZ250V">Crash 1000 Index</option>
-                            <option value="1HZ300V">Boom 500 Index</option>
-                            <option value="1HZ400V">Crash 500 Index</option>
+                            <option value="BOOM1000">Boom 1000 Index</option>
+                            <option value="CRASH1000">Crash 1000 Index</option>
+                            <option value="BOOM500">Boom 500 Index</option>
+                            <option value="CRASH500">Crash 500 Index</option>
+                            <option value="BOOM300">Boom 300 Index</option>
+                            <option value="CRASH300">Crash 300 Index</option>
+                          </optgroup>
+                          <optgroup label="Step Indices">
+                            <option value="STEPINDEX">Step Index</option>
                           </optgroup>
                         </select>
                       </div>
@@ -1095,8 +1205,8 @@ if __name__ == "__main__":
                         <select value={contractType} onChange={(e) => setContractType(e.target.value)}>
                           <option value="DIGITEVEN">Digit Even</option>
                           <option value="DIGITODD">Digit Odd</option>
-                          <option value="DIGITOVER">Digit Over</option>
-                          <option value="DIGITUNDER">Digit Under</option>
+                          <option value="DIGITOVER">Digit Over 5</option>
+                          <option value="DIGITUNDER">Digit Under 5</option>
                           <option value="DIGITMATCH">Digit Match</option>
                           <option value="DIGITDIFF">Digit Differs</option>
                         </select>
@@ -1212,6 +1322,39 @@ if __name__ == "__main__":
                           <span>Streak Pattern:</span>
                           <span>{streakPattern}</span>
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="contract-probabilities">
+                      <h4>Contract Type Probabilities</h4>
+                      <div className="probability-display">
+                        {contractType === 'DIGITEVEN' || contractType === 'DIGITODD' ? (
+                          <div className="prob-grid">
+                            <div className="prob-item">
+                              <span>Even Probability:</span>
+                              <span className="prob-value">{digitPercentages.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0).toFixed(1)}%</span>
+                            </div>
+                            <div className="prob-item">
+                              <span>Odd Probability:</span>
+                              <span className="prob-value">{digitPercentages.filter((_, i) => i % 2 === 1).reduce((a, b) => a + b, 0).toFixed(1)}%</span>
+                            </div>
+                          </div>
+                        ) : contractType === 'DIGITOVER' || contractType === 'DIGITUNDER' ? (
+                          <div className="prob-grid">
+                            <div className="prob-item">
+                              <span>Under 5 (0-4):</span>
+                              <span className="prob-value">{digitPercentages.slice(0, 5).reduce((a, b) => a + b, 0).toFixed(1)}%</span>
+                            </div>
+                            <div className="prob-item">
+                              <span>Over 5 (5-9):</span>
+                              <span className="prob-value">{digitPercentages.slice(5).reduce((a, b) => a + b, 0).toFixed(1)}%</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="prob-note">
+                            Select specific digit for Match/Differs probability
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
