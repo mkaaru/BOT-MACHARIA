@@ -1559,15 +1559,6 @@ if __name__ == "__main__":
                                     <div label={<Localize i18n_default_text='Market Analyzer' />} id='market-analyzer'>
                                         <iframe
                                             src="https://api.binarytool.site/"
-                                            width="100%"
-                                            height="100%"
-                                            style={{ 
-                                                border: 'none', 
-                                                display: 'block', 
-                                                minHeight: '600px',
-                                                height: 'calc(100vh - 200px)'
-                                            }}
-                                            scrolling="yes"
                                             title="Market Analyzer"
                                         />
                                     </div>
