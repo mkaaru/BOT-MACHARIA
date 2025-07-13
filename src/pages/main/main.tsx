@@ -1313,7 +1313,7 @@ if __name__ == "__main__":
                         <label>Contract Type</label>
                         <select value={contractType} onChange={(e) => setContractType(e.target.value)}>
                           <option value="DIGITEVEN">Digit Even</option>
-                          <option value`DIGITODD">Digit Odd</option>
+                          <option value="DIGITODD">Digit Odd</option>
                           <option value="DIGITOVER">Digit Over 5</option>
                           <option value="DIGITUNDER">Digit Under 5</option>
                           <option value="DIGITMATCH">Digit Match</option>
