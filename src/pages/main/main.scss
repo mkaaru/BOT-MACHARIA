@@ -1003,18 +1003,229 @@
 
     &__content-wrapper {
         flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        overflow: hidden;
     }
 
     &__content {
-        text-align: center;
+        height: 100%;
     }
 
     &__placeholder {
         font-size: 1.2rem;
         color: var(--text-general);
         font-style: italic;
+    }
+}
+
+.python-editor-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--general-main-1);
+    border: 1px solid var(--border-normal);
+    border-radius: 8px;
+    overflow: hidden;
+
+    .python-editor-header {
+        background: var(--general-section-1);
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-normal);
+
+        .editor-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+
+            .editor-btn {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 0.5rem 1rem;
+                border: 1px solid var(--border-normal);
+                border-radius: 4px;
+                background: var(--general-main-1);
+                color: var(--text-general);
+                cursor: pointer;
+                font-size: 0.875rem;
+                transition: all 0.2s ease;
+
+                &:hover {
+                    background: var(--general-hover);
+                }
+
+                &.run-btn {
+                    background: var(--purchase-main-1);
+                    color: white;
+                    border-color: var(--purchase-main-1);
+
+                    &:hover {
+                        background: var(--purchase-hover);
+                    }
+                }
+
+                &.clear-btn {
+                    background: var(--button-primary-hover);
+                    color: white;
+                    border-color: var(--button-primary-hover);
+
+                    &:hover {
+                        opacity: 0.8;
+                    }
+                }
+
+                &.save-btn {
+                    background: var(--general-main-1);
+                    border-color: var(--purchase-main-1);
+                    color: var(--purchase-main-1);
+
+                    &:hover {
+                        background: var(--purchase-main-1);
+                        color: white;
+                    }
+                }
+            }
+
+            .script-selector {
+                padding: 0.5rem;
+                border: 1px solid var(--border-normal);
+                border-radius: 4px;
+                background: var(--general-main-1);
+                color: var(--text-general);
+                font-size: 0.875rem;
+                min-width: 200px;
+            }
+        }
+    }
+
+    .python-editor-body {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1px;
+        background: var(--border-normal);
+        overflow: hidden;
+
+        @media (max-width: 768px) {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+
+        .code-editor-section,
+        .output-section {
+            background: var(--general-main-1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+
+            h3 {
+                padding: 1rem;
+                margin: 0;
+                background: var(--general-section-1);
+                border-bottom: 1px solid var(--border-normal);
+                font-size: 1rem;
+                font-weight: 600;
+                color: var(--text-prominent);
+            }
+
+            .python-code-editor {
+                flex: 1;
+                padding: 1rem;
+                border: none;
+                background: var(--general-main-1);
+                color: var(--text-general);
+                font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                font-size: 0.875rem;
+                line-height: 1.5;
+                resize: none;
+                outline: none;
+
+                &::placeholder {
+                    color: var(--text-less-prominent);
+                }
+            }
+
+            .python-output {
+                flex: 1;
+                padding: 1rem;
+                overflow-y: auto;
+                font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                font-size: 0.875rem;
+                line-height: 1.4;
+
+                .output-line {
+                    margin-bottom: 0.5rem;
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 0.5rem;
+
+                    .timestamp {
+                        color: var(--text-less-prominent);
+                        font-size: 0.75rem;
+                        flex-shrink: 0;
+                        min-width: 70px;
+                    }
+
+                    .content {
+                        flex: 1;
+                        word-break: break-word;
+                    }
+
+                    &.info {
+                        color: var(--text-general);
+                    }
+
+                    &.success {
+                        color: var(--purchase-main-1);
+                    }
+
+                    &.error {
+                        color: var(--button-primary-hover);
+                    }
+
+                    &.output {
+                        color: var(--text-prominent);
+                        font-weight: 500;
+                    }
+                }
+            }
+        }
+    }
+
+    .python-editor-footer {
+        background: var(--general-section-1);
+        padding: 1rem;
+        border-top: 1px solid var(--border-normal);
+
+        .script-templates {
+            h4 {
+                margin: 0 0 1rem 0;
+                font-size: 0.875rem;
+                color: var(--text-prominent);
+                font-weight: 600;
+            }
+
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+
+            .template-btn {
+                padding: 0.5rem 1rem;
+                border: 1px solid var(--border-normal);
+                border-radius: 4px;
+                background: var(--general-main-1);
+                color: var(--text-general);
+                cursor: pointer;
+                font-size: 0.75rem;
+                transition: all 0.2s ease;
+
+                &:hover {
+                    background: var(--general-hover);
+                    border-color: var(--purchase-main-1);
+                    color: var(--purchase-main-1);
+                }
+            }
+        }
     }
 }

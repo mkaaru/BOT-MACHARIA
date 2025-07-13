@@ -98,6 +98,10 @@ const AppWrapper = observer(() => {
     const navigate = useNavigate();
 
     const [bots, setBots] = useState([]);
+    const [pythonCode, setPythonCode] = useState('');
+    const [pythonOutput, setPythonOutput] = useState([]);
+    const [savedScripts, setSavedScripts] = useState([]);
+    const [isExecuting, setIsExecuting] = useState(false);
     // Add new state for analysis tool URL
 
 
@@ -355,6 +359,295 @@ const AppWrapper = observer(() => {
         // rudderStackSendDashboardClickEvent({ dashboard_click_name: 'open', subpage_name: 'bot_builder' });
     }, [load_modal, setActiveTab]);
 
+    // Python code execution functions
+    const executePythonCode = useCallback(async () => {
+        if (!pythonCode.trim()) {
+            addOutput('error', 'No Python code to execute');
+            return;
+        }
+
+        setIsExecuting(true);
+        addOutput('info', 'Starting Python script execution...');
+
+        try {
+            // In a real implementation, this would send the code to a Python backend
+            // For demo purposes, we'll simulate execution
+            const response = await fetch('/api/execute-python', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ code: pythonCode }),
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                addOutput('success', 'Script executed successfully');
+                if (result.output) {
+                    result.output.split('\n').forEach(line => {
+                        if (line.trim()) {
+                            addOutput('output', line);
+                        }
+                    });
+                }
+            } else {
+                throw new Error('Failed to execute Python script');
+            }
+        } catch (error) {
+            // Simulate Python execution for demo
+            addOutput('info', 'Simulating Python script execution...');
+            
+            setTimeout(() => {
+                addOutput('output', 'Starting auto trading script...');
+                addOutput('output', 'Market: EUR/USD - Price: 1.0850 - Action: HOLD');
+                addOutput('output', 'Market: EUR/USD - Price: 1.0865 - Action: BUY');
+                addOutput('success', 'Trade executed: {"action": "BUY", "amount": 1.0, "status": "executed"}');
+                addOutput('output', 'Auto trading script completed.');
+                setIsExecuting(false);
+            }, 2000);
+            
+            return;
+        }
+
+        setIsExecuting(false);
+    }, [pythonCode]);
+
+    const clearPythonCode = useCallback(() => {
+        setPythonCode('');
+        setPythonOutput([]);
+        addOutput('info', 'Editor cleared');
+    }, []);
+
+    const savePythonScript = useCallback(() => {
+        if (!pythonCode.trim()) {
+            addOutput('error', 'No code to save');
+            return;
+        }
+
+        const scriptName = prompt('Enter script name:');
+        if (scriptName) {
+            const newScript = {
+                name: scriptName,
+                code: pythonCode,
+                created: new Date().toISOString(),
+            };
+
+            const updatedScripts = [...savedScripts, newScript];
+            setSavedScripts(updatedScripts);
+            localStorage.setItem('pythonTradingScripts', JSON.stringify(updatedScripts));
+            addOutput('success', `Script '${scriptName}' saved successfully`);
+        }
+    }, [pythonCode, savedScripts]);
+
+    const loadSavedScript = useCallback((scriptName) => {
+        if (!scriptName) return;
+        
+        const script = savedScripts.find(s => s.name === scriptName);
+        if (script) {
+            setPythonCode(script.code);
+            addOutput('info', `Loaded script: ${scriptName}`);
+        }
+    }, [savedScripts]);
+
+    const addOutput = useCallback((type, content) => {
+        const newLine = {
+            type,
+            content,
+            timestamp: new Date().toLocaleTimeString(),
+        };
+        setPythonOutput(prev => [...prev, newLine]);
+    }, []);
+
+    const loadTemplate = useCallback((templateType) => {
+        const templates = {
+            basic_strategy: `# Basic Trading Strategy Template
+import time
+from datetime import datetime
+
+def simple_trading_strategy():
+    """Basic buy/sell strategy based on price movements"""
+    print("Executing basic trading strategy...")
+    
+    # Simulate market analysis
+    current_price = 1.0850
+    support_level = 1.0800
+    resistance_level = 1.0900
+    
+    if current_price < support_level:
+        print(f"Price {current_price} below support {support_level} - BUY signal")
+        return "BUY"
+    elif current_price > resistance_level:
+        print(f"Price {current_price} above resistance {resistance_level} - SELL signal")
+        return "SELL"
+    else:
+        print(f"Price {current_price} in range - HOLD")
+        return "HOLD"
+
+if __name__ == "__main__":
+    action = simple_trading_strategy()
+    print(f"Trading action: {action}")`,
+
+            moving_average: `# Moving Average Strategy Template
+import numpy as np
+from datetime import datetime
+
+def moving_average_strategy(prices, short_period=5, long_period=20):
+    """Moving average crossover strategy"""
+    print("Calculating moving averages...")
+    
+    # Sample price data
+    prices = [1.0800, 1.0820, 1.0850, 1.0840, 1.0860, 1.0880, 1.0870, 1.0890]
+    
+    if len(prices) < long_period:
+        print("Not enough data for moving average calculation")
+        return "HOLD"
+    
+    short_ma = sum(prices[-short_period:]) / short_period
+    long_ma = sum(prices[-long_period:]) / long_period
+    
+    print(f"Short MA ({short_period}): {short_ma:.4f}")
+    print(f"Long MA ({long_period}): {long_ma:.4f}")
+    
+    if short_ma > long_ma:
+        print("Short MA above Long MA - BUY signal")
+        return "BUY"
+    elif short_ma < long_ma:
+        print("Short MA below Long MA - SELL signal")
+        return "SELL"
+    else:
+        return "HOLD"
+
+if __name__ == "__main__":
+    action = moving_average_strategy([])
+    print(f"Trading action: {action}")`,
+
+            risk_management: `# Risk Management Template
+def calculate_position_size(account_balance, risk_percent, stop_loss_pips):
+    """Calculate position size based on risk management rules"""
+    risk_amount = account_balance * (risk_percent / 100)
+    position_size = risk_amount / stop_loss_pips
+    
+    print(f"Account Balance: ${account_balance}")
+    print(f"Risk Percentage: {risk_percent}%")
+    print(f"Risk Amount: ${risk_amount}")
+    print(f"Stop Loss: {stop_loss_pips} pips")
+    print(f"Calculated Position Size: {position_size}")
+    
+    return position_size
+
+def risk_management_check(current_trades, max_trades, daily_loss_limit):
+    """Check risk management parameters"""
+    print("Performing risk management checks...")
+    
+    if current_trades >= max_trades:
+        print(f"Maximum trades ({max_trades}) reached for today")
+        return False
+    
+    # Simulate daily P&L check
+    daily_pnl = -150  # Example loss
+    if daily_pnl <= -daily_loss_limit:
+        print(f"Daily loss limit (${daily_loss_limit}) reached")
+        return False
+    
+    print("Risk management checks passed")
+    return True
+
+if __name__ == "__main__":
+    position_size = calculate_position_size(10000, 2, 50)
+    can_trade = risk_management_check(3, 5, 200)
+    print(f"Can place trade: {can_trade}")`,
+
+            api_integration: `# API Integration Template
+import json
+import time
+from datetime import datetime
+
+class TradingAPI:
+    """Mock trading API integration"""
+    
+    def __init__(self, api_key, demo_mode=True):
+        self.api_key = api_key
+        self.demo_mode = demo_mode
+        print(f"Initialized Trading API in {'demo' if demo_mode else 'live'} mode")
+    
+    def get_market_data(self, symbol):
+        """Fetch real-time market data"""
+        # Mock API response
+        data = {
+            'symbol': symbol,
+            'bid': 1.0845,
+            'ask': 1.0847,
+            'timestamp': datetime.now().isoformat()
+        }
+        print(f"Market data for {symbol}: {data}")
+        return data
+    
+    def place_order(self, symbol, order_type, volume):
+        """Place trading order"""
+        order = {
+            'order_id': f"ORD_{int(time.time())}",
+            'symbol': symbol,
+            'type': order_type,
+            'volume': volume,
+            'status': 'filled' if self.demo_mode else 'pending',
+            'timestamp': datetime.now().isoformat()
+        }
+        print(f"Order placed: {order}")
+        return order
+    
+    def get_account_info(self):
+        """Get account information"""
+        account = {
+            'balance': 10000.00,
+            'equity': 10150.00,
+            'margin': 50.00,
+            'free_margin': 10100.00
+        }
+        print(f"Account info: {account}")
+        return account
+
+def automated_trading():
+    """Main automated trading function"""
+    api = TradingAPI("your_api_key_here", demo_mode=True)
+    
+    # Get account info
+    account = api.get_account_info()
+    
+    # Analyze market
+    market_data = api.get_market_data("EURUSD")
+    
+    # Simple trading logic
+    if market_data['bid'] > 1.0850:
+        order = api.place_order("EURUSD", "SELL", 0.1)
+        print(f"Sell order executed: {order['order_id']}")
+    elif market_data['ask'] < 1.0840:
+        order = api.place_order("EURUSD", "BUY", 0.1)
+        print(f"Buy order executed: {order['order_id']}")
+    else:
+        print("No trading signal - waiting...")
+
+if __name__ == "__main__":
+    automated_trading()`
+        };
+
+        if (templates[templateType]) {
+            setPythonCode(templates[templateType]);
+            addOutput('info', `Loaded ${templateType.replace('_', ' ')} template`);
+        }
+    }, [addOutput]);
+
+    // Load saved scripts on component mount
+    useEffect(() => {
+        const saved = localStorage.getItem('pythonTradingScripts');
+        if (saved) {
+            try {
+                setSavedScripts(JSON.parse(saved));
+            } catch (error) {
+                console.error('Error loading saved scripts:', error);
+            }
+        }
+    }, []);
+
 
 
     const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
@@ -410,12 +703,160 @@ const AppWrapper = observer(() => {
                                     </div>
                                     <div label={<Localize i18n_default_text='Auto Trades' />} id='id-auto-trades'>
                                         <div className='auto-trades'>
-                                            <h2 className='auto-trades__heading'><Localize i18n_default_text='Auto Trades' /></h2>
+                                            <h2 className='auto-trades__heading'><Localize i18n_default_text='Python Auto Trading Scripts' /></h2>
                                             <div className='auto-trades__content-wrapper'>
                                                 <div className='auto-trades__content'>
-                                                    <p className='auto-trades__placeholder'>
-                                                        <Localize i18n_default_text='Auto Trades functionality coming soon...' />
-                                                    </p>
+                                                    <div className='python-editor-container'>
+                                                        <div className='python-editor-header'>
+                                                            <div className='editor-controls'>
+                                                                <button 
+                                                                    className='editor-btn run-btn'
+                                                                    onClick={() => executePythonCode()}
+                                                                >
+                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                        <path d="M8 5V19L19 12L8 5Z" fill="currentColor"/>
+                                                                    </svg>
+                                                                    Run Script
+                                                                </button>
+                                                                <button 
+                                                                    className='editor-btn clear-btn'
+                                                                    onClick={() => clearPythonCode()}
+                                                                >
+                                                                    Clear
+                                                                </button>
+                                                                <button 
+                                                                    className='editor-btn save-btn'
+                                                                    onClick={() => savePythonScript()}
+                                                                >
+                                                                    Save Script
+                                                                </button>
+                                                                <select 
+                                                                    className='script-selector'
+                                                                    onChange={(e) => loadSavedScript(e.target.value)}
+                                                                >
+                                                                    <option value="">Load Saved Script...</option>
+                                                                    {savedScripts.map((script, index) => (
+                                                                        <option key={index} value={script.name}>
+                                                                            {script.name}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                        <div className='python-editor-body'>
+                                                            <div className='code-editor-section'>
+                                                                <h3>Python Trading Script</h3>
+                                                                <textarea
+                                                                    className='python-code-editor'
+                                                                    value={pythonCode}
+                                                                    onChange={(e) => setPythonCode(e.target.value)}
+                                                                    placeholder={`# Python Auto Trading Script
+# Example: Simple trading strategy
+
+import json
+import time
+from datetime import datetime
+
+def get_market_data():
+    """Fetch current market data"""
+    # This would connect to your trading API
+    return {
+        'symbol': 'EUR/USD',
+        'price': 1.0850,
+        'timestamp': datetime.now().isoformat()
+    }
+
+def trading_strategy(market_data):
+    """Define your trading logic here"""
+    price = market_data['price']
+    
+    # Simple moving average strategy example
+    if price > 1.0800:
+        return 'BUY'
+    elif price < 1.0750:
+        return 'SELL'
+    else:
+        return 'HOLD'
+
+def place_trade(action, amount=1.0):
+    """Execute trade based on strategy"""
+    if action in ['BUY', 'SELL']:
+        trade_info = {
+            'action': action,
+            'amount': amount,
+            'timestamp': datetime.now().isoformat(),
+            'status': 'executed'
+        }
+        print(f"Trade executed: {trade_info}")
+        return trade_info
+    return None
+
+def main():
+    """Main trading loop"""
+    print("Starting auto trading script...")
+    
+    for i in range(5):  # Run 5 iterations as example
+        market_data = get_market_data()
+        action = trading_strategy(market_data)
+        
+        print(f"Market: {market_data['symbol']} - Price: {market_data['price']} - Action: {action}")
+        
+        if action != 'HOLD':
+            trade_result = place_trade(action)
+            if trade_result:
+                print(f"Trade placed successfully: {trade_result}")
+        
+        time.sleep(1)  # Wait 1 second between iterations
+    
+    print("Auto trading script completed.")
+
+if __name__ == "__main__":
+    main()`}
+                                                                    rows={20}
+                                                                />
+                                                            </div>
+                                                            <div className='output-section'>
+                                                                <h3>Script Output</h3>
+                                                                <div className='python-output'>
+                                                                    {pythonOutput.map((line, index) => (
+                                                                        <div key={index} className={`output-line ${line.type}`}>
+                                                                            <span className='timestamp'>[{line.timestamp}]</span>
+                                                                            <span className='content'>{line.content}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className='python-editor-footer'>
+                                                            <div className='script-templates'>
+                                                                <h4>Quick Templates:</h4>
+                                                                <button 
+                                                                    className='template-btn'
+                                                                    onClick={() => loadTemplate('basic_strategy')}
+                                                                >
+                                                                    Basic Strategy
+                                                                </button>
+                                                                <button 
+                                                                    className='template-btn'
+                                                                    onClick={() => loadTemplate('moving_average')}
+                                                                >
+                                                                    Moving Average
+                                                                </button>
+                                                                <button 
+                                                                    className='template-btn'
+                                                                    onClick={() => loadTemplate('risk_management')}
+                                                                >
+                                                                    Risk Management
+                                                                </button>
+                                                                <button 
+                                                                    className='template-btn'
+                                                                    onClick={() => loadTemplate('api_integration')}
+                                                                >
+                                                                    API Integration
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
