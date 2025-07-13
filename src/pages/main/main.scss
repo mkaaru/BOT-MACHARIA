@@ -915,11 +915,6 @@
         }
     }
 
-    @media (max-width: 768px) {
-        padding: 1rem;
-        min-height: 120px;
-    }
-
     &--loading {
         position: relative;
         overflow: hidden;
@@ -1228,4 +1223,377 @@
             }
         }
     }
+}
+
+/* Matrix-themed Digits Trading Bot Styles */
+.auto-trades-container.matrix-theme {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+  min-height: 100vh;
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+
+  .matrix-header {
+    text-align: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #00ff00;
+    padding-bottom: 20px;
+
+    .matrix-title {
+      font-size: 2.5rem;
+      color: #00ff00;
+      text-shadow: 0 0 10px #00ff00;
+      margin-bottom: 10px;
+      letter-spacing: 3px;
+      animation: matrix-glow 2s ease-in-out infinite alternate;
+    }
+
+    .matrix-subtitle {
+      color: #00ff41;
+      font-size: 1.1rem;
+      letter-spacing: 1px;
+    }
+  }
+
+  .trading-dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 20px;
+
+    .control-panel {
+      grid-column: 1 / -1;
+      background: rgba(0, 255, 0, 0.05);
+      border: 1px solid #00ff00;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+
+      h3 {
+        color: #00ff00;
+        margin-bottom: 15px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+
+      .config-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+
+        .config-item {
+          label {
+            display: block;
+            color: #00ff41;
+            margin-bottom: 5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+          }
+
+          select, input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: inherit;
+
+            &:focus {
+              outline: none;
+              border-color: #00ff41;
+              box-shadow: 0 0 5px #00ff00;
+            }
+          }
+        }
+      }
+
+      .control-buttons {
+        display: flex;
+        gap: 15px;
+
+        button {
+          padding: 12px 24px;
+          border: 2px solid #00ff00;
+          background: transparent;
+          color: #00ff00;
+          cursor: pointer;
+          text-transform: uppercase;
+          font-weight: bold;
+          letter-spacing: 1px;
+          transition: all 0.3s ease;
+          font-family: inherit;
+
+          &:hover:not(:disabled) {
+            background: #00ff00;
+            color: #000;
+            box-shadow: 0 0 15px #00ff00;
+          }
+
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+
+          &.connected {
+            background: #00ff00;
+            color: #000;
+          }
+
+          &.start-btn:hover:not(:disabled) {
+            border-color: #00ff41;
+            background: #00ff41;
+          }
+
+          &.stop-btn {
+            border-color: #ff0040;
+            color: #ff0040;
+
+            &:hover:not(:disabled) {
+              background: #ff0040;
+              color: #fff;
+            }
+          }
+        }
+      }
+    }
+
+    .analytics-panel {
+      background: rgba(0, 255, 0, 0.05);
+      border: 1px solid #00ff00;
+      border-radius: 8px;
+      padding: 20px;
+
+      .tick-analysis, .prediction-panel {
+        margin-bottom: 20px;
+
+        h3 {
+          color: #00ff00;
+          margin-bottom: 10px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          font-size: 1rem;
+        }
+
+        .tick-display, .prediction-display {
+          background: rgba(0, 0, 0, 0.6);
+          border: 1px solid #00ff41;
+          border-radius: 4px;
+          padding: 15px;
+
+          .current-tick, .next-prediction {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+
+            .tick-value, .pred-value {
+              font-size: 1.5rem;
+              font-weight: bold;
+              color: #00ff41;
+              text-shadow: 0 0 5px #00ff41;
+            }
+
+            .last-digit {
+              background: #00ff00;
+              color: #000;
+              padding: 4px 8px;
+              border-radius: 4px;
+              font-weight: bold;
+            }
+
+            .confidence {
+              color: #ffd700;
+              font-weight: bold;
+            }
+          }
+
+          .tick-stats, .pattern-analysis {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+
+            .stat-item, .pattern-item {
+              display: flex;
+              justify-content: space-between;
+              font-size: 0.9rem;
+
+              span:first-child {
+                color: #00ff41;
+              }
+
+              span:last-child {
+                color: #00ff00;
+                font-weight: bold;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    .trading-log {
+      background: rgba(0, 255, 0, 0.05);
+      border: 1px solid #00ff00;
+      border-radius: 8px;
+      padding: 20px;
+
+      h3 {
+        color: #00ff00;
+        margin-bottom: 15px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .log-container {
+        background: rgba(0, 0, 0, 0.8);
+        border: 1px solid #00ff41;
+        border-radius: 4px;
+        padding: 10px;
+        max-height: 300px;
+        overflow-y: auto;
+
+        .log-entry {
+          display: grid;
+          grid-template-columns: 80px 2fr 80px 80px;
+          gap: 10px;
+          padding: 5px;
+          border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+          font-size: 0.8rem;
+
+          &.win {
+            background: rgba(0, 255, 0, 0.1);
+          }
+
+          &.loss {
+            background: rgba(255, 0, 64, 0.1);
+          }
+
+          &.system {
+            background: rgba(255, 215, 0, 0.1);
+            color: #ffd700;
+          }
+
+          .timestamp {
+            color: #00ff41;
+          }
+
+          .result {
+            font-weight: bold;
+
+            &:contains("WIN") {
+              color: #00ff00;
+            }
+
+            &:contains("LOSS") {
+              color: #ff0040;
+            }
+          }
+
+          .pnl {
+            font-weight: bold;
+
+            &:starts-with("+") {
+              color: #00ff00;
+            }
+
+            &:starts-with("-") {
+              color: #ff0040;
+            }
+          }
+        }
+      }
+    }
+
+    .performance-metrics {
+      grid-column: 1 / -1;
+      background: rgba(0, 255, 0, 0.05);
+      border: 1px solid #00ff00;
+      border-radius: 8px;
+      padding: 20px;
+
+      h3 {
+        color: #00ff00;
+        margin-bottom: 15px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-align: center;
+      }
+
+      .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+
+        .metric-card {
+          background: rgba(0, 0, 0, 0.6);
+          border: 1px solid #00ff41;
+          border-radius: 8px;
+          padding: 20px;
+          text-align: center;
+          transition: all 0.3s ease;
+
+          &:hover {
+            border-color: #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+          }
+
+          .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+            margin-bottom: 5px;
+          }
+
+          .metric-label {
+            color: #00ff41;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+          }
+        }
+      }
+    }
+  }
+}
+
+@keyframes matrix-glow {
+  from {
+    text-shadow: 0 0 10px #00ff00;
+  }
+  to {
+    text-shadow: 0 0 20px #00ff00, 0 0 30px #00ff41;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .auto-trades-container.matrix-theme {
+    padding: 10px;
+
+    .trading-dashboard {
+      grid-template-columns: 1fr;
+
+      .control-panel .config-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .control-panel .control-buttons {
+        flex-direction: column;
+      }
+
+      .performance-metrics .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .matrix-header .matrix-title {
+      font-size: 1.8rem;
+    }
+  }
 }

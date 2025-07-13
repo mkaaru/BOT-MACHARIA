@@ -98,6 +98,26 @@ const AppWrapper = observer(() => {
     const navigate = useNavigate();
 
     const [bots, setBots] = useState([]);
+    // Digits Trading Bot States
+  const [selectedIndex, setSelectedIndex] = useState('R_100')
+  const [contractType, setContractType] = useState('DIGITEVEN')
+  const [predictionModel, setPredictionModel] = useState('neural_network')
+  const [stakeAmount, setStakeAmount] = useState('1.00')
+  const [isConnected, setIsConnected] = useState(false)
+  const [isTrading, setIsTrading] = useState(false)
+  const [currentTick, setCurrentTick] = useState<number | null>(null)
+  const [tickHistory, setTickHistory] = useState<number[]>([])
+  const [nextPrediction, setNextPrediction] = useState<string>('')
+  const [confidence, setConfidence] = useState(0)
+  const [predictionAccuracy, setPredictionAccuracy] = useState(0)
+  const [evenOddBias, setEvenOddBias] = useState('NEUTRAL')
+  const [streakPattern, setStreakPattern] = useState('---')
+  const [tradingLog, setTradingLog] = useState<any[]>([])
+  const [totalTrades, setTotalTrades] = useState(0)
+  const [winRate, setWinRate] = useState(0)
+  const [profitLoss, setProfitLoss] = useState(0)
+  const [currentStreak, setCurrentStreak] = useState(0)
+  const [websocket, setWebsocket] = useState<WebSocket | null>(null)
     const [pythonCode, setPythonCode] = useState('');
     const [pythonOutput, setPythonOutput] = useState([]);
     const [savedScripts, setSavedScripts] = useState([]);
@@ -359,7 +379,191 @@ const AppWrapper = observer(() => {
         // rudderStackSendDashboardClickEvent({ dashboard_click_name: 'open', subpage_name: 'bot_builder' });
     }, [load_modal, setActiveTab]);
 
-    // Python code execution functions
+    // Digits Trading Bot Functions
+  const connectToAPI = async () => {
+    try {
+      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089')
+
+      ws.onopen = () => {
+        setIsConnected(true)
+        setWebsocket(ws)
+        console.log('Connected to Deriv WebSocket')
+
+        // Subscribe to tick stream
+        ws.send(JSON.stringify({
+          ticks: selectedIndex,
+          subscribe: 1
+        }))
+      }
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data)
+        if (data.tick) {
+          handleNewTick(data.tick.quote)
+        }
+      }
+
+      ws.onclose = () => {
+        setIsConnected(false)
+        setWebsocket(null)
+      }
+
+    } catch (error) {
+      console.error('Connection failed:', error)
+    }
+  }
+
+  const handleNewTick = (tick: number) => {
+    setCurrentTick(tick)
+
+    // Store in tick history (keep last 10,000)
+    setTickHistory(prev => {
+      const newHistory = [...prev, tick].slice(-10000)
+
+      // Perform analysis and prediction
+      analyzePatterns(newHistory)
+      makePrediction(newHistory)
+
+      return newHistory
+    })
+
+    // Execute trade if trading is active
+    if (isTrading) {
+      executeTradeDecision(tick)
+    }
+  }
+
+  const analyzePatterns = (history: number[]) => {
+    if (history.length < 100) return
+
+    const recentTicks = history.slice(-100)
+    const lastDigits = recentTicks.map(tick => tick % 10)
+
+    // Analyze even/odd bias
+    const evenCount = lastDigits.filter(d => d % 2 === 0).length
+    const oddCount = lastDigits.filter(d => d % 2 === 1).length
+
+    if (evenCount > oddCount * 1.2) {
+      setEvenOddBias('EVEN BIAS')
+    } else if (oddCount > evenCount * 1.2) {
+      setEvenOddBias('ODD BIAS')
+    } else {
+      setEvenOddBias('NEUTRAL')
+    }
+
+    // Analyze streak patterns
+    const streaks = []
+    let currentStreakType = lastDigits[0] % 2
+    let streakLength = 1
+
+    for (let i = 1; i < lastDigits.length; i++) {
+      if (lastDigits[i] % 2 === currentStreakType) {
+        streakLength++
+      } else {
+        streaks.push(streakLength)
+        currentStreakType = lastDigits[i] % 2
+        streakLength = 1
+      }
+    }
+
+    const avgStreak = streaks.reduce((a, b) => a + b, 0) / streaks.length
+    setStreakPattern(`AVG: ${avgStreak.toFixed(1)}`)
+  }
+
+  const makePrediction = (history: number[]) => {
+    if (history.length < 50) return
+
+    const recentTicks = history.slice(-50)
+    const lastDigits = recentTicks.map(tick => tick % 10)
+
+    // Simple neural network-like prediction
+    if (predictionModel === 'neural_network') {
+      const weights = [0.1, 0.15, 0.2, 0.25, 0.3] // Last 5 ticks weights
+      let prediction = 0
+
+      for (let i = 0; i < 5; i++) {
+        if (lastDigits[lastDigits.length - 1 - i] !== undefined) {
+          prediction += lastDigits[lastDigits.length - 1 - i] * weights[i]
+        }
+      }
+
+      const predictedDigit = Math.round(prediction) % 10
+
+      if (contractType === 'DIGITEVEN' || contractType === 'DIGITODD') {
+        setNextPrediction(predictedDigit % 2 === 0 ? 'EVEN' : 'ODD')
+        setConfidence(65 + Math.random() * 25)
+      } else {
+        setNextPrediction(predictedDigit.toString())
+        setConfidence(55 + Math.random() * 30)
+      }
+    }
+  }
+
+  const executeTradeDecision = (tick: number) => {
+    const lastDigit = tick % 10
+    const timestamp = new Date().toLocaleTimeString()
+
+    // Simple trading logic based on prediction
+    let shouldTrade = false
+    let tradeType = contractType
+
+    if (contractType === 'DIGITEVEN' && nextPrediction === 'EVEN' && confidence > 70) {
+      shouldTrade = true
+    } else if (contractType === 'DIGITODD' && nextPrediction === 'ODD' && confidence > 70) {
+      shouldTrade = true
+        }
+
+    if (shouldTrade) {
+      // Simulate trade execution
+      const isWin = Math.random() > 0.45 // 55% win rate simulation
+      const pnl = isWin ? parseFloat(stakeAmount) * 0.95 : -parseFloat(stakeAmount)
+
+      setTradingLog(prev => [...prev, {
+        timestamp,
+        action: `${tradeType} @ ${tick}`,
+        result: isWin ? 'WIN' : 'LOSS',
+        pnl: (pnl > 0 ? '+' : '') + pnl.toFixed(2),
+        type: isWin ? 'win' : 'loss'
+      }])
+
+      setTotalTrades(prev => prev + 1)
+      setProfitLoss(prev => prev + pnl)
+      setCurrentStreak(prev => isWin ? (prev > 0 ? prev + 1 : 1) : (prev < 0 ? prev - 1 : -1))
+
+      // Update win rate
+      setWinRate(prev => {
+        const wins = tradingLog.filter(log => log.type === 'win').length + (isWin ? 1 : 0)
+        const total = totalTrades + 1
+        return (wins / total) * 100
+      })
+    }
+  }
+
+  const startTrading = () => {
+    if (!isConnected) return
+    setIsTrading(true)
+
+    setTradingLog(prev => [...prev, {
+      timestamp: new Date().toLocaleTimeString(),
+      action: 'TRADING STARTED',
+      result: 'SYSTEM',
+      pnl: '---',
+      type: 'system'
+    }])
+  }
+
+  const stopTrading = () => {
+    setIsTrading(false)
+
+    setTradingLog(prev => [...prev, {
+      timestamp: new Date().toLocaleTimeString(),
+      action: 'TRADING STOPPED',
+      result: 'SYSTEM',
+      pnl: '---',
+      type: 'system'
+    }])
+  }
+
     const executePythonCode = useCallback(async () => {
         if (!pythonCode.trim()) {
             addOutput('error', 'No Python code to execute');
@@ -396,7 +600,7 @@ const AppWrapper = observer(() => {
         } catch (error) {
             // Simulate Python execution for demo
             addOutput('info', 'Simulating Python script execution...');
-            
+
             setTimeout(() => {
                 addOutput('output', 'Starting auto trading script...');
                 addOutput('output', 'Market: EUR/USD - Price: 1.0850 - Action: HOLD');
@@ -405,7 +609,7 @@ const AppWrapper = observer(() => {
                 addOutput('output', 'Auto trading script completed.');
                 setIsExecuting(false);
             }, 2000);
-            
+
             return;
         }
 
@@ -441,7 +645,7 @@ const AppWrapper = observer(() => {
 
     const loadSavedScript = useCallback((scriptName) => {
         if (!scriptName) return;
-        
+
         const script = savedScripts.find(s => s.name === scriptName);
         if (script) {
             setPythonCode(script.code);
@@ -467,12 +671,12 @@ from datetime import datetime
 def simple_trading_strategy():
     """Basic buy/sell strategy based on price movements"""
     print("Executing basic trading strategy...")
-    
+
     # Simulate market analysis
     current_price = 1.0850
     support_level = 1.0800
     resistance_level = 1.0900
-    
+
     if current_price < support_level:
         print(f"Price {current_price} below support {support_level} - BUY signal")
         return "BUY"
@@ -494,20 +698,20 @@ from datetime import datetime
 def moving_average_strategy(prices, short_period=5, long_period=20):
     """Moving average crossover strategy"""
     print("Calculating moving averages...")
-    
+
     # Sample price data
     prices = [1.0800, 1.0820, 1.0850, 1.0840, 1.0860, 1.0880, 1.0870, 1.0890]
-    
+
     if len(prices) < long_period:
         print("Not enough data for moving average calculation")
         return "HOLD"
-    
+
     short_ma = sum(prices[-short_period:]) / short_period
     long_ma = sum(prices[-long_period:]) / long_period
-    
+
     print(f"Short MA ({short_period}): {short_ma:.4f}")
     print(f"Long MA ({long_period}): {long_ma:.4f}")
-    
+
     if short_ma > long_ma:
         print("Short MA above Long MA - BUY signal")
         return "BUY"
@@ -526,29 +730,29 @@ def calculate_position_size(account_balance, risk_percent, stop_loss_pips):
     """Calculate position size based on risk management rules"""
     risk_amount = account_balance * (risk_percent / 100)
     position_size = risk_amount / stop_loss_pips
-    
+
     print(f"Account Balance: ${account_balance}")
     print(f"Risk Percentage: {risk_percent}%")
     print(f"Risk Amount: ${risk_amount}")
     print(f"Stop Loss: {stop_loss_pips} pips")
     print(f"Calculated Position Size: {position_size}")
-    
+
     return position_size
 
 def risk_management_check(current_trades, max_trades, daily_loss_limit):
     """Check risk management parameters"""
     print("Performing risk management checks...")
-    
+
     if current_trades >= max_trades:
         print(f"Maximum trades ({max_trades}) reached for today")
         return False
-    
+
     # Simulate daily P&L check
     daily_pnl = -150  # Example loss
     if daily_pnl <= -daily_loss_limit:
         print(f"Daily loss limit (${daily_loss_limit}) reached")
         return False
-    
+
     print("Risk management checks passed")
     return True
 
@@ -564,12 +768,12 @@ from datetime import datetime
 
 class TradingAPI:
     """Mock trading API integration"""
-    
+
     def __init__(self, api_key, demo_mode=True):
         self.api_key = api_key
         self.demo_mode = demo_mode
         print(f"Initialized Trading API in {'demo' if demo_mode else 'live'} mode")
-    
+
     def get_market_data(self, symbol):
         """Fetch real-time market data"""
         # Mock API response
@@ -581,7 +785,7 @@ class TradingAPI:
         }
         print(f"Market data for {symbol}: {data}")
         return data
-    
+
     def place_order(self, symbol, order_type, volume):
         """Place trading order"""
         order = {
@@ -594,7 +798,7 @@ class TradingAPI:
         }
         print(f"Order placed: {order}")
         return order
-    
+
     def get_account_info(self):
         """Get account information"""
         account = {
@@ -609,13 +813,13 @@ class TradingAPI:
 def automated_trading():
     """Main automated trading function"""
     api = TradingAPI("your_api_key_here", demo_mode=True)
-    
+
     # Get account info
     account = api.get_account_info()
-    
+
     # Analyze market
     market_data = api.get_market_data("EURUSD")
-    
+
     # Simple trading logic
     if market_data['bid'] > 1.0850:
         order = api.place_order("EURUSD", "SELL", 0.1)
@@ -648,6 +852,18 @@ if __name__ == "__main__":
         }
     }, []);
 
+    useEffect(() => {
+    if (activeTab === 'auto-trades') {
+      // Auto trades specific logic can go here
+    }
+
+    // Cleanup WebSocket connection on unmount
+    return () => {
+      if (websocket) {
+        websocket.close()
+      }
+    }
+  }, [activeTab, websocket])
 
 
     const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
@@ -702,164 +918,181 @@ if __name__ == "__main__":
                                         </div>
                                     </div>
                                     <div label={<Localize i18n_default_text='Auto Trades' />} id='id-auto-trades'>
-                                        <div className='auto-trades'>
-                                            <h2 className='auto-trades__heading'><Localize i18n_default_text='Python Auto Trading Scripts' /></h2>
-                                            <div className='auto-trades__content-wrapper'>
-                                                <div className='auto-trades__content'>
-                                                    <div className='python-editor-container'>
-                                                        <div className='python-editor-header'>
-                                                            <div className='editor-controls'>
-                                                                <button 
-                                                                    className='editor-btn run-btn'
-                                                                    onClick={() => executePythonCode()}
-                                                                >
-                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                                        <path d="M8 5V19L19 12L8 5Z" fill="currentColor"/>
-                                                                    </svg>
-                                                                    Run Script
-                                                                </button>
-                                                                <button 
-                                                                    className='editor-btn clear-btn'
-                                                                    onClick={() => clearPythonCode()}
-                                                                >
-                                                                    Clear
-                                                                </button>
-                                                                <button 
-                                                                    className='editor-btn save-btn'
-                                                                    onClick={() => savePythonScript()}
-                                                                >
-                                                                    Save Script
-                                                                </button>
-                                                                <select 
-                                                                    className='script-selector'
-                                                                    onChange={(e) => loadSavedScript(e.target.value)}
-                                                                >
-                                                                    <option value="">Load Saved Script...</option>
-                                                                    {savedScripts.map((script, index) => (
-                                                                        <option key={index} value={script.name}>
-                                                                            {script.name}
-                                                                        </option>
-                                                                    ))}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                        <div className='python-editor-body'>
-                                                            <div className='code-editor-section'>
-                                                                <h3>Python Trading Script</h3>
-                                                                <textarea
-                                                                    className='python-code-editor'
-                                                                    value={pythonCode}
-                                                                    onChange={(e) => setPythonCode(e.target.value)}
-                                                                    placeholder={`# Python Auto Trading Script
-# Example: Simple trading strategy
+                                         {(() => {
+          switch ('auto-trades') {
+           case 'auto-trades':
+          return (
+            <div className="auto-trades-container matrix-theme">
+              <div className="matrix-header">
+                <h2 className="matrix-title">DIGITS TRADING MATRIX</h2>
+                <div className="matrix-subtitle">Advanced Volatility Index Analysis & Prediction System</div>
+              </div>
 
-import json
-import time
-from datetime import datetime
+              <div className="trading-dashboard">
+                <div className="control-panel">
+                  <div className="config-section">
+                    <h3>Trading Configuration</h3>
+                    <div className="config-grid">
+                      <div className="config-item">
+                        <label>Volatility Index</label>
+                        <select value={selectedIndex} onChange={(e) => setSelectedIndex(e.target.value)}>
+                          <option value="R_10">Volatility 10 (1s)</option>
+                          <option value="R_25">Volatility 25 (1s)</option>
+                          <option value="R_50">Volatility 50 (1s)</option>
+                          <option value="R_75">Volatility 75 (1s)</option>
+                          <option value="R_100">Volatility 100 (1s)</option>
+                        </select>
+                      </div>
 
-def get_market_data():
-    """Fetch current market data"""
-    # This would connect to your trading API
-    return {
-        'symbol': 'EUR/USD',
-        'price': 1.0850,
-        'timestamp': datetime.now().isoformat()
-    }
+                      <div className="config-item">
+                        <label>Contract Type</label>
+                        <select value={contractType} onChange={(e) => setContractType(e.target.value)}>
+                          <option value="DIGITEVEN">Digit Even</option>
+                          <option value="DIGITODD">Digit Odd</option>
+                          <option value="DIGITOVER">Digit Over</option>
+                          <option value="DIGITUNDER">Digit Under</option>
+                          <option value="DIGITMATCH">Digit Match</option>
+                          <option value="DIGITDIFF">Digit Differs</option>
+                        </select>
+                      </div>
 
-def trading_strategy(market_data):
-    """Define your trading logic here"""
-    price = market_data['price']
-    
-    # Simple moving average strategy example
-    if price > 1.0800:
-        return 'BUY'
-    elif price < 1.0750:
-        return 'SELL'
-    else:
-        return 'HOLD'
+                      <div className="config-item">
+                        <label>Prediction Model</label>
+                        <select value={predictionModel} onChange={(e) => setPredictionModel(e.target.value)}>
+                          <option value="neural_network">Neural Network</option>
+                          <option value="pattern_analysis">Pattern Analysis</option>
+                          <option value="statistical_model">Statistical Model</option>
+                          <option value="ensemble">Ensemble Method</option>
+                        </select>
+                      </div>
 
-def place_trade(action, amount=1.0):
-    """Execute trade based on strategy"""
-    if action in ['BUY', 'SELL']:
-        trade_info = {
-            'action': action,
-            'amount': amount,
-            'timestamp': datetime.now().isoformat(),
-            'status': 'executed'
-        }
-        print(f"Trade executed: {trade_info}")
-        return trade_info
-    return None
+                      <div className="config-item">
+                        <label>Stake Amount</label>
+                        <input 
+                          type="number" 
+                          value={stakeAmount} 
+                          onChange={(e) => setStakeAmount(e.target.value)}
+                          min="0.35" 
+                          step="0.01"
+                          className="stake-input"
+                        />
+                      </div>
+                    </div>
 
-def main():
-    """Main trading loop"""
-    print("Starting auto trading script...")
-    
-    for i in range(5):  # Run 5 iterations as example
-        market_data = get_market_data()
-        action = trading_strategy(market_data)
-        
-        print(f"Market: {market_data['symbol']} - Price: {market_data['price']} - Action: {action}")
-        
-        if action != 'HOLD':
-            trade_result = place_trade(action)
-            if trade_result:
-                print(f"Trade placed successfully: {trade_result}")
-        
-        time.sleep(1)  # Wait 1 second between iterations
-    
-    print("Auto trading script completed.")
+                    <div className="control-buttons">
+                      <button 
+                        onClick={connectToAPI} 
+                        disabled={isConnected}
+                        className={`connect-btn ${isConnected ? 'connected' : ''}`}
+                      >
+                        {isConnected ? 'CONNECTED' : 'CONNECT TO MATRIX'}
+                      </button>
 
-if __name__ == "__main__":
-    main()`}
-                                                                    rows={20}
-                                                                />
-                                                            </div>
-                                                            <div className='output-section'>
-                                                                <h3>Script Output</h3>
-                                                                <div className='python-output'>
-                                                                    {pythonOutput.map((line, index) => (
-                                                                        <div key={index} className={`output-line ${line.type}`}>
-                                                                            <span className='timestamp'>[{line.timestamp}]</span>
-                                                                            <span className='content'>{line.content}</span>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className='python-editor-footer'>
-                                                            <div className='script-templates'>
-                                                                <h4>Quick Templates:</h4>
-                                                                <button 
-                                                                    className='template-btn'
-                                                                    onClick={() => loadTemplate('basic_strategy')}
-                                                                >
-                                                                    Basic Strategy
-                                                                </button>
-                                                                <button 
-                                                                    className='template-btn'
-                                                                    onClick={() => loadTemplate('moving_average')}
-                                                                >
-                                                                    Moving Average
-                                                                </button>
-                                                                <button 
-                                                                    className='template-btn'
-                                                                    onClick={() => loadTemplate('risk_management')}
-                                                                >
-                                                                    Risk Management
-                                                                </button>
-                                                                <button 
-                                                                    className='template-btn'
-                                                                    onClick={() => loadTemplate('api_integration')}
-                                                                >
-                                                                    API Integration
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
+                      <button 
+                        onClick={startTrading} 
+                        disabled={!isConnected || isTrading}
+                        className="start-btn"
+                      >
+                        {isTrading ? 'TRADING ACTIVE' : 'START TRADING'}
+                      </button>
+
+                      <button 
+                        onClick={stopTrading} 
+                        disabled={!isTrading}
+                        className="stop-btn"
+                      >
+                        STOP TRADING
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="analytics-panel">
+                  <div className="tick-analysis">
+                    <h3>Real-Time Tick Analysis</h3>
+                    <div className="tick-display">
+                      <div className="current-tick">
+                        <span className="tick-label">Current Tick:</span>
+                        <span className="tick-value">{currentTick || '---'}</span>
+                        <span className="last-digit">{currentTick ? currentTick.toString().slice(-1) : '-'}</span>
+                      </div>
+                      <div className="tick-stats">
+                        <div className="stat-item">
+                          <span>Ticks Stored:</span>
+                          <span>{tickHistory.length}/10,000</span>
+                        </div>
+                        <div className="stat-item">
+                          <span>Prediction Accuracy:</span>
+                          <span>{predictionAccuracy.toFixed(2)}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="prediction-panel">
+                    <h3>AI Prediction Engine</h3>
+                    <div className="prediction-display">
+                      <div className="next-prediction">
+                        <span className="pred-label">Next Digit Prediction:</span>
+                        <span className="pred-value">{nextPrediction || '?'}</span>
+                        <span className="confidence">Confidence: {confidence.toFixed(1)}%</span>
+                      </div>
+                      <div className="pattern-analysis">
+                        <div className="pattern-item">
+                          <span>Even/Odd Bias:</span>
+                          <span>{evenOddBias}</span>
+                        </div>
+                        <div className="pattern-item">
+                          <span>Streak Pattern:</span>
+                          <span>{streakPattern}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="trading-log">
+                  <h3>Trading Activity Matrix</h3>
+                  <div className="log-container">
+                    {tradingLog.slice(-20).map((entry, index) => (
+                      <div key={index} className={`log-entry ${entry.type}`}>
+                        <span className="timestamp">{entry.timestamp}</span>
+                        <span className="action">{entry.action}</span>
+                        <span className="result">{entry.result}</span>
+                        <span className="pnl">{entry.pnl}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="performance-metrics">
+                  <h3>Performance Matrix</h3>
+                  <div className="metrics-grid">
+                    <div className="metric-card">
+                      <div className="metric-value">{totalTrades}</div>
+                      <div className="metric-label">Total Trades</div>
+                    </div>
+                    <div className="metric-card">
+                      <div className="metric-value">{winRate.toFixed(1)}%</div>
+                      <div className="metric-label">Win Rate</div>
+                    </div>
+                    <div className="metric-card">
+                      <div className="metric-value">{profitLoss > 0 ? '+' : ''}${profitLoss.toFixed(2)}</div>
+                      <div className="metric-label">P&L</div>
+                    </div>
+                    <div className="metric-card">
+                      <div className="metric-value">{currentStreak}</div>
+                      <div className="metric-label">Current Streak</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+            default:
+              return null;
+          }
+         })()}
                                     </div>
                                 </Tabs>
                             </div>
