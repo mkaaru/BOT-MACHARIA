@@ -106,11 +106,15 @@ const AppWrapper = observer(() => {
   const [isConnected, setIsConnected] = useState(false)
   const [isTrading, setIsTrading] = useState(false)
   const [currentTick, setCurrentTick] = useState<number | null>(null)
+  const [currentPrice, setCurrentPrice] = useState<string>('---')
   const [tickHistory, setTickHistory] = useState<number[]>([])
+  const [digitDistribution, setDigitDistribution] = useState<number[]>(new Array(10).fill(0))
+  const [digitPercentages, setDigitPercentages] = useState<number[]>(new Array(10).fill(10))
   const [nextPrediction, setNextPrediction] = useState<string>('')
   const [confidence, setConfidence] = useState(0)
   const [predictionAccuracy, setPredictionAccuracy] = useState(0)
   const [evenOddBias, setEvenOddBias] = useState('NEUTRAL')
+  const [overUnderBias, setOverUnderBias] = useState('NEUTRAL')
   const [streakPattern, setStreakPattern] = useState('---')
   const [tradingLog, setTradingLog] = useState<any[]>([])
   const [totalTrades, setTotalTrades] = useState(0)
@@ -394,18 +398,31 @@ const AppWrapper = observer(() => {
         setWebsocket(ws)
         console.log('Connected to Deriv WebSocket')
 
-        // Subscribe to tick stream
+        // Subscribe to tick stream for selected volatility
         ws.send(JSON.stringify({
           ticks: selectedIndex,
-          subscribe: 1
+          subscribe: 1,
+          req_id: 1
+        }))
+
+        // Also subscribe to active symbols to get proper symbol names
+        ws.send(JSON.stringify({
+          active_symbols: "brief",
+          product_type: "basic",
+          req_id: 2
         }))
       }
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
-          if (data.tick) {
-            handleNewTick(data.tick.quote)
+          
+          if (data.tick && data.tick.symbol === selectedIndex) {
+            handleNewTick(data.tick.quote, data.tick.symbol)
+          }
+          
+          if (data.active_symbols) {
+            console.log('Active symbols received:', data.active_symbols)
           }
         } catch (parseError) {
           console.error('Error parsing WebSocket message:', parseError)
@@ -415,6 +432,7 @@ const AppWrapper = observer(() => {
       ws.onclose = () => {
         setIsConnected(false)
         setWebsocket(null)
+        console.log('WebSocket connection closed')
       }
 
       ws.onerror = (error) => {
@@ -429,7 +447,7 @@ const AppWrapper = observer(() => {
     }
   }
 
-  const handleNewTick = (tick: number) => {
+  const handleNewTick = (tick: number, symbol: string) => {
     try {
       if (typeof tick !== 'number' || isNaN(tick)) {
         console.warn('Invalid tick received:', tick)
@@ -437,11 +455,15 @@ const AppWrapper = observer(() => {
       }
 
       setCurrentTick(tick)
+      setCurrentPrice(tick.toFixed(5))
 
       // Store in tick history (keep last 10,000)
       setTickHistory(prev => {
         const newHistory = [...prev, tick].slice(-10000)
 
+        // Calculate digit distribution
+        calculateDigitDistribution(newHistory)
+        
         // Perform analysis and prediction
         analyzePatterns(newHistory)
         makePrediction(newHistory)
@@ -458,12 +480,31 @@ const AppWrapper = observer(() => {
     }
   }
 
+  const calculateDigitDistribution = (history: number[]) => {
+    if (history.length === 0) return
+
+    const digitCounts = new Array(10).fill(0)
+    
+    // Count occurrences of each last digit
+    history.forEach(tick => {
+      const lastDigit = Math.floor(Math.abs(tick * 100000)) % 10
+      digitCounts[lastDigit]++
+    })
+
+    setDigitDistribution(digitCounts)
+
+    // Calculate percentages
+    const total = history.length
+    const percentages = digitCounts.map(count => total > 0 ? (count / total) * 100 : 10)
+    setDigitPercentages(percentages)
+  }
+
   const analyzePatterns = (history: number[]) => {
     if (history.length < 100) return
 
     try {
       const recentTicks = history.slice(-100)
-      const lastDigits = recentTicks.map(tick => Math.floor(tick) % 10)
+      const lastDigits = recentTicks.map(tick => Math.floor(Math.abs(tick * 100000)) % 10)
 
       // Analyze even/odd bias
       const evenCount = lastDigits.filter(d => d % 2 === 0).length
@@ -475,6 +516,18 @@ const AppWrapper = observer(() => {
         setEvenOddBias('ODD BIAS')
       } else {
         setEvenOddBias('NEUTRAL')
+      }
+
+      // Analyze over/under bias (0-4 vs 5-9)
+      const underCount = lastDigits.filter(d => d < 5).length
+      const overCount = lastDigits.filter(d => d >= 5).length
+
+      if (underCount > overCount * 1.2) {
+        setOverUnderBias('UNDER BIAS')
+      } else if (overCount > underCount * 1.2) {
+        setOverUnderBias('OVER BIAS')
+      } else {
+        setOverUnderBias('NEUTRAL')
       }
 
       // Analyze streak patterns
@@ -510,28 +563,40 @@ const AppWrapper = observer(() => {
 
     try {
       const recentTicks = history.slice(-50)
-      const lastDigits = recentTicks.map(tick => Math.floor(tick) % 10)
+      const lastDigits = recentTicks.map(tick => Math.floor(Math.abs(tick * 100000)) % 10)
 
-      // Simple neural network-like prediction
-      if (predictionModel === 'neural_network') {
-        const weights = [0.1, 0.15, 0.2, 0.25, 0.3] // Last 5 ticks weights
-        let prediction = 0
-
-        for (let i = 0; i < 5; i++) {
-          if (lastDigits[lastDigits.length - 1 - i] !== undefined) {
-            prediction += lastDigits[lastDigits.length - 1 - i] * weights[i]
-          }
-        }
-
-        const predictedDigit = Math.round(prediction) % 10
-
-        if (contractType === 'DIGITEVEN' || contractType === 'DIGITODD') {
-          setNextPrediction(predictedDigit % 2 === 0 ? 'EVEN' : 'ODD')
-          setConfidence(65 + Math.random() * 25)
+      // Advanced prediction based on contract type
+      if (contractType === 'DIGITEVEN' || contractType === 'DIGITODD') {
+        const evenCount = lastDigits.filter(d => d % 2 === 0).length
+        const oddCount = lastDigits.length - evenCount
+        
+        if (contractType === 'DIGITEVEN') {
+          setNextPrediction(evenCount < oddCount ? 'EVEN' : 'ODD')
+          setConfidence(Math.min(95, 60 + Math.abs(evenCount - oddCount) * 2))
         } else {
-          setNextPrediction(predictedDigit.toString())
-          setConfidence(55 + Math.random() * 30)
+          setNextPrediction(oddCount < evenCount ? 'ODD' : 'EVEN')
+          setConfidence(Math.min(95, 60 + Math.abs(evenCount - oddCount) * 2))
         }
+      } else if (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') {
+        const underCount = lastDigits.filter(d => d < 5).length
+        const overCount = lastDigits.length - underCount
+        
+        if (contractType === 'DIGITOVER') {
+          setNextPrediction(overCount < underCount ? 'OVER' : 'UNDER')
+          setConfidence(Math.min(95, 60 + Math.abs(overCount - underCount) * 2))
+        } else {
+          setNextPrediction(underCount < overCount ? 'UNDER' : 'OVER')
+          setConfidence(Math.min(95, 60 + Math.abs(overCount - underCount) * 2))
+        }
+      } else {
+        // For match/differs contracts, find least frequent digit
+        const digitCounts = new Array(10).fill(0)
+        lastDigits.forEach(d => digitCounts[d]++)
+        const minCount = Math.min(...digitCounts)
+        const leastFrequentDigit = digitCounts.indexOf(minCount)
+        
+        setNextPrediction(leastFrequentDigit.toString())
+        setConfidence(Math.min(95, 50 + (10 - minCount) * 5))
       }
     } catch (error) {
       console.error('Error in prediction:', error)
@@ -906,6 +971,31 @@ if __name__ == "__main__":
       }
     }, [active_tab])
 
+    // Reconnect when volatility changes
+    useEffect(() => {
+      if (isConnected && websocket) {
+        // Unsubscribe from previous symbol and subscribe to new one
+        websocket.send(JSON.stringify({
+          forget_all: "ticks"
+        }))
+        
+        setTimeout(() => {
+          websocket.send(JSON.stringify({
+            ticks: selectedIndex,
+            subscribe: 1,
+            req_id: 1
+          }))
+        }, 100)
+
+        // Reset data for new volatility
+        setTickHistory([])
+        setDigitDistribution(new Array(10).fill(0))
+        setDigitPercentages(new Array(10).fill(10))
+        setCurrentPrice('---')
+        setCurrentTick(null)
+      }
+    }, [selectedIndex, isConnected, websocket])
+
 
     const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
 
@@ -977,11 +1067,26 @@ if __name__ == "__main__":
                       <div className="config-item">
                         <label>Volatility Index</label>
                         <select value={selectedIndex} onChange={(e) => setSelectedIndex(e.target.value)}>
-                          <option value="R_10">Volatility 10 (1s)</option>
-                          <option value="R_25">Volatility 25 (1s)</option>
-                          <option value="R_50">Volatility 50 (1s)</option>
-                          <option value="R_75">Volatility 75 (1s)</option>
-                          <option value="R_100">Volatility 100 (1s)</option>
+                          <optgroup label="Volatility Indices (1s)">
+                            <option value="R_10">Volatility 10 (1s)</option>
+                            <option value="R_25">Volatility 25 (1s)</option>
+                            <option value="R_50">Volatility 50 (1s)</option>
+                            <option value="R_75">Volatility 75 (1s)</option>
+                            <option value="R_100">Volatility 100 (1s)</option>
+                          </optgroup>
+                          <optgroup label="Volatility Indices (Plain)">
+                            <option value="1HZ10V">Volatility 10 Index</option>
+                            <option value="1HZ25V">Volatility 25 Index</option>
+                            <option value="1HZ50V">Volatility 50 Index</option>
+                            <option value="1HZ75V">Volatility 75 Index</option>
+                            <option value="1HZ100V">Volatility 100 Index</option>
+                          </optgroup>
+                          <optgroup label="Crash/Boom Indices">
+                            <option value="1HZ150V">Boom 1000 Index</option>
+                            <option value="1HZ250V">Crash 1000 Index</option>
+                            <option value="1HZ300V">Boom 500 Index</option>
+                            <option value="1HZ400V">Crash 500 Index</option>
+                          </optgroup>
                         </select>
                       </div>
 
@@ -1050,12 +1155,12 @@ if __name__ == "__main__":
 
                 <div className="analytics-panel">
                   <div className="tick-analysis">
-                    <h3>Real-Time Tick Analysis</h3>
-                    <div className="tick-display">
-                      <div className="current-tick">
-                        <span className="tick-label">Current Tick:</span>
-                        <span className="tick-value">{currentTick || '---'}</span>
-                        <span className="last-digit">{currentTick ? currentTick.toString().slice(-1) : '-'}</span>
+                    <h3>Real-Time Price & Analysis</h3>
+                    <div className="price-display">
+                      <div className="current-price">
+                        <span className="price-label">Current Price:</span>
+                        <span className="price-value">{currentPrice}</span>
+                        <span className="last-digit">{currentTick ? Math.floor(Math.abs(currentTick * 100000)) % 10 : '-'}</span>
                       </div>
                       <div className="tick-stats">
                         <div className="stat-item">
@@ -1063,10 +1168,26 @@ if __name__ == "__main__":
                           <span>{tickHistory.length}/10,000</span>
                         </div>
                         <div className="stat-item">
-                          <span>Prediction Accuracy:</span>
-                          <span>{predictionAccuracy.toFixed(2)}%</span>
+                          <span>Symbol:</span>
+                          <span>{selectedIndex}</span>
                         </div>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="digits-distribution">
+                    <h3>Digit Distribution (Last Digit)</h3>
+                    <div className="digits-grid">
+                      {digitPercentages.map((percentage, digit) => (
+                        <div key={digit} className={`digit-box ${currentTick && Math.floor(Math.abs(currentTick * 100000)) % 10 === digit ? 'current' : ''}`}>
+                          <div className="digit-number">{digit}</div>
+                          <div className="digit-percentage">{percentage.toFixed(1)}%</div>
+                          <div className="digit-count">({digitDistribution[digit]})</div>
+                          <div className="digit-bar">
+                            <div className="digit-fill" style={{width: `${percentage}%`}}></div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
@@ -1081,7 +1202,11 @@ if __name__ == "__main__":
                       <div className="pattern-analysis">
                         <div className="pattern-item">
                           <span>Even/Odd Bias:</span>
-                          <span>{evenOddBias}</span>
+                          <span className={evenOddBias.includes('EVEN') ? 'bias-even' : evenOddBias.includes('ODD') ? 'bias-odd' : 'bias-neutral'}>{evenOddBias}</span>
+                        </div>
+                        <div className="pattern-item">
+                          <span>Over/Under Bias:</span>
+                          <span className={overUnderBias.includes('OVER') ? 'bias-over' : overUnderBias.includes('UNDER') ? 'bias-under' : 'bias-neutral'}>{overUnderBias}</span>
                         </div>
                         <div className="pattern-item">
                           <span>Streak Pattern:</span>
