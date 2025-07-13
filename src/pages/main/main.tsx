@@ -394,7 +394,7 @@ const AppWrapper = observer(() => {
 
       setCurrentPrice('Connecting...')
       setIsConnected(false)
-      
+
       const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089')
 
       ws.onopen = () => {
@@ -428,13 +428,13 @@ const AppWrapper = observer(() => {
         try {
           const data = JSON.parse(event.data)
           console.log('WebSocket message received:', data)
-          
+
           // Handle historical tick data
           if (data.history && data.history.prices) {
             const symbol = data.echo_req.ticks_history
             const prices = data.history.prices.map(price => parseFloat(price))
             console.log(`Received ${prices.length} historical ticks for ${symbol}`)
-            
+
             // Store historical ticks for this volatility
             setTickHistory(prev => ({
               ...prev,
@@ -445,7 +445,7 @@ const AppWrapper = observer(() => {
             if (prices.length > 0) {
               const latestPrice = prices[prices.length - 1]
               setCurrentPrice(latestPrice.toFixed(5))
-              
+
               // Calculate distributions for historical data
               calculateDigitDistribution(prices)
               analyzePatterns(prices)
@@ -453,7 +453,7 @@ const AppWrapper = observer(() => {
               calculateContractProbabilities(prices)
             }
           }
-          
+
           // Handle real-time tick data
           if (data.tick && (data.tick.symbol === selectedIndex || getAlternativeSymbol(data.tick.symbol) === selectedIndex)) {
             console.log('Real-time tick received for', data.tick.symbol, ':', data.tick.quote)
@@ -463,7 +463,7 @@ const AppWrapper = observer(() => {
               handleNewTick(price, data.tick.symbol)
             }
           }
-          
+
           // Handle subscription confirmation
           if (data.msg_type === 'tick' && data.subscription) {
             console.log('Tick subscription confirmed for:', data.subscription.id)
@@ -474,7 +474,7 @@ const AppWrapper = observer(() => {
           if (data.error) {
             console.error('WebSocket API error:', data.error)
             setCurrentPrice(`Error: ${data.error.message}`)
-            
+
             // Try alternative symbol formats for common volatility indices
             if (data.error.code === 'InvalidSymbol') {
               console.log('Invalid symbol, trying alternative format...')
@@ -508,7 +508,7 @@ const AppWrapper = observer(() => {
         setIsConnected(false)
         setWebsocket(null)
         setCurrentPrice('Disconnected')
-        
+
         // Auto-reconnect after 3 seconds if not manually closed
         if (event.code !== 1000) {
           setTimeout(() => {
@@ -574,7 +574,7 @@ const AppWrapper = observer(() => {
       }
 
       console.log('Processing tick:', tick, 'for symbol:', symbol)
-      
+
       // Update current tick and price display
       setCurrentTick(tick)
       const priceStr = tick.toFixed(5)
@@ -584,7 +584,7 @@ const AppWrapper = observer(() => {
       setTickHistory(prev => {
         const currentHistory = prev[symbol] || []
         const newHistory = [...currentHistory, tick].slice(-5000)
-        
+
         const updated = {
           ...prev,
           [symbol]: newHistory
@@ -594,10 +594,10 @@ const AppWrapper = observer(() => {
         if (newHistory.length >= 10) {
           // Calculate digit distribution with real-time updates
           calculateDigitDistribution(newHistory)
-          
+
           // Perform enhanced pattern analysis
           analyzePatterns(newHistory)
-          
+
           // Make AI-powered prediction
           makePrediction(newHistory)
 
@@ -630,7 +630,7 @@ const AppWrapper = observer(() => {
       const evenCount = lastDigits.filter(d => d % 2 === 0).length
       const oddCount = lastDigits.length - evenCount
       const total = lastDigits.length
-      
+
       probabilities = {
         even: ((evenCount / total) * 100).toFixed(1),
         odd: ((oddCount / total) * 100).toFixed(1)
@@ -639,7 +639,7 @@ const AppWrapper = observer(() => {
       const underCount = lastDigits.filter(d => d < 5).length // 0,1,2,3,4
       const overCount = lastDigits.filter(d => d >= 5).length // 5,6,7,8,9
       const total = lastDigits.length
-      
+
       probabilities = {
         under: ((underCount / total) * 100).toFixed(1),
         over: ((overCount / total) * 100).toFixed(1)
@@ -649,7 +649,7 @@ const AppWrapper = observer(() => {
       const digitCounts = new Array(10).fill(0)
       lastDigits.forEach(d => digitCounts[d]++)
       const total = lastDigits.length
-      
+
       probabilities = {}
       for (let i = 0; i < 10; i++) {
         probabilities[`digit_${i}`] = ((digitCounts[i] / total) * 100).toFixed(1)
@@ -664,7 +664,7 @@ const AppWrapper = observer(() => {
     if (history.length === 0) return
 
     const digitCounts = new Array(10).fill(0)
-    
+
     // Count occurrences of each last digit
     history.forEach(tick => {
       const lastDigit = Math.floor(Math.abs(tick * 100000)) % 10
@@ -749,7 +749,7 @@ const AppWrapper = observer(() => {
       if (contractType === 'DIGITEVEN' || contractType === 'DIGITODD') {
         const evenCount = lastDigits.filter(d => d % 2 === 0).length
         const oddCount = lastDigits.length - evenCount
-        
+
         if (contractType === 'DIGITEVEN') {
           setNextPrediction(evenCount < oddCount ? 'EVEN' : 'ODD')
           setConfidence(Math.min(95, 60 + Math.abs(evenCount - oddCount) * 2))
@@ -760,7 +760,7 @@ const AppWrapper = observer(() => {
       } else if (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') {
         const underCount = lastDigits.filter(d => d < 5).length
         const overCount = lastDigits.length - underCount
-        
+
         if (contractType === 'DIGITOVER') {
           setNextPrediction(overCount < underCount ? 'OVER' : 'UNDER')
           setConfidence(Math.min(95, 60 + Math.abs(overCount - underCount) * 2))
@@ -774,7 +774,7 @@ const AppWrapper = observer(() => {
         lastDigits.forEach(d => digitCounts[d]++)
         const minCount = Math.min(...digitCounts)
         const leastFrequentDigit = digitCounts.indexOf(minCount)
-        
+
         setNextPrediction(leastFrequentDigit.toString())
         setConfidence(Math.min(95, 50 + (10 - minCount) * 5))
       }
@@ -1155,18 +1155,18 @@ if __name__ == "__main__":
     useEffect(() => {
       if (isConnected && websocket && websocket.readyState === WebSocket.OPEN) {
         console.log('Volatility changed to:', selectedIndex, 'Getting data...')
-        
+
         // Unsubscribe from all ticks first
         websocket.send(JSON.stringify({
           forget_all: "ticks",
           req_id: 99
         }))
-        
+
         // Get historical data and subscribe to new symbol after a short delay
         setTimeout(() => {
           // Check if we already have data for this volatility
           const currentVolatilityHistory = tickHistory[selectedIndex]
-          
+
           if (!currentVolatilityHistory || currentVolatilityHistory.length === 0) {
             // Request historical ticks if we don't have them
             const historyRequest = {
@@ -1184,7 +1184,7 @@ if __name__ == "__main__":
             analyzePatterns(currentVolatilityHistory)
             makePrediction(currentVolatilityHistory)
             calculateContractProbabilities(currentVolatilityHistory)
-            
+
             if (currentVolatilityHistory.length > 0) {
               const latestPrice = currentVolatilityHistory[currentVolatilityHistory.length - 1]
               setCurrentPrice(latestPrice.toFixed(5))
@@ -1317,7 +1317,7 @@ if __name__ == "__main__":
                         <label>Contract Type</label>
                         <select value={contractType} onChange={(e) => setContractType(e.target.value)}>
                           <option value="DIGITEVEN">Digit Even</option>
-                          <option value="DIGITODD">Digit Odd</option>
+                          <option value`DIGITODD">Digit Odd</option>
                           <option value="DIGITOVER">Digit Over 5</option>
                           <option value="DIGITUNDER">Digit Under 5</option>
                           <option value="DIGITMATCH">Digit Match</option>
@@ -1555,13 +1555,32 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <iframe 
-                                    src="https://bot-analysis-tool-belex.web.app/" 
-                                    width="100%"
-                                    height="100%"
-                                    style={{ border: 'none', display: 'block', minHeight: '600px' }}
-                                    scrolling="yes"
-                                />
+                                <Tabs 
+                                    className="analysis-tool-tabs"
+                                    active_tab_icon_color="var(--brand-secondary)"
+                                    background_color="var(--general-main-1)"
+                                    single_tab_has_no_label
+                                    should_update_hash={false}
+                                >
+                                    <div label={<Localize i18n_default_text='Technical Analysis' />} id='technical-analysis'>
+                                        <AnalysistoolComponent />
+                                    </div>
+                                    <div label={<Localize i18n_default_text='Market Analyzer' />} id='market-analyzer'>
+                                        <iframe
+                                            src="https://api.binarytool.site/"
+                                            width="100%"
+                                            height="100%"
+                                            style={{ 
+                                                border: 'none', 
+                                                display: 'block', 
+                                                minHeight: '600px',
+                                                height: 'calc(100vh - 200px)'
+                                            }}
+                                            scrolling="yes"
+                                            title="Market Analyzer"
+                                        />
+                                    </div>
+                                </Tabs>
                             </div>
                         </div>
                         <div label={<><ChartsIcon /><Localize i18n_default_text='Charts' /></>} id='id-charts'>
