@@ -1,64 +1,110 @@
-
 .speed-bot {
-  padding: 20px;
-  background: var(--general-main-1);
-  border-radius: 8px;
-  height: 100%;
-  overflow-y: auto;
+  padding: 16px;
+  max-width: 1400px;
+  margin: 0 auto;
+
+  @media (max-width: 768px) {
+    padding: 12px;
+  }
 
   &__header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--general-section-1);
+    flex-wrap: wrap;
+    gap: 10px;
+
+    @media (max-width: 640px) {
+      flex-direction: column;
+      align-items: stretch;
+    }
   }
 
   &__title {
+    font-size: 24px;
+    font-weight: bold;
     color: var(--text-prominent);
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin: 0;
+
+    @media (max-width: 768px) {
+      font-size: 20px;
+    }
+
+    @media (max-width: 480px) {
+      font-size: 18px;
+    }
   }
 
   &__status {
-    padding: 6px 12px;
-    border-radius: 4px;
-    font-size: 0.875rem;
+    padding: 8px 16px;
+    border-radius: 8px;
     font-weight: 500;
+    white-space: nowrap;
+
+    @media (max-width: 640px) {
+      text-align: center;
+    }
 
     &.connected {
-      background: rgba(46, 125, 50, 0.1);
-      color: var(--status-success);
+      background-color: var(--status-success);
+      color: white;
     }
 
     &.disconnected {
-      background: rgba(211, 47, 47, 0.1);
-      color: var(--status-danger);
+      background-color: var(--status-danger);
+      color: white;
     }
   }
 
   &__controls {
+    background: var(--general-main-1);
+    border: 1px solid var(--border-normal);
+    border-radius: 12px;
+    padding: 20px;
     margin-bottom: 20px;
+
+    @media (max-width: 768px) {
+      padding: 16px;
+      border-radius: 8px;
+    }
+
+    @media (max-width: 480px) {
+      padding: 14px;
+    }
   }
 
   &__control-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    margin-bottom: 15px;
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+
+    @media (max-width: 768px) {
+      gap: 15px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 480px) {
+      flex-direction: column;
+      gap: 12px;
+    }
   }
 
   &__control-group {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 8px;
+    flex: 1;
+    min-width: 150px;
+
+    @media (max-width: 480px) {
+      min-width: unset;
+    }
 
     label {
-      font-size: 0.875rem;
       font-weight: 500;
       color: var(--text-general);
+      font-size: 14px;
     }
   }
 
@@ -67,9 +113,14 @@
     padding: 8px 12px;
     border: 1px solid var(--border-normal);
     border-radius: 4px;
-    background: var(--fill-normal);
+    background-color: var(--fill-normal);
     color: var(--text-general);
-    font-size: 0.875rem;
+    font-size: 14px;
+
+    @media (max-width: 480px) {
+      padding: 10px 12px;
+      font-size: 16px; // Prevent zoom on iOS
+    }
 
     &:focus {
       outline: none;
@@ -77,87 +128,142 @@
     }
 
     &:disabled {
+      background-color: var(--text-disabled);
       opacity: 0.6;
-      cursor: not-allowed;
     }
   }
 
   &__action-buttons {
     display: flex;
     gap: 12px;
+    justify-content: center;
     flex-wrap: wrap;
+
+    @media (max-width: 480px) {
+      flex-direction: column;
+      gap: 8px;
+    }
   }
 
   &__button {
     padding: 10px 20px;
     border: none;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    font-weight: 500;
+    border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    font-weight: 500;
+    font-size: 14px;
+    transition: all 0.2s;
+    min-height: 40px;
 
-    &:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+    @media (max-width: 768px) {
+      flex: 1;
+      min-width: 120px;
+    }
+
+    @media (max-width: 480px) {
+      padding: 12px 20px;
+      font-size: 15px;
     }
 
     &--start {
-      background: var(--status-success);
+      background-color: var(--status-success);
       color: white;
 
       &:hover:not(:disabled) {
-        background: #2e7d32;
+        background-color: #16a34a;
+        transform: translateY(-1px);
       }
     }
 
     &--stop {
-      background: var(--status-danger);
+      background-color: var(--status-danger);
       color: white;
 
       &:hover:not(:disabled) {
-        background: #c62828;
+        background-color: #dc2626;
+        transform: translateY(-1px);
       }
     }
 
     &--reset {
-      background: var(--brand-secondary);
+      background-color: var(--brand-secondary);
       color: white;
 
       &:hover:not(:disabled) {
-        background: var(--brand-secondary-hover);
+        background-color: var(--brand-red-dark);
+        transform: translateY(-1px);
       }
+    }
+
+    &:disabled {
+      background-color: var(--text-disabled);
+      cursor: not-allowed;
+      transform: none;
     }
   }
 
   &__stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 15px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
     margin-bottom: 20px;
+
+    @media (max-width: 768px) {
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+
+    @media (max-width: 480px) {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
   }
 
   &__stat-card {
-    background: var(--general-section-1);
+    background: var(--general-main-1);
     border: 1px solid var(--border-normal);
-    border-radius: 6px;
-    padding: 12px;
+    border-radius: 8px;
+    padding: 16px;
     text-align: center;
+    transition: box-shadow 0.2s ease-in-out;
+
+    @media (max-width: 768px) {
+      padding: 12px;
+    }
+
+    @media (max-width: 480px) {
+      padding: 10px;
+    }
+
+    &:hover {
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
   }
 
   &__stat-label {
-    font-size: 0.75rem;
+    font-size: 14px;
     color: var(--text-general);
-    margin-bottom: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+
+    @media (max-width: 480px) {
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
   }
 
   &__stat-value {
-    font-size: 1.25rem;
-    font-weight: 600;
+    font-size: 20px;
+    font-weight: bold;
     color: var(--text-prominent);
     font-family: monospace;
+
+    @media (max-width: 768px) {
+      font-size: 18px;
+    }
+
+    @media (max-width: 480px) {
+      font-size: 16px;
+    }
 
     &.profit {
       color: var(--status-success);
@@ -169,66 +275,123 @@
   }
 
   &__history {
-    background: var(--general-section-1);
+    background: var(--general-main-1);
     border: 1px solid var(--border-normal);
-    border-radius: 6px;
-    padding: 16px;
+    border-radius: 12px;
+    padding: 20px;
+
+    @media (max-width: 768px) {
+      padding: 16px;
+      border-radius: 8px;
+    }
+
+    @media (max-width: 480px) {
+      padding: 14px;
+    }
   }
 
   &__history-title {
-    font-size: 1.125rem;
+    font-size: 18px;
     font-weight: 600;
     color: var(--text-prominent);
-    margin: 0 0 12px 0;
+    margin-bottom: 16px;
+
+    @media (max-width: 480px) {
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
   }
 
   &__history-list {
     max-height: 300px;
     overflow-y: auto;
+
+    @media (max-width: 480px) {
+      max-height: 250px;
+    }
   }
 
   &__no-trades {
     text-align: center;
     color: var(--text-general);
-    font-style: italic;
     padding: 20px;
+    font-style: italic;
+
+    @media (max-width: 480px) {
+      padding: 16px;
+      font-size: 14px;
+    }
   }
 
   &__trade-item {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: 12px;
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    padding: 8px 12px;
+    padding: 12px;
+    border-bottom: 1px solid var(--border-normal);
+    font-size: 14px;
     border-radius: 4px;
-    margin-bottom: 6px;
-    font-size: 0.875rem;
+    margin-bottom: 2px;
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      padding: 10px;
+    }
+
+    @media (max-width: 480px) {
+      font-size: 13px;
+      padding: 8px;
+    }
+
+    &:last-child {
+      border-bottom: none;
+    }
 
     &.win {
-      background: rgba(46, 125, 50, 0.05);
+      background-color: rgba(34, 197, 94, 0.1);
       border-left: 3px solid var(--status-success);
     }
 
     &.loss {
-      background: rgba(211, 47, 47, 0.05);
+      background-color: rgba(239, 68, 68, 0.1);
       border-left: 3px solid var(--status-danger);
     }
   }
 
   &__trade-time {
     color: var(--text-general);
+    font-size: 12px;
     font-family: monospace;
-    font-size: 0.8rem;
+
+    @media (max-width: 768px) {
+      order: 3;
+      text-align: center;
+    }
   }
 
   &__trade-details {
-    color: var(--text-prominent);
-    font-weight: 500;
+    flex: 1;
+    margin: 0 12px;
+    color: var(--text-general);
+
+    @media (max-width: 768px) {
+      margin: 0;
+      order: 1;
+      text-align: center;
+    }
   }
 
   &__trade-result {
-    font-family: monospace;
     font-weight: 600;
+    font-family: monospace;
+
+    @media (max-width: 768px) {
+      order: 2;
+      text-align: center;
+      font-size: 15px;
+    }
 
     &.win {
       color: var(--status-success);
@@ -236,30 +399,6 @@
 
     &.loss {
       color: var(--status-danger);
-    }
-  }
-
-  @media (max-width: 768px) {
-    padding: 12px;
-
-    &__control-row {
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
-
-    &__stats {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-    }
-
-    &__trade-item {
-      grid-template-columns: 1fr;
-      gap: 4px;
-      text-align: center;
-    }
-
-    &__action-buttons {
-      justify-content: center;
     }
   }
 }

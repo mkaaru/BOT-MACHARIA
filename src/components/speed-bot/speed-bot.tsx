@@ -62,7 +62,7 @@ const SpeedBot: React.FC = () => {
       setCurrentPrice('Connecting...');
       setIsConnected(false);
 
-      const ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=75771');
+      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
 
       ws.onopen = () => {
         console.log('Speed Bot WebSocket connected');
