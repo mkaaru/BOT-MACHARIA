@@ -1,4 +1,7 @@
 
+@use 'components/shared/styles/constants' as *;
+@use 'components/shared/styles/mixins' as *;
+
 .auto-trades {
   padding: 20px;
   min-height: 400px;
@@ -27,9 +30,6 @@
     }
   }
 }
-
-@use 'components/shared/styles/constants' as *;
-@use 'components/shared/styles/mixins' as *;
 
 .run-panel {
     // fix for the RTL issue on tab active line
