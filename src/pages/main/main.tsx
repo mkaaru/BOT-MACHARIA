@@ -510,7 +510,7 @@ const AppWrapper = observer(() => {
       ws.onclose = (event) => {
         console.log('WebSocket connection closed:', event.code, event.reason)
         setIsConnected(false)
-        setWebsocket(null)```python
+        setWebsocket(null)
         setCurrentPrice('Disconnected')
 
         // Auto-reconnect after 3 seconds if not manually closed
