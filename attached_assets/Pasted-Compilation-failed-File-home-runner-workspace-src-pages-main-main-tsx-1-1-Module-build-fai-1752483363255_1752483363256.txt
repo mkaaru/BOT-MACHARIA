@@ -1,0 +1,167 @@
+Compilation failed
+
+File: /home/runner/workspace/src/pages/main/main.tsx:1:1
+  × Module build failed:
+  ├─▶   ×   × Expected ';', '}' or <eof>
+  │     │      ╭─[/home/runner/workspace/src/pages/main/main.tsx:513:1]
+  │     │  510 │           ws.onclose = (event) => {
+  │     │  511 │             console.log('WebSocket connection closed:', event.code, event.reason)
+  │     │  512 │             setIsConnected(false)
+  │     │  513 │ ╭─▶         setWebsocket(null)```python
+  │     │  514 │ │           setCurrentPrice('Disconnected')
+  │     │  515 │ │
+  │     │  516 │ │           // Auto-reconnect after 3 seconds if not manually closed
+  │     │  517 │ │           if (event.code !== 1000) {
+  │     │  518 │ │             setTimeout(() => {
+  │     │  519 │ │               console.log('Attempting to reconnect...')
+  │     │  520 │ │               connectToAPI()
+  │     │  521 │ │             }, 3000)
+  │     │  522 │ │           }
+  │     │  523 │ │         }
+  │     │  524 │ │
+  │     │  525 │ │         ws.onerror = (error) => {
+  │     │  526 │ │           console.error('WebSocket error:', error)
+  │     │  527 │ │           setIsConnected(false)
+  │     │  528 │ │           setWebsocket(null)
+  │     │  529 │ │           setCurrentPrice('Connection Error')
+  │     │  530 │ │         }
+  │     │  531 │ │
+  │     │  532 │ │       } catch (error) {
+  │     │  533 │ │         console.error('Connection failed:', error)
+  │     │  534 │ │         setIsConnected(false)
+  │     │  535 │ │         setCurrentPrice('Failed to connect')
+  │     │  536 │ │       }
+  │     │  537 │ │     }
+  │     │  538 │ │
+  │     │  539 │ │     // Helper function to get alternative symbol formats
+  │     │  540 │ │     const getAlternativeSymbol = (symbol) => {
+  │     │  541 │ │       const symbolMap = {
+  │     │  542 │ │         // Forward mapping
+  │     │  543 │ │         'R_10': '1HZ10V',
+  │     │  544 │ │         'R_25': '1HZ25V',
+  │     │  545 │ │         'R_50': '1HZ50V',
+  │     │  546 │ │         'R_75': '1HZ75V',
+  │     │  547 │ │         'R_100': '1HZ100V',
+  │     │  548 │ │         'R_150': '1HZ150V',
+  │     │  549 │ │         'R_200': '1HZ200V',
+  │     │  550 │ │         'R_250': '1HZ250V',
+  │     │  551 │ │         'R_300': '1HZ300V',
+  │     │  552 │ │         // Reverse mapping
+  │     │  553 │ │         '1HZ10V': 'R_10',
+  │     │  554 │ │         '1HZ25V': 'R_25',
+  │     │  555 │ │         '1HZ50V': 'R_50',
+  │     │  556 │ │         '1HZ75V': 'R_75',
+  │     │  557 │ │         '1HZ100V': 'R_100',
+  │     │  558 │ │         '1HZ150V': 'R_150',
+  │     │  559 │ │         '1HZ200V': 'R_200',
+  │     │  560 │ │         '1HZ250V': 'R_250',
+  │     │  561 │ │         '1HZ300V': 'R_300',
+  │     │  562 │ │         // Boom/Crash indices
+  │     │  563 │ │         'BOOM1000': 'BOOM1000',
+  │     │  564 │ │         'CRASH1000': 'CRASH1000',
+  │     │  565 │ │         'BOOM500': 'BOOM500',
+  │     │  566 │ │         'CRASH500': 'CRASH500',
+  │     │  567 │ │         'BOOM300': 'BOOM300',
+  │     │  568 │ │         'CRASH300': 'CRASH300'
+  │     │  569 │ │       }
+  │     │  570 │ │       return symbolMap[symbol] || symbol
+  │     │  571 │ │     }
+  │     │  572 │ │
+  │     │  573 │ │     const handleNewTick = (tick: number, symbol: string) => {
+  │     │  574 │ │       try {
+  │     │  575 │ │         if (typeof tick !== 'number' || isNaN(tick)) {
+  │     │  576 │ │           console.warn('Invalid tick received:', tick)
+  │     │  577 │ │           return
+  │     │  578 │ │         }
+  │     │  579 │ │
+  │     │  580 │ │         console.log('Processing tick:', tick, 'for symbol:', symbol)
+  │     │  581 │ │
+  │     │  582 │ │         // Update current tick and price display
+  │     │  583 │ │         setCurrentTick(tick)
+  │     │  584 │ │         const priceStr = tick.toFixed(5)
+  │     │  585 │ │         setCurrentPrice(priceStr)
+  │     │  586 │ │
+  │     │  587 │ │         // Store in tick history per volatility (keep last 5000 per symbol)
+  │     │  588 │ │         setTickHistory(prev => {
+  │     │  589 │ │           const currentHistory = prev[symbol] || []
+  │     │  590 │ │           const newHistory = [...currentHistory, tick].slice(-5000)
+  │     │  591 │ │
+  │     │  592 │ │           const updated = {
+  │     │  593 │ │             ...prev,
+  │     │  594 │ │             [symbol]: newHistory
+  │     │  595 │ │           }
+  │     │  596 │ │
+  │     │  597 │ │           // Only run analysis if we have enough data for current symbol
+  │     │  598 │ │           if (newHistory.length >= 10) {
+  │     │  599 │ │             // Calculate digit distribution with real-time updates
+  │     │  600 │ │             calculateDigitDistribution(newHistory)
+  │     │  601 │ │
+  │     │  602 │ │             // Perform enhanced pattern analysis
+  │     │  603 │ │             analyzePatterns(newHistory)
+  │     │  604 │ │
+  │     │  605 │ │             // Make AI-powered prediction
+  │     │  606 │ │             makePrediction(newHistory)
+  │     │  607 │ │
+  │     │  608 │ │             // Calculate contract-specific probabilities
+  │     │  609 │ │             calculateContractProbabilities(newHistory)
+  │     │  610 │ │           }
+  │     │  611 │ │
+  │     │  612 │ │           return updated
+  │     │  613 │ │         })
+  │     │  614 │ │
+  │     │  615 │ │         // Execute trade if trading is active
+  │     │  616 │ │         if (isTrading) {
+  │     │  617 │ │           executeTradeDecision(tick)
+  │     │  618 │ │         }
+  │     │  619 │ │       } catch (error) {
+  │     │  620 │ │         console.error('Error handling new tick:', error)
+  │     │  621 │ │       }
+  │     │  622 │ │     }
+  │     │  623 │ │
+  │     │  624 │ │     const calculateContractProbabilities = (history: number[]) => {
+  │     │  625 │ │       if (history.length < 10) return
+  │     │  626 │ │
+  │     │  627 │ │       const recentTicks = history.slice(-100) // Use last 100 ticks for probability calculation
+  │     │  628 │ │       const lastDigits = recentTicks.map(tick => Math.floor(Math.abs(tick * 100000)) % 10)
+  │     │  629 │ │
+  │     │  630 │ │       // Calculate probabilities based on contract type
+  │     │  631 │ │       let probabilities = {}
+  │     │  632 │ │
+  │     │  633 │ │       if (contractType === 'DIGITEVEN' || contractType === 'DIGITODD') {
+  │     │  634 │ │         const evenCount = lastDigits.filter(d => d % 2 === 0).length
+  │     │  635 │ │         const oddCount = lastDigits.length - evenCount
+  │     │  636 │ │         const total = lastDigits.length
+  │     │  637 │ │
+  │     │  638 │ │         probabilities = {
+  │     │  639 │ │           even: ((evenCount / total) * 100).toFixed(1),
+  │     │  640 │ │           odd: ((oddCount / total) * 100).toFixed(1)
+  │     │  641 │ │         }
+  │     │  642 │ │       } else if (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') {
+  │     │  643 │ │         const underCount = lastDigits.filter(d => d < 5).length // 0,1,2,3,4
+  │     │  644 │ │         const overCount = lastDigits.filter(d => d >= 5).length // 5,6,7,8,9
+  │     │  645 │ │         const total = lastDigits.length
+  │     │  646 │ │
+  │     │  647 │ │         probabilities = {
+  │     │  648 │ │           under: ((underCount / total) * 100).toFixed(1),
+  │     │  649 │ │           over: ((overCount / total) * 100).toFixed(1)
+  │     │  650 │ │         }
+  │     │  651 │ │       } else if (contractType === 'DIGITMATCH' || contractType === 'DIGITDIFF') {
+  │     │  652 │ │         // For match/differs, show probability for each digit
+  │     │  653 │ │         const digitCounts = new Array(10).fill(0)
+  │     │  654 │ │         lastDigits.forEach(d => digitCounts[d]++)
+  │     │  655 │ │         const total = lastDigits.length
+  │     │  656 │ │
+  │     │  657 │ │         probabilities = {}
+  │     │  658 │ │         for (let i = 0; i < 10; i++) {
+  │     │  659 │ ├─▶         probabilities[`digit_${i}`] = ((digitCounts[i] / total) * 100).toFixed(1)
+  │     │      · ╰───                       ───────
+  │     │      · ╰──── This is the expression part of an expression statement
+  │     │  660 │           }
+  │     │  661 │         }
+  │     │      ╰────
+  │     │
+  │   
+  ╰─▶ Syntax Error
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
