@@ -88,6 +88,7 @@ const VolatilityAnalyzer: React.FC = () => {
               }
             } catch (error) {
               console.error('Error during init requests:', error);
+              // Don't set error status here, keep trying
             }
           }, 500);
         };
@@ -98,8 +99,17 @@ const VolatilityAnalyzer: React.FC = () => {
 
             if (data.error) {
               console.error('❌ WebSocket API error:', data.error);
-              setConnectionStatus('error');
+              // Don't set error status for API errors, keep connection status as connected
+              // Only set error if it's a critical connection issue
+              if (data.error.code === 'DisconnectByUser' || data.error.code === 'InvalidToken') {
+                setConnectionStatus('error');
+              }
               return;
+            }
+
+            // Ensure we're showing connected status when receiving data
+            if (connectionStatus !== 'connected') {
+              setConnectionStatus('connected');
             }
 
             if (data.history) {
@@ -131,7 +141,10 @@ const VolatilityAnalyzer: React.FC = () => {
 
         derivWs.onerror = function(error) {
           console.error('❌ WebSocket error:', error);
-          setConnectionStatus('error');
+          // Only set error status if we can't recover quickly
+          if (reconnectAttempts >= 2) {
+            setConnectionStatus('error');
+          }
           scheduleReconnect();
         };
 
@@ -158,6 +171,11 @@ const VolatilityAnalyzer: React.FC = () => {
 
       const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts - 1), 30000);
       console.log(`🔄 Scheduling reconnect attempt ${reconnectAttempts} in ${delay}ms`);
+
+      // Set status to disconnected during reconnection, not error
+      if (reconnectAttempts <= 3) {
+        setConnectionStatus('disconnected');
+      }
 
       reconnectTimeout = setTimeout(() => {
         console.log(`🔄 Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
