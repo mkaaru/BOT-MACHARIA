@@ -79,24 +79,9 @@ const BotIcon = () => (
     </svg>
 );
 
-// New components for Volatility Analyzer and Speed Bot
-const VolatilityAnalyzer = () => {
-    return (
-        <div>
-            <h2>Volatility Analyzer</h2>
-            <p>This tool analyzes volatility indices.</p>
-        </div>
-    );
-};
-
-const SpeedBot = () => {
-    return (
-        <div>
-            <h2>Speed Bot</h2>
-            <p>This bot executes trades on every tick.</p>
-        </div>
-    );
-};
+// Import actual components
+import VolatilityAnalyzer from '@/components/volatility-analyzer/volatility-analyzer';
+import SpeedBot from '@/components/speed-bot/speed-bot';
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
