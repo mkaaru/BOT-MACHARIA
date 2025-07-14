@@ -1226,6 +1226,12 @@ if __name__ == "__main__":
 
 <div className='free-bots-container'>
                             <Tabs active_index={0} className='free-bots-tabs' top>
+                                <div label={<Localize i18n_default_text='Smart Trading' />} id='id-smart-trading'>
+                                    <VolatilityAnalyzer />
+                                </div>
+                                <div label={<Localize i18n_default_text='Speed Bot' />} id='id-speed-bot'>
+                                    <SpeedBot />
+                                </div>
                                 <div label={<Localize i18n_default_text='Free Bots' />} id='id-free-bots-list'>
                                     <div className='free-bots'>
                                         <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
@@ -1266,12 +1272,6 @@ if __name__ == "__main__":
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                                <div label={<Localize i18n_default_text='Smart Trading' />} id='id-smart-trading'>
-                                    <VolatilityAnalyzer />
-                                </div>
-                                <div label={<Localize i18n_default_text='Speed Bot' />} id='id-speed-bot'>
-                                    <SpeedBot />
                                 </div>
                             </Tabs>
                         </div>
