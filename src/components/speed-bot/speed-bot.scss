@@ -195,14 +195,6 @@
       }
     }
 
-    &--analyzer {
-    background-color: #8b5cf6;
-
-    &:hover {
-      background-color: #7c3aed;
-    }
-  }
-
     &:disabled {
       background-color: var(--text-disabled);
       cursor: not-allowed;

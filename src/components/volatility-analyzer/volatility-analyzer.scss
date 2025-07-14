@@ -453,26 +453,6 @@
       }
     }
   }
-
-  &--compact {
-    .volatility-analyzer__header {
-      margin-bottom: 1rem;
-    }
-
-    .volatility-analyzer__controls {
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-
-    .volatility-analyzer__stats {
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 1rem;
-    }
-
-    .volatility-analyzer__analysis {
-      grid-template-columns: 1fr;
-    }
-  }
 }
 
 @keyframes pulse {

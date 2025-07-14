@@ -1273,6 +1273,19 @@ if __name__ == "__main__":
                                 <div label={<Localize i18n_default_text='Speed Bot' />} id='id-speed-bot'>
                                     <SpeedBot />
                                 </div>
+                                <div label={<Localize i18n_default_text='Auto Trades' />} id='id-auto-trades'>
+                                    <div className='auto-trades'>
+                                        <h2 className='auto-trades__heading'><Localize i18n_default_text='Auto Trades' /></h2>
+                                        <div className='auto-trades__content-wrapper'>
+                                            <div className='auto-trades__content'>
+                                                <div className='auto-trades__placeholder'>
+                                                    <p><Localize i18n_default_text='Auto trades functionality will be available soon.' /></p>
+                                                    <p><Localize i18n_default_text='This feature will allow you to set up automated trading strategies.' /></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </Tabs>
                         </div>
 
