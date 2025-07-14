@@ -3,50 +3,398 @@ import { Localize } from '@deriv-com/translations';
 import './volatility-analyzer.scss';
 
 interface AnalysisData {
-  strategyId: string;
-  data: {
+  data?: {
     recommendation?: string;
     confidence?: string;
+    riseRatio?: string;
+    fallRatio?: string;
     evenProbability?: string;
     oddProbability?: string;
     overProbability?: string;
     underProbability?: string;
-    riseRatio?: string;
-    fallRatio?: string;
-    target?: number;
-    mostFrequentProbability?: string;
     barrier?: number;
     actualDigits?: number[];
     evenOddPattern?: string[];
     overUnderPattern?: string[];
     streak?: number;
     streakType?: string;
-    digitFrequencies?: Array<{digit: number; percentage: string; count: number}>;
+    digitFrequencies?: any[];
+    digitPercentages?: string[];
+    target?: number;
+    mostFrequentProbability?: string;
     currentLastDigit?: number;
     totalTicks?: number;
   };
 }
 
-interface ConnectionStatus {
-  status: 'connected' | 'disconnected' | 'error';
-  error?: string;
-  }
-
 const VolatilityAnalyzer: React.FC = () => {
   const [selectedSymbol, setSelectedSymbol] = useState('R_100');
-  const [currentPrice, setCurrentPrice] = useState<string>('---');
   const [tickCount, setTickCount] = useState(120);
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({ status: 'disconnected' });
-  const [analysisData, setAnalysisData] = useState<Record<string, AnalysisData>>({});
-  const [isConnected, setIsConnected] = useState(false);
-  const [autoTradingStatus, setAutoTradingStatus] = useState<Record<string, boolean>>({
-    'rise-fall': false,
-    'even-odd': false,
-    'even-odd-2': false,
-    'over-under': false,
-    'over-under-2': false,
-    'matches-differs': false,
+  const [barrier, setBarrier] = useState(5);
+  const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  const [currentPrice, setCurrentPrice] = useState('---');
+
+  // Analysis data for each strategy
+  const [analysisData, setAnalysisData] = useState<{[key: string]: AnalysisData}>({
+    'rise-fall': {},
+    'even-odd': {},
+    'even-odd-2': {},
+    'over-under': {},
+    'over-under-2': {},
+    'matches-differs': {}
   });
+
+  useEffect(() => {
+    // Initialize WebSocket with correct app ID
+    let derivWs: WebSocket | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    let tickHistory: Array<{time: number, quote: number}> = [];
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 5;
+    let decimalPlaces = 2;
+
+    function startWebSocket() {
+      console.log('🔌 Connecting to WebSocket API');
+
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+
+      if (derivWs) {
+        try {
+          derivWs.onclose = null;
+          derivWs.close();
+          console.log('Closed existing connection');
+        } catch (error) {
+          console.error('Error closing existing connection:', error);
+        }
+        derivWs = null;
+      }
+
+      try {
+        derivWs = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
+
+        derivWs.onopen = function() {
+          console.log('✅ WebSocket connection established');
+          reconnectAttempts = 0;
+          setConnectionStatus('connected');
+
+          setTimeout(() => {
+            try {
+              if (derivWs && derivWs.readyState === WebSocket.OPEN) {
+                console.log('Sending authorization request');
+                derivWs.send(JSON.stringify({ app_id: 75771 }));
+                requestTickHistory();
+              }
+            } catch (error) {
+              console.error('Error during init requests:', error);
+            }
+          }, 500);
+        };
+
+        derivWs.onmessage = function(event) {
+          try {
+            const data = JSON.parse(event.data);
+
+            if (data.error) {
+              console.error('❌ WebSocket API error:', data.error);
+              setConnectionStatus('error');
+              return;
+            }
+
+            if (data.history) {
+              console.log(`📊 Received history for ${selectedSymbol}: ${data.history.prices.length} ticks`);
+              tickHistory = data.history.prices.map((price: string, index: number) => ({
+                time: data.history.times[index],
+                quote: parseFloat(price)
+              }));
+              detectDecimalPlaces();
+              updateUI();
+            } else if (data.tick) {
+              const quote = parseFloat(data.tick.quote);
+              tickHistory.push({
+                time: data.tick.epoch,
+                quote: quote
+              });
+
+              if (tickHistory.length > tickCount) {
+                tickHistory.shift();
+              }
+              updateUI();
+            } else if (data.ping) {
+              derivWs?.send(JSON.stringify({ pong: 1 }));
+            }
+          } catch (error) {
+            console.error('Error processing message:', error);
+          }
+        };
+
+        derivWs.onerror = function(error) {
+          console.error('❌ WebSocket error:', error);
+          setConnectionStatus('error');
+          scheduleReconnect();
+        };
+
+        derivWs.onclose = function(event) {
+          console.log('🔄 WebSocket connection closed', event.code, event.reason);
+          setConnectionStatus('disconnected');
+          scheduleReconnect();
+        };
+
+      } catch (error) {
+        console.error('Failed to create WebSocket:', error);
+        setConnectionStatus('error');
+        scheduleReconnect();
+      }
+    }
+
+    function scheduleReconnect() {
+      reconnectAttempts++;
+      if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
+        console.log(`⚠️ Maximum reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Stopping attempts.`);
+        setConnectionStatus('error');
+        return;
+      }
+
+      const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts - 1), 30000);
+      console.log(`🔄 Scheduling reconnect attempt ${reconnectAttempts} in ${delay}ms`);
+
+      reconnectTimeout = setTimeout(() => {
+        console.log(`🔄 Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+        startWebSocket();
+      }, delay);
+    }
+
+    function requestTickHistory() {
+      const request = {
+        ticks_history: selectedSymbol,
+        count: tickCount,
+        end: 'latest',
+        style: 'ticks',
+        subscribe: 1
+      };
+
+      if (derivWs && derivWs.readyState === WebSocket.OPEN) {
+        console.log(`📡 Requesting tick history for ${selectedSymbol} (${tickCount} ticks)`);
+        try {
+          derivWs.send(JSON.stringify(request));
+        } catch (error) {
+          console.error('Error sending tick history request:', error);
+          scheduleReconnect();
+        }
+      } else {
+        console.error('❌ WebSocket not ready to request history, readyState:', derivWs ? derivWs.readyState : 'undefined');
+        scheduleReconnect();
+      }
+    }
+
+    function detectDecimalPlaces() {
+      if (tickHistory.length === 0) return;
+      decimalPlaces = Math.max(
+        ...tickHistory.map(tick => (tick.quote.toString().split('.')[1] || '').length),
+        2
+      );
+    }
+
+    function getLastDigit(quote: number): number {
+      let decimalPart = quote.toString().split('.')[1] || '';
+      while (decimalPart.length < decimalPlaces) {
+        decimalPart += '0';
+      }
+      return Number(decimalPart.slice(-1));
+    }
+
+    function updateUI() {
+      if (tickHistory.length === 0) {
+        console.warn('⚠️ No tick history available for analysis');
+        return;
+      }
+
+      const currentPrice = tickHistory[tickHistory.length - 1].quote.toFixed(decimalPlaces);
+      setCurrentPrice(currentPrice);
+      sendAnalysisData();
+    }
+
+    function sendAnalysisData() {
+      if (!tickHistory || tickHistory.length === 0) {
+        console.warn('⚠️ No data available for analysis');
+        return;
+      }
+
+      try {
+        // Count digit frequencies
+        const digitCounts = Array(10).fill(0);
+        tickHistory.forEach(tick => {
+          const lastDigit = getLastDigit(tick.quote);
+          digitCounts[lastDigit]++;
+        });
+
+        const totalTicks = tickHistory.length;
+        const digitPercentages = digitCounts.map(count => ((count / totalTicks) * 100).toFixed(2));
+
+        // Even/Odd analysis
+        const evenCount = digitCounts.filter((count, index) => index % 2 === 0).reduce((a, b) => a + b, 0);
+        const oddCount = digitCounts.filter((count, index) => index % 2 !== 0).reduce((a, b) => a + b, 0);
+        const evenProbability = ((evenCount / totalTicks) * 100).toFixed(2);
+        const oddProbability = ((oddCount / totalTicks) * 100).toFixed(2);
+
+        // Over/Under analysis
+        let overCount = 0;
+        let underCount = 0;
+        for (let i = 0; i < 10; i++) {
+          if (i >= barrier) {
+            overCount += digitCounts[i];
+          } else {
+            underCount += digitCounts[i];
+          }
+        }
+        const overProbability = ((overCount / totalTicks) * 100).toFixed(2);
+        const underProbability = ((underCount / totalTicks) * 100).toFixed(2);
+
+        // Last 10 digits pattern
+        const lastDigits = tickHistory.slice(-10).map(tick => getLastDigit(tick.quote));
+        const evenOddPattern = lastDigits.map(digit => digit % 2 === 0 ? 'E' : 'O');
+        const overUnderPattern = lastDigits.map(digit => digit >= barrier ? 'O' : 'U');
+
+        // Current streak calculation
+        let currentStreak = 1;
+        let streakType = lastDigits.length > 0 && lastDigits[lastDigits.length - 1] % 2 === 0 ? 'even' : 'odd';
+
+        for (let i = lastDigits.length - 2; i >= 0; i--) {
+          const isEven = lastDigits[i] % 2 === 0;
+          const prevIsEven = lastDigits[i + 1] % 2 === 0;
+          if (isEven === prevIsEven) {
+            currentStreak++;
+          } else {
+            break;
+          }
+        }
+
+        // Rise/Fall analysis
+        let riseCount = 0;
+        let fallCount = 0;
+        for (let i = 1; i < tickHistory.length; i++) {
+          if (tickHistory[i].quote > tickHistory[i - 1].quote) {
+            riseCount++;
+          } else if (tickHistory[i].quote < tickHistory[i - 1].quote) {
+            fallCount++;
+          }
+        }
+        const riseRatio = ((riseCount / (totalTicks - 1)) * 100).toFixed(2);
+        const fallRatio = ((fallCount / (totalTicks - 1)) * 100).toFixed(2);
+
+        // Matches/Differs analysis
+        let maxCount = 0;
+        let mostFrequentDigit = 0;
+        digitCounts.forEach((count, index) => {
+          if (count > maxCount) {
+            maxCount = count;
+            mostFrequentDigit = index;
+          }
+        });
+        const mostFrequentProbability = ((maxCount / totalTicks) * 100).toFixed(2);
+        const digitFrequencies = digitCounts.map((count, index) => ({
+          digit: index,
+          percentage: ((count / totalTicks) * 100).toFixed(2),
+          count: count
+        }));
+        const currentLastDigit = tickHistory.length > 0 ? getLastDigit(tickHistory[tickHistory.length - 1].quote) : undefined;
+
+        // Update analysis data
+        setAnalysisData({
+          'rise-fall': {
+            data: {
+              recommendation: parseFloat(riseRatio) > 55 ? 'Rise' : parseFloat(fallRatio) > 55 ? 'Fall' : undefined,
+              confidence: Math.max(parseFloat(riseRatio), parseFloat(fallRatio)).toFixed(2),
+              riseRatio,
+              fallRatio
+            }
+          },
+          'even-odd': {
+            data: {
+              recommendation: parseFloat(evenProbability) > 55 ? 'Even' : parseFloat(oddProbability) > 55 ? 'Odd' : undefined,
+              confidence: Math.max(parseFloat(evenProbability), parseFloat(oddProbability)).toFixed(2),
+              evenProbability,
+              oddProbability
+            }
+          },
+          'even-odd-2': {
+            data: {
+              evenProbability,
+              oddProbability,
+              actualDigits: lastDigits,
+              evenOddPattern,
+              streak: currentStreak,
+              streakType
+            }
+          },
+          'over-under': {
+            data: {
+              recommendation: parseFloat(overProbability) > 55 ? 'Over' : parseFloat(underProbability) > 55 ? 'Under' : undefined,
+              confidence: Math.max(parseFloat(overProbability), parseFloat(underProbability)).toFixed(2),
+              overProbability,
+              underProbability,
+              barrier
+            }
+          },
+          'over-under-2': {
+            data: {
+              overProbability,
+              underProbability,
+              actualDigits: lastDigits,
+              overUnderPattern,
+              barrier,
+              digitPercentages,
+              digitFrequencies
+            }
+          },
+          'matches-differs': {
+            data: {
+              recommendation: parseFloat(mostFrequentProbability) > 15 ? 'Matches' : 'Differs',
+              confidence: (parseFloat(mostFrequentProbability) > 15 ? parseFloat(mostFrequentProbability) : 100 - parseFloat(mostFrequentProbability)).toFixed(2),
+              target: mostFrequentDigit,
+              mostFrequentProbability,
+              digitFrequencies,
+              currentLastDigit,
+              totalTicks
+            }
+          }
+        });
+
+      } catch (error) {
+        console.error('❌ Error in analysis:', error);
+      }
+    }
+
+    // Start the connection
+    startWebSocket();
+
+    // Cleanup function
+    return () => {
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (derivWs) {
+        derivWs.onclose = null;
+        derivWs.close();
+      }
+    };
+  }, [selectedSymbol, tickCount, barrier]);
+
+  const updateSymbol = useCallback((symbol: string) => {
+    setSelectedSymbol(symbol);
+    // This will trigger useEffect to restart connection with new symbol
+  }, []);
+
+  const updateTickCount = useCallback((count: number) => {
+    setTickCount(count);
+    // This will trigger useEffect to restart connection with new count
+  }, []);
+
+  const updateBarrier = useCallback((newBarrier: number) => {
+    setBarrier(newBarrier);
+    // This will trigger recalculation in useEffect
+  }, []);
 
   const volatilitySymbols = [
     { value: 'R_10', label: 'Volatility 10 Index' },
@@ -61,66 +409,15 @@ const VolatilityAnalyzer: React.FC = () => {
     { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
   ];
 
-  const initializeAnalyzer = useCallback(() => {
-    const script = document.createElement('script');
-    script.textContent = `
-      let derivWs,reconnectTimeout;let tickHistory=[],currentSymbol="${selectedSymbol}",tickCount=${tickCount},decimalPlaces=2,overUnderBarrier=5,isInitialized=!1,reconnectAttempts=0,MAX_RECONNECT_ATTEMPTS=5;function startWebSocket(){if(console.log("🔌 Connecting to WebSocket API"),reconnectTimeout&&clearTimeout(reconnectTimeout),derivWs){try{derivWs.onclose=null,derivWs.close(),console.log("Closed existing connection")}catch(e){console.error("Error closing existing connection:",e)}derivWs=null}try{(derivWs=new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=75771")).onopen=function(){console.log("✅ WebSocket connection established"),reconnectAttempts=0,notifyConnectionStatus("connected"),setTimeout(()=>{try{derivWs&&derivWs.readyState===WebSocket.OPEN&&(console.log("Sending authorization request"),derivWs.send(JSON.stringify({app_id:75771})),requestTickHistory())}catch(e){console.error("Error during init requests:",e)}},500)},derivWs.onmessage=function(e){try{let t=JSON.parse(e.data);if(t.error){console.error("❌ WebSocket API error:",t.error),notifyConnectionStatus("error",t.error.message);return}if(t.history)console.log(\`📊 Received history for \${currentSymbol}: \${t.history.prices.length} ticks\`),tickHistory=t.history.prices.map((e,o)=>({time:t.history.times[o],quote:parseFloat(e)})),detectDecimalPlaces(),updateUI();else if(t.tick){let e=parseFloat(t.tick.quote);tickHistory.push({time:t.tick.epoch,quote:e}),tickHistory.length>tickCount&&tickHistory.shift(),updateUI()}else t.ping&&derivWs.send(JSON.stringify({pong:1}))}catch(e){console.error("Error processing message:",e)}},derivWs.onerror=function(e){console.error("❌ WebSocket error:",e),notifyConnectionStatus("error","Connection error"),scheduleReconnect()},derivWs.onclose=function(e){console.log("🔄 WebSocket connection closed",e.code,e.reason),notifyConnectionStatus("disconnected"),scheduleReconnect()},window.derivWs=derivWs}catch(e){console.error("Failed to create WebSocket:",e),notifyConnectionStatus("error",e.message),scheduleReconnect()}}function scheduleReconnect(){if(++reconnectAttempts>5){console.log(\`⚠️ Maximum reconnection attempts (5) reached. Stopping attempts.\`),notifyConnectionStatus("error","Maximum reconnection attempts reached");return}let e=Math.min(1e3*Math.pow(1.5,reconnectAttempts-1),3e4);console.log(\`🔄 Scheduling reconnect attempt \${reconnectAttempts} in \${e}ms\`),reconnectTimeout=setTimeout(()=>{console.log(\`🔄 Attempting to reconnect (\${reconnectAttempts}/5)...\`),startWebSocket()},e)}function requestTickHistory(){let e={ticks_history:currentSymbol,count:tickCount,end:"latest",style:"ticks",subscribe:1};if(derivWs&&derivWs.readyState===WebSocket.OPEN){console.log(\`📡 Requesting tick history for \${currentSymbol} (\${tickCount} ticks)\`);try{derivWs.send(JSON.stringify(e))}catch(e){console.error("Error sending tick history request:",e),scheduleReconnect()}}else console.error("❌ WebSocket not ready to request history, readyState:",derivWs?derivWs.readyState:"undefined"),scheduleReconnect()}function updateSymbol(e){if(console.log(\`🔄 Updating symbol: \${currentSymbol} -> \${e}\`),currentSymbol===e&&derivWs&&derivWs.readyState===WebSocket.OPEN){console.log("Symbol unchanged, skipping reconnection");return}if(currentSymbol=e,tickHistory=[],derivWs&&derivWs.readyState===WebSocket.OPEN)try{console.log("Unsubscribing from current tick before changing symbol..."),derivWs.send(JSON.stringify({forget_all:"ticks"})),setTimeout(()=>requestTickHistory(),300)}catch(e){console.error("Error unsubscribing:",e),startWebSocket()}else startWebSocket()}function updateTickCount(e){if(console.log(\`🔄 Updating tick count: \${tickCount} -> \${e}\`),isNaN(e)||e<=0){console.error("Invalid tick count:",e);return}if(tickCount=e,tickHistory=[],derivWs&&derivWs.readyState===WebSocket.OPEN)try{console.log("Unsubscribing before changing tick count..."),derivWs.send(JSON.stringify({forget_all:"ticks"})),setTimeout(()=>requestTickHistory(),300)}catch(e){console.error("Error unsubscribing:",e),startWebSocket()}else startWebSocket()}function updateBarrier(e){console.log(\`🔄 Updating barrier: \${overUnderBarrier} -> \${e}\`),overUnderBarrier=e,updateUI()}function detectDecimalPlaces(){if(0!==tickHistory.length)decimalPlaces=Math.max(...tickHistory.map(e=>(e.quote.toString().split(".")[1]||"").length),2)}function getLastDigit(e){let t=e.toString().split(".")[1]||"";for(;t.length<decimalPlaces;)t+="0";return Number(t.slice(-1))}function getStatus(){return{connected:derivWs&&derivWs.readyState===WebSocket.OPEN,symbol:currentSymbol,tickCount:tickCount,dataAvailable:tickHistory.length>0,lastUpdate:Date.now()}}function notifyConnectionStatus(e,t=null){window.postMessage({type:"ANALYZER_CONNECTION_STATUS",status:e,error:t},"*")}function updateUI(){if(0===tickHistory.length){console.warn("⚠️ No tick history available for analysis");return}let e=tickHistory[tickHistory.length-1].quote.toFixed(decimalPlaces);window.postMessage({type:"PRICE_UPDATE",price:e,symbol:currentSymbol},"*"),sendAnalysisData()}function handleMessages(e){if(!e.data||"object"!=typeof e.data)return;let{type:t}=e.data;switch(t){case"UPDATE_SYMBOL":e.data.symbol&&(console.log("Received symbol update request:",e.data.symbol),updateSymbol(e.data.symbol));break;case"UPDATE_TICK_COUNT":let o=e.data.tickCount||e.data.count;o&&!isNaN(o)&&(console.log("Received tick count update request:",o),updateTickCount(parseInt(o,10)));break;case"UPDATE_BARRIER":e.data.barrier&&!isNaN(e.data.barrier)&&updateBarrier(parseInt(e.data.barrier,10));break;case"REQUEST_ANALYSIS":sendAnalysisData(e.data.strategyId);break;case"REQUEST_STATUS":window.postMessage({type:"ANALYZER_STATUS",status:getStatus()},"*")}}function sendAnalysisData(e=null){if(!tickHistory||0===tickHistory.length){console.warn("⚠️ No data available for analysis");return}try{let t=Array(10).fill(0);tickHistory.forEach(e=>{let o=getLastDigit(e.quote);t[o]++});let o=tickHistory.length,r=t.map(e=>(e/o*100).toFixed(2)),i=t.filter((e,t)=>t%2==0).reduce((e,t)=>e+t,0),n=t.filter((e,t)=>t%2!=0).reduce((e,t)=>e+t,0),s=(i/o*100).toFixed(2),a=(n/o*100).toFixed(2),c=0,l=0;for(let e=0;e<10;e++)e>=overUnderBarrier?c+=t[e]:l+=t[e];let d=(c/o*100).toFixed(2),u=(l/o*100).toFixed(2),y=tickHistory.slice(-10).map(e=>getLastDigit(e.quote)),g=y.map(e=>e%2==0?"E":"O"),p=y.map(e=>e>=overUnderBarrier?"O":"U"),b=1,k=y.length>0&&y[y.length-1]%2==0?"even":"odd";for(let e=y.length-2;e>=0;e--){let t=y[e]%2==0,o=y[e+1]%2==0;if(t===o)b++;else break}if(!e||"rise-fall"===e){let e=0,t=0;for(let o=1;o<tickHistory.length;o++)tickHistory[o].quote>tickHistory[o-1].quote?e++:tickHistory[o].quote<tickHistory[o-1].quote&&t++;let r=(e/(o-1)*100).toFixed(2),i=(t/(o-1)*100).toFixed(2);window.postMessage({type:"ANALYSIS_DATA",strategyId:"rise-fall",data:{recommendation:parseFloat(r)>55?"Rise":parseFloat(i)>55?"Fall":null,confidence:Math.max(parseFloat(r),parseFloat(i)).toFixed(2),riseRatio:r,fallRatio:i}},"*"),console.log(\`📊 Rise/Fall analysis sent: Rise=\${r}%, Fall=\${i}%\`)}if((!e||"even-odd"===e)&&(window.postMessage({type:"ANALYSIS_DATA",strategyId:"even-odd",data:{recommendation:parseFloat(s)>55?"Even":parseFloat(a)>55?"Odd":null,confidence:Math.max(parseFloat(s),parseFloat(a)).toFixed(2),evenProbability:s,oddProbability:a}},"*"),console.log(\`📊 Even/Odd analysis sent: Even=\${s}%, Odd=\${a}%\`)),(!e||"even-odd-2"===e)&&(window.postMessage({type:"ANALYSIS_DATA",strategyId:"even-odd-2",data:{evenProbability:s,oddProbability:a,actualDigits:y,evenOddPattern:g,streak:b,streakType:k}},"*"),console.log(\`📊 Even/Odd-2 analysis sent: Pattern=\${g.join("")}\`)),(!e||"over-under"===e)&&(window.postMessage({type:"ANALYSIS_DATA",strategyId:"over-under",data:{recommendation:d>55?"Over":u>55?"Under":null,confidence:Math.max(d,u).toFixed(2),overProbability:d,underProbability:u,barrier:overUnderBarrier}},"*"),console.log(\`📊 Over/Under analysis sent: Over=\${d}%, Under=\${u}%, Barrier=\${overUnderBarrier}\`)),(!e||"over-under-2"===e)&&(window.postMessage({type:"ANALYSIS_DATA",strategyId:"over-under-2",data:{overProbability:d,underProbability:u,actualDigits:y,overUnderPattern:p,barrier:overUnderBarrier,digitPercentages:r}},"*"),console.log(\`📊 Over/Under-2 analysis sent: Pattern=\${p.join("")}\`)),!e||"matches-differs"===e){let e=0,r=0;t.forEach((t,o)=>{t>e&&(e=t,r=o)});let i=(e/o*100).toFixed(2),n=t.map((e,t)=>({digit:t,percentage:(e/o*100).toFixed(2),count:e})),s=tickHistory&&tickHistory.length>0?getLastDigit(tickHistory[tickHistory.length-1].quote):void 0;window.postMessage({type:"ANALYSIS_DATA",strategyId:"matches-differs",data:{recommendation:parseFloat(i)>15?"Matches":"Differs",confidence:(parseFloat(i)>15?parseFloat(i):100-parseFloat(i)).toFixed(2),target:r,mostFrequentProbability:i,digitFrequencies:n,currentLastDigit:s,totalTicks:o}},"*"),console.log(\`📊 Matches/Differs analysis sent: Target=\${r}, Current=\${s}, Probability=\${i}%\`)}catch(e){console.error("❌ Error in sendAnalysisData:",e)}}window.initVolatilityAnalyzer=function(){!isInitialized&&(isInitialized=!0,console.log("🚀 Initializing volatility analyzer"),startWebSocket(),window.addEventListener("message",handleMessages),window.volatilityAnalyzer={updateSymbol:updateSymbol,updateTickCount:updateTickCount,updateBarrier:updateBarrier,getStatus:getStatus,reconnect:startWebSocket},window.derivWs=derivWs,window.tickHistory=tickHistory,window.getLastDigit=getLastDigit,window.updateUI=updateUI,window.updateSymbol=updateSymbol,window.updateTickCount=updateTickCount,window.decimalPlaces=decimalPlaces,window.currentSymbol=currentSymbol)},window.initVolatilityAnalyzer();
-    `;
-    document.head.appendChild(script);
-  }, [selectedSymbol, tickCount]);
-
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (!event.data || typeof event.data !== 'object') return;
-
-      const { type } = event.data;
-
-      switch (type) {
-        case 'ANALYZER_CONNECTION_STATUS':
-          setConnectionStatus({
-            status: event.data.status,
-            error: event.data.error,
-          });
-          setIsConnected(event.data.status === 'connected');
-          break;
-
-        case 'PRICE_UPDATE':
-          setCurrentPrice(event.data.price);
-          break;
-
-        case 'ANALYSIS_DATA':
-          setAnalysisData(prev => ({
-            ...prev,
-            [event.data.strategyId]: event.data,
-          }));
-          break;
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    initializeAnalyzer();
-
-    return () => {
-      window.removeEventListener('message', handleMessage);
-      // Cleanup auto-trading intervals
-      Object.keys(autoTradingStatus).forEach(strategyId => {
-        if (window[`${strategyId}_interval`]) {
-          clearInterval(window[`${strategyId}_interval`]);
-          delete window[`${strategyId}_interval`];
-        }
-      });
-    };
-  }, [initializeAnalyzer]);
-
-  const handleSymbolChange = (symbol: string) => {
-    setSelectedSymbol(symbol);
-    window.postMessage({ type: 'UPDATE_SYMBOL', symbol }, '*');
-  };
-
-  const handleTickCountChange = (count: number) => {
-    setTickCount(count);
-    window.postMessage({ type: 'UPDATE_TICK_COUNT', tickCount: count }, '*');
-  };
+  const [isConnected, setIsConnected] = useState(false);
+  const [autoTradingStatus, setAutoTradingStatus] = useState<Record<string, boolean>>({
+    'rise-fall': false,
+    'even-odd': false,
+    'even-odd-2': false,
+    'over-under': false,
+    'over-under-2': false,
+    'matches-differs': false,
+  });
 
   // Trading state
   const [stakeAmount, setStakeAmount] = useState(0.5);
@@ -345,7 +642,7 @@ const VolatilityAnalyzer: React.FC = () => {
               {renderProgressBar('Over', parseFloat(data.data.overProbability || '0'), '#2196F3')}
               {renderProgressBar('Under', parseFloat(data.data.underProbability || '0'), '#FF9800')}
               {data.data.actualDigits && renderDigitPattern(data.data.actualDigits, 'over-under', data.data.barrier)}
-              {data.data.digitPercentages && renderDigitFrequencies(data.data.digitFrequencies)}
+              {data.data.digitFrequencies && renderDigitFrequencies(data.data.digitFrequencies)}
             </>
           )}
 
@@ -445,7 +742,7 @@ const VolatilityAnalyzer: React.FC = () => {
           <button 
             className="start-trading-btn"
             onClick={() => executeTrade(strategyId, 'auto')}
-            disabled={!isConnected}
+            disabled={connectionStatus !== 'connected'}
           >
             Start Auto Trading
           </button>
@@ -458,10 +755,10 @@ const VolatilityAnalyzer: React.FC = () => {
     <div className="volatility-analyzer">
       <div className="analyzer-header">
         <h2>Smart Trading Analytics</h2>
-        <div className={`connection-status ${connectionStatus.status}`}>
-          {connectionStatus.status === 'connected' && '🟢 Connected'}
-          {connectionStatus.status === 'disconnected' && '🔴 Disconnected'}
-          {connectionStatus.status === 'error' && '⚠️ Error'}
+        <div className={`connection-status ${connectionStatus}`}>
+          {connectionStatus === 'connected' && '🟢 Connected'}
+          {connectionStatus === 'disconnected' && '🔴 Disconnected'}
+          {connectionStatus === 'error' && '⚠️ Error'}
         </div>
       </div>
 
@@ -470,7 +767,7 @@ const VolatilityAnalyzer: React.FC = () => {
           <label>Symbol:</label>
           <select
             value={selectedSymbol}
-            onChange={(e) => handleSymbolChange(e.target.value)}
+            onChange={(e) => updateSymbol(e.target.value)}
           >
             {volatilitySymbols.map((symbol) => (
               <option key={symbol.value} value={symbol.value}>
@@ -487,7 +784,16 @@ const VolatilityAnalyzer: React.FC = () => {
             min="10"
             max="1000"
             value={tickCount}
-            onChange={(e) => handleTickCountChange(parseInt(e.target.value))}
+            onChange={(e) => updateTickCount(parseInt(e.target.value))}
+          />
+        </div>
+
+        <div className="control-group">
+          <label>Barrier:</label>
+          <input
+            type="number"
+            value={barrier}
+            onChange={(e) => updateBarrier(parseInt(e.target.value))}
           />
         </div>
       </div>
