@@ -510,7 +510,7 @@ const AppWrapper = observer(() => {
       ws.onclose = (event) => {
         console.log('WebSocket connection closed:', event.code, event.reason)
         setIsConnected(false)
-        setWebsocket(null)
+        setWebsocket(null)```python
         setCurrentPrice('Disconnected')
 
         // Auto-reconnect after 3 seconds if not manually closed
@@ -1220,10 +1220,10 @@ if __name__ == "__main__":
     return (
         <>
             <div className='main'>
-                <div className='main__container'>
+                <div className='main__container main-content'>
                     <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
                         <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
-                            
+
 <div className='free-bots-container'>
                             <Tabs active_index={0} className='free-bots-tabs' top>
                                 <div label={<Localize i18n_default_text='Free Bots' />} id='id-free-bots-list'>

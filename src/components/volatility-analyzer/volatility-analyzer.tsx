@@ -141,23 +141,26 @@ const VolatilityAnalyzer: React.FC = () => {
     // This is a placeholder for the trade execution
   };
 
-  const renderProgressBar = (label: string, percentage: number, color: string) => (
-    <div className="progress-item">
-      <div className="progress-label">
-        <span>{label}</span>
-        <span className="progress-percentage">{percentage}%</span>
+  const renderProgressBar = (label: string, percentage: number, color: string) => {
+    const validPercentage = isNaN(percentage) ? 0 : Math.min(Math.max(percentage, 0), 100);
+    return (
+      <div className="progress-item">
+        <div className="progress-label">
+          <span>{label}</span>
+          <span className="progress-percentage">{validPercentage.toFixed(1)}%</span>
+        </div>
+        <div className="progress-bar">
+          <div 
+            className="progress-fill" 
+            style={{ width: `${validPercentage}%`, backgroundColor: color }}
+          />
+        </div>
       </div>
-      <div className="progress-bar">
-        <div 
-          className="progress-fill" 
-          style={{ width: `${percentage}%`, backgroundColor: color }}
-        />
-      </div>
-    </div>
-  );
+    );
+  };
 
   const renderDigitPattern = (digits: number[], type: string = 'even-odd', barrier?: number) => {
-    if (!digits || digits.length === 0) return null;
+    if (!digits || !Array.isArray(digits) || digits.length === 0) return null;
 
     const getPatternClass = (digit: number) => {
       if (type === 'even-odd') {
@@ -177,42 +180,48 @@ const VolatilityAnalyzer: React.FC = () => {
       return digit.toString();
     };
 
+    const displayDigits = digits.slice(-10);
+    const patternDigits = digits.slice(-5);
+
     return (
       <div className="digit-pattern">
-        <div className="pattern-label">Last Digits Pattern:</div>
+        <div className="pattern-label">Last {displayDigits.length} Digits Pattern:</div>
         <div className="pattern-grid">
-          {digits.slice(-10).map((digit, index) => (
+          {displayDigits.map((digit, index) => (
             <div key={index} className={`digit-item ${getPatternClass(digit)}`}>
               {digit}
             </div>
           ))}
         </div>
         <div className="pattern-info">
-          Recent digit pattern: {digits.slice(-5).map(digit => getPatternText(digit)).join('')}
+          Recent pattern: {patternDigits.map(digit => getPatternText(digit)).join('')}
         </div>
       </div>
     );
   };
 
   const renderDigitFrequencies = (frequencies: any[]) => {
-    if (!frequencies) return null;
+    if (!frequencies || !Array.isArray(frequencies)) return null;
 
     return (
       <div className="digit-frequencies">
         <div className="frequency-label">Digit Frequency Distribution</div>
         <div className="frequency-grid">
-          {frequencies.map((freq, index) => (
-            <div key={index} className="frequency-item">
-              <div className="frequency-digit">{freq.digit}</div>
-              <div className="frequency-bar">
-                <div 
-                  className="frequency-fill" 
-                  style={{ height: `${freq.percentage}%` }}
-                />
+          {frequencies.map((freq, index) => {
+            const percentage = parseFloat(freq.percentage) || 0;
+            return (
+              <div key={index} className="frequency-item">
+                <div className="frequency-digit">{freq.digit}</div>
+                <div className="frequency-bar">
+                  <div 
+                    className="frequency-fill" 
+                    style={{ height: `${Math.min(percentage * 2.5, 100)}%` }}
+                  />
+                </div>
+                <div className="frequency-percent">{percentage.toFixed(1)}%</div>
               </div>
-              <div className="frequency-percent">{freq.percentage}%</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
