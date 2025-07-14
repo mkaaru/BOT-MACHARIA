@@ -397,23 +397,44 @@
       .start-trading-btn {
         width: 100%;
         padding: 12px;
-        background: #00bcd4;
+        background: linear-gradient(135deg, #ff6b6b, #ee5a24);
         color: white;
         border: none;
-        border-radius: 4px;
-        font-weight: 500;
+        border-radius: 8px;
+        font-weight: bold;
         cursor: pointer;
-        transition: background-color 0.2s;
+        transition: all 0.3s ease;
 
         &:hover:not(:disabled) {
-          background: #00acc1;
+          background: linear-gradient(135deg, #ee5a24, #ff6b6b);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
         }
 
         &:disabled {
           background: #ccc;
           cursor: not-allowed;
+          transform: none;
+          box-shadow: none;
+        }
+
+        &.trading-active {
+          background: linear-gradient(135deg, #4CAF50, #45a049);
+          animation: pulse 2s infinite;
         }
       }
     }
+  }
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
   }
 }

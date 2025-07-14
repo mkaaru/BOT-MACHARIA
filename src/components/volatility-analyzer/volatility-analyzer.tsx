@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
+import { tradingEngine } from './trading-engine';
 import './volatility-analyzer.scss';
 
 interface AnalysisData {
@@ -450,10 +451,166 @@ const VolatilityAnalyzer: React.FC = () => {
     'matches-differs': { condition: 'Matches Prob', operator: '>', value: 55 },
   });
 
-  const executeTrade = (strategyId: string, tradeType: string) => {
+  const executeTrade = async (strategyId: string, tradeType: string) => {
     console.log(`Executing ${tradeType} trade for ${strategyId}`);
-    // Here you would implement the actual trading logic
-    // This is a placeholder for the trade execution
+    
+    if (connectionStatus !== 'connected') {
+      console.error('Cannot trade: Not connected to API');
+      return;
+    }
+
+    try {
+      const data = analysisData[strategyId];
+      const condition = tradingConditions[strategyId];
+      
+      if (!data?.data) {
+        console.error('No analysis data available for trading');
+        return;
+      }
+
+      // Check if trading conditions are met
+      const shouldTrade = checkTradingConditions(strategyId, data.data, condition);
+      if (!shouldTrade) {
+        console.log(`Trading conditions not met for ${strategyId}`);
+        return;
+      }
+
+      // Set trading status to active
+      setAutoTradingStatus(prev => ({
+        ...prev,
+        [strategyId]: true
+      }));
+
+      // Determine contract type based on strategy
+      let contractType = '';
+      let barrier;
+      
+      switch (strategyId) {
+        case 'rise-fall':
+          contractType = parseFloat(data.data.riseRatio || '0') > parseFloat(data.data.fallRatio || '0') ? 'CALL' : 'PUT';
+          break;
+        case 'even-odd':
+        case 'even-odd-2':
+          contractType = parseFloat(data.data.evenProbability || '0') > parseFloat(data.data.oddProbability || '0') ? 'DIGITEVEN' : 'DIGITODD';
+          break;
+        case 'over-under':
+        case 'over-under-2':
+          contractType = parseFloat(data.data.overProbability || '0') > parseFloat(data.data.underProbability || '0') ? 'DIGITOVER' : 'DIGITUNDER';
+          barrier = data.data.barrier;
+          break;
+        case 'matches-differs':
+          contractType = parseFloat(data.data.mostFrequentProbability || '0') > 15 ? 'DIGITMATCH' : 'DIGITDIFF';
+          barrier = data.data.target;
+          break;
+        default:
+          console.error('Unknown strategy type');
+          setAutoTradingStatus(prev => ({
+            ...prev,
+            [strategyId]: false
+          }));
+          return;
+      }
+
+      // Create proposal request
+      const proposalRequest = {
+        amount: stakeAmount,
+        basis: 'stake',
+        contract_type: contractType,
+        currency: 'USD',
+        symbol: selectedSymbol,
+        duration: ticksAmount,
+        duration_unit: 't'
+      };
+
+      // Add barrier for digit contracts
+      if (barrier !== undefined) {
+        proposalRequest.barrier = barrier;
+      }
+
+      console.log('Sending proposal request:', proposalRequest);
+      
+      // Get proposal from Deriv API
+      const proposalResponse = await tradingEngine.getProposal(proposalRequest);
+      
+      if (proposalResponse.proposal) {
+        console.log('Proposal received:', proposalResponse.proposal);
+        
+        // Automatically buy the contract
+        const purchaseResponse = await tradingEngine.buyContract(
+          proposalResponse.proposal.id,
+          proposalResponse.proposal.ask_price
+        );
+        
+        if (purchaseResponse.buy) {
+          console.log('Contract purchased successfully:', purchaseResponse.buy);
+          
+          // Apply martingale logic for next trade if this one loses
+          if (martingaleAmount > 1) {
+            // Store current stake for martingale progression
+            // This would be implemented based on your martingale strategy
+          }
+        } else {
+          console.error('Purchase failed:', purchaseResponse);
+        }
+      } else {
+        console.error('Proposal failed:', proposalResponse);
+      }
+
+    } catch (error) {
+      console.error('Error executing trade:', error);
+    } finally {
+      // Reset trading status after trade completion
+      setTimeout(() => {
+        setAutoTradingStatus(prev => ({
+          ...prev,
+          [strategyId]: false
+        }));
+      }, 2000);
+    }
+  };
+
+  const checkTradingConditions = (strategyId: string, data: any, condition: any) => {
+    let currentValue = 0;
+    
+    switch (condition.condition) {
+      case 'Rise Prob':
+        currentValue = parseFloat(data.riseRatio || '0');
+        break;
+      case 'Fall Prob':
+        currentValue = parseFloat(data.fallRatio || '0');
+        break;
+      case 'Even Prob':
+        currentValue = parseFloat(data.evenProbability || '0');
+        break;
+      case 'Odd Prob':
+        currentValue = parseFloat(data.oddProbability || '0');
+        break;
+      case 'Over Prob':
+        currentValue = parseFloat(data.overProbability || '0');
+        break;
+      case 'Under Prob':
+        currentValue = parseFloat(data.underProbability || '0');
+        break;
+      case 'Matches Prob':
+        currentValue = parseFloat(data.mostFrequentProbability || '0');
+        break;
+      case 'Differs Prob':
+        currentValue = 100 - parseFloat(data.mostFrequentProbability || '0');
+        break;
+      default:
+        return false;
+    }
+
+    switch (condition.operator) {
+      case '>':
+        return currentValue > condition.value;
+      case '<':
+        return currentValue < condition.value;
+      case '=':
+        return Math.abs(currentValue - condition.value) < 0.1;
+      default:
+        return false;
+    }
   };
 
   const renderProgressBar = (label: string, percentage: number, color: string) => {
@@ -758,11 +915,11 @@ const VolatilityAnalyzer: React.FC = () => {
 
         <div className="card-footer">
           <button 
-            className="start-trading-btn"
+            className={`start-trading-btn ${autoTradingStatus[strategyId] ? 'trading-active' : ''}`}
             onClick={() => executeTrade(strategyId, 'auto')}
-            disabled={connectionStatus !== 'connected'}
+            disabled={connectionStatus !== 'connected' || autoTradingStatus[strategyId]}
           >
-            Start Auto Trading
+            {autoTradingStatus[strategyId] ? 'Trading...' : 'Start Auto Trading'}
           </button>
         </div>
       </div>
