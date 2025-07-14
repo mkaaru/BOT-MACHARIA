@@ -39,6 +39,14 @@ const VolatilityAnalyzer: React.FC = () => {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({ status: 'disconnected' });
   const [analysisData, setAnalysisData] = useState<Record<string, AnalysisData>>({});
   const [isConnected, setIsConnected] = useState(false);
+  const [autoTradingStatus, setAutoTradingStatus] = useState<Record<string, boolean>>({
+    'rise-fall': false,
+    'even-odd': false,
+    'even-odd-2': false,
+    'over-under': false,
+    'over-under-2': false,
+    'matches-differs': false,
+  });
 
   const volatilitySymbols = [
     { value: 'R_10', label: 'Volatility 10 Index' },
@@ -119,9 +127,11 @@ const VolatilityAnalyzer: React.FC = () => {
   const [ticksAmount, setTicksAmount] = useState(1);
   const [martingaleAmount, setMartingaleAmount] = useState(1);
   const [tradingConditions, setTradingConditions] = useState<Record<string, any>>({
-    'rise-fall': { condition: 'Even Prob', operator: '>', value: 55 },
+    'rise-fall': { condition: 'Rise Prob', operator: '>', value: 55 },
     'even-odd': { condition: 'Even Prob', operator: '>', value: 55 },
+    'even-odd-2': { condition: 'Even Prob', operator: '>', value: 55 },
     'over-under': { condition: 'Over Prob', operator: '>', value: 55 },
+    'over-under-2': { condition: 'Over Prob', operator: '>', value: 55 },
     'matches-differs': { condition: 'Matches Prob', operator: '>', value: 55 },
   });
 
@@ -146,25 +156,39 @@ const VolatilityAnalyzer: React.FC = () => {
     </div>
   );
 
-  const renderDigitPattern = (digits: number[]) => {
+  const renderDigitPattern = (digits: number[], type: string = 'even-odd', barrier?: number) => {
     if (!digits || digits.length === 0) return null;
+
+    const getPatternClass = (digit: number) => {
+      if (type === 'even-odd') {
+        return digit % 2 === 0 ? 'even' : 'odd';
+      } else if (type === 'over-under' && barrier !== undefined) {
+        return digit >= barrier ? 'over' : 'under';
+      }
+      return 'neutral';
+    };
+
+    const getPatternText = (digit: number) => {
+      if (type === 'even-odd') {
+        return digit % 2 === 0 ? 'E' : 'O';
+      } else if (type === 'over-under' && barrier !== undefined) {
+        return digit >= barrier ? 'O' : 'U';
+      }
+      return digit.toString();
+    };
 
     return (
       <div className="digit-pattern">
         <div className="pattern-label">Last Digits Pattern:</div>
         <div className="pattern-grid">
           {digits.slice(-10).map((digit, index) => (
-            <div key={index} className={`digit-item ${digit % 2 === 0 ? 'even' : 'odd'}`}>
+            <div key={index} className={`digit-item ${getPatternClass(digit)}`}>
               {digit}
             </div>
           ))}
         </div>
         <div className="pattern-info">
-          {digits.slice(-5).map((digit, index) => (
-            <span key={index} className="pattern-text">
-              {digit}
-            </span>
-          ))}
+          Recent digit pattern: {digits.slice(-5).map(digit => getPatternText(digit)).join('')}
         </div>
       </div>
     );
@@ -198,6 +222,67 @@ const VolatilityAnalyzer: React.FC = () => {
     const data = analysisData[strategyId];
     const condition = tradingConditions[strategyId];
 
+    const getConditionOptions = (strategyId: string) => {
+      switch (strategyId) {
+        case 'rise-fall':
+          return [
+            { value: 'Rise Prob', label: 'Rise Prob' },
+            { value: 'Fall Prob', label: 'Fall Prob' }
+          ];
+        case 'even-odd':
+        case 'even-odd-2':
+          return [
+            { value: 'Even Prob', label: 'Even Prob' },
+            { value: 'Odd Prob', label: 'Odd Prob' }
+          ];
+        case 'over-under':
+        case 'over-under-2':
+          return [
+            { value: 'Over Prob', label: 'Over Prob' },
+            { value: 'Under Prob', label: 'Under Prob' }
+          ];
+        case 'matches-differs':
+          return [
+            { value: 'Matches Prob', label: 'Matches Prob' },
+            { value: 'Differs Prob', label: 'Differs Prob' }
+          ];
+        default:
+          return [{ value: 'Even Prob', label: 'Even Prob' }];
+      }
+    };
+
+    const getTradeOptions = (strategyId: string) => {
+      switch (strategyId) {
+        case 'rise-fall':
+          return [
+            { value: 'Buy Rise', label: 'Buy Rise' },
+            { value: 'Buy Fall', label: 'Buy Fall' }
+          ];
+        case 'even-odd':
+        case 'even-odd-2':
+          return [
+            { value: 'Buy Even', label: 'Buy Even' },
+            { value: 'Buy Odd', label: 'Buy Odd' }
+          ];
+        case 'over-under':
+        case 'over-under-2':
+          return [
+            { value: 'Buy Over', label: 'Buy Over' },
+            { value: 'Buy Under', label: 'Buy Under' }
+          ];
+        case 'matches-differs':
+          return [
+            { value: 'Buy Matches', label: 'Buy Matches' },
+            { value: 'Buy Differs', label: 'Buy Differs' }
+          ];
+        default:
+          return [{ value: 'Buy Even', label: 'Buy Even' }];
+      }
+    };
+
+    const conditionOptions = getConditionOptions(strategyId);
+    const tradeOptions = getTradeOptions(strategyId);
+
     return (
       <div className="trading-card" key={strategyId}>
         <div className="card-header">
@@ -218,7 +303,20 @@ const VolatilityAnalyzer: React.FC = () => {
             <>
               {renderProgressBar('Even', parseFloat(data.data.evenProbability || '0'), '#4CAF50')}
               {renderProgressBar('Odd', parseFloat(data.data.oddProbability || '0'), '#F44336')}
-              {data.data.actualDigits && renderDigitPattern(data.data.actualDigits)}
+            </>
+          )}
+
+          {/* Even/Odd 2 Card with Pattern */}
+          {strategyId === 'even-odd-2' && data?.data && (
+            <>
+              {renderProgressBar('Even', parseFloat(data.data.evenProbability || '0'), '#4CAF50')}
+              {renderProgressBar('Odd', parseFloat(data.data.oddProbability || '0'), '#F44336')}
+              {data.data.actualDigits && renderDigitPattern(data.data.actualDigits, 'even-odd')}
+              {data.data.streak && (
+                <div className="streak-info">
+                  Current streak: {data.data.streak} {data.data.streakType}
+                </div>
+              )}
             </>
           )}
 
@@ -228,7 +326,17 @@ const VolatilityAnalyzer: React.FC = () => {
               <div className="barrier-info">Barrier: {data.data.barrier}</div>
               {renderProgressBar('Over', parseFloat(data.data.overProbability || '0'), '#2196F3')}
               {renderProgressBar('Under', parseFloat(data.data.underProbability || '0'), '#FF9800')}
-              {data.data.actualDigits && renderDigitPattern(data.data.actualDigits)}
+            </>
+          )}
+
+          {/* Over/Under 2 Card with Pattern */}
+          {strategyId === 'over-under-2' && data?.data && (
+            <>
+              <div className="barrier-info">Barrier: {data.data.barrier}</div>
+              {renderProgressBar('Over', parseFloat(data.data.overProbability || '0'), '#2196F3')}
+              {renderProgressBar('Under', parseFloat(data.data.underProbability || '0'), '#FF9800')}
+              {data.data.actualDigits && renderDigitPattern(data.data.actualDigits, 'over-under', data.data.barrier)}
+              {data.data.digitPercentages && renderDigitFrequencies(data.data.digitFrequencies)}
             </>
           )}
 
@@ -255,11 +363,9 @@ const VolatilityAnalyzer: React.FC = () => {
                   [strategyId]: { ...prev[strategyId], condition: e.target.value }
                 }))}
               >
-                <option value="Even Prob">Even Prob</option>
-                <option value="Odd Prob">Odd Prob</option>
-                <option value="Over Prob">Over Prob</option>
-                <option value="Under Prob">Under Prob</option>
-                <option value="Matches Prob">Matches Prob</option>
+                {conditionOptions.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
               </select>
               <select 
                 value={condition.operator}
@@ -284,13 +390,10 @@ const VolatilityAnalyzer: React.FC = () => {
             </div>
             <div className="condition-row">
               <span>Then</span>
-              <select defaultValue="Buy Even">
-                <option value="Buy Even">Buy Even</option>
-                <option value="Buy Odd">Buy Odd</option>
-                <option value="Buy Over">Buy Over</option>
-                <option value="Buy Under">Buy Under</option>
-                <option value="Buy Matches">Buy Matches</option>
-                <option value="Buy Differs">Buy Differs</option>
+              <select defaultValue={tradeOptions[0].value}>
+                {tradeOptions.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -383,7 +486,9 @@ const VolatilityAnalyzer: React.FC = () => {
       <div className="trading-cards-grid">
         {renderTradingCard('Rise/Fall', 'rise-fall')}
         {renderTradingCard('Even/Odd', 'even-odd')}
+        {renderTradingCard('Even/Odd Pattern', 'even-odd-2')}
         {renderTradingCard('Over/Under', 'over-under')}
+        {renderTradingCard('Over/Under Pattern', 'over-under-2')}
         {renderTradingCard('Matches/Differs', 'matches-differs')}
       </div>
     </div>
