@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
 import './volatility-analyzer.scss';
@@ -95,7 +94,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
     return () => {
       window.removeEventListener('message', handleMessage);
-      
+
       // Cleanup auto-trading intervals
       Object.keys(autoTradingStatus).forEach(strategyId => {
         if (window[`${strategyId}_interval`]) {
@@ -147,7 +146,7 @@ const VolatilityAnalyzer: React.FC = () => {
   const toggleAutoTrading = useCallback((strategyId: string) => {
     setAutoTradingStatus(prev => {
       const newStatus = !prev[strategyId];
-      
+
       if (newStatus) {
         // Start auto trading
         const interval = setInterval(() => {
@@ -192,7 +191,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
   const renderLastDigitPattern = (digits: number[]) => {
     if (!digits || digits.length === 0) return null;
-    
+
     return (
       <div className="last-digit-pattern">
         <div className="pattern-label">Last Digits Pattern:</div>
@@ -206,6 +205,81 @@ const VolatilityAnalyzer: React.FC = () => {
             </div>
           ))}
         </div>
+      </div>
+    );
+  };
+
+  // Trading conditions state
+  const [tradingConditions, setTradingConditions] = useState({
+    'rise-fall': { condition: 'always' },
+    'even-odd': { condition: 'above60' },
+    'over-under': { condition: 'always' },
+    'matches-differs': { condition: 'always' },
+  });
+
+  // Martingale settings state
+    const [martingaleSettings, setMartingaleSettings] = useState({
+    'rise-fall': { useMartingale: false, multiplier: 2 },
+    'even-odd': { useMartingale: false, multiplier: 2 },
+    'over-under': { useMartingale: false, multiplier: 2 },
+    'matches-differs': { useMartingale: false, multiplier: 2 },
+  });
+
+    // Function to render trading conditions based on market type
+    const renderTradingConditions = (strategyId: string) => {
+    return (
+      <div className="trading-conditions">
+        <label>Trading Condition:</label>
+        <select
+          value={tradingConditions[strategyId]?.condition || 'always'}
+          onChange={(e) => {
+            setTradingConditions(prev => ({
+              ...prev,
+              [strategyId]: { ...prev[strategyId], condition: e.target.value },
+            }));
+          }}
+        >
+          <option value="always">Always</option>
+          <option value="above60">Confidence Above 60%</option>
+          {/* Add more conditions as needed */}
+        </select>
+      </div>
+    );
+  };
+
+  // Function to render Martingale settings
+  const renderMartingaleSettings = (strategyId: string) => {
+    return (
+      <div className="martingale-settings">
+        <label>
+          Use Martingale:
+          <input
+            type="checkbox"
+            checked={martingaleSettings[strategyId]?.useMartingale || false}
+            onChange={(e) => {
+              setMartingaleSettings(prev => ({
+                ...prev,
+                [strategyId]: { ...prev[strategyId], useMartingale: e.target.checked },
+              }));
+            }}
+          />
+        </label>
+        {martingaleSettings[strategyId]?.useMartingale && (
+          <>
+            <label>Multiplier:</label>
+            <input
+              type="number"
+              value={martingaleSettings[strategyId]?.multiplier || 2}
+              onChange={(e) => {
+                const multiplier = parseFloat(e.target.value);
+                setMartingaleSettings(prev => ({
+                  ...prev,
+                  [strategyId]: { ...prev[strategyId], multiplier: multiplier },
+                }));
+              }}
+            />
+          </>
+        )}
       </div>
     );
   };
@@ -288,6 +362,9 @@ const VolatilityAnalyzer: React.FC = () => {
               )}
             </div>
           )}
+
+          {renderTradingConditions(strategyId)}
+          {renderMartingaleSettings(strategyId)}
 
           {results && (
             <div className="trading-card__results">
