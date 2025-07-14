@@ -1294,7 +1294,8 @@ if __name__ == "__main__":
                                         <div className='auto-trades__content-wrapper'>
                                             <div className='auto-trades__content'>
                                                 <div className='auto-trades__placeholder'>
-                                                    <Localize i18n_default_text='Auto trades functionality will be available soon.' />
+                                                    <p><Localize i18n_default_text='Auto trades functionality will be available soon.' /></p>
+                                                    <p><Localize i18n_default_text='This feature will allow you to set up automated trading strategies.' /></p>
                                                 </div>
                                             </div>
                                         </div>

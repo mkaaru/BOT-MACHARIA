@@ -1,3 +1,33 @@
+
+.auto-trades {
+  padding: 20px;
+  min-height: 400px;
+
+  &__heading {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    color: var(--text-prominent);
+  }
+
+  &__content-wrapper {
+    background: var(--general-main-1);
+    border-radius: 8px;
+    padding: 20px;
+  }
+
+  &__placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    
+    p {
+      margin: 10px 0;
+      color: var(--text-general);
+      font-size: 16px;
+    }
+  }
+}
+
 @use 'components/shared/styles/constants' as *;
 @use 'components/shared/styles/mixins' as *;
 
