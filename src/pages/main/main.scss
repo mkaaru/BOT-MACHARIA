@@ -800,6 +800,9 @@
 }
 .free-bots {
     padding: 2rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 
     &__heading {
         font-size: 2rem;
@@ -811,18 +814,45 @@
 
     &__content-wrapper {
         flex: 1;
-        padding: 2rem;
         overflow-y: auto;
         width: 100%;
+        padding: 0;
     }
 
     &__content {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         gap: 1.5rem;
+        padding: 1rem;
         width: 100%;
         max-width: none;
-        padding: 1rem;
+        
+        // Mobile: 1 column
+        grid-template-columns: 1fr;
+        
+        // Small tablets: 2 columns
+        @media (min-width: 768px) {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        // Large tablets: 3 columns
+        @media (min-width: 1024px) {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        
+        // Desktop: 4 columns
+        @media (min-width: 1200px) {
+            grid-template-columns: repeat(4, 1fr);
+        }
+        
+        // Large desktop: 5 columns
+        @media (min-width: 1440px) {
+            grid-template-columns: repeat(5, 1fr);
+        }
+        
+        // Extra large screens: 6 columns
+        @media (min-width: 1920px) {
+            grid-template-columns: repeat(6, 1fr);
+        }
     }
 }
 
@@ -935,35 +965,10 @@
     .free-bots-tabs {
         height: 100%;
 
-        .tab__content {
+        .dc-tabs__content {
             height: calc(100% - 50px);
             overflow: hidden;
         }
-    }
-}
-
-.free-bots {
-    padding: 2rem;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-
-    &__heading {
-        font-size: 2rem;
-        font-weight: 600;
-        margin-bottom: 2rem;
-        color: var(--text-prominent);
-    }
-
-    &__content-wrapper {
-        flex: 1;
-        overflow-y: auto;
-    }
-
-    &__content {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 2rem;
     }
 }
 
