@@ -28,8 +28,15 @@ interface AnalysisData {
   };
 }
 
-const VolatilityAnalyzer: React.FC = () => {
-  const [selectedSymbol, setSelectedSymbol] = useState('R_100');
+interface VolatilityAnalyzerProps {
+  initialSymbol: string;
+  initialContractType: string;
+  compactMode?: boolean;
+}
+
+const VolatilityAnalyzer: React.FC<VolatilityAnalyzerProps> = ({ initialSymbol, initialContractType, compactMode = false }) => {
+  const [selectedSymbol, setSelectedSymbol] = useState(initialSymbol);
+  const [contractType, setContractType] = useState(initialContractType);
   const [tickCount, setTickCount] = useState(120);
   const [barrier, setBarrier] = useState(5);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
@@ -397,14 +404,14 @@ const VolatilityAnalyzer: React.FC = () => {
         derivWs.onclose = null;
         derivWs.close();
       }
-      
+
       // Clear all trading intervals
       Object.values(tradingIntervals).forEach(interval => {
         if (interval) {
           clearInterval(interval);
         }
       });
-      
+
       // Reset auto trading status
       setAutoTradingStatus({
         'rise-fall': false,
@@ -415,7 +422,7 @@ const VolatilityAnalyzer: React.FC = () => {
         'matches-differs': false,
       });
     };
-  }, [selectedSymbol, tickCount, barrier]);
+  }, [selectedSymbol, tickCount, barrier, initialSymbol, initialContractType]);
 
   const updateSymbol = useCallback((symbol: string) => {
     setSelectedSymbol(symbol);
@@ -480,7 +487,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
   const executeTrade = async (strategyId: string, tradeType: string) => {
     console.log(`Executing ${tradeType} trade for ${strategyId}`);
-    
+
     if (connectionStatus !== 'connected') {
       console.error('Cannot trade: Not connected to API');
       return;
@@ -489,7 +496,7 @@ const VolatilityAnalyzer: React.FC = () => {
     try {
       const data = analysisData[strategyId];
       const condition = tradingConditions[strategyId];
-      
+
       if (!data?.data) {
         console.error('No analysis data available for trading');
         return;
@@ -507,7 +514,7 @@ const VolatilityAnalyzer: React.FC = () => {
       // Determine contract type based on strategy and current analysis
       let contractType = '';
       let barrier;
-      
+
       switch (strategyId) {
         case 'rise-fall':
           contractType = parseFloat(data.data.riseRatio || '0') > parseFloat(data.data.fallRatio || '0') ? 'CALL' : 'PUT';
@@ -547,22 +554,22 @@ const VolatilityAnalyzer: React.FC = () => {
       }
 
       console.log('Sending proposal request:', proposalRequest);
-      
+
       // Get proposal from Deriv API
       const proposalResponse = await tradingEngine.getProposal(proposalRequest);
-      
+
       if (proposalResponse.proposal) {
         console.log('Proposal received:', proposalResponse.proposal);
-        
+
         // Automatically buy the contract
         const purchaseResponse = await tradingEngine.buyContract(
           proposalResponse.proposal.id,
           proposalResponse.proposal.ask_price
         );
-        
+
         if (purchaseResponse.buy) {
           console.log('Contract purchased successfully:', purchaseResponse.buy);
-          
+
           // Apply martingale logic for next trade if this one loses
           if (martingaleAmount > 1) {
             // Store current stake for martingale progression
@@ -599,7 +606,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
     // Determine interval based on volatility symbol
     let intervalMs = 1000; // Default 1 second for 1s volatilities
-    
+
     // For regular volatilities (not 1s), use tick-based timing
     if (!selectedSymbol.includes('1HZ')) {
       // Regular volatilities get ticks approximately every 1-2 seconds
@@ -646,7 +653,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
   const checkTradingConditions = (strategyId: string, data: any, condition: any) => {
     let currentValue = 0;
-    
+
     switch (condition.condition) {
       case 'Rise Prob':
         currentValue = parseFloat(data.riseRatio || '0');
@@ -890,7 +897,7 @@ const VolatilityAnalyzer: React.FC = () => {
             <>
               <div className="barrier-info">Barrier: {data.data.barrier}</div>
               {renderProgressBar('Over', parseFloat(data.data.overProbability || '0'), '#2196F3')}
-              {renderProgressBar('Under', parseFloat(data.data.underProbability || '0'), '#FF9800')}
+              {renderProgressBar('Under', parseFloat(data.data.underProbability ||'0'), '#FF9800')}
               {data.data.actualDigits && renderDigitPattern(data.data.actualDigits, 'over-under', data.data.barrier)}
               {data.data.digitFrequencies && renderDigitFrequencies(data.data.digitFrequencies)}
             </>
@@ -1015,8 +1022,8 @@ const VolatilityAnalyzer: React.FC = () => {
   };
 
   return (
-    <div className="volatility-analyzer">
-      <div className="analyzer-header">
+    <div className={`volatility-analyzer ${compactMode ? 'volatility-analyzer--compact' : ''}`}>
+      <div className="volatility-analyzer__header">
         <h2>Smart Trading Analytics</h2>
         <div className={`connection-status ${connectionStatus}`}>
           {connectionStatus === 'connected' && '🟢 Connected'}

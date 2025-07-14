@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
+import VolatilityAnalyzer from '@/components/volatility-analyzer/volatility-analyzer';
+import Modal from '@/components/shared_ui/modal';
 import './speed-bot.scss';
 
 interface TradeResult {
@@ -29,6 +31,7 @@ const SpeedBot: React.FC = () => {
   const [totalProfit, setTotalProfit] = useState(0);
   const [tradeHistory, setTradeHistory] = useState<TradeResult[]>([]);
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
+  const [showAnalyzerPopup, setShowAnalyzerPopup] = useState(false);
 
   const volatilitySymbols = [
     { value: 'R_10', label: 'Volatility 10 Index' },
@@ -207,6 +210,10 @@ const SpeedBot: React.FC = () => {
     setTradeHistory([]);
   };
 
+  const toggleAnalyzerPopup = () => {
+    setShowAnalyzerPopup(!showAnalyzerPopup);
+  };
+
   useEffect(() => {
     connectToAPI();
     return () => {
@@ -305,6 +312,12 @@ const SpeedBot: React.FC = () => {
           >
             <Localize i18n_default_text="Reset Stats" />
           </button>
+          <button
+            onClick={toggleAnalyzerPopup}
+            className="speed-bot__button speed-bot__button--analyzer"
+          >
+            <Localize i18n_default_text="Smart Analysis" />
+          </button>
         </div>
       </div>
 
@@ -353,6 +366,24 @@ const SpeedBot: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Volatility Analyzer Popup */}
+      <Modal
+        is_open={showAnalyzerPopup}
+        title={<Localize i18n_default_text="Smart Trading Analysis" />}
+        toggleModal={toggleAnalyzerPopup}
+        width="90vw"
+        height="80vh"
+        className="speed-bot__analyzer-modal"
+      >
+        <div className="speed-bot__analyzer-wrapper">
+          <VolatilityAnalyzer 
+            initialSymbol={selectedSymbol}
+            initialContractType={contractType}
+            compactMode={true}
+          />
+        </div>
+      </Modal>
     </div>
   );
 };
