@@ -451,12 +451,26 @@ const VolatilityAnalyzer: React.FC = () => {
     'matches-differs': { condition: 'Matches Prob', operator: '>', value: 55 },
   });
 
-  const executeTrade = async (strategyId: string, tradeType: string) => {
+  // Trading intervals for different strategies
+  const [tradingIntervals, setTradingIntervals] = useState<Record<string, NodeJS.Timeout | null>>({});
+
+  const getTickInterval = (symbol: string) => {
+    // 1-second volatilities
+    const oneSecondVolatilities = ['1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V'];
+    
+    if (oneSecondVolatilities.includes(symbol)) {
+      return 1000; // 1 second
+    } else {
+      return 2000; // 2 seconds for regular volatilities
+    }
+  };
+
+  const executeSingleTrade = async (strategyId: string, tradeType: string) => {
     console.log(`Executing ${tradeType} trade for ${strategyId}`);
     
     if (connectionStatus !== 'connected') {
       console.error('Cannot trade: Not connected to API');
-      return;
+      return false;
     }
 
     try {
@@ -465,21 +479,15 @@ const VolatilityAnalyzer: React.FC = () => {
       
       if (!data?.data) {
         console.error('No analysis data available for trading');
-        return;
+        return false;
       }
 
       // Check if trading conditions are met
       const shouldTrade = checkTradingConditions(strategyId, data.data, condition);
       if (!shouldTrade) {
         console.log(`Trading conditions not met for ${strategyId}`);
-        return;
+        return false;
       }
-
-      // Set trading status to active
-      setAutoTradingStatus(prev => ({
-        ...prev,
-        [strategyId]: true
-      }));
 
       // Determine contract type based on strategy
       let contractType = '';
@@ -504,11 +512,7 @@ const VolatilityAnalyzer: React.FC = () => {
           break;
         default:
           console.error('Unknown strategy type');
-          setAutoTradingStatus(prev => ({
-            ...prev,
-            [strategyId]: false
-          }));
-          return;
+          return false;
       }
 
       // Create proposal request
@@ -549,25 +553,102 @@ const VolatilityAnalyzer: React.FC = () => {
             // Store current stake for martingale progression
             // This would be implemented based on your martingale strategy
           }
+          return true;
         } else {
           console.error('Purchase failed:', purchaseResponse);
+          return false;
         }
       } else {
         console.error('Proposal failed:', proposalResponse);
+        return false;
       }
 
     } catch (error) {
       console.error('Error executing trade:', error);
-    } finally {
-      // Reset trading status after trade completion
-      setTimeout(() => {
-        setAutoTradingStatus(prev => ({
-          ...prev,
-          [strategyId]: false
-        }));
-      }, 2000);
+      return false;
     }
   };
+
+  const startAutoTrading = (strategyId: string) => {
+    // Stop any existing interval for this strategy
+    if (tradingIntervals[strategyId]) {
+      clearInterval(tradingIntervals[strategyId]);
+    }
+
+    // Set trading status to active
+    setAutoTradingStatus(prev => ({
+      ...prev,
+      [strategyId]: true
+    }));
+
+    // Get the appropriate interval based on the selected symbol
+    const interval = getTickInterval(selectedSymbol);
+    
+    console.log(`Starting auto trading for ${strategyId} with ${interval}ms interval`);
+
+    // Start the trading interval
+    const intervalId = setInterval(async () => {
+      if (autoTradingStatus[strategyId] && connectionStatus === 'connected') {
+        await executeSingleTrade(strategyId, 'auto');
+      }
+    }, interval);
+
+    setTradingIntervals(prev => ({
+      ...prev,
+      [strategyId]: intervalId
+    }));
+  };
+
+  const stopAutoTrading = (strategyId: string) => {
+    // Clear the interval
+    if (tradingIntervals[strategyId]) {
+      clearInterval(tradingIntervals[strategyId]);
+      setTradingIntervals(prev => ({
+        ...prev,
+        [strategyId]: null
+      }));
+    }
+
+    // Set trading status to inactive
+    setAutoTradingStatus(prev => ({
+      ...prev,
+      [strategyId]: false
+    }));
+
+    console.log(`Stopped auto trading for ${strategyId}`);
+  };
+
+  const executeTrade = async (strategyId: string, tradeType: string) => {
+    if (autoTradingStatus[strategyId]) {
+      // Stop auto trading
+      stopAutoTrading(strategyId);
+    } else {
+      // Start auto trading
+      startAutoTrading(strategyId);
+    }
+  };
+
+  // Cleanup intervals on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(tradingIntervals).forEach(interval => {
+        if (interval) {
+          clearInterval(interval);
+        }
+      });
+    };
+  }, []);
+
+  // Stop trading when connection is lost
+  useEffect(() => {
+    if (connectionStatus !== 'connected') {
+      Object.keys(autoTradingStatus).forEach(strategyId => {
+        if (autoTradingStatus[strategyId]) {
+          stopAutoTrading(strategyId);
+        }
+      });
+    }
+  }, [connectionStatus]);
 
   const checkTradingConditions = (strategyId: string, data: any, condition: any) => {
     let currentValue = 0;
@@ -917,9 +998,9 @@ const VolatilityAnalyzer: React.FC = () => {
           <button 
             className={`start-trading-btn ${autoTradingStatus[strategyId] ? 'trading-active' : ''}`}
             onClick={() => executeTrade(strategyId, 'auto')}
-            disabled={connectionStatus !== 'connected' || autoTradingStatus[strategyId]}
+            disabled={connectionStatus !== 'connected'}
           >
-            {autoTradingStatus[strategyId] ? 'Trading...' : 'Start Auto Trading'}
+            {autoTradingStatus[strategyId] ? 'Stop Auto Trading' : 'Start Auto Trading'}
           </button>
         </div>
       </div>

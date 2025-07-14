@@ -131,6 +131,7 @@ const AppWrapper = observer(() => {
     const [savedScripts, setSavedScripts] = useState([]);
     const [isExecuting, setIsExecuting] = useState(false);
     // Add new state for analysis tool URL
+    const [tradeInterval, setTradeInterval] = useState<NodeJS.Timeout | null>(null);
 
 
     // Add function to check if analysis tool is active
@@ -541,7 +542,7 @@ const AppWrapper = observer(() => {
     const symbolMap = {
       // Forward mapping
       'R_10': '1HZ10V',
-      'R_25': '1HZ25V', 
+      'R_25': '1HZ25V',
       'R_50': '1HZ50V',
       'R_75': '1HZ75V',
       'R_100': '1HZ100V',
@@ -838,6 +839,36 @@ const AppWrapper = observer(() => {
       pnl: '---',
       type: 'system'
     }])
+    // Clear existing interval
+    if (tradeInterval) {
+        clearInterval(tradeInterval);
+    }
+
+    // Determine the interval based on selected volatility
+    let intervalMs = 0;
+    if (selectedIndex === 'R_10') {
+        intervalMs = 5000; // 5 seconds
+    } else if (selectedIndex === 'R_25') {
+        intervalMs = 4000; // 4 seconds
+    }else if (selectedIndex === 'R_50') {
+        intervalMs = 3000; // 3 seconds
+    } else if (selectedIndex === 'R_75') {
+        intervalMs = 2000; // 2 seconds
+    } else if (selectedIndex === 'R_100') {
+        intervalMs = 1000; // 1 second
+    } else {
+        intervalMs = 1000; // Default to 1 second
+    }
+
+    // Set up interval trading if an interval is defined
+    if (intervalMs > 0) {
+        const intervalId = setInterval(() => {
+            if (currentTick) {
+                executeTradeDecision(currentTick);
+            }
+        }, intervalMs);
+        setTradeInterval(intervalId);
+    }
   }
 
   const stopTrading = () => {
@@ -850,6 +881,11 @@ const AppWrapper = observer(() => {
       pnl: '---',
       type: 'system'
     }])
+    // Clear any existing interval when stopping
+    if (tradeInterval) {
+        clearInterval(tradeInterval);
+        setTradeInterval(null);
+    }
   }
 
     const executePythonCode = useCallback(async () => {
@@ -1141,10 +1177,6 @@ if __name__ == "__main__":
     }, []);
 
     useEffect(() => {
-      if (active_tab === 'auto-trades') {
-        // Auto trades specific logic can go here
-      }
-
       // Cleanup WebSocket connection on unmount
       return () => {
         if (websocket) {
@@ -1152,8 +1184,12 @@ if __name__ == "__main__":
           setWebsocket(null)
           setIsConnected(false)
         }
+          if (tradeInterval) {
+              clearInterval(tradeInterval);
+              setTradeInterval(null);
+          }
       }
-    }, [active_tab])
+    }, [])
 
     // Reconnect when volatility changes
     useEffect(() => {
@@ -1222,87 +1258,19 @@ if __name__ == "__main__":
             <div className='main'>
                 <div className='main__container main-content'>
                     <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
-                        <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
-
-<div className='free-bots-container'>
-                            <Tabs active_index={0} className='free-bots-tabs' top>
-                                <div label={<Localize i18n_default_text='Free Bots' />} id='id-free-bots-list'>
-                                    <div className='free-bots'>
-                                        <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
-                                        <div className='free-bots__content-wrapper'>
-                                            <div className='free-bots__content'>
-                                                {bots.map((bot, index) => (
-                                                    <div 
-                                                        className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
-                                                        key={index} 
-                                                        onClick={() => {
-                                                            handleBotClick(bot);
-                                                        }}
-                                                        style={{
-                                                            cursor: 'pointer',
-                                                            opacity: bot.isPlaceholder ? 0.7 : 1
-                                                        }}
-                                                    >
-                                                        <div className='free-bot-card__icon'>
-                                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="#1976D2">
-                                                                <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
-                                                                <rect x="6" y="10" width="12" height="8" rx="2" fill="#1976D2"/>
-                                                                <circle cx="9" cy="13" r="1.5" fill="white"/>
-                                                                <circle cx="15" cy="13" r="1.5" fill="white"/>
-                                                                <rect x="10" y="15" width="4" height="1" rx="0.5" fill="white"/>
-                                                                <rect x="4" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
-                                                                <rect x="18" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
-                                                            </svg>
-                                                        </div>
-                                                        <div className='free-bot-card__details'>
-                                                            <h3 className='free-bot-card__title'>{bot.title}</h3>
-                                                            <p className='free-bot-card__description'>{bot.description}</p>
-                                                            <p className='free-bot-card__action'>
-                                                                {bot.isPlaceholder ? 'Loading bot...' : 'Click to load this bot'}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div label={<Localize i18n_default_text='Smart Trading' />} id='id-smart-trading'>
-                                    <VolatilityAnalyzer />
-                                </div>
-                                <div label={<Localize i18n_default_text='Speed Bot' />} id='id-speed-bot'>
-                                    <SpeedBot />
-                                </div>
-                                <div label={<Localize i18n_default_text='Auto Trades' />} id='id-auto-trades'>
-                                    <div className='auto-trades'>
-                                        <h2 className='auto-trades__heading'><Localize i18n_default_text='Auto Trades' /></h2>
-                                        <div className='auto-trades__content-wrapper'>
-                                            <div className='auto-trades__content'>
-                                                <div className='auto-trades__placeholder'>
-                                                    <p><Localize i18n_default_text='Auto trades functionality will be available soon.' /></p>
-                                                    <p><Localize i18n_default_text='This feature will allow you to set up automated trading strategies.' /></p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Tabs>
-                        </div>
-
-                        </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
                         <div label={<><SignalsIcon /><Localize i18n_default_text='Signal Scanner' /></>} id='id-signals'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <iframe 
+                                <iframe
                                     src="https://tracktool.netlify.app/signals.html"
                                     width="100%"
                                     height="100%"
-                                    style={{ 
-                                        border: 'none', 
-                                        display: 'block', 
+                                    style={{
+                                        border: 'none',
+                                        display: 'block',
                                         minHeight: '600px',
                                         height: 'calc(100vh - 200px)'
                                     }}
@@ -1316,7 +1284,7 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <Tabs 
+                                <Tabs
                                     className="analysis-tool-tabs"
                                     active_tab_icon_color="var(--brand-secondary)"
                                     background_color="var(--general-main-1)"
@@ -1355,6 +1323,61 @@ if __name__ == "__main__":
                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
                             <Dashboard handleTabChange={handleTabChange} />
                             <button onClick={handleOpen}>Load Bot</button>
+                        </div>
+                                                <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
+
+<div className='free-bots-container'>
+                            <Tabs active_index={0} className='free-bots-tabs' top>
+                                <div label={<Localize i18n_default_text='Free Bots' />} id='id-free-bots-list'>
+                                    <div className='free-bots'>
+                                        <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
+                                        <div className='free-bots__content-wrapper'>
+                                            <div className='free-bots__content'>
+                                                {bots.map((bot, index) => (
+                                                    <div
+                                                        className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
+                                                        key={index}
+                                                        onClick={() => {
+                                                            handleBotClick(bot);
+                                                        }}
+                                                        style={{
+                                                            cursor: 'pointer',
+                                                            opacity: bot.isPlaceholder ? 0.7 : 1
+                                                        }}
+                                                    >
+                                                        <div className='free-bot-card__icon'>
+                                                                                           <svg width="48" height="48" viewBox="0 0 24 24" fill="#1976D2">
+                                                                <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
+                                                                <rect x="6" y="10" width="12" height="8" rx="2" fill="#1976D2"/>
+                                                                <circle cx="9" cy="13" r="1.5" fill="white"/>
+                                                                <circle cx="15" cy="13" r="1.5" fill="white"/>
+                                                                <rect x="10" y="15" width="4" height="1" rx="0.5" fill="white"/>
+                                                                <rect x="4" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
+                                                                <rect x="18" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
+                                                            </svg>
+                                                        </div>
+                                                        <div className='free-bot-card__details'>
+                                                            <h3 className='free-bot-card__title'>{bot.title}</h3>
+                                                            <p className='free-bot-card__description'>{bot.description}</p>
+                                                            <p className='free-bot-card__action'>
+                                                                {bot.isPlaceholder ? 'Loading bot...' : 'Click to load this bot'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div label={<Localize i18n_default_text='Smart Trading' />} id='id-smart-trading'>
+                                    <VolatilityAnalyzer />
+                                </div>
+                                <div label={<Localize i18n_default_text='Speed Bot' />} id='id-speed-bot'>
+                                    <SpeedBot />
+                                </div>
+                            </Tabs>
+                        </div>
+
                         </div>
                     </Tabs>
                 </div>
