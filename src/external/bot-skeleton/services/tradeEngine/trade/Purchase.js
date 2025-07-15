@@ -22,12 +22,18 @@ export default Engine =>
             if (!botInterface.getBaseAmount?.()) {
                 const baseAmount = this.tradeOptions.amount;
                 botInterface.setBaseAmount?.(baseAmount);
-                console.log(`Base amount set to: ${baseAmount}`);
+                console.log(`🔵 FIRST TRADE: Base amount set to: ${baseAmount}`);
             }
 
             const baseAmount = botInterface.getBaseAmount?.() || this.tradeOptions.amount;
             
-            console.log(`Current state: LastProfit=${lastTradeProfit}, Multiplier=${martingaleMultiplier}, BaseAmount=${baseAmount}, CurrentAmount=${this.tradeOptions.amount}`);
+            console.log(`🔍 MARTINGALE CHECK:`);
+            console.log(`   LastProfit: ${lastTradeProfit}`);
+            console.log(`   Current Multiplier: ${martingaleMultiplier}`);
+            console.log(`   Consecutive Losses: ${consecutiveLosses}`);
+            console.log(`   Base Amount: ${baseAmount}`);
+            console.log(`   Current Trade Amount: ${this.tradeOptions.amount}`);
+            console.log(`   Total Profit: ${botInterface.getTotalProfit?.() || 0}`);
 
             // Handle trade results (including break-even as neutral)
             if (lastTradeProfit < 0) {
@@ -94,6 +100,14 @@ export default Engine =>
                     contract_type,
                     buy_price: buy.buy_price,
                 });
+
+                // Store the purchase details for martingale tracking
+                const botInterface = this.getBotInterface?.();
+                if (botInterface) {
+                    // Store current purchase for future profit calculation
+                    botInterface.setCurrentPurchasePrice?.(buy.buy_price);
+                    console.log(`Purchase completed: ${buy.buy_price} USD, Contract ID: ${buy.contract_id}`);
+                }
 
                 // Resolve immediately to allow continuous purchases
                 resolve();
