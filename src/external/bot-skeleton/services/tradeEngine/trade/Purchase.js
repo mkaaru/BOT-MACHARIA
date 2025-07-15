@@ -40,7 +40,7 @@ export default Engine =>
                         contract_type,
                         buy_price: buy.buy_price,
                     });
-                    
+
                     // Resolve immediately to allow continuous purchases
                     resolve();
                 };
@@ -115,6 +115,28 @@ export default Engine =>
                     delayIndex++
                 ).then(onSuccess);
             });
+        }
+        shouldContinueTrading() {
+            const botInterface = this.getBotInterface?.();
+            if (!botInterface) return false;
+
+            const totalProfit = botInterface.getTotalProfit?.() || 0;
+            const profitThreshold = botInterface.getProfitThreshold?.() || Infinity;
+            const lossThreshold = botInterface.getLossThreshold?.() || -Infinity;
+            const martingaleMultiplier = botInterface.getMartingaleMultiplier?.() || 1;
+
+            // Stop if profit/loss thresholds are reached
+            if (totalProfit >= profitThreshold || totalProfit <= -Math.abs(lossThreshold)) {
+                return false;
+            }
+
+            // Stop if martingale multiplier gets too high (risk management)
+            if (martingaleMultiplier >= 64) {
+                console.log('Stopping due to high martingale multiplier');
+                return false;
+            }
+
+            return true;
         }
         getPurchaseReference = () => purchase_reference;
         regeneratePurchaseReference = () => {

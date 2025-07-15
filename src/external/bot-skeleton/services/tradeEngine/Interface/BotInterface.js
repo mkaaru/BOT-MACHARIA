@@ -18,6 +18,39 @@ const getBotInterface = tradeEngine => {
         isResult: result => getDetail(10) === result,
         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
         readDetails: i => getDetail(i - 1),
+        getTotalRuns: () => tradeEngine.totalRuns,
+        getTotalProfit: () => tradeEngine.totalProfit,
+        getMartingaleMultiplier: () => {
+            const workspace = Blockly.getMainWorkspace();
+            if (workspace) {
+                const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
+                if (multiplierVar) {
+                    const variableModel = workspace.getVariableMap().getVariableById('FRbI:RhI/`[lrO`o;=P,');
+                    return variableModel ? parseFloat(variableModel.name.split(':')[1]) || 1 : 1;
+                }
+            }
+            return 1;
+        },
+        getProfitThreshold: () => {
+            const workspace = Blockly.getMainWorkspace();
+            if (workspace) {
+                const profitVar = workspace.getVariableById('*p5|Lkk9Q^ZuPBQ-48g2');
+                if (profitVar) {
+                    return parseFloat(profitVar) || Infinity;
+                }
+            }
+            return Infinity;
+        },
+        getLossThreshold: () => {
+            const workspace = Blockly.getMainWorkspace();
+            if (workspace) {
+                const lossVar = workspace.getVariableById('a1BTYNHC?_yR4sfvNJ7N');
+                if (lossVar) {
+                    return parseFloat(lossVar) || -Infinity;
+                }
+            }
+            return -Infinity;
+        },
     };
 };
 
