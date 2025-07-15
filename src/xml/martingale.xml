@@ -731,9 +731,6 @@
                   <shadow type="math_number" id="#Om$-j0C[l$EXD$2JdKl">
                     <field name="NUM">2</field>
                   </shadow>
-                  <block type="variables_get" id="OIfB4l~Tv5_$I;ILt79^">
-                    <field name="VAR" id="ipD5?_dQ1Zkvf%v|[?DQ">martingale:size</field>
-                  </block>
                 </value>
               </block>
             </value>
