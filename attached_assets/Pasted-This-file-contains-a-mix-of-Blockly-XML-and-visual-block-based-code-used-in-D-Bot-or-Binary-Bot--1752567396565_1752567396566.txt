@@ -1,0 +1,441 @@
+This file contains a mix of:
+Blockly XML and visual block-based code (used in D-Bot or Binary Bot).
+JavaScript snippets related to bot execution and strategy logic.
+XML blocks defining trading strategies such as:
+Over/Under trades.
+Martingale and D’Alembert strategies.
+Stop-loss/take-profit logic.
+Trade conditionals based on tick values.
+Actual speed bot logic , such as:
+js
+
+
+1
+2
+3
+4
+5
+6
+7
+8
+⌄
+⌄
+function BinaryBotPrivateTickAnalysis() {
+  var currentTickTime = Bot.getLastTick(true);
+  while (currentTickTime === 'MarketIsClosed') {
+    sleep(5);
+    currentTickTime = Bot.getLastTick(true);
+  }
+  ...
+}
+This indicates real-time tick analysis and fast-paced trade execution — typical of a speed bot .
+✅ Conclusion
+The implementation of a speed bot is found in:
+📁 Pasted_Text_1752566769305.txt 
+This file includes:
+
+Real-time tick processing.
+Loop-based execution control (while, sleep).
+Direct references to Bot.getLastTick, BinaryBotPrivateRun, etc.
+Blockly block definitions that map to actual trading logic execution .
+The other file (Pasted_Text_1752566688807.txt) only contains supporting infrastructure (UI, config, analytics), but not the core bot runtime.
+
+Let me know if you want a breakdown of specific parts of the speed bot logic!
+
+breakdown and give me the full implementation of the  breakdown of al; parts of the speed bot logic!
+
+profile
+Qwen3-235B-A22B
+Thank you for the detailed request!
+
+You're asking for a complete breakdown of all parts of the speed bot logic from this file:
+
+📁 Pasted_Text_1752566769305.txt
+This is a speed bot implementation , written in JavaScript with integration to Blockly-based visual logic blocks , and it includes:
+
+Real-time tick analysis
+Trade execution loops
+Strategy definitions (e.g., Martingale, D’Alembert)
+Conditionals for trade decisions
+Google Blockly XML structure defining strategy workflows
+✅ OVERVIEW OF THE SPEED BOT LOGIC
+The speed bot appears to be part of D-Bot or Binary Bot , tools used on platforms like Deriv.com for automated trading.
+
+🧠 Core Features Implemented:
+Tick-by-tick market data processing
+Fast looped execution (while, sleep)
+Conditional logic based on digit/tick values
+Trading strategies: Martingale, D'Alembert, etc.
+Purchase triggers and order management
+Risk control: stop-loss, take-profit
+Market state detection: open/close
+🔍 FULL BREAKDOWN OF THE IMPLEMENTATION
+Let’s go through each major section and extract the key logic.
+
+1. Main Speed Bot Runner Function
+js
+
+
+1
+2
+3
+4
+5
+6
+⌄
+function BinaryBotPrivateRun(f, arg) {
+    var final_list = [];
+    recursiveList(arg, final_list);
+    // Executes the function f with processed arguments
+    return f(final_list);
+}
+📌 Purpose:
+Wraps around strategy execution.
+Recursively flattens nested arrays into a single list of numbers.
+Passes them to the main function f.
+🔁 Helper:
+js
+
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+⌄
+⌄
+⌄
+⌄
+function recursiveList(list, final_list) {
+    for (var i = 0; i < list.length; i++) {
+        if (typeof(list[i]) === 'object') {
+            recursiveList(list[i], final_list);
+        }
+        if (typeof(list[i]) == 'number') {
+            final_list.push(list[i]);
+        }
+    }
+    return final_list;
+}
+Flattens multi-dimensional arrays recursively.
+2. Tick Analysis Loop
+js
+
+
+1
+2
+3
+4
+5
+6
+7
+8
+⌄
+⌄
+function BinaryBotPrivateTickAnalysis() {
+    var currentTickTime = Bot.getLastTick(true);
+    while (currentTickTime === 'MarketIsClosed') {
+        sleep(5);
+        currentTickTime = Bot.getLastTick(true);
+    }
+    ...
+}
+📌 Purpose:
+Checks for the latest tick using Bot.getLastTick().
+Waits (sleep(5)) until the market opens again.
+⚙️ Internal Logic:
+Ensures trades are only executed when the market is open.
+Continuously polls for new ticks.
+3. Strategy Definitions & Variables
+There are multiple variables used for tracking:
+
+js
+
+
+1
+2
+var BinaryBotPrivateHasCalledTradeOptions = false;
+var BinaryBotPrivateTickAnalysisList = [];
+These track:
+
+Whether trade options have been called
+A list of tick analysis results for decision-making
+4. Example Strategy Block – Over/Under Digit Prediction
+From Blockly XML block:
+
+xml
+
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+⌄
+⌄
+⌄
+⌄
+⌄
+⌄
+⌄
+⌄
+⌄
+<block type="controls_if" id="KCa0MY0ZcS[uVdJ*M^%-">
+    <field name="OP">EQ</field>
+    <value name="A">
+        <block type="variables_get" id="Wvl?K`WvsQsr;cZIn[bQ">
+            <field name="VAR" id="2%L3Rjj4.RqsTSPla6hf" variabletype="">Loss Count</field>
+        </block>
+    </value>
+    <value name="B">
+        <block type="math_number" id="43k*86t^hBUz4Ht-j1N@">
+            <field name="NUM">2</field>
+        </block>
+    </value>
+    <statement name="DO0">
+        <block type="variables_set" id="0SO:h@vO=}xIr8gd19u3">
+            <field name="VAR" id="TpR#!@ZaN:g6gvsyAgHw">Loop Stop</field>
+            <value name="VALUE">
+                <block type="logic_boolean" id="=gx3N:10By9=w2g!}XK_">
+                    <field name="BOOL">TRUE</field>
+                </block>
+            </value>
+        </block>
+    </statement>
+</block>
+📌 Purpose:
+This block sets up a conditional:
+If Loss Count == 2, then set Loop Stop = TRUE
+Used in a loop that stops after 2 losses.
+5. Martingale Strategy
+From: "./Super Speed Bot.xml" 
+
+js
+
+
+1
+2
+3
+4
+⌄
+// Example: Increase stake after loss
+if (last_trade_result === 'loss') {
+    stake *= 2;
+}
+📌 Purpose:
+Doubles the stake after every losing trade.
+Designed to recover previous losses + make profit on next win.
+6. D’Alembert Strategy
+From: "./Over 3 Signal Bot.xml" 
+
+js
+
+
+1
+2
+3
+4
+5
+6
+⌄
+⌄
+// Example: Increase/decrease stake by fixed amount
+if (last_trade_result === 'loss') {
+    stake += base_stake;
+} else {
+    stake -= base_stake;
+}
+📌 Purpose:
+Increases stake after a loss.
+Decreases stake after a win.
+Less aggressive than Martingale.
+7. Trade Execution Blocks
+From Blockly XML:
+
+xml
+
+
+1
+2
+3
+⌄
+<block type="apollo_purchase" id="4oUF0V`vAb?3~p;(}guu">
+    <field name="PURCHASE_LIST">DIGITOVER</field>
+</block>
+📌 Purpose:
+Triggers a purchase action for "Digit Over".
+Other options include: DIGITUNDER, CALLE, PUTE, etc.
+8. Timeout / Delay Logic
+xml
+
+
+1
+2
+3
+4
+5
+⌄
+⌄
+<block type="timeout" id="hE!">
+    <statement name="TIMEOUTSTACK">
+        <!-- Nested blocks here -->
+    </statement>
+</block>
+📌 Purpose:
+Delays execution of subsequent blocks.
+Simulates timing between trades or analyses.
+9. Market Closure Detection
+js
+
+
+1
+2
+3
+4
+⌄
+while (currentTickTime === 'MarketIsClosed') {
+    sleep(5);
+    currentTickTime = Bot.getLastTick(true);
+}
+📌 Purpose:
+Prevents placing trades during market closure.
+Avoids errors due to invalid market conditions.
+10. Stop-Loss & Profit Threshold
+From user guide strings:
+
+js
+
+
+1
+2
+"Profit threshold: The bot will stop trading if your total profit exceeds this amount."
+"Loss threshold: The bot will stop trading if your total loss exceeds this amount."
+📌 Purpose:
+Risk control mechanisms.
+Stops the bot automatically when limits are reached.
+11. User Interface Integration
+From JSON config:
+
+js
+
+
+1
+2
+3
+4
+5
+6
+7
+⌄
+⌄
+{
+  title: "What is a quick strategy?",
+  description: [
+    "A quick strategy is a ready-made strategy that you can use in D-Bot.",
+    "Select Martingale, D'Alembert, or Oscar's Grind. Set parameters and run."
+  ]
+}
+📌 Purpose:
+Provides UI context for users selecting strategies.
+Guides how to configure and run bots.
+12. Strategy Selection GUI Mapping
+js
+
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+⌄
+⌄
+const QUICK_STRATEGY = {
+    DEFAULT: {
+        symbol: "1HZ100V",
+        tradetype: "callput",
+        durationtype: "t",
+        size: 1,
+        unit: 1,
+        prediction: 0
+    }
+};
+📌 Purpose:
+Predefines default trade settings.
+Can be overridden via Blockly blocks or user input.
+🧩 Summary of Full Logic Flow
+Initialization
+Load strategy configuration
+Define variables: stake, barrier, prediction, etc.
+Wait for Market Open
+Poll Bot.getLastTick() until market is active
+Tick Analysis
+Store recent tick values
+Apply logic based on digit patterns, volatility, trends
+Conditional Decisions
+Use Blockly-defined logic blocks to determine trade direction
+Trade Execution
+Trigger apollo_purchase with appropriate contract type
+Post-Trade Adjustment
+Update stake per strategy (Martingale, D’Alembert, etc.)
+Track profit/loss
+Risk Control
+Check stop-loss/profit thresholds
+Exit or continue based on limits
+Repeat Loop
+Continue polling for new ticks and repeat cycle
+🛠 Bonus: How to Run This Bot?
+If you want to run this yourself:
+
+Go to Deriv D-Bot
+Import an .xml strategy file (e.g., Super Speed Bot.xml)
+Connect to your Deriv account
+Start the bot
+All logic defined in the files you shared is used to generate these .xml strategy files and execute them via the Deriv API.
+
+🧾 Final Output: Key Functions Extracted
+Wait for Market
+while (currentTickTime === 'MarketIsClosed') { sleep(5); }
+Recursive Argument Parsing
+recursiveList(list, final_list)
+Martingale Stake Logic
+stake *= 2
+after loss
+D’Alembert Stake Logic
+stake += base_stake
+after loss
+Purchase Trigger
+apollo_purchase("DIGITOVER")
+Stop Loss / Take Profit
+Monitored via balance comparison
+Blockly Conditionals
+XML
+<controls_if>
