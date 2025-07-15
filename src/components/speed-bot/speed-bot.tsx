@@ -212,10 +212,9 @@ const SpeedBot: React.FC = observer(() => {
             const price = parseFloat(data.tick.quote);
             setCurrentPrice(price.toFixed(5));
 
-            // Execute trade on every tick when trading is active
+            // Log tick updates when trading is active
             if (isTrading) {
               console.log('📈 New tick received:', price, 'Trading active:', isTrading);
-              executeTradeOnTick(price);
             }
           }
 
@@ -248,7 +247,7 @@ const SpeedBot: React.FC = observer(() => {
     }
   }, [selectedSymbol, isTrading]);
 
-  // Generate trading strategy XML for bot builder
+  // Generate trading strategy XML for bot builder with every tick execution
   const generateSpeedBotStrategy = useCallback(() => {
     try {
       let prediction = overUnderValue;
@@ -300,6 +299,7 @@ const SpeedBot: React.FC = observer(() => {
         </block>
       </value>` : '';
 
+      // Generate strategy XML with every tick execution mode
       const xmlStrategy = `<xml xmlns="http://www.w3.org/1999/xhtml" collection="false" is_dbot="true">
   <variables></variables>
   <block type="trade_definition_tradeoptions" id="trade_definition_${Date.now()}" x="0" y="0">
@@ -322,6 +322,7 @@ const SpeedBot: React.FC = observer(() => {
     <statement name="BEFOREPURCHASE_STACK">
       <block type="purchase" id="purchase_${Date.now()}">
         <field name="PURCHASE_LIST">${tradeType}</field>
+        <field name="EXECUTION_MODE">EVERY_TICK</field>
       </block>
     </statement>
   </block>
@@ -330,7 +331,7 @@ const SpeedBot: React.FC = observer(() => {
       <block type="trade_again" id="trade_again_${Date.now()}">
         <value name="CONDITION">
           <block type="logic_boolean" id="condition_${Date.now()}">
-            <field name="BOOL">FALSE</field>
+            <field name="BOOL">TRUE</field>
           </block>
         </value>
       </block>
@@ -338,7 +339,7 @@ const SpeedBot: React.FC = observer(() => {
   </block>
 </xml>`;
 
-      console.log('Generated strategy XML:', xmlStrategy);
+      console.log('Generated Speed Bot strategy XML:', xmlStrategy);
       return xmlStrategy;
     } catch (error) {
       console.error('Error generating strategy XML:', error);
@@ -346,208 +347,58 @@ const SpeedBot: React.FC = observer(() => {
     }
   }, [selectedSymbol, selectedContractType, currentStake, overUnderValue]);
 
-  // Execute trade through Bot Builder's trading engine
-  const executeTradeOnTick = useCallback(async (tick: number) => {
-    if (!isTrading || isExecutingTrade) return;
+  // Listen for bot builder events and update trade history
+  const handleBotEvents = useCallback(() => {
+    if (!run_panel || !isTrading) return;
 
-    // Allow trades every 1 second to reduce API load
-    const now = Date.now();
-    if (now - lastTradeTime < 1000) return;
+    // Listen for trade completion events from bot builder
+    const handleTradeResult = (result) => {
+      if (result && result.contract) {
+        const profit = parseFloat(result.profit) || 0;
+        const isWin = profit > 0;
 
-    // Check if user is still logged in
-    const authToken = getAuthToken();
-    if (!client?.is_logged_in || !authToken) {
-      setError('Please log in to continue trading');
-      setIsTrading(false);
-      return;
+        const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const trade: Trade = {
+          id: tradeId,
+          timestamp: new Date().toLocaleTimeString(),
+          symbol: selectedSymbol,
+          contractType: selectedContractType,
+          result: isWin ? 'win' : 'loss',
+          stake: currentStake,
+          profit: profit,
+        };
+
+        setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
+        setTotalTrades(prev => prev + 1);
+
+        if (isWin) {
+          setWins(prev => prev + 1);
+        } else {
+          setLosses(prev => prev + 1);
+        }
+
+        // Apply martingale strategy if enabled
+        if (useMartingale && !isWin) {
+          setCurrentStake(prev => prev * martingaleMultiplier);
+        } else if (isWin) {
+          setCurrentStake(stake); // Reset to original stake on win
+        }
+
+        console.log(`Speed Bot trade completed:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`);
+      }
+    };
+
+    // Register for trade completion events
+    if (localObserver) {
+      localObserver.register('bot.trade_complete', handleTradeResult);
     }
 
-    // Check if blockly store and run panel are available
-    if (!blockly_store || !run_panel) {
-      setError('Bot Builder services not available');
-      setIsTrading(false);
-      return;
-    }
-
-    setIsExecutingTrade(true);
-    setLastTradeTime(now);
-
-    try {
-      // Generate the trading strategy XML
-      const strategyXML = generateSpeedBotStrategy();
-
-      // Validate XML before loading
-      try {
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(strategyXML, 'application/xml');
-        const parseError = xmlDoc.getElementsByTagName('parsererror');
-        if (parseError.length > 0) {
-          throw new Error('Invalid XML generated');
-        }
-      } catch (xmlError) {
-        console.error('XML validation failed:', xmlError);
-        throw new Error('Failed to generate valid trading strategy');
-      }
-
-      // Wait for Blockly to be fully initialized
-      const waitForBlockly = async () => {
-        let attempts = 0;
-        const maxAttempts = 50; // 5 seconds total wait time
-
-        while (attempts < maxAttempts) {
-          if (window.Blockly && 
-              window.Blockly.derivWorkspace && 
-              window.Blockly.Xml && 
-              typeof window.Blockly.Xml.textToDom === 'function') {
-            return true;
-          }
-
-          await new Promise(resolve => setTimeout(resolve, 100));
-          attempts++;
-        }
-
-        return false;
-      };
-
-      const isBlocklyReady = await waitForBlockly();
-
-      if (!isBlocklyReady) {
-        setError('Blockly is not ready. Please wait a moment and try again, or refresh the page.');
-        return;
-      }
-
-      // Check if XML utilities are available
-      if (!window.Blockly.Xml || typeof window.Blockly.Xml.textToDom !== 'function') {
-        throw new Error('Blockly XML utilities not available');
-      }
-
-      // Load the strategy into blockly workspace
-      try {
-        // Stop any running bot first
-        if (run_panel?.is_running) {
-          await run_panel.onStopButtonClick();
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
-
-        // Clear existing workspace
-        window.Blockly.derivWorkspace.clear();
-
-        // Parse the XML using Blockly's textToDom
-        const xml = window.Blockly.Xml.textToDom(strategyXML);
-        if (!xml) {
-          throw new Error('Failed to parse strategy XML with Blockly.Xml.textToDom');
-        }
-
-        // Set event group for proper loading
-        const eventGroup = `speed_bot_load_${Date.now()}`;
-        window.Blockly.Events.setGroup(eventGroup);
-
-        try {
-          // Load strategy into workspace using domToWorkspace
-          window.Blockly.Xml.domToWorkspace(xml, window.Blockly.derivWorkspace);
-
-          // Update workspace strategy id
-          window.Blockly.derivWorkspace.current_strategy_id = `speed_bot_${Date.now()}`;
-
-          console.log('✅ Strategy loaded into workspace successfully');
-
-        } finally {
-          // Always clear the event group
-          window.Blockly.Events.setGroup(false);
-        }
-
-        // Brief delay before starting
-        await new Promise(resolve => setTimeout(resolve, 200));
-
-      } catch (workspaceError) {
-        console.error('Error loading strategy to workspace:', workspaceError);
-        throw new Error(`Failed to load trading strategy: ${workspaceError.message}`);
-      }
-
-      // Start the bot with the new strategy
-      if (run_panel?.onRunButtonClick) {
-        try {
-          await run_panel.onRunButtonClick();
-          console.log('✅ Bot started successfully');
-        } catch (runError) {
-          console.error('Error starting bot:', runError);
-          throw new Error(`Failed to start bot: ${runError.message}`);
-        }
-      } else {
-        throw new Error('Run panel not available');
-      }
-
-      // Track trade for UI
-      const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const trade: Trade = {
-        id: tradeId,
-        timestamp: new Date().toLocaleTimeString(),
-        symbol: selectedSymbol,
-        contractType: selectedContractType,
-        result: 'pending',
-        stake: currentStake,
-        profit: 0,
-      };
-
-      setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
-      setTotalTrades(prev => prev + 1);
-
-      console.log(`🚀 Speed Bot trade initiated: ${selectedContractType} on ${selectedSymbol} - Stake: ${currentStake}`);
-
-      // Listen for trade results from the bot engine
-      const handleTradeResult = (result) => {
-        if (result && result.contract) {
-          const profit = parseFloat(result.profit) || 0;
-          const isWin = profit > 0;
-
-          setTradeHistory(prev => 
-            prev.map(t => 
-              t.id === tradeId 
-                ? { ...t, result: isWin ? 'win' : 'loss', profit: profit }
-                : t
-            )
-          );
-
-          if (isWin) {
-            setWins(prev => prev + 1);
-          } else {
-            setLosses(prev => prev + 1);
-          }
-
-          // Apply martingale strategy if enabled
-          if (useMartingale && !isWin) {
-            setCurrentStake(prev => prev * martingaleMultiplier);
-          } else if (isWin) {
-            setCurrentStake(stake); // Reset to original stake on win
-          }
-
-          console.log(`Contract ${tradeId} finished:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`);
-        }
-      };
-
-      // Register for trade completion events
+    return () => {
       if (localObserver) {
-        localObserver.register('bot.trade_complete', handleTradeResult);
-
-        // Clean up listener after some time
-        setTimeout(() => {
-          localObserver.unregister('bot.trade_complete', handleTradeResult);
-        }, 30000); // 30 seconds timeout for trade completion
+        localObserver.unregister('bot.trade_complete', handleTradeResult);
       }
-
-    } catch (error) {
-      console.error('Error executing trade through Bot Builder:', error);
-      setError(`Trade error: ${error.message}`);
-
-      // If it's an authentication error, stop trading
-      if (error.message.includes('authorization') || error.message.includes('token')) {
-        setIsTrading(false);
-      }
-
-    } finally {
-      setIsExecutingTrade(false);
-    }
-  }, [selectedSymbol, selectedContractType, currentStake, overUnderValue, useMartingale, martingaleMultiplier, stake, blockly_store, run_panel, isTrading, isExecutingTrade, lastTradeTime, generateSpeedBotStrategy, localObserver]);
+    };
+  }, [selectedSymbol, selectedContractType, currentStake, useMartingale, martingaleMultiplier, stake, run_panel, isTrading, localObserver]);
 
   const startTrading = async () => {
     if (!isConnected) {
@@ -606,17 +457,101 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
-    setCurrentStake(stake);
-    setIsTrading(true);
-    setError(null);
+    try {
+      setCurrentStake(stake);
+      setError(null);
 
-    console.log('🚀 Speed Bot trading started using Bot Builder engine');
-    console.log(`Trading ${selectedContractType} on ${selectedSymbol} with stake ${stake}`);
+      // Generate the trading strategy XML with Speed Bot values
+      const strategyXML = generateSpeedBotStrategy();
+
+      // Validate XML before loading
+      try {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(strategyXML, 'application/xml');
+        const parseError = xmlDoc.getElementsByTagName('parsererror');
+        if (parseError.length > 0) {
+          throw new Error('Invalid XML generated');
+        }
+      } catch (xmlError) {
+        console.error('XML validation failed:', xmlError);
+        throw new Error('Failed to generate valid trading strategy');
+      }
+
+      // Stop any running bot first
+      if (run_panel?.is_running) {
+        await run_panel.onStopButtonClick();
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      // Clear existing workspace
+      window.Blockly.derivWorkspace.clear();
+
+      // Parse the XML using Blockly's textToDom
+      const xml = window.Blockly.Xml.textToDom(strategyXML);
+      if (!xml) {
+        throw new Error('Failed to parse strategy XML with Blockly.Xml.textToDom');
+      }
+
+      // Set event group for proper loading
+      const eventGroup = `speed_bot_load_${Date.now()}`;
+      window.Blockly.Events.setGroup(eventGroup);
+
+      try {
+        // Load strategy into workspace using domToWorkspace
+        window.Blockly.Xml.domToWorkspace(xml, window.Blockly.derivWorkspace);
+
+        // Update workspace strategy id
+        window.Blockly.derivWorkspace.current_strategy_id = `speed_bot_${Date.now()}`;
+
+        console.log('✅ Speed Bot strategy loaded into workspace successfully');
+
+      } finally {
+        // Always clear the event group
+        window.Blockly.Events.setGroup(false);
+      }
+
+      // Brief delay before starting
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Start the bot with the loaded strategy
+      if (run_panel?.onRunButtonClick) {
+        try {
+          await run_panel.onRunButtonClick();
+          console.log('✅ Speed Bot started successfully with bot builder');
+          setIsTrading(true);
+        } catch (runError) {
+          console.error('Error starting Speed Bot:', runError);
+          throw new Error(`Failed to start Speed Bot: ${runError.message}`);
+        }
+      } else {
+        throw new Error('Run panel not available');
+      }
+
+      console.log('🚀 Speed Bot trading started using Bot Builder engine');
+      console.log(`Trading ${selectedContractType} on ${selectedSymbol} with stake ${stake} - Every Tick Mode`);
+
+    } catch (error) {
+      console.error('Error starting Speed Bot:', error);
+      setError(`Failed to start Speed Bot: ${error.message}`);
+      setIsTrading(false);
+    }
   };
 
-  const stopTrading = () => {
-    setIsTrading(false);
-    console.log('🛑 Speed Bot trading stopped');
+  const stopTrading = async () => {
+    try {
+      // Stop the bot builder if it's running
+      if (run_panel?.is_running) {
+        await run_panel.onStopButtonClick();
+        console.log('🛑 Bot Builder stopped');
+      }
+      
+      setIsTrading(false);
+      console.log('🛑 Speed Bot trading stopped');
+    } catch (error) {
+      console.error('Error stopping Speed Bot:', error);
+      setError(`Error stopping Speed Bot: ${error.message}`);
+      setIsTrading(false);
+    }
   };
 
   const resetStats = () => {
@@ -646,6 +581,14 @@ const SpeedBot: React.FC = observer(() => {
   useEffect(() => {
     setCurrentStake(stake);
   }, [stake]);
+
+  // Set up bot event handling when trading starts
+  useEffect(() => {
+    if (isTrading) {
+      const cleanup = handleBotEvents();
+      return cleanup;
+    }
+  }, [isTrading, handleBotEvents]);
 
   const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
 
