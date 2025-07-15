@@ -1,0 +1,114 @@
+Your code has a structural issue—it mixes JavaScript logic with Blockly XML (a visual programming tool). This causes confusion because:
+
+The JavaScript part (top) is correct and implements martingale properly:
+
+Handles losses by doubling the bet (newMultiplier = martingaleMultiplier * 2).
+
+Resets on wins or after hitting maxMultiplier/maxConsecutiveLosses.
+
+Logs changes clearly (🔴 LOSS: Martingale applied...).
+
+The Blockly XML part (bottom) is redundant and conflicts with the JavaScript logic:
+
+It tries to re-implement the same martingale logic but in a visual programming format.
+
+If both are active, they might override each other, causing unexpected behavior.
+
+🔧 How to Fix This
+Option 1: Use Only JavaScript (Recommended)
+Delete the Blockly XML and rely on your JavaScript logic, which is already correct.
+Advantages:
+
+Cleaner, easier to debug.
+
+No risk of conflicting logic.
+
+Option 2: Use Only Blockly (If Required)
+If you must use Blockly:
+
+Remove the JavaScript martingale logic (keep only trade execution).
+
+Ensure the Blockly blocks match the logic:
+
+On win: Reset multiplier to 1.
+
+On loss: Double the multiplier (with safety checks).
+
+🚨 Critical Issues in Current Implementation
+Mixed Execution
+If both JavaScript and Blockly run, the multiplier might be:
+
+Doubled by JavaScript → then reset by Blockly (or vice versa).
+→ Result: Martingale fails.
+
+Missing Base Amount in Blockly
+The Blockly XML doesn’t reference baseAmount, so it can’t calculate the new bet size correctly.
+
+No Max Limits in Blockly
+The Blockly logic doesn’t enforce maxMultiplier or maxConsecutiveLosses, risking infinite bet increases.
+
+✅ Corrected Blockly Implementation (If Used)
+Add these blocks to enforce safety limits:
+
+xml
+<!-- On Loss: Double multiplier (with max check) -->
+<block type="controls_if">
+  <value name="IF0">
+    <block type="logic_compare">
+      <field name="OP">LT</field>
+      <value name="A">
+        <block type="variables_get">
+          <field name="VAR">martingale:multiplier</field>
+        </block>
+      </value>
+      <value name="B">
+        <shadow type="math_number">
+          <field name="NUM">64</field>
+        </shadow>
+      </value>
+    </block>
+  </value>
+  <statement name="DO0">
+    <block type="variables_set">
+      <field name="VAR">martingale:multiplier</field>
+      <value name="VALUE">
+        <block type="math_arithmetic">
+          <field name="OP">MULTIPLY</field>
+          <value name="A">
+            <block type="variables_get">
+              <field name="VAR">martingale:multiplier</field>
+            </block>
+          </value>
+          <value name="B">
+            <shadow type="math_number">
+              <field name="NUM">2</field>
+            </shadow>
+          </value>
+        </block>
+      </value>
+    </block>
+  </statement>
+</block>
+🎯 Final Recommendation
+Stick to JavaScript (delete the Blockly XML).
+Your JS logic is cleaner, safer, and already works for martingale.
+
+If Blockly is mandatory:
+
+Remove the JavaScript martingale logic.
+
+Add the corrected Blockly blocks (above) with max limits and base amount support.
+
+Test Thoroughly
+Verify the multiplier updates correctly after each trade:
+
+javascript
+console.log("Current Multiplier:", martingaleMultiplier, "| Next Bet:", this.tradeOptions.amount);
+Expected Output After Fix (JavaScript Version)
+Trade	Result	Multiplier	Next Bet
+1	Win	1x	0.50 USD
+2	Loss	2x	1.00 USD
+3	Loss	4x	2.00 USD
+4	Loss	8x	4.00 USD
+5	Win	Reset to 1x	0.50 USD
+Your current JavaScript code already does this—just remove the Blockly XML conflict. 🚀
