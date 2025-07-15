@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
+import { useStore } from '@/hooks/useStore';
+import { observer } from '@/external/bot-skeleton';
 import './speed-bot.scss';
 
 interface Trade {
@@ -12,7 +14,9 @@ interface Trade {
   profit: number;
 }
 
-const SpeedBot: React.FC = () => {
+const SpeedBot: React.FC = observer(() => {
+  const { run_panel, blockly_store } = useStore();
+  
   // Connection state
   const [isConnected, setIsConnected] = useState(false);
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
@@ -132,88 +136,139 @@ const SpeedBot: React.FC = () => {
     };
   }, [selectedSymbol, isTrading]);
 
-  // Execute trade on tick
-  const executeTradeOnTick = useCallback((tick: number) => {
-    const lastDigit = Math.floor(Math.abs(tick * 100000)) % 10;
+  // Generate trading strategy XML for bot builder
+  const generateSpeedBotStrategy = useCallback(() => {
+    const prediction = selectedContractType === 'DIGITOVER' ? overUnderValue + 1 : 
+                     selectedContractType === 'DIGITUNDER' ? overUnderValue - 1 :
+                     selectedContractType === 'DIGITEVEN' ? 0 :
+                     selectedContractType === 'DIGITODD' ? 1 :
+                     selectedContractType === 'DIGITMATCH' ? overUnderValue :
+                     selectedContractType === 'DIGITDIFF' ? overUnderValue : 5;
 
-    // Strategy based on selected contract type
-    let prediction = '';
-    let isWin = false;
-
-    switch (selectedContractType) {
-      case 'DIGITOVER':
-        prediction = `OVER ${overUnderValue}`;
-        isWin = lastDigit > overUnderValue;
-        break;
-      case 'DIGITUNDER':
-        prediction = `UNDER ${overUnderValue}`;
-        isWin = lastDigit < overUnderValue;
-        break;
-      case 'DIGITEVEN':
-        prediction = 'EVEN';
-        isWin = lastDigit % 2 === 0;
-        break;
-      case 'DIGITODD':
-        prediction = 'ODD';
-        isWin = lastDigit % 2 === 1;
-        break;
-      case 'DIGITMATCH':
-        prediction = `MATCHES ${overUnderValue}`;
-        isWin = lastDigit === overUnderValue;
-        break;
-      case 'DIGITDIFF':
-        prediction = `DIFFERS ${overUnderValue}`;
-        isWin = lastDigit !== overUnderValue;
-        break;
-      default:
-        prediction = `${selectedContractType}`;
-        isWin = Math.random() > 0.5; // Simplified for other contract types
-    }
-
-    // Simulate trade execution
-    const trade: Trade = {
-      id: `trade_${Date.now()}`,
-      timestamp: new Date().toLocaleTimeString(),
-      symbol: selectedSymbol,
-      contractType: selectedContractType,
-      result: isWin ? 'win' : 'loss',
-      stake: currentStake,
-      profit: isWin ? currentStake * 0.95 : -currentStake,
+    const contractTypeMap = {
+      'DIGITOVER': 'DIGITOVER',
+      'DIGITUNDER': 'DIGITUNDER', 
+      'DIGITEVEN': 'DIGITEVEN',
+      'DIGITODD': 'DIGITODD',
+      'DIGITMATCH': 'DIGITMATCH',
+      'DIGITDIFF': 'DIGITDIFF'
     };
 
-    setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
-    setTotalTrades(prev => prev + 1);
+    const xmlStrategy = `
+<xml xmlns="http://www.w3.org/1999/xhtml" collection="false">
+  <block type="trade_definition_tradeoptions" id="trade_definition" x="0" y="0">
+    <field name="MARKET">synthetic_index</field>
+    <field name="UNDERLYING">${selectedSymbol}</field>
+    <field name="TRADETYPE">${contractTypeMap[selectedContractType] || 'DIGITOVER'}</field>
+    <field name="TYPE">ticks</field>
+    <value name="DURATION">
+      <block type="math_number">
+        <field name="NUM">1</field>
+      </block>
+    </value>
+    <value name="AMOUNT">
+      <block type="math_number">
+        <field name="NUM">${currentStake}</field>
+      </block>
+    </value>
+    <value name="PREDICTION">
+      <block type="math_number">
+        <field name="NUM">${prediction}</field>
+      </block>
+    </value>
+  </block>
+  <block type="before_purchase" x="0" y="200">
+    <statement name="BEFOREPURCHASE_STACK">
+      <block type="purchase">
+        <field name="PURCHASE_LIST">${contractTypeMap[selectedContractType] || 'DIGITOVER'}</field>
+      </block>
+    </statement>
+  </block>
+  <block type="after_purchase" x="0" y="300">
+    <statement name="AFTERPURCHASE_STACK">
+      <block type="trade_again">
+        <value name="CONDITION">
+          <block type="logic_boolean">
+            <field name="BOOL">TRUE</field>
+          </block>
+        </value>
+      </block>
+    </statement>
+  </block>
+</xml>`;
 
-    if (isWin) {
-      setWins(prev => prev + 1);
-      setTotalBalance(prev => prev + trade.profit);
-      if (useMartingale) {
-        setCurrentStake(stake); // Reset to base stake
-      }
-    } else {
-      setLosses(prev => prev + 1);
-      setTotalBalance(prev => prev + trade.profit);
-      if (useMartingale) {
-        setCurrentStake(prev => prev * martingaleMultiplier); // Increase stake
-      }
+    return xmlStrategy;
+  }, [selectedSymbol, selectedContractType, currentStake, overUnderValue]);
+
+  // Execute trade through bot builder
+  const executeTradeOnTick = useCallback(async (tick: number) => {
+    if (!blockly_store.workspace) {
+      console.error('Blockly workspace not available');
+      return;
     }
 
-    console.log(`Trade executed: ${isWin ? 'WIN' : 'LOSS'} - ${prediction} - Digit: ${lastDigit}, Profit: ${trade.profit}`);
-  }, [selectedSymbol, selectedContractType, currentStake, overUnderValue, useMartingale, martingaleMultiplier, stake]);
+    try {
+      // Generate and load strategy
+      const strategyXml = generateSpeedBotStrategy();
+      
+      // Clear existing workspace
+      blockly_store.workspace.clear();
+      
+      // Load new strategy
+      const xml = window.Blockly.utils.xml.textToDom(strategyXml);
+      window.Blockly.Xml.domToWorkspace(xml, blockly_store.workspace);
 
-  const startTrading = () => {
+      // Start bot execution through run panel
+      if (!run_panel.is_running) {
+        await run_panel.onRunButtonClick();
+      }
+
+      // Track trade for UI
+      const trade: Trade = {
+        id: `trade_${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString(),
+        symbol: selectedSymbol,
+        contractType: selectedContractType,
+        result: 'pending',
+        stake: currentStake,
+        profit: 0,
+      };
+
+      setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
+      setTotalTrades(prev => prev + 1);
+
+      console.log(`Trade executed through bot builder: ${selectedContractType} - Stake: ${currentStake}`);
+      
+    } catch (error) {
+      console.error('Error executing trade:', error);
+    }
+  }, [selectedSymbol, selectedContractType, currentStake, overUnderValue, generateSpeedBotStrategy, blockly_store.workspace, run_panel]);
+
+  const startTrading = async () => {
     if (!isConnected) {
       alert('Please connect to API first');
       return;
     }
+    
+    if (!blockly_store.workspace) {
+      alert('Bot builder workspace not available');
+      return;
+    }
+
     setCurrentStake(stake);
     setIsTrading(true);
-    console.log('🚀 Trading started');
+    console.log('🚀 Speed Bot trading started through bot builder');
   };
 
   const stopTrading = () => {
     setIsTrading(false);
-    console.log('🛑 Trading stopped');
+    
+    // Stop the bot builder if it's running
+    if (run_panel.is_running) {
+      run_panel.onStopButtonClick();
+    }
+    
+    console.log('🛑 Speed Bot trading stopped');
   };
 
   const resetStats = () => {
@@ -227,12 +282,48 @@ const SpeedBot: React.FC = () => {
 
   useEffect(() => {
     connectToAPI();
+    
+    // Listen for bot contract events to update trade results
+    const handleBotContract = (data: any) => {
+      if (data && isTrading) {
+        setTradeHistory(prev => {
+          const updatedHistory = [...prev];
+          if (updatedHistory.length > 0) {
+            const lastTrade = updatedHistory[0];
+            if (lastTrade.result === 'pending') {
+              const isWin = data.profit > 0;
+              lastTrade.result = isWin ? 'win' : 'loss';
+              lastTrade.profit = data.profit || 0;
+              
+              if (isWin) {
+                setWins(prev => prev + 1);
+                if (useMartingale) {
+                  setCurrentStake(stake); // Reset to base stake
+                }
+              } else {
+                setLosses(prev => prev + 1);
+                if (useMartingale) {
+                  setCurrentStake(prev => prev * martingaleMultiplier); // Increase stake
+                }
+              }
+              
+              setTotalBalance(prev => prev + lastTrade.profit);
+            }
+          }
+          return updatedHistory;
+        });
+      }
+    };
+
+    observer.register('bot.contract', handleBotContract);
+    
     return () => {
       if (websocket) {
         websocket.close();
       }
+      observer.unregisterAll('bot.contract');
     };
-  }, [connectToAPI]);
+  }, [connectToAPI, isTrading, useMartingale, martingaleMultiplier, stake]);
 
   useEffect(() => {
     setCurrentStake(stake);
@@ -461,6 +552,6 @@ const SpeedBot: React.FC = () => {
       </div>
     </div>
   );
-};
+});
 
 export default SpeedBot;
