@@ -52,28 +52,236 @@
     }
   }
 
-  &__controls {
+  &__trading-config {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
     margin-bottom: 1.5rem;
+    border: 1px solid #e9ecef;
   }
 
-  &__control-row {
+  &__config-header {
     display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+
+    h3 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #333;
+      margin: 0;
+    }
   }
 
-  &__control-group {
+  &__bulk-toggle {
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: 0.5rem;
-    min-width: 200px;
 
     label {
       font-size: 0.875rem;
       font-weight: 500;
-      color: var(--text-general);
+      color: #666;
     }
+  }
+
+  &__toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+
+    input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+
+      &:checked + .speed-bot__slider {
+        background-color: #6c5ce7;
+
+        &:before {
+          transform: translateX(20px);
+        }
+      }
+    }
+  }
+
+  &__slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+
+    &:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+  }
+
+  &__toggle-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c5ce7;
+    text-transform: uppercase;
+  }
+
+  &__config-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  &__config-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  &__config-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  &__config-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+
+    label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  }
+
+  &__config-select,
+  &__config-input {
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    background: white;
+    color: #333;
+
+    &:focus {
+      outline: none;
+      border-color: #6c5ce7;
+      box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.1);
+    }
+
+    &:disabled {
+      background: #f5f5f5;
+      color: #999;
+      cursor: not-allowed;
+    }
+  }
+
+  &__price-display {
+    padding: 0.75rem;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #6c5ce7;
+    text-align: center;
+  }
+
+  &__execute-button {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+
+  &__execute-trades {
+    background: #6c5ce7;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.875rem 2rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 200px;
+
+    &:hover:not(:disabled) {
+      background: #5b4cdb;
+      transform: translateY(-1px);
+    }
+
+    &:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    &--stop {
+      background: #e74c3c;
+
+      &:hover:not(:disabled) {
+        background: #c0392b;
+      }
+    }
+  }
+
+  &__trading-results {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
+
+    h3 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #333;
+      margin: 0 0 1rem 0;
+    }
+  }
+
+  &__results-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  &__stat-item {
+    text-align: center;
+    padding: 1rem;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+  }
+
+  &__stat-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 0.25rem;
+  }
+
+  &__stat-label {
+    font-size: 0.75rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
 .speed-bot__toggle-container {

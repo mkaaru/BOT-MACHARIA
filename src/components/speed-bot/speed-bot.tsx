@@ -471,304 +471,173 @@ const SpeedBot: React.FC = () => {
     };
   }, [selectedSymbol, useBulkTrading]);
 
+  // Initialize bulk trading functionality with the provided WebSocket code
   const initializeBulkTrading = () => {
-    // Initialize bulk trading WebSocket connection with app ID 68848
-    let derivWs, reconnectTimeout;
-    let tickHistory = [], currentSymbol = selectedSymbol, tickCount = 120, decimalPlaces = 2;
-    let overUnderBarrier = overUnderValue, isInitialized = false, reconnectAttempts = 0;
-    const MAX_RECONNECT_ATTEMPTS = 5;
+    if (!useBulkTrading) return;
 
-    function startBulkWebSocket() {
-      console.log('🔌 Connecting to Bulk Trading WebSocket API');
-      
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
-      
-      if (derivWs) {
-        try {
-          derivWs.onclose = null;
-          derivWs.close();
-          console.log('Closed existing bulk trading connection');
-        } catch (error) {
-          console.error('Error closing existing bulk trading connection:', error);
+    // Inject the bulk trading WebSocket script
+    const script = document.createElement('script');
+    script.textContent = `
+      let derivWs,reconnectTimeout;let tickHistory=[],currentSymbol="${selectedSymbol}",tickCount=120,decimalPlaces=2,overUnderBarrier=${overUnderValue},isInitialized=false,reconnectAttempts=0,MAX_RECONNECT_ATTEMPTS=5;
+
+      function startWebSocket(){
+        if(console.log("🔌 Connecting to WebSocket API"),reconnectTimeout&&clearTimeout(reconnectTimeout),derivWs){
+          try{derivWs.onclose=null,derivWs.close(),console.log("Closed existing connection")}catch(e){console.error("Error closing existing connection:",e)}
+          derivWs=null
         }
-        derivWs = null;
+        try{
+          (derivWs=new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=68848")).onopen=function(){
+            console.log("✅ WebSocket connection established"),reconnectAttempts=0,notifyConnectionStatus("connected"),setTimeout(()=>{
+              try{derivWs&&derivWs.readyState===WebSocket.OPEN&&(console.log("Sending authorization request"),derivWs.send(JSON.stringify({app_id:68848})),requestTickHistory())}catch(e){console.error("Error during init requests:",e)}
+            },500)
+          },
+          derivWs.onmessage=function(e){
+            try{
+              let t=JSON.parse(e.data);
+              if(t.error){console.error("❌ WebSocket API error:",t.error),notifyConnectionStatus("error",t.error.message);return}
+              if(t.history)console.log(\`📊 Received history for \${currentSymbol}: \${t.history.prices.length} ticks\`),tickHistory=t.history.prices.map((e,o)=>({time:t.history.times[o],quote:parseFloat(e)})),detectDecimalPlaces(),updateUI();
+              else if(t.tick){let e=parseFloat(t.tick.quote);tickHistory.push({time:t.tick.epoch,quote:e}),tickHistory.length>tickCount&&tickHistory.shift(),updateUI()}
+              else t.ping&&derivWs.send(JSON.stringify({pong:1}))
+            }catch(e){console.error("Error processing message:",e)}
+          },
+          derivWs.onerror=function(e){console.error("❌ WebSocket error:",e),notifyConnectionStatus("error","Connection error"),scheduleReconnect()},
+          derivWs.onclose=function(e){console.log("🔄 WebSocket connection closed",e.code,e.reason),notifyConnectionStatus("disconnected"),scheduleReconnect()},
+          window.derivWs=derivWs
+        }catch(e){console.error("Failed to create WebSocket:",e),notifyConnectionStatus("error",e.message),scheduleReconnect()}
       }
 
-      try {
-        derivWs = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
-        
-        derivWs.onopen = function() {
-          console.log('✅ Bulk Trading WebSocket connection established');
-          reconnectAttempts = 0;
+      function scheduleReconnect(){
+        if(++reconnectAttempts>5){console.log("⚠️ Maximum reconnection attempts (5) reached. Stopping attempts."),notifyConnectionStatus("error","Maximum reconnection attempts reached");return}
+        let e=Math.min(1e3*Math.pow(1.5,reconnectAttempts-1),3e4);
+        console.log(\`🔄 Scheduling reconnect attempt \${reconnectAttempts} in \${e}ms\`),reconnectTimeout=setTimeout(()=>{console.log(\`🔄 Attempting to reconnect (\${reconnectAttempts}/5)...\`),startWebSocket()},e)
+      }
+
+      function requestTickHistory(){
+        let e={ticks_history:currentSymbol,count:tickCount,end:"latest",style:"ticks",subscribe:1};
+        if(derivWs&&derivWs.readyState===WebSocket.OPEN){console.log(\`📡 Requesting tick history for \${currentSymbol} (\${tickCount} ticks)\`);try{derivWs.send(JSON.stringify(e))}catch(e){console.error("Error sending tick history request:",e),scheduleReconnect()}}
+        else console.error("❌ WebSocket not ready to request history, readyState:",derivWs?derivWs.readyState:"undefined"),scheduleReconnect()
+      }
+
+      function detectDecimalPlaces(){if(0!==tickHistory.length)decimalPlaces=Math.max(...tickHistory.map(e=>(e.quote.toString().split(".")[1]||"").length),2)}
+
+      function getLastDigit(e){let t=e.toString().split(".")[1]||"";for(;t.length<decimalPlaces;)t+="0";return Number(t.slice(-1))}
+
+      function notifyConnectionStatus(e,t=null){window.postMessage({type:"ANALYZER_CONNECTION_STATUS",status:e,error:t},"*")}
+
+      function updateUI(){
+        if(0===tickHistory.length){console.warn("⚠️ No tick history available for analysis");return}
+        let e=tickHistory[tickHistory.length-1].quote.toFixed(decimalPlaces);
+        window.postMessage({type:"PRICE_UPDATE",price:e,symbol:currentSymbol},"*"),sendAnalysisData()
+      }
+
+      function sendAnalysisData(){
+        if(!tickHistory||0===tickHistory.length){console.warn("⚠️ No data available for analysis");return}
+        try{
+          let t=Array(10).fill(0);
+          tickHistory.forEach(e=>{let o=getLastDigit(e.quote);t[o]++});
+          let o=tickHistory.length,r=t.filter((e,t)=>t%2==0).reduce((e,t)=>e+t,0),i=t.filter((e,t)=>t%2!=0).reduce((e,t)=>e+t,0),n=(r/o*100).toFixed(2),s=(i/o*100).toFixed(2);
           
-          setTimeout(() => {
-            try {
-              if (derivWs && derivWs.readyState === WebSocket.OPEN) {
-                console.log('Sending bulk trading authorization request');
-                derivWs.send(JSON.stringify({ app_id: 68848 }));
-                requestBulkTickHistory();
-              }
-            } catch (error) {
-              console.error('Error during bulk trading init requests:', error);
-            }
-          }, 500);
-        };
-
-        derivWs.onmessage = function(event) {
-          try {
-            const data = JSON.parse(event.data);
-            
-            if (data.error) {
-              console.error('❌ Bulk Trading WebSocket API error:', data.error);
-              return;
-            }
-            
-            if (data.history) {
-              console.log(`📊 Received bulk trading history for ${currentSymbol}: ${data.history.prices.length} ticks`);
-              tickHistory = data.history.prices.map((price, index) => ({
-                time: data.history.times[index],
-                quote: parseFloat(price)
-              }));
-              detectBulkDecimalPlaces();
-              updateBulkUI();
-            } else if (data.tick) {
-              const quote = parseFloat(data.tick.quote);
-              tickHistory.push({
-                time: data.tick.epoch,
-                quote: quote
-              });
-              
-              if (tickHistory.length > tickCount) {
-                tickHistory.shift();
-              }
-              updateBulkUI();
-            } else if (data.ping) {
-              derivWs.send(JSON.stringify({ pong: 1 }));
-            }
-          } catch (error) {
-            console.error('Error processing bulk trading message:', error);
+          // Trigger bulk trades if probabilities are favorable
+          if(n > 60 || s > 60 || window.speedBotBulkTrade) {
+            window.postMessage({type:"BULK_TRADE_SIGNAL",data:{evenProb:n,oddProb:s,symbol:currentSymbol}},"*");
           }
-        };
-
-        derivWs.onerror = function(error) {
-          console.error('❌ Bulk Trading WebSocket error:', error);
-          scheduleBulkReconnect();
-        };
-
-        derivWs.onclose = function(event) {
-          console.log('🔄 Bulk Trading WebSocket connection closed', event.code, event.reason);
-          scheduleBulkReconnect();
-        };
-
-      } catch (error) {
-        console.error('Failed to create bulk trading WebSocket:', error);
-        scheduleBulkReconnect();
+        }catch(e){console.error("❌ Error in sendAnalysisData:",e)}
       }
+
+      // Initialize
+      if(!isInitialized){isInitialized=true,console.log("🚀 Initializing bulk trading volatility analyzer"),startWebSocket()}
+    `;
+    
+    document.head.appendChild(script);
+
+    // Listen for bulk trading signals
+    const handleBulkMessage = (event) => {
+      if (event.data?.type === 'BULK_TRADE_SIGNAL' && useBulkTrading && isTrading) {
+        const { evenProb, oddProb } = event.data.data;
+        executeBulkTrades(parseFloat(evenProb), parseFloat(oddProb));
+      }
+    };
+
+    window.addEventListener('message', handleBulkMessage);
+    
+    return () => {
+      window.removeEventListener('message', handleBulkMessage);
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+  };
+
+  const executeBulkTrades = async (evenProb, oddProb) => {
+    if (!isAuthorized || !tradingEngine.isEngineConnected()) {
+      console.log('⚠️ Not authorized for bulk trading');
+      return;
     }
 
-    function scheduleBulkReconnect() {
-      reconnectAttempts++;
-      if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
-        console.log(`⚠️ Maximum bulk trading reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Stopping attempts.`);
-        return;
-      }
-      
-      const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts - 1), 30000);
-      console.log(`🔄 Scheduling bulk trading reconnect attempt ${reconnectAttempts} in ${delay}ms`);
-      
-      reconnectTimeout = setTimeout(() => {
-        console.log(`🔄 Attempting to reconnect bulk trading (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
-        startBulkWebSocket();
-      }, delay);
+    const trades = [];
+    
+    // Determine which contracts to trade based on probabilities
+    if (evenProb > 60) {
+      trades.push({ type: 'DIGITEVEN', probability: evenProb });
+    }
+    if (oddProb > 60) {
+      trades.push({ type: 'DIGITODD', probability: oddProb });
     }
 
-    function requestBulkTickHistory() {
-      const request = {
-        ticks_history: currentSymbol,
-        count: tickCount,
-        end: 'latest',
-        style: 'ticks',
-        subscribe: 1
+    // Execute trades with staggered timing
+    for (let i = 0; i < trades.length; i++) {
+      setTimeout(() => {
+        executeSingleBulkTrade(trades[i]);
+      }, i * 200); // 200ms between each trade
+    }
+  };
+
+  const executeSingleBulkTrade = async (trade) => {
+    try {
+      console.log(`💼 Executing bulk trade: ${trade.type} with ${trade.probability}% probability`);
+      
+      const proposalRequest = {
+        amount: currentStake,
+        basis: 'stake',
+        contract_type: trade.type,
+        currency: 'USD',
+        symbol: selectedSymbol,
+        duration: 1,
+        duration_unit: 't'
       };
+
+      const proposalResponse = await tradingEngine.getProposal(proposalRequest);
       
-      if (derivWs && derivWs.readyState === WebSocket.OPEN) {
-        console.log(`📡 Requesting bulk trading tick history for ${currentSymbol} (${tickCount} ticks)`);
-        try {
-          derivWs.send(JSON.stringify(request));
-        } catch (error) {
-          console.error('Error sending bulk trading tick history request:', error);
-          scheduleBulkReconnect();
-        }
-      } else {
-        console.error('❌ Bulk Trading WebSocket not ready to request history, readyState:', derivWs ? derivWs.readyState : 'undefined');
-        scheduleBulkReconnect();
-      }
-    }
+      if (proposalResponse.proposal) {
+        const purchaseResponse = await tradingEngine.buyContract(
+          proposalResponse.proposal.id,
+          proposalResponse.proposal.ask_price
+        );
 
-    function detectBulkDecimalPlaces() {
-      if (tickHistory.length === 0) return;
-      decimalPlaces = Math.max(
-        ...tickHistory.map(tick => (tick.quote.toString().split('.')[1] || '').length),
-        2
-      );
-    }
+        if (purchaseResponse.buy) {
+          const bulkTrade = {
+            id: `bulk_trade_${Date.now()}_${Math.random()}`,
+            timestamp: new Date().toLocaleTimeString(),
+            symbol: selectedSymbol,
+            contractType: trade.type,
+            prediction: trade.type,
+            actual: 'PENDING',
+            result: 'pending',
+            stake: currentStake,
+            payout: 0,
+            profit: 0,
+            contractId: purchaseResponse.buy.contract_id,
+            isBulkTrade: true,
+          };
 
-    function getBulkLastDigit(quote) {
-      let decimalPart = quote.toString().split('.')[1] || '';
-      while (decimalPart.length < decimalPlaces) {
-        decimalPart += '0';
-      }
-      return Number(decimalPart.slice(-1));
-    }
-
-    function updateBulkUI() {
-      if (tickHistory.length === 0) {
-        console.warn('⚠️ No bulk trading tick history available for analysis');
-        return;
-      }
-      
-      const currentPrice = tickHistory[tickHistory.length - 1].quote.toFixed(decimalPlaces);
-      console.log(`💰 Bulk Trading Price Update: ${currentPrice} for ${currentSymbol}`);
-      sendBulkAnalysisData();
-    }
-
-    function sendBulkAnalysisData() {
-      if (!tickHistory || tickHistory.length === 0) {
-        console.warn('⚠️ No bulk trading data available for analysis');
-        return;
-      }
-
-      try {
-        // Count digit frequencies for bulk analysis
-        const digitCounts = Array(10).fill(0);
-        tickHistory.forEach(tick => {
-          const lastDigit = getBulkLastDigit(tick.quote);
-          digitCounts[lastDigit]++;
-        });
-
-        const totalTicks = tickHistory.length;
-        
-        // Even/Odd analysis for bulk trading
-        const evenCount = digitCounts.filter((count, index) => index % 2 === 0).reduce((a, b) => a + b, 0);
-        const oddCount = digitCounts.filter((count, index) => index % 2 !== 0).reduce((a, b) => a + b, 0);
-        const evenProbability = ((evenCount / totalTicks) * 100).toFixed(2);
-        const oddProbability = ((oddCount / totalTicks) * 100).toFixed(2);
-
-        // Over/Under analysis for bulk trading
-        let overCount = 0;
-        let underCount = 0;
-        for (let i = 0; i < 10; i++) {
-          if (i >= overUnderBarrier) {
-            overCount += digitCounts[i];
-          } else {
-            underCount += digitCounts[i];
-          }
-        }
-        const overProbability = ((overCount / totalTicks) * 100).toFixed(2);
-        const underProbability = ((underCount / totalTicks) * 100).toFixed(2);
-
-        console.log(`📊 Bulk Trading Analysis - Even: ${evenProbability}%, Odd: ${oddProbability}%, Over: ${overProbability}%, Under: ${underProbability}%`);
-        
-        // Execute bulk trades based on analysis
-        if (isTrading && useBulkTrading) {
-          executeBulkTrades(evenProbability, oddProbability, overProbability, underProbability);
-        }
-
-      } catch (error) {
-        console.error('❌ Error in bulk trading analysis:', error);
-      }
-    }
-
-    function executeBulkTrades(evenProb, oddProb, overProb, underProb) {
-      console.log('🚀 Executing bulk trades based on analysis');
-      
-      // Execute multiple trades based on probabilities
-      const trades = [];
-      
-      // Even/Odd bulk trade
-      if (parseFloat(evenProb) > 60) {
-        trades.push({ type: 'DIGITEVEN', probability: evenProb });
-      } else if (parseFloat(oddProb) > 60) {
-        trades.push({ type: 'DIGITODD', probability: oddProb });
-      }
-      
-      // Over/Under bulk trade
-      if (parseFloat(overProb) > 60) {
-        trades.push({ type: 'DIGITOVER', probability: overProb, barrier: overUnderBarrier });
-      } else if (parseFloat(underProb) > 60) {
-        trades.push({ type: 'DIGITUNDER', probability: underProb, barrier: overUnderBarrier });
-      }
-      
-      // Execute all qualifying trades
-      trades.forEach((trade, index) => {
-        setTimeout(() => {
-          executeSingleBulkTrade(trade);
-        }, index * 100); // Stagger trades by 100ms
-      });
-    }
-
-    async function executeSingleBulkTrade(trade) {
-      try {
-        console.log(`💼 Executing bulk trade: ${trade.type} with ${trade.probability}% probability`);
-        
-        const proposalRequest = {
-          amount: currentStake,
-          basis: 'stake',
-          contract_type: trade.type,
-          currency: 'USD',
-          symbol: selectedSymbol,
-          duration: 1,
-          duration_unit: 't'
-        };
-
-        if (trade.barrier !== undefined) {
-          proposalRequest.barrier = trade.barrier;
-        }
-
-        if (isAuthorized && tradingEngine.isEngineConnected()) {
-          const proposalResponse = await tradingEngine.getProposal(proposalRequest);
+          setTradeHistory(prev => [bulkTrade, ...prev.slice(0, 49)]);
+          setTotalTrades(prev => prev + 1);
           
-          if (proposalResponse.proposal) {
-            const purchaseResponse = await tradingEngine.buyContract(
-              proposalResponse.proposal.id,
-              proposalResponse.proposal.ask_price
-            );
-
-            if (purchaseResponse.buy) {
-              const bulkTrade = {
-                id: `bulk_trade_${Date.now()}_${Math.random()}`,
-                timestamp: new Date().toLocaleTimeString(),
-                symbol: selectedSymbol,
-                contractType: trade.type,
-                prediction: trade.type,
-                actual: 'PENDING',
-                result: 'pending',
-                stake: currentStake,
-                payout: 0,
-                profit: 0,
-                contractId: purchaseResponse.buy.contract_id,
-                isBulkTrade: true,
-              };
-
-              setTradeHistory(prev => [bulkTrade, ...prev.slice(0, 49)]);
-              setTotalTrades(prev => prev + 1);
-              
-              console.log(`✅ Bulk trade executed - Contract ID: ${purchaseResponse.buy.contract_id}`);
-            }
-          }
+          console.log(`✅ Bulk trade executed - Contract ID: ${purchaseResponse.buy.contract_id}`);
         }
-      } catch (error) {
-        console.error('❌ Bulk trade failed:', error);
       }
-    }
-
-    // Start bulk trading WebSocket
-    if (!isInitialized) {
-      isInitialized = true;
-      console.log('🚀 Initializing bulk trading system');
-      startBulkWebSocket();
+    } catch (error) {
+      console.error('❌ Bulk trade failed:', error);
     }
   };
 
@@ -796,237 +665,201 @@ const SpeedBot: React.FC = () => {
         </div>
       </div>
 
-      <div className="speed-bot__controls">
-        <div className="speed-bot__control-row">
-          <div className="speed-bot__control-group">
+      <div className="speed-bot__trading-config">
+        <div className="speed-bot__config-header">
+          <h3>
+            <Localize i18n_default_text="Trading Configuration" />
+          </h3>
+          <div className="speed-bot__bulk-toggle">
             <label>
-              <Localize i18n_default_text="Symbol:" />
+              <Localize i18n_default_text="Bulk" />
             </label>
-            <select
-              value={selectedSymbol}
-              onChange={(e) => setSelectedSymbol(e.target.value)}
-              disabled={isTrading}
-              className="speed-bot__select"
-            >
-              {volatilitySymbols.map((symbol) => (
-                <option key={symbol.value} value={symbol.value}>
-                  {symbol.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="speed-bot__control-group">
-            <label>
-              <Localize i18n_default_text="Contract Type:" />
-            </label>
-            <select
-              value={contractType}
-              onChange={(e) => setContractType(e.target.value)}
-              disabled={isTrading}
-              className="speed-bot__select"
-            >
-              {contractTypes.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="speed-bot__control-group">
-            <label>
-              <Localize i18n_default_text="Initial Stake:" />
-            </label>
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={stakeAmount}
-              onChange={(e) => setStakeAmount(parseFloat(e.target.value))}
-              disabled={isTrading}
-              className="speed-bot__input"
-            />
+            <div className="speed-bot__toggle-switch">
+              <input
+                type="checkbox"
+                checked={useBulkTrading}
+                onChange={(e) => setUseBulkTrading(e.target.checked)}
+                disabled={isTrading}
+              />
+              <span className="speed-bot__slider"></span>
+            </div>
+            <span className="speed-bot__toggle-text">
+              {useBulkTrading ? 'TRADE BULK' : 'SINGLE TRADE'}
+            </span>
           </div>
         </div>
 
-        {/* Contract-specific controls */}
-        {(contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') && (
-          <div className="speed-bot__control-row">
-            <div className="speed-bot__control-group">
-              <label>
-                <Localize i18n_default_text="Over/Under Value:" />
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="9"
-                value={overUnderValue}
-                onChange={(e) => setOverUnderValue(parseInt(e.target.value))}
-                disabled={isTrading}
-                className="speed-bot__input"
-              />
-            </div>
-          </div>
-        )}
-
-        {(contractType === 'DIGITMATCH' || contractType === 'DIGITDIFF') && (
-          <div className="speed-bot__control-row">
-            <div className="speed-bot__control-group">
-              <label>
-                <Localize i18n_default_text="Target Digit:" />
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="9"
-                value={matchDifferDigit}
-                onChange={(e) => setMatchDifferDigit(parseInt(e.target.value))}
-                disabled={isTrading}
-                className="speed-bot__input"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Strategy controls */}
-        <div className="speed-bot__strategy-controls">
-          <div className="speed-bot__control-row">
-            <div className="speed-bot__control-group">
-              <label>
-                <Localize i18n_default_text="Alternate Market Type:" />
-              </label>
-              <div className="speed-bot__toggle-container">
-                <button
-                  className={`speed-bot__toggle ${alternateMarketType ? 'active' : ''}`}
-                  onClick={() => setAlternateMarketType(!alternateMarketType)}
-                  disabled={isTrading}
-                >
-                  {alternateMarketType ? 'ON' : 'OFF'}
-                </button>
-              </div>
-            </div>
-
-            <div className="speed-bot__control-group">
-              <label>
-                <Localize i18n_default_text="Alternate After Loss:" />
-              </label>
-              <div className="speed-bot__toggle-container">
-                <button
-                  className={`speed-bot__toggle ${alternateOnLoss ? 'active' : ''}`}
-                  onClick={() => setAlternateOnLoss(!alternateOnLoss)}
-                  disabled={isTrading}
-                >
-                  {alternateOnLoss ? 'ON' : 'OFF'}
-                </button>
-              </div>
-            </div>
-
-            <div className="speed-bot__control-group">
-              <label>
-                <Localize i18n_default_text="Use Martingale:" />
-              </label>
-              <div className="speed-bot__toggle-container">
-                <button
-                  className={`speed-bot__toggle ${useMartingale ? 'active' : ''}`}
-                  onClick={() => setUseMartingale(!useMartingale)}
-                  disabled={isTrading}
-                >
-                  {useMartingale ? 'ON' : 'OFF'}
-                </button>
-              </div>
-            </div>
-
-            <div className="speed-bot__control-group">
-              <label>
-                <Localize i18n_default_text="Bulk Trading:" />
-              </label>
-              <div className="speed-bot__toggle-container">
-                <button
-                  className={`speed-bot__toggle ${useBulkTrading ? 'active' : ''}`}
-                  onClick={() => setUseBulkTrading(!useBulkTrading)}
-                  disabled={isTrading}
-                >
-                  {useBulkTrading ? 'ON' : 'OFF'}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {useMartingale && (
-            <div className="speed-bot__control-row">
-              <div className="speed-bot__control-group">
+        <div className="speed-bot__config-content">
+          <div className="speed-bot__config-section">
+            <div className="speed-bot__config-row">
+              <div className="speed-bot__config-item">
                 <label>
-                  <Localize i18n_default_text="Martingale Multiplier:" />
+                  <Localize i18n_default_text="SYMBOL" />
+                </label>
+                <select
+                  value={selectedSymbol}
+                  onChange={(e) => setSelectedSymbol(e.target.value)}
+                  disabled={isTrading}
+                  className="speed-bot__config-select"
+                >
+                  {volatilitySymbols.map((symbol) => (
+                    <option key={symbol.value} value={symbol.value}>
+                      {symbol.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="speed-bot__config-item">
+                <label>
+                  <Localize i18n_default_text="CURRENT PRICE" />
+                </label>
+                <div className="speed-bot__price-display">{currentPrice}</div>
+              </div>
+            </div>
+
+            <div className="speed-bot__config-row">
+              <div className="speed-bot__config-item">
+                <label>
+                  <Localize i18n_default_text="CONTRACT TYPE" />
+                </label>
+                <select
+                  value={contractType}
+                  onChange={(e) => setContractType(e.target.value)}
+                  disabled={isTrading}
+                  className="speed-bot__config-select"
+                >
+                  {contractTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="speed-bot__config-item">
+                <label>
+                  <Localize i18n_default_text="NUMBER OF TICKS" />
                 </label>
                 <input
                   type="number"
-                  min="1.1"
-                  step="0.1"
-                  value={martingaleMultiplier}
-                  onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value))}
+                  min="1"
+                  max="10"
+                  value="1"
                   disabled={isTrading}
-                  className="speed-bot__input"
+                  className="speed-bot__config-input"
                 />
               </div>
             </div>
-          )}
 
-          <div className="speed-bot__control-row">
-            <div className="speed-bot__control-group">
-              <label>
-                <Localize i18n_default_text="Profit Target:" />
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={totalProfitTarget}
-                onChange={(e) => setTotalProfitTarget(parseFloat(e.target.value))}
-                disabled={isTrading}
-                className="speed-bot__input"
-              />
+            <div className="speed-bot__config-row">
+              <div className="speed-bot__config-item">
+                <label>
+                  <Localize i18n_default_text="STAKE AMOUNT (USD)" />
+                </label>
+                <input
+                  type="number"
+                  min="0.35"
+                  step="0.01"
+                  value={stakeAmount}
+                  onChange={(e) => setStakeAmount(parseFloat(e.target.value))}
+                  disabled={isTrading}
+                  className="speed-bot__config-input"
+                />
+              </div>
+
+              <div className="speed-bot__config-item">
+                <label>
+                  <Localize i18n_default_text="NUMBER OF TRADES" />
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value="10"
+                  disabled={isTrading}
+                  className="speed-bot__config-input"
+                />
+              </div>
             </div>
 
-            <div className="speed-bot__control-group">
-              <label>
-                <Localize i18n_default_text="Loss Threshold:" />
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={lossThreshold}
-                onChange={(e) => setLossThreshold(parseFloat(e.target.value))}
-                disabled={isTrading}
-                className="speed-bot__input"
-              />
-            </div>
+            {/* Contract-specific controls */}
+            {(contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') && (
+              <div className="speed-bot__config-row">
+                <div className="speed-bot__config-item">
+                  <label>
+                    <Localize i18n_default_text="Over/Under Value:" />
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="9"
+                    value={overUnderValue}
+                    onChange={(e) => setOverUnderValue(parseInt(e.target.value))}
+                    disabled={isTrading}
+                    className="speed-bot__config-input"
+                  />
+                </div>
+              </div>
+            )}
+
+            {(contractType === 'DIGITMATCH' || contractType === 'DIGITDIFF') && (
+              <div className="speed-bot__config-row">
+                <div className="speed-bot__config-item">
+                  <label>
+                    <Localize i18n_default_text="Target Digit:" />
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="9"
+                    value={matchDifferDigit}
+                    onChange={(e) => setMatchDifferDigit(parseInt(e.target.value))}
+                    disabled={isTrading}
+                    className="speed-bot__config-input"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="speed-bot__execute-button">
+            {!isTrading ? (
+              <button
+                onClick={startTrading}
+                disabled={!isConnected}
+                className="speed-bot__execute-trades"
+              >
+                <Localize i18n_default_text="EXECUTE TRADES" />
+              </button>
+            ) : (
+              <button
+                onClick={stopTrading}
+                className="speed-bot__execute-trades speed-bot__execute-trades--stop"
+              >
+                <Localize i18n_default_text="STOP TRADING" />
+              </button>
+            )}
           </div>
         </div>
+      </div>
 
-        <div className="speed-bot__action-buttons">
-          {!isTrading ? (
-            <button
-              onClick={startTrading}
-              disabled={!isConnected}
-              className="speed-bot__button speed-bot__button--start"
-            >
-              <Localize i18n_default_text="Start Trading" />
-            </button>
-          ) : (
-            <button
-              onClick={stopTrading}
-              className="speed-bot__button speed-bot__button--stop"
-            >
-              <Localize i18n_default_text="Stop Trading" />
-            </button>
-          )}
-          <button
-            onClick={resetStats}
-            disabled={isTrading}
-            className="speed-bot__button speed-bot__button--reset"
-          >
-            <Localize i18n_default_text="Reset Stats" />
-          </button>
+      <div className="speed-bot__trading-results">
+        <h3>
+          <Localize i18n_default_text="Trading Results" />
+        </h3>
+        <div className="speed-bot__results-stats">
+          <div className="speed-bot__stat-item">
+            <div className="speed-bot__stat-number">{totalTrades}</div>
+            <div className="speed-bot__stat-label">Total Trades</div>
+          </div>
+          <div className="speed-bot__stat-item">
+            <div className="speed-bot__stat-number">{tradeHistory.filter(t => t.result === 'win').length}</div>
+            <div className="speed-bot__stat-label">Won</div>
+          </div>
+          <div className="speed-bot__stat-item">
+            <div className="speed-bot__stat-number">{tradeHistory.filter(t => t.result === 'loss').length}</div>
+            <div className="speed-bot__stat-label">Lost</div>
+          </div>
         </div>
       </div>
 
