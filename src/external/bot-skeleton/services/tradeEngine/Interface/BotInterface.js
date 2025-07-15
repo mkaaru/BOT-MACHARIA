@@ -39,14 +39,23 @@ const getBotInterface = tradeEngine => {
                 // Reset stake to initial on win
                 stake = initial_stake;
                 current_martingale_multiplier = 1;
+                globalObserver.emit('bot.win_trade', { stake, result: contract_result });
             } else if (contract_result === 'loss') {
                 // Increase stake by multiplier on loss
                 current_martingale_multiplier *= martingale_multiplier;
                 stake = initial_stake * current_martingale_multiplier;
+                globalObserver.emit('bot.loss_trade', { stake, result: contract_result });
             }
             
+            // Emit trade completion event
+            globalObserver.emit('bot.trade_complete', {
+                result: contract_result,
+                stake: stake,
+                profit: contract_result === 'win' ? stake * 0.95 : -stake
+            });
+            
             globalObserver.emit('bot.trade_again', result);
-            return result;
+            return true; // Always continue trading
         },
         readDetails: i => getDetail(i - 1),
         getStake: () => stake,

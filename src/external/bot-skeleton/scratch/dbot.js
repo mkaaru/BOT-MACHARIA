@@ -337,6 +337,10 @@ class DBot {
                     sleep(1);
                     continue;
                 }
+                
+                // Reset trade options flag to allow continuous trading
+                BinaryBotPrivateHasCalledTradeOptions = false;
+                
                 // Execute purchase without waiting for contract states
                 BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
                 

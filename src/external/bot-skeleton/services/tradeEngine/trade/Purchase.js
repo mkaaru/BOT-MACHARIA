@@ -84,8 +84,12 @@ export default Engine =>
                     ).then(onSuccess);
                 }
                 const trade_option = tradeOptionToBuy(contract_type, this.tradeOptions);
-                const purchase_stake = this.tradeOptions.amount || this.tradeEngine.getBotInterface().getStake() || 1;
+                const botInterface = this.tradeEngine.getBotInterface();
+                const purchase_stake = custom_stake || botInterface.getStake() || this.tradeOptions.amount || 1;
                 trade_option.amount = purchase_stake;
+                
+                // Update bot interface with actual purchase stake
+                botInterface.setStake(purchase_stake);
                 const action = () => api_base.api.send(trade_option);
 
                 this.isSold = false;

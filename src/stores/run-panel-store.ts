@@ -530,6 +530,19 @@ export default class RunPanelStore {
             this.unregisterBotListeners();
             self_exclusion.resetSelfExclusion();
         };
+        
+        // Check if bot is stuck (running for too long without trades)
+        if (this.is_running && Date.now() - this.start_time > 30000) { // 30 seconds
+            console.log('Bot appears stuck, attempting restart...');
+            this.onStopBotClick();
+            setTimeout(() => {
+                if (!this.is_running) {
+                    this.onRunButtonClick();
+                }
+            }, 2000);
+            return;
+        }
+        
         if (this.error_type === ErrorTypes.RECOVERABLE_ERRORS) {
             // Bot should indicate it started in below cases:
             // - When error happens it's a recoverable error
