@@ -11,39 +11,70 @@ let purchase_reference;
 export default Engine =>
     class Purchase extends Engine {
         purchase(contract_type) {
-            // Allow continuous purchases without blocking
+        // Apply martingale logic before purchase
+        const botInterface = this.getBotInterface?.();
+        if (botInterface) {
+            const lastTradeProfit = botInterface.getLastTradeProfit?.() || 0;
+            const martingaleMultiplier = botInterface.getMartingaleMultiplier?.() || 1;
+            const consecutiveLosses = botInterface.getConsecutiveLosses?.() || 0;
 
-            return new Promise((resolve) => {
-                const onSuccess = response => {
-                    // Don't unnecessarily send a forget request for a purchased contract.
-                    const { buy } = response;
+            // If last trade was a loss, apply martingale
+            if (lastTradeProfit < 0) {
+                const newMultiplier = martingaleMultiplier * 2;
+                const newConsecutiveLosses = consecutiveLosses + 1;
 
-                    contractStatus({
-                        id: 'contract.purchase_received',
-                        data: buy.transaction_id,
-                        buy,
-                    });
+                // Safety check: don't let multiplier exceed maximum
+                if (newMultiplier < 64) {
+                    botInterface.setMartingaleMultiplier(newMultiplier);
+                    botInterface.setConsecutiveLosses(newConsecutiveLosses);
+                    this.tradeOptions.amount *= newMultiplier;
 
-                    this.contractId = buy.contract_id;
-                    this.store.dispatch(purchaseSuccessful());
+                    console.log(`Martingale applied: Multiplier ${newMultiplier}, Consecutive losses: ${newConsecutiveLosses}`);
+                } else {
+                    console.log('Maximum martingale multiplier reached, resetting to 1');
+                    botInterface.setMartingaleMultiplier(1);
+                    botInterface.setConsecutiveLosses(0);
+                }
+            } else if (lastTradeProfit > 0) {
+                // Reset on win
+                botInterface.setMartingaleMultiplier(1);
+                botInterface.setConsecutiveLosses(0);
+                console.log('Trade won, martingale reset');
+            }
+        }
 
-                    if (this.is_proposal_subscription_required) {
-                        this.renewProposalsOnPurchase();
-                    }
+        // Allow continuous purchases without blocking
+        return new Promise((resolve) => {
+            const onSuccess = response => {
+                // Don't unnecessarily send a forget request for a purchased contract.
+                const { buy } = response;
 
-                    delayIndex = 0;
-                    log(LogTypes.PURCHASE, { longcode: buy.longcode, transaction_id: buy.transaction_id });
-                    info({
-                        accountID: this.accountInfo.loginid,
-                        totalRuns: this.updateAndReturnTotalRuns(),
-                        transaction_ids: { buy: buy.transaction_id },
-                        contract_type,
-                        buy_price: buy.buy_price,
-                    });
+                contractStatus({
+                    id: 'contract.purchase_received',
+                    data: buy.transaction_id,
+                    buy,
+                });
 
-                    // Resolve immediately to allow continuous purchases
-                    resolve();
-                };
+                this.contractId = buy.contract_id;
+                this.store.dispatch(purchaseSuccessful());
+
+                if (this.is_proposal_subscription_required) {
+                    this.renewProposalsOnPurchase();
+                }
+
+                delayIndex = 0;
+                log(LogTypes.PURCHASE, { longcode: buy.longcode, transaction_id: buy.transaction_id });
+                info({
+                    accountID: this.accountInfo.loginid,
+                    totalRuns: this.updateAndReturnTotalRuns(),
+                    transaction_ids: { buy: buy.transaction_id },
+                    contract_type,
+                    buy_price: buy.buy_price,
+                });
+
+                // Resolve immediately to allow continuous purchases
+                resolve();
+            };
 
                 if (this.is_proposal_subscription_required) {
                     const { id, askPrice } = this.selectProposal(contract_type);

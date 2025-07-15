@@ -51,6 +51,26 @@ const getBotInterface = tradeEngine => {
             }
             return -Infinity;
         },
+        getLastTradeProfit: () => {
+            return tradeEngine.lastTradeProfit || 0;
+        },
+        setMartingaleMultiplier: (multiplier) => {
+            const workspace = Blockly.getMainWorkspace();
+            if (workspace) {
+                const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
+                if (multiplierVar) {
+                    tradeEngine.martingaleMultiplier = multiplier;
+                    return true;
+                }
+            }
+            return false;
+        },
+        getConsecutiveLosses: () => {
+            return tradeEngine.consecutiveLosses || 0;
+        },
+        setConsecutiveLosses: (losses) => {
+            tradeEngine.consecutiveLosses = losses;
+        },
     };
 };
 
