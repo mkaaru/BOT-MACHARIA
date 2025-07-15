@@ -15,7 +15,7 @@ interface Trade {
 }
 
 const SpeedBot: React.FC = observer(() => {
-  const { run_panel, blockly_store } = useStore();
+  const { run_panel, blockly_store, client } = useStore();
   
   // Connection state
   const [isConnected, setIsConnected] = useState(false);
@@ -37,7 +37,6 @@ const SpeedBot: React.FC = observer(() => {
 
   // Trading state
   const [currentStake, setCurrentStake] = useState(1.0);
-  const [totalBalance, setTotalBalance] = useState(1000);
   const [tradeHistory, setTradeHistory] = useState<Trade[]>([]);
   const [totalTrades, setTotalTrades] = useState(0);
   const [wins, setWins] = useState(0);
@@ -207,7 +206,8 @@ const SpeedBot: React.FC = observer(() => {
 
   // Execute trade through bot builder
   const executeTradeOnTick = useCallback(async (tick: number) => {
-    if (!blockly_store?.workspace) {
+    // Check if workspace is available using window.Blockly.derivWorkspace
+    if (!window.Blockly?.derivWorkspace) {
       console.error('Blockly workspace not available');
       return;
     }
@@ -217,11 +217,11 @@ const SpeedBot: React.FC = observer(() => {
       const strategyXml = generateSpeedBotStrategy();
       
       // Clear existing workspace
-      blockly_store.workspace.clear();
+      window.Blockly.derivWorkspace.clear();
       
       // Load new strategy
       const xml = window.Blockly.utils.xml.textToDom(strategyXml);
-      window.Blockly.Xml.domToWorkspace(xml, blockly_store.workspace);
+      window.Blockly.Xml.domToWorkspace(xml, window.Blockly.derivWorkspace);
 
       // Start bot execution through run panel
       if (!run_panel.is_running) {
@@ -247,7 +247,7 @@ const SpeedBot: React.FC = observer(() => {
     } catch (error) {
       console.error('Error executing trade:', error);
     }
-  }, [selectedSymbol, selectedContractType, currentStake, overUnderValue, generateSpeedBotStrategy, blockly_store.workspace, run_panel]);
+  }, [selectedSymbol, selectedContractType, currentStake, overUnderValue, generateSpeedBotStrategy, run_panel]);
 
   const startTrading = async () => {
     if (!isConnected) {
@@ -255,7 +255,7 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
     
-    if (!blockly_store?.workspace) {
+    if (!window.Blockly?.derivWorkspace) {
       alert('Bot builder workspace not available');
       return;
     }
@@ -281,7 +281,6 @@ const SpeedBot: React.FC = observer(() => {
     setTotalTrades(0);
     setWins(0);
     setLosses(0);
-    setTotalBalance(1000);
     setCurrentStake(stake);
   };
 
@@ -312,7 +311,7 @@ const SpeedBot: React.FC = observer(() => {
                 }
               }
               
-              setTotalBalance(prev => prev + lastTrade.profit);
+              // Balance is updated automatically through client store
             }
           }
           return updatedHistory;
@@ -529,7 +528,7 @@ const SpeedBot: React.FC = observer(() => {
           </div>
           <div className="speed-bot__stat">
             <label>Balance</label>
-            <span>${totalBalance.toFixed(2)}</span>
+            <span>{client.currency} {parseFloat(client.balance).toFixed(2)}</span>
           </div>
           <div className="speed-bot__stat">
             <label>Total Trades</label>
