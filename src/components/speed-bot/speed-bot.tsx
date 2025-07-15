@@ -308,9 +308,9 @@ const SpeedBot: React.FC = observer(() => {
   const executeTradeOnTick = useCallback(async (tick: number) => {
     if (!isTrading || isExecutingTrade) return;
     
-    // Throttle trades to prevent excessive execution (minimum 3 seconds between trades)
+    // Throttle trades to prevent excessive execution (minimum 2 seconds between trades)
     const now = Date.now();
-    if (now - lastTradeTime < 3000) return;
+    if (now - lastTradeTime < 2000) return;
 
     if (!websocket || !isConnected) {
       console.error('WebSocket not connected');
@@ -336,8 +336,9 @@ const SpeedBot: React.FC = observer(() => {
       // Wait for contracts response and then make purchase
       const contractsResponsePromise = new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('Contracts request timeout'));
-        }, 10000);
+          websocket.removeEventListener('message', messageHandler);
+          reject(new Error('Contracts request timeout - retrying next tick'));
+        }, 5000); // Reduced timeout to 5 seconds
 
         const messageHandler = (event) => {
           try {
@@ -357,6 +358,8 @@ const SpeedBot: React.FC = observer(() => {
               }
             }
           } catch (error) {
+            clearTimeout(timeout);
+            websocket.removeEventListener('message', messageHandler);
             console.error('Error parsing contracts response:', error);
             reject(error);
           }
@@ -400,8 +403,9 @@ const SpeedBot: React.FC = observer(() => {
       // Wait for proposal response
       const proposalResponsePromise = new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('Proposal request timeout'));
-        }, 10000);
+          websocket.removeEventListener('message', messageHandler);
+          reject(new Error('Proposal request timeout - retrying next tick'));
+        }, 5000); // Reduced timeout to 5 seconds
 
         const messageHandler = (event) => {
           try {
@@ -421,6 +425,8 @@ const SpeedBot: React.FC = observer(() => {
               }
             }
           } catch (error) {
+            clearTimeout(timeout);
+            websocket.removeEventListener('message', messageHandler);
             console.error('Error parsing proposal response:', error);
             reject(error);
           }
@@ -443,8 +449,9 @@ const SpeedBot: React.FC = observer(() => {
       // Wait for purchase response
       const purchaseResponsePromise = new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('Purchase request timeout'));
-        }, 10000);
+          websocket.removeEventListener('message', messageHandler);
+          reject(new Error('Purchase request timeout - retrying next tick'));
+        }, 5000); // Reduced timeout to 5 seconds
 
         const messageHandler = (event) => {
           try {
@@ -464,6 +471,8 @@ const SpeedBot: React.FC = observer(() => {
               }
             }
           } catch (error) {
+            clearTimeout(timeout);
+            websocket.removeEventListener('message', messageHandler);
             console.error('Error parsing purchase response:', error);
             reject(error);
           }
@@ -549,7 +558,16 @@ const SpeedBot: React.FC = observer(() => {
       
     } catch (error) {
       console.error('Error executing trade:', error);
-      setError(`Failed to execute trade: ${error.message}`);
+      
+      // Don't show timeout errors as they're handled gracefully
+      if (!error.message.includes('timeout - retrying next tick')) {
+        setError(`Trade error: ${error.message}`);
+      }
+      
+      // For timeout errors, just log and continue - next tick will retry
+      if (error.message.includes('timeout')) {
+        console.log('Request timed out, will retry on next tick');
+      }
     } finally {
       setIsExecutingTrade(false);
     }
