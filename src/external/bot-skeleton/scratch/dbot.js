@@ -294,7 +294,7 @@ class DBot {
             var BinaryBotPrivateTickAnalysisList = [];
             var BinaryBotPrivateHasCalledTradeOptions = false;
 
-           
+
             function recursiveList(list, final_list){
                 for(var i=0; i < list.length; i++){
                     if(typeof(list[i]) === 'object'){
@@ -302,7 +302,7 @@ class DBot {
                     }
                     if(typeof(list[i]) == 'number'){
                         final_list.push(list[i]);   
-                                  
+
                     }
                 }
                 return final_list;
@@ -337,17 +337,28 @@ class DBot {
                     sleep(1);
                     continue;
                 }
-                // Execute purchase without waiting for contract states
-                BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
-                
-                // Small delay between purchases to prevent rate limiting
+                // Execute purchase with trading mode consideration
+                if (BinaryBotPrivateBeforePurchase) {
+                    BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
+
+                    // Check trading mode from Bot interface
+                    const tradingMode = Bot.getBotInterface?.()?.getTradingMode?.() || 'NORMAL';
+
+                    if (tradingMode === 'RAPID') {
+                        // For rapid purchase, don't wait for contract completion
+                        // Continue to next iteration immediately after purchase
+                        continue;
+                    }
+                }
+
+                // Normal trading: wait for contract completion
+                if (BinaryBotPrivateOnFinish && Bot.isTradeCompleted()) {
+                    BinaryBotPrivateRun(BinaryBotPrivateOnFinish);
+                }
+
                 sleep(1);
-                
-                // Continue without waiting for contract completion
-                BinaryBotPrivateTickAnalysis();
-                BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase);
             }
-            
+
             `;
     }
 

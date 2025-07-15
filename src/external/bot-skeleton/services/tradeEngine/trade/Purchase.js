@@ -10,6 +10,33 @@ let purchase_reference;
 
 export default Engine =>
     class Purchase extends Engine {
+        purchase(purchase_type, trading_mode = 'NORMAL') {
+        if (!this.checkProposalReady()) {
+            return Promise.reject(new Error('Proposal not ready'));
+        }
+
+        const { proposalsReady, tradeOptions } = this.data;
+
+        // Find the proposal for the requested purchase type
+        const proposal = proposalsReady.find(p => p.contractType === purchase_type);
+
+        if (!proposal) {
+            return Promise.reject(new Error('Proposal not found'));
+        }
+
+        this.data.purchase = {
+            buyPrice: proposal.askPrice,
+            contractType: purchase_type,
+            tradingMode: trading_mode,
+        };
+
+        // Store trading mode in Bot interface for access in other parts
+        if (globalObserver?.botInterface) {
+            globalObserver.botInterface.setTradingMode(trading_mode);
+        }
+
+        return this.purchaseContract(proposal);
+    }
         purchase(contract_type) {
             // Allow continuous purchases without blocking
 
@@ -40,7 +67,7 @@ export default Engine =>
                         contract_type,
                         buy_price: buy.buy_price,
                     });
-                    
+
                     // Resolve immediately to allow continuous purchases
                     resolve();
                 };
