@@ -1,0 +1,32 @@
+Compilation failed
+
+File: /home/runner/workspace/src/components/speed-bot/speed-bot.tsx:1:1
+  × Module build failed:
+  ├─▶   ×   × Expected a semicolon
+  │     │      ╭─[/home/runner/workspace/src/components/speed-bot/speed-bot.tsx:874:1]
+  │     │  871 │     // Inject the bulk trading WebSocket script
+  │     │  872 │     const script = document.createElement('script');
+  │     │  873 │     script.textContent = `
+  │     │  874 │       let derivWs,reconnectTimeout;let tickHistory=[],currentSymbol="${selectedSymbol}",tickCount=120,decimalPlaces=2,overUnderBarrier=${overUnderValue},isInitialized=false,reconnectAttempts=0,MAX_RECONNECT_ATTEMPTS=5;
+  │     │      ·                                                                                                                                         ─
+  │     │  875 │
+  │     │  876 │       function startWebSocket(){
+  │     │  877 │         if(console.log("🔌 Connecting to WebSocket API"),reconnectTimeout&&clearTimeout(reconnectTimeout),derivWs){
+  │     │      ╰────
+  │     │   × Expected unicode escape
+  │     │      ╭─[/home/runner/workspace/src/components/speed-bot/speed-bot.tsx:891:1]
+  │     │  888 │             try{
+  │     │  889 │               let t=JSON.parse(e.data);
+  │     │  890 │               if(t.error){console.error("❌ WebSocket API error:",t.error),notifyConnectionStatus("error",t.error.message);return}
+  │     │  891 │               if(t.history)console.log(\`📊 Received history for \${currentSymbol}: \${t.history.prices.length} ticks\`),tickHistory=t.history.prices.map((e,o)=>({time:t.history.times[o],quote:parseFloat(e)})),detectDecimalPlaces(),updateUI();
+  │     │      ·                                        ▲
+  │     │  892 │               else if(t.tick){let e=parseFloat(t.tick.quote);tickHistory.push({time:t.tick.epoch,quote:e}),tickHistory.length>tickCount&&tickHistory.shift(),updateUI()}
+  │     │  893 │               else t.ping&&derivWs.send(JSON.stringify({pong:1}))
+  │     │  894 │             }catch(e){console.error("Error processing message:",e)}
+  │     │      ╰────
+  │     │
+  │   
+  ╰─▶ Syntax Error
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
