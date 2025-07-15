@@ -390,49 +390,61 @@ const SpeedBot: React.FC = observer(() => {
         throw new Error('Failed to generate valid trading strategy');
       }
       
-      // Load the strategy into blockly workspace
-      if (window.Blockly?.derivWorkspace && window.Blockly?.Xml) {
-        try {
-          // Stop any running bot first
-          if (run_panel?.is_running) {
-            await run_panel.onStopButtonClick();
-            await new Promise(resolve => setTimeout(resolve, 200));
-          }
+      // Check if Blockly is properly initialized
+      if (!window.Blockly) {
+        throw new Error('Blockly library not loaded');
+      }
+      
+      if (!window.Blockly.derivWorkspace) {
+        throw new Error('Blockly workspace not initialized');
+      }
 
-          // Clear existing workspace
-          window.Blockly.derivWorkspace.clear();
-          
-          // Parse and load the new strategy
-          const xml = window.Blockly.Xml.textToDom(strategyXML);
-          if (xml) {
-            // Set event group for proper loading
-            const eventGroup = `speed_bot_load_${Date.now()}`;
-            window.Blockly.Events.setGroup(eventGroup);
-            
-            // Load strategy into workspace
-            window.Blockly.Xml.domToWorkspace(xml, window.Blockly.derivWorkspace);
-            
-            // Clear the event group
-            window.Blockly.Events.setGroup(false);
-            
-            // Update workspace strategy id
-            window.Blockly.derivWorkspace.current_strategy_id = `speed_bot_${Date.now()}`;
-            
-            console.log('✅ Strategy loaded into workspace successfully');
-            
-            // Brief delay before starting
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-          } else {
-            throw new Error('Failed to parse strategy XML');
-          }
-        } catch (workspaceError) {
-          console.error('Error loading strategy to workspace:', workspaceError);
-          throw new Error(`Failed to load trading strategy: ${workspaceError.message}`);
+      // Check if XML utilities are available
+      if (!window.Blockly.Xml || typeof window.Blockly.Xml.textToDom !== 'function') {
+        throw new Error('Blockly XML utilities not available');
+      }
+      
+      // Load the strategy into blockly workspace
+      try {
+        // Stop any running bot first
+        if (run_panel?.is_running) {
+          await run_panel.onStopButtonClick();
+          await new Promise(resolve => setTimeout(resolve, 300));
         }
-      } else {
-        console.error('Blockly workspace or XML utilities not available');
-        throw new Error('Blockly workspace not properly initialized');
+
+        // Clear existing workspace
+        window.Blockly.derivWorkspace.clear();
+        
+        // Parse the XML using Blockly's textToDom
+        const xml = window.Blockly.Xml.textToDom(strategyXML);
+        if (!xml) {
+          throw new Error('Failed to parse strategy XML with Blockly.Xml.textToDom');
+        }
+        
+        // Set event group for proper loading
+        const eventGroup = `speed_bot_load_${Date.now()}`;
+        window.Blockly.Events.setGroup(eventGroup);
+        
+        try {
+          // Load strategy into workspace using domToWorkspace
+          window.Blockly.Xml.domToWorkspace(xml, window.Blockly.derivWorkspace);
+          
+          // Update workspace strategy id
+          window.Blockly.derivWorkspace.current_strategy_id = `speed_bot_${Date.now()}`;
+          
+          console.log('✅ Strategy loaded into workspace successfully');
+          
+        } finally {
+          // Always clear the event group
+          window.Blockly.Events.setGroup(false);
+        }
+        
+        // Brief delay before starting
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+      } catch (workspaceError) {
+        console.error('Error loading strategy to workspace:', workspaceError);
+        throw new Error(`Failed to load trading strategy: ${workspaceError.message}`);
       }
 
       // Start the bot with the new strategy
@@ -545,9 +557,19 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
-    // Check if Blockly workspace is properly initialized
-    if (!window.Blockly?.derivWorkspace || !window.Blockly?.Xml) {
-      setError('Trading workspace not initialized. Please refresh the page and try again.');
+    // Check if Blockly is properly initialized
+    if (!window.Blockly) {
+      setError('Blockly library not loaded. Please refresh the page and try again.');
+      return;
+    }
+    
+    if (!window.Blockly.derivWorkspace) {
+      setError('Blockly workspace not initialized. Please refresh the page and try again.');
+      return;
+    }
+    
+    if (!window.Blockly.Xml || typeof window.Blockly.Xml.textToDom !== 'function') {
+      setError('Blockly XML utilities not available. Please refresh the page and try again.');
       return;
     }
 
