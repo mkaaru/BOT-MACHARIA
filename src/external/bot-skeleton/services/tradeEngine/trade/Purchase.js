@@ -11,65 +11,10 @@ let purchase_reference;
 export default Engine =>
     class Purchase extends Engine {
         purchase(contract_type) {
-        // Apply martingale logic before purchase
+        // JavaScript-only Martingale implementation (no Blockly conflicts)
         const botInterface = this.getBotInterface?.();
         if (botInterface) {
-            const lastTradeProfit = botInterface.getLastTradeProfit?.() || 0;
-            const martingaleMultiplier = botInterface.getMartingaleMultiplier?.() || 1;
-            const consecutiveLosses = botInterface.getConsecutiveLosses?.() || 0;
-
-            // Store base amount if not already stored (only on first trade)
-            if (!botInterface.getBaseAmount?.()) {
-                const baseAmount = this.tradeOptions.amount;
-                botInterface.setBaseAmount?.(baseAmount);
-                console.log(`🔵 FIRST TRADE: Base amount set to: ${baseAmount}`);
-            }
-
-            const baseAmount = botInterface.getBaseAmount?.() || this.tradeOptions.amount;
-            
-            console.log(`🔍 MARTINGALE CHECK:`);
-            console.log(`   LastProfit: ${lastTradeProfit}`);
-            console.log(`   Current Multiplier: ${martingaleMultiplier}`);
-            console.log(`   Consecutive Losses: ${consecutiveLosses}`);
-            console.log(`   Base Amount: ${baseAmount}`);
-            console.log(`   Current Trade Amount: ${this.tradeOptions.amount}`);
-            console.log(`   Total Profit: ${botInterface.getTotalProfit?.() || 0}`);
-
-            // Handle trade results (including break-even as neutral)
-            if (lastTradeProfit < 0) {
-                // Loss - apply martingale
-                const newMultiplier = martingaleMultiplier * 2;
-                const newConsecutiveLosses = consecutiveLosses + 1;
-                const maxMultiplier = 64;
-                const maxConsecutiveLosses = 10; // Reset after 10 consecutive losses
-
-                if (newMultiplier <= maxMultiplier && newConsecutiveLosses <= maxConsecutiveLosses) {
-                    botInterface.setMartingaleMultiplier(newMultiplier);
-                    botInterface.setConsecutiveLosses(newConsecutiveLosses);
-                    const newAmount = baseAmount * newMultiplier;
-                    this.tradeOptions.amount = newAmount;
-
-                    console.log(`🔴 LOSS: Martingale applied - Base: ${baseAmount} * Multiplier: ${newMultiplier} = ${newAmount}, Consecutive losses: ${newConsecutiveLosses}`);
-                } else {
-                    console.log('⚠️ Maximum martingale limit reached, resetting to base amount');
-                    botInterface.setMartingaleMultiplier(1);
-                    botInterface.setConsecutiveLosses(0);
-                    this.tradeOptions.amount = baseAmount;
-                }
-            } else if (lastTradeProfit > 0) {
-                // Win - reset martingale
-                botInterface.setMartingaleMultiplier(1);
-                botInterface.setConsecutiveLosses(0);
-                this.tradeOptions.amount = baseAmount;
-                console.log(`🟢 WIN: Martingale reset to base amount: ${baseAmount}`);
-            } else {
-                // Break-even (lastTradeProfit === 0) - keep current multiplier
-                const currentAmount = baseAmount * martingaleMultiplier;
-                this.tradeOptions.amount = currentAmount;
-                console.log(`🟡 BREAK-EVEN: Maintaining multiplier ${martingaleMultiplier}, amount: ${currentAmount}`);
-            }
-            
-            console.log(`Final trade amount for this purchase: ${this.tradeOptions.amount}`);
+            this.applyMartingaleLogic(botInterface);
         }
 
         // Allow continuous purchases without blocking
@@ -184,6 +129,54 @@ export default Engine =>
                 ).then(onSuccess);
             });
         }
+        applyMartingaleLogic(botInterface) {
+            const lastTradeProfit = botInterface.getLastTradeProfit?.() || 0;
+            const martingaleMultiplier = botInterface.getMartingaleMultiplier?.() || 1;
+            const consecutiveLosses = botInterface.getConsecutiveLosses?.() || 0;
+
+            // Initialize base amount on first trade
+            if (!botInterface.getBaseAmount?.()) {
+                const baseAmount = this.tradeOptions.amount;
+                botInterface.setBaseAmount?.(baseAmount);
+                console.log(`🔵 FIRST TRADE: Base amount set to: ${baseAmount}`);
+            }
+
+            const baseAmount = botInterface.getBaseAmount?.() || this.tradeOptions.amount;
+            const maxMultiplier = 64;
+            const maxConsecutiveLosses = 10;
+
+            console.log(`🔍 MARTINGALE STATUS: Profit: ${lastTradeProfit} | Multiplier: ${martingaleMultiplier} | Losses: ${consecutiveLosses}`);
+
+            if (lastTradeProfit < 0) {
+                // Loss: Apply martingale with safety limits
+                const newMultiplier = martingaleMultiplier * 2;
+                const newConsecutiveLosses = consecutiveLosses + 1;
+
+                if (newMultiplier <= maxMultiplier && newConsecutiveLosses <= maxConsecutiveLosses) {
+                    botInterface.setMartingaleMultiplier?.(newMultiplier);
+                    botInterface.setConsecutiveLosses?.(newConsecutiveLosses);
+                    this.tradeOptions.amount = baseAmount * newMultiplier;
+                    console.log(`🔴 LOSS: Stake increased to ${this.tradeOptions.amount} (${newMultiplier}x)`);
+                } else {
+                    // Reset on max limits
+                    botInterface.setMartingaleMultiplier?.(1);
+                    botInterface.setConsecutiveLosses?.(0);
+                    this.tradeOptions.amount = baseAmount;
+                    console.log(`⚠️ MAX LIMIT: Stake reset to ${baseAmount}`);
+                }
+            } else if (lastTradeProfit > 0) {
+                // Win: Reset martingale
+                botInterface.setMartingaleMultiplier?.(1);
+                botInterface.setConsecutiveLosses?.(0);
+                this.tradeOptions.amount = baseAmount;
+                console.log(`🟢 WIN: Stake reset to ${baseAmount}`);
+            } else {
+                // Break-even: Maintain current multiplier
+                this.tradeOptions.amount = baseAmount * martingaleMultiplier;
+                console.log(`🟡 BREAK-EVEN: Maintaining ${this.tradeOptions.amount} (${martingaleMultiplier}x)`);
+            }
+        }
+
         shouldContinueTrading() {
             const botInterface = this.getBotInterface?.();
             if (!botInterface) return false;
