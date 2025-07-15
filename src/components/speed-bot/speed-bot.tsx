@@ -75,16 +75,14 @@ const SpeedBot: React.FC = observer(() => {
   ];
 
   const contractTypes = [
-    { value: 'DIGITOVER', label: 'Over/Under' },
-    { value: 'DIGITEVEN', label: 'Even/Odd' },
+    { value: 'DIGITOVER', label: 'Over' },
+    { value: 'DIGITUNDER', label: 'Under' },
+    { value: 'DIGITEVEN', label: 'Even' },
+    { value: 'DIGITODD', label: 'Odd' },
     { value: 'DIGITDIFF', label: 'Differs' },
     { value: 'DIGITMATCH', label: 'Matches' },
-    { value: 'CALL', label: 'Rise/Fall' },
-    { value: 'ASIANU', label: 'Asian Up' },
-    { value: 'ASIAND', label: 'Asian Down' },
-    { value: 'LBFLOATCALL', label: 'Lookback High Close' },
-    { value: 'LBFLOATPUT', label: 'Lookback Low Close' },
-    { value: 'LBHIGHLOW', label: 'Lookback High Low' },
+    { value: 'CALL', label: 'Rise' },
+    { value: 'PUT', label: 'Fall' },
   ];
 
   // Safe observer pattern implementation
@@ -145,6 +143,15 @@ const SpeedBot: React.FC = observer(() => {
         setIsConnected(true);
         setWebsocket(ws);
 
+        // Authorize if user is logged in
+        if (client?.is_logged_in && client?.token) {
+          const authRequest = {
+            authorize: client.token,
+            req_id: 'auth'
+          };
+          ws.send(JSON.stringify(authRequest));
+        }
+
         // Request tick history
         const tickRequest = {
           ticks_history: selectedSymbol,
@@ -164,6 +171,11 @@ const SpeedBot: React.FC = observer(() => {
             console.error('WebSocket API error:', data.error);
             setError(data.error.message || 'API Error');
             return;
+          }
+
+          // Handle authorization response
+          if (data.req_id === 'auth' && data.authorize) {
+            console.log('✅ WebSocket authorized successfully');
           }
 
           if (data.tick && data.tick.symbol === selectedSymbol) {
@@ -292,7 +304,7 @@ const SpeedBot: React.FC = observer(() => {
     return xmlStrategy;
   }, [selectedSymbol, selectedContractType, currentStake, overUnderValue]);
 
-  // Execute trade through bot builder
+  // Execute trade through direct API call
   const executeTradeOnTick = useCallback(async (tick: number) => {
     if (!isTrading || isExecutingTrade) return;
     
@@ -300,39 +312,171 @@ const SpeedBot: React.FC = observer(() => {
     const now = Date.now();
     if (now - lastTradeTime < 3000) return;
 
-    // Check if workspace is available
-    if (!window.Blockly?.derivWorkspace) {
-      console.error('Blockly workspace not available');
+    if (!websocket || !isConnected) {
+      console.error('WebSocket not connected');
       return;
-    }
-
-    // Check if bot is already running and stop it first
-    if (run_panel?.is_running) {
-      return; // Don't execute new trade if bot is already running
     }
 
     setIsExecutingTrade(true);
     setLastTradeTime(now);
 
     try {
-      // Generate strategy for this specific trade
-      const strategyXml = generateSpeedBotStrategy();
+      // Create unique trade ID
+      const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Clear existing workspace
-      window.Blockly.derivWorkspace.clear();
-      
-      // Load new strategy
-      const xml = window.Blockly.utils.xml.textToDom(strategyXml);
-      window.Blockly.Xml.domToWorkspace(xml, window.Blockly.derivWorkspace);
+      // First get contracts for the symbol
+      const contractsRequest = {
+        contracts_for: selectedSymbol,
+        currency: 'USD',
+        req_id: `contracts_${tradeId}`
+      };
 
-      // Execute single trade through bot builder
-      if (run_panel?.onRunButtonClick) {
-        await run_panel.onRunButtonClick();
+      websocket.send(JSON.stringify(contractsRequest));
+
+      // Wait for contracts response and then make purchase
+      const contractsResponsePromise = new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Contracts request timeout'));
+        }, 10000);
+
+        const messageHandler = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            if (data.req_id === `contracts_${tradeId}`) {
+              clearTimeout(timeout);
+              websocket.removeEventListener('message', messageHandler);
+              
+              if (data.error) {
+                reject(new Error(data.error.message));
+                return;
+              }
+
+              if (data.contracts_for) {
+                resolve(data.contracts_for);
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing contracts response:', error);
+            reject(error);
+          }
+        };
+
+        websocket.addEventListener('message', messageHandler);
+      });
+
+      const contractsData = await contractsResponsePromise;
+      
+      // Find the contract type we want to trade
+      const availableContract = contractsData.available.find(contract => 
+        contract.contract_type === selectedContractType
+      );
+
+      if (!availableContract) {
+        throw new Error(`Contract type ${selectedContractType} not available`);
       }
+
+      // Create proposal request
+      const proposalRequest = {
+        proposal: 1,
+        amount: currentStake,
+        barrier: selectedContractType.includes('DIGIT') ? overUnderValue.toString() : undefined,
+        basis: 'stake',
+        contract_type: selectedContractType,
+        currency: 'USD',
+        duration: 1,
+        duration_unit: 't',
+        symbol: selectedSymbol,
+        req_id: `proposal_${tradeId}`
+      };
+
+      // Remove barrier if not needed for this contract type
+      if (!selectedContractType.includes('DIGIT')) {
+        delete proposalRequest.barrier;
+      }
+
+      websocket.send(JSON.stringify(proposalRequest));
+
+      // Wait for proposal response
+      const proposalResponsePromise = new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Proposal request timeout'));
+        }, 10000);
+
+        const messageHandler = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            if (data.req_id === `proposal_${tradeId}`) {
+              clearTimeout(timeout);
+              websocket.removeEventListener('message', messageHandler);
+              
+              if (data.error) {
+                reject(new Error(data.error.message));
+                return;
+              }
+
+              if (data.proposal) {
+                resolve(data.proposal);
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing proposal response:', error);
+            reject(error);
+          }
+        };
+
+        websocket.addEventListener('message', messageHandler);
+      });
+
+      const proposalData = await proposalResponsePromise;
+
+      // Make the purchase
+      const purchaseRequest = {
+        buy: proposalData.id,
+        price: proposalData.ask_price,
+        req_id: `buy_${tradeId}`
+      };
+
+      websocket.send(JSON.stringify(purchaseRequest));
+
+      // Wait for purchase response
+      const purchaseResponsePromise = new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Purchase request timeout'));
+        }, 10000);
+
+        const messageHandler = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            if (data.req_id === `buy_${tradeId}`) {
+              clearTimeout(timeout);
+              websocket.removeEventListener('message', messageHandler);
+              
+              if (data.error) {
+                reject(new Error(data.error.message));
+                return;
+              }
+
+              if (data.buy) {
+                resolve(data.buy);
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing purchase response:', error);
+            reject(error);
+          }
+        };
+
+        websocket.addEventListener('message', messageHandler);
+      });
+
+      const purchaseData = await purchaseResponsePromise;
 
       // Track trade for UI
       const trade: Trade = {
-        id: `trade_${Date.now()}`,
+        id: tradeId,
         timestamp: new Date().toLocaleTimeString(),
         symbol: selectedSymbol,
         contractType: selectedContractType,
@@ -344,24 +488,76 @@ const SpeedBot: React.FC = observer(() => {
       setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
       setTotalTrades(prev => prev + 1);
 
-      console.log(`Trade executed: ${selectedContractType} on ${selectedSymbol} - Stake: ${currentStake}`);
+      console.log(`Trade executed: ${selectedContractType} on ${selectedSymbol} - Stake: ${currentStake}`, purchaseData);
+
+      // Subscribe to contract updates to track results
+      const contractUpdateRequest = {
+        proposal_open_contract: 1,
+        contract_id: purchaseData.contract_id,
+        subscribe: 1,
+        req_id: `contract_${tradeId}`
+      };
+
+      websocket.send(JSON.stringify(contractUpdateRequest));
+
+      // Handle contract updates
+      const contractUpdateHandler = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.req_id === `contract_${tradeId}` && data.proposal_open_contract) {
+            const contract = data.proposal_open_contract;
+            
+            if (contract.is_sold) {
+              // Contract finished, update trade history
+              const profit = parseFloat(contract.profit) || 0;
+              const isWin = profit > 0;
+              
+              setTradeHistory(prev => 
+                prev.map(t => 
+                  t.id === tradeId 
+                    ? { ...t, result: isWin ? 'win' : 'loss', profit: profit }
+                    : t
+                )
+              );
+
+              if (isWin) {
+                setWins(prev => prev + 1);
+              } else {
+                setLosses(prev => prev + 1);
+              }
+
+              // Apply martingale strategy if enabled
+              if (useMartingale && !isWin) {
+                setCurrentStake(prev => prev * martingaleMultiplier);
+              } else if (isWin) {
+                setCurrentStake(stake); // Reset to original stake on win
+              }
+
+              // Remove this handler
+              websocket.removeEventListener('message', contractUpdateHandler);
+              
+              console.log(`Contract ${tradeId} finished:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`);
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing contract update:', error);
+        }
+      };
+
+      websocket.addEventListener('message', contractUpdateHandler);
       
     } catch (error) {
       console.error('Error executing trade:', error);
-      setError('Failed to execute trade');
+      setError(`Failed to execute trade: ${error.message}`);
     } finally {
       setIsExecutingTrade(false);
     }
-  }, [selectedSymbol, selectedContractType, currentStake, generateSpeedBotStrategy, run_panel, isTrading, isExecutingTrade, lastTradeTime]);
+  }, [selectedSymbol, selectedContractType, currentStake, overUnderValue, useMartingale, martingaleMultiplier, stake, websocket, isConnected, isTrading, isExecutingTrade, lastTradeTime]);
 
   const startTrading = async () => {
     if (!isConnected) {
       setError('Please connect to API first');
-      return;
-    }
-    
-    if (!window.Blockly?.derivWorkspace) {
-      setError('Bot builder workspace not available');
       return;
     }
 
@@ -371,37 +567,22 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
+    // Check if user has sufficient balance
+    if (client?.balance && parseFloat(client.balance) < stake) {
+      setError('Insufficient balance');
+      return;
+    }
+
     setCurrentStake(stake);
     setIsTrading(true);
     setError(null);
     
-    // Initialize the bot builder with the strategy
-    try {
-      const strategyXml = generateSpeedBotStrategy();
-      
-      // Clear existing workspace
-      window.Blockly.derivWorkspace.clear();
-      
-      // Load new strategy
-      const xml = window.Blockly.utils.xml.textToDom(strategyXml);
-      window.Blockly.Xml.domToWorkspace(xml, window.Blockly.derivWorkspace);
-
-      console.log('🚀 Speed Bot trading started through bot builder');
-    } catch (error) {
-      console.error('Error initializing bot builder:', error);
-      setIsTrading(false);
-      setError('Failed to initialize trading');
-    }
+    console.log('🚀 Speed Bot trading started with direct API calls');
+    console.log(`Trading ${selectedContractType} on ${selectedSymbol} with stake ${stake}`);
   };
 
   const stopTrading = () => {
     setIsTrading(false);
-    
-    // Stop the bot builder if it's running
-    if (run_panel?.is_running && run_panel?.onStopButtonClick) {
-      run_panel.onStopButtonClick();
-    }
-    
     console.log('🛑 Speed Bot trading stopped');
   };
 
