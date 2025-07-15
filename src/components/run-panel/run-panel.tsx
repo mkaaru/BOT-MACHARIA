@@ -299,6 +299,16 @@ const RunPanel = observer(() => {
     const show_run_panel = [BOT_BUILDER, CHART, ANALYSIS_TOOL, SIGNALS].includes(active_tab) || active_tour;
     if ((!show_run_panel && isDesktop) || active_tour === 'bot_builder') return null;
 
+    const onStopButtonClick = () => {
+        if (is_running) {
+            // Stop tick execution if active
+            if (window.Blockly?.derivWorkspace?.Bot?.stopTickExecution) {
+                window.Blockly.derivWorkspace.Bot.stopTickExecution();
+            }
+            stopBot();
+        }
+    };
+
     return (
         <>
             <div cassName={!isDesktop && is_drawer_open ? 'run-panel__container--mobile' : 'run-panel'}>
