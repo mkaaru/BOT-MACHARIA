@@ -82,13 +82,12 @@
     label {
       font-size: 0.875rem;
       font-weight: 500;
-      color: #666;
+      color: var(--text-general);
     }
   }
 
   &__toggle-switch {
     position: relative;
-    display: inline-block;
     width: 44px;
     height: 24px;
 
@@ -98,11 +97,16 @@
       height: 0;
 
       &:checked + .speed-bot__slider {
-        background-color: #6c5ce7;
+        background-color: var(--status-success);
 
         &:before {
           transform: translateX(20px);
         }
+      }
+
+      &:disabled + .speed-bot__slider {
+        opacity: 0.5;
+        cursor: not-allowed;
       }
     }
   }
@@ -114,19 +118,20 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #ccc;
-    transition: .4s;
+    background-color: var(--general-section-1);
+    transition: 0.3s;
     border-radius: 24px;
+    border: 1px solid var(--border-normal);
 
     &:before {
       position: absolute;
       content: "";
       height: 18px;
       width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: .4s;
+      left: 2px;
+      bottom: 2px;
+      background-color: var(--text-general);
+      transition: 0.3s;
       border-radius: 50%;
     }
   }
@@ -134,8 +139,7 @@
   &__toggle-text {
     font-size: 0.75rem;
     font-weight: 600;
-    color: #6c5ce7;
-    text-transform: uppercase;
+    color: var(--text-general);
   }
 
   &__config-content {
@@ -631,5 +635,293 @@
     &__trade-result {
       align-self: flex-end;
     }
+  }
+}
+
+.speed-bot__bulk-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-general);
+  }
+}
+
+.speed-bot__toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+
+  input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+
+    &:checked + .speed-bot__slider {
+      background-color: var(--status-success);
+
+      &:before {
+        transform: translateX(20px);
+      }
+    }
+
+    &:disabled + .speed-bot__slider {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.speed-bot__slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--general-section-1);
+  transition: 0.3s;
+  border-radius: 24px;
+  border: 1px solid var(--border-normal);
+
+  &:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: var(--text-general);
+    transition: 0.3s;
+    border-radius: 50%;
+  }
+}
+
+.speed-bot__toggle-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-general);
+}
+
+// Speed Bot Analysis Panel
+.speed-bot__analysis-panel {
+  background: linear-gradient(135deg, var(--general-main-1) 0%, var(--general-section-1) 100%);
+  border: 1px solid var(--border-normal);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+
+  label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-less-prominent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+}
+
+.speed-bot__analysis-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.speed-bot__analysis-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.speed-bot__market-condition {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+
+  &.volatile {
+    background-color: var(--status-danger);
+    color: white;
+  }
+
+  &.stable {
+    background-color: var(--status-success);
+    color: white;
+  }
+
+  &.trending {
+    background-color: var(--status-warning);
+    color: white;
+  }
+}
+
+.speed-bot__signal-strength {
+  position: relative;
+  background-color: var(--general-section-2);
+  border-radius: 4px;
+  height: 24px;
+  overflow: hidden;
+
+  span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-general);
+    z-index: 2;
+  }
+}
+
+.speed-bot__signal-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--status-danger) 0%, var(--status-warning) 50%, var(--status-success) 100%);
+  transition: width 0.3s ease;
+}
+
+.speed-bot__next-signal {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  background-color: var(--general-section-2);
+  color: var(--text-general);
+
+  &.even {
+    background-color: var(--status-success);
+    color: white;
+  }
+
+  &.odd {
+    background-color: var(--status-info);
+    color: white;
+  }
+}
+
+.speed-bot__tick-count {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-general);
+  text-align: center;
+  padding: 0.25rem;
+  background-color: var(--general-section-2);
+  border-radius: 4px;
+}
+
+// Digit Pattern Analysis
+.speed-bot__pattern-analysis {
+  border-top: 1px solid var(--border-normal);
+  padding-top: 1rem;
+  margin-top: 1rem;
+
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+}
+
+.speed-bot__digit-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 0.25rem;
+}
+
+.speed-bot__digit-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.25rem;
+  background-color: var(--general-section-2);
+  border-radius: 4px;
+  border: 1px solid var(--border-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.speed-bot__digit {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-general);
+  z-index: 2;
+}
+
+.speed-bot__frequency {
+  font-size: 0.75rem;
+  color: var(--text-less-prominent);
+  z-index: 2;
+}
+
+.speed-bot__frequency-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, transparent 0%, var(--status-info) 100%);
+  opacity: 0.3;
+  transition: height 0.3s ease;
+}
+
+// Enhanced status indicators
+.speed-bot__status.connected {
+  color: var(--status-success);
+}
+
+.speed-bot__status.disconnected {
+  color: var(--status-danger);
+}
+
+.speed-bot__status.authorized {
+  color: var(--status-success);
+}
+
+.speed-bot__status.unauthorized {
+  color: var(--status-warning);
+}
+
+// Real trade indicators
+.speed-bot__real-trade {
+  background: linear-gradient(45deg, var(--status-success), var(--status-info));
+  color: white;
+  padding: 0.125rem 0.25rem;
+  border-radius: 3px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  margin-left: 0.25rem;
+}
+
+.speed-bot__bulk-trade {
+  background: linear-gradient(45deg, var(--status-warning), var(--status-danger));
+  color: white;
+  padding: 0.125rem 0.25rem;
+  border-radius: 3px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  margin-left: 0.25rem;
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .speed-bot__analysis-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .speed-bot__digit-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+
+  .speed-bot__config-row {
+    flex-direction: column;
+    gap: 0.75rem;
   }
 }
