@@ -36,22 +36,20 @@ const SpeedBot: React.FC = () => {
   const [pendingTrades, setPendingTrades] = useState<Set<string>>(new Set());
   
   // Enhanced features
-  const [alternateEvenOdd, setAlternateEvenOdd] = useState(false);
+  const [alternateMarketType, setAlternateMarketType] = useState(false);
   const [alternateOnLoss, setAlternateOnLoss] = useState(false);
   const [useMartingale, setUseMartingale] = useState(false);
   const [martingaleMultiplier, setMartingaleMultiplier] = useState(2);
   const [totalProfitTarget, setTotalProfitTarget] = useState(10);
   const [lossThreshold, setLossThreshold] = useState(-10);
-  const [overUnderBarrier, setOverUnderBarrier] = useState(5);
+  const [overUnderValue, setOverUnderValue] = useState(5);
   const [matchDifferDigit, setMatchDifferDigit] = useState(5);
   
   // State management
   const [currentStake, setCurrentStake] = useState(1.0);
   const [lastTradeResult, setLastTradeResult] = useState<'win' | 'loss' | null>(null);
   const [consecutiveLosses, setConsecutiveLosses] = useState(0);
-  const [currentEvenOddChoice, setCurrentEvenOddChoice] = useState<'DIGITEVEN' | 'DIGITODD'>('DIGITEVEN');
-  const [manualApiToken, setManualApiToken] = useState('');
-  const [showTokenInput, setShowTokenInput] = useState(false);
+  const [currentContractChoice, setCurrentContractChoice] = useState(contractType);
 
   const volatilitySymbols = [
     { value: 'R_10', label: 'Volatility 10 Index' },
@@ -128,14 +126,8 @@ const SpeedBot: React.FC = () => {
             req_id: 'speed_bot_auth'
           }));
         } else {
-          console.log('⚠️ No valid API token found - Speed Bot will run in simulation mode');
-          console.log('Available tokens:', {
-            dbot_api_token: !!localStorage.getItem('dbot_api_token'),
-            authToken: !!localStorage.getItem('authToken'),
-            oauth_token: !!localStorage.getItem('oauth_token'),
-            deriv_token: !!localStorage.getItem('deriv_token')
-          });
-          setCurrentPrice('No authorization - Simulation mode');
+          console.log('⚠️ No valid API token found - User needs to log in');
+          setCurrentPrice('Please log in to start trading');
           
           setTimeout(() => {
             if (ws.readyState === WebSocket.OPEN) {
@@ -160,11 +152,10 @@ const SpeedBot: React.FC = () => {
             return;
           }
 
-          if (data.authorize && (data.req_id === 'speed_bot_auth' || data.req_id === 'speed_bot_manual_auth')) {
+          if (data.authorize && data.req_id === 'speed_bot_auth') {
             console.log('✅ Speed Bot authorized for real trading');
             setIsAuthorized(true);
             setCurrentPrice('Authorized - Waiting for ticks...');
-            setManualApiToken(''); // Clear the token input
             
             setTimeout(() => {
               if (ws.readyState === WebSocket.OPEN) {
@@ -225,8 +216,8 @@ const SpeedBot: React.FC = () => {
     // Determine which contract to use based on alternating settings
     let actualContractType = contractType;
     
-    if (alternateEvenOdd && getContractCategory(contractType) === 'evenodd') {
-      actualContractType = currentEvenOddChoice;
+    if (alternateMarketType) {
+      actualContractType = currentContractChoice;
     } else if (alternateOnLoss && lastTradeResult === 'loss') {
       actualContractType = getAlternateContract(contractType);
     }
@@ -234,7 +225,7 @@ const SpeedBot: React.FC = () => {
     let prediction: string;
     let shouldTrade = false;
     let actualResult: string;
-    let barrier = overUnderBarrier;
+    let barrier = overUnderValue;
 
     // Determine prediction and result based on contract type
     switch (actualContractType) {
@@ -340,7 +331,6 @@ const SpeedBot: React.FC = () => {
           }
         } catch (error) {
           console.error('❌ Real trade failed:', error);
-          executeSimulatedTrade(actualContractType, prediction, actualResult, lastDigit);
         } finally {
           setPendingTrades(prev => {
             const newSet = new Set(prev);
@@ -349,66 +339,17 @@ const SpeedBot: React.FC = () => {
           });
         }
       } else {
-        // Execute simulated trade
-        executeSimulatedTrade(actualContractType, prediction, actualResult, lastDigit);
+        console.log('⚠️ Not authorized - please log in to execute real trades');
       }
 
-      // Update alternating logic for even/odd
-      if (alternateEvenOdd && getContractCategory(contractType) === 'evenodd') {
-        setCurrentEvenOddChoice(prev => prev === 'DIGITEVEN' ? 'DIGITODD' : 'DIGITEVEN');
+      // Update alternating logic based on contract type
+      if (alternateMarketType) {
+        setCurrentContractChoice(getAlternateContract(currentContractChoice));
       }
     }
   }, [contractType, selectedSymbol, currentStake, isAuthorized, pendingTrades, alternateEvenOdd, alternateOnLoss, lastTradeResult, currentEvenOddChoice, overUnderBarrier, matchDifferDigit]);
 
-  const executeSimulatedTrade = useCallback((actualContractType: string, prediction: string, actualResult: string, tickValue: number) => {
-    const isWin = prediction === actualResult;
-    const payout = isWin ? currentStake * 1.95 : 0;
-    const profit = payout - currentStake;
-
-    const trade: TradeResult = {
-      id: `sim_trade_${Date.now()}`,
-      timestamp: new Date().toLocaleTimeString(),
-      symbol: selectedSymbol,
-      contractType: actualContractType,
-      prediction,
-      actual: actualResult,
-      result: isWin ? 'win' : 'loss',
-      stake: currentStake,
-      payout,
-      profit,
-      tickValue,
-    };
-
-    setTradeHistory(prev => [trade, ...prev.slice(0, 49)]);
-    setTotalTrades(prev => prev + 1);
-    setTotalProfit(prev => prev + profit);
-    setLastTradeResult(isWin ? 'win' : 'loss');
-
-    // Handle martingale strategy
-    if (useMartingale) {
-      if (isWin) {
-        setCurrentStake(stakeAmount); // Reset to original stake
-        setConsecutiveLosses(0);
-      } else {
-        setConsecutiveLosses(prev => prev + 1);
-        setCurrentStake(prev => prev * martingaleMultiplier);
-      }
-    }
-
-    // Update win rate
-    setWinRate(prev => {
-      const newTotal = totalTrades + 1;
-      const wins = tradeHistory.filter(t => t.result === 'win').length + (isWin ? 1 : 0);
-      return (wins / newTotal) * 100;
-    });
-
-    // Check profit/loss thresholds
-    const newTotalProfit = totalProfit + profit;
-    if (newTotalProfit >= totalProfitTarget || newTotalProfit <= lossThreshold) {
-      console.log(`🛑 Stopping trading - Profit threshold reached: ${newTotalProfit}`);
-      setIsTrading(false);
-    }
-  }, [selectedSymbol, currentStake, totalTrades, tradeHistory, totalProfit, useMartingale, stakeAmount, martingaleMultiplier, totalProfitTarget, lossThreshold]);
+  
 
   const handleContractUpdate = useCallback((contract: any) => {
     if (contract.contract_id) {
@@ -486,16 +427,15 @@ const SpeedBot: React.FC = () => {
     }
     
     if (!isAuthorized) {
-      const confirmSimulation = window.confirm(
-        'You are not authorized for real trading. Do you want to continue in simulation mode?'
-      );
-      if (!confirmSimulation) return;
+      alert('Please log in to your Deriv account to start trading');
+      return;
     }
     
     // Reset martingale state
     setCurrentStake(stakeAmount);
     setConsecutiveLosses(0);
     setLastTradeResult(null);
+    setCurrentContractChoice(contractType);
     
     setIsTrading(true);
   };
@@ -515,18 +455,6 @@ const SpeedBot: React.FC = () => {
     setLastTradeResult(null);
   };
 
-  const authorizeWithToken = () => {
-    if (manualApiToken && websocket && websocket.readyState === WebSocket.OPEN) {
-      localStorage.setItem('dbot_api_token', manualApiToken);
-      console.log('🔑 Authorizing with manual API token');
-      websocket.send(JSON.stringify({
-        authorize: manualApiToken,
-        req_id: 'speed_bot_manual_auth'
-      }));
-      setShowTokenInput(false);
-    }
-  };
-
   useEffect(() => {
     connectToAPI();
     return () => {
@@ -540,18 +468,22 @@ const SpeedBot: React.FC = () => {
     setCurrentStake(stakeAmount);
   }, [stakeAmount]);
 
+  useEffect(() => {
+    setCurrentContractChoice(contractType);
+  }, [contractType]);
+
   return (
     <div className="speed-bot">
       <div className="speed-bot__header">
         <h2 className="speed-bot__title">
-          <Localize i18n_default_text="Speed Bot - Enhanced Real Money Trading" />
+          <Localize i18n_default_text="Speed Bot - Real Money Trading" />
         </h2>
         <div className="speed-bot__status-group">
           <div className={`speed-bot__status ${isConnected ? 'connected' : 'disconnected'}`}>
             {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
           </div>
           <div className={`speed-bot__status ${isAuthorized ? 'authorized' : 'unauthorized'}`}>
-            {isAuthorized ? '🔑 Real Trading' : '⚠️ Simulation Mode'}
+            {isAuthorized ? '🔑 Authorized' : '⚠️ Please Login'}
           </div>
         </div>
       </div>
@@ -615,14 +547,14 @@ const SpeedBot: React.FC = () => {
           <div className="speed-bot__control-row">
             <div className="speed-bot__control-group">
               <label>
-                <Localize i18n_default_text="Barrier:" />
+                <Localize i18n_default_text="Over/Under Value:" />
               </label>
               <input
                 type="number"
                 min="0"
                 max="9"
-                value={overUnderBarrier}
-                onChange={(e) => setOverUnderBarrier(parseInt(e.target.value))}
+                value={overUnderValue}
+                onChange={(e) => setOverUnderValue(parseInt(e.target.value))}
                 disabled={isTrading}
                 className="speed-bot__input"
               />
@@ -653,39 +585,48 @@ const SpeedBot: React.FC = () => {
         <div className="speed-bot__strategy-controls">
           <div className="speed-bot__control-row">
             <div className="speed-bot__control-group">
-              <label className="speed-bot__checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={alternateEvenOdd}
-                  onChange={(e) => setAlternateEvenOdd(e.target.checked)}
-                  disabled={isTrading || getContractCategory(contractType) !== 'evenodd'}
-                />
-                <Localize i18n_default_text="Alternate Even/Odd" />
+              <label>
+                <Localize i18n_default_text="Alternate Market Type:" />
               </label>
+              <div className="speed-bot__toggle-container">
+                <button
+                  className={`speed-bot__toggle ${alternateMarketType ? 'active' : ''}`}
+                  onClick={() => setAlternateMarketType(!alternateMarketType)}
+                  disabled={isTrading}
+                >
+                  {alternateMarketType ? 'ON' : 'OFF'}
+                </button>
+              </div>
             </div>
 
             <div className="speed-bot__control-group">
-              <label className="speed-bot__checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={alternateOnLoss}
-                  onChange={(e) => setAlternateOnLoss(e.target.checked)}
-                  disabled={isTrading}
-                />
-                <Localize i18n_default_text="Alternate on Loss" />
+              <label>
+                <Localize i18n_default_text="Alternate After Loss:" />
               </label>
+              <div className="speed-bot__toggle-container">
+                <button
+                  className={`speed-bot__toggle ${alternateOnLoss ? 'active' : ''}`}
+                  onClick={() => setAlternateOnLoss(!alternateOnLoss)}
+                  disabled={isTrading}
+                >
+                  {alternateOnLoss ? 'ON' : 'OFF'}
+                </button>
+              </div>
             </div>
 
             <div className="speed-bot__control-group">
-              <label className="speed-bot__checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={useMartingale}
-                  onChange={(e) => setUseMartingale(e.target.checked)}
-                  disabled={isTrading}
-                />
-                <Localize i18n_default_text="Use Martingale" />
+              <label>
+                <Localize i18n_default_text="Use Martingale:" />
               </label>
+              <div className="speed-bot__toggle-container">
+                <button
+                  className={`speed-bot__toggle ${useMartingale ? 'active' : ''}`}
+                  onClick={() => setUseMartingale(!useMartingale)}
+                  disabled={isTrading}
+                >
+                  {useMartingale ? 'ON' : 'OFF'}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -799,40 +740,7 @@ const SpeedBot: React.FC = () => {
 
       {!isAuthorized && (
         <div className="speed-bot__warning">
-          <p>⚠️ <strong>Running in simulation mode.</strong> Log in via OAuth to enable real money trading.</p>
-          {!showTokenInput ? (
-            <button
-              onClick={() => setShowTokenInput(true)}
-              className="speed-bot__button speed-bot__button--auth"
-            >
-              <Localize i18n_default_text="Enter API Token" />
-            </button>
-          ) : (
-            <div className="speed-bot__token-input">
-              <input
-                type="password"
-                placeholder="Enter your Deriv API token"
-                value={manualApiToken}
-                onChange={(e) => setManualApiToken(e.target.value)}
-                className="speed-bot__input"
-              />
-              <div className="speed-bot__token-buttons">
-                <button
-                  onClick={authorizeWithToken}
-                  disabled={!manualApiToken}
-                  className="speed-bot__button speed-bot__button--start"
-                >
-                  <Localize i18n_default_text="Authorize" />
-                </button>
-                <button
-                  onClick={() => setShowTokenInput(false)}
-                  className="speed-bot__button speed-bot__button--reset"
-                >
-                  <Localize i18n_default_text="Cancel" />
-                </button>
-              </div>
-            </div>
-          )}
+          <p>⚠️ <strong>Please log in to your Deriv account to start real money trading.</strong></p>
         </div>
       )}
 
