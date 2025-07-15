@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
 import { useStore } from '@/hooks/useStore';
@@ -58,6 +59,7 @@ const SpeedBot: React.FC = observer(() => {
   const [losses, setLosses] = useState(0);
   const [lastTradeTime, setLastTradeTime] = useState(0);
   const [isExecutingTrade, setIsExecutingTrade] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const volatilitySymbols = [
     { value: 'R_10', label: 'Volatility 10 Index' },
@@ -85,6 +87,45 @@ const SpeedBot: React.FC = observer(() => {
     { value: 'LBHIGHLOW', label: 'Lookback High Low' },
   ];
 
+  // Safe observer pattern implementation
+  const createObserver = () => {
+    const observers: { [key: string]: Array<(data: any) => void> } = {};
+    
+    return {
+      register: (event: string, callback: (data: any) => void) => {
+        if (!observers[event]) {
+          observers[event] = [];
+        }
+        observers[event].push(callback);
+      },
+      emit: (event: string, data?: any) => {
+        if (observers[event]) {
+          observers[event].forEach(callback => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error('Observer callback error:', error);
+            }
+          });
+        }
+      },
+      unregister: (event: string, callback?: (data: any) => void) => {
+        if (observers[event]) {
+          if (callback) {
+            const index = observers[event].indexOf(callback);
+            if (index > -1) {
+              observers[event].splice(index, 1);
+            }
+          } else {
+            observers[event] = [];
+          }
+        }
+      }
+    };
+  };
+
+  const localObserver = createObserver();
+
   // WebSocket connection
   const connectToAPI = useCallback(() => {
     try {
@@ -93,68 +134,73 @@ const SpeedBot: React.FC = observer(() => {
         setWebsocket(null);
       }
 
+      setError(null);
       console.log('🚀 Connecting to WebSocket API...');
       setIsConnected(false);
 
       const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
 
-    ws.onopen = () => {
-      console.log('✅ WebSocket connection established');
-      setIsConnected(true);
-      setWebsocket(ws);
+      ws.onopen = () => {
+        console.log('✅ WebSocket connection established');
+        setIsConnected(true);
+        setWebsocket(ws);
 
-      // Request tick history
-      const tickRequest = {
-        ticks_history: selectedSymbol,
-        count: 120,
-        end: 'latest',
-        style: 'ticks',
-        subscribe: 1,
+        // Request tick history
+        const tickRequest = {
+          ticks_history: selectedSymbol,
+          count: 120,
+          end: 'latest',
+          style: 'ticks',
+          subscribe: 1,
+        };
+        ws.send(JSON.stringify(tickRequest));
       };
-      ws.send(JSON.stringify(tickRequest));
-    };
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
 
-        if (data.error) {
-          console.error('WebSocket API error:', data.error);
-          return;
-        }
-
-        if (data.tick && data.tick.symbol === selectedSymbol) {
-          const price = parseFloat(data.tick.quote);
-          setCurrentPrice(price.toFixed(5));
-
-          // Execute trade on every tick when trading is active
-          if (isTrading) {
-            executeTradeOnTick(price);
+          if (data.error) {
+            console.error('WebSocket API error:', data.error);
+            setError(data.error.message || 'API Error');
+            return;
           }
+
+          if (data.tick && data.tick.symbol === selectedSymbol) {
+            const price = parseFloat(data.tick.quote);
+            setCurrentPrice(price.toFixed(5));
+
+            // Execute trade on every tick when trading is active
+            if (isTrading) {
+              executeTradeOnTick(price);
+            }
+          }
+
+          if (data.history && data.history.prices) {
+            const lastPrice = parseFloat(data.history.prices[data.history.prices.length - 1]);
+            setCurrentPrice(lastPrice.toFixed(5));
+          }
+        } catch (error) {
+          console.error('Error parsing message:', error);
+          setError('Failed to parse server response');
         }
+      };
 
-        if (data.history && data.history.prices) {
-          const lastPrice = parseFloat(data.history.prices[data.history.prices.length - 1]);
-          setCurrentPrice(lastPrice.toFixed(5));
-        }
-      } catch (error) {
-        console.error('Error parsing message:', error);
-      }
-    };
+      ws.onclose = () => {
+        console.log('WebSocket connection closed');
+        setIsConnected(false);
+        setWebsocket(null);
+      };
 
-    ws.onclose = () => {
-      console.log('WebSocket connection closed');
-      setIsConnected(false);
-      setWebsocket(null);
-    };
-
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setIsConnected(false);
-    };
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setIsConnected(false);
+        setError('Connection failed');
+      };
     } catch (error) {
       console.error('Error creating WebSocket connection:', error);
       setIsConnected(false);
+      setError('Failed to create connection');
     }
   }, [selectedSymbol, isTrading]);
 
@@ -302,6 +348,7 @@ const SpeedBot: React.FC = observer(() => {
       
     } catch (error) {
       console.error('Error executing trade:', error);
+      setError('Failed to execute trade');
     } finally {
       setIsExecutingTrade(false);
     }
@@ -309,23 +356,24 @@ const SpeedBot: React.FC = observer(() => {
 
   const startTrading = async () => {
     if (!isConnected) {
-      alert('Please connect to API first');
+      setError('Please connect to API first');
       return;
     }
     
     if (!window.Blockly?.derivWorkspace) {
-      alert('Bot builder workspace not available');
+      setError('Bot builder workspace not available');
       return;
     }
 
     // Check if user is logged in
     if (!client?.is_logged_in) {
-      alert('Please log in to start trading');
+      setError('Please log in to start trading');
       return;
     }
 
     setCurrentStake(stake);
     setIsTrading(true);
+    setError(null);
     
     // Initialize the bot builder with the strategy
     try {
@@ -342,6 +390,7 @@ const SpeedBot: React.FC = observer(() => {
     } catch (error) {
       console.error('Error initializing bot builder:', error);
       setIsTrading(false);
+      setError('Failed to initialize trading');
     }
   };
 
@@ -362,68 +411,23 @@ const SpeedBot: React.FC = observer(() => {
     setWins(0);
     setLosses(0);
     setCurrentStake(stake);
+    setError(null);
   };
 
   useEffect(() => {
-    connectToAPI();
-    
-    // Listen for bot contract events to update trade results
-    const handleBotContract = (data: any) => {
-      if (data && isTrading) {
-        console.log('Bot contract event received:', data);
-        
-        setTradeHistory(prev => {
-          const updatedHistory = [...prev];
-          if (updatedHistory.length > 0) {
-            const lastTrade = updatedHistory[0];
-            if (lastTrade.result === 'pending') {
-              const isWin = data.profit_percentage > 0 || data.profit > 0;
-              lastTrade.result = isWin ? 'win' : 'loss';
-              lastTrade.profit = data.profit || 0;
-              
-              if (isWin) {
-                setWins(prev => prev + 1);
-                if (useMartingale) {
-                  setCurrentStake(stake); // Reset to base stake
-                }
-              } else {
-                setLosses(prev => prev + 1);
-                if (useMartingale) {
-                  setCurrentStake(prev => Math.min(prev * martingaleMultiplier, stake * 100)); // Increase stake with limit
-                }
-              }
-              
-              console.log(`Trade result: ${isWin ? 'WIN' : 'LOSS'}, Profit: ${data.profit}`);
-            }
-          }
-          return updatedHistory;
-        });
-        
-        // Stop the bot after each trade to allow next trade
-        if (run_panel?.is_running && run_panel?.onStopButtonClick) {
-          setTimeout(() => {
-            run_panel.onStopButtonClick();
-          }, 1000);
-        }
-      }
-    };
-
-    // Register observers for bot events
-    if (window.Blockly?.derivWorkspace) {
-      observer.register('bot.contract', handleBotContract);
-      observer.register('contract.status', handleBotContract);
+    try {
+      connectToAPI();
+    } catch (error) {
+      console.error('Error in connectToAPI:', error);
+      setError('Failed to initialize connection');
     }
     
     return () => {
       if (websocket) {
         websocket.close();
       }
-      // Only unregister observer if it exists
-      if (typeof observer !== 'undefined' && observer.unregisterAll) {
-        observer.unregisterAll('bot.contract');
-      }
     };
-  }, [connectToAPI, isTrading, useMartingale, martingaleMultiplier, stake]);
+  }, [connectToAPI]);
 
   useEffect(() => {
     setCurrentStake(stake);
@@ -453,6 +457,14 @@ const SpeedBot: React.FC = observer(() => {
         <br />
         <strong>This uses real money!</strong>
       </div>
+
+      {error && (
+        <div className="speed-bot__error-message">
+          <p style={{ color: 'red', padding: '10px', backgroundColor: '#ffe6e6', borderRadius: '4px' }}>
+            Error: {error}
+          </p>
+        </div>
+      )}
 
       <div className="speed-bot__form">
         <div className="speed-bot__form-row">
@@ -578,7 +590,7 @@ const SpeedBot: React.FC = observer(() => {
             <button 
               className="speed-bot__start-btn"
               onClick={startTrading}
-              disabled={!isConnected}
+              disabled={!isConnected || !!error}
             >
               START TRADING
             </button>
@@ -595,7 +607,7 @@ const SpeedBot: React.FC = observer(() => {
             onClick={resetStats}
             disabled={isTrading}
           >
-            Stop Purchasing
+            Reset Stats
           </button>
         </div>
       </div>
@@ -643,7 +655,8 @@ const SpeedBot: React.FC = observer(() => {
                 <span className="speed-bot__trade-symbol">{trade.symbol}</span>
                 <span className="speed-bot__trade-type">{trade.contractType}</span>
                 <span className="speed-bot__trade-result">
-                  {trade.result === 'win' ? '✅' : '❌'} {trade.profit >= 0 ? '+' : ''}{trade.profit.toFixed(2)}
+                  {trade.result === 'win' ? '✅' : trade.result === 'loss' ? '❌' : '⏳'} 
+                  {trade.profit !== 0 ? (trade.profit >= 0 ? '+' : '') + trade.profit.toFixed(2) : '---'}
                 </span>
               </div>
             ))
