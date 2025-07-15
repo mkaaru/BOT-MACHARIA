@@ -1209,7 +1209,8 @@ const SpeedBot: React.FC = () => {
                   </div>
                 </div>
               </div>
-            )}</div>
+            )}
+          </div></div>
 
             <div className="speed-bot__config-row">
               <div className="speed-bot__config-item">
