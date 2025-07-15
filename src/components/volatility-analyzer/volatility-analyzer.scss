@@ -19,47 +19,27 @@
       margin: 0;
     }
 
-    .status-indicators {
-    display: flex;
-    gap: 16px;
-    align-items: center;
-  }
+    .connection-status {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 14px;
 
-  .connection-status {
-    font-size: 14px;
-    font-weight: 500;
+      &.connected {
+        background-color: var(--status-success);
+        color: white;
+      }
 
-    &.connected {
-      color: #4CAF50;
+      &.disconnected {
+        background-color: var(--status-danger);
+        color: white;
+      }
+
+      &.error {
+        background-color: var(--status-warning);
+        color: white;
+      }
     }
-
-    &.disconnected {
-      color: #F44336;
-    }
-
-    &.error {
-      color: #FF9800;
-    }
-  }
-
-  .trading-mode {
-    font-size: 14px;
-    font-weight: 500;
-    padding: 4px 8px;
-    border-radius: 4px;
-
-    &.real {
-      color: #4CAF50;
-      background-color: rgba(76, 175, 80, 0.1);
-      border: 1px solid rgba(76, 175, 80, 0.3);
-    }
-
-    &.simulation {
-      color: #FF9800;
-      background-color: rgba(255, 152, 0, 0.1);
-      border: 1px solid rgba(255, 152, 0, 0.3);
-    }
-  }
   }
 
   .analyzer-controls {
@@ -417,20 +397,18 @@
       .start-trading-btn {
         width: 100%;
         padding: 12px;
-        background: linear-gradient(45deg, #4CAF50, #45a049);
+        background: linear-gradient(135deg, #ff6b6b, #ee5a24);
         color: white;
         border: none;
-        border-radius: 6px;
-        font-size: 14px;
-        font-weight: 600;
+        border-radius: 8px;
+        font-weight: bold;
         cursor: pointer;
         transition: all 0.3s ease;
-        margin-bottom: 8px;
 
         &:hover:not(:disabled) {
-          background: linear-gradient(45deg, #45a049, #4CAF50);
+          background: linear-gradient(135deg, #ee5a24, #ff6b6b);
           transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+          box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
         }
 
         &:disabled {
@@ -441,34 +419,8 @@
         }
 
         &.trading-active {
-          background: linear-gradient(45deg, #ff6b6b, #ff5252);
+          background: linear-gradient(135deg, #4CAF50, #45a049);
           animation: pulse 2s infinite;
-        }
-      }
-
-      .manual-trade-btn {
-        width: 100%;
-        padding: 10px;
-        background: linear-gradient(45deg, #2196F3, #1976D2);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-
-        &:hover:not(:disabled) {
-          background: linear-gradient(45deg, #1976D2, #2196F3);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
-        }
-
-        &:disabled {
-          background: #ccc;
-          cursor: not-allowed;
-          transform: none;
-          box-shadow: none;
         }
       }
     }

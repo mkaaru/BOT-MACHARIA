@@ -86,19 +86,6 @@ window.Blockly.Blocks.purchase = {
 window.Blockly.JavaScript.javascriptGenerator.forBlock.purchase = block => {
     const purchaseList = block.getFieldValue('PURCHASE_LIST');
 
-    const code = `var purchase_list = "${purchaseList}";\n` +
-    `var execution_mode = "";\n` + // execution_mode might not be defined for every bot.
-    `var stake = (typeof Bot.getStake === "function") ? Bot.getStake() : 1;\n` +
-    `if (typeof Bot.getMartingaleMultiplier === "function") {\n` +
-    `    var martingale_multiplier = Bot.getMartingaleMultiplier();\n` +
-    `    if (martingale_multiplier && martingale_multiplier > 1) {\n` +
-    `        stake = stake * martingale_multiplier;\n` +
-    `    }\n` +
-    `}\n` +
-    `if (typeof Bot.purchase === "function") {\n` +
-    `    Bot.purchase(purchase_list, stake);\n` +
-    `} else {\n` +
-    `    console.error("Bot.purchase is not a function");\n` +
-    `}\n`;
+    const code = `Bot.purchase('${purchaseList}');\n`;
     return code;
 };

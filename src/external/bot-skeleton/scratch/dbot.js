@@ -329,12 +329,6 @@ class DBot {
             }
             var BinaryBotPrivateLimitations = ${JSON.stringify(limitations)};
             ${window.Blockly.JavaScript.javascriptGenerator.workspaceToCode(this.workspace)}
-            
-            // Validate Bot interface before running
-            if (typeof Bot === 'undefined' || !Bot) {
-                throw new Error('Bot interface is not properly initialized');
-            }
-            
             BinaryBotPrivateRun(BinaryBotPrivateInit);
             while (true) {
                 BinaryBotPrivateTickAnalysis();
@@ -343,19 +337,18 @@ class DBot {
                     sleep(1);
                     continue;
                 }
-                
-                // Reset trade options flag to allow continuous trading
-                BinaryBotPrivateHasCalledTradeOptions = false;
-                
-                // Execute purchase without waiting for contract states
-                BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
-                
-                // Small delay between purchases to prevent rate limiting
-                sleep(1);
-                
-                // Continue without waiting for contract completion
+                while (watch('before')) {
+                    BinaryBotPrivateTickAnalysis();
+                    BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
+                }
+                while (watch('during')) {
+                    BinaryBotPrivateTickAnalysis();
+                    BinaryBotPrivateRun(BinaryBotPrivateDuringPurchase);
+                }
                 BinaryBotPrivateTickAnalysis();
-                BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase);
+                if (!BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase)) {
+                    break;
+                }
             }
             
             `;

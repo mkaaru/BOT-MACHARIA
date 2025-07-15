@@ -2,118 +2,22 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { createDetails } from '../utils/helpers';
 
 const getBotInterface = tradeEngine => {
-    // Add comprehensive validation for tradeEngine
-    if (!tradeEngine) {
-        console.error('TradeEngine is undefined in getBotInterface');
-        throw new Error('TradeEngine is required but undefined');
-    }
-    
-    if (typeof tradeEngine !== 'object') {
-        console.error('TradeEngine is not an object:', typeof tradeEngine);
-        throw new Error('TradeEngine must be an object');
-    }
-    
-    // Check if essential tradeEngine methods exist
-    const requiredMethods = ['init', 'start', 'stop', 'purchase', 'getPurchaseReference'];
-    for (const method of requiredMethods) {
-        if (typeof tradeEngine[method] !== 'function') {
-            console.error(`TradeEngine missing required method: ${method}`);
-            throw new Error(`TradeEngine missing required method: ${method}`);
-        }
-    }
-    
-    // Ensure tradeEngine.data exists
-    if (!tradeEngine.data) {
-        tradeEngine.data = { contract: {}, proposals: [] };
-    }
-    
-    const getDetail = i => {
-        try {
-            return createDetails(tradeEngine.data?.contract || {})[i];
-        } catch (error) {
-            console.error('Error in getDetail:', error);
-            return null;
-        }
-    };
-    
-    // Store interface state
-    let stake = 1;
-    let martingale_multiplier = 2;
-    let initial_stake = 1;
-    let current_martingale_multiplier = 1;
+    const getDetail = i => createDetails(tradeEngine.data.contract)[i];
 
     return {
         init: (...args) => tradeEngine.init(...args),
         start: (...args) => tradeEngine.start(...args),
         stop: (...args) => tradeEngine.stop(...args),
-        purchase: (contract_type, custom_stake) => {
-            const purchase_stake = custom_stake || stake;
-            return tradeEngine.purchase(contract_type, purchase_stake);
-        },
-        getAskPrice: contract_type => {
-            const proposal = getProposal(contract_type, tradeEngine);
-            return proposal ? Number(proposal.ask_price) : 0;
-        },
-        getPayout: contract_type => {
-            const proposal = getProposal(contract_type, tradeEngine);
-            return proposal ? Number(proposal.payout) : 0;
-        },
+        purchase: contract_type => tradeEngine.purchase(contract_type),
+        getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
+        getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
         sellAtMarket: () => tradeEngine.sellAtMarket(),
         getSellPrice: () => getSellPrice(tradeEngine),
         isResult: result => getDetail(10) === result,
-        isTradeAgain: result => {
-            // Implement martingale logic here
-            const contract_result = getDetail(10);
-            
-            if (contract_result === 'win') {
-                // Reset stake to initial on win
-                stake = initial_stake;
-                current_martingale_multiplier = 1;
-                globalObserver.emit('bot.win_trade', { stake, result: contract_result });
-            } else if (contract_result === 'loss') {
-                // Increase stake by multiplier on loss
-                current_martingale_multiplier *= martingale_multiplier;
-                stake = initial_stake * current_martingale_multiplier;
-                globalObserver.emit('bot.loss_trade', { stake, result: contract_result });
-            }
-            
-            // Emit trade completion event
-            globalObserver.emit('bot.trade_complete', {
-                result: contract_result,
-                stake: stake,
-                profit: contract_result === 'win' ? stake * 0.95 : -stake
-            });
-            
-            globalObserver.emit('bot.trade_again', result);
-            return true; // Always continue trading
-        },
+        isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
         readDetails: i => getDetail(i - 1),
-        getStake: () => stake,
-        setStake: s => {
-            stake = s;
-            if (initial_stake === 1) {
-                initial_stake = s; // Set initial stake only once
-            }
-            globalObserver.emit('bot.set_stake', s);
-        },
-        getMartingaleMultiplier: () => martingale_multiplier,
-        setMartingaleMultiplier: m => {
-            martingale_multiplier = m;
-            globalObserver.emit('bot.set_martingale_multiplier', m);
-        },
-        // Additional helper methods for martingale
-        resetMartingale: () => {
-            stake = initial_stake;
-            current_martingale_multiplier = 1;
-        },
-        getInitialStake: () => initial_stake,
-        setInitialStake: s => {
-            initial_stake = s;
-            stake = s;
-            current_martingale_multiplier = 1;
-        }
     };
 };
 
