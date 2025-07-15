@@ -19,8 +19,20 @@ const Interface = $scope => {
     const tradeEngine = new TradeEngine($scope);
     const { observer } = $scope;
     const getInterface = () => {
+        // Validate tradeEngine is properly initialized
+        if (!tradeEngine) {
+            console.error('TradeEngine failed to initialize');
+            return null;
+        }
+        
+        const botInterface = getBotInterface(tradeEngine);
+        if (!botInterface) {
+            console.error('Failed to create bot interface');
+            return null;
+        }
+        
         return {
-            ...getBotInterface(tradeEngine),
+            ...botInterface,
             ...getToolsInterface(tradeEngine),
             getTicksInterface: getTicksInterface(tradeEngine),
             watch: (...args) => tradeEngine.watch(...args),

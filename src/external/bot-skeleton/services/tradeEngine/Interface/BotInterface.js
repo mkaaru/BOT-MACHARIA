@@ -2,7 +2,13 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { createDetails } from '../utils/helpers';
 
 const getBotInterface = tradeEngine => {
-    const getDetail = i => createDetails(tradeEngine.data.contract)[i];
+    // Add null check for tradeEngine
+    if (!tradeEngine) {
+        console.error('TradeEngine is undefined in getBotInterface');
+        return null;
+    }
+    
+    const getDetail = i => createDetails(tradeEngine.data?.contract || {})[i];
     
     // Store interface state
     let stake = 1;

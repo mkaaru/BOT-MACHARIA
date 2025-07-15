@@ -329,6 +329,12 @@ class DBot {
             }
             var BinaryBotPrivateLimitations = ${JSON.stringify(limitations)};
             ${window.Blockly.JavaScript.javascriptGenerator.workspaceToCode(this.workspace)}
+            
+            // Validate Bot interface before running
+            if (typeof Bot === 'undefined' || !Bot) {
+                throw new Error('Bot interface is not properly initialized');
+            }
+            
             BinaryBotPrivateRun(BinaryBotPrivateInit);
             while (true) {
                 BinaryBotPrivateTickAnalysis();
