@@ -428,23 +428,41 @@ const SpeedBot: React.FC = observer(() => {
     // Wait for Blockly to be fully initialized
     const waitForBlockly = async () => {
       let attempts = 0;
-      const maxAttempts = 50; // 5 seconds total wait time
+      const maxAttempts = 100; // 10 seconds total wait time
 
       while (attempts < maxAttempts) {
+        // Check if Blockly is fully loaded and workspace is available
         if (window.Blockly && 
             window.Blockly.derivWorkspace && 
             window.Blockly.Xml && 
-            typeof window.Blockly.Xml.textToDom === 'function') {
-          return true;
+            typeof window.Blockly.Xml.textToDom === 'function' &&
+            typeof window.Blockly.Xml.domToWorkspace === 'function' &&
+            window.Blockly.derivWorkspace.getAllBlocks &&
+            blockly_store && 
+            !blockly_store.is_loading) {
+          
+          // Additional check to ensure workspace is interactive
+          try {
+            window.Blockly.derivWorkspace.getAllBlocks();
+            return true;
+          } catch (error) {
+            console.log('Blockly workspace not fully ready, waiting...', error);
+          }
         }
 
         await new Promise(resolve => setTimeout(resolve, 100));
         attempts++;
+        
+        // Log progress every 2 seconds
+        if (attempts % 20 === 0) {
+          console.log(`Waiting for Blockly... attempt ${attempts}/${maxAttempts}`);
+        }
       }
 
       return false;
     };
 
+    console.log('Checking Blockly readiness...');
     const isBlocklyReady = await waitForBlockly();
 
     if (!isBlocklyReady) {
@@ -452,10 +470,13 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
+    // Final validation
     if (!window.Blockly.Xml || typeof window.Blockly.Xml.textToDom !== 'function') {
       setError('Blockly XML utilities not available. Please refresh the page and try again.');
       return;
     }
+
+    console.log('✅ Blockly is ready for Speed Bot');
 
     try {
       setCurrentStake(stake);
