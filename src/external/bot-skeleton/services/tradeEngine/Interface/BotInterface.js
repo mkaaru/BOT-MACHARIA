@@ -77,6 +77,33 @@ const getBotInterface = tradeEngine => {
         setBaseAmount: (amount) => {
             tradeEngine.baseAmount = amount;
         },
+        // Martingale-related methods
+        setMartingaleMultiplier(multiplier) {
+            this.martingaleMultiplier = multiplier;
+            console.log(`Martingale multiplier set to: ${multiplier}`);
+        },
+
+        getMartingaleMultiplier() {
+            return this.martingaleMultiplier || 1;
+        },
+
+        setConsecutiveLosses(losses) {
+            this.consecutiveLosses = losses;
+            console.log(`Consecutive losses set to: ${losses}`);
+        },
+
+        getConsecutiveLosses() {
+            return this.consecutiveLosses || 0;
+        },
+
+        setBaseAmount(amount) {
+            this.baseAmount = amount;
+            console.log(`Base amount set to: ${amount}`);
+        },
+
+        getBaseAmount() {
+            return this.baseAmount;
+        },
     };
 };
 
