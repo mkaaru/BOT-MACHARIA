@@ -340,11 +340,12 @@ class DBot {
                 // Execute purchase without waiting for contract states
                 BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
                 
-                // Skip waiting for contract completion - continuous execution
+                // Small delay between purchases to prevent rate limiting
+                sleep(1);
+                
+                // Continue without waiting for contract completion
                 BinaryBotPrivateTickAnalysis();
-                if (!BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase)) {
-                    break;
-                }
+                BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase);
             }
             
             `;
