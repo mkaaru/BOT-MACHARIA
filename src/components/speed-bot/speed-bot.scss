@@ -217,6 +217,45 @@
     text-align: center;
   }
 
+  &__token-input {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+
+    input {
+      padding: 0.5rem;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+
+      &::placeholder {
+        color: rgba(255, 255, 255, 0.7);
+      }
+    }
+  }
+
+  &__token-buttons {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+
+  &__button--auth {
+    background: var(--brand-red-coral);
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 0.5rem;
+
+    &:hover {
+      background: var(--brand-red-coral-hover, #e74c3c);
+    }
+  }
+
   &__history {
     background: var(--general-section-1);
     border-radius: 4px;

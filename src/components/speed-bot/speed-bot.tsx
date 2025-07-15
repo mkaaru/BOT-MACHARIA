@@ -50,6 +50,8 @@ const SpeedBot: React.FC = () => {
   const [lastTradeResult, setLastTradeResult] = useState<'win' | 'loss' | null>(null);
   const [consecutiveLosses, setConsecutiveLosses] = useState(0);
   const [currentEvenOddChoice, setCurrentEvenOddChoice] = useState<'DIGITEVEN' | 'DIGITODD'>('DIGITEVEN');
+  const [manualApiToken, setManualApiToken] = useState('');
+  const [showTokenInput, setShowTokenInput] = useState(false);
 
   const volatilitySymbols = [
     { value: 'R_10', label: 'Volatility 10 Index' },
@@ -113,15 +115,26 @@ const SpeedBot: React.FC = () => {
         setWebsocket(ws);
         setCurrentPrice('Connected - Checking authorization...');
 
-        const apiToken = localStorage.getItem('dbot_api_token') || localStorage.getItem('authToken');
-        if (apiToken) {
+        // Try multiple token storage locations
+        const apiToken = localStorage.getItem('dbot_api_token') || 
+                        localStorage.getItem('authToken') || 
+                        localStorage.getItem('oauth_token') ||
+                        localStorage.getItem('deriv_token');
+        
+        if (apiToken && apiToken.length > 10) {
           console.log('🔑 Authorizing Speed Bot with API token for real trading');
           ws.send(JSON.stringify({
             authorize: apiToken,
             req_id: 'speed_bot_auth'
           }));
         } else {
-          console.log('⚠️ No API token found - Speed Bot will run in simulation mode');
+          console.log('⚠️ No valid API token found - Speed Bot will run in simulation mode');
+          console.log('Available tokens:', {
+            dbot_api_token: !!localStorage.getItem('dbot_api_token'),
+            authToken: !!localStorage.getItem('authToken'),
+            oauth_token: !!localStorage.getItem('oauth_token'),
+            deriv_token: !!localStorage.getItem('deriv_token')
+          });
           setCurrentPrice('No authorization - Simulation mode');
           
           setTimeout(() => {
@@ -147,10 +160,11 @@ const SpeedBot: React.FC = () => {
             return;
           }
 
-          if (data.authorize && data.req_id === 'speed_bot_auth') {
+          if (data.authorize && (data.req_id === 'speed_bot_auth' || data.req_id === 'speed_bot_manual_auth')) {
             console.log('✅ Speed Bot authorized for real trading');
             setIsAuthorized(true);
             setCurrentPrice('Authorized - Waiting for ticks...');
+            setManualApiToken(''); // Clear the token input
             
             setTimeout(() => {
               if (ws.readyState === WebSocket.OPEN) {
@@ -501,6 +515,18 @@ const SpeedBot: React.FC = () => {
     setLastTradeResult(null);
   };
 
+  const authorizeWithToken = () => {
+    if (manualApiToken && websocket && websocket.readyState === WebSocket.OPEN) {
+      localStorage.setItem('dbot_api_token', manualApiToken);
+      console.log('🔑 Authorizing with manual API token');
+      websocket.send(JSON.stringify({
+        authorize: manualApiToken,
+        req_id: 'speed_bot_manual_auth'
+      }));
+      setShowTokenInput(false);
+    }
+  };
+
   useEffect(() => {
     connectToAPI();
     return () => {
@@ -774,6 +800,39 @@ const SpeedBot: React.FC = () => {
       {!isAuthorized && (
         <div className="speed-bot__warning">
           <p>⚠️ <strong>Running in simulation mode.</strong> Log in via OAuth to enable real money trading.</p>
+          {!showTokenInput ? (
+            <button
+              onClick={() => setShowTokenInput(true)}
+              className="speed-bot__button speed-bot__button--auth"
+            >
+              <Localize i18n_default_text="Enter API Token" />
+            </button>
+          ) : (
+            <div className="speed-bot__token-input">
+              <input
+                type="password"
+                placeholder="Enter your Deriv API token"
+                value={manualApiToken}
+                onChange={(e) => setManualApiToken(e.target.value)}
+                className="speed-bot__input"
+              />
+              <div className="speed-bot__token-buttons">
+                <button
+                  onClick={authorizeWithToken}
+                  disabled={!manualApiToken}
+                  className="speed-bot__button speed-bot__button--start"
+                >
+                  <Localize i18n_default_text="Authorize" />
+                </button>
+                <button
+                  onClick={() => setShowTokenInput(false)}
+                  className="speed-bot__button speed-bot__button--reset"
+                >
+                  <Localize i18n_default_text="Cancel" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
