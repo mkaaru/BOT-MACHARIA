@@ -15,7 +15,22 @@ interface Trade {
 }
 
 const SpeedBot: React.FC = observer(() => {
-  const { run_panel, blockly_store, client } = useStore();
+  const store = useStore();
+  const run_panel = store?.run_panel;
+  const blockly_store = store?.blockly_store;
+  const client = store?.client;
+
+  // Early return if required stores are not available
+  if (!run_panel || !client) {
+    return (
+      <div className="speed-bot">
+        <div className="speed-bot__error">
+          <h3>Speed Bot Unavailable</h3>
+          <p>Required services are not available. Please ensure you are logged in and try again.</p>
+        </div>
+      </div>
+    );
+  }
   
   // Connection state
   const [isConnected, setIsConnected] = useState(false);
@@ -246,7 +261,7 @@ const SpeedBot: React.FC = observer(() => {
     }
 
     // Check if bot is already running and stop it first
-    if (run_panel.is_running) {
+    if (run_panel?.is_running) {
       return; // Don't execute new trade if bot is already running
     }
 
@@ -265,7 +280,9 @@ const SpeedBot: React.FC = observer(() => {
       window.Blockly.Xml.domToWorkspace(xml, window.Blockly.derivWorkspace);
 
       // Execute single trade through bot builder
-      await run_panel.onRunButtonClick();
+      if (run_panel?.onRunButtonClick) {
+        await run_panel.onRunButtonClick();
+      }
 
       // Track trade for UI
       const trade: Trade = {
@@ -302,7 +319,7 @@ const SpeedBot: React.FC = observer(() => {
     }
 
     // Check if user is logged in
-    if (!client.is_logged_in) {
+    if (!client?.is_logged_in) {
       alert('Please log in to start trading');
       return;
     }
@@ -332,7 +349,7 @@ const SpeedBot: React.FC = observer(() => {
     setIsTrading(false);
     
     // Stop the bot builder if it's running
-    if (run_panel?.is_running) {
+    if (run_panel?.is_running && run_panel?.onStopButtonClick) {
       run_panel.onStopButtonClick();
     }
     
@@ -383,7 +400,7 @@ const SpeedBot: React.FC = observer(() => {
         });
         
         // Stop the bot after each trade to allow next trade
-        if (run_panel.is_running) {
+        if (run_panel?.is_running && run_panel?.onStopButtonClick) {
           setTimeout(() => {
             run_panel.onStopButtonClick();
           }, 1000);
@@ -601,7 +618,7 @@ const SpeedBot: React.FC = observer(() => {
           </div>
           <div className="speed-bot__stat">
             <label>Balance</label>
-            <span>{client.currency} {parseFloat(client.balance).toFixed(2)}</span>
+            <span>{client?.currency || 'USD'} {client?.balance ? parseFloat(client.balance).toFixed(2) : '0.00'}</span>
           </div>
           <div className="speed-bot__stat">
             <label>Total Trades</label>

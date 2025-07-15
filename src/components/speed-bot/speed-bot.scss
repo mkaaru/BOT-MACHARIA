@@ -327,4 +327,19 @@
       text-align: left;
     }
   }
+
+  &__error {
+    text-align: center;
+    padding: 40px 20px;
+
+    h3 {
+      color: var(--text-prominent);
+      margin-bottom: 16px;
+    }
+
+    p {
+      color: var(--text-general);
+      opacity: 0.8;
+    }
+  }
 }
