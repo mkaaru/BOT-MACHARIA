@@ -888,7 +888,7 @@ const SpeedBot: React.FC = () => {
             try{
               let t=JSON.parse(e.data);
               if(t.error){console.error("❌ WebSocket API error:",t.error),notifyConnectionStatus("error",t.error.message);return}
-              if(t.history)console.log(\`📊 Received history for \${currentSymbol}: \${t.history.prices.length} ticks\`),tickHistory=t.history.prices.map((e,o)=>({time:t.history.times[o],quote:parseFloat(e)})),detectDecimalPlaces(),updateUI();
+              if(t.history)console.log("📊 Received history for "+currentSymbol+": "+t.history.prices.length+" ticks"),tickHistory=t.history.prices.map((e,o)=>({time:t.history.times[o],quote:parseFloat(e)})),detectDecimalPlaces(),updateUI();
               else if(t.tick){let e=parseFloat(t.tick.quote);tickHistory.push({time:t.tick.epoch,quote:e}),tickHistory.length>tickCount&&tickHistory.shift(),updateUI()}
               else t.ping&&derivWs.send(JSON.stringify({pong:1}))
             }catch(e){console.error("Error processing message:",e)}
@@ -902,12 +902,12 @@ const SpeedBot: React.FC = () => {
       function scheduleReconnect(){
         if(++reconnectAttempts>5){console.log("⚠️ Maximum reconnection attempts (5) reached. Stopping attempts."),notifyConnectionStatus("error","Maximum reconnection attempts reached");return}
         let e=Math.min(1e3*Math.pow(1.5,reconnectAttempts-1),3e4);
-        console.log(\`🔄 Scheduling reconnect attempt \${reconnectAttempts} in \${e}ms\`),reconnectTimeout=setTimeout(()=>{console.log(\`🔄 Attempting to reconnect (\${reconnectAttempts}/5)...\`),startWebSocket()},e)
+        console.log("🔄 Scheduling reconnect attempt "+reconnectAttempts+" in "+e+"ms"),reconnectTimeout=setTimeout(()=>{console.log("🔄 Attempting to reconnect ("+reconnectAttempts+"/5)..."),startWebSocket()},e)
       }
 
       function requestTickHistory(){
         let e={ticks_history:currentSymbol,count:tickCount,end:"latest",style:"ticks",subscribe:1};
-        if(derivWs&&derivWs.readyState===WebSocket.OPEN){console.log(\`📡 Requesting tick history for \${currentSymbol} (\${tickCount} ticks)\`);try{derivWs.send(JSON.stringify(e))}catch(e){console.error("Error sending tick history request:",e),scheduleReconnect()}}
+        if(derivWs&&derivWs.readyState===WebSocket.OPEN){console.log("📡 Requesting tick history for "+currentSymbol+" ("+tickCount+" ticks)");try{derivWs.send(JSON.stringify(e))}catch(e){console.error("Error sending tick history request:",e),scheduleReconnect()}}
         else console.error("❌ WebSocket not ready to request history, readyState:",derivWs?derivWs.readyState:"undefined"),scheduleReconnect()
       }
 
