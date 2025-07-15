@@ -106,7 +106,7 @@ const SpeedBot: React.FC = () => {
       setIsConnected(false);
       setIsAuthorized(false);
 
-      const ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
+      const ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=75771');
 
       ws.onopen = () => {
         console.log('Speed Bot WebSocket connected');
@@ -486,9 +486,9 @@ const SpeedBot: React.FC = () => {
           derivWs=null
         }
         try{
-          (derivWs=new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=68848")).onopen=function(){
+          (derivWs=new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=75771")).onopen=function(){
             console.log("✅ WebSocket connection established"),reconnectAttempts=0,notifyConnectionStatus("connected"),setTimeout(()=>{
-              try{derivWs&&derivWs.readyState===WebSocket.OPEN&&(console.log("Sending authorization request"),derivWs.send(JSON.stringify({app_id:68848})),requestTickHistory())}catch(e){console.error("Error during init requests:",e)}
+              try{derivWs&&derivWs.readyState===WebSocket.OPEN&&(console.log("Sending authorization request"),derivWs.send(JSON.stringify({app_id:75771})),requestTickHistory())}catch(e){console.error("Error during init requests:",e)}
             },500)
           },
           derivWs.onmessage=function(e){
