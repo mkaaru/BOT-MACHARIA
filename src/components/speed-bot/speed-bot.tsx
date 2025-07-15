@@ -865,7 +865,7 @@ const SpeedBot: React.FC = () => {
         websocket.close();
       }
     };
-  }, [selectedSymbol, useBulkTrading, connectToAPI]);
+  }, [selectedSymbol, useBulkTrading, connectToAPI, initializeBulkTrading]);
 
   // Initialize bulk trading functionality with the provided WebSocket code
   const initializeBulkTrading = useCallback(() => {
