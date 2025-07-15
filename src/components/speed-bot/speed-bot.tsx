@@ -119,26 +119,41 @@ const SpeedBot: React.FC = () => {
         let apiToken = localStorage.getItem('dbot_api_token') || 
                       localStorage.getItem('authToken') || 
                       localStorage.getItem('oauth_token') ||
-                      localStorage.getItem('deriv_token');
+                      localStorage.getItem('deriv_token') ||
+                      localStorage.getItem('token');
         
         // Try to get token from accounts list if available
         if (!apiToken && accountsList) {
           try {
             const accounts = JSON.parse(accountsList);
             const activeLoginId = localStorage.getItem('active_loginid');
-            if (activeLoginId && accounts[activeLoginId]) {
+            if (activeLoginId && accounts[activeLoginId] && accounts[activeLoginId].token) {
+              apiToken = accounts[activeLoginId].token;
+            } else if (activeLoginId && accounts[activeLoginId]) {
               apiToken = accounts[activeLoginId];
             } else {
               // Get first available token
               const firstAccount = Object.keys(accounts)[0];
-              if (firstAccount) {
-                apiToken = accounts[firstAccount];
+              if (firstAccount && accounts[firstAccount]) {
+                apiToken = accounts[firstAccount].token || accounts[firstAccount];
               }
             }
           } catch (error) {
             console.error('Error parsing accounts list:', error);
           }
         }
+
+        // Also check if user is logged in via session/cookies
+        const isLoggedIn = localStorage.getItem('active_loginid') || 
+                          localStorage.getItem('client_accounts') ||
+                          localStorage.getItem('is_logged_in') === 'true';
+        
+        console.log('🔍 Auth check:', {
+          hasToken: !!apiToken,
+          tokenLength: apiToken?.length,
+          isLoggedIn,
+          activeLoginId: localStorage.getItem('active_loginid')
+        });
         
         if (apiToken && apiToken.length > 10) {
           console.log('🔑 Authorizing Speed Bot with API token for real trading');
@@ -146,6 +161,21 @@ const SpeedBot: React.FC = () => {
             authorize: apiToken,
             req_id: 'speed_bot_auth'
           }));
+        } else if (isLoggedIn) {
+          console.log('🔑 User appears logged in, trying to authorize without explicit token');
+          setIsAuthorized(true);
+          setCurrentPrice('Getting price feed...');
+          
+          setTimeout(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              const tickRequest = {
+                ticks: selectedSymbol,
+                subscribe: 1,
+                req_id: 'speed_bot_ticks'
+              };
+              ws.send(JSON.stringify(tickRequest));
+            }
+          }, 500);
         } else {
           console.log('⚠️ No valid API token found - Starting with tick subscription only');
           setCurrentPrice('Getting price feed...');
@@ -325,7 +355,13 @@ const SpeedBot: React.FC = () => {
     }
 
     if (shouldTrade && !pendingTrades.has(actualContractType)) {
-      if (isAuthorized && tradingEngine.isEngineConnected()) {
+      // Check if user is logged in via various methods
+      const isLoggedIn = localStorage.getItem('active_loginid') || 
+                        localStorage.getItem('client_accounts') ||
+                        localStorage.getItem('is_logged_in') === 'true' ||
+                        isAuthorized;
+      
+      if (isLoggedIn && tradingEngine.isEngineConnected()) {
         // Execute real trade through trading engine
         try {
           setPendingTrades(prev => new Set(prev).add(actualContractType));
@@ -476,7 +512,13 @@ const SpeedBot: React.FC = () => {
       return;
     }
     
-    if (!isAuthorized) {
+    // Check if user is logged in via various methods
+    const isLoggedIn = localStorage.getItem('active_loginid') || 
+                      localStorage.getItem('client_accounts') ||
+                      localStorage.getItem('is_logged_in') === 'true' ||
+                      isAuthorized;
+    
+    if (!isLoggedIn) {
       // Show login dialog or redirect to login
       const loginDialog = document.createElement('div');
       loginDialog.innerHTML = `
