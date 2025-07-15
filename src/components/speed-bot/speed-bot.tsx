@@ -352,14 +352,18 @@ const SpeedBot: React.FC = observer(() => {
     setLastTradeTime(now);
 
     try {
-      // Create unique trade ID
+      // Create unique trade ID and request IDs
       const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const contractsReqId = Date.now() + Math.floor(Math.random() * 1000);
+      const proposalReqId = contractsReqId + 1;
+      const buyReqId = contractsReqId + 2;
+      const contractUpdateReqId = contractsReqId + 3;
       
       // First get contracts for the symbol
       const contractsRequest = {
         contracts_for: selectedSymbol,
         currency: 'USD',
-        req_id: `contracts_${tradeId}`
+        req_id: contractsReqId
       };
 
       websocket.send(JSON.stringify(contractsRequest));
@@ -375,7 +379,7 @@ const SpeedBot: React.FC = observer(() => {
           try {
             const data = JSON.parse(event.data);
             
-            if (data.req_id === `contracts_${tradeId}`) {
+            if (data.req_id === contractsReqId) {
               clearTimeout(timeout);
               websocket.removeEventListener('message', messageHandler);
               
@@ -428,7 +432,7 @@ const SpeedBot: React.FC = observer(() => {
         duration: 1,
         duration_unit: 't',
         symbol: selectedSymbol,
-        req_id: `proposal_${tradeId}`
+        req_id: proposalReqId
       };
 
       // Remove barrier if not needed for this contract type
@@ -449,7 +453,7 @@ const SpeedBot: React.FC = observer(() => {
           try {
             const data = JSON.parse(event.data);
             
-            if (data.req_id === `proposal_${tradeId}`) {
+            if (data.req_id === proposalReqId) {
               clearTimeout(timeout);
               websocket.removeEventListener('message', messageHandler);
               
@@ -479,7 +483,7 @@ const SpeedBot: React.FC = observer(() => {
       const purchaseRequest = {
         buy: proposalData.id,
         price: proposalData.ask_price,
-        req_id: `buy_${tradeId}`
+        req_id: buyReqId
       };
 
       websocket.send(JSON.stringify(purchaseRequest));
@@ -495,7 +499,7 @@ const SpeedBot: React.FC = observer(() => {
           try {
             const data = JSON.parse(event.data);
             
-            if (data.req_id === `buy_${tradeId}`) {
+            if (data.req_id === buyReqId) {
               clearTimeout(timeout);
               websocket.removeEventListener('message', messageHandler);
               
@@ -542,7 +546,7 @@ const SpeedBot: React.FC = observer(() => {
         proposal_open_contract: 1,
         contract_id: purchaseData.contract_id,
         subscribe: 1,
-        req_id: `contract_${tradeId}`
+        req_id: contractUpdateReqId
       };
 
       websocket.send(JSON.stringify(contractUpdateRequest));
@@ -552,7 +556,7 @@ const SpeedBot: React.FC = observer(() => {
         try {
           const data = JSON.parse(event.data);
           
-          if (data.req_id === `contract_${tradeId}` && data.proposal_open_contract) {
+          if (data.req_id === contractUpdateReqId && data.proposal_open_contract) {
             const contract = data.proposal_open_contract;
             
             if (contract.is_sold) {
