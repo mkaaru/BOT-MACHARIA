@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
 import { useStore } from '@/hooks/useStore';
-import { observer } from '@/external/bot-skeleton';
+import { observer } from 'mobx-react-lite';
 import './speed-bot.scss';
 
 interface Trade {
@@ -71,15 +71,16 @@ const SpeedBot: React.FC = observer(() => {
 
   // WebSocket connection
   const connectToAPI = useCallback(() => {
-    if (websocket) {
-      websocket.close();
-      setWebsocket(null);
-    }
+    try {
+      if (websocket) {
+        websocket.close();
+        setWebsocket(null);
+      }
 
-    console.log('🚀 Connecting to WebSocket API...');
-    setIsConnected(false);
+      console.log('🚀 Connecting to WebSocket API...');
+      setIsConnected(false);
 
-    const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
+      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
 
     ws.onopen = () => {
       console.log('✅ WebSocket connection established');
@@ -134,6 +135,10 @@ const SpeedBot: React.FC = observer(() => {
       console.error('WebSocket error:', error);
       setIsConnected(false);
     };
+    } catch (error) {
+      console.error('Error creating WebSocket connection:', error);
+      setIsConnected(false);
+    }
   }, [selectedSymbol, isTrading]);
 
   // Generate trading strategy XML for bot builder
@@ -202,7 +207,7 @@ const SpeedBot: React.FC = observer(() => {
 
   // Execute trade through bot builder
   const executeTradeOnTick = useCallback(async (tick: number) => {
-    if (!blockly_store.workspace) {
+    if (!blockly_store?.workspace) {
       console.error('Blockly workspace not available');
       return;
     }
@@ -250,7 +255,7 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
     
-    if (!blockly_store.workspace) {
+    if (!blockly_store?.workspace) {
       alert('Bot builder workspace not available');
       return;
     }
@@ -264,7 +269,7 @@ const SpeedBot: React.FC = observer(() => {
     setIsTrading(false);
     
     // Stop the bot builder if it's running
-    if (run_panel.is_running) {
+    if (run_panel?.is_running) {
       run_panel.onStopButtonClick();
     }
     
@@ -315,13 +320,19 @@ const SpeedBot: React.FC = observer(() => {
       }
     };
 
-    observer.register('bot.contract', handleBotContract);
+    // Only register observer if it exists
+    if (typeof observer !== 'undefined' && observer.register) {
+      observer.register('bot.contract', handleBotContract);
+    }
     
     return () => {
       if (websocket) {
         websocket.close();
       }
-      observer.unregisterAll('bot.contract');
+      // Only unregister observer if it exists
+      if (typeof observer !== 'undefined' && observer.unregisterAll) {
+        observer.unregisterAll('bot.contract');
+      }
     };
   }, [connectToAPI, isTrading, useMartingale, martingaleMultiplier, stake]);
 
