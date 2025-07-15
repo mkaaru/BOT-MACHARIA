@@ -41,6 +41,8 @@ const SpeedBot: React.FC = observer(() => {
   const [totalTrades, setTotalTrades] = useState(0);
   const [wins, setWins] = useState(0);
   const [losses, setLosses] = useState(0);
+  const [lastTradeTime, setLastTradeTime] = useState(0);
+  const [isExecutingTrade, setIsExecutingTrade] = useState(false);
 
   const volatilitySymbols = [
     { value: 'R_10', label: 'Volatility 10 Index' },
@@ -110,6 +112,7 @@ const SpeedBot: React.FC = observer(() => {
           const price = parseFloat(data.tick.quote);
           setCurrentPrice(price.toFixed(5));
 
+          // Execute trade on every tick when trading is active
           if (isTrading) {
             executeTradeOnTick(price);
           }
@@ -142,8 +145,8 @@ const SpeedBot: React.FC = observer(() => {
 
   // Generate trading strategy XML for bot builder
   const generateSpeedBotStrategy = useCallback(() => {
-    const prediction = selectedContractType === 'DIGITOVER' ? overUnderValue + 1 : 
-                     selectedContractType === 'DIGITUNDER' ? overUnderValue - 1 :
+    const prediction = selectedContractType === 'DIGITOVER' ? overUnderValue : 
+                     selectedContractType === 'DIGITUNDER' ? overUnderValue :
                      selectedContractType === 'DIGITEVEN' ? 0 :
                      selectedContractType === 'DIGITODD' ? 1 :
                      selectedContractType === 'DIGITMATCH' ? overUnderValue :
@@ -206,11 +209,20 @@ const SpeedBot: React.FC = observer(() => {
 
   // Execute trade through bot builder
   const executeTradeOnTick = useCallback(async (tick: number) => {
+    if (!isTrading || isExecutingTrade) return;
+    
+    // Throttle trades to prevent excessive execution (minimum 2 seconds between trades)
+    const now = Date.now();
+    if (now - lastTradeTime < 2000) return;
+
     // Check if workspace is available using window.Blockly.derivWorkspace
     if (!window.Blockly?.derivWorkspace) {
       console.error('Blockly workspace not available');
       return;
     }
+
+    setIsExecutingTrade(true);
+    setLastTradeTime(now);
 
     try {
       // Generate and load strategy
@@ -246,8 +258,10 @@ const SpeedBot: React.FC = observer(() => {
       
     } catch (error) {
       console.error('Error executing trade:', error);
+    } finally {
+      setIsExecutingTrade(false);
     }
-  }, [selectedSymbol, selectedContractType, currentStake, overUnderValue, generateSpeedBotStrategy, run_panel]);
+  }, [selectedSymbol, selectedContractType, currentStake, overUnderValue, generateSpeedBotStrategy, run_panel, isTrading, isExecutingTrade, lastTradeTime]);
 
   const startTrading = async () => {
     if (!isConnected) {
@@ -260,9 +274,31 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
+    // Check if user is logged in
+    if (!client.is_logged_in) {
+      alert('Please log in to start trading');
+      return;
+    }
+
     setCurrentStake(stake);
     setIsTrading(true);
-    console.log('🚀 Speed Bot trading started through bot builder');
+    
+    // Initialize the bot builder with the strategy
+    try {
+      const strategyXml = generateSpeedBotStrategy();
+      
+      // Clear existing workspace
+      window.Blockly.derivWorkspace.clear();
+      
+      // Load new strategy
+      const xml = window.Blockly.utils.xml.textToDom(strategyXml);
+      window.Blockly.Xml.domToWorkspace(xml, window.Blockly.derivWorkspace);
+
+      console.log('🚀 Speed Bot trading started through bot builder');
+    } catch (error) {
+      console.error('Error initializing bot builder:', error);
+      setIsTrading(false);
+    }
   };
 
   const stopTrading = () => {
