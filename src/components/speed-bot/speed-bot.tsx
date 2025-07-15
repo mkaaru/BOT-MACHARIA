@@ -865,10 +865,10 @@ const SpeedBot: React.FC = () => {
         websocket.close();
       }
     };
-  }, [selectedSymbol, useBulkTrading]);
+  }, [selectedSymbol, useBulkTrading, connectToAPI]);
 
   // Initialize bulk trading functionality with the provided WebSocket code
-  const initializeBulkTrading = () => {
+  const initializeBulkTrading = useCallback(() => {
     if (!useBulkTrading) return;
 
     // Inject the bulk trading WebSocket script
@@ -962,7 +962,7 @@ const SpeedBot: React.FC = () => {
         script.parentNode.removeChild(script);
       }
     };
-  };
+  }, [useBulkTrading, isTrading, selectedSymbol, currentStake, isAuthorized, tradingEngine]);
 
   const executeBulkTrades = async (evenProb, oddProb) => {
     if (!isAuthorized || !tradingEngine.isEngineConnected()) {
