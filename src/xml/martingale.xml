@@ -111,7 +111,7 @@
                         <field name="VAR">max_multiplier</field>
                         <value name="VALUE">
                           <shadow type="math_number">
-                            <field name="NUM">64</field>
+                            <field name="NUM">2</field>
                           </shadow>
                         </value>
                         <next>
