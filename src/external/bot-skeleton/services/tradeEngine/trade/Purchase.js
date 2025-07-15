@@ -10,7 +10,7 @@ let purchase_reference;
 
 export default Engine =>
     class Purchase extends Engine {
-        purchase(contract_type) {
+        purchase(contract_type, custom_stake) {
             // Allow continuous purchases without blocking
 
             return new Promise((resolve) => {
@@ -40,7 +40,7 @@ export default Engine =>
                         contract_type,
                         buy_price: buy.buy_price,
                     });
-                    
+
                     // Resolve immediately to allow continuous purchases
                     resolve();
                 };

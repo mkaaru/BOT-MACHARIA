@@ -3,14 +3,27 @@ import { createDetails } from '../utils/helpers';
 
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
+    
+    // Store interface state
+    let stake = 1;
+    let martingale_multiplier = 1;
 
     return {
         init: (...args) => tradeEngine.init(...args),
         start: (...args) => tradeEngine.start(...args),
         stop: (...args) => tradeEngine.stop(...args),
-        purchase: contract_type => tradeEngine.purchase(contract_type),
-        getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
-        getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
+        purchase: (contract_type, custom_stake) => {
+            const purchase_stake = custom_stake || stake;
+            return tradeEngine.purchase(contract_type, purchase_stake);
+        },
+        getAskPrice: contract_type => {
+            const proposal = getProposal(contract_type, tradeEngine);
+            return proposal ? Number(proposal.ask_price) : 0;
+        },
+        getPayout: contract_type => {
+            const proposal = getProposal(contract_type, tradeEngine);
+            return proposal ? Number(proposal.payout) : 0;
+        },
         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
         sellAtMarket: () => tradeEngine.sellAtMarket(),
@@ -18,16 +31,15 @@ const getBotInterface = tradeEngine => {
         isResult: result => getDetail(10) === result,
         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
         readDetails: i => getDetail(i - 1),
+        getStake: () => stake,
         setStake: s => {
-            this.stake = s;
-            this.observer.emit('bot.set_stake', s);
+            stake = s;
+            globalObserver.emit('bot.set_stake', s);
         },
-        getMartingaleMultiplier: () => {
-            return this.martingale_multiplier || 1;
-        },
+        getMartingaleMultiplier: () => martingale_multiplier,
         setMartingaleMultiplier: m => {
-            this.martingale_multiplier = m;
-            this.observer.emit('bot.set_martingale_multiplier', m);
+            martingale_multiplier = m;
+            globalObserver.emit('bot.set_martingale_multiplier', m);
         },
     };
 };
