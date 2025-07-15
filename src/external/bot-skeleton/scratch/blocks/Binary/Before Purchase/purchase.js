@@ -11,23 +11,12 @@ window.Blockly.Blocks.purchase = {
     },
     definition() {
         return {
-            message0: localize('Purchase {{ contract_type }} {{ trading_mode }}', { 
-                contract_type: '%1',
-                trading_mode: '%2'
-            }),
+            message0: localize('Purchase {{ contract_type }}', { contract_type: '%1' }),
             args0: [
                 {
                     type: 'field_dropdown',
                     name: 'PURCHASE_LIST',
                     options: [['', '']],
-                },
-                {
-                    type: 'field_dropdown',
-                    name: 'TRADING_MODE',
-                    options: [
-                        [localize('Normal Trading'), 'NORMAL'],
-                        [localize('Rapid Purchase'), 'RAPID'],
-                    ],
                 },
             ],
             previousStatement: null,
@@ -96,8 +85,7 @@ window.Blockly.Blocks.purchase = {
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.purchase = block => {
     const purchaseList = block.getFieldValue('PURCHASE_LIST');
-    const tradingMode = block.getFieldValue('TRADING_MODE') || 'NORMAL';
 
-    const code = `Bot.purchase('${purchaseList}', '${tradingMode}');\n`;
+    const code = `Bot.purchase('${purchaseList}');\n`;
     return code;
 };
