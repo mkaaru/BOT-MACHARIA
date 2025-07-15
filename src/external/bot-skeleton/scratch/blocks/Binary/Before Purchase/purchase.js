@@ -98,19 +98,18 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.purchase = block => {
     const purchase_list = block.getFieldValue('PURCHASE_LIST');
     const execution_mode = block.getFieldValue('EXECUTION_MODE') || 'NORMAL';
 
-    const code = `
-        Bot.purchaseReference = Bot.getPurchaseReference();
-        const purchase_list = '${purchase_list}';
-        const execution_mode = '${execution_mode}';
-        const stake = Bot.getStake();
-        const parameters = Bot.getParameters();
-        const proposal = Bot.getProposal(purchase_list);
-        const buy_parameters = {
-            price: proposal.ask_price,
-            parameters: parameters,
-            execution_mode: execution_mode
-        };
-        Bot.purchase(buy_parameters);
-    `;
+    const code = 'Bot.purchaseReference = Bot.getPurchaseReference();\n' +
+        'const purchase_list = \'' + purchase_list + '\';\n' +
+        'const execution_mode = \'' + execution_mode + '\';\n' +
+        'const stake = Bot.getStake();\n' +
+        'const parameters = Bot.getParameters();\n' +
+        'const proposal = Bot.getProposal(purchase_list);\n' +
+        'const buy_parameters = {\n' +
+        '    price: proposal.ask_price,\n' +
+        '    parameters: parameters,\n' +
+        '    execution_mode: execution_mode\n' +
+        '};\n' +
+        'Bot.purchase(buy_parameters);\n';
+    
     return code;
 };
