@@ -173,12 +173,13 @@ export default Engine =>
 
             // Stop if profit/loss thresholds are reached
             if (totalProfit >= profitThreshold || totalProfit <= -Math.abs(lossThreshold)) {
+                console.log('Stopping due to profit/loss threshold reached');
                 return false;
             }
 
             // Stop if martingale multiplier gets too high (risk management)
-            if (martingaleMultiplier >= 2) {
-                console.log('Stopping due to high martingale multiplier');
+            if (martingaleMultiplier >= 64) {
+                console.log('Stopping due to maximum martingale multiplier reached');
                 return false;
             }
 
