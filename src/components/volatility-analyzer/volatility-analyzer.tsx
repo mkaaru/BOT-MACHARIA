@@ -85,7 +85,7 @@ const VolatilityAnalyzer: React.FC = () => {
               if (derivWs && derivWs.readyState === WebSocket.OPEN) {
                 console.log('Sending authorization request');
                 derivWs.send(JSON.stringify({ app_id: 75771 }));
-                
+
                 // Check if API token is available for real trading
                 const apiToken = localStorage.getItem('dbot_api_token');
                 if (apiToken) {
@@ -97,7 +97,7 @@ const VolatilityAnalyzer: React.FC = () => {
                 } else {
                   console.log('⚠️ No API token found - trading will be simulated');
                 }
-                
+
                 requestTickHistory();
               }
             } catch (error) {
@@ -421,14 +421,14 @@ const VolatilityAnalyzer: React.FC = () => {
         derivWs.onclose = null;
         derivWs.close();
       }
-      
+
       // Clear all trading intervals
       Object.values(tradingIntervals).forEach(interval => {
         if (interval) {
           clearInterval(interval);
         }
       });
-      
+
       // Reset auto trading status
       setAutoTradingStatus({
         'rise-fall': false,
@@ -505,7 +505,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
   const executeTrade = async (strategyId: string, tradeType: string) => {
     console.log(`🔄 Executing ${tradeType} trade for ${strategyId}`);
-    
+
     if (connectionStatus !== 'connected') {
       console.error('❌ Cannot trade: Not connected to API');
       return;
@@ -514,7 +514,7 @@ const VolatilityAnalyzer: React.FC = () => {
     try {
       const data = analysisData[strategyId];
       const condition = tradingConditions[strategyId];
-      
+
       if (!data?.data) {
         console.error('❌ No analysis data available for trading');
         return;
@@ -530,7 +530,7 @@ const VolatilityAnalyzer: React.FC = () => {
       // Determine contract type based on strategy and current analysis
       let contractType = '';
       let prediction;
-      
+
       switch (strategyId) {
         case 'rise-fall':
           contractType = parseFloat(data.data.riseRatio || '0') > parseFloat(data.data.fallRatio || '0') ? 'CALL' : 'PUT';
@@ -571,26 +571,26 @@ const VolatilityAnalyzer: React.FC = () => {
       }
 
       console.log('📡 Sending proposal request:', proposalRequest);
-      
+
       // Execute real trade through trading engine
       try {
         const proposalResponse = await tradingEngine.getProposal(proposalRequest);
-        
+
         if (proposalResponse.proposal) {
           console.log('💰 Proposal received:', proposalResponse.proposal);
-          
+
           // Execute the purchase
           const purchaseResponse = await tradingEngine.buyContract(
             proposalResponse.proposal.id,
             proposalResponse.proposal.ask_price
           );
-          
+
           if (purchaseResponse.buy) {
             console.log(`✅ Real ${contractType} trade executed for ${strategyId}`);
             console.log(`💰 Stake: ${stakeAmount}, Duration: ${ticksAmount} ticks`);
             console.log(`📊 Contract ID: ${purchaseResponse.buy.contract_id}`);
             console.log(`💵 Purchase Price: ${purchaseResponse.buy.buy_price}`);
-            
+
             // Store successful trade info (you can extend this for trade history)
             const tradeInfo = {
               strategyId,
@@ -602,7 +602,7 @@ const VolatilityAnalyzer: React.FC = () => {
               symbol: selectedSymbol,
               duration: ticksAmount
             };
-            
+
             console.log('📝 Trade executed successfully:', tradeInfo);
           } else {
             console.error('❌ Purchase failed:', purchaseResponse);
@@ -640,7 +640,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
     // Determine interval based on volatility symbol
     let intervalMs = 1000; // Default 1 second for 1s volatilities
-    
+
     // For regular volatilities (not 1s), use tick-based timing
     if (!selectedSymbol.includes('1HZ')) {
       // Regular volatilities get ticks approximately every 1-2 seconds
@@ -699,7 +699,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
   const checkTradingConditions = (strategyId: string, data: any, condition: any) => {
     let currentValue = 0;
-    
+
     switch (condition.condition) {
       case 'Rise Prob':
         currentValue = parseFloat(data.riseRatio || '0');
@@ -1085,9 +1085,7 @@ const VolatilityAnalyzer: React.FC = () => {
             {connectionStatus === 'disconnected' && '🔴 Disconnected'}
             {connectionStatus === 'error' && '⚠️ Error'}
           </div>
-          <div className={`trading-mode ${isRealTrading ? 'real' : 'simulation'}`}>
-            {isRealTrading ? '💰 Real Trading' : '🎯 Simulation Mode'}
-          </div>
+          
         </div>
       </div>
 

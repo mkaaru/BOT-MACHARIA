@@ -347,7 +347,7 @@ const SpeedBot: React.FC = () => {
         setCurrentContractChoice(getAlternateContract(currentContractChoice));
       }
     }
-  }, [contractType, selectedSymbol, currentStake, isAuthorized, pendingTrades, alternateEvenOdd, alternateOnLoss, lastTradeResult, currentEvenOddChoice, overUnderBarrier, matchDifferDigit]);
+  }, [contractType, selectedSymbol, currentStake, isAuthorized, pendingTrades, alternateMarketType, alternateOnLoss, lastTradeResult, currentContractChoice, overUnderValue, matchDifferDigit]);
 
   
 
