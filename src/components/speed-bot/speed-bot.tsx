@@ -20,6 +20,7 @@ const SpeedBot: React.FC = () => {
 
   // Trading configuration
   const [selectedSymbol, setSelectedSymbol] = useState('R_10');
+  const [selectedContractType, setSelectedContractType] = useState('DIGITOVER');
   const [stake, setStake] = useState(1.0);
   const [overUnderValue, setOverUnderValue] = useState(5);
   const [isTrading, setIsTrading] = useState(false);
@@ -44,6 +45,24 @@ const SpeedBot: React.FC = () => {
     { value: 'R_50', label: 'Volatility 50 Index' },
     { value: 'R_75', label: 'Volatility 75 Index' },
     { value: 'R_100', label: 'Volatility 100 Index' },
+    { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
+    { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
+    { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
+    { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
+    { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
+  ];
+
+  const contractTypes = [
+    { value: 'DIGITOVER', label: 'Over/Under' },
+    { value: 'DIGITEVEN', label: 'Even/Odd' },
+    { value: 'DIGITDIFF', label: 'Differs' },
+    { value: 'DIGITMATCH', label: 'Matches' },
+    { value: 'CALL', label: 'Rise/Fall' },
+    { value: 'ASIANU', label: 'Asian Up' },
+    { value: 'ASIAND', label: 'Asian Down' },
+    { value: 'LBFLOATCALL', label: 'Lookback High Close' },
+    { value: 'LBFLOATPUT', label: 'Lookback Low Close' },
+    { value: 'LBHIGHLOW', label: 'Lookback High Low' },
   ];
 
   // WebSocket connection
@@ -117,17 +136,46 @@ const SpeedBot: React.FC = () => {
   const executeTradeOnTick = useCallback((tick: number) => {
     const lastDigit = Math.floor(Math.abs(tick * 100000)) % 10;
 
-    // Simple strategy: trade based on last digit
-    let contractType = 'DIGITOVER';
-    let prediction = `OVER ${overUnderValue}`;
-    let isWin = lastDigit > overUnderValue;
+    // Strategy based on selected contract type
+    let prediction = '';
+    let isWin = false;
+
+    switch (selectedContractType) {
+      case 'DIGITOVER':
+        prediction = `OVER ${overUnderValue}`;
+        isWin = lastDigit > overUnderValue;
+        break;
+      case 'DIGITUNDER':
+        prediction = `UNDER ${overUnderValue}`;
+        isWin = lastDigit < overUnderValue;
+        break;
+      case 'DIGITEVEN':
+        prediction = 'EVEN';
+        isWin = lastDigit % 2 === 0;
+        break;
+      case 'DIGITODD':
+        prediction = 'ODD';
+        isWin = lastDigit % 2 === 1;
+        break;
+      case 'DIGITMATCH':
+        prediction = `MATCHES ${overUnderValue}`;
+        isWin = lastDigit === overUnderValue;
+        break;
+      case 'DIGITDIFF':
+        prediction = `DIFFERS ${overUnderValue}`;
+        isWin = lastDigit !== overUnderValue;
+        break;
+      default:
+        prediction = `${selectedContractType}`;
+        isWin = Math.random() > 0.5; // Simplified for other contract types
+    }
 
     // Simulate trade execution
     const trade: Trade = {
       id: `trade_${Date.now()}`,
       timestamp: new Date().toLocaleTimeString(),
       symbol: selectedSymbol,
-      contractType,
+      contractType: selectedContractType,
       result: isWin ? 'win' : 'loss',
       stake: currentStake,
       profit: isWin ? currentStake * 0.95 : -currentStake,
@@ -150,8 +198,8 @@ const SpeedBot: React.FC = () => {
       }
     }
 
-    console.log(`Trade executed: ${isWin ? 'WIN' : 'LOSS'} - Digit: ${lastDigit}, Profit: ${trade.profit}`);
-  }, [selectedSymbol, currentStake, overUnderValue, useMartingale, martingaleMultiplier, stake]);
+    console.log(`Trade executed: ${isWin ? 'WIN' : 'LOSS'} - ${prediction} - Digit: ${lastDigit}, Profit: ${trade.profit}`);
+  }, [selectedSymbol, selectedContractType, currentStake, overUnderValue, useMartingale, martingaleMultiplier, stake]);
 
   const startTrading = () => {
     if (!isConnected) {
@@ -218,7 +266,7 @@ const SpeedBot: React.FC = () => {
       <div className="speed-bot__form">
         <div className="speed-bot__form-row">
           <div className="speed-bot__form-group">
-            <label>Volatility 100 Index</label>
+            <label>Symbol</label>
             <select 
               value={selectedSymbol} 
               onChange={(e) => setSelectedSymbol(e.target.value)}
@@ -231,6 +279,23 @@ const SpeedBot: React.FC = () => {
               ))}
             </select>
           </div>
+          <div className="speed-bot__form-group">
+            <label>Contract Type</label>
+            <select 
+              value={selectedContractType} 
+              onChange={(e) => setSelectedContractType(e.target.value)}
+              disabled={isTrading}
+            >
+              {contractTypes.map(contract => (
+                <option key={contract.value} value={contract.value}>
+                  {contract.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="speed-bot__form-row">
           <div className="speed-bot__form-group">
             <label>Stake</label>
             <div className="speed-bot__stake-input">
@@ -245,13 +310,6 @@ const SpeedBot: React.FC = () => {
               <span className="speed-bot__currency">USD</span>
             </div>
           </div>
-        </div>
-
-        <div className="speed-bot__form-row">
-          <div className="speed-bot__form-group">
-            <label>Ticks</label>
-            <input type="number" value="1" readOnly />
-          </div>
           <div className="speed-bot__form-group">
             <label>Over value (0)</label>
             <input
@@ -262,6 +320,17 @@ const SpeedBot: React.FC = () => {
               max="9"
               disabled={isTrading}
             />
+          </div>
+        </div>
+
+        <div className="speed-bot__form-row">
+          <div className="speed-bot__form-group">
+            <label>Ticks</label>
+            <input type="number" value="1" readOnly />
+          </div>
+          <div className="speed-bot__form-group">
+            <label>Duration</label>
+            <input type="number" value="1" readOnly />
           </div>
         </div>
 
