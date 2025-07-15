@@ -99,7 +99,6 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.purchase = block => {
     const execution_mode = block.getFieldValue('EXECUTION_MODE') || 'NORMAL';
 
     const code = [
-        'Bot.purchaseReference = Bot.getPurchaseReference();',
         'var purchase_list = "' + purchase_list + '";',
         'var execution_mode = "' + execution_mode + '";',
         'var stake = Bot.getStake();',
