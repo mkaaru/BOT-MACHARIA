@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
 import { useStore } from '@/hooks/useStore';
@@ -41,7 +40,7 @@ const SpeedBot: React.FC = observer(() => {
     }
     return null;
   };
-  
+
   // Connection state
   const [isConnected, setIsConnected] = useState(false);
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
@@ -97,7 +96,7 @@ const SpeedBot: React.FC = observer(() => {
   // Safe observer pattern implementation
   const createObserver = () => {
     const observers: { [key: string]: Array<(data: any) => void> } = {};
-    
+
     return {
       register: (event: string, callback: (data: any) => void) => {
         if (!observers[event]) {
@@ -350,7 +349,7 @@ const SpeedBot: React.FC = observer(() => {
   // Execute trade through Bot Builder's trading engine
   const executeTradeOnTick = useCallback(async (tick: number) => {
     if (!isTrading || isExecutingTrade) return;
-    
+
     // Allow trades every 1 second to reduce API load
     const now = Date.now();
     if (now - lastTradeTime < 1000) return;
@@ -376,7 +375,7 @@ const SpeedBot: React.FC = observer(() => {
     try {
       // Generate the trading strategy XML
       const strategyXML = generateSpeedBotStrategy();
-      
+
       // Validate XML before loading
       try {
         const parser = new DOMParser();
@@ -389,21 +388,39 @@ const SpeedBot: React.FC = observer(() => {
         console.error('XML validation failed:', xmlError);
         throw new Error('Failed to generate valid trading strategy');
       }
-      
-      // Check if Blockly is properly initialized
-      if (!window.Blockly) {
-        throw new Error('Blockly library not loaded');
-      }
-      
-      if (!window.Blockly.derivWorkspace) {
-        throw new Error('Blockly workspace not initialized');
+
+      // Wait for Blockly to be fully initialized
+      const waitForBlockly = async () => {
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds total wait time
+
+        while (attempts < maxAttempts) {
+          if (window.Blockly && 
+              window.Blockly.derivWorkspace && 
+              window.Blockly.Xml && 
+              typeof window.Blockly.Xml.textToDom === 'function') {
+            return true;
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 100));
+          attempts++;
+        }
+
+        return false;
+      };
+
+      const isBlocklyReady = await waitForBlockly();
+
+      if (!isBlocklyReady) {
+        setError('Blockly is not ready. Please wait a moment and try again, or refresh the page.');
+        return;
       }
 
       // Check if XML utilities are available
       if (!window.Blockly.Xml || typeof window.Blockly.Xml.textToDom !== 'function') {
         throw new Error('Blockly XML utilities not available');
       }
-      
+
       // Load the strategy into blockly workspace
       try {
         // Stop any running bot first
@@ -414,34 +431,34 @@ const SpeedBot: React.FC = observer(() => {
 
         // Clear existing workspace
         window.Blockly.derivWorkspace.clear();
-        
+
         // Parse the XML using Blockly's textToDom
         const xml = window.Blockly.Xml.textToDom(strategyXML);
         if (!xml) {
           throw new Error('Failed to parse strategy XML with Blockly.Xml.textToDom');
         }
-        
+
         // Set event group for proper loading
         const eventGroup = `speed_bot_load_${Date.now()}`;
         window.Blockly.Events.setGroup(eventGroup);
-        
+
         try {
           // Load strategy into workspace using domToWorkspace
           window.Blockly.Xml.domToWorkspace(xml, window.Blockly.derivWorkspace);
-          
+
           // Update workspace strategy id
           window.Blockly.derivWorkspace.current_strategy_id = `speed_bot_${Date.now()}`;
-          
+
           console.log('✅ Strategy loaded into workspace successfully');
-          
+
         } finally {
           // Always clear the event group
           window.Blockly.Events.setGroup(false);
         }
-        
+
         // Brief delay before starting
         await new Promise(resolve => setTimeout(resolve, 200));
-        
+
       } catch (workspaceError) {
         console.error('Error loading strategy to workspace:', workspaceError);
         throw new Error(`Failed to load trading strategy: ${workspaceError.message}`);
@@ -459,7 +476,7 @@ const SpeedBot: React.FC = observer(() => {
       } else {
         throw new Error('Run panel not available');
       }
-      
+
       // Track trade for UI
       const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const trade: Trade = {
@@ -482,7 +499,7 @@ const SpeedBot: React.FC = observer(() => {
         if (result && result.contract) {
           const profit = parseFloat(result.profit) || 0;
           const isWin = profit > 0;
-          
+
           setTradeHistory(prev => 
             prev.map(t => 
               t.id === tradeId 
@@ -511,22 +528,22 @@ const SpeedBot: React.FC = observer(() => {
       // Register for trade completion events
       if (localObserver) {
         localObserver.register('bot.trade_complete', handleTradeResult);
-        
+
         // Clean up listener after some time
         setTimeout(() => {
           localObserver.unregister('bot.trade_complete', handleTradeResult);
         }, 30000); // 30 seconds timeout for trade completion
       }
-      
+
     } catch (error) {
       console.error('Error executing trade through Bot Builder:', error);
       setError(`Trade error: ${error.message}`);
-      
+
       // If it's an authentication error, stop trading
       if (error.message.includes('authorization') || error.message.includes('token')) {
         setIsTrading(false);
       }
-      
+
     } finally {
       setIsExecutingTrade(false);
     }
@@ -557,17 +574,33 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
-    // Check if Blockly is properly initialized
-    if (!window.Blockly) {
-      setError('Blockly library not loaded. Please refresh the page and try again.');
+    // Wait for Blockly to be fully initialized
+    const waitForBlockly = async () => {
+      let attempts = 0;
+      const maxAttempts = 50; // 5 seconds total wait time
+
+      while (attempts < maxAttempts) {
+        if (window.Blockly && 
+            window.Blockly.derivWorkspace && 
+            window.Blockly.Xml && 
+            typeof window.Blockly.Xml.textToDom === 'function') {
+          return true;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+
+      return false;
+    };
+
+    const isBlocklyReady = await waitForBlockly();
+
+    if (!isBlocklyReady) {
+      setError('Blockly is not ready. Please wait a moment and try again, or refresh the page.');
       return;
     }
-    
-    if (!window.Blockly.derivWorkspace) {
-      setError('Blockly workspace not initialized. Please refresh the page and try again.');
-      return;
-    }
-    
+
     if (!window.Blockly.Xml || typeof window.Blockly.Xml.textToDom !== 'function') {
       setError('Blockly XML utilities not available. Please refresh the page and try again.');
       return;
@@ -576,7 +609,7 @@ const SpeedBot: React.FC = observer(() => {
     setCurrentStake(stake);
     setIsTrading(true);
     setError(null);
-    
+
     console.log('🚀 Speed Bot trading started using Bot Builder engine');
     console.log(`Trading ${selectedContractType} on ${selectedSymbol} with stake ${stake}`);
   };
@@ -602,7 +635,7 @@ const SpeedBot: React.FC = observer(() => {
       console.error('Error in connectToAPI:', error);
       setError('Failed to initialize connection');
     }
-    
+
     return () => {
       if (websocket) {
         websocket.close();
