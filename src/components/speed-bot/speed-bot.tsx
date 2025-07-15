@@ -251,81 +251,86 @@ const SpeedBot: React.FC = observer(() => {
 
   // Generate trading strategy XML for bot builder
   const generateSpeedBotStrategy = useCallback(() => {
-    let prediction = overUnderValue;
-    let tradeType = selectedContractType;
+    try {
+      let prediction = overUnderValue;
+      let tradeType = selectedContractType;
 
-    // Map contract types and set appropriate predictions
-    switch (selectedContractType) {
-      case 'DIGITOVER':
-        tradeType = 'DIGITOVER';
-        prediction = overUnderValue;
-        break;
-      case 'DIGITUNDER':
-        tradeType = 'DIGITUNDER';
-        prediction = overUnderValue;
-        break;
-      case 'DIGITEVEN':
-        tradeType = 'DIGITEVEN';
-        prediction = undefined; // Even/Odd doesn't use prediction
-        break;
-      case 'DIGITODD':
-        tradeType = 'DIGITODD';
-        prediction = undefined; // Even/Odd doesn't use prediction
-        break;
-      case 'DIGITMATCH':
-        tradeType = 'DIGITMATCH';
-        prediction = overUnderValue;
-        break;
-      case 'DIGITDIFF':
-        tradeType = 'DIGITDIFF';
-        prediction = overUnderValue;
-        break;
-      case 'CALL':
-        tradeType = 'CALL';
-        prediction = undefined;
-        break;
-      default:
-        tradeType = 'DIGITOVER';
-        prediction = overUnderValue;
-    }
+      // Map contract types and set appropriate predictions
+      switch (selectedContractType) {
+        case 'DIGITOVER':
+          tradeType = 'DIGITOVER';
+          prediction = overUnderValue;
+          break;
+        case 'DIGITUNDER':
+          tradeType = 'DIGITUNDER';
+          prediction = overUnderValue;
+          break;
+        case 'DIGITEVEN':
+          tradeType = 'DIGITEVEN';
+          prediction = undefined; // Even/Odd doesn't use prediction
+          break;
+        case 'DIGITODD':
+          tradeType = 'DIGITODD';
+          prediction = undefined; // Even/Odd doesn't use prediction
+          break;
+        case 'DIGITMATCH':
+          tradeType = 'DIGITMATCH';
+          prediction = overUnderValue;
+          break;
+        case 'DIGITDIFF':
+          tradeType = 'DIGITDIFF';
+          prediction = overUnderValue;
+          break;
+        case 'CALL':
+          tradeType = 'CALL';
+          prediction = undefined;
+          break;
+        case 'PUT':
+          tradeType = 'PUT';
+          prediction = undefined;
+          break;
+        default:
+          tradeType = 'DIGITOVER';
+          prediction = overUnderValue;
+      }
 
-    const predictionBlock = prediction !== undefined ? `
-    <value name="PREDICTION">
-      <block type="math_number">
-        <field name="NUM">${prediction}</field>
-      </block>
-    </value>` : '';
+      const predictionBlock = prediction !== undefined ? `
+      <value name="PREDICTION">
+        <block type="math_number" id="prediction_${Date.now()}">
+          <field name="NUM">${prediction}</field>
+        </block>
+      </value>` : '';
 
-    const xmlStrategy = `
-<xml xmlns="http://www.w3.org/1999/xhtml" collection="false">
-  <block type="trade_definition_tradeoptions" id="trade_definition" x="0" y="0">
+      const xmlStrategy = `<xml xmlns="http://www.w3.org/1999/xhtml" collection="false" is_dbot="true">
+  <variables></variables>
+  <block type="trade_definition_tradeoptions" id="trade_definition_${Date.now()}" x="0" y="0">
     <field name="MARKET">synthetic_index</field>
     <field name="UNDERLYING">${selectedSymbol}</field>
     <field name="TRADETYPE">${tradeType}</field>
     <field name="TYPE">ticks</field>
     <value name="DURATION">
-      <block type="math_number">
+      <block type="math_number" id="duration_${Date.now()}">
         <field name="NUM">1</field>
       </block>
     </value>
     <value name="AMOUNT">
-      <block type="math_number">
-        <field name="NUM">${currentStake}</field>
+      <block type="math_number" id="amount_${Date.now()}">
+        <field name="NUM">${currentStake.toFixed(2)}</field>
       </block>
     </value>${predictionBlock}
   </block>
-  <block type="before_purchase" x="0" y="200">
+  <block type="before_purchase" id="before_purchase_${Date.now()}" x="0" y="200">
     <statement name="BEFOREPURCHASE_STACK">
-      <block type="purchase">
+      <block type="purchase" id="purchase_${Date.now()}">
         <field name="PURCHASE_LIST">${tradeType}</field>
       </block>
     </statement>
   </block>
-  <block type="after_purchase" x="0" y="300">
+  <block type="after_purchase" id="after_purchase_${Date.now()}" x="0" y="300">
     <statement name="AFTERPURCHASE_STACK">
-      <block type="trade_again">
+      <block type="trade_again" id="trade_again_${Date.now()}">
         <value name="CONDITION">
-          <block type="logic_boolean">
+          <block type="logic_boolean" id="condition_${Date.now()}">
             <field name="BOOL">FALSE</field>
           </block>
         </value>
@@ -334,7 +339,12 @@ const SpeedBot: React.FC = observer(() => {
   </block>
 </xml>`;
 
-    return xmlStrategy;
+      console.log('Generated strategy XML:', xmlStrategy);
+      return xmlStrategy;
+    } catch (error) {
+      console.error('Error generating strategy XML:', error);
+      throw new Error('Failed to generate trading strategy');
+    }
   }, [selectedSymbol, selectedContractType, currentStake, overUnderValue]);
 
   // Execute trade through Bot Builder's trading engine
@@ -367,35 +377,76 @@ const SpeedBot: React.FC = observer(() => {
       // Generate the trading strategy XML
       const strategyXML = generateSpeedBotStrategy();
       
+      // Validate XML before loading
+      try {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(strategyXML, 'application/xml');
+        const parseError = xmlDoc.getElementsByTagName('parsererror');
+        if (parseError.length > 0) {
+          throw new Error('Invalid XML generated');
+        }
+      } catch (xmlError) {
+        console.error('XML validation failed:', xmlError);
+        throw new Error('Failed to generate valid trading strategy');
+      }
+      
       // Load the strategy into blockly workspace
-      if (window.Blockly?.derivWorkspace) {
+      if (window.Blockly?.derivWorkspace && window.Blockly?.Xml) {
         try {
+          // Stop any running bot first
+          if (run_panel?.is_running) {
+            await run_panel.onStopButtonClick();
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+
           // Clear existing workspace
           window.Blockly.derivWorkspace.clear();
           
-          // Load the new strategy
-          const xml = window.Blockly.Xml?.textToDom(strategyXML);
+          // Parse and load the new strategy
+          const xml = window.Blockly.Xml.textToDom(strategyXML);
           if (xml) {
-            window.Blockly.Xml?.domToWorkspace(xml, window.Blockly.derivWorkspace);
-            console.log('✅ Strategy loaded into workspace');
+            // Set event group for proper loading
+            const eventGroup = `speed_bot_load_${Date.now()}`;
+            window.Blockly.Events.setGroup(eventGroup);
+            
+            // Load strategy into workspace
+            window.Blockly.Xml.domToWorkspace(xml, window.Blockly.derivWorkspace);
+            
+            // Clear the event group
+            window.Blockly.Events.setGroup(false);
+            
+            // Update workspace strategy id
+            window.Blockly.derivWorkspace.current_strategy_id = `speed_bot_${Date.now()}`;
+            
+            console.log('✅ Strategy loaded into workspace successfully');
+            
+            // Brief delay before starting
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+          } else {
+            throw new Error('Failed to parse strategy XML');
           }
-        } catch (error) {
-          console.error('Error loading strategy to workspace:', error);
-          throw new Error('Failed to load trading strategy');
+        } catch (workspaceError) {
+          console.error('Error loading strategy to workspace:', workspaceError);
+          throw new Error(`Failed to load trading strategy: ${workspaceError.message}`);
         }
       } else {
-        throw new Error('Blockly workspace not available');
-      }
-
-      // Use the run panel to execute the trade
-      if (run_panel.is_running) {
-        // Stop current run first
-        await run_panel.onStopButtonClick();
-        await new Promise(resolve => setTimeout(resolve, 100)); // Brief delay
+        console.error('Blockly workspace or XML utilities not available');
+        throw new Error('Blockly workspace not properly initialized');
       }
 
       // Start the bot with the new strategy
-      await run_panel.onRunButtonClick();
+      if (run_panel?.onRunButtonClick) {
+        try {
+          await run_panel.onRunButtonClick();
+          console.log('✅ Bot started successfully');
+        } catch (runError) {
+          console.error('Error starting bot:', runError);
+          throw new Error(`Failed to start bot: ${runError.message}`);
+        }
+      } else {
+        throw new Error('Run panel not available');
+      }
       
       // Track trade for UI
       const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -491,6 +542,12 @@ const SpeedBot: React.FC = observer(() => {
     // Check if Bot Builder services are available
     if (!blockly_store || !run_panel) {
       setError('Bot Builder services not available. Please try refreshing the page.');
+      return;
+    }
+
+    // Check if Blockly workspace is properly initialized
+    if (!window.Blockly?.derivWorkspace || !window.Blockly?.Xml) {
+      setError('Trading workspace not initialized. Please refresh the page and try again.');
       return;
     }
 
