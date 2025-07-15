@@ -74,11 +74,11 @@ window.Blockly.Blocks.after_purchase = {
 window.Blockly.JavaScript.javascriptGenerator.forBlock.after_purchase = block => {
     const stack = window.Blockly.JavaScript.javascriptGenerator.statementToCode(block, 'AFTERPURCHASE_STACK');
     const code = `
-    BinaryBotPrivateAfterPurchase = function BinaryBotPrivateAfterPurchase() {
-        Bot.highlightBlock('${block.id}');
-        ${stack}
-        Bot.isTradeAgain(false);
-        return false;
-    };`;
+        var BinaryBotPrivateAfterPurchase = function BinaryBotPrivateAfterPurchase() {
+            ${stack}
+            // Return true immediately to continue purchasing without waiting
+            return true;
+        };
+        `;
     return code;
 };
