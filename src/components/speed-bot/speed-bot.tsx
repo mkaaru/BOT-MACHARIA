@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
 import { tradingEngine } from '../volatility-analyzer/trading-engine';
@@ -34,7 +33,7 @@ const SpeedBot: React.FC = () => {
   const [tradeHistory, setTradeHistory] = useState<TradeResult[]>([]);
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [pendingTrades, setPendingTrades] = useState<Set<string>>(new Set());
-  
+
   // Enhanced features
   const [alternateMarketType, setAlternateMarketType] = useState(false);
   const [alternateOnLoss, setAlternateOnLoss] = useState(false);
@@ -45,7 +44,7 @@ const SpeedBot: React.FC = () => {
   const [overUnderValue, setOverUnderValue] = useState(5);
   const [matchDifferDigit, setMatchDifferDigit] = useState(5);
   const [useBulkTrading, setUseBulkTrading] = useState(false);
-  
+
   // State management
   const [currentStake, setCurrentStake] = useState(1.0);
   const [lastTradeResult, setLastTradeResult] = useState<'win' | 'loss' | null>(null);
@@ -106,7 +105,7 @@ const SpeedBot: React.FC = () => {
       setIsConnected(false);
       setIsAuthorized(false);
 
-      const ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=75771');
+      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
 
       ws.onopen = () => {
         console.log('Speed Bot WebSocket connected');
@@ -121,7 +120,7 @@ const SpeedBot: React.FC = () => {
                       localStorage.getItem('oauth_token') ||
                       localStorage.getItem('deriv_token') ||
                       localStorage.getItem('token');
-        
+
         // Try to get token from accounts list if available
         if (!apiToken && accountsList) {
           try {
@@ -147,14 +146,14 @@ const SpeedBot: React.FC = () => {
         const isLoggedIn = localStorage.getItem('active_loginid') || 
                           localStorage.getItem('client_accounts') ||
                           localStorage.getItem('is_logged_in') === 'true';
-        
+
         console.log('🔍 Auth check:', {
           hasToken: !!apiToken,
           tokenLength: apiToken?.length,
           isLoggedIn,
           activeLoginId: localStorage.getItem('active_loginid')
         });
-        
+
         if (apiToken && apiToken.length > 10) {
           console.log('🔑 Authorizing Speed Bot with API token for real trading');
           ws.send(JSON.stringify({
@@ -165,7 +164,7 @@ const SpeedBot: React.FC = () => {
           console.log('🔑 User appears logged in, trying to authorize without explicit token');
           setIsAuthorized(true);
           setCurrentPrice('Getting price feed...');
-          
+
           setTimeout(() => {
             if (ws.readyState === WebSocket.OPEN) {
               const tickRequest = {
@@ -179,7 +178,7 @@ const SpeedBot: React.FC = () => {
         } else {
           console.log('⚠️ No valid API token found - Starting with tick subscription only');
           setCurrentPrice('Getting price feed...');
-          
+
           setTimeout(() => {
             if (ws.readyState === WebSocket.OPEN) {
               const tickRequest = {
@@ -199,7 +198,7 @@ const SpeedBot: React.FC = () => {
 
           if (data.error) {
             console.error('Speed Bot API error:', data.error);
-            
+
             // Handle specific error types
             if (data.error.code === 'AuthorizationRequired') {
               setCurrentPrice('Please log in to start trading');
@@ -210,7 +209,7 @@ const SpeedBot: React.FC = () => {
             } else {
               setCurrentPrice(`Error: ${data.error.message}`);
             }
-            
+
             // If authorization fails, try to get tick data without auth
             if (data.req_id === 'speed_bot_auth' && ws.readyState === WebSocket.OPEN) {
               console.log('Authorization failed, trying tick subscription without auth');
@@ -228,7 +227,7 @@ const SpeedBot: React.FC = () => {
             console.log('✅ Speed Bot authorized for real trading');
             setIsAuthorized(true);
             setCurrentPrice('Authorized - Waiting for ticks...');
-            
+
             setTimeout(() => {
               if (ws.readyState === WebSocket.OPEN) {
                 const tickRequest = {
@@ -250,7 +249,7 @@ const SpeedBot: React.FC = () => {
               executeTradeOnTick(price);
             }
           }
-          
+
           // Handle tick history response
           if (data.history && data.history.prices && data.req_id === 'speed_bot_ticks') {
             console.log('Received tick history, subscribing to live ticks');
@@ -292,10 +291,10 @@ const SpeedBot: React.FC = () => {
 
   const executeTradeOnTick = useCallback(async (tick: number) => {
     const lastDigit = Math.floor(Math.abs(tick * 100000)) % 10;
-    
+
     // Determine which contract to use based on alternating settings
     let actualContractType = contractType;
-    
+
     if (alternateMarketType) {
       actualContractType = currentContractChoice;
     } else if (alternateOnLoss && lastTradeResult === 'loss') {
@@ -360,14 +359,14 @@ const SpeedBot: React.FC = () => {
                         localStorage.getItem('client_accounts') ||
                         localStorage.getItem('is_logged_in') === 'true' ||
                         isAuthorized;
-      
+
       if (isLoggedIn && tradingEngine.isEngineConnected()) {
         // Execute real trade through trading engine
         try {
           setPendingTrades(prev => new Set(prev).add(actualContractType));
-          
+
           console.log(`🚀 Executing real ${actualContractType} trade on ${selectedSymbol} with stake ${currentStake}`);
-          
+
           const proposalRequest: any = {
             amount: currentStake,
             basis: 'stake',
@@ -386,7 +385,7 @@ const SpeedBot: React.FC = () => {
           }
 
           const proposalResponse = await tradingEngine.getProposal(proposalRequest);
-          
+
           if (proposalResponse.proposal) {
             const purchaseResponse = await tradingEngine.buyContract(
               proposalResponse.proposal.id,
@@ -411,7 +410,7 @@ const SpeedBot: React.FC = () => {
 
               setTradeHistory(prev => [trade, ...prev.slice(0, 49)]);
               setTotalTrades(prev => prev + 1);
-              
+
               console.log(`✅ Real trade executed - Contract ID: ${purchaseResponse.buy.contract_id}`);
             }
           }
@@ -435,7 +434,7 @@ const SpeedBot: React.FC = () => {
     }
   }, [contractType, selectedSymbol, currentStake, isAuthorized, pendingTrades, alternateMarketType, alternateOnLoss, lastTradeResult, currentContractChoice, overUnderValue, matchDifferDigit]);
 
-  
+
 
   const handleContractUpdate = useCallback((contract: any) => {
     if (contract.contract_id) {
@@ -444,7 +443,7 @@ const SpeedBot: React.FC = () => {
           const isWin = contract.status === 'won';
           const payout = contract.payout || 0;
           const profit = payout - trade.stake;
-          
+
           // Update martingale based on real trade result
           if (useMartingale) {
             if (isWin) {
@@ -455,9 +454,9 @@ const SpeedBot: React.FC = () => {
               setCurrentStake(prev => prev * martingaleMultiplier);
             }
           }
-          
+
           setLastTradeResult(isWin ? 'win' : 'loss');
-          
+
           return {
             ...trade,
             actual: contract.status === 'won' ? trade.prediction : getOppositeResult(trade.prediction),
@@ -473,7 +472,7 @@ const SpeedBot: React.FC = () => {
       if (updatedTrade && contract.status) {
         const profit = (contract.payout || 0) - updatedTrade.stake;
         setTotalProfit(prev => prev + profit);
-        
+
         const isWin = contract.status === 'won';
         setWinRate(prev => {
           const wins = tradeHistory.filter(t => t.result === 'win').length + (isWin ? 1 : 0);
@@ -497,12 +496,12 @@ const SpeedBot: React.FC = () => {
       'RISE': 'FALL',
       'FALL': 'RISE',
     };
-    
+
     if (prediction.includes('OVER')) return prediction.replace('OVER', 'UNDER');
     if (prediction.includes('UNDER')) return prediction.replace('UNDER', 'OVER');
     if (prediction.includes('MATCHES')) return prediction.replace('MATCHES', 'DIFFERS');
     if (prediction.includes('DIFFERS')) return prediction.replace('DIFFERS', 'MATCHES');
-    
+
     return opposites[prediction] || prediction;
   };
 
@@ -511,13 +510,13 @@ const SpeedBot: React.FC = () => {
       alert('Please connect to the API first');
       return;
     }
-    
+
     // Check if user is logged in via various methods
     const isLoggedIn = localStorage.getItem('active_loginid') || 
                       localStorage.getItem('client_accounts') ||
                       localStorage.getItem('is_logged_in') === 'true' ||
                       isAuthorized;
-    
+
     if (!isLoggedIn) {
       // Show login dialog or redirect to login
       const loginDialog = document.createElement('div');
@@ -540,13 +539,13 @@ const SpeedBot: React.FC = () => {
       document.body.appendChild(loginDialog);
       return;
     }
-    
+
     // Reset martingale state
     setCurrentStake(stakeAmount);
     setConsecutiveLosses(0);
     setLastTradeResult(null);
     setCurrentContractChoice(contractType);
-    
+
     setIsTrading(true);
   };
 
@@ -567,12 +566,12 @@ const SpeedBot: React.FC = () => {
 
   useEffect(() => {
     connectToAPI();
-    
+
     // Initialize bulk trading if enabled
     if (useBulkTrading) {
       initializeBulkTrading();
     }
-    
+
     return () => {
       if (websocket) {
         websocket.close();
@@ -595,7 +594,7 @@ const SpeedBot: React.FC = () => {
           derivWs=null
         }
         try{
-          (derivWs=new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=75771")).onopen=function(){
+          (derivWs=new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=75771")).onopen=function(){
             console.log("✅ WebSocket connection established"),reconnectAttempts=0,notifyConnectionStatus("connected"),setTimeout(()=>{
               try{derivWs&&derivWs.readyState===WebSocket.OPEN&&(console.log("Sending authorization request"),derivWs.send(JSON.stringify({app_id:75771})),requestTickHistory())}catch(e){console.error("Error during init requests:",e)}
             },500)
@@ -645,7 +644,7 @@ const SpeedBot: React.FC = () => {
           let t=Array(10).fill(0);
           tickHistory.forEach(e=>{let o=getLastDigit(e.quote);t[o]++});
           let o=tickHistory.length,r=t.filter((e,t)=>t%2==0).reduce((e,t)=>e+t,0),i=t.filter((e,t)=>t%2!=0).reduce((e,t)=>e+t,0),n=(r/o*100).toFixed(2),s=(i/o*100).toFixed(2);
-          
+
           // Trigger bulk trades if probabilities are favorable
           if(n > 60 || s > 60 || window.speedBotBulkTrade) {
             window.postMessage({type:"BULK_TRADE_SIGNAL",data:{evenProb:n,oddProb:s,symbol:currentSymbol}},"*");
@@ -656,7 +655,7 @@ const SpeedBot: React.FC = () => {
       // Initialize
       if(!isInitialized){isInitialized=true,console.log("🚀 Initializing bulk trading volatility analyzer"),startWebSocket()}
     `;
-    
+
     document.head.appendChild(script);
 
     // Listen for bulk trading signals
@@ -668,7 +667,7 @@ const SpeedBot: React.FC = () => {
     };
 
     window.addEventListener('message', handleBulkMessage);
-    
+
     return () => {
       window.removeEventListener('message', handleBulkMessage);
       if (script.parentNode) {
@@ -684,7 +683,7 @@ const SpeedBot: React.FC = () => {
     }
 
     const trades = [];
-    
+
     // Determine which contracts to trade based on probabilities
     if (evenProb > 60) {
       trades.push({ type: 'DIGITEVEN', probability: evenProb });
@@ -704,7 +703,7 @@ const SpeedBot: React.FC = () => {
   const executeSingleBulkTrade = async (trade) => {
     try {
       console.log(`💼 Executing bulk trade: ${trade.type} with ${trade.probability}% probability`);
-      
+
       const proposalRequest = {
         amount: currentStake,
         basis: 'stake',
@@ -716,7 +715,7 @@ const SpeedBot: React.FC = () => {
       };
 
       const proposalResponse = await tradingEngine.getProposal(proposalRequest);
-      
+
       if (proposalResponse.proposal) {
         const purchaseResponse = await tradingEngine.buyContract(
           proposalResponse.proposal.id,
@@ -741,7 +740,7 @@ const SpeedBot: React.FC = () => {
 
           setTradeHistory(prev => [bulkTrade, ...prev.slice(0, 49)]);
           setTotalTrades(prev => prev + 1);
-          
+
           console.log(`✅ Bulk trade executed - Contract ID: ${purchaseResponse.buy.contract_id}`);
         }
       }
