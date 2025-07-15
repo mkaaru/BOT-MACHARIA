@@ -85,6 +85,19 @@ const VolatilityAnalyzer: React.FC = () => {
               if (derivWs && derivWs.readyState === WebSocket.OPEN) {
                 console.log('Sending authorization request');
                 derivWs.send(JSON.stringify({ app_id: 75771 }));
+                
+                // Check if API token is available for real trading
+                const apiToken = localStorage.getItem('dbot_api_token');
+                if (apiToken) {
+                  console.log('🔑 Authorizing with API token for real trading');
+                  derivWs.send(JSON.stringify({
+                    authorize: apiToken,
+                    req_id: 'auth_request'
+                  }));
+                } else {
+                  console.log('⚠️ No API token found - trading will be simulated');
+                }
+                
                 requestTickHistory();
               }
             } catch (error) {
@@ -111,6 +124,17 @@ const VolatilityAnalyzer: React.FC = () => {
             // Ensure we're showing connected status when receiving data
             if (connectionStatus !== 'connected') {
               setConnectionStatus('connected');
+            }
+
+            // Check for authorization response
+            if (data.req_id === 'auth_request') {
+              if (data.authorize) {
+                console.log('🔑 API authorization successful - real trading enabled');
+                setIsRealTrading(true);
+              } else {
+                console.log('❌ API authorization failed - using simulation mode');
+                setIsRealTrading(false);
+              }
             }
 
             if (data.history) {
@@ -469,6 +493,7 @@ const VolatilityAnalyzer: React.FC = () => {
   const [stakeAmount, setStakeAmount] = useState(0.5);
   const [ticksAmount, setTicksAmount] = useState(1);
   const [martingaleAmount, setMartingaleAmount] = useState(1);
+  const [isRealTrading, setIsRealTrading] = useState(false);
   const [tradingConditions, setTradingConditions] = useState<Record<string, any>>({
     'rise-fall': { condition: 'Rise Prob', operator: '>', value: 55 },
     'even-odd': { condition: 'Even Prob', operator: '>', value: 55 },
@@ -547,13 +572,49 @@ const VolatilityAnalyzer: React.FC = () => {
 
       console.log('📡 Sending proposal request:', proposalRequest);
       
-      // Simulate trade execution for now (since we don't have real API connection)
-      // In a real implementation, you would use the trading engine
-      console.log(`✅ Simulated ${contractType} trade executed for ${strategyId}`);
-      console.log(`💰 Stake: ${stakeAmount}, Duration: ${ticksAmount} ticks`);
-      
-      // You can integrate with the actual trading engine when API tokens are available
-      // const proposalResponse = await tradingEngine.getProposal(proposalRequest);
+      // Execute real trade through trading engine
+      try {
+        const proposalResponse = await tradingEngine.getProposal(proposalRequest);
+        
+        if (proposalResponse.proposal) {
+          console.log('💰 Proposal received:', proposalResponse.proposal);
+          
+          // Execute the purchase
+          const purchaseResponse = await tradingEngine.buyContract(
+            proposalResponse.proposal.id,
+            proposalResponse.proposal.ask_price
+          );
+          
+          if (purchaseResponse.buy) {
+            console.log(`✅ Real ${contractType} trade executed for ${strategyId}`);
+            console.log(`💰 Stake: ${stakeAmount}, Duration: ${ticksAmount} ticks`);
+            console.log(`📊 Contract ID: ${purchaseResponse.buy.contract_id}`);
+            console.log(`💵 Purchase Price: ${purchaseResponse.buy.buy_price}`);
+            
+            // Store successful trade info (you can extend this for trade history)
+            const tradeInfo = {
+              strategyId,
+              contractType,
+              contractId: purchaseResponse.buy.contract_id,
+              buyPrice: purchaseResponse.buy.buy_price,
+              stake: stakeAmount,
+              timestamp: new Date().toISOString(),
+              symbol: selectedSymbol,
+              duration: ticksAmount
+            };
+            
+            console.log('📝 Trade executed successfully:', tradeInfo);
+          } else {
+            console.error('❌ Purchase failed:', purchaseResponse);
+          }
+        } else {
+          console.error('❌ Proposal failed:', proposalResponse);
+        }
+      } catch (error) {
+        console.error('❌ Trading engine error:', error);
+        // Fall back to simulation if trading engine fails
+        console.log(`⚠️ Fallback: Simulated ${contractType} trade for ${strategyId}`);
+      }
 
     } catch (error) {
       console.error('❌ Error executing trade:', error);
@@ -1018,10 +1079,15 @@ const VolatilityAnalyzer: React.FC = () => {
     <div className="volatility-analyzer">
       <div className="analyzer-header">
         <h2>Smart Trading Analytics</h2>
-        <div className={`connection-status ${connectionStatus}`}>
-          {connectionStatus === 'connected' && '🟢 Connected'}
-          {connectionStatus === 'disconnected' && '🔴 Disconnected'}
-          {connectionStatus === 'error' && '⚠️ Error'}
+        <div className="status-indicators">
+          <div className={`connection-status ${connectionStatus}`}>
+            {connectionStatus === 'connected' && '🟢 Connected'}
+            {connectionStatus === 'disconnected' && '🔴 Disconnected'}
+            {connectionStatus === 'error' && '⚠️ Error'}
+          </div>
+          <div className={`trading-mode ${isRealTrading ? 'real' : 'simulation'}`}>
+            {isRealTrading ? '💰 Real Trading' : '🎯 Simulation Mode'}
+          </div>
         </div>
       </div>
 

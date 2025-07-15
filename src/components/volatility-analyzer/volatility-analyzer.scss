@@ -19,27 +19,47 @@
       margin: 0;
     }
 
-    .connection-status {
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-weight: 500;
-      font-size: 14px;
+    .status-indicators {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
 
-      &.connected {
-        background-color: var(--status-success);
-        color: white;
-      }
+  .connection-status {
+    font-size: 14px;
+    font-weight: 500;
 
-      &.disconnected {
-        background-color: var(--status-danger);
-        color: white;
-      }
-
-      &.error {
-        background-color: var(--status-warning);
-        color: white;
-      }
+    &.connected {
+      color: #4CAF50;
     }
+
+    &.disconnected {
+      color: #F44336;
+    }
+
+    &.error {
+      color: #FF9800;
+    }
+  }
+
+  .trading-mode {
+    font-size: 14px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 4px;
+
+    &.real {
+      color: #4CAF50;
+      background-color: rgba(76, 175, 80, 0.1);
+      border: 1px solid rgba(76, 175, 80, 0.3);
+    }
+
+    &.simulation {
+      color: #FF9800;
+      background-color: rgba(255, 152, 0, 0.1);
+      border: 1px solid rgba(255, 152, 0, 0.3);
+    }
+  }
   }
 
   .analyzer-controls {
