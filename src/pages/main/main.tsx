@@ -1263,13 +1263,13 @@ if __name__ == "__main__":
                                 </div>
                             </div>
                         </div>
+                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
                         <div label={<><BotIcon /><Localize i18n_default_text='Smart Trading' /></>} id='id-smart-trading'>
                             <VolatilityAnalyzer />
                         </div>
                         <div label={<><BotIcon /><Localize i18n_default_text='Speed Bot' /></>} id='id-speed-bot'>
                             <SpeedBot />
                         </div>
-                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
                         <div label={<><SignalsIcon /><Localize i18n_default_text='Signal Scanner' /></>} id='id-signals'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
