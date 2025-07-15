@@ -145,11 +145,15 @@ const SpeedBot: React.FC = observer(() => {
 
         // Authorize if user is logged in
         if (client?.is_logged_in && client?.token) {
+          console.log('🔐 Authorizing with token...');
           const authRequest = {
             authorize: client.token,
             req_id: 'auth'
           };
           ws.send(JSON.stringify(authRequest));
+        } else {
+          console.log('⚠️ No token available for authorization');
+          setError('Please log in to start trading');
         }
 
         // Request tick history
@@ -159,6 +163,7 @@ const SpeedBot: React.FC = observer(() => {
           end: 'latest',
           style: 'ticks',
           subscribe: 1,
+          req_id: 'tick_history'
         };
         ws.send(JSON.stringify(tickRequest));
       };
@@ -174,8 +179,24 @@ const SpeedBot: React.FC = observer(() => {
           }
 
           // Handle authorization response
-          if (data.req_id === 'auth' && data.authorize) {
-            console.log('✅ WebSocket authorized successfully');
+          if (data.req_id === 'auth') {
+            if (data.authorize) {
+              console.log('✅ WebSocket authorized successfully', data.authorize);
+              setError(null);
+            } else if (data.error) {
+              console.error('❌ Authorization failed:', data.error);
+              setError(`Authorization failed: ${data.error.message}`);
+            }
+          }
+
+          // Handle tick history response
+          if (data.req_id === 'tick_history') {
+            if (data.history) {
+              console.log('📊 Tick history received');
+            } else if (data.error) {
+              console.error('❌ Tick history error:', data.error);
+              setError(`Tick history error: ${data.error.message}`);
+            }
           }
 
           if (data.tick && data.tick.symbol === selectedSymbol) {
@@ -184,6 +205,7 @@ const SpeedBot: React.FC = observer(() => {
 
             // Execute trade on every tick when trading is active
             if (isTrading) {
+              console.log('📈 New tick received:', price, 'Trading active:', isTrading);
               executeTradeOnTick(price);
             }
           }
@@ -191,6 +213,7 @@ const SpeedBot: React.FC = observer(() => {
           if (data.history && data.history.prices) {
             const lastPrice = parseFloat(data.history.prices[data.history.prices.length - 1]);
             setCurrentPrice(lastPrice.toFixed(5));
+            console.log('📊 Historical price updated:', lastPrice);
           }
         } catch (error) {
           console.error('Error parsing message:', error);
@@ -308,12 +331,20 @@ const SpeedBot: React.FC = observer(() => {
   const executeTradeOnTick = useCallback(async (tick: number) => {
     if (!isTrading || isExecutingTrade) return;
     
-    // Throttle trades to prevent excessive execution (minimum 2 seconds between trades)
+    // Reduce throttling to allow more frequent trades (minimum 500ms between trades)
     const now = Date.now();
-    if (now - lastTradeTime < 2000) return;
+    if (now - lastTradeTime < 500) return;
 
     if (!websocket || !isConnected) {
       console.error('WebSocket not connected');
+      setError('WebSocket not connected');
+      return;
+    }
+
+    // Check if user is still logged in
+    if (!client?.is_logged_in || !client?.token) {
+      setError('Please log in to continue trading');
+      setIsTrading(false);
       return;
     }
 
@@ -337,8 +368,8 @@ const SpeedBot: React.FC = observer(() => {
       const contractsResponsePromise = new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           websocket.removeEventListener('message', messageHandler);
-          reject(new Error('Contracts request timeout - retrying next tick'));
-        }, 5000); // Reduced timeout to 5 seconds
+          reject(new Error('Contracts request timeout'));
+        }, 10000); // Increased timeout to 10 seconds
 
         const messageHandler = (event) => {
           try {
@@ -349,12 +380,16 @@ const SpeedBot: React.FC = observer(() => {
               websocket.removeEventListener('message', messageHandler);
               
               if (data.error) {
-                reject(new Error(data.error.message));
+                console.error('Contracts API error:', data.error);
+                reject(new Error(`Contracts error: ${data.error.message}`));
                 return;
               }
 
               if (data.contracts_for) {
+                console.log('📋 Available contracts:', data.contracts_for.available?.length || 0);
                 resolve(data.contracts_for);
+              } else {
+                reject(new Error('No contracts_for data received'));
               }
             }
           } catch (error) {
@@ -371,13 +406,16 @@ const SpeedBot: React.FC = observer(() => {
       const contractsData = await contractsResponsePromise;
       
       // Find the contract type we want to trade
-      const availableContract = contractsData.available.find(contract => 
+      const availableContract = contractsData.available?.find(contract => 
         contract.contract_type === selectedContractType
       );
 
       if (!availableContract) {
-        throw new Error(`Contract type ${selectedContractType} not available`);
+        console.error('Available contract types:', contractsData.available?.map(c => c.contract_type) || []);
+        throw new Error(`Contract type ${selectedContractType} not available for ${selectedSymbol}. Available types: ${contractsData.available?.map(c => c.contract_type).join(', ') || 'none'}`);
       }
+
+      console.log('✅ Found available contract:', availableContract.contract_type);
 
       // Create proposal request
       const proposalRequest = {
@@ -559,15 +597,14 @@ const SpeedBot: React.FC = observer(() => {
     } catch (error) {
       console.error('Error executing trade:', error);
       
-      // Don't show timeout errors as they're handled gracefully
-      if (!error.message.includes('timeout - retrying next tick')) {
-        setError(`Trade error: ${error.message}`);
+      // Show all errors to user for debugging
+      setError(`Trade error: ${error.message}`);
+      
+      // If it's an authentication error, stop trading
+      if (error.message.includes('authorization') || error.message.includes('token')) {
+        setIsTrading(false);
       }
       
-      // For timeout errors, just log and continue - next tick will retry
-      if (error.message.includes('timeout')) {
-        console.log('Request timed out, will retry on next tick');
-      }
     } finally {
       setIsExecutingTrade(false);
     }
@@ -830,6 +867,14 @@ const SpeedBot: React.FC = observer(() => {
           <div className="speed-bot__stat">
             <label>Balance</label>
             <span>{client?.currency || 'USD'} {client?.balance ? parseFloat(client.balance).toFixed(2) : '0.00'}</span>
+          </div>
+          <div className="speed-bot__stat">
+            <label>Auth Status</label>
+            <span>{client?.is_logged_in ? '✅ Logged In' : '❌ Not Logged In'}</span>
+          </div>
+          <div className="speed-bot__stat">
+            <label>Executing</label>
+            <span>{isExecutingTrade ? '⏳ Yes' : '✅ No'}</span>
           </div>
           <div className="speed-bot__stat">
             <label>Total Trades</label>
