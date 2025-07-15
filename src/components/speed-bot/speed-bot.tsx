@@ -855,17 +855,12 @@ const SpeedBot: React.FC = () => {
   useEffect(() => {
     connectToAPI();
 
-    // Initialize bulk trading if enabled
-    if (useBulkTrading) {
-      initializeBulkTrading();
-    }
-
     return () => {
       if (websocket) {
         websocket.close();
       }
     };
-  }, [selectedSymbol, useBulkTrading, connectToAPI, initializeBulkTrading]);
+  }, [selectedSymbol, useBulkTrading, connectToAPI]);
 
   // Initialize bulk trading functionality with the provided WebSocket code
   const initializeBulkTrading = useCallback(() => {
@@ -964,7 +959,14 @@ const SpeedBot: React.FC = () => {
     };
   }, [useBulkTrading, isTrading, selectedSymbol, currentStake, isAuthorized, tradingEngine]);
 
-  const executeBulkTrades = async (evenProb, oddProb) => {
+  // Initialize bulk trading when component mounts or dependencies change
+  useEffect(() => {
+    if (useBulkTrading) {
+      initializeBulkTrading();
+    }
+  }, [useBulkTrading, initializeBulkTrading]);
+
+  const executeBulkTrades = async (evenProb: number, oddProb: number) => {
     if (!isAuthorized || !tradingEngine.isEngineConnected()) {
       console.log('⚠️ Not authorized for bulk trading');
       return;
