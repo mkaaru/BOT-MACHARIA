@@ -2,6 +2,7 @@
 <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id="initial_stake">initial_stake</variable>
+    <variable id="current_stake">current_stake</variable>
     <variable id="martingale_multiplier">martingale_multiplier</variable>
     <variable id="consecutive_losses">consecutive_losses</variable>
     <variable id="last_profit">last_profit</variable>
@@ -54,18 +55,8 @@
           </shadow>
         </value>
         <value name="AMOUNT">
-          <block type="math_arithmetic">
-            <field name="OP">MULTIPLY</field>
-            <value name="A">
-              <block type="variables_get">
-                <field name="VAR">initial_stake</field>
-              </block>
-            </value>
-            <value name="B">
-              <block type="variables_get">
-                <field name="VAR">martingale_multiplier</field>
-              </block>
-            </value>
+          <block type="variables_get">
+            <field name="VAR">current_stake</field>
           </block>
         </value>
       </block>
@@ -130,6 +121,16 @@
                                     <field name="NUM">0</field>
                                   </shadow>
                                 </value>
+                                <next>
+                                  <block type="variables_set">
+                                    <field name="VAR">current_stake</field>
+                                    <value name="VALUE">
+                                      <shadow type="math_number">
+                                        <field name="NUM">1</field>
+                                      </shadow>
+                                    </value>
+                                  </block>
+                                </next>
                               </block>
                             </next>
                           </block>
@@ -352,6 +353,28 @@
                               </block>
                             </value>
                             <next>
+                              <!-- Update current stake -->
+                              <block type="variables_set">
+                                <field name="VAR">current_stake</field>
+                                <value name="VALUE">
+                                  <block type="math_arithmetic">
+                                    <field name="OP">MULTIPLY</field>
+                                    <value name="A">
+                                      <block type="variables_get">
+                                        <field name="VAR">initial_stake</field>
+                                      </block>
+                                    </value>
+                                    <value name="B">
+                                      <block type="variables_get">
+                                        <field name="VAR">martingale_multiplier</field>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
+                          </block>
+                            <next>
                               <!-- Increase consecutive losses -->
                               <block type="variables_set">
                                 <field name="VAR">consecutive_losses</field>
@@ -459,6 +482,17 @@
                                       </shadow>
                                     </value>
                                     <next>
+                                      <block type="variables_set">
+                                        <field name="VAR">current_stake</field>
+                                        <value name="VALUE">
+                                          <block type="variables_get">
+                                            <field name="VAR">initial_stake</field>
+                                          </block>
+                                        </value>
+                                      </block>
+                                    </next>
+                                  </block>
+                                    <next>
                                       <block type="text_print">
                                         <value name="TEXT">
                                           <shadow type="text">
@@ -509,6 +543,17 @@
                                     <field name="NUM">0</field>
                                   </shadow>
                                 </value>
+                                <next>
+                                  <block type="variables_set">
+                                    <field name="VAR">current_stake</field>
+                                    <value name="VALUE">
+                                      <block type="variables_get">
+                                        <field name="VAR">initial_stake</field>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </next>
+                              </block>
                                 <next>
                                   <block type="text_print">
                                     <value name="TEXT">
