@@ -95,12 +95,11 @@ window.Blockly.Blocks.purchase = {
 };
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.purchase = block => {
-    const { getPurchaseReference } = window.Blockly.JavaScript.javascriptGenerator;
     const purchase_list = block.getFieldValue('PURCHASE_LIST');
     const execution_mode = block.getFieldValue('EXECUTION_MODE') || 'NORMAL';
 
     const code = `
-        Bot.purchaseReference = ${getPurchaseReference()};
+        Bot.purchaseReference = Bot.getPurchaseReference();
         const purchase_list = '${purchase_list}';
         const execution_mode = '${execution_mode}';
         const stake = Bot.getStake();
