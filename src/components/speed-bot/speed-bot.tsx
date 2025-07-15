@@ -341,9 +341,9 @@ const SpeedBot: React.FC = observer(() => {
   const executeTradeOnTick = useCallback(async (tick: number) => {
     if (!isTrading || isExecutingTrade) return;
     
-    // Reduce throttling to allow more frequent trades (minimum 500ms between trades)
+    // Allow trades every 1 second to reduce API load and timeout issues
     const now = Date.now();
-    if (now - lastTradeTime < 500) return;
+    if (now - lastTradeTime < 1000) return;
 
     if (!websocket || !isConnected) {
       console.error('WebSocket not connected');
@@ -384,7 +384,7 @@ const SpeedBot: React.FC = observer(() => {
         const timeout = setTimeout(() => {
           websocket.removeEventListener('message', messageHandler);
           reject(new Error('Contracts request timeout'));
-        }, 10000); // Increased timeout to 10 seconds
+        }, 3000); // Reduced timeout to 3 seconds
 
         const messageHandler = (event) => {
           try {
@@ -458,7 +458,7 @@ const SpeedBot: React.FC = observer(() => {
         const timeout = setTimeout(() => {
           websocket.removeEventListener('message', messageHandler);
           reject(new Error('Proposal request timeout - retrying next tick'));
-        }, 5000); // Reduced timeout to 5 seconds
+        }, 2000); // Reduced timeout to 2 seconds
 
         const messageHandler = (event) => {
           try {
@@ -504,7 +504,7 @@ const SpeedBot: React.FC = observer(() => {
         const timeout = setTimeout(() => {
           websocket.removeEventListener('message', messageHandler);
           reject(new Error('Purchase request timeout - retrying next tick'));
-        }, 5000); // Reduced timeout to 5 seconds
+        }, 2000); // Reduced timeout to 2 seconds
 
         const messageHandler = (event) => {
           try {
@@ -612,12 +612,18 @@ const SpeedBot: React.FC = observer(() => {
     } catch (error) {
       console.error('Error executing trade:', error);
       
-      // Show all errors to user for debugging
-      setError(`Trade error: ${error.message}`);
-      
-      // If it's an authentication error, stop trading
-      if (error.message.includes('authorization') || error.message.includes('token')) {
-        setIsTrading(false);
+      // Handle specific timeout errors differently
+      if (error.message.includes('timeout')) {
+        console.log('⏰ Trade timeout - will retry on next tick');
+        // Don't show timeout errors to user as they're handled automatically
+      } else {
+        // Show non-timeout errors to user for debugging
+        setError(`Trade error: ${error.message}`);
+        
+        // If it's an authentication error, stop trading
+        if (error.message.includes('authorization') || error.message.includes('token')) {
+          setIsTrading(false);
+        }
       }
       
     } finally {
