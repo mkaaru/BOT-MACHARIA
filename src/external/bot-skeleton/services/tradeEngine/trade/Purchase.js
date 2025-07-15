@@ -119,35 +119,3 @@ export default Engine =>
             purchase_reference = getUUID();
         };
     };
-
-export const purchase = ({ client, proposal, ...proposal_parameters }) => {
-    const { buy, price, parameters, execution_mode } = proposal_parameters;
-    const { onPurchaseOK, onPurchaseErrored } = Bot.actions;
-    const { contract_type, amount, basis, duration, duration_unit, symbol, prediction } = parameters;
-
-    return new Promise((resolve, reject) => {
-        const purchase_request = {
-            buy: buy,
-            price: price,
-        };
-
-        // Handle tick execution mode
-        if (execution_mode === 'EVERY_TICK') {
-            // Set up continuous execution
-            Bot.setupTickExecution(purchase_request, parameters);
-            resolve({ message: 'Tick execution mode activated' });
-        } else {
-            // Normal single execution
-            api_base.api.send(purchase_request).then((response) => {
-                const { buy: purchase_response, error } = response;
-                if (error) {
-                    onPurchaseErrored(error);
-                    reject(error);
-                } else {
-                    onPurchaseOK(purchase_response);
-                    resolve(purchase_response);
-                }
-            }).catch(reject);
-        }
-    });
-};

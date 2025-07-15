@@ -11,30 +11,19 @@ window.Blockly.Blocks.purchase = {
     },
     definition() {
         return {
-            message0: localize('Purchase {{ contract_type }} {{ execution_mode }}', { 
-                contract_type: '%1', 
-                execution_mode: '%2' 
-            }),
+            message0: localize('Purchase {{ contract_type }}', { contract_type: '%1' }),
             args0: [
                 {
                     type: 'field_dropdown',
                     name: 'PURCHASE_LIST',
                     options: [['', '']],
                 },
-                {
-                    type: 'field_dropdown',
-                    name: 'EXECUTION_MODE',
-                    options: [
-                        [localize('Normal'), 'NORMAL'],
-                        [localize('On Every Tick'), 'EVERY_TICK'],
-                    ],
-                },
             ],
             previousStatement: null,
             colour: window.Blockly.Colours.Special1.colour,
             colourSecondary: window.Blockly.Colours.Special1.colourSecondary,
             colourTertiary: window.Blockly.Colours.Special1.colourTertiary,
-            tooltip: localize('This will purchase the selected contract type for the set conditions. Choose "On Every Tick" to execute trades on every price update.'),
+            tooltip: localize('This block purchases contract of a specified type.'),
             category: window.Blockly.Categories.Before_Purchase,
         };
     },
@@ -95,22 +84,8 @@ window.Blockly.Blocks.purchase = {
 };
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.purchase = block => {
-    const purchase_list = block.getFieldValue('PURCHASE_LIST');
-    const execution_mode = block.getFieldValue('EXECUTION_MODE') || 'NORMAL';
+    const purchaseList = block.getFieldValue('PURCHASE_LIST');
 
-    const code = [
-        'var purchase_list = "' + purchase_list + '";',
-        'var execution_mode = "' + execution_mode + '";',
-        'var stake = Bot.getStake();',
-        'var parameters = Bot.getParameters();',
-        'var proposal = Bot.getProposal(purchase_list);',
-        'var buy_parameters = {',
-        '    price: proposal.ask_price,',
-        '    parameters: parameters,',
-        '    execution_mode: execution_mode',
-        '};',
-        'Bot.purchase(buy_parameters);'
-    ].join('\n');
-    
+    const code = `Bot.purchase('${purchaseList}');\n`;
     return code;
 };
