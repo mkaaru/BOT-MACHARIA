@@ -337,14 +337,10 @@ class DBot {
                     sleep(1);
                     continue;
                 }
-                while (watch('before')) {
-                    BinaryBotPrivateTickAnalysis();
-                    BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
-                }
-                while (watch('during')) {
-                    BinaryBotPrivateTickAnalysis();
-                    BinaryBotPrivateRun(BinaryBotPrivateDuringPurchase);
-                }
+                // Execute purchase without waiting for contract states
+                BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
+                
+                // Skip waiting for contract completion - continuous execution
                 BinaryBotPrivateTickAnalysis();
                 if (!BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase)) {
                     break;
