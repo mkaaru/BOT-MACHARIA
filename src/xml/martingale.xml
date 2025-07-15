@@ -14,6 +14,7 @@
     <variable id="p#@Pr/Y.sKueWX#oRSPl">total profit</variable>
     <variable id="I--KAm(C+#{d?~ip*23e">expected profit</variable>
     <variable id="5SwcMzq.f)VNUzjbKfrw">max loss</variable>
+    <variable id="trade_delay">martingale:tradeDelay</variable>
   </variables>
   <block type="trade_definition" id="i]`fLRZ]?mshi{9kS+fg" deletable="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">
@@ -538,7 +539,8 @@
                       </shadow>
                     </value>
                   </block>
-                </value>
+                </value```python
+
               </block>
             </statement>
             <next>
@@ -628,6 +630,16 @@
                                 <field name="NUM">1</field>
                               </shadow>
                             </value>
+                            <next>
+                              <block type="variables_set" id="trade_delay_counter">
+                                <field name="VAR" id="trade_delay">martingale:tradeDelay</field>
+                                <value name="VALUE">
+                                  <shadow type="math_number">
+                                    <field name="NUM">0</field>
+                                  </shadow>
+                                </value>
+                              </block>
+                            </next>
                           </block>
                         </statement>
                         <next>
