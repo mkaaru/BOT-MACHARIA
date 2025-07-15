@@ -148,7 +148,7 @@ const SpeedBot: React.FC = observer(() => {
           console.log('🔐 Authorizing with token...');
           const authRequest = {
             authorize: client.token,
-            req_id: 'auth'
+            req_id: Date.now() + 1000
           };
           ws.send(JSON.stringify(authRequest));
         } else {
@@ -163,7 +163,7 @@ const SpeedBot: React.FC = observer(() => {
           end: 'latest',
           style: 'ticks',
           subscribe: 1,
-          req_id: 'tick_history'
+          req_id: Date.now() + 2000
         };
         ws.send(JSON.stringify(tickRequest));
       };
@@ -179,24 +179,22 @@ const SpeedBot: React.FC = observer(() => {
           }
 
           // Handle authorization response
-          if (data.req_id === 'auth') {
+          if (data.req_id && data.req_id >= Date.now() - 10000 && data.req_id <= Date.now() + 10000) {
             if (data.authorize) {
               console.log('✅ WebSocket authorized successfully', data.authorize);
               setError(null);
-            } else if (data.error) {
+            } else if (data.error && data.error.code === 'InvalidToken') {
               console.error('❌ Authorization failed:', data.error);
               setError(`Authorization failed: ${data.error.message}`);
             }
           }
 
-          // Handle tick history response
-          if (data.req_id === 'tick_history') {
-            if (data.history) {
-              console.log('📊 Tick history received');
-            } else if (data.error) {
-              console.error('❌ Tick history error:', data.error);
-              setError(`Tick history error: ${data.error.message}`);
-            }
+          // Handle tick history and other responses
+          if (data.history) {
+            console.log('📊 Tick history received');
+          } else if (data.error && !data.authorize) {
+            console.error('❌ API error:', data.error);
+            setError(`API error: ${data.error.message}`);
           }
 
           if (data.tick && data.tick.symbol === selectedSymbol) {
