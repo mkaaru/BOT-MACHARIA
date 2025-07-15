@@ -16,26 +16,48 @@ const sleep = (observer, arg = 1) => {
 };
 
 const Interface = $scope => {
-    const tradeEngine = new TradeEngine($scope);
+    // Validate $scope parameter
+    if (!$scope || !$scope.observer) {
+        console.error('Invalid scope provided to Interface');
+        throw new Error('Invalid scope provided to Interface');
+    }
+
+    let tradeEngine;
+    try {
+        tradeEngine = new TradeEngine($scope);
+    } catch (error) {
+        console.error('Failed to create TradeEngine:', error);
+        throw new Error('Failed to create TradeEngine: ' + error.message);
+    }
+
     const { observer } = $scope;
+    
     const getInterface = () => {
         // Validate tradeEngine is properly initialized
         if (!tradeEngine) {
-            console.error('TradeEngine failed to initialize');
-            return null;
+            console.error('TradeEngine is not initialized');
+            throw new Error('TradeEngine is not initialized');
         }
         
-        const botInterface = getBotInterface(tradeEngine);
+        let botInterface;
+        try {
+            botInterface = getBotInterface(tradeEngine);
+        } catch (error) {
+            console.error('Failed to create bot interface:', error);
+            throw new Error('Failed to create bot interface: ' + error.message);
+        }
+        
         if (!botInterface) {
-            console.error('Failed to create bot interface');
-            return null;
+            console.error('getBotInterface returned null or undefined');
+            throw new Error('getBotInterface returned null or undefined');
         }
         
-        return {
-            ...botInterface,
-            ...getToolsInterface(tradeEngine),
-            getTicksInterface: getTicksInterface(tradeEngine),
-            watch: (...args) => tradeEngine.watch(...args),
+        try {
+            return {
+                ...botInterface,
+                ...getToolsInterface(tradeEngine),
+                getTicksInterface: getTicksInterface(tradeEngine),
+                watch: (...args) => tradeEngine.watch(...args),
             sleep: (...args) => sleep(observer, ...args),
             alert: (...args) => alert(...args), // eslint-disable-line no-alert
             prompt: (...args) => prompt(...args), // eslint-disable-line no-alert
@@ -45,7 +67,11 @@ const Interface = $scope => {
                     console.log(new Date().toLocaleTimeString(), ...args);
                 },
             },
-        };
+            };
+        } catch (error) {
+            console.error('Failed to create interface object:', error);
+            throw new Error('Failed to create interface object: ' + error.message);
+        }
     };
     return { tradeEngine, observer, getInterface };
 };

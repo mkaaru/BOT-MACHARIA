@@ -2,13 +2,39 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { createDetails } from '../utils/helpers';
 
 const getBotInterface = tradeEngine => {
-    // Add null check for tradeEngine
+    // Add comprehensive validation for tradeEngine
     if (!tradeEngine) {
         console.error('TradeEngine is undefined in getBotInterface');
-        return null;
+        throw new Error('TradeEngine is required but undefined');
     }
     
-    const getDetail = i => createDetails(tradeEngine.data?.contract || {})[i];
+    if (typeof tradeEngine !== 'object') {
+        console.error('TradeEngine is not an object:', typeof tradeEngine);
+        throw new Error('TradeEngine must be an object');
+    }
+    
+    // Check if essential tradeEngine methods exist
+    const requiredMethods = ['init', 'start', 'stop', 'purchase', 'getPurchaseReference'];
+    for (const method of requiredMethods) {
+        if (typeof tradeEngine[method] !== 'function') {
+            console.error(`TradeEngine missing required method: ${method}`);
+            throw new Error(`TradeEngine missing required method: ${method}`);
+        }
+    }
+    
+    // Ensure tradeEngine.data exists
+    if (!tradeEngine.data) {
+        tradeEngine.data = { contract: {}, proposals: [] };
+    }
+    
+    const getDetail = i => {
+        try {
+            return createDetails(tradeEngine.data?.contract || {})[i];
+        } catch (error) {
+            console.error('Error in getDetail:', error);
+            return null;
+        }
+    };
     
     // Store interface state
     let stake = 1;
