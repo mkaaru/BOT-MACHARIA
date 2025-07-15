@@ -376,30 +376,21 @@
   }
 
   &__real-trade {
-    background: var(--brand-red-coral);
+    background: #4CAF50;
     color: white;
-    padding: 0.125rem 0.25rem;
-    border-radius: 2px;
-    font-size: 0.75rem;
-    margin-left: 0.5rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    margin-left: 5px;
   }
 
-  &__trade-result {
-    font-weight: bold;
-    min-width: 80px;
-    text-align: right;
-
-    &.win {
-      color: var(--status-success);
-    }
-
-    &.loss {
-      color: var(--status-danger);
-    }
-
-    &.pending {
-      color: var(--status-warning);
-    }
+  &__bulk-trade {
+    background: #FF9800;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    margin-left: 5px;
   }
 
   // Responsive design

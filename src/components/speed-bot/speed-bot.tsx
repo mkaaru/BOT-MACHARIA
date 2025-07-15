@@ -44,6 +44,7 @@ const SpeedBot: React.FC = () => {
   const [lossThreshold, setLossThreshold] = useState(-10);
   const [overUnderValue, setOverUnderValue] = useState(5);
   const [matchDifferDigit, setMatchDifferDigit] = useState(5);
+  const [useBulkTrading, setUseBulkTrading] = useState(false);
   
   // State management
   const [currentStake, setCurrentStake] = useState(1.0);
@@ -105,7 +106,7 @@ const SpeedBot: React.FC = () => {
       setIsConnected(false);
       setIsAuthorized(false);
 
-      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
+      const ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
 
       ws.onopen = () => {
         console.log('Speed Bot WebSocket connected');
@@ -457,12 +458,319 @@ const SpeedBot: React.FC = () => {
 
   useEffect(() => {
     connectToAPI();
+    
+    // Initialize bulk trading if enabled
+    if (useBulkTrading) {
+      initializeBulkTrading();
+    }
+    
     return () => {
       if (websocket) {
         websocket.close();
       }
     };
-  }, [selectedSymbol]);
+  }, [selectedSymbol, useBulkTrading]);
+
+  const initializeBulkTrading = () => {
+    // Initialize bulk trading WebSocket connection with app ID 68848
+    let derivWs, reconnectTimeout;
+    let tickHistory = [], currentSymbol = selectedSymbol, tickCount = 120, decimalPlaces = 2;
+    let overUnderBarrier = overUnderValue, isInitialized = false, reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 5;
+
+    function startBulkWebSocket() {
+      console.log('🔌 Connecting to Bulk Trading WebSocket API');
+      
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      
+      if (derivWs) {
+        try {
+          derivWs.onclose = null;
+          derivWs.close();
+          console.log('Closed existing bulk trading connection');
+        } catch (error) {
+          console.error('Error closing existing bulk trading connection:', error);
+        }
+        derivWs = null;
+      }
+
+      try {
+        derivWs = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
+        
+        derivWs.onopen = function() {
+          console.log('✅ Bulk Trading WebSocket connection established');
+          reconnectAttempts = 0;
+          
+          setTimeout(() => {
+            try {
+              if (derivWs && derivWs.readyState === WebSocket.OPEN) {
+                console.log('Sending bulk trading authorization request');
+                derivWs.send(JSON.stringify({ app_id: 68848 }));
+                requestBulkTickHistory();
+              }
+            } catch (error) {
+              console.error('Error during bulk trading init requests:', error);
+            }
+          }, 500);
+        };
+
+        derivWs.onmessage = function(event) {
+          try {
+            const data = JSON.parse(event.data);
+            
+            if (data.error) {
+              console.error('❌ Bulk Trading WebSocket API error:', data.error);
+              return;
+            }
+            
+            if (data.history) {
+              console.log(`📊 Received bulk trading history for ${currentSymbol}: ${data.history.prices.length} ticks`);
+              tickHistory = data.history.prices.map((price, index) => ({
+                time: data.history.times[index],
+                quote: parseFloat(price)
+              }));
+              detectBulkDecimalPlaces();
+              updateBulkUI();
+            } else if (data.tick) {
+              const quote = parseFloat(data.tick.quote);
+              tickHistory.push({
+                time: data.tick.epoch,
+                quote: quote
+              });
+              
+              if (tickHistory.length > tickCount) {
+                tickHistory.shift();
+              }
+              updateBulkUI();
+            } else if (data.ping) {
+              derivWs.send(JSON.stringify({ pong: 1 }));
+            }
+          } catch (error) {
+            console.error('Error processing bulk trading message:', error);
+          }
+        };
+
+        derivWs.onerror = function(error) {
+          console.error('❌ Bulk Trading WebSocket error:', error);
+          scheduleBulkReconnect();
+        };
+
+        derivWs.onclose = function(event) {
+          console.log('🔄 Bulk Trading WebSocket connection closed', event.code, event.reason);
+          scheduleBulkReconnect();
+        };
+
+      } catch (error) {
+        console.error('Failed to create bulk trading WebSocket:', error);
+        scheduleBulkReconnect();
+      }
+    }
+
+    function scheduleBulkReconnect() {
+      reconnectAttempts++;
+      if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
+        console.log(`⚠️ Maximum bulk trading reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Stopping attempts.`);
+        return;
+      }
+      
+      const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts - 1), 30000);
+      console.log(`🔄 Scheduling bulk trading reconnect attempt ${reconnectAttempts} in ${delay}ms`);
+      
+      reconnectTimeout = setTimeout(() => {
+        console.log(`🔄 Attempting to reconnect bulk trading (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+        startBulkWebSocket();
+      }, delay);
+    }
+
+    function requestBulkTickHistory() {
+      const request = {
+        ticks_history: currentSymbol,
+        count: tickCount,
+        end: 'latest',
+        style: 'ticks',
+        subscribe: 1
+      };
+      
+      if (derivWs && derivWs.readyState === WebSocket.OPEN) {
+        console.log(`📡 Requesting bulk trading tick history for ${currentSymbol} (${tickCount} ticks)`);
+        try {
+          derivWs.send(JSON.stringify(request));
+        } catch (error) {
+          console.error('Error sending bulk trading tick history request:', error);
+          scheduleBulkReconnect();
+        }
+      } else {
+        console.error('❌ Bulk Trading WebSocket not ready to request history, readyState:', derivWs ? derivWs.readyState : 'undefined');
+        scheduleBulkReconnect();
+      }
+    }
+
+    function detectBulkDecimalPlaces() {
+      if (tickHistory.length === 0) return;
+      decimalPlaces = Math.max(
+        ...tickHistory.map(tick => (tick.quote.toString().split('.')[1] || '').length),
+        2
+      );
+    }
+
+    function getBulkLastDigit(quote) {
+      let decimalPart = quote.toString().split('.')[1] || '';
+      while (decimalPart.length < decimalPlaces) {
+        decimalPart += '0';
+      }
+      return Number(decimalPart.slice(-1));
+    }
+
+    function updateBulkUI() {
+      if (tickHistory.length === 0) {
+        console.warn('⚠️ No bulk trading tick history available for analysis');
+        return;
+      }
+      
+      const currentPrice = tickHistory[tickHistory.length - 1].quote.toFixed(decimalPlaces);
+      console.log(`💰 Bulk Trading Price Update: ${currentPrice} for ${currentSymbol}`);
+      sendBulkAnalysisData();
+    }
+
+    function sendBulkAnalysisData() {
+      if (!tickHistory || tickHistory.length === 0) {
+        console.warn('⚠️ No bulk trading data available for analysis');
+        return;
+      }
+
+      try {
+        // Count digit frequencies for bulk analysis
+        const digitCounts = Array(10).fill(0);
+        tickHistory.forEach(tick => {
+          const lastDigit = getBulkLastDigit(tick.quote);
+          digitCounts[lastDigit]++;
+        });
+
+        const totalTicks = tickHistory.length;
+        
+        // Even/Odd analysis for bulk trading
+        const evenCount = digitCounts.filter((count, index) => index % 2 === 0).reduce((a, b) => a + b, 0);
+        const oddCount = digitCounts.filter((count, index) => index % 2 !== 0).reduce((a, b) => a + b, 0);
+        const evenProbability = ((evenCount / totalTicks) * 100).toFixed(2);
+        const oddProbability = ((oddCount / totalTicks) * 100).toFixed(2);
+
+        // Over/Under analysis for bulk trading
+        let overCount = 0;
+        let underCount = 0;
+        for (let i = 0; i < 10; i++) {
+          if (i >= overUnderBarrier) {
+            overCount += digitCounts[i];
+          } else {
+            underCount += digitCounts[i];
+          }
+        }
+        const overProbability = ((overCount / totalTicks) * 100).toFixed(2);
+        const underProbability = ((underCount / totalTicks) * 100).toFixed(2);
+
+        console.log(`📊 Bulk Trading Analysis - Even: ${evenProbability}%, Odd: ${oddProbability}%, Over: ${overProbability}%, Under: ${underProbability}%`);
+        
+        // Execute bulk trades based on analysis
+        if (isTrading && useBulkTrading) {
+          executeBulkTrades(evenProbability, oddProbability, overProbability, underProbability);
+        }
+
+      } catch (error) {
+        console.error('❌ Error in bulk trading analysis:', error);
+      }
+    }
+
+    function executeBulkTrades(evenProb, oddProb, overProb, underProb) {
+      console.log('🚀 Executing bulk trades based on analysis');
+      
+      // Execute multiple trades based on probabilities
+      const trades = [];
+      
+      // Even/Odd bulk trade
+      if (parseFloat(evenProb) > 60) {
+        trades.push({ type: 'DIGITEVEN', probability: evenProb });
+      } else if (parseFloat(oddProb) > 60) {
+        trades.push({ type: 'DIGITODD', probability: oddProb });
+      }
+      
+      // Over/Under bulk trade
+      if (parseFloat(overProb) > 60) {
+        trades.push({ type: 'DIGITOVER', probability: overProb, barrier: overUnderBarrier });
+      } else if (parseFloat(underProb) > 60) {
+        trades.push({ type: 'DIGITUNDER', probability: underProb, barrier: overUnderBarrier });
+      }
+      
+      // Execute all qualifying trades
+      trades.forEach((trade, index) => {
+        setTimeout(() => {
+          executeSingleBulkTrade(trade);
+        }, index * 100); // Stagger trades by 100ms
+      });
+    }
+
+    async function executeSingleBulkTrade(trade) {
+      try {
+        console.log(`💼 Executing bulk trade: ${trade.type} with ${trade.probability}% probability`);
+        
+        const proposalRequest = {
+          amount: currentStake,
+          basis: 'stake',
+          contract_type: trade.type,
+          currency: 'USD',
+          symbol: selectedSymbol,
+          duration: 1,
+          duration_unit: 't'
+        };
+
+        if (trade.barrier !== undefined) {
+          proposalRequest.barrier = trade.barrier;
+        }
+
+        if (isAuthorized && tradingEngine.isEngineConnected()) {
+          const proposalResponse = await tradingEngine.getProposal(proposalRequest);
+          
+          if (proposalResponse.proposal) {
+            const purchaseResponse = await tradingEngine.buyContract(
+              proposalResponse.proposal.id,
+              proposalResponse.proposal.ask_price
+            );
+
+            if (purchaseResponse.buy) {
+              const bulkTrade = {
+                id: `bulk_trade_${Date.now()}_${Math.random()}`,
+                timestamp: new Date().toLocaleTimeString(),
+                symbol: selectedSymbol,
+                contractType: trade.type,
+                prediction: trade.type,
+                actual: 'PENDING',
+                result: 'pending',
+                stake: currentStake,
+                payout: 0,
+                profit: 0,
+                contractId: purchaseResponse.buy.contract_id,
+                isBulkTrade: true,
+              };
+
+              setTradeHistory(prev => [bulkTrade, ...prev.slice(0, 49)]);
+              setTotalTrades(prev => prev + 1);
+              
+              console.log(`✅ Bulk trade executed - Contract ID: ${purchaseResponse.buy.contract_id}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ Bulk trade failed:', error);
+      }
+    }
+
+    // Start bulk trading WebSocket
+    if (!isInitialized) {
+      isInitialized = true;
+      console.log('🚀 Initializing bulk trading system');
+      startBulkWebSocket();
+    }
+  };
 
   useEffect(() => {
     setCurrentStake(stakeAmount);
@@ -628,6 +936,21 @@ const SpeedBot: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            <div className="speed-bot__control-group">
+              <label>
+                <Localize i18n_default_text="Bulk Trading:" />
+              </label>
+              <div className="speed-bot__toggle-container">
+                <button
+                  className={`speed-bot__toggle ${useBulkTrading ? 'active' : ''}`}
+                  onClick={() => setUseBulkTrading(!useBulkTrading)}
+                  disabled={isTrading}
+                >
+                  {useBulkTrading ? 'ON' : 'OFF'}
+                </button>
+              </div>
+            </div>
           </div>
 
           {useMartingale && (
@@ -761,6 +1084,7 @@ const SpeedBot: React.FC = () => {
                   {trade.contractType} - {trade.prediction} vs {trade.actual}
                   {trade.tickValue !== undefined && <span className="speed-bot__tick-value"> (Tick: {trade.tickValue})</span>}
                   {trade.contractId && <span className="speed-bot__real-trade"> (REAL)</span>}
+                  {trade.isBulkTrade && <span className="speed-bot__bulk-trade"> (BULK)</span>}
                   <span className="speed-bot__stake"> Stake: {trade.stake.toFixed(2)}</span>
                 </div>
                 <div className={`speed-bot__trade-result ${trade.result}`}>
