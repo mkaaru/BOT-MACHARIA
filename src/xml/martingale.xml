@@ -538,9 +538,7 @@
                         <field name="TEXT">Maximum Loss Amount</field>
                       </shadow>
                     </value>
-                  </block>
-                </value```python
-
+                  </block>                </value>
               </block>
             </statement>
             <next>
@@ -740,7 +738,7 @@
                     </value>
                     <value name="B">
                       <shadow type="math_number">
-                        <field name="NUM">2</field>
+                        <field name="NUM">64</field>
                       </shadow>
                     </value>
                   </block>

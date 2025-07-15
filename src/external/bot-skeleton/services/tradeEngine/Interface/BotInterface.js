@@ -71,6 +71,12 @@ const getBotInterface = tradeEngine => {
         setConsecutiveLosses: (losses) => {
             tradeEngine.consecutiveLosses = losses;
         },
+        getBaseAmount: () => {
+            return tradeEngine.baseAmount || null;
+        },
+        setBaseAmount: (amount) => {
+            tradeEngine.baseAmount = amount;
+        },
     };
 };
 
