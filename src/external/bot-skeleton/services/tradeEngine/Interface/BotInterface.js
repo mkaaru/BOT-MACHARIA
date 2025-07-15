@@ -16,88 +16,23 @@ const getBotInterface = tradeEngine => {
         sellAtMarket: () => tradeEngine.sellAtMarket(),
         getSellPrice: () => getSellPrice(tradeEngine),
         isResult: result => getDetail(10) === result,
-        
-        // Martingale state management (JavaScript-only)
-        getMartingaleMultiplier: () => tradeEngine.martingaleMultiplier || 1,
-        setMartingaleMultiplier: (multiplier) => { tradeEngine.martingaleMultiplier = multiplier; },
-        getConsecutiveLosses: () => tradeEngine.consecutiveLosses || 0,
-        setConsecutiveLosses: (losses) => { tradeEngine.consecutiveLosses = losses; },
-        getBaseAmount: () => tradeEngine.baseAmount,
-        setBaseAmount: (amount) => { tradeEngine.baseAmount = amount; },
-        getLastTradeProfit: () => tradeEngine.lastTradeProfit || 0,
-        setLastTradeProfit: (profit) => { tradeEngine.lastTradeProfit = profit; },
-        getCurrentPurchasePrice: () => tradeEngine.currentPurchasePrice,
-        setCurrentPurchasePrice: (price) => { tradeEngine.currentPurchasePrice = price; },
-        getTotalProfit: () => tradeEngine.totalProfit || 0,
-        getProfitThreshold: () => tradeEngine.profitThreshold || Infinity,
-        getLossThreshold: () => tradeEngine.lossThreshold || -Infinity,
+
+        // Simplified martingale interface - delegates to tradeEngine
+        getMartingaleMultiplier: () => tradeEngine.getMartingaleMultiplier?.() || 1,
+        getConsecutiveLosses: () => tradeEngine.getConsecutiveLosses?.() || 0,
+        getBaseAmount: () => tradeEngine.getBaseAmount?.() || null,
+        getLastTradeProfit: () => tradeEngine.getLastTradeProfit?.() || 0,
+        getCurrentPurchasePrice: () => tradeEngine.getCurrentPurchasePrice?.() || 0,
+        getTotalProfit: () => tradeEngine.getTotalProfit?.() || 0,
+
+        // Method to update trade results
+        updateTradeResult: (profit) => tradeEngine.updateTradeResult?.(profit),
+
+        // Utility methods
         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
         readDetails: i => getDetail(i - 1),
         getTotalRuns: () => tradeEngine.totalRuns,
-        getTotalProfit: () => tradeEngine.totalProfit,
-        getMartingaleMultiplier: () => {
-            const workspace = Blockly.getMainWorkspace();
-            if (workspace) {
-                const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
-                if (multiplierVar) {
-                    const variableModel = workspace.getVariableMap().getVariableById('FRbI:RhI/`[lrO`o;=P,');
-                    return variableModel ? parseFloat(variableModel.name.split(':')[1]) || 1 : 1;
-                }
-            }
-            return 1;
-        },
-        getProfitThreshold: () => {
-            const workspace = Blockly.getMainWorkspace();
-            if (workspace) {
-                const profitVar = workspace.getVariableById('*p5|Lkk9Q^ZuPBQ-48g2');
-                if (profitVar) {
-                    return parseFloat(profitVar) || Infinity;
-                }
-            }
-            return Infinity;
-        },
-        getLossThreshold: () => {
-            const workspace = Blockly.getMainWorkspace();
-            if (workspace) {
-                const lossVar = workspace.getVariableById('a1BTYNHC?_yR4sfvNJ7N');
-                if (lossVar) {
-                    return parseFloat(lossVar) || -Infinity;
-                }
-            }
-            return -Infinity;
-        },
-        getLastTradeProfit: () => {
-            return tradeEngine.lastTradeProfit || 0;
-        },
-        setMartingaleMultiplier: (multiplier) => {
-            const workspace = Blockly.getMainWorkspace();
-            if (workspace) {
-                const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
-                if (multiplierVar) {
-                    tradeEngine.martingaleMultiplier = multiplier;
-                    return true;
-                }
-            }
-            return false;
-        },
-        getConsecutiveLosses: () => {
-            return tradeEngine.consecutiveLosses || 0;
-        },
-        setConsecutiveLosses: (losses) => {
-            tradeEngine.consecutiveLosses = losses;
-        },
-        setCurrentPurchasePrice: (price) => {
-            tradeEngine.currentPurchasePrice = price;
-        },
-        getCurrentPurchasePrice: () => {
-            return tradeEngine.currentPurchasePrice || 0;
-        },
-        setBaseAmount: (amount) => {
-            tradeEngine.baseAmount = amount;
-        },
-        getBaseAmount: () => {
-            return tradeEngine.baseAmount || null;
-        },
+        shouldContinueTrading: () => tradeEngine.shouldContinueTrading?.() || true,
     };
 };
 

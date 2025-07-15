@@ -1,3 +1,4 @@
+
 import { LogTypes } from '../../../constants/messages';
 import { api_base } from '../../api/api-base';
 import { contractStatus, info, log } from '../utils/broadcast';
@@ -10,57 +11,59 @@ let purchase_reference;
 
 export default Engine =>
     class Purchase extends Engine {
-        purchase(contract_type) {
-        // JavaScript-only Martingale implementation (no Blockly conflicts)
-        const botInterface = this.getBotInterface?.();
-        if (botInterface) {
-            this.applyMartingaleLogic(botInterface);
+        constructor(...args) {
+            super(...args);
+            // Initialize martingale state
+            this.martingaleState = {
+                baseAmount: null,
+                multiplier: 1,
+                consecutiveLosses: 0,
+                lastTradeProfit: 0,
+                currentPurchasePrice: 0,
+                totalProfit: 0
+            };
         }
 
-        // Allow continuous purchases without blocking
-        return new Promise((resolve) => {
-            const onSuccess = response => {
-                // Don't unnecessarily send a forget request for a purchased contract.
-                const { buy } = response;
+        purchase(contract_type) {
+            // Apply martingale logic before purchase
+            this.applyMartingaleLogic();
 
-                contractStatus({
-                    id: 'contract.purchase_received',
-                    data: buy.transaction_id,
-                    buy,
-                });
+            return new Promise((resolve) => {
+                const onSuccess = response => {
+                    const { buy } = response;
 
-                this.contractId = buy.contract_id;
-                this.store.dispatch(purchaseSuccessful());
+                    contractStatus({
+                        id: 'contract.purchase_received',
+                        data: buy.transaction_id,
+                        buy,
+                    });
 
-                if (this.is_proposal_subscription_required) {
-                    this.renewProposalsOnPurchase();
-                }
+                    this.contractId = buy.contract_id;
+                    this.store.dispatch(purchaseSuccessful());
 
-                delayIndex = 0;
-                log(LogTypes.PURCHASE, { longcode: buy.longcode, transaction_id: buy.transaction_id });
-                info({
-                    accountID: this.accountInfo.loginid,
-                    totalRuns: this.updateAndReturnTotalRuns(),
-                    transaction_ids: { buy: buy.transaction_id },
-                    contract_type,
-                    buy_price: buy.buy_price,
-                });
+                    if (this.is_proposal_subscription_required) {
+                        this.renewProposalsOnPurchase();
+                    }
 
-                // Store the purchase details for martingale tracking
-                const botInterface = this.getBotInterface?.();
-                if (botInterface) {
-                    // Store current purchase for future profit calculation
-                    botInterface.setCurrentPurchasePrice?.(buy.buy_price);
-                    console.log(`Purchase completed: ${buy.buy_price} USD, Contract ID: ${buy.contract_id}`);
-                }
+                    delayIndex = 0;
+                    log(LogTypes.PURCHASE, { longcode: buy.longcode, transaction_id: buy.transaction_id });
+                    info({
+                        accountID: this.accountInfo.loginid,
+                        totalRuns: this.updateAndReturnTotalRuns(),
+                        transaction_ids: { buy: buy.transaction_id },
+                        contract_type,
+                        buy_price: buy.buy_price,
+                    });
 
-                // Resolve immediately to allow continuous purchases
-                resolve();
-            };
+                    // Store purchase details for profit calculation
+                    this.martingaleState.currentPurchasePrice = buy.buy_price;
+                    console.log(`🔵 PURCHASE: ${buy.buy_price} USD, Contract ID: ${buy.contract_id}, Stake: ${this.tradeOptions.amount}`);
+
+                    resolve();
+                };
 
                 if (this.is_proposal_subscription_required) {
                     const { id, askPrice } = this.selectProposal(contract_type);
-
                     const action = () => api_base.api.send({ buy: id, price: askPrice });
 
                     this.isSold = false;
@@ -77,7 +80,6 @@ export default Engine =>
                     return recoverFromError(
                         action,
                         (errorCode, makeDelay) => {
-                            // if disconnected no need to resubscription (handled by live-api)
                             if (errorCode !== 'DisconnectError') {
                                 this.renewProposalsOnPurchase();
                             } else {
@@ -96,6 +98,7 @@ export default Engine =>
                         delayIndex++
                     ).then(onSuccess);
                 }
+
                 const trade_option = tradeOptionToBuy(contract_type, this.tradeOptions);
                 const action = () => api_base.api.send(trade_option);
 
@@ -129,77 +132,110 @@ export default Engine =>
                 ).then(onSuccess);
             });
         }
-        applyMartingaleLogic(botInterface) {
-            const lastTradeProfit = botInterface.getLastTradeProfit?.() || 0;
-            const martingaleMultiplier = botInterface.getMartingaleMultiplier?.() || 1;
-            const consecutiveLosses = botInterface.getConsecutiveLosses?.() || 0;
 
-            // Initialize base amount on first trade
-            if (!botInterface.getBaseAmount?.()) {
-                const baseAmount = this.tradeOptions.amount;
-                botInterface.setBaseAmount?.(baseAmount);
-                console.log(`🔵 FIRST TRADE: Base amount set to: ${baseAmount}`);
-            }
-
-            const baseAmount = botInterface.getBaseAmount?.() || this.tradeOptions.amount;
+        applyMartingaleLogic() {
+            const { lastTradeProfit, multiplier, consecutiveLosses, baseAmount } = this.martingaleState;
             const maxMultiplier = 64;
             const maxConsecutiveLosses = 10;
 
-            console.log(`🔍 MARTINGALE STATUS: Profit: ${lastTradeProfit} | Multiplier: ${martingaleMultiplier} | Losses: ${consecutiveLosses}`);
+            // Initialize base amount on first run
+            if (!baseAmount) {
+                this.martingaleState.baseAmount = this.tradeOptions.amount;
+                console.log(`🟦 INITIAL: Base amount set to ${this.martingaleState.baseAmount} USD`);
+                return;
+            }
+
+            console.log(`📊 MARTINGALE STATUS: Profit: ${lastTradeProfit} | Multiplier: ${multiplier}x | Losses: ${consecutiveLosses}`);
 
             if (lastTradeProfit < 0) {
-                // Loss: Apply martingale with safety limits
-                const newMultiplier = martingaleMultiplier * 2;
+                // Loss: Apply martingale
+                const newMultiplier = multiplier * 2;
                 const newConsecutiveLosses = consecutiveLosses + 1;
 
                 if (newMultiplier <= maxMultiplier && newConsecutiveLosses <= maxConsecutiveLosses) {
-                    botInterface.setMartingaleMultiplier?.(newMultiplier);
-                    botInterface.setConsecutiveLosses?.(newConsecutiveLosses);
+                    this.martingaleState.multiplier = newMultiplier;
+                    this.martingaleState.consecutiveLosses = newConsecutiveLosses;
                     this.tradeOptions.amount = baseAmount * newMultiplier;
-                    console.log(`🔴 LOSS: Stake increased to ${this.tradeOptions.amount} (${newMultiplier}x)`);
+                    console.log(`🔴 LOSS: Stake increased to ${this.tradeOptions.amount} USD (${newMultiplier}x base)`);
                 } else {
-                    // Reset on max limits
-                    botInterface.setMartingaleMultiplier?.(1);
-                    botInterface.setConsecutiveLosses?.(0);
-                    this.tradeOptions.amount = baseAmount;
-                    console.log(`⚠️ MAX LIMIT: Stake reset to ${baseAmount}`);
+                    // Reset on limits
+                    this.resetMartingale();
+                    console.log(`⚠️ MAX LIMIT: Reset to base ${this.martingaleState.baseAmount} USD`);
                 }
             } else if (lastTradeProfit > 0) {
                 // Win: Reset martingale
-                botInterface.setMartingaleMultiplier?.(1);
-                botInterface.setConsecutiveLosses?.(0);
-                this.tradeOptions.amount = baseAmount;
-                console.log(`🟢 WIN: Stake reset to ${baseAmount}`);
+                this.resetMartingale();
+                console.log(`🟢 WIN: Reset to base ${this.martingaleState.baseAmount} USD`);
             } else {
-                // Break-even: Maintain current multiplier
-                this.tradeOptions.amount = baseAmount * martingaleMultiplier;
-                console.log(`🟡 BREAK-EVEN: Maintaining ${this.tradeOptions.amount} (${martingaleMultiplier}x)`);
+                // Break-even: Keep current multiplier
+                this.tradeOptions.amount = baseAmount * multiplier;
+                console.log(`🟡 BREAK-EVEN: Maintaining ${this.tradeOptions.amount} USD (${multiplier}x base)`);
             }
         }
 
+        resetMartingale() {
+            this.martingaleState.multiplier = 1;
+            this.martingaleState.consecutiveLosses = 0;
+            this.tradeOptions.amount = this.martingaleState.baseAmount;
+        }
+
+        // Method to update profit after trade result
+        updateTradeResult(profit) {
+            this.martingaleState.lastTradeProfit = profit;
+            this.martingaleState.totalProfit += profit;
+            console.log(`💰 TRADE RESULT: P&L: ${profit} USD | Total P&L: ${this.martingaleState.totalProfit} USD`);
+        }
+
+        // Getters for accessing martingale state
+        getMartingaleMultiplier() {
+            return this.martingaleState.multiplier;
+        }
+
+        getConsecutiveLosses() {
+            return this.martingaleState.consecutiveLosses;
+        }
+
+        getBaseAmount() {
+            return this.martingaleState.baseAmount;
+        }
+
+        getLastTradeProfit() {
+            return this.martingaleState.lastTradeProfit;
+        }
+
+        getTotalProfit() {
+            return this.martingaleState.totalProfit;
+        }
+
+        getCurrentPurchasePrice() {
+            return this.martingaleState.currentPurchasePrice;
+        }
+
         shouldContinueTrading() {
-            const botInterface = this.getBotInterface?.();
-            if (!botInterface) return false;
+            const totalProfit = this.martingaleState.totalProfit;
+            const profitThreshold = 1000; // Example threshold
+            const lossThreshold = -500; // Example threshold
+            const multiplier = this.martingaleState.multiplier;
 
-            const totalProfit = botInterface.getTotalProfit?.() || 0;
-            const profitThreshold = botInterface.getProfitThreshold?.() || Infinity;
-            const lossThreshold = botInterface.getLossThreshold?.() || -Infinity;
-            const martingaleMultiplier = botInterface.getMartingaleMultiplier?.() || 1;
-
-            // Stop if profit/loss thresholds are reached
-            if (totalProfit >= profitThreshold || totalProfit <= -Math.abs(lossThreshold)) {
-                console.log('Stopping due to profit/loss threshold reached');
+            // Stop trading conditions
+            if (totalProfit >= profitThreshold) {
+                console.log('🛑 STOPPING: Profit threshold reached');
                 return false;
             }
-
-            // Stop if martingale multiplier gets too high (risk management)
-            if (martingaleMultiplier >= 64) {
-                console.log('Stopping due to maximum martingale multiplier reached');
+            
+            if (totalProfit <= lossThreshold) {
+                console.log('🛑 STOPPING: Loss threshold reached');
+                return false;
+            }
+            
+            if (multiplier >= 64) {
+                console.log('🛑 STOPPING: Maximum martingale multiplier reached');
                 return false;
             }
 
             return true;
         }
+
         getPurchaseReference = () => purchase_reference;
         regeneratePurchaseReference = () => {
             purchase_reference = getUUID();

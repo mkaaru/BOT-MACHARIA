@@ -1,6 +1,7 @@
+
 <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
-    <variable id="trade_delay">martingale:tradeDelay</variable>
+    <variable id="trade_delay">tradeDelay</variable>
   </variables>
   <block type="trade_definition" id="main_trade_definition" deletable="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">
