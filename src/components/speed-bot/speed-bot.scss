@@ -35,6 +35,12 @@
     }
   }
 
+  &__status-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
   &__status {
     padding: 8px 16px;
     border-radius: 8px;
@@ -53,6 +59,30 @@
     &.disconnected {
       background-color: var(--status-danger);
       color: white;
+    }
+
+    &.authorized {
+      background: var(--status-success);
+      color: var(--text-prominent);
+    }
+
+    &.unauthorized {
+      background: var(--status-warning);
+      color: var(--text-prominent);
+    }
+  }
+
+  &__warning {
+    background: var(--status-warning);
+    border: 1px solid var(--border-warning);
+    border-radius: 6px;
+    padding: 12px;
+    margin: 16px 0;
+
+    p {
+      margin: 0;
+      color: var(--text-prominent);
+      font-size: 14px;
     }
   }
 
@@ -400,5 +430,12 @@
     &.loss {
       color: var(--status-danger);
     }
+  }
+
+  &__real-trade {
+    color: var(--status-success);
+    font-weight: 600;
+    font-size: 12px;
+    margin-left: 8px;
   }
 }

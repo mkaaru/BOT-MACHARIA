@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
+import { tradingEngine } from '../volatility-analyzer/trading-engine';
 import './speed-bot.scss';
 
 interface TradeResult {
@@ -14,6 +15,7 @@ interface TradeResult {
   stake: number;
   payout: number;
   profit: number;
+  contractId?: string;
 }
 
 const SpeedBot: React.FC = () => {
@@ -22,6 +24,7 @@ const SpeedBot: React.FC = () => {
   const [stakeAmount, setStakeAmount] = useState(1.0);
   const [isTrading, setIsTrading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const [currentPrice, setCurrentPrice] = useState<string>('---');
   const [currentTick, setCurrentTick] = useState<number | null>(null);
   const [totalTrades, setTotalTrades] = useState(0);
@@ -29,6 +32,7 @@ const SpeedBot: React.FC = () => {
   const [totalProfit, setTotalProfit] = useState(0);
   const [tradeHistory, setTradeHistory] = useState<TradeResult[]>([]);
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
+  const [pendingTrades, setPendingTrades] = useState<Set<string>>(new Set());
 
   const volatilitySymbols = [
     { value: 'R_10', label: 'Volatility 10 Index' },
@@ -61,6 +65,7 @@ const SpeedBot: React.FC = () => {
 
       setCurrentPrice('Connecting...');
       setIsConnected(false);
+      setIsAuthorized(false);
 
       const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
 
@@ -68,18 +73,32 @@ const SpeedBot: React.FC = () => {
         console.log('Speed Bot WebSocket connected');
         setIsConnected(true);
         setWebsocket(ws);
-        setCurrentPrice('Connected - Waiting for ticks...');
+        setCurrentPrice('Connected - Checking authorization...');
 
-        setTimeout(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            const tickRequest = {
-              ticks: selectedSymbol,
-              subscribe: 1,
-              req_id: Date.now(),
-            };
-            ws.send(JSON.stringify(tickRequest));
-          }
-        }, 500);
+        // Check for OAuth token and authorize if available
+        const apiToken = localStorage.getItem('dbot_api_token') || localStorage.getItem('authToken');
+        if (apiToken) {
+          console.log('🔑 Authorizing Speed Bot with API token for real trading');
+          ws.send(JSON.stringify({
+            authorize: apiToken,
+            req_id: 'speed_bot_auth'
+          }));
+        } else {
+          console.log('⚠️ No API token found - Speed Bot will run in simulation mode');
+          setCurrentPrice('No authorization - Simulation mode');
+          
+          // Still subscribe to ticks for simulation
+          setTimeout(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              const tickRequest = {
+                ticks: selectedSymbol,
+                subscribe: 1,
+                req_id: 'speed_bot_ticks',
+              };
+              ws.send(JSON.stringify(tickRequest));
+            }
+          }, 500);
+        }
       };
 
       ws.onmessage = (event) => {
@@ -92,6 +111,26 @@ const SpeedBot: React.FC = () => {
             return;
           }
 
+          // Handle authorization response
+          if (data.authorize && data.req_id === 'speed_bot_auth') {
+            console.log('✅ Speed Bot authorized for real trading');
+            setIsAuthorized(true);
+            setCurrentPrice('Authorized - Waiting for ticks...');
+            
+            // Subscribe to ticks after authorization
+            setTimeout(() => {
+              if (ws.readyState === WebSocket.OPEN) {
+                const tickRequest = {
+                  ticks: selectedSymbol,
+                  subscribe: 1,
+                  req_id: 'speed_bot_ticks',
+                };
+                ws.send(JSON.stringify(tickRequest));
+              }
+            }, 500);
+          }
+
+          // Handle tick data
           if (data.tick && data.tick.symbol === selectedSymbol) {
             const price = parseFloat(data.tick.quote);
             setCurrentPrice(price.toFixed(5));
@@ -101,6 +140,12 @@ const SpeedBot: React.FC = () => {
               executeTradeOnTick(price);
             }
           }
+
+          // Handle contract updates
+          if (data.proposal_open_contract) {
+            handleContractUpdate(data.proposal_open_contract);
+          }
+
         } catch (error) {
           console.error('Error parsing Speed Bot message:', error);
         }
@@ -109,6 +154,7 @@ const SpeedBot: React.FC = () => {
       ws.onclose = () => {
         console.log('Speed Bot WebSocket closed');
         setIsConnected(false);
+        setIsAuthorized(false);
         setWebsocket(null);
         setCurrentPrice('Disconnected');
       };
@@ -116,16 +162,18 @@ const SpeedBot: React.FC = () => {
       ws.onerror = (error) => {
         console.error('Speed Bot WebSocket error:', error);
         setIsConnected(false);
+        setIsAuthorized(false);
         setCurrentPrice('Connection Error');
       };
     } catch (error) {
       console.error('Speed Bot connection failed:', error);
       setIsConnected(false);
+      setIsAuthorized(false);
       setCurrentPrice('Failed to connect');
     }
   }, [selectedSymbol, isTrading]);
 
-  const executeTradeOnTick = useCallback((tick: number) => {
+  const executeTradeOnTick = useCallback(async (tick: number) => {
     const lastDigit = Math.floor(Math.abs(tick * 100000)) % 10;
     let prediction: string;
     let shouldTrade = false;
@@ -157,47 +205,156 @@ const SpeedBot: React.FC = () => {
         return;
     }
 
-    if (shouldTrade) {
-      const isWin = prediction === actualResult;
-      const payout = isWin ? stakeAmount * 1.95 : 0; // 95% payout for wins
-      const profit = payout - stakeAmount;
+    if (shouldTrade && !pendingTrades.has(contractType)) {
+      if (isAuthorized && tradingEngine.isEngineConnected()) {
+        // Execute real trade through trading engine
+        try {
+          setPendingTrades(prev => new Set(prev).add(contractType));
+          
+          console.log(`🚀 Executing real ${contractType} trade on ${selectedSymbol}`);
+          
+          const proposalRequest = {
+            amount: stakeAmount,
+            basis: 'stake',
+            contract_type: contractType,
+            currency: 'USD',
+            symbol: selectedSymbol,
+            duration: 1,
+            duration_unit: 't'
+          };
 
-      const trade: TradeResult = {
-        id: `trade_${Date.now()}`,
-        timestamp: new Date().toLocaleTimeString(),
-        symbol: selectedSymbol,
-        contractType,
-        prediction,
-        actual: actualResult,
-        result: isWin ? 'win' : 'loss',
-        stake: stakeAmount,
-        payout,
-        profit,
-      };
+          const proposalResponse = await tradingEngine.getProposal(proposalRequest);
+          
+          if (proposalResponse.proposal) {
+            const purchaseResponse = await tradingEngine.buyContract(
+              proposalResponse.proposal.id,
+              proposalResponse.proposal.ask_price
+            );
 
-      setTradeHistory(prev => [trade, ...prev.slice(0, 49)]); // Keep last 50 trades
-      setTotalTrades(prev => prev + 1);
-      setTotalProfit(prev => prev + profit);
+            if (purchaseResponse.buy) {
+              const trade: TradeResult = {
+                id: `real_trade_${Date.now()}`,
+                timestamp: new Date().toLocaleTimeString(),
+                symbol: selectedSymbol,
+                contractType,
+                prediction,
+                actual: 'PENDING',
+                result: 'win', // Will be updated when contract settles
+                stake: stakeAmount,
+                payout: 0, // Will be updated when contract settles
+                profit: 0, // Will be updated when contract settles
+                contractId: purchaseResponse.buy.contract_id,
+              };
 
-      // Update win rate
-      setWinRate(prev => {
-        const newTotal = totalTrades + 1;
-        const wins = tradeHistory.filter(t => t.result === 'win').length + (isWin ? 1 : 0);
-        return (wins / newTotal) * 100;
-      });
+              setTradeHistory(prev => [trade, ...prev.slice(0, 49)]);
+              setTotalTrades(prev => prev + 1);
+              
+              console.log(`✅ Real trade executed - Contract ID: ${purchaseResponse.buy.contract_id}`);
+            }
+          }
+        } catch (error) {
+          console.error('❌ Real trade failed:', error);
+          
+          // Fallback to simulation for this trade
+          executeSimulatedTrade(prediction, actualResult);
+        } finally {
+          setPendingTrades(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(contractType);
+            return newSet;
+          });
+        }
+      } else {
+        // Execute simulated trade
+        executeSimulatedTrade(prediction, actualResult);
+      }
     }
+  }, [contractType, selectedSymbol, stakeAmount, isAuthorized, pendingTrades]);
+
+  const executeSimulatedTrade = useCallback((prediction: string, actualResult: string) => {
+    const isWin = prediction === actualResult;
+    const payout = isWin ? stakeAmount * 1.95 : 0; // 95% payout for wins
+    const profit = payout - stakeAmount;
+
+    const trade: TradeResult = {
+      id: `sim_trade_${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString(),
+      symbol: selectedSymbol,
+      contractType,
+      prediction,
+      actual: actualResult,
+      result: isWin ? 'win' : 'loss',
+      stake: stakeAmount,
+      payout,
+      profit,
+    };
+
+    setTradeHistory(prev => [trade, ...prev.slice(0, 49)]);
+    setTotalTrades(prev => prev + 1);
+    setTotalProfit(prev => prev + profit);
+
+    // Update win rate
+    setWinRate(prev => {
+      const newTotal = totalTrades + 1;
+      const wins = tradeHistory.filter(t => t.result === 'win').length + (isWin ? 1 : 0);
+      return (wins / newTotal) * 100;
+    });
   }, [contractType, selectedSymbol, stakeAmount, totalTrades, tradeHistory]);
+
+  const handleContractUpdate = useCallback((contract: any) => {
+    if (contract.contract_id) {
+      setTradeHistory(prev => prev.map(trade => {
+        if (trade.contractId === contract.contract_id) {
+          const isWin = contract.status === 'won';
+          const payout = contract.payout || 0;
+          const profit = payout - trade.stake;
+          
+          return {
+            ...trade,
+            actual: contract.status === 'won' ? trade.prediction : (trade.prediction === 'EVEN' ? 'ODD' : 'EVEN'),
+            result: isWin ? 'win' : 'loss',
+            payout,
+            profit,
+          };
+        }
+        return trade;
+      }));
+
+      // Update total profit for real trades
+      const updatedTrade = tradeHistory.find(t => t.contractId === contract.contract_id);
+      if (updatedTrade && contract.status) {
+        const profit = (contract.payout || 0) - updatedTrade.stake;
+        setTotalProfit(prev => prev + profit);
+        
+        // Update win rate
+        const isWin = contract.status === 'won';
+        setWinRate(prev => {
+          const wins = tradeHistory.filter(t => t.result === 'win').length + (isWin ? 1 : 0);
+          return (wins / totalTrades) * 100;
+        });
+      }
+    }
+  }, [tradeHistory, totalTrades]);
 
   const startTrading = () => {
     if (!isConnected) {
       alert('Please connect to the API first');
       return;
     }
+    
+    if (!isAuthorized) {
+      const confirmSimulation = window.confirm(
+        'You are not authorized for real trading. Do you want to continue in simulation mode?'
+      );
+      if (!confirmSimulation) return;
+    }
+    
     setIsTrading(true);
   };
 
   const stopTrading = () => {
     setIsTrading(false);
+    setPendingTrades(new Set());
   };
 
   const resetStats = () => {
@@ -220,10 +377,15 @@ const SpeedBot: React.FC = () => {
     <div className="speed-bot">
       <div className="speed-bot__header">
         <h2 className="speed-bot__title">
-          <Localize i18n_default_text="Speed Bot - Tick Trading" />
+          <Localize i18n_default_text="Speed Bot - Real Money Trading" />
         </h2>
-        <div className={`speed-bot__status ${isConnected ? 'connected' : 'disconnected'}`}>
-          {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
+        <div className="speed-bot__status-group">
+          <div className={`speed-bot__status ${isConnected ? 'connected' : 'disconnected'}`}>
+            {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
+          </div>
+          <div className={`speed-bot__status ${isAuthorized ? 'authorized' : 'unauthorized'}`}>
+            {isAuthorized ? '🔑 Real Trading' : '⚠️ Simulation Mode'}
+          </div>
         </div>
       </div>
 
@@ -329,6 +491,12 @@ const SpeedBot: React.FC = () => {
         </div>
       </div>
 
+      {!isAuthorized && (
+        <div className="speed-bot__warning">
+          <p>⚠️ <strong>Running in simulation mode.</strong> Log in via OAuth to enable real money trading.</p>
+        </div>
+      )}
+
       <div className="speed-bot__history">
         <h3 className="speed-bot__history-title">
           <Localize i18n_default_text="Recent Trades" />
@@ -344,6 +512,7 @@ const SpeedBot: React.FC = () => {
                 <div className="speed-bot__trade-time">{trade.timestamp}</div>
                 <div className="speed-bot__trade-details">
                   {trade.contractType} - {trade.prediction} vs {trade.actual}
+                  {trade.contractId && <span className="speed-bot__real-trade"> (REAL)</span>}
                 </div>
                 <div className={`speed-bot__trade-result ${trade.result}`}>
                   {trade.result === 'win' ? '✅' : '❌'} {trade.profit >= 0 ? '+' : ''}{trade.profit.toFixed(2)}
