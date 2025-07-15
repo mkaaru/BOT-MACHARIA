@@ -674,16 +674,16 @@
           <shadow type="math_number" id="xdK;#HH2gAMBs)TGYxC9">
             <field name="NUM">1</field>
           </shadow>
-          <block type="variables_get" id="sJ+JuRMHp|=/!D5E3GVU">
-            <field name="VAR" id="FRbI:RhI/`[lrO`o;=P,">martingale:multiplier</field>
+          <block type="variables_get" id="w$Dd.MXXRvJmyJuC~XUu">
+            <field name="VAR" id="[$B]vBH,~wrN`PUt5m/f">martingale:initialStake</field>
           </block>
         </value>
         <value name="B">
           <shadow type="math_number" id="zgDY#$?29LwpzI@87wHI">
             <field name="NUM">1</field>
           </shadow>
-          <block type="variables_get" id="w$Dd.MXXRvJmyJuC~XUu">
-            <field name="VAR" id="[$B]vBH,~wrN`PUt5m/f">martingale:initialStake</field>
+          <block type="variables_get" id="sJ+JuRMHp|=/!D5E3GVU">
+            <field name="VAR" id="FRbI:RhI/`[lrO`o;=P,">martingale:multiplier</field>
           </block>
         </value>
       </block>
