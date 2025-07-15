@@ -106,9 +106,9 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.purchase = block => {
         const parameters = Bot.getParameters();
         const proposal = Bot.getProposal(purchase_list);
         const buy_parameters = {
-            'price': proposal.ask_price,
-            'parameters': parameters,
-            'execution_mode': execution_mode,
+            price: proposal.ask_price,
+            parameters: parameters,
+            execution_mode: execution_mode
         };
         Bot.purchase(buy_parameters);
     `;
