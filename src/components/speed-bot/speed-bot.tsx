@@ -32,6 +32,15 @@ const SpeedBot: React.FC = observer(() => {
       </div>
     );
   }
+
+  // Get token from client store
+  const getAuthToken = () => {
+    if (client?.is_logged_in) {
+      const token = client.getToken ? client.getToken() : null;
+      return token;
+    }
+    return null;
+  };
   
   // Connection state
   const [isConnected, setIsConnected] = useState(false);
@@ -144,15 +153,18 @@ const SpeedBot: React.FC = observer(() => {
         setWebsocket(ws);
 
         // Authorize if user is logged in
-        if (client?.is_logged_in && client?.token) {
+        const authToken = getAuthToken();
+        if (client?.is_logged_in && authToken) {
           console.log('🔐 Authorizing with token...');
           const authRequest = {
-            authorize: client.token,
+            authorize: authToken,
             req_id: Date.now() + 1000
           };
           ws.send(JSON.stringify(authRequest));
         } else {
           console.log('⚠️ No token available for authorization');
+          console.log('Login status:', client?.is_logged_in);
+          console.log('Token available:', !!authToken);
           setError('Please log in to start trading');
         }
 
@@ -340,7 +352,8 @@ const SpeedBot: React.FC = observer(() => {
     }
 
     // Check if user is still logged in
-    if (!client?.is_logged_in || !client?.token) {
+    const authToken = getAuthToken();
+    if (!client?.is_logged_in || !authToken) {
       setError('Please log in to continue trading');
       setIsTrading(false);
       return;
@@ -618,9 +631,10 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
-    // Check if user is logged in
-    if (!client?.is_logged_in) {
-      setError('Please log in to start trading');
+    // Check if user is logged in and has token
+    const authToken = getAuthToken();
+    if (!client?.is_logged_in || !authToken) {
+      setError('Please log in to start trading. Make sure you are authenticated with Deriv.');
       return;
     }
 
@@ -828,7 +842,7 @@ const SpeedBot: React.FC = observer(() => {
             <button 
               className="speed-bot__start-btn"
               onClick={startTrading}
-              disabled={!isConnected || !!error}
+              disabled={!isConnected || !!error || !client?.is_logged_in || !getAuthToken()}
             >
               START TRADING
             </button>
@@ -872,7 +886,7 @@ const SpeedBot: React.FC = observer(() => {
           </div>
           <div className="speed-bot__stat">
             <label>Auth Status</label>
-            <span>{client?.is_logged_in ? '✅ Logged In' : '❌ Not Logged In'}</span>
+            <span>{client?.is_logged_in && getAuthToken() ? '✅ Logged In' : '❌ Not Logged In'}</span>
           </div>
           <div className="speed-bot__stat">
             <label>Executing</label>
