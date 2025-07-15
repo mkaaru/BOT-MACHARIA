@@ -870,75 +870,72 @@ const SpeedBot: React.FC = () => {
 
     // Inject the bulk trading WebSocket script
     const script = document.createElement('script');
-    script.textContent = `
-      let derivWs,reconnectTimeout;let tickHistory=[],currentSymbol="${selectedSymbol}",tickCount=120,decimalPlaces=2,overUnderBarrier=${overUnderValue},isInitialized=false,reconnectAttempts=0,MAX_RECONNECT_ATTEMPTS=5;
+    script.textContent = 
+      'let derivWs,reconnectTimeout;let tickHistory=[],currentSymbol="' + selectedSymbol + '",tickCount=120,decimalPlaces=2,overUnderBarrier=' + overUnderValue + ',isInitialized=false,reconnectAttempts=0,MAX_RECONNECT_ATTEMPTS=5;' +
+      
+      'function startWebSocket(){' +
+        'if(console.log("🔌 Connecting to WebSocket API"),reconnectTimeout&&clearTimeout(reconnectTimeout),derivWs){' +
+          'try{derivWs.onclose=null,derivWs.close(),console.log("Closed existing connection")}catch(e){console.error("Error closing existing connection:",e)}' +
+          'derivWs=null' +
+        '}' +
+        'try{' +
+          '(derivWs=new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=75771")).onopen=function(){' +
+            'console.log("✅ WebSocket connection established"),reconnectAttempts=0,notifyConnectionStatus("connected"),setTimeout(()=>{' +
+              'try{derivWs&&derivWs.readyState===WebSocket.OPEN&&(console.log("Sending authorization request"),derivWs.send(JSON.stringify({app_id:75771})),requestTickHistory())}catch(e){console.error("Error during init requests:",e)}' +
+            '},500)' +
+          '},' +
+          'derivWs.onmessage=function(e){' +
+            'try{' +
+              'let t=JSON.parse(e.data);' +
+              'if(t.error){console.error("❌ WebSocket API error:",t.error),notifyConnectionStatus("error",t.error.message);return}' +
+              'if(t.history)console.log("📊 Received history for "+currentSymbol+": "+t.history.prices.length+" ticks"),tickHistory=t.history.prices.map((e,o)=>({time:t.history.times[o],quote:parseFloat(e)})),detectDecimalPlaces(),updateUI();' +
+              'else if(t.tick){let e=parseFloat(t.tick.quote);tickHistory.push({time:t.tick.epoch,quote:e}),tickHistory.length>tickCount&&tickHistory.shift(),updateUI()}' +
+              'else t.ping&&derivWs.send(JSON.stringify({pong:1}))' +
+            '}catch(e){console.error("Error processing message:",e)}' +
+          '},' +
+          'derivWs.onerror=function(e){console.error("❌ WebSocket error:",e),notifyConnectionStatus("error","Connection error"),scheduleReconnect()},' +
+          'derivWs.onclose=function(e){console.log("🔄 WebSocket connection closed",e.code,e.reason),notifyConnectionStatus("disconnected"),scheduleReconnect()},' +
+          'window.derivWs=derivWs' +
+        '}catch(e){console.error("Failed to create WebSocket:",e),notifyConnectionStatus("error",e.message),scheduleReconnect()}' +
+      '}' +
 
-      function startWebSocket(){
-        if(console.log("🔌 Connecting to WebSocket API"),reconnectTimeout&&clearTimeout(reconnectTimeout),derivWs){
-          try{derivWs.onclose=null,derivWs.close(),console.log("Closed existing connection")}catch(e){console.error("Error closing existing connection:",e)}
-          derivWs=null
-        }
-        try{
-          (derivWs=new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=75771")).onopen=function(){
-            console.log("✅ WebSocket connection established"),reconnectAttempts=0,notifyConnectionStatus("connected"),setTimeout(()=>{
-              try{derivWs&&derivWs.readyState===WebSocket.OPEN&&(console.log("Sending authorization request"),derivWs.send(JSON.stringify({app_id:75771})),requestTickHistory())}catch(e){console.error("Error during init requests:",e)}
-            },500)
-          },
-          derivWs.onmessage=function(e){
-            try{
-              let t=JSON.parse(e.data);
-              if(t.error){console.error("❌ WebSocket API error:",t.error),notifyConnectionStatus("error",t.error.message);return}
-              if(t.history)console.log("📊 Received history for "+currentSymbol+": "+t.history.prices.length+" ticks"),tickHistory=t.history.prices.map((e,o)=>({time:t.history.times[o],quote:parseFloat(e)})),detectDecimalPlaces(),updateUI();
-              else if(t.tick){let e=parseFloat(t.tick.quote);tickHistory.push({time:t.tick.epoch,quote:e}),tickHistory.length>tickCount&&tickHistory.shift(),updateUI()}
-              else t.ping&&derivWs.send(JSON.stringify({pong:1}))
-            }catch(e){console.error("Error processing message:",e)}
-          },
-          derivWs.onerror=function(e){console.error("❌ WebSocket error:",e),notifyConnectionStatus("error","Connection error"),scheduleReconnect()},
-          derivWs.onclose=function(e){console.log("🔄 WebSocket connection closed",e.code,e.reason),notifyConnectionStatus("disconnected"),scheduleReconnect()},
-          window.derivWs=derivWs
-        }catch(e){console.error("Failed to create WebSocket:",e),notifyConnectionStatus("error",e.message),scheduleReconnect()}
-      }
+      'function scheduleReconnect(){' +
+        'if(++reconnectAttempts>5){console.log("⚠️ Maximum reconnection attempts (5) reached. Stopping attempts."),notifyConnectionStatus("error","Maximum reconnection attempts reached");return}' +
+        'let e=Math.min(1e3*Math.pow(1.5,reconnectAttempts-1),3e4);' +
+        'console.log("🔄 Scheduling reconnect attempt "+reconnectAttempts+" in "+e+"ms"),reconnectTimeout=setTimeout(()=>{console.log("🔄 Attempting to reconnect ("+reconnectAttempts+"/5)..."),startWebSocket()},e)' +
+      '}' +
 
-      function scheduleReconnect(){
-        if(++reconnectAttempts>5){console.log("⚠️ Maximum reconnection attempts (5) reached. Stopping attempts."),notifyConnectionStatus("error","Maximum reconnection attempts reached");return}
-        let e=Math.min(1e3*Math.pow(1.5,reconnectAttempts-1),3e4);
-        console.log("🔄 Scheduling reconnect attempt "+reconnectAttempts+" in "+e+"ms"),reconnectTimeout=setTimeout(()=>{console.log("🔄 Attempting to reconnect ("+reconnectAttempts+"/5)..."),startWebSocket()},e)
-      }
+      'function requestTickHistory(){' +
+        'let e={ticks_history:currentSymbol,count:tickCount,end:"latest",style:"ticks",subscribe:1};' +
+        'if(derivWs&&derivWs.readyState===WebSocket.OPEN){console.log("📡 Requesting tick history for "+currentSymbol+" ("+tickCount+" ticks)");try{derivWs.send(JSON.stringify(e))}catch(e){console.error("Error sending tick history request:",e),scheduleReconnect()}}' +
+        'else console.error("❌ WebSocket not ready to request history, readyState:",derivWs?derivWs.readyState:"undefined"),scheduleReconnect()' +
+      '}' +
 
-      function requestTickHistory(){
-        let e={ticks_history:currentSymbol,count:tickCount,end:"latest",style:"ticks",subscribe:1};
-        if(derivWs&&derivWs.readyState===WebSocket.OPEN){console.log("📡 Requesting tick history for "+currentSymbol+" ("+tickCount+" ticks)");try{derivWs.send(JSON.stringify(e))}catch(e){console.error("Error sending tick history request:",e),scheduleReconnect()}}
-        else console.error("❌ WebSocket not ready to request history, readyState:",derivWs?derivWs.readyState:"undefined"),scheduleReconnect()
-      }
+      'function detectDecimalPlaces(){if(0!==tickHistory.length)decimalPlaces=Math.max(...tickHistory.map(e=>(e.quote.toString().split(".")[1]||"").length),2)}' +
 
-      function detectDecimalPlaces(){if(0!==tickHistory.length)decimalPlaces=Math.max(...tickHistory.map(e=>(e.quote.toString().split(".")[1]||"").length),2)}
+      'function getLastDigit(e){let t=e.toString().split(".")[1]||"";for(;t.length<decimalPlaces;)t+="0";return Number(t.slice(-1))}' +
 
-      function getLastDigit(e){let t=e.toString().split(".")[1]||"";for(;t.length<decimalPlaces;)t+="0";return Number(t.slice(-1))}
+      'function notifyConnectionStatus(e,t=null){window.postMessage({type:"ANALYZER_CONNECTION_STATUS",status:e,error:t},"*")}' +
 
-      function notifyConnectionStatus(e,t=null){window.postMessage({type:"ANALYZER_CONNECTION_STATUS",status:e,error:t},"*")}
+      'function updateUI(){' +
+        'if(0===tickHistory.length){console.warn("⚠️ No tick history available for analysis");return}' +
+        'let e=tickHistory[tickHistory.length-1].quote.toFixed(decimalPlaces);' +
+        'window.postMessage({type:"PRICE_UPDATE",price:e,symbol:currentSymbol},"*"),sendAnalysisData()' +
+      '}' +
 
-      function updateUI(){
-        if(0===tickHistory.length){console.warn("⚠️ No tick history available for analysis");return}
-        let e=tickHistory[tickHistory.length-1].quote.toFixed(decimalPlaces);
-        window.postMessage({type:"PRICE_UPDATE",price:e,symbol:currentSymbol},"*"),sendAnalysisData()
-      }
+      'function sendAnalysisData(){' +
+        'if(!tickHistory||0===tickHistory.length){console.warn("⚠️ No data available for analysis");return}' +
+        'try{' +
+          'let t=Array(10).fill(0);' +
+          'tickHistory.forEach(e=>{let o=getLastDigit(e.quote);t[o]++});' +
+          'let o=tickHistory.length,r=t.filter((e,t)=>t%2==0).reduce((e,t)=>e+t,0),i=t.filter((e,t)=>t%2!=0).reduce((e,t)=>e+t,0),n=(r/o*100).toFixed(2),s=(i/o*100).toFixed(2);' +
+          'if(n > 60 || s > 60 || window.speedBotBulkTrade) {' +
+            'window.postMessage({type:"BULK_TRADE_SIGNAL",data:{evenProb:n,oddProb:s,symbol:currentSymbol}},"*");' +
+          '}' +
+        '}catch(e){console.error("❌ Error in sendAnalysisData:",e)}' +
+      '}' +
 
-      function sendAnalysisData(){
-        if(!tickHistory||0===tickHistory.length){console.warn("⚠️ No data available for analysis");return}
-        try{
-          let t=Array(10).fill(0);
-          tickHistory.forEach(e=>{let o=getLastDigit(e.quote);t[o]++});
-          let o=tickHistory.length,r=t.filter((e,t)=>t%2==0).reduce((e,t)=>e+t,0),i=t.filter((e,t)=>t%2!=0).reduce((e,t)=>e+t,0),n=(r/o*100).toFixed(2),s=(i/o*100).toFixed(2);
-
-          // Trigger bulk trades if probabilities are favorable
-          if(n > 60 || s > 60 || window.speedBotBulkTrade) {
-            window.postMessage({type:"BULK_TRADE_SIGNAL",data:{evenProb:n,oddProb:s,symbol:currentSymbol}},"*");
-          }
-        }catch(e){console.error("❌ Error in sendAnalysisData:",e)}
-      }
-
-      // Initialize
-      if(!isInitialized){isInitialized=true,console.log("🚀 Initializing bulk trading volatility analyzer"),startWebSocket()}
+      'if(!isInitialized){isInitialized=true,console.log("🚀 Initializing bulk trading volatility analyzer"),startWebSocket()}';
     `;
 
     document.head.appendChild(script);
