@@ -1,0 +1,691 @@
+Compilation failed
+
+File: /home/runner/workspace/src/external/bot-skeleton/services/tradeEngine/Interface/BotInterface.js:1:1
+  × Module build failed:
+  ╰─▶   ×   × the name `globalObserver` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/external/bot-skeleton/services/tradeEngine/Interface/BotInterface.js:1:1]
+        │    1 │ import { observer as globalObserver } from '../../../utils/observer';
+        │      ·                      ───────┬──────
+        │      ·                             ╰── previous definition of `globalObserver` here
+        │    2 │ import { createDetails } from '../utils/helpers';
+        │    3 │
+        │    4 │ const getBotInterface = tradeEngine => {
+        │    5 │     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
+        │    6 │
+        │    7 │     return {
+        │    8 │         init: (...args) => tradeEngine.init(...args),
+        │    9 │         start: (...args) => tradeEngine.start(...args),
+        │   10 │         stop: (...args) => tradeEngine.stop(...args),
+        │   11 │         purchase: contract_type => tradeEngine.purchase(contract_type),
+        │   12 │         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
+        │   13 │         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
+        │   14 │         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
+        │   15 │         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
+        │   16 │         sellAtMarket: () => tradeEngine.sellAtMarket(),
+        │   17 │         getSellPrice: () => getSellPrice(tradeEngine),
+        │   18 │         isResult: result => getDetail(10) === result,
+        │   19 │         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
+        │   20 │         readDetails: i => getDetail(i - 1),
+        │   21 │         getTotalRuns: () => tradeEngine.totalRuns,
+        │   22 │         getTotalProfit: () => tradeEngine.totalProfit,
+        │   23 │         getMartingaleMultiplier: () => {
+        │   24 │             const workspace = Blockly.getMainWorkspace();
+        │   25 │             if (workspace) {
+        │   26 │                 const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │   27 │                 if (multiplierVar) {
+        │   28 │                     const variableModel = workspace.getVariableMap().getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │   29 │                     return variableModel ? parseFloat(variableModel.name.split(':')[1]) || 1 : 1;
+        │   30 │                 }
+        │   31 │             }
+        │   32 │             return 1;
+        │   33 │         },
+        │   34 │         getProfitThreshold: () => {
+        │   35 │             const workspace = Blockly.getMainWorkspace();
+        │   36 │             if (workspace) {
+        │   37 │                 const profitVar = workspace.getVariableById('*p5|Lkk9Q^ZuPBQ-48g2');
+        │   38 │                 if (profitVar) {
+        │   39 │                     return parseFloat(profitVar) || Infinity;
+        │   40 │                 }
+        │   41 │             }
+        │   42 │             return Infinity;
+        │   43 │         },
+        │   44 │         getLossThreshold: () => {
+        │   45 │             const workspace = Blockly.getMainWorkspace();
+        │   46 │             if (workspace) {
+        │   47 │                 const lossVar = workspace.getVariableById('a1BTYNHC?_yR4sfvNJ7N');
+        │   48 │                 if (lossVar) {
+        │   49 │                     return parseFloat(lossVar) || -Infinity;
+        │   50 │                 }
+        │   51 │             }
+        │   52 │             return -Infinity;
+        │   53 │         },
+        │   54 │         getLastTradeProfit: () => {
+        │   55 │             return tradeEngine.lastTradeProfit || 0;
+        │   56 │         },
+        │   57 │         setMartingaleMultiplier: (multiplier) => {
+        │   58 │             const workspace = Blockly.getMainWorkspace();
+        │   59 │             if (workspace) {
+        │   60 │                 const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │   61 │                 if (multiplierVar) {
+        │   62 │                     tradeEngine.martingaleMultiplier = multiplier;
+        │   63 │                     return true;
+        │   64 │                 }
+        │   65 │             }
+        │   66 │             return false;
+        │   67 │         },
+        │   68 │         getConsecutiveLosses: () => {
+        │   69 │             return tradeEngine.consecutiveLosses || 0;
+        │   70 │         },
+        │   71 │         setCurrentPurchasePrice: (price) => {
+        │   72 │             tradeEngine.currentPurchasePrice = price;
+        │   73 │         },
+        │   74 │         getCurrentPurchasePrice: () => {
+        │   75 │             return tradeEngine.currentPurchasePrice || 0;
+        │   76 │         },
+        │   77 │         setBaseAmount: (amount) => {
+        │   78 │             tradeEngine.baseAmount = amount;
+        │   79 │         },
+        │   80 │         getBaseAmount: () => {
+        │   81 │             return tradeEngine.baseAmount || null;
+        │   82 │         },
+        │   83 │     };
+        │   84 │ };
+        │   85 │
+        │   86 │ const getProposal = (contract_type, tradeEngine) => {
+        │   87 │     return tradeEngine.data.proposals.find(
+        │   88 │         proposal =>
+        │   89 │             proposal.contract_type === contract_type &&
+        │   90 │             proposal.purchase_reference === tradeEngine.getPurchaseReference()
+        │   91 │     );
+        │   92 │ };
+        │   93 │
+        │   94 │ const getSellPrice = tradeEngine => {
+        │   95 │     return tradeEngine.getSellPrice();
+        │   96 │ };
+        │   97 │
+        │   98 │ export default getBotInterface;
+        │   99 │ ```
+        │  100 │
+        │  101 │ ```
+        │  102 │ import { observer as globalObserver } from '../../../utils/observer';
+        │      ·                      ───────┬──────
+        │      ·                             ╰── `globalObserver` redefined here
+        │  103 │ import { createDetails } from '../utils/helpers';
+        │  104 │
+        │  105 │ const getBotInterface = tradeEngine => {
+        │      ╰────
+        │   × the name `createDetails` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/external/bot-skeleton/services/tradeEngine/Interface/BotInterface.js:2:1]
+        │    1 │ import { observer as globalObserver } from '../../../utils/observer';
+        │    2 │ import { createDetails } from '../utils/helpers';
+        │      ·          ──────┬──────
+        │      ·                ╰── previous definition of `createDetails` here
+        │    3 │
+        │    4 │ const getBotInterface = tradeEngine => {
+        │    5 │     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
+        │    6 │
+        │    7 │     return {
+        │    8 │         init: (...args) => tradeEngine.init(...args),
+        │    9 │         start: (...args) => tradeEngine.start(...args),
+        │   10 │         stop: (...args) => tradeEngine.stop(...args),
+        │   11 │         purchase: contract_type => tradeEngine.purchase(contract_type),
+        │   12 │         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
+        │   13 │         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
+        │   14 │         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
+        │   15 │         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
+        │   16 │         sellAtMarket: () => tradeEngine.sellAtMarket(),
+        │   17 │         getSellPrice: () => getSellPrice(tradeEngine),
+        │   18 │         isResult: result => getDetail(10) === result,
+        │   19 │         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
+        │   20 │         readDetails: i => getDetail(i - 1),
+        │   21 │         getTotalRuns: () => tradeEngine.totalRuns,
+        │   22 │         getTotalProfit: () => tradeEngine.totalProfit,
+        │   23 │         getMartingaleMultiplier: () => {
+        │   24 │             const workspace = Blockly.getMainWorkspace();
+        │   25 │             if (workspace) {
+        │   26 │                 const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │   27 │                 if (multiplierVar) {
+        │   28 │                     const variableModel = workspace.getVariableMap().getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │   29 │                     return variableModel ? parseFloat(variableModel.name.split(':')[1]) || 1 : 1;
+        │   30 │                 }
+        │   31 │             }
+        │   32 │             return 1;
+        │   33 │         },
+        │   34 │         getProfitThreshold: () => {
+        │   35 │             const workspace = Blockly.getMainWorkspace();
+        │   36 │             if (workspace) {
+        │   37 │                 const profitVar = workspace.getVariableById('*p5|Lkk9Q^ZuPBQ-48g2');
+        │   38 │                 if (profitVar) {
+        │   39 │                     return parseFloat(profitVar) || Infinity;
+        │   40 │                 }
+        │   41 │             }
+        │   42 │             return Infinity;
+        │   43 │         },
+        │   44 │         getLossThreshold: () => {
+        │   45 │             const workspace = Blockly.getMainWorkspace();
+        │   46 │             if (workspace) {
+        │   47 │                 const lossVar = workspace.getVariableById('a1BTYNHC?_yR4sfvNJ7N');
+        │   48 │                 if (lossVar) {
+        │   49 │                     return parseFloat(lossVar) || -Infinity;
+        │   50 │                 }
+        │   51 │             }
+        │   52 │             return -Infinity;
+        │   53 │         },
+        │   54 │         getLastTradeProfit: () => {
+        │   55 │             return tradeEngine.lastTradeProfit || 0;
+        │   56 │         },
+        │   57 │         setMartingaleMultiplier: (multiplier) => {
+        │   58 │             const workspace = Blockly.getMainWorkspace();
+        │   59 │             if (workspace) {
+        │   60 │                 const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │   61 │                 if (multiplierVar) {
+        │   62 │                     tradeEngine.martingaleMultiplier = multiplier;
+        │   63 │                     return true;
+        │   64 │                 }
+        │   65 │             }
+        │   66 │             return false;
+        │   67 │         },
+        │   68 │         getConsecutiveLosses: () => {
+        │   69 │             return tradeEngine.consecutiveLosses || 0;
+        │   70 │         },
+        │   71 │         setCurrentPurchasePrice: (price) => {
+        │   72 │             tradeEngine.currentPurchasePrice = price;
+        │   73 │         },
+        │   74 │         getCurrentPurchasePrice: () => {
+        │   75 │             return tradeEngine.currentPurchasePrice || 0;
+        │   76 │         },
+        │   77 │         setBaseAmount: (amount) => {
+        │   78 │             tradeEngine.baseAmount = amount;
+        │   79 │         },
+        │   80 │         getBaseAmount: () => {
+        │   81 │             return tradeEngine.baseAmount || null;
+        │   82 │         },
+        │   83 │     };
+        │   84 │ };
+        │   85 │
+        │   86 │ const getProposal = (contract_type, tradeEngine) => {
+        │   87 │     return tradeEngine.data.proposals.find(
+        │   88 │         proposal =>
+        │   89 │             proposal.contract_type === contract_type &&
+        │   90 │             proposal.purchase_reference === tradeEngine.getPurchaseReference()
+        │   91 │     );
+        │   92 │ };
+        │   93 │
+        │   94 │ const getSellPrice = tradeEngine => {
+        │   95 │     return tradeEngine.getSellPrice();
+        │   96 │ };
+        │   97 │
+        │   98 │ export default getBotInterface;
+        │   99 │ ```
+        │  100 │
+        │  101 │ ```
+        │  102 │ import { observer as globalObserver } from '../../../utils/observer';
+        │  103 │ import { createDetails } from '../utils/helpers';
+        │      ·          ──────┬──────
+        │      ·                ╰── `createDetails` redefined here
+        │  104 │
+        │  105 │ const getBotInterface = tradeEngine => {
+        │  106 │     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
+        │      ╰────
+        │   × the name `getBotInterface` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/external/bot-skeleton/services/tradeEngine/Interface/BotInterface.js:4:1]
+        │    1 │ import { observer as globalObserver } from '../../../utils/observer';
+        │    2 │ import { createDetails } from '../utils/helpers';
+        │    3 │
+        │    4 │ const getBotInterface = tradeEngine => {
+        │      ·       ───────┬───────
+        │      ·              ╰── previous definition of `getBotInterface` here
+        │    5 │     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
+        │    6 │
+        │    7 │     return {
+        │    8 │         init: (...args) => tradeEngine.init(...args),
+        │    9 │         start: (...args) => tradeEngine.start(...args),
+        │   10 │         stop: (...args) => tradeEngine.stop(...args),
+        │   11 │         purchase: contract_type => tradeEngine.purchase(contract_type),
+        │   12 │         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
+        │   13 │         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
+        │   14 │         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
+        │   15 │         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
+        │   16 │         sellAtMarket: () => tradeEngine.sellAtMarket(),
+        │   17 │         getSellPrice: () => getSellPrice(tradeEngine),
+        │   18 │         isResult: result => getDetail(10) === result,
+        │   19 │         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
+        │   20 │         readDetails: i => getDetail(i - 1),
+        │   21 │         getTotalRuns: () => tradeEngine.totalRuns,
+        │   22 │         getTotalProfit: () => tradeEngine.totalProfit,
+        │   23 │         getMartingaleMultiplier: () => {
+        │   24 │             const workspace = Blockly.getMainWorkspace();
+        │   25 │             if (workspace) {
+        │   26 │                 const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │   27 │                 if (multiplierVar) {
+        │   28 │                     const variableModel = workspace.getVariableMap().getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │   29 │                     return variableModel ? parseFloat(variableModel.name.split(':')[1]) || 1 : 1;
+        │   30 │                 }
+        │   31 │             }
+        │   32 │             return 1;
+        │   33 │         },
+        │   34 │         getProfitThreshold: () => {
+        │   35 │             const workspace = Blockly.getMainWorkspace();
+        │   36 │             if (workspace) {
+        │   37 │                 const profitVar = workspace.getVariableById('*p5|Lkk9Q^ZuPBQ-48g2');
+        │   38 │                 if (profitVar) {
+        │   39 │                     return parseFloat(profitVar) || Infinity;
+        │   40 │                 }
+        │   41 │             }
+        │   42 │             return Infinity;
+        │   43 │         },
+        │   44 │         getLossThreshold: () => {
+        │   45 │             const workspace = Blockly.getMainWorkspace();
+        │   46 │             if (workspace) {
+        │   47 │                 const lossVar = workspace.getVariableById('a1BTYNHC?_yR4sfvNJ7N');
+        │   48 │                 if (lossVar) {
+        │   49 │                     return parseFloat(lossVar) || -Infinity;
+        │   50 │                 }
+        │   51 │             }
+        │   52 │             return -Infinity;
+        │   53 │         },
+        │   54 │         getLastTradeProfit: () => {
+        │   55 │             return tradeEngine.lastTradeProfit || 0;
+        │   56 │         },
+        │   57 │         setMartingaleMultiplier: (multiplier) => {
+        │   58 │             const workspace = Blockly.getMainWorkspace();
+        │   59 │             if (workspace) {
+        │   60 │                 const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │   61 │                 if (multiplierVar) {
+        │   62 │                     tradeEngine.martingaleMultiplier = multiplier;
+        │   63 │                     return true;
+        │   64 │                 }
+        │   65 │             }
+        │   66 │             return false;
+        │   67 │         },
+        │   68 │         getConsecutiveLosses: () => {
+        │   69 │             return tradeEngine.consecutiveLosses || 0;
+        │   70 │         },
+        │   71 │         setCurrentPurchasePrice: (price) => {
+        │   72 │             tradeEngine.currentPurchasePrice = price;
+        │   73 │         },
+        │   74 │         getCurrentPurchasePrice: () => {
+        │   75 │             return tradeEngine.currentPurchasePrice || 0;
+        │   76 │         },
+        │   77 │         setBaseAmount: (amount) => {
+        │   78 │             tradeEngine.baseAmount = amount;
+        │   79 │         },
+        │   80 │         getBaseAmount: () => {
+        │   81 │             return tradeEngine.baseAmount || null;
+        │   82 │         },
+        │   83 │     };
+        │   84 │ };
+        │   85 │
+        │   86 │ const getProposal = (contract_type, tradeEngine) => {
+        │   87 │     return tradeEngine.data.proposals.find(
+        │   88 │         proposal =>
+        │   89 │             proposal.contract_type === contract_type &&
+        │   90 │             proposal.purchase_reference === tradeEngine.getPurchaseReference()
+        │   91 │     );
+        │   92 │ };
+        │   93 │
+        │   94 │ const getSellPrice = tradeEngine => {
+        │   95 │     return tradeEngine.getSellPrice();
+        │   96 │ };
+        │   97 │
+        │   98 │ export default getBotInterface;
+        │   99 │ ```
+        │  100 │
+        │  101 │ ```
+        │  102 │ import { observer as globalObserver } from '../../../utils/observer';
+        │  103 │ import { createDetails } from '../utils/helpers';
+        │  104 │
+        │  105 │ const getBotInterface = tradeEngine => {
+        │      ·       ───────┬───────
+        │      ·              ╰── `getBotInterface` redefined here
+        │  106 │     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
+        │  107 │
+        │  108 │     return {
+        │      ╰────
+        │   × the name `getProposal` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/external/bot-skeleton/services/tradeEngine/Interface/BotInterface.js:86:1]
+        │   83 │     };
+        │   84 │ };
+        │   85 │
+        │   86 │ const getProposal = (contract_type, tradeEngine) => {
+        │      ·       ─────┬─────
+        │      ·            ╰── previous definition of `getProposal` here
+        │   87 │     return tradeEngine.data.proposals.find(
+        │   88 │         proposal =>
+        │   89 │             proposal.contract_type === contract_type &&
+        │   90 │             proposal.purchase_reference === tradeEngine.getPurchaseReference()
+        │   91 │     );
+        │   92 │ };
+        │   93 │
+        │   94 │ const getSellPrice = tradeEngine => {
+        │   95 │     return tradeEngine.getSellPrice();
+        │   96 │ };
+        │   97 │
+        │   98 │ export default getBotInterface;
+        │   99 │ ```
+        │  100 │
+        │  101 │ ```
+        │  102 │ import { observer as globalObserver } from '../../../utils/observer';
+        │  103 │ import { createDetails } from '../utils/helpers';
+        │  104 │
+        │  105 │ const getBotInterface = tradeEngine => {
+        │  106 │     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
+        │  107 │
+        │  108 │     return {
+        │  109 │         init: (...args) => tradeEngine.init(...args),
+        │  110 │         start: (...args) => tradeEngine.start(...args),
+        │  111 │         stop: (...args) => tradeEngine.stop(...args),
+        │  112 │         purchase: contract_type => tradeEngine.purchase(contract_type),
+        │  113 │         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
+        │  114 │         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
+        │  115 │         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
+        │  116 │         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
+        │  117 │         sellAtMarket: () => tradeEngine.sellAtMarket(),
+        │  118 │         getSellPrice: () => getSellPrice(tradeEngine),
+        │  119 │         isResult: result => getDetail(10) === result,
+        │  120 │         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
+        │  121 │         readDetails: i => getDetail(i - 1),
+        │  122 │         getTotalRuns: () => tradeEngine.totalRuns,
+        │  123 │         getTotalProfit: () => tradeEngine.totalProfit,
+        │  124 │         getMartingaleMultiplier: () => {
+        │  125 │             const workspace = Blockly.getMainWorkspace();
+        │  126 │             if (workspace) {
+        │  127 │                 const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │  128 │                 if (multiplierVar) {
+        │  129 │                     const variableModel = workspace.getVariableMap().getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │  130 │                     return variableModel ? parseFloat(variableModel.name.split(':')[1]) || 1 : 1;
+        │  131 │                 }
+        │  132 │             }
+        │  133 │             return 1;
+        │  134 │         },
+        │  135 │         getProfitThreshold: () => {
+        │  136 │             const workspace = Blockly.getMainWorkspace();
+        │  137 │             if (workspace) {
+        │  138 │                 const profitVar = workspace.getVariableById('*p5|Lkk9Q^ZuPBQ-48g2');
+        │  139 │                 if (profitVar) {
+        │  140 │                     return parseFloat(profitVar) || Infinity;
+        │  141 │                 }
+        │  142 │             }
+        │  143 │             return Infinity;
+        │  144 │         },
+        │  145 │         getLossThreshold: () => {
+        │  146 │             const workspace = Blockly.getMainWorkspace();
+        │  147 │             if (workspace) {
+        │  148 │                 const lossVar = workspace.getVariableById('a1BTYNHC?_yR4sfvNJ7N');
+        │  149 │                 if (lossVar) {
+        │  150 │                     return parseFloat(lossVar) || -Infinity;
+        │  151 │                 }
+        │  152 │             }
+        │  153 │             return -Infinity;
+        │  154 │         },
+        │  155 │         getLastTradeProfit: () => {
+        │  156 │             return tradeEngine.lastTradeProfit || 0;
+        │  157 │         },
+        │  158 │         setMartingaleMultiplier: (multiplier) => {
+        │  159 │             const workspace = Blockly.getMainWorkspace();
+        │  160 │             if (workspace) {
+        │  161 │                 const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │  162 │                 if (multiplierVar) {
+        │  163 │                     tradeEngine.martingaleMultiplier = multiplier;
+        │  164 │                     return true;
+        │  165 │                 }
+        │  166 │             }
+        │  167 │             return false;
+        │  168 │         },
+        │  169 │         getConsecutiveLosses: () => {
+        │  170 │             return tradeEngine.consecutiveLosses || 0;
+        │  171 │         },
+        │  172 │         setCurrentPurchasePrice: (price) => {
+        │  173 │             tradeEngine.currentPurchasePrice = price;
+        │  174 │         },
+        │  175 │         getCurrentPurchasePrice: () => {
+        │  176 │             return tradeEngine.currentPurchasePrice || 0;
+        │  177 │         },
+        │  178 │         setBaseAmount: (amount) => {
+        │  179 │             tradeEngine.baseAmount = amount;
+        │  180 │         },
+        │  181 │         getBaseAmount: () => {
+        │  182 │             return tradeEngine.baseAmount || null;
+        │  183 │         },
+        │  184 │     };
+        │  185 │ };
+        │  186 │
+        │  187 │ const getProposal = (contract_type, tradeEngine) => {
+        │      ·       ─────┬─────
+        │      ·            ╰── `getProposal` redefined here
+        │  188 │     return tradeEngine.data.proposals.find(
+        │  189 │         proposal =>
+        │  190 │             proposal.contract_type === contract_type &&
+        │      ╰────
+        │   × the name `getSellPrice` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/external/bot-skeleton/services/tradeEngine/Interface/BotInterface.js:94:1]
+        │   91 │     );
+        │   92 │ };
+        │   93 │
+        │   94 │ const getSellPrice = tradeEngine => {
+        │      ·       ──────┬─────
+        │      ·             ╰── previous definition of `getSellPrice` here
+        │   95 │     return tradeEngine.getSellPrice();
+        │   96 │ };
+        │   97 │
+        │   98 │ export default getBotInterface;
+        │   99 │ ```
+        │  100 │
+        │  101 │ ```
+        │  102 │ import { observer as globalObserver } from '../../../utils/observer';
+        │  103 │ import { createDetails } from '../utils/helpers';
+        │  104 │
+        │  105 │ const getBotInterface = tradeEngine => {
+        │  106 │     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
+        │  107 │
+        │  108 │     return {
+        │  109 │         init: (...args) => tradeEngine.init(...args),
+        │  110 │         start: (...args) => tradeEngine.start(...args),
+        │  111 │         stop: (...args) => tradeEngine.stop(...args),
+        │  112 │         purchase: contract_type => tradeEngine.purchase(contract_type),
+        │  113 │         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
+        │  114 │         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
+        │  115 │         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
+        │  116 │         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
+        │  117 │         sellAtMarket: () => tradeEngine.sellAtMarket(),
+        │  118 │         getSellPrice: () => getSellPrice(tradeEngine),
+        │  119 │         isResult: result => getDetail(10) === result,
+        │  120 │         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
+        │  121 │         readDetails: i => getDetail(i - 1),
+        │  122 │         getTotalRuns: () => tradeEngine.totalRuns,
+        │  123 │         getTotalProfit: () => tradeEngine.totalProfit,
+        │  124 │         getMartingaleMultiplier: () => {
+        │  125 │             const workspace = Blockly.getMainWorkspace();
+        │  126 │             if (workspace) {
+        │  127 │                 const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │  128 │                 if (multiplierVar) {
+        │  129 │                     const variableModel = workspace.getVariableMap().getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │  130 │                     return variableModel ? parseFloat(variableModel.name.split(':')[1]) || 1 : 1;
+        │  131 │                 }
+        │  132 │             }
+        │  133 │             return 1;
+        │  134 │         },
+        │  135 │         getProfitThreshold: () => {
+        │  136 │             const workspace = Blockly.getMainWorkspace();
+        │  137 │             if (workspace) {
+        │  138 │                 const profitVar = workspace.getVariableById('*p5|Lkk9Q^ZuPBQ-48g2');
+        │  139 │                 if (profitVar) {
+        │  140 │                     return parseFloat(profitVar) || Infinity;
+        │  141 │                 }
+        │  142 │             }
+        │  143 │             return Infinity;
+        │  144 │         },
+        │  145 │         getLossThreshold: () => {
+        │  146 │             const workspace = Blockly.getMainWorkspace();
+        │  147 │             if (workspace) {
+        │  148 │                 const lossVar = workspace.getVariableById('a1BTYNHC?_yR4sfvNJ7N');
+        │  149 │                 if (lossVar) {
+        │  150 │                     return parseFloat(lossVar) || -Infinity;
+        │  151 │                 }
+        │  152 │             }
+        │  153 │             return -Infinity;
+        │  154 │         },
+        │  155 │         getLastTradeProfit: () => {
+        │  156 │             return tradeEngine.lastTradeProfit || 0;
+        │  157 │         },
+        │  158 │         setMartingaleMultiplier: (multiplier) => {
+        │  159 │             const workspace = Blockly.getMainWorkspace();
+        │  160 │             if (workspace) {
+        │  161 │                 const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │  162 │                 if (multiplierVar) {
+        │  163 │                     tradeEngine.martingaleMultiplier = multiplier;
+        │  164 │                     return true;
+        │  165 │                 }
+        │  166 │             }
+        │  167 │             return false;
+        │  168 │         },
+        │  169 │         getConsecutiveLosses: () => {
+        │  170 │             return tradeEngine.consecutiveLosses || 0;
+        │  171 │         },
+        │  172 │         setCurrentPurchasePrice: (price) => {
+        │  173 │             tradeEngine.currentPurchasePrice = price;
+        │  174 │         },
+        │  175 │         getCurrentPurchasePrice: () => {
+        │  176 │             return tradeEngine.currentPurchasePrice || 0;
+        │  177 │         },
+        │  178 │         setBaseAmount: (amount) => {
+        │  179 │             tradeEngine.baseAmount = amount;
+        │  180 │         },
+        │  181 │         getBaseAmount: () => {
+        │  182 │             return tradeEngine.baseAmount || null;
+        │  183 │         },
+        │  184 │     };
+        │  185 │ };
+        │  186 │
+        │  187 │ const getProposal = (contract_type, tradeEngine) => {
+        │  188 │     return tradeEngine.data.proposals.find(
+        │  189 │         proposal =>
+        │  190 │             proposal.contract_type === contract_type &&
+        │  191 │             proposal.purchase_reference === tradeEngine.getPurchaseReference()
+        │  192 │     );
+        │  193 │ };
+        │  194 │
+        │  195 │ const getSellPrice = tradeEngine => {
+        │      ·       ──────┬─────
+        │      ·             ╰── `getSellPrice` redefined here
+        │  196 │     return tradeEngine.getSellPrice();
+        │  197 │ };
+        │      ╰────
+        │   × the name `default` is exported multiple times
+        │      ╭─[/home/runner/workspace/src/external/bot-skeleton/services/tradeEngine/Interface/BotInterface.js:98:1]
+        │   95 │     return tradeEngine.getSellPrice();
+        │   96 │ };
+        │   97 │
+        │   98 │ export default getBotInterface;
+        │      · ───────────────┬───────────────
+        │      ·                ╰── previous exported here
+        │   99 │ ```
+        │  100 │
+        │  101 │ ```
+        │  102 │ import { observer as globalObserver } from '../../../utils/observer';
+        │  103 │ import { createDetails } from '../utils/helpers';
+        │  104 │
+        │  105 │ const getBotInterface = tradeEngine => {
+        │  106 │     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
+        │  107 │
+        │  108 │     return {
+        │  109 │         init: (...args) => tradeEngine.init(...args),
+        │  110 │         start: (...args) => tradeEngine.start(...args),
+        │  111 │         stop: (...args) => tradeEngine.stop(...args),
+        │  112 │         purchase: contract_type => tradeEngine.purchase(contract_type),
+        │  113 │         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
+        │  114 │         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
+        │  115 │         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
+        │  116 │         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
+        │  117 │         sellAtMarket: () => tradeEngine.sellAtMarket(),
+        │  118 │         getSellPrice: () => getSellPrice(tradeEngine),
+        │  119 │         isResult: result => getDetail(10) === result,
+        │  120 │         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
+        │  121 │         readDetails: i => getDetail(i - 1),
+        │  122 │         getTotalRuns: () => tradeEngine.totalRuns,
+        │  123 │         getTotalProfit: () => tradeEngine.totalProfit,
+        │  124 │         getMartingaleMultiplier: () => {
+        │  125 │             const workspace = Blockly.getMainWorkspace();
+        │  126 │             if (workspace) {
+        │  127 │                 const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │  128 │                 if (multiplierVar) {
+        │  129 │                     const variableModel = workspace.getVariableMap().getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │  130 │                     return variableModel ? parseFloat(variableModel.name.split(':')[1]) || 1 : 1;
+        │  131 │                 }
+        │  132 │             }
+        │  133 │             return 1;
+        │  134 │         },
+        │  135 │         getProfitThreshold: () => {
+        │  136 │             const workspace = Blockly.getMainWorkspace();
+        │  137 │             if (workspace) {
+        │  138 │                 const profitVar = workspace.getVariableById('*p5|Lkk9Q^ZuPBQ-48g2');
+        │  139 │                 if (profitVar) {
+        │  140 │                     return parseFloat(profitVar) || Infinity;
+        │  141 │                 }
+        │  142 │             }
+        │  143 │             return Infinity;
+        │  144 │         },
+        │  145 │         getLossThreshold: () => {
+        │  146 │             const workspace = Blockly.getMainWorkspace();
+        │  147 │             if (workspace) {
+        │  148 │                 const lossVar = workspace.getVariableById('a1BTYNHC?_yR4sfvNJ7N');
+        │  149 │                 if (lossVar) {
+        │  150 │                     return parseFloat(lossVar) || -Infinity;
+        │  151 │                 }
+        │  152 │             }
+        │  153 │             return -Infinity;
+        │  154 │         },
+        │  155 │         getLastTradeProfit: () => {
+        │  156 │             return tradeEngine.lastTradeProfit || 0;
+        │  157 │         },
+        │  158 │         setMartingaleMultiplier: (multiplier) => {
+        │  159 │             const workspace = Blockly.getMainWorkspace();
+        │  160 │             if (workspace) {
+        │  161 │                 const multiplierVar = workspace.getVariableById('FRbI:RhI/`[lrO`o;=P,');
+        │  162 │                 if (multiplierVar) {
+        │  163 │                     tradeEngine.martingaleMultiplier = multiplier;
+        │  164 │                     return true;
+        │  165 │                 }
+        │  166 │             }
+        │  167 │             return false;
+        │  168 │         },
+        │  169 │         getConsecutiveLosses: () => {
+        │  170 │             return tradeEngine.consecutiveLosses || 0;
+        │  171 │         },
+        │  172 │         setCurrentPurchasePrice: (price) => {
+        │  173 │             tradeEngine.currentPurchasePrice = price;
+        │  174 │         },
+        │  175 │         getCurrentPurchasePrice: () => {
+        │  176 │             return tradeEngine.currentPurchasePrice || 0;
+        │  177 │         },
+        │  178 │         setBaseAmount: (amount) => {
+        │  179 │             tradeEngine.baseAmount = amount;
+        │  180 │         },
+        │  181 │         getBaseAmount: () => {
+        │  182 │             return tradeEngine.baseAmount || null;
+        │  183 │         },
+        │  184 │     };
+        │  185 │ };
+        │  186 │
+        │  187 │ const getProposal = (contract_type, tradeEngine) => {
+        │  188 │     return tradeEngine.data.proposals.find(
+        │  189 │         proposal =>
+        │  190 │             proposal.contract_type === contract_type &&
+        │  191 │             proposal.purchase_reference === tradeEngine.getPurchaseReference()
+        │  192 │     );
+        │  193 │ };
+        │  194 │
+        │  195 │ const getSellPrice = tradeEngine => {
+        │  196 │     return tradeEngine.getSellPrice();
+        │  197 │ };
+        │  198 │
+        │  199 │ export default getBotInterface;
+        │      · ───────────────┬───────────────
+        │      ·                ╰── exported more than once
+        │      ╰────
+        │
+        │ Advice:   ☞ Exported identifiers must be unique
+        │
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
