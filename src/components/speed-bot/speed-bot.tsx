@@ -16,6 +16,7 @@ interface TradeResult {
   profit: number;
   contractId?: string;
   tickValue?: number;
+  isBulkTrade?: boolean;
 }
 
 const SpeedBot: React.FC = () => {
@@ -306,18 +307,18 @@ const SpeedBot: React.FC = () => {
     setLastTickTime(tickTime);
 
     const lastDigit = Math.floor(Math.abs(tick * 100000)) % 10;
-    
+
     // Update tick analysis history (keep last 100 ticks)
     setTickAnalysisHistory(prev => {
       const newHistory = [...prev, lastDigit].slice(-100);
-      
+
       // Analyze digit patterns
       const patterns: {[key: number]: number} = {};
       newHistory.forEach(digit => {
         patterns[digit] = (patterns[digit] || 0) + 1;
       });
       setDigitPatterns(patterns);
-      
+
       // Determine market condition based on volatility
       if (newHistory.length >= 10) {
         const recentTicks = newHistory.slice(-10);
@@ -326,7 +327,7 @@ const SpeedBot: React.FC = () => {
         else if (variance < 3) setMarketCondition('stable');
         else setMarketCondition('trending');
       }
-      
+
       return newHistory;
     });
 
@@ -334,7 +335,7 @@ const SpeedBot: React.FC = () => {
     if (tickAnalysisHistory.length >= 20) {
       const signals = generateTradeSignals(tickAnalysisHistory, lastDigit);
       setTradeSignals(signals);
-      
+
       // Execute trade if conditions are met
       if (speedBotActive && signals.strength > 70) {
         executeSpeedTrade(lastDigit, signals);
@@ -353,15 +354,15 @@ const SpeedBot: React.FC = () => {
   const generateTradeSignals = (history: number[], currentDigit: number) => {
     let strength = 0;
     let direction = 'none';
-    
+
     const recentHistory = history.slice(-20);
     const evenCount = recentHistory.filter(d => d % 2 === 0).length;
     const oddCount = recentHistory.length - evenCount;
-    
+
     // Pattern analysis
     const lastFive = recentHistory.slice(-5);
     const streakLength = calculateStreakLength(lastFive);
-    
+
     // Signal generation based on strategy
     switch (strategyMode) {
       case 'martingale':
@@ -371,7 +372,7 @@ const SpeedBot: React.FC = () => {
           direction = lastFive[lastFive.length - 1] % 2 === 0 ? 'ODD' : 'EVEN';
         }
         break;
-        
+
       case 'dalembert':
         // Moderate progression betting
         if (evenCount > oddCount + 2) {
@@ -382,7 +383,7 @@ const SpeedBot: React.FC = () => {
           direction = 'EVEN';
         }
         break;
-        
+
       case 'fibonacci':
         // Based on Fibonacci sequence patterns
         const fibPattern = checkFibonacciPattern(recentHistory);
@@ -391,7 +392,7 @@ const SpeedBot: React.FC = () => {
           direction = fibPattern.nextExpected % 2 === 0 ? 'EVEN' : 'ODD';
         }
         break;
-        
+
       case 'scalping':
         // Quick trades on small patterns
         if (currentDigit === 0 || currentDigit === 9) {
@@ -400,24 +401,24 @@ const SpeedBot: React.FC = () => {
         }
         break;
     }
-    
+
     // Market condition adjustments
     if (marketCondition === 'volatile') {
       strength *= 1.2; // Increase confidence in volatile markets
     } else if (marketCondition === 'stable') {
       strength *= 0.8; // Decrease confidence in stable markets
     }
-    
+
     return { strength: Math.min(100, strength), direction };
   };
 
   // Calculate streak length for pattern analysis
   const calculateStreakLength = (digits: number[]): number => {
     if (digits.length < 2) return 0;
-    
+
     let streak = 1;
     const lastType = digits[digits.length - 1] % 2;
-    
+
     for (let i = digits.length - 2; i >= 0; i--) {
       if (digits[i] % 2 === lastType) {
         streak++;
@@ -425,7 +426,7 @@ const SpeedBot: React.FC = () => {
         break;
       }
     }
-    
+
     return streak;
   };
 
@@ -433,7 +434,7 @@ const SpeedBot: React.FC = () => {
   const checkFibonacciPattern = (history: number[]) => {
     const fibSeq = [0, 1, 1, 2, 3, 5, 8];
     const recent = history.slice(-5);
-    
+
     for (let i = 0; i <= recent.length - 3; i++) {
       const seq = recent.slice(i, i + 3);
       for (let j = 0; j <= fibSeq.length - 3; j++) {
@@ -443,7 +444,7 @@ const SpeedBot: React.FC = () => {
         }
       }
     }
-    
+
     return { found: false, nextExpected: 0 };
   };
 
@@ -490,7 +491,7 @@ const SpeedBot: React.FC = () => {
 
         // Apply strategy-specific stake adjustments
         let adjustedStake = currentStake;
-        
+
         switch (strategyMode) {
           case 'martingale':
             if (lastTradeResult === 'loss') {
@@ -578,10 +579,10 @@ const SpeedBot: React.FC = () => {
   // Enhanced executeTradeOnTick that integrates with speed bot
   const executeTradeOnTick = useCallback(async (tick: number) => {
     const currentTime = Date.now();
-    
+
     // Run speed bot analysis on every tick
     speedBotTickAnalysis(tick, currentTime);
-    
+
     // Regular trading logic (only if speed bot is not active)
     if (!speedBotActive) {
       const lastDigit = Math.floor(Math.abs(tick * 100000)) % 10;
@@ -825,6 +826,7 @@ const SpeedBot: React.FC = () => {
         </div>
       `;
       document.body.appendChild(loginDialog);
+      ```text
       return;
     }
 
@@ -957,7 +959,7 @@ const SpeedBot: React.FC = () => {
         script.parentNode.removeChild(script);
       }
     };
-  }, [useBulkTrading, isTrading, selectedSymbol, currentStake, isAuthorized, tradingEngine]);
+  }, [useBulkTrading, isTrading, selectedSymbol, currentStake, isAuthorized, tradingEngine, overUnderValue]);
 
   // Initialize bulk trading when component mounts or dependencies change
   useEffect(() => {
@@ -990,11 +992,11 @@ const SpeedBot: React.FC = () => {
     }
   };
 
-  const executeSingleBulkTrade = async (trade) => {
+  const executeSingleBulkTrade = async (trade: {type: string, probability: number, strategy?: string, barrier?: number}) => {
     try {
-      console.log(`💼 Executing bulk trade: ${trade.type} with ${trade.probability}% probability`);
+      console.log(\`💼 Executing bulk trade: \${trade.type} with \${trade.probability}% probability (Strategy: \${trade.strategy || 'default'})\`);
 
-      const proposalRequest = {
+      const proposalRequest: any = {
         amount: currentStake,
         basis: 'stake',
         contract_type: trade.type,
@@ -1003,6 +1005,11 @@ const SpeedBot: React.FC = () => {
         duration: 1,
         duration_unit: 't'
       };
+
+      // Add barrier for over/under contracts
+      if (trade.type === 'DIGITOVER' || trade.type === 'DIGITUNDER') {
+        proposalRequest.barrier = trade.barrier || overUnderValue;
+      }
 
       const proposalResponse = await tradingEngine.getProposal(proposalRequest);
 
@@ -1013,12 +1020,19 @@ const SpeedBot: React.FC = () => {
         );
 
         if (purchaseResponse.buy) {
-          const bulkTrade = {
-            id: `bulk_trade_${Date.now()}_${Math.random()}`,
+          // Create prediction text based on contract type
+          let prediction = trade.type;
+          if (trade.type === 'DIGITEVEN') prediction = 'EVEN';
+          else if (trade.type === 'DIGITODD') prediction = 'ODD';
+          else if (trade.type === 'DIGITOVER') prediction = \`OVER \${trade.barrier || overUnderValue}\`;
+          else if (trade.type === 'DIGITUNDER') prediction = \`UNDER \${trade.barrier || overUnderValue}\`;
+
+          const bulkTrade: TradeResult = {
+            id: \`bulk_trade_\${Date.now()}_\${Math.random()}\`,
             timestamp: new Date().toLocaleTimeString(),
             symbol: selectedSymbol,
             contractType: trade.type,
-            prediction: trade.type,
+            prediction,
             actual: 'PENDING',
             result: 'pending',
             stake: currentStake,
@@ -1031,11 +1045,11 @@ const SpeedBot: React.FC = () => {
           setTradeHistory(prev => [bulkTrade, ...prev.slice(0, 49)]);
           setTotalTrades(prev => prev + 1);
 
-          console.log(`✅ Bulk trade executed - Contract ID: ${purchaseResponse.buy.contract_id}`);
+          console.log(\`✅ Enhanced bulk trade executed - Contract ID: \${purchaseResponse.buy.contract_id}, Strategy: \${trade.strategy || 'default'}\`);
         }
       }
     } catch (error) {
-      console.error('❌ Bulk trade failed:', error);
+      console.error('❌ Enhanced bulk trade failed:', error);
     }
   };
 
@@ -1054,10 +1068,10 @@ const SpeedBot: React.FC = () => {
           <Localize i18n_default_text="Speed Bot - Real Money Trading" />
         </h2>
         <div className="speed-bot__status-group">
-          <div className={`speed-bot__status ${isConnected ? 'connected' : 'disconnected'}`}>
+          <div className={\`speed-bot__status \${isConnected ? 'connected' : 'disconnected'}\`}>
             {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
           </div>
-          <div className={`speed-bot__status ${isAuthorized ? 'authorized' : 'unauthorized'}`}>
+          <div className={\`speed-bot__status \${isAuthorized ? 'authorized' : 'unauthorized'}\`}>
             {isAuthorized ? '🔑 Authorized' : '⚠️ Please Login'}
           </div>
         </div>
@@ -1160,7 +1174,7 @@ const SpeedBot: React.FC = () => {
                 <div className="speed-bot__analysis-row">
                   <div className="speed-bot__analysis-item">
                     <label>Market Condition</label>
-                    <div className={`speed-bot__market-condition ${marketCondition}`}>
+                    <div className={\`speed-bot__market-condition \${marketCondition}\`}>
                       {marketCondition.toUpperCase()}
                     </div>
                   </div>
@@ -1169,7 +1183,7 @@ const SpeedBot: React.FC = () => {
                     <div className="speed-bot__signal-strength">
                       <div 
                         className="speed-bot__signal-bar"
-                        style={{width: `${tradeSignals.strength}%`}}
+                        style={{width: \`\${tradeSignals.strength}%\`}}
                       ></div>
                       <span>{tradeSignals.strength.toFixed(0)}%</span>
                     </div>
@@ -1178,7 +1192,7 @@ const SpeedBot: React.FC = () => {
                 <div className="speed-bot__analysis-row">
                   <div className="speed-bot__analysis-item">
                     <label>Next Signal</label>
-                    <div className={`speed-bot__next-signal ${tradeSignals.direction.toLowerCase()}`}>
+                    <div className={\`speed-bot__next-signal \${tradeSignals.direction.toLowerCase()}\`}>
                       {tradeSignals.direction}
                     </div>
                   </div>
@@ -1203,7 +1217,7 @@ const SpeedBot: React.FC = () => {
                         <div 
                           className="speed-bot__frequency-bar"
                           style={{
-                            height: `${((digitPatterns[digit] || 0) / Math.max(...Object.values(digitPatterns).concat(1))) * 100}%`
+                            height: \`\${((digitPatterns[digit] || 0) / Math.max(...Object.values(digitPatterns).concat(1))) * 100}%\`
                           }}
                         ></div>
                       </div>
@@ -1378,7 +1392,7 @@ const SpeedBot: React.FC = () => {
         </div>
         <div className="speed-bot__stat-card">
           <div className="speed-bot__stat-label">Total P&L</div>
-          <div className={`speed-bot__stat-value ${totalProfit >= 0 ? 'profit' : 'loss'}`}>
+          <div className={\`speed-bot__stat-value \${totalProfit >= 0 ? 'profit' : 'loss'}\`}>
             {totalProfit >= 0 ? '+' : ''}{totalProfit.toFixed(2)}
           </div>
         </div>
@@ -1407,7 +1421,7 @@ const SpeedBot: React.FC = () => {
             </div>
           ) : (
             tradeHistory.slice(0, 10).map((trade) => (
-              <div key={trade.id} className={`speed-bot__trade-item ${trade.result}`}>
+              <div key={trade.id} className={\`speed-bot__trade-item \${trade.result}\`}>
                 <div className="speed-bot__trade-time">{trade.timestamp}</div>
                 <div className="speed-bot__trade-details">
                   {trade.contractType} - {trade.prediction} vs {trade.actual}
@@ -1416,7 +1430,7 @@ const SpeedBot: React.FC = () => {
                   {trade.isBulkTrade && <span className="speed-bot__bulk-trade"> (BULK)</span>}
                   <span className="speed-bot__stake"> Stake: {trade.stake.toFixed(2)}</span>
                 </div>
-                <div className={`speed-bot__trade-result ${trade.result}`}>
+                <div className={\`speed-bot__trade-result \${trade.result}\`}>
                   {trade.result === 'win' ? '✅' : trade.result === 'loss' ? '❌' : '⏳'} {trade.profit >= 0 ? '+' : ''}{trade.profit.toFixed(2)}
                 </div>
               </div>
