@@ -131,7 +131,7 @@ export default Engine =>
             }
 
             // Stop if martingale multiplier gets too high (risk management)
-            if (martingaleMultiplier >= 64) {
+            if (martingaleMultiplier >= 2) {
                 console.log('Stopping due to high martingale multiplier');
                 return false;
             }
