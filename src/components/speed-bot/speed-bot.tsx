@@ -826,8 +826,7 @@ const SpeedBot: React.FC = () => {
         </div>
       `;
       document.body.appendChild(loginDialog);
-      ```text
-      return;
+      ```text      return;
     }
 
     // Reset martingale state
@@ -872,7 +871,7 @@ const SpeedBot: React.FC = () => {
     const script = document.createElement('script');
     script.textContent = 
       'let derivWs,reconnectTimeout;let tickHistory=[],currentSymbol="' + selectedSymbol + '",tickCount=120,decimalPlaces=2,overUnderBarrier=' + overUnderValue + ',isInitialized=false,reconnectAttempts=0,MAX_RECONNECT_ATTEMPTS=5;' +
-      
+
       'function startWebSocket(){' +
         'if(console.log("🔌 Connecting to WebSocket API"),reconnectTimeout&&clearTimeout(reconnectTimeout),derivWs){' +
           'try{derivWs.onclose=null,derivWs.close(),console.log("Closed existing connection")}catch(e){console.error("Error closing existing connection:",e)}' +
@@ -956,6 +955,7 @@ const SpeedBot: React.FC = () => {
         script.parentNode.removeChild(script);
       }
     };
+  });
   }, [useBulkTrading, isTrading, selectedSymbol, currentStake, isAuthorized, tradingEngine, overUnderValue]);
 
   // Initialize bulk trading when component mounts or dependencies change
