@@ -115,10 +115,30 @@ const SpeedBot: React.FC = () => {
         setCurrentPrice('Connected - Checking authorization...');
 
         // Try multiple token storage locations
-        const apiToken = localStorage.getItem('dbot_api_token') || 
-                        localStorage.getItem('authToken') || 
-                        localStorage.getItem('oauth_token') ||
-                        localStorage.getItem('deriv_token');
+        const accountsList = localStorage.getItem('accountsList');
+        let apiToken = localStorage.getItem('dbot_api_token') || 
+                      localStorage.getItem('authToken') || 
+                      localStorage.getItem('oauth_token') ||
+                      localStorage.getItem('deriv_token');
+        
+        // Try to get token from accounts list if available
+        if (!apiToken && accountsList) {
+          try {
+            const accounts = JSON.parse(accountsList);
+            const activeLoginId = localStorage.getItem('active_loginid');
+            if (activeLoginId && accounts[activeLoginId]) {
+              apiToken = accounts[activeLoginId];
+            } else {
+              // Get first available token
+              const firstAccount = Object.keys(accounts)[0];
+              if (firstAccount) {
+                apiToken = accounts[firstAccount];
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing accounts list:', error);
+          }
+        }
         
         if (apiToken && apiToken.length > 10) {
           console.log('🔑 Authorizing Speed Bot with API token for real trading');
@@ -127,15 +147,15 @@ const SpeedBot: React.FC = () => {
             req_id: 'speed_bot_auth'
           }));
         } else {
-          console.log('⚠️ No valid API token found - User needs to log in');
-          setCurrentPrice('Please log in to start trading');
+          console.log('⚠️ No valid API token found - Starting with tick subscription only');
+          setCurrentPrice('Getting price feed...');
           
           setTimeout(() => {
             if (ws.readyState === WebSocket.OPEN) {
               const tickRequest = {
                 ticks: selectedSymbol,
                 subscribe: 1,
-                req_id: 'speed_bot_ticks',
+                req_id: 'speed_bot_ticks'
               };
               ws.send(JSON.stringify(tickRequest));
             }
@@ -149,7 +169,28 @@ const SpeedBot: React.FC = () => {
 
           if (data.error) {
             console.error('Speed Bot API error:', data.error);
-            setCurrentPrice(`Error: ${data.error.message}`);
+            
+            // Handle specific error types
+            if (data.error.code === 'AuthorizationRequired') {
+              setCurrentPrice('Please log in to start trading');
+              setIsAuthorized(false);
+            } else if (data.error.code === 'InvalidToken') {
+              setCurrentPrice('Invalid token - please log in again');
+              setIsAuthorized(false);
+            } else {
+              setCurrentPrice(`Error: ${data.error.message}`);
+            }
+            
+            // If authorization fails, try to get tick data without auth
+            if (data.req_id === 'speed_bot_auth' && ws.readyState === WebSocket.OPEN) {
+              console.log('Authorization failed, trying tick subscription without auth');
+              const tickRequest = {
+                ticks: selectedSymbol,
+                subscribe: 1,
+                req_id: 'speed_bot_ticks'
+              };
+              ws.send(JSON.stringify(tickRequest));
+            }
             return;
           }
 
@@ -175,9 +216,17 @@ const SpeedBot: React.FC = () => {
             setCurrentPrice(price.toFixed(5));
             setCurrentTick(price);
 
-            if (isTrading) {
+            if (isTrading && isAuthorized) {
               executeTradeOnTick(price);
             }
+          }
+          
+          // Handle tick history response
+          if (data.history && data.history.prices && data.req_id === 'speed_bot_ticks') {
+            console.log('Received tick history, subscribing to live ticks');
+            const lastPrice = parseFloat(data.history.prices[data.history.prices.length - 1]);
+            setCurrentPrice(lastPrice.toFixed(5));
+            setCurrentTick(lastPrice);
           }
 
           if (data.proposal_open_contract) {
@@ -428,7 +477,25 @@ const SpeedBot: React.FC = () => {
     }
     
     if (!isAuthorized) {
-      alert('Please log in to your Deriv account to start trading');
+      // Show login dialog or redirect to login
+      const loginDialog = document.createElement('div');
+      loginDialog.innerHTML = `
+        <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                    background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
+                    z-index: 10000; text-align: center;">
+          <h3>Please log in to your Deriv account</h3>
+          <p>You need to be logged in to start real money trading</p>
+          <button onclick="window.location.href='/'" style="background: #ff444f; color: white; border: none; 
+                  padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px;">
+            Go to Login
+          </button>
+          <button onclick="this.parentElement.parentElement.remove()" style="background: #ccc; color: black; 
+                  border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px;">
+            Cancel
+          </button>
+        </div>
+      `;
+      document.body.appendChild(loginDialog);
       return;
     }
     
