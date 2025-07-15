@@ -145,28 +145,57 @@ const SpeedBot: React.FC = observer(() => {
 
   // Generate trading strategy XML for bot builder
   const generateSpeedBotStrategy = useCallback(() => {
-    const prediction = selectedContractType === 'DIGITOVER' ? overUnderValue : 
-                     selectedContractType === 'DIGITUNDER' ? overUnderValue :
-                     selectedContractType === 'DIGITEVEN' ? 0 :
-                     selectedContractType === 'DIGITODD' ? 1 :
-                     selectedContractType === 'DIGITMATCH' ? overUnderValue :
-                     selectedContractType === 'DIGITDIFF' ? overUnderValue : 5;
+    let prediction = overUnderValue;
+    let tradeType = selectedContractType;
 
-    const contractTypeMap = {
-      'DIGITOVER': 'DIGITOVER',
-      'DIGITUNDER': 'DIGITUNDER', 
-      'DIGITEVEN': 'DIGITEVEN',
-      'DIGITODD': 'DIGITODD',
-      'DIGITMATCH': 'DIGITMATCH',
-      'DIGITDIFF': 'DIGITDIFF'
-    };
+    // Map contract types and set appropriate predictions
+    switch (selectedContractType) {
+      case 'DIGITOVER':
+        tradeType = 'DIGITOVER';
+        prediction = overUnderValue;
+        break;
+      case 'DIGITUNDER':
+        tradeType = 'DIGITUNDER';
+        prediction = overUnderValue;
+        break;
+      case 'DIGITEVEN':
+        tradeType = 'DIGITEVEN';
+        prediction = undefined; // Even/Odd doesn't use prediction
+        break;
+      case 'DIGITODD':
+        tradeType = 'DIGITODD';
+        prediction = undefined; // Even/Odd doesn't use prediction
+        break;
+      case 'DIGITMATCH':
+        tradeType = 'DIGITMATCH';
+        prediction = overUnderValue;
+        break;
+      case 'DIGITDIFF':
+        tradeType = 'DIGITDIFF';
+        prediction = overUnderValue;
+        break;
+      case 'CALL':
+        tradeType = 'CALL';
+        prediction = undefined;
+        break;
+      default:
+        tradeType = 'DIGITOVER';
+        prediction = overUnderValue;
+    }
+
+    const predictionBlock = prediction !== undefined ? `
+    <value name="PREDICTION">
+      <block type="math_number">
+        <field name="NUM">${prediction}</field>
+      </block>
+    </value>` : '';
 
     const xmlStrategy = `
 <xml xmlns="http://www.w3.org/1999/xhtml" collection="false">
   <block type="trade_definition_tradeoptions" id="trade_definition" x="0" y="0">
     <field name="MARKET">synthetic_index</field>
     <field name="UNDERLYING">${selectedSymbol}</field>
-    <field name="TRADETYPE">${contractTypeMap[selectedContractType] || 'DIGITOVER'}</field>
+    <field name="TRADETYPE">${tradeType}</field>
     <field name="TYPE">ticks</field>
     <value name="DURATION">
       <block type="math_number">
@@ -177,17 +206,12 @@ const SpeedBot: React.FC = observer(() => {
       <block type="math_number">
         <field name="NUM">${currentStake}</field>
       </block>
-    </value>
-    <value name="PREDICTION">
-      <block type="math_number">
-        <field name="NUM">${prediction}</field>
-      </block>
-    </value>
+    </value>${predictionBlock}
   </block>
   <block type="before_purchase" x="0" y="200">
     <statement name="BEFOREPURCHASE_STACK">
       <block type="purchase">
-        <field name="PURCHASE_LIST">${contractTypeMap[selectedContractType] || 'DIGITOVER'}</field>
+        <field name="PURCHASE_LIST">${tradeType}</field>
       </block>
     </statement>
   </block>
@@ -196,7 +220,7 @@ const SpeedBot: React.FC = observer(() => {
       <block type="trade_again">
         <value name="CONDITION">
           <block type="logic_boolean">
-            <field name="BOOL">TRUE</field>
+            <field name="BOOL">FALSE</field>
           </block>
         </value>
       </block>
@@ -211,21 +235,26 @@ const SpeedBot: React.FC = observer(() => {
   const executeTradeOnTick = useCallback(async (tick: number) => {
     if (!isTrading || isExecutingTrade) return;
     
-    // Throttle trades to prevent excessive execution (minimum 2 seconds between trades)
+    // Throttle trades to prevent excessive execution (minimum 3 seconds between trades)
     const now = Date.now();
-    if (now - lastTradeTime < 2000) return;
+    if (now - lastTradeTime < 3000) return;
 
-    // Check if workspace is available using window.Blockly.derivWorkspace
+    // Check if workspace is available
     if (!window.Blockly?.derivWorkspace) {
       console.error('Blockly workspace not available');
       return;
+    }
+
+    // Check if bot is already running and stop it first
+    if (run_panel.is_running) {
+      return; // Don't execute new trade if bot is already running
     }
 
     setIsExecutingTrade(true);
     setLastTradeTime(now);
 
     try {
-      // Generate and load strategy
+      // Generate strategy for this specific trade
       const strategyXml = generateSpeedBotStrategy();
       
       // Clear existing workspace
@@ -235,10 +264,8 @@ const SpeedBot: React.FC = observer(() => {
       const xml = window.Blockly.utils.xml.textToDom(strategyXml);
       window.Blockly.Xml.domToWorkspace(xml, window.Blockly.derivWorkspace);
 
-      // Start bot execution through run panel
-      if (!run_panel.is_running) {
-        await run_panel.onRunButtonClick();
-      }
+      // Execute single trade through bot builder
+      await run_panel.onRunButtonClick();
 
       // Track trade for UI
       const trade: Trade = {
@@ -254,14 +281,14 @@ const SpeedBot: React.FC = observer(() => {
       setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
       setTotalTrades(prev => prev + 1);
 
-      console.log(`Trade executed through bot builder: ${selectedContractType} - Stake: ${currentStake}`);
+      console.log(`Trade executed: ${selectedContractType} on ${selectedSymbol} - Stake: ${currentStake}`);
       
     } catch (error) {
       console.error('Error executing trade:', error);
     } finally {
       setIsExecutingTrade(false);
     }
-  }, [selectedSymbol, selectedContractType, currentStake, overUnderValue, generateSpeedBotStrategy, run_panel, isTrading, isExecutingTrade, lastTradeTime]);
+  }, [selectedSymbol, selectedContractType, currentStake, generateSpeedBotStrategy, run_panel, isTrading, isExecutingTrade, lastTradeTime]);
 
   const startTrading = async () => {
     if (!isConnected) {
@@ -326,12 +353,14 @@ const SpeedBot: React.FC = observer(() => {
     // Listen for bot contract events to update trade results
     const handleBotContract = (data: any) => {
       if (data && isTrading) {
+        console.log('Bot contract event received:', data);
+        
         setTradeHistory(prev => {
           const updatedHistory = [...prev];
           if (updatedHistory.length > 0) {
             const lastTrade = updatedHistory[0];
             if (lastTrade.result === 'pending') {
-              const isWin = data.profit > 0;
+              const isWin = data.profit_percentage > 0 || data.profit > 0;
               lastTrade.result = isWin ? 'win' : 'loss';
               lastTrade.profit = data.profit || 0;
               
@@ -343,21 +372,29 @@ const SpeedBot: React.FC = observer(() => {
               } else {
                 setLosses(prev => prev + 1);
                 if (useMartingale) {
-                  setCurrentStake(prev => prev * martingaleMultiplier); // Increase stake
+                  setCurrentStake(prev => Math.min(prev * martingaleMultiplier, stake * 100)); // Increase stake with limit
                 }
               }
               
-              // Balance is updated automatically through client store
+              console.log(`Trade result: ${isWin ? 'WIN' : 'LOSS'}, Profit: ${data.profit}`);
             }
           }
           return updatedHistory;
         });
+        
+        // Stop the bot after each trade to allow next trade
+        if (run_panel.is_running) {
+          setTimeout(() => {
+            run_panel.onStopButtonClick();
+          }, 1000);
+        }
       }
     };
 
-    // Only register observer if it exists
-    if (typeof observer !== 'undefined' && observer.register) {
+    // Register observers for bot events
+    if (window.Blockly?.derivWorkspace) {
       observer.register('bot.contract', handleBotContract);
+      observer.register('contract.status', handleBotContract);
     }
     
     return () => {
