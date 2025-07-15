@@ -86,6 +86,15 @@ window.Blockly.Blocks.purchase = {
 window.Blockly.JavaScript.javascriptGenerator.forBlock.purchase = block => {
     const purchaseList = block.getFieldValue('PURCHASE_LIST');
 
-    const code = `Bot.purchase('${purchaseList}');\n`;
+    const code = `var purchase_list = "${purchaseList}";\n` +
+    `var execution_mode = "";\n` + // execution_mode might not be defined for every bot.
+    `var stake = Bot.getStake();\n` +
+    `if (typeof Bot.getMartingaleMultiplier === "function") {\n` +
+    `    var martingale_multiplier = Bot.getMartingaleMultiplier();\n` +
+    `    if (martingale_multiplier && martingale_multiplier > 1) {\n` +
+    `        stake = stake * martingale_multiplier;\n` +
+    `    }\n` +
+    `}\n` +
+    `Bot.purchase(purchase_list, stake);\n`;
     return code;
 };

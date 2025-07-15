@@ -18,6 +18,17 @@ const getBotInterface = tradeEngine => {
         isResult: result => getDetail(10) === result,
         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
         readDetails: i => getDetail(i - 1),
+        setStake: s => {
+            this.stake = s;
+            this.observer.emit('bot.set_stake', s);
+        },
+        getMartingaleMultiplier: () => {
+            return this.martingale_multiplier || 1;
+        },
+        setMartingaleMultiplier: m => {
+            this.martingale_multiplier = m;
+            this.observer.emit('bot.set_martingale_multiplier', m);
+        },
     };
 };
 
