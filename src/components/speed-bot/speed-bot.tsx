@@ -122,6 +122,7 @@ const SpeedBot: React.FC = observer(() => {
   const [isDirectTrading, setIsDirectTrading] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [proposalId, setProposalId] = useState<string | null>(null);
+  const [activeContracts, setActiveContracts] = useState<Map<string, any>>(new Map());
 
   const volatilitySymbols = [
     { value: 'R_10', label: 'Volatility 10 Index' },
@@ -192,6 +193,43 @@ const SpeedBot: React.FC = observer(() => {
       setIsExecutingTrade(false);
     }
   }, [websocket, isAuthorized, isExecutingTrade]);
+
+  // Sell contract function
+  const sellContract = useCallback(async (contractId: string) => {
+    if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+      console.error('❌ Cannot sell contract: WebSocket not connected');
+      return;
+    }
+
+    if (!isAuthorized) {
+      console.error('❌ Cannot sell contract: Not authorized');
+      return;
+    }
+
+    try {
+      const sellRequest = {
+        sell: contractId,
+        price: 0, // Sell at market price
+        req_id: Date.now()
+      };
+
+      console.log('📤 Selling contract:', contractId);
+      websocket.send(JSON.stringify(sellRequest));
+
+    } catch (error) {
+      console.error('Error selling contract:', error);
+      setError(`Failed to sell contract: ${error.message}`);
+    }
+  }, [websocket, isAuthorized]);
+
+  // Strategy condition check (similar to your reference code)
+  const isGoodCondition = useCallback((lastDigit: number, contractType: string) => {
+    if (contractType === 'DIGITEVEN') return [0, 2, 4, 6, 8].includes(lastDigit);
+    if (contractType === 'DIGITODD') return [1, 3, 5, 7, 9].includes(lastDigit);
+    if (contractType === 'DIGITOVER') return lastDigit > overUnderValue;
+    if (contractType === 'DIGITUNDER') return lastDigit < overUnderValue;
+    return true; // for other types like CALL/PUT
+  }, [overUnderValue]);
 
   // Get price proposal using proper Deriv API format
   const getPriceProposal = useCallback(() => {
@@ -393,6 +431,7 @@ const SpeedBot: React.FC = observer(() => {
             setProposalId(null);
             setError(null);
 
+            const contractId = data.buy.contract_id;
             const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             const trade: Trade = {
               id: tradeId,
@@ -411,31 +450,89 @@ const SpeedBot: React.FC = observer(() => {
                 console.log(`📊 Total trades incremented to: ${newTotal}`);
                 return newTotal;
               });
+
+              // Store active contract for potential selling
+              if (contractId) {
+                setActiveContracts(prev => {
+                  const newMap = new Map(prev);
+                  newMap.set(contractId, {
+                    ...trade,
+                    contractId,
+                    buyPrice: data.buy.buy_price,
+                    startTime: Date.now()
+                  });
+                  return newMap;
+                });
+              }
             }
 
-            if (data.buy.contract_id) {
+            if (contractId) {
               try {
                 const contractRequest = {
                   proposal_open_contract: 1,
-                  contract_id: data.buy.contract_id,
+                  contract_id: contractId,
                   subscribe: 1,
                   req_id: Date.now() + 3000
                 };
                 ws.send(JSON.stringify(contractRequest));
-                console.log('📈 Subscribed to contract updates for contract:', data.buy.contract_id);
+                console.log('📈 Subscribed to contract updates for contract:', contractId);
               } catch (error) {
                 console.error('❌ Error subscribing to contract:', error);
               }
             }
 
+            // Continue trading after a short delay
             if (isTrading && isDirectTrading) {
               setTimeout(() => {
                 if (isTrading && isDirectTrading && !isExecutingTrade) {
-                  console.log('🔄 Getting next proposal for continuous trading...');
-                  getPriceProposal();
+                  console.log('🔄 Waiting for next good condition...');
+                  // The next trade will be triggered by tick condition check
                 }
-              }, 500);
+              }, 1000);
             }
+          }
+
+          // Handle sell response
+          if (data.sell) {
+            console.log('✅ Contract sold successfully:', data.sell);
+            const contractId = data.sell.contract_id;
+            
+            // Remove from active contracts
+            setActiveContracts(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(contractId);
+              return newMap;
+            });
+
+            // Update trade history
+            const sellPrice = parseFloat(data.sell.sell_price || 0);
+            const buyPrice = parseFloat(data.sell.buy_price || 0);
+            const profit = sellPrice - buyPrice;
+
+            setTradeHistory(prev => {
+              const updated = [...prev];
+              const tradeIndex = updated.findIndex(t => t.result === 'pending');
+              if (tradeIndex !== -1) {
+                updated[tradeIndex] = {
+                  ...updated[tradeIndex],
+                  result: profit > 0 ? 'win' : 'loss',
+                  profit: profit
+                };
+              }
+              return updated;
+            });
+
+            if (profit > 0) {
+              setWins(prev => prev + 1);
+              setCurrentStake(stake);
+            } else {
+              setLosses(prev => prev + 1);
+              if (useMartingale) {
+                setCurrentStake(prev => prev * martingaleMultiplier);
+              }
+            }
+
+            console.log(`📊 Contract sold: ${profit > 0 ? 'WIN' : 'LOSS'} Profit: ${profit}`);
           }
 
           // Handle buy errors
@@ -473,9 +570,56 @@ const SpeedBot: React.FC = observer(() => {
           // Handle contract update (profit/loss)
           if (data.proposal_open_contract) {
             const contract = data.proposal_open_contract;
+            const contractId = contract.contract_id;
+            
+            // Update active contract info
+            if (contractId && activeContracts.has(contractId)) {
+              setActiveContracts(prev => {
+                const newMap = new Map(prev);
+                const existingContract = newMap.get(contractId);
+                if (existingContract) {
+                  newMap.set(contractId, {
+                    ...existingContract,
+                    currentProfit: parseFloat(contract.profit || 0),
+                    currentPrice: parseFloat(contract.bid_price || 0),
+                    status: contract.status
+                  });
+                }
+                return newMap;
+              });
+            }
+
+            // Auto-sell logic: sell if profit reaches certain threshold or after certain time
+            if (contract.status === 'open' && contractId && activeContracts.has(contractId)) {
+              const currentProfit = parseFloat(contract.profit || 0);
+              const activeContract = activeContracts.get(contractId);
+              
+              if (activeContract) {
+                const timeElapsed = Date.now() - activeContract.startTime;
+                const profitThreshold = currentStake * 0.8; // 80% profit threshold
+                const maxHoldTime = 45000; // 45 seconds max hold time
+                
+                // Sell conditions: good profit or max time reached
+                if (currentProfit >= profitThreshold || timeElapsed >= maxHoldTime) {
+                  console.log(`🎯 Auto-selling contract ${contractId}: Profit=${currentProfit}, Time=${timeElapsed}ms`);
+                  sellContract(contractId);
+                }
+              }
+            }
+
+            // Handle natural contract completion
             if (contract.is_sold || contract.status === 'sold') {
               const profit = parseFloat(contract.profit || 0);
               const isWin = profit > 0;
+
+              // Remove from active contracts
+              if (contractId) {
+                setActiveContracts(prev => {
+                  const newMap = new Map(prev);
+                  newMap.delete(contractId);
+                  return newMap;
+                });
+              }
 
               let tradeWasUpdated = false;
               setTradeHistory(prev => {
@@ -500,13 +644,26 @@ const SpeedBot: React.FC = observer(() => {
                 }
               }
 
-              console.log(`Contract completed:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`, `Trade counted: ${tradeWasUpdated}`);
+              console.log(`📊 Contract completed:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`, `Trade counted: ${tradeWasUpdated}`);
             }
           }
 
           if (data.tick && data.tick.symbol === selectedSymbol) {
             const price = parseFloat(data.tick.quote);
             setCurrentPrice(price.toFixed(5));
+            
+            // Check strategy condition before getting proposal
+            if (isTrading && isDirectTrading && !isExecutingTrade) {
+              const lastDigit = Number(data.tick.quote.toString().slice(-1));
+              console.log(`📊 Tick: ${data.tick.quote} (Last Digit: ${lastDigit})`);
+              
+              if (isGoodCondition(lastDigit, selectedContractType)) {
+                console.log('✅ Good condition met, getting proposal...');
+                getPriceProposal();
+              } else {
+                console.log('⏳ Waiting for good condition...');
+              }
+            }
           }
 
           if (data.history && data.history.prices) {
@@ -607,6 +764,7 @@ const SpeedBot: React.FC = observer(() => {
     setLosses(0);
     setCurrentStake(stake);
     setError(null);
+    setActiveContracts(new Map());
   };
 
   useEffect(() => {
@@ -798,6 +956,37 @@ const SpeedBot: React.FC = observer(() => {
             Reset Stats
           </button>
         </div>
+
+        {/* Active Contracts Section */}
+        {activeContracts.size > 0 && (
+          <div className="speed-bot__active-contracts">
+            <h3>Active Contracts ({activeContracts.size})</h3>
+            <div className="speed-bot__contracts-list">
+              {Array.from(activeContracts.entries()).map(([contractId, contract]) => (
+                <div key={contractId} className="speed-bot__contract-item">
+                  <div className="speed-bot__contract-info">
+                    <span className="speed-bot__contract-id">
+                      {contractId.substring(0, 8)}...
+                    </span>
+                    <span className="speed-bot__contract-symbol">
+                      {contract.symbol} - {contract.contractType}
+                    </span>
+                    <span className="speed-bot__contract-profit">
+                      Profit: {contract.currentProfit ? `$${contract.currentProfit.toFixed(2)}` : 'Calculating...'}
+                    </span>
+                  </div>
+                  <button 
+                    className="speed-bot__sell-btn"
+                    onClick={() => sellContract(contractId)}
+                    disabled={!isAuthorized}
+                  >
+                    Sell Now
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="speed-bot__stats">

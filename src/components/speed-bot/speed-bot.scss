@@ -390,4 +390,79 @@
   &__status-indicator--disconnected {
     background-color: #f44336;
   }
+
+  &__active-contracts {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+
+    h3 {
+      margin: 0 0 15px 0;
+      color: #333;
+      font-size: 16px;
+    }
+  }
+
+  &__contracts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__contract-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+  }
+
+  &__contract-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+
+  &__contract-id {
+    font-family: monospace;
+    font-size: 12px;
+    color: #666;
+  }
+
+  &__contract-symbol {
+    font-weight: 500;
+    color: #333;
+  }
+
+  &__contract-profit {
+    font-size: 14px;
+    color: #28a745;
+    font-weight: 500;
+  }
+
+  &__sell-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background-color 0.2s;
+
+    &:hover {
+      background: #c82333;
+    }
+
+    &:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+    }
+  }
 }
