@@ -357,23 +357,25 @@ const AppWrapper = observer(() => {
             }
 
             if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
-                try {
-                    await load_modal.loadFileFromContent(xmlContent);
-                    console.log("Bot loaded successfully!");
+                        try {
+                            await load_modal.loadFileFromContent(xmlContent);
+                            console.log("Bot loaded successfully!");
 
-                    // Also update workspace name
-                    if (typeof updateWorkspaceName === 'function') {
-                        updateWorkspaceName(xmlContent);
+                            // Also update workspace name
+                            if (typeof updateWorkspaceName === 'function') {
+                                updateWorkspaceName(xmlContent);
+                            }
+                        } catch (loadError) {
+                            console.error("Error in load_modal.loadFileFromContent:", loadError);
+                            // Handle error gracefully without breaking the app
+                            return;
+                        }
+                    } else {
+                        console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
+                        console.log("load_modal object:", load_modal);
+                        // Handle error gracefully without breaking the app
+                        return;
                     }
-                } catch (loadError) {
-                    console.error("Error in load_modal.loadFileFromContent:", loadError);
-                    //Removed alert message
-                }
-            } else {
-                console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
-                console.log("load_modal object:", load_modal);
-                //Removed alert message
-            }
 
         } catch (error) {
             console.error("Error loading bot:", error);
