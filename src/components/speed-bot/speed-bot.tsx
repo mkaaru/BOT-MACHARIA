@@ -296,7 +296,7 @@ const SpeedBot: React.FC = observer(() => {
     }
   }, [websocket, isAuthorized]);
 
-  // Strategy condition check (similar to your reference code)
+  // Strategy condition check - ALWAYS RETURN TRUE FOR TESTING
   const isGoodCondition = useCallback((lastDigit: number, contractType: string) => {
     console.log(`🎯 Condition check: lastDigit=${lastDigit}, contractType=${contractType}, overUnderValue=${overUnderValue}`);
     
@@ -305,9 +305,14 @@ const SpeedBot: React.FC = observer(() => {
       return false;
     }
     
+    // FOR TESTING: ALWAYS TRADE ON EVERY TICK TO ENSURE EXECUTION WORKS
+    console.log(`🎯 TEST MODE: Always returning TRUE to test execution`);
+    return true;
+    
+    // Original logic (commented out for testing):
+    /*
     let result = false;
     
-    // For immediate execution strategy - trade on every tick that meets condition
     switch (contractType) {
       case 'DIGITEVEN':
         result = lastDigit % 2 === 0; // 0, 2, 4, 6, 8
@@ -317,23 +322,15 @@ const SpeedBot: React.FC = observer(() => {
         break;
       case 'DIGITOVER':
         result = lastDigit > overUnderValue;
-        console.log(`🎯 DIGITOVER check: ${lastDigit} > ${overUnderValue} = ${result}`);
         break;
       case 'DIGITUNDER':
         result = lastDigit < overUnderValue;
-        console.log(`🎯 DIGITUNDER check: ${lastDigit} < ${overUnderValue} = ${result}`);
         break;
       case 'DIGITMATCH':
         result = lastDigit === overUnderValue;
-        console.log(`🎯 DIGITMATCH check: ${lastDigit} === ${overUnderValue} = ${result}`);
         break;
       case 'DIGITDIFF':
         result = lastDigit !== overUnderValue;
-        console.log(`🎯 DIGITDIFF check: ${lastDigit} !== ${overUnderValue} = ${result}`);
-        break;
-      case 'CALL':
-      case 'PUT':
-        result = true; // For rise/fall, trade on every tick
         break;
       default:
         result = false;
@@ -341,6 +338,7 @@ const SpeedBot: React.FC = observer(() => {
     
     console.log(`🎯 Final condition result: ${result ? '✅ TRADE' : '❌ SKIP'} (${contractType}: digit=${lastDigit}, barrier=${overUnderValue})`);
     return result;
+    */
   }, [overUnderValue]);
 
   // Get price proposal using proper Deriv API format
@@ -630,12 +628,18 @@ const SpeedBot: React.FC = observer(() => {
           if (data.buy) {
             console.log('✅ Contract purchased successfully:', JSON.stringify(data.buy, null, 2));
             
-            // Clear any pending timeout
+            // Clear any pending timeouts
             if ((window as any).buyTimeoutId) {
               clearTimeout((window as any).buyTimeoutId);
               (window as any).buyTimeoutId = null;
             }
             
+            if ((window as any).proposalTimeoutId) {
+              clearTimeout((window as any).proposalTimeoutId);
+              (window as any).proposalTimeoutId = null;
+            }
+            
+            // Reset all execution states
             setIsExecutingTrade(false);
             setIsRequestingProposal(false);
             setProposalId(null);
@@ -884,14 +888,11 @@ const SpeedBot: React.FC = observer(() => {
             // Enhanced tick processing with validation
             if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal) {
               // Get the last digit from the price - handle decimal places properly
-              const priceStr = price.toString();
-              const digits = priceStr.replace('.', ''); // Remove decimal point
-              const lastDigit = parseInt(digits[digits.length - 1]);
+              const priceStr = data.tick.quote.toString();
+              const lastDigit = parseInt(priceStr[priceStr.length - 1]);
               
               console.log(`📊 Processing tick: ${data.tick.quote}`);
-              console.log(`   - Price: ${price}`);
               console.log(`   - Price string: "${priceStr}"`);
-              console.log(`   - Digits: "${digits}"`);
               console.log(`   - Last digit: ${lastDigit}`);
               console.log(`   - Contract type: ${selectedContractType}`);
               console.log(`   - Over/Under value: ${overUnderValue}`);
@@ -901,26 +902,55 @@ const SpeedBot: React.FC = observer(() => {
                 return;
               }
               
-              // Check condition based on contract type
-              const conditionMet = isGoodCondition(lastDigit, selectedContractType);
-              console.log(`🎲 Condition check: digit=${lastDigit}, type=${selectedContractType}, barrier=${overUnderValue}, result=${conditionMet}`);
+              // Check condition based on contract type - SIMPLIFIED LOGIC
+              let conditionMet = false;
+              
+              switch (selectedContractType) {
+                case 'DIGITEVEN':
+                  conditionMet = lastDigit % 2 === 0; // 0, 2, 4, 6, 8
+                  console.log(`🎯 DIGITEVEN: ${lastDigit} is ${conditionMet ? 'EVEN' : 'ODD'}`);
+                  break;
+                case 'DIGITODD':
+                  conditionMet = lastDigit % 2 === 1; // 1, 3, 5, 7, 9
+                  console.log(`🎯 DIGITODD: ${lastDigit} is ${conditionMet ? 'ODD' : 'EVEN'}`);
+                  break;
+                case 'DIGITOVER':
+                  conditionMet = lastDigit > overUnderValue;
+                  console.log(`🎯 DIGITOVER: ${lastDigit} > ${overUnderValue} = ${conditionMet}`);
+                  break;
+                case 'DIGITUNDER':
+                  conditionMet = lastDigit < overUnderValue;
+                  console.log(`🎯 DIGITUNDER: ${lastDigit} < ${overUnderValue} = ${conditionMet}`);
+                  break;
+                case 'DIGITMATCH':
+                  conditionMet = lastDigit === overUnderValue;
+                  console.log(`🎯 DIGITMATCH: ${lastDigit} === ${overUnderValue} = ${conditionMet}`);
+                  break;
+                case 'DIGITDIFF':
+                  conditionMet = lastDigit !== overUnderValue;
+                  console.log(`🎯 DIGITDIFF: ${lastDigit} !== ${overUnderValue} = ${conditionMet}`);
+                  break;
+                default:
+                  conditionMet = false;
+                  console.log(`🎯 Unknown contract type: ${selectedContractType}`);
+              }
+              
+              console.log(`🎲 Final condition result: ${conditionMet ? '✅ TRADE NOW' : '❌ SKIP'}`);
               
               if (conditionMet) {
-                console.log('✅ CONDITION MET - requesting proposal immediately!');
-                console.log(`🚀 Trading: ${selectedContractType} with digit ${lastDigit} ${selectedContractType === 'DIGITOVER' ? '>' : selectedContractType === 'DIGITUNDER' ? '<' : selectedContractType === 'DIGITMATCH' ? '===' : selectedContractType === 'DIGITDIFF' ? '!==' : 'vs'} ${overUnderValue}`);
-                // Request proposal immediately without delay
-                getPriceProposal();
+                console.log('🚀 CONDITION MET - requesting proposal immediately!');
+                console.log(`🚀 Trading: ${selectedContractType} with digit ${lastDigit}`);
+                
+                // Clear any existing timeouts
+                if ((window as any).proposalTimeoutId) {
+                  clearTimeout((window as any).proposalTimeoutId);
+                  (window as any).proposalTimeoutId = null;
+                }
+                
+                // Request proposal immediately
+                setTimeout(() => getPriceProposal(), 100); // Small delay to ensure state is updated
               } else {
                 console.log(`⏳ Condition not met - waiting for right condition... (current digit: ${lastDigit})`);
-                if (selectedContractType === 'DIGITOVER') {
-                  console.log(`   Need digit > ${overUnderValue}, got ${lastDigit}`);
-                } else if (selectedContractType === 'DIGITUNDER') {
-                  console.log(`   Need digit < ${overUnderValue}, got ${lastDigit}`);
-                } else if (selectedContractType === 'DIGITMATCH') {
-                  console.log(`   Need digit === ${overUnderValue}, got ${lastDigit}`);
-                } else if (selectedContractType === 'DIGITDIFF') {
-                  console.log(`   Need digit !== ${overUnderValue}, got ${lastDigit}`);
-                }
               }
             } else {
               const reasons = [];
