@@ -317,15 +317,19 @@ const SpeedBot: React.FC = observer(() => {
         break;
       case 'DIGITOVER':
         result = lastDigit > overUnderValue;
+        console.log(`🎯 DIGITOVER check: ${lastDigit} > ${overUnderValue} = ${result}`);
         break;
       case 'DIGITUNDER':
         result = lastDigit < overUnderValue;
+        console.log(`🎯 DIGITUNDER check: ${lastDigit} < ${overUnderValue} = ${result}`);
         break;
       case 'DIGITMATCH':
         result = lastDigit === overUnderValue;
+        console.log(`🎯 DIGITMATCH check: ${lastDigit} === ${overUnderValue} = ${result}`);
         break;
       case 'DIGITDIFF':
         result = lastDigit !== overUnderValue;
+        console.log(`🎯 DIGITDIFF check: ${lastDigit} !== ${overUnderValue} = ${result}`);
         break;
       case 'CALL':
       case 'PUT':
@@ -335,7 +339,7 @@ const SpeedBot: React.FC = observer(() => {
         result = false;
     }
     
-    console.log(`🎯 Condition result: ${result ? '✅ TRADE' : '❌ SKIP'} (${contractType}: ${lastDigit})`);
+    console.log(`🎯 Final condition result: ${result ? '✅ TRADE' : '❌ SKIP'} (${contractType}: digit=${lastDigit}, barrier=${overUnderValue})`);
     return result;
   }, [overUnderValue]);
 
@@ -873,7 +877,8 @@ const SpeedBot: React.FC = observer(() => {
               isDirectTrading,
               isExecutingTrade,
               isRequestingProposal,
-              selectedContractType
+              selectedContractType,
+              overUnderValue
             });
             
             // Enhanced tick processing with validation
@@ -889,22 +894,33 @@ const SpeedBot: React.FC = observer(() => {
               console.log(`   - Digits: "${digits}"`);
               console.log(`   - Last digit: ${lastDigit}`);
               console.log(`   - Contract type: ${selectedContractType}`);
+              console.log(`   - Over/Under value: ${overUnderValue}`);
               
               if (isNaN(lastDigit)) {
                 console.error('❌ Invalid last digit from tick:', data.tick.quote);
                 return;
               }
               
-              // Force condition check for DIGITEVEN (should trigger on even digits: 0,2,4,6,8)
+              // Check condition based on contract type
               const conditionMet = isGoodCondition(lastDigit, selectedContractType);
-              console.log(`🎲 Condition check: digit=${lastDigit}, type=${selectedContractType}, result=${conditionMet}`);
+              console.log(`🎲 Condition check: digit=${lastDigit}, type=${selectedContractType}, barrier=${overUnderValue}, result=${conditionMet}`);
               
               if (conditionMet) {
                 console.log('✅ CONDITION MET - requesting proposal immediately!');
+                console.log(`🚀 Trading: ${selectedContractType} with digit ${lastDigit} ${selectedContractType === 'DIGITOVER' ? '>' : selectedContractType === 'DIGITUNDER' ? '<' : selectedContractType === 'DIGITMATCH' ? '===' : selectedContractType === 'DIGITDIFF' ? '!==' : 'vs'} ${overUnderValue}`);
                 // Request proposal immediately without delay
                 getPriceProposal();
               } else {
-                console.log(`⏳ Condition not met - waiting for even digit... (current: ${lastDigit})`);
+                console.log(`⏳ Condition not met - waiting for right condition... (current digit: ${lastDigit})`);
+                if (selectedContractType === 'DIGITOVER') {
+                  console.log(`   Need digit > ${overUnderValue}, got ${lastDigit}`);
+                } else if (selectedContractType === 'DIGITUNDER') {
+                  console.log(`   Need digit < ${overUnderValue}, got ${lastDigit}`);
+                } else if (selectedContractType === 'DIGITMATCH') {
+                  console.log(`   Need digit === ${overUnderValue}, got ${lastDigit}`);
+                } else if (selectedContractType === 'DIGITDIFF') {
+                  console.log(`   Need digit !== ${overUnderValue}, got ${lastDigit}`);
+                }
               }
             } else {
               const reasons = [];
