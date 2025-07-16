@@ -868,28 +868,15 @@ const SpeedBot: React.FC = observer(() => {
             const price = parseFloat(data.tick.quote);
             setCurrentPrice(price.toFixed(5));
             
-            console.log(`🎯 TICK RECEIVED: ${data.tick.quote} for ${data.tick.symbol}`);
-            console.log(`🎯 Current states:`, {
-              isTrading,
-              isDirectTrading,
-              isExecutingTrade,
-              isRequestingProposal,
-              selectedContractType,
-              overUnderValue
-            });
+            // Get the last digit from the price - handle decimal places properly
+            const priceStr = data.tick.quote.toString();
+            const lastDigit = parseInt(priceStr[priceStr.length - 1]);
+            
+            console.log(`🎯 TICK: ${data.tick.quote} | Last Digit: ${lastDigit} | Need: >${overUnderValue} (DIGITOVER)`);
+            console.log(`🎯 States: Trading=${isTrading}, Direct=${isDirectTrading}, Executing=${isExecutingTrade}, Requesting=${isRequestingProposal}`);
             
             // Enhanced tick processing with validation
             if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal) {
-              // Get the last digit from the price - handle decimal places properly
-              const priceStr = data.tick.quote.toString();
-              const lastDigit = parseInt(priceStr[priceStr.length - 1]);
-              
-              console.log(`📊 Processing tick: ${data.tick.quote}`);
-              console.log(`   - Price string: "${priceStr}"`);
-              console.log(`   - Last digit: ${lastDigit}`);
-              console.log(`   - Contract type: ${selectedContractType}`);
-              console.log(`   - Over/Under value: ${overUnderValue}`);
-              
               if (isNaN(lastDigit)) {
                 console.error('❌ Invalid last digit from tick:', data.tick.quote);
                 return;
@@ -901,38 +888,35 @@ const SpeedBot: React.FC = observer(() => {
               switch (selectedContractType) {
                 case 'DIGITEVEN':
                   conditionMet = lastDigit % 2 === 0; // 0, 2, 4, 6, 8
-                  console.log(`🎯 DIGITEVEN: ${lastDigit} is ${conditionMet ? 'EVEN' : 'ODD'}`);
+                  console.log(`🎯 DIGITEVEN: ${lastDigit} is ${conditionMet ? 'EVEN ✅' : 'ODD ❌'}`);
                   break;
                 case 'DIGITODD':
                   conditionMet = lastDigit % 2 === 1; // 1, 3, 5, 7, 9
-                  console.log(`🎯 DIGITODD: ${lastDigit} is ${conditionMet ? 'ODD' : 'EVEN'}`);
+                  console.log(`🎯 DIGITODD: ${lastDigit} is ${conditionMet ? 'ODD ✅' : 'EVEN ❌'}`);
                   break;
                 case 'DIGITOVER':
                   conditionMet = lastDigit > overUnderValue;
-                  console.log(`🎯 DIGITOVER: ${lastDigit} > ${overUnderValue} = ${conditionMet}`);
+                  console.log(`🎯 DIGITOVER: ${lastDigit} > ${overUnderValue} = ${conditionMet ? '✅ TRADE' : '❌ SKIP'}`);
                   break;
                 case 'DIGITUNDER':
                   conditionMet = lastDigit < overUnderValue;
-                  console.log(`🎯 DIGITUNDER: ${lastDigit} < ${overUnderValue} = ${conditionMet}`);
+                  console.log(`🎯 DIGITUNDER: ${lastDigit} < ${overUnderValue} = ${conditionMet ? '✅ TRADE' : '❌ SKIP'}`);
                   break;
                 case 'DIGITMATCH':
                   conditionMet = lastDigit === overUnderValue;
-                  console.log(`🎯 DIGITMATCH: ${lastDigit} === ${overUnderValue} = ${conditionMet}`);
+                  console.log(`🎯 DIGITMATCH: ${lastDigit} === ${overUnderValue} = ${conditionMet ? '✅ TRADE' : '❌ SKIP'}`);
                   break;
                 case 'DIGITDIFF':
                   conditionMet = lastDigit !== overUnderValue;
-                  console.log(`🎯 DIGITDIFF: ${lastDigit} !== ${overUnderValue} = ${conditionMet}`);
+                  console.log(`🎯 DIGITDIFF: ${lastDigit} !== ${overUnderValue} = ${conditionMet ? '✅ TRADE' : '❌ SKIP'}`);
                   break;
                 default:
                   conditionMet = false;
                   console.log(`🎯 Unknown contract type: ${selectedContractType}`);
               }
               
-              console.log(`🎲 Final condition result: ${conditionMet ? '✅ TRADE NOW' : '❌ SKIP'}`);
-              
               if (conditionMet) {
-                console.log('🚀 CONDITION MET - requesting proposal immediately!');
-                console.log(`🚀 Trading: ${selectedContractType} with digit ${lastDigit}`);
+                console.log(`🚀🚀🚀 CONDITION MET! Trading ${selectedContractType} with digit ${lastDigit} 🚀🚀🚀`);
                 
                 // Clear any existing timeouts
                 if ((window as any).proposalTimeoutId) {
@@ -941,9 +925,9 @@ const SpeedBot: React.FC = observer(() => {
                 }
                 
                 // Request proposal immediately
-                setTimeout(() => getPriceProposal(), 100); // Small delay to ensure state is updated
+                setTimeout(() => getPriceProposal(), 100);
               } else {
-                console.log(`⏳ Condition not met - waiting for right condition... (current digit: ${lastDigit})`);
+                console.log(`⏳ Waiting for digit > ${overUnderValue}... (current: ${lastDigit})`);
               }
             } else {
               const reasons = [];
@@ -952,7 +936,7 @@ const SpeedBot: React.FC = observer(() => {
               if (isExecutingTrade) reasons.push('executing trade');
               if (isRequestingProposal) reasons.push('requesting proposal');
               
-              console.log(`⏸️ Skipping tick processing: ${reasons.join(', ')}`);
+              console.log(`⏸️ Skipping tick: ${reasons.join(', ')}`);
             }
           }
 
