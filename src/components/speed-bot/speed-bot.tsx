@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Localize } from '@deriv-com/translations';
 import { useStore } from '@/hooks/useStore';
 import { observer } from 'mobx-react-lite';
@@ -16,21 +16,33 @@ interface Trade {
 }
 
 const SpeedBot: React.FC = observer(() => {
-  const store = useStore();
-  const run_panel = store?.run_panel;
-  const client = store?.client;
+  try {
+    const store = useStore();
+    const run_panel = store?.run_panel;
+    const client = store?.client;
 
-  // Early return if required stores are not available
-  if (!run_panel || !client) {
-    return (
-      <div className="speed-bot">
-        <div className="speed-bot__error">
-          <h3>Speed Bot Unavailable</h3>
-          <p>Required services are not available. Please ensure you are logged in and try again.</p>
+    // Early return if required stores are not available
+    if (!store) {
+      return (
+        <div className="speed-bot">
+          <div className="speed-bot__error">
+            <h3>Speed Bot Loading...</h3>
+            <p>Initializing Speed Bot services...</p>
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
+
+    if (!run_panel || !client) {
+      return (
+        <div className="speed-bot">
+          <div className="speed-bot__error">
+            <h3>Speed Bot Unavailable</h3>
+            <p>Required services are not available. Please ensure you are logged in and try again.</p>
+          </div>
+        </div>
+      );
+    }
 
   // Get token from client store with better error handling
   const getAuthToken = () => {
@@ -1307,6 +1319,18 @@ const SpeedBot: React.FC = observer(() => {
       </div>
     </div>
   );
+  } catch (error) {
+    console.error('Speed Bot error:', error);
+    return (
+      <div className="speed-bot">
+        <div className="speed-bot__error">
+          <h3>Speed Bot Error</h3>
+          <p>An error occurred while loading the Speed Bot. Please refresh the page and try again.</p>
+          <p style={{ color: 'red', fontSize: '12px' }}>Error: {error.message}</p>
+        </div>
+      </div>
+    );
+  }
 });
 
 export default SpeedBot;
