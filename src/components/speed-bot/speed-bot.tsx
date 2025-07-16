@@ -40,7 +40,7 @@ const SpeedBot: React.FC = observer(() => {
     console.log('🔍 Checking authentication...');
     console.log('Client object:', client);
     console.log('Is logged in:', client?.is_logged_in);
-    
+
     if (!client) {
       console.log('❌ Client store not available');
       return null;
@@ -53,18 +53,18 @@ const SpeedBot: React.FC = observer(() => {
 
     // Try multiple ways to get the token
     let token = null;
-    
+
     // Check various possible token locations
     if (client.getToken && typeof client.getToken === 'function') {
       token = client.getToken();
       console.log('🔑 Token from getToken():', token ? 'Available' : 'Null');
     }
-    
+
     if (!token && client.token) {
       token = client.token;
       console.log('🔑 Token from client.token:', token ? 'Available' : 'Null');
     }
-    
+
     if (!token && client.authentication?.token) {
       token = client.authentication.token;
       console.log('🔑 Token from client.authentication.token:', token ? 'Available' : 'Null');
@@ -217,7 +217,7 @@ const SpeedBot: React.FC = observer(() => {
 
     try {
       setIsExecutingTrade(true);
-      
+
       const buyRequest = {
         buy: proposalId,
         price: proposalPrice || currentStake, // Use the proposal price or current stake
@@ -227,9 +227,9 @@ const SpeedBot: React.FC = observer(() => {
 
       console.log('📈 Buying contract with request:', buyRequest);
       console.log('💰 Using proposal price:', proposalPrice, 'Current stake:', currentStake);
-      
+
       websocket.send(JSON.stringify(buyRequest));
-      
+
       // Set timeout to reset executing state if no response
       setTimeout(() => {
         if (isExecutingTrade) {
@@ -238,7 +238,7 @@ const SpeedBot: React.FC = observer(() => {
           setError('Buy request timed out - trying again...');
         }
       }, 8000); // Increased timeout
-      
+
     } catch (error) {
       console.error('Error buying contract:', error);
       setError(`Failed to buy contract: ${error.message}`);
@@ -285,11 +285,11 @@ const SpeedBot: React.FC = observer(() => {
 
       console.log('📊 Getting price proposal:', proposalRequest);
       websocket.send(JSON.stringify(proposalRequest));
-      
+
     } catch (error) {
       console.error('Error getting proposal:', error);
       setError(`Failed to get proposal: ${error.message}`);
-      
+
       // Retry after error
       if (isTrading) {
         setTimeout(() => {
@@ -380,7 +380,7 @@ const SpeedBot: React.FC = observer(() => {
             console.log('✅ WebSocket authorized successfully', data.authorize);
             setIsAuthorized(true);
             setError(null);
-            
+
             // Start getting proposals when authorized and trading
             if (isTrading) {
               getPriceProposal();
@@ -394,12 +394,12 @@ const SpeedBot: React.FC = observer(() => {
           // Handle price proposal response
           if (data.proposal) {
             console.log('💰 Proposal received:', data.proposal);
-            
+
             if (data.proposal.error) {
               console.error('❌ Proposal error:', data.proposal.error);
               setError(`Proposal failed: ${data.proposal.error.message}`);
               setIsExecutingTrade(false);
-              
+
               // Retry getting proposal after error
               if (isTrading) {
                 setTimeout(() => {
@@ -413,7 +413,7 @@ const SpeedBot: React.FC = observer(() => {
             if (data.proposal.id && data.proposal.ask_price) {
               console.log('✅ Valid proposal received - ID:', data.proposal.id, 'Price:', data.proposal.ask_price);
               setProposalId(data.proposal.id);
-              
+
               // Auto-buy immediately if trading is active
               if (isTrading && !isExecutingTrade) {
                 console.log('🚀 Attempting to buy contract with proposal ID:', data.proposal.id);
@@ -438,7 +438,7 @@ const SpeedBot: React.FC = observer(() => {
             setIsExecutingTrade(false);
             setProposalId(null); // Reset proposal ID
             setError(null); // Clear any previous errors
-            
+
             const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             const trade: Trade = {
               id: tradeId,
@@ -491,7 +491,7 @@ const SpeedBot: React.FC = observer(() => {
             console.error('❌ Buy contract error:', data.error);
             setIsExecutingTrade(false);
             setProposalId(null);
-            
+
             if (data.error.code === 'InvalidContractProposal') {
               setError('Proposal expired - getting new proposal...');
               // Immediately get a new proposal
@@ -582,7 +582,7 @@ const SpeedBot: React.FC = observer(() => {
         setIsAuthorized(false);
         setWebsocket(null);
         setIsExecutingTrade(false);
-        
+
         // Auto-reconnect if trading was active
         if (isTrading && !event.wasClean) {
           console.log('🔄 Auto-reconnecting in 3 seconds...');
@@ -624,7 +624,7 @@ const SpeedBot: React.FC = observer(() => {
 
       // Initialize trade engine
       const engine = new TradeEngine(engineScope);
-      
+
       // Initialize with token and options
       const initOptions = {
         symbol: selectedSymbol,
@@ -661,7 +661,7 @@ const SpeedBot: React.FC = observer(() => {
 
     try {
       console.log('🚀 Executing bot engine trade...');
-      
+
       // Configure trade options for bot engine
       const tradeOptions = {
         amount: currentStake,
@@ -682,7 +682,7 @@ const SpeedBot: React.FC = observer(() => {
 
       // Create a unique trade ID for tracking
       const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       // Add pending trade to history immediately
       const pendingTrade: Trade = {
         id: tradeId,
@@ -703,9 +703,9 @@ const SpeedBot: React.FC = observer(() => {
 
       // Use bot interface to purchase
       const purchaseResult = await botInterface.purchase(tradeOptions);
-      
+
       console.log('✅ Purchase executed:', purchaseResult);
-      
+
       // Update the pending trade with contract details if available
       if (purchaseResult && purchaseResult.contract_id) {
         setTradeHistory(prev => {
@@ -726,7 +726,7 @@ const SpeedBot: React.FC = observer(() => {
     } catch (error) {
       console.error('❌ Bot engine trade execution failed:', error);
       setError(`Trade execution failed: ${error.message}`);
-      
+
       // Update the latest pending trade to show error
       setTradeHistory(prev => {
         const updated = [...prev];
@@ -736,7 +736,7 @@ const SpeedBot: React.FC = observer(() => {
         }
         return updated;
       });
-      
+
       throw error;
     }
   }, [tradeEngine, botInterface, isUsingBotEngine, currentStake, selectedContractType, selectedSymbol, overUnderValue, client]);
@@ -747,11 +747,11 @@ const SpeedBot: React.FC = observer(() => {
 
     const handleBuyContract = (data) => {
       console.log('💰 Bot engine buy contract:', data);
-      
+
       if (data && data.buy) {
         const buyData = data.buy;
         console.log('✅ Contract purchased successfully:', buyData);
-        
+
         // Update the most recent pending trade with buy details
         setTradeHistory(prev => {
           const updated = [...prev];
@@ -766,10 +766,10 @@ const SpeedBot: React.FC = observer(() => {
 
     const handleTradeComplete = (data) => {
       console.log('✅ Bot engine trade complete:', data);
-      
+
       if (data && data.proposal_open_contract) {
         const contract = data.proposal_open_contract;
-        
+
         if (contract.is_sold || contract.status === 'sold') {
           const profit = parseFloat(contract.profit || 0);
           const isWin = profit > 0;
@@ -781,7 +781,7 @@ const SpeedBot: React.FC = observer(() => {
               trade.id === contract.contract_id || 
               (trade.result === 'pending' && !updated.some(t => t.id === contract.contract_id))
             );
-            
+
             if (tradeIndex >= 0) {
               updated[tradeIndex] = {
                 ...updated[tradeIndex],
@@ -846,10 +846,10 @@ const SpeedBot: React.FC = observer(() => {
 
   const startTrading = async () => {
     console.log('🚀 Attempting to start Speed Bot in hybrid mode...');
-    
+
     // Reset any previous errors
     setError(null);
-    
+
     // Check if user is logged in and has token
     const authToken = getAuthToken();
     if (!authToken) {
@@ -867,11 +867,11 @@ const SpeedBot: React.FC = observer(() => {
     if (client) {
       const accountType = client?.is_virtual ? 'Demo' : 'Real';
       console.log(`📊 Account type: ${accountType}`);
-      
+
       if (client?.balance !== undefined) {
         const balance = parseFloat(client.balance);
         console.log(`💰 Account balance: ${balance} ${client.currency || 'USD'}`);
-        
+
         if (balance < stake) {
           setError(`Insufficient balance. Current: ${balance} ${client.currency || 'USD'}, Required: ${stake}`);
           return;
@@ -916,7 +916,7 @@ const SpeedBot: React.FC = observer(() => {
 
     try {
       console.log('🔄 Executing trading loop...');
-      
+
       // Check if we have sufficient balance before trading
       if (client?.balance !== undefined) {
         const balance = parseFloat(client.balance);
@@ -943,7 +943,7 @@ const SpeedBot: React.FC = observer(() => {
 
     } catch (error) {
       console.error('❌ Trading loop error:', error);
-      
+
       // Retry after error with longer delay
       setTimeout(() => {
         if (isTrading) {
@@ -958,7 +958,7 @@ const SpeedBot: React.FC = observer(() => {
     try {
       setIsTrading(false);
       setProposalId(null);
-      
+
       // Stop bot engine if using hybrid mode
       if (isUsingBotEngine && tradeEngine) {
         console.log('🛑 Stopping bot engine...');
@@ -967,7 +967,7 @@ const SpeedBot: React.FC = observer(() => {
         setTradeEngine(null);
         setBotInterface(null);
       }
-      
+
       console.log('🛑 Speed Bot trading stopped');
     } catch (error) {
       console.error('Error stopping Speed Bot:', error);

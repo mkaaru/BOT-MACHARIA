@@ -382,4 +382,12 @@
       opacity: 0.8;
     }
   }
+
+    &__status-indicator--connected {
+    background-color: #4caf50;
+  }
+
+  &__status-indicator--disconnected {
+    background-color: #f44336;
+  }
 }
