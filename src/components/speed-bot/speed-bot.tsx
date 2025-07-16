@@ -442,8 +442,13 @@ const SpeedBot: React.FC = observer(() => {
               profit: 0,
             };
 
+            // Add trade to history and increment total trades counter
             setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
-            setTotalTrades(prev => prev + 1);
+            setTotalTrades(prev => {
+              const newTotal = prev + 1;
+              console.log(`📊 Total trades incremented to: ${newTotal}`);
+              return newTotal;
+            });
             setLastTradeTime(Date.now());
 
             // Subscribe to contract updates
@@ -508,27 +513,32 @@ const SpeedBot: React.FC = observer(() => {
               const isWin = profit > 0;
 
               // Update the most recent trade with result
+              let tradeWasUpdated = false;
               setTradeHistory(prev => {
                 const updated = [...prev];
                 if (updated[0] && updated[0].result === 'pending') {
                   updated[0].result = isWin ? 'win' : 'loss';
                   updated[0].profit = profit;
+                  tradeWasUpdated = true;
                 }
                 return updated;
               });
 
-              if (isWin) {
-                setWins(prev => prev + 1);
-                setCurrentStake(stake); // Reset to original stake on win
-              } else {
-                setLosses(prev => prev + 1);
-                // Apply martingale if enabled
-                if (useMartingale) {
-                  setCurrentStake(prev => prev * martingaleMultiplier);
+              // Only increment counters if we actually updated a trade
+              if (tradeWasUpdated) {
+                if (isWin) {
+                  setWins(prev => prev + 1);
+                  setCurrentStake(stake); // Reset to original stake on win
+                } else {
+                  setLosses(prev => prev + 1);
+                  // Apply martingale if enabled
+                  if (useMartingale) {
+                    setCurrentStake(prev => prev * martingaleMultiplier);
+                  }
                 }
               }
 
-              console.log(`Contract completed:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`);
+              console.log(`Contract completed:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`, `Trade counted: ${tradeWasUpdated}`);
             }
           }
 
