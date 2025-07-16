@@ -2,9 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
 import { useStore } from '@/hooks/useStore';
 import { observer } from 'mobx-react-lite';
-import getBotInterface from '@/external/bot-skeleton/services/tradeEngine/Interface/BotInterface';
-import TradeEngine from '@/external/bot-skeleton/services/tradeEngine/trade';
-import { globalObserver } from '@/utils/tmp/dummy';
+// Direct WebSocket trading - no bot engine dependencies
 import './speed-bot.scss';
 
 interface Trade {
@@ -123,10 +121,8 @@ const SpeedBot: React.FC = observer(() => {
   const [isExecutingTrade, setIsExecutingTrade] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Bot engine state
-  const [tradeEngine, setTradeEngine] = useState<any>(null);
-  const [botInterface, setBotInterface] = useState<any>(null);
-  const [isUsingBotEngine, setIsUsingBotEngine] = useState(false);
+  // Direct WebSocket trading state
+  const [isDirectTrading, setIsDirectTrading] = useState(false);
 
   const volatilitySymbols = [
     { value: 'R_10', label: 'Volatility 10 Index' },
@@ -152,44 +148,7 @@ const SpeedBot: React.FC = observer(() => {
     { value: 'PUT', label: 'Fall' },
   ];
 
-  // Safe observer pattern implementation
-  const createObserver = () => {
-    const observers: { [key: string]: Array<(data: any) => void> } = {};
-
-    return {
-      register: (event: string, callback: (data: any) => void) => {
-        if (!observers[event]) {
-          observers[event] = [];
-        }
-        observers[event].push(callback);
-      },
-      emit: (event: string, data?: any) => {
-        if (observers[event]) {
-          observers[event].forEach(callback => {
-            try {
-              callback(data);
-            } catch (error) {
-              console.error('Observer callback error:', error);
-            }
-          });
-        }
-      },
-      unregister: (event: string, callback?: (data: any) => void) => {
-        if (observers[event]) {
-          if (callback) {
-            const index = observers[event].indexOf(callback);
-            if (index > -1) {
-              observers[event].splice(index, 1);
-            }
-          } else {
-            observers[event] = [];
-          }
-        }
-      }
-    };
-  };
-
-  const localObserver = createObserver();
+  // Direct WebSocket trading - no observer pattern needed
 
   // State for tracking authorization
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -622,107 +581,54 @@ const SpeedBot: React.FC = observer(() => {
     }
   }, [selectedSymbol, isTrading]);
 
-  // Initialize bot engine for hybrid approach
-  const initializeBotEngine = useCallback(async () => {
-    try {
-      console.log('🤖 BREAKPOINT 42: Initializing bot engine for Speed Bot...');
-      console.log('🔍 BREAKPOINT 42.1: WebSocket before bot engine init - isConnected:', isConnected, 'readyState:', websocket?.readyState);
+  // Direct WebSocket trading initialization
+  const initializeDirectTrading = useCallback(() => {
+    console.log('🚀 BREAKPOINT 42: Initializing direct WebSocket trading...');
+    console.log('🔍 BREAKPOINT 42.1: WebSocket state - isConnected:', isConnected, 'readyState:', websocket?.readyState);
 
-      const authToken = getAuthToken();
-      console.log('🔍 BREAKPOINT 43: Auth token for bot engine:', authToken ? 'Available' : 'Missing');
-      if (!authToken) {
-        console.log('❌ BREAKPOINT 44: No auth token for bot engine');
-        throw new Error('No authentication token available');
-      }
-
-      // Create bot engine scope
-      console.log('🔧 BREAKPOINT 45: Creating bot engine scope...');
-      const engineScope = {
-        observer: globalObserver || localObserver
-      };
-      console.log('🔍 BREAKPOINT 46: Engine scope created with observer:', !!engineScope.observer);
-
-      // Initialize trade engine
-      console.log('🔧 BREAKPOINT 47: Creating TradeEngine instance...');
-      const engine = new TradeEngine(engineScope);
-      console.log('✅ BREAKPOINT 48: TradeEngine instance created');
-
-      // Initialize with token and options
-      const initOptions = {
-        symbol: selectedSymbol,
-        currency: client?.currency || 'USD'
-      };
-
-      console.log('🔧 BREAKPOINT 49: Initializing trade engine with:', initOptions);
-      console.log('🔍 BREAKPOINT 49.1: WebSocket during bot engine init - isConnected:', isConnected, 'readyState:', websocket?.readyState);
-      
-      await engine.init(authToken, initOptions);
-      console.log('✅ BREAKPOINT 50: Trade engine initialized');
-      console.log('🔍 BREAKPOINT 50.1: WebSocket after bot engine init - isConnected:', isConnected, 'readyState:', websocket?.readyState);
-
-      // Create bot interface
-      console.log('🔧 BREAKPOINT 51: Creating bot interface...');
-      const botIface = getBotInterface(engine);
-      console.log('✅ BREAKPOINT 52: Bot interface created');
-
-      console.log('🔄 BREAKPOINT 53: Setting state variables...');
-      setTradeEngine(engine);
-      setBotInterface(botIface);
-      setIsUsingBotEngine(true);
-
-      console.log('✅ BREAKPOINT 54: Bot engine initialized successfully');
-      console.log('🔍 BREAKPOINT 54.1: Final WebSocket state - isConnected:', isConnected, 'readyState:', websocket?.readyState);
-      
-      return { engine, botIface };
-
-    } catch (error) {
-      console.error('❌ BREAKPOINT 55: Failed to initialize bot engine:', error);
-      console.error('❌ BREAKPOINT 55.1: Error details:', error.message, error.stack);
-      console.error('❌ BREAKPOINT 55.2: WebSocket state during error:', websocket?.readyState);
-      setError(`Bot engine initialization failed: ${error.message}`);
-      setIsUsingBotEngine(false);
-      throw error;
+    const authToken = getAuthToken();
+    console.log('🔍 BREAKPOINT 43: Auth token for direct trading:', authToken ? 'Available' : 'Missing');
+    
+    if (!authToken) {
+      console.log('❌ BREAKPOINT 44: No auth token for direct trading');
+      setError('Please log in to Deriv first. Go to deriv.com and sign in, then try again.');
+      return false;
     }
-  }, [selectedSymbol, client, isConnected, websocket]);
 
-  // Execute a single trade using bot engine
-  const executeBotTrade = useCallback(async () => {
-    console.log('🚀 BREAKPOINT 27: executeBotTrade called');
-    console.log('🔍 BREAKPOINT 28: Engine status - tradeEngine:', !!tradeEngine, 'botInterface:', !!botInterface, 'isUsingBotEngine:', isUsingBotEngine);
+    if (!isConnected || !isAuthorized) {
+      console.log('❌ BREAKPOINT 45: WebSocket not ready for direct trading');
+      setError('WebSocket connection not ready. Please wait and try again.');
+      return false;
+    }
+
+    console.log('✅ BREAKPOINT 46: Direct WebSocket trading ready');
+    setIsDirectTrading(true);
+    return true;
+  }, [isConnected, isAuthorized, websocket]);
+
+  // Execute a single trade using direct WebSocket
+  const executeDirectTrade = useCallback(async () => {
+    console.log('🚀 BREAKPOINT 27: executeDirectTrade called');
+    console.log('🔍 BREAKPOINT 28: Direct trading status - isDirectTrading:', isDirectTrading);
     console.log('🔍 BREAKPOINT 28.1: WebSocket status - isConnected:', isConnected, 'isAuthorized:', isAuthorized, 'readyState:', websocket?.readyState);
     
-    if (!tradeEngine || !botInterface || !isUsingBotEngine) {
-      console.error('❌ BREAKPOINT 29: Bot engine not available for trading');
-      console.error('  - tradeEngine:', !!tradeEngine);
-      console.error('  - botInterface:', !!botInterface);
-      console.error('  - isUsingBotEngine:', isUsingBotEngine);
+    if (!isDirectTrading || !isConnected || !isAuthorized || !websocket) {
+      console.error('❌ BREAKPOINT 29: Direct trading not available');
+      console.error('  - isDirectTrading:', isDirectTrading);
+      console.error('  - isConnected:', isConnected);
+      console.error('  - isAuthorized:', isAuthorized);
+      console.error('  - websocket:', !!websocket);
+      return;
+    }
+
+    if (isExecutingTrade) {
+      console.log('⏳ BREAKPOINT 30: Trade already executing, skipping');
       return;
     }
 
     try {
-      console.log('🚀 BREAKPOINT 30: Executing bot engine trade...');
-      console.log('🔍 BREAKPOINT 30.1: Current trading state - currentStake:', currentStake, 'selectedContractType:', selectedContractType);
-
-      // Configure trade options for bot engine
-      const tradeOptions = {
-        amount: currentStake,
-        basis: 'stake',
-        contract_type: selectedContractType,
-        currency: client?.currency || 'USD',
-        duration: 1,
-        duration_unit: 't',
-        symbol: selectedSymbol,
-      };
-
-      // Add prediction/barrier for digit contracts
-      if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType)) {
-        tradeOptions.barrier = overUnderValue.toString();
-        console.log('🎯 BREAKPOINT 31: Added barrier for digit contract:', overUnderValue);
-      } else {
-        console.log('🎯 BREAKPOINT 32: No barrier needed for contract type:', selectedContractType);
-      }
-
-      console.log('📊 BREAKPOINT 33: Trade options configured:', tradeOptions);
+      console.log('🚀 BREAKPOINT 31: Executing direct WebSocket trade...');
+      console.log('🔍 BREAKPOINT 31.1: Current trading state - currentStake:', currentStake, 'selectedContractType:', selectedContractType);
 
       // Create a unique trade ID for tracking
       const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -741,48 +647,20 @@ const SpeedBot: React.FC = observer(() => {
       setTradeHistory(prev => [pendingTrade, ...prev.slice(0, 19)]);
       setTotalTrades(prev => {
         const newTotal = prev + 1;
-        console.log(`📊 BREAKPOINT 33.1: Total trades incremented to: ${newTotal}`);
+        console.log(`📊 BREAKPOINT 32: Total trades incremented to: ${newTotal}`);
         return newTotal;
       });
 
-      // Use bot interface to purchase
-      console.log('💳 BREAKPOINT 34: Calling botInterface.purchase...');
-      console.log('💳 BREAKPOINT 34.1: Purchase method available:', typeof botInterface.purchase);
-      
-      const purchaseResult = await botInterface.purchase(tradeOptions);
-      console.log('✅ BREAKPOINT 35: Purchase result received:', purchaseResult);
-      console.log('✅ BREAKPOINT 35.1: Purchase result type:', typeof purchaseResult);
-
-      // Update the pending trade with contract details if available
-      if (purchaseResult && purchaseResult.contract_id) {
-        console.log('🔄 BREAKPOINT 36: Updating trade history with contract ID:', purchaseResult.contract_id);
-        setTradeHistory(prev => {
-          const updated = [...prev];
-          const tradeIndex = updated.findIndex(t => t.id === tradeId);
-          if (tradeIndex >= 0) {
-            updated[tradeIndex] = {
-              ...updated[tradeIndex],
-              id: purchaseResult.contract_id || tradeId, // Use contract ID if available
-            };
-            console.log('✅ BREAKPOINT 37: Trade history updated successfully');
-          } else {
-            console.log('⚠️ BREAKPOINT 38: Trade not found in history for update');
-          }
-          return updated;
-        });
-      } else {
-        console.log('⚠️ BREAKPOINT 39: No contract ID in purchase result');
-      }
-
-      return purchaseResult;
+      // Get proposal first, then buy immediately
+      console.log('💳 BREAKPOINT 33: Getting proposal for direct trade...');
+      getPriceProposal();
 
     } catch (error) {
-      console.error('❌ BREAKPOINT 40: Bot engine trade execution failed:', error);
+      console.error('❌ BREAKPOINT 34: Direct trade execution failed:', error);
       console.error('  - Error type:', typeof error);
       console.error('  - Error message:', error.message);
-      console.error('  - Error stack:', error.stack);
       console.error('  - WebSocket state during error:', websocket?.readyState);
-      setError(`Trade execution failed: ${error.message}`);
+      setError(`Direct trade execution failed: ${error.message}`);
 
       // Update the latest pending trade to show error
       setTradeHistory(prev => {
@@ -790,120 +668,27 @@ const SpeedBot: React.FC = observer(() => {
         if (updated[0] && updated[0].result === 'pending') {
           updated[0].result = 'loss';
           updated[0].profit = -updated[0].stake;
-          console.log('🔄 BREAKPOINT 41: Updated pending trade to show error');
+          console.log('🔄 BREAKPOINT 35: Updated pending trade to show error');
         }
         return updated;
       });
 
       throw error;
     }
-  }, [tradeEngine, botInterface, isUsingBotEngine, currentStake, selectedContractType, selectedSymbol, overUnderValue, client, isConnected, isAuthorized, websocket]);
+  }, [isDirectTrading, isConnected, isAuthorized, websocket, isExecutingTrade, currentStake, selectedContractType, selectedSymbol, getPriceProposal]);
 
-  // Handle bot engine trade events for hybrid approach
-  const handleBotEngineEvents = useCallback(() => {
-    if (!isTrading || !isUsingBotEngine) return;
-
-    const handleBuyContract = (data) => {
-      console.log('💰 Bot engine buy contract:', data);
-
-      if (data && data.buy) {
-        const buyData = data.buy;
-        console.log('✅ Contract purchased successfully:', buyData);
-
-        // Update the most recent pending trade with buy details
-        setTradeHistory(prev => {
-          const updated = [...prev];
-          const pendingTrade = updated.find(trade => trade.result === 'pending');
-          if (pendingTrade && buyData.contract_id) {
-            pendingTrade.id = buyData.contract_id;
-          }
-          return updated;
-        });
-      }
-    };
-
-    const handleTradeComplete = (data) => {
-      console.log('✅ Bot engine trade complete:', data);
-
-      if (data && data.proposal_open_contract) {
-        const contract = data.proposal_open_contract;
-
-        if (contract.is_sold || contract.status === 'sold') {
-          const profit = parseFloat(contract.profit || 0);
-          const isWin = profit > 0;
-
-          // Update the trade with matching contract ID
-          setTradeHistory(prev => {
-            const updated = [...prev];
-            const tradeIndex = updated.findIndex(trade => 
-              trade.id === contract.contract_id || 
-              (trade.result === 'pending' && !updated.some(t => t.id === contract.contract_id))
-            );
-
-            if (tradeIndex >= 0) {
-              updated[tradeIndex] = {
-                ...updated[tradeIndex],
-                id: contract.contract_id,
-                result: isWin ? 'win' : 'loss',
-                profit: profit,
-              };
-            }
-            return updated;
-          });
-
-          // Update win/loss counters
-          if (isWin) {
-            setWins(prev => prev + 1);
-            setCurrentStake(stake); // Reset to original stake on win
-          } else {
-            setLosses(prev => prev + 1);
-            // Apply martingale if enabled
-            if (useMartingale) {
-              setCurrentStake(prev => prev * martingaleMultiplier);
-            }
-          }
-
-          console.log(`🎯 Speed Bot trade result:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`);
-        }
-      }
-    };
-
-    const handleTickUpdate = (data) => {
-      if (data && data.tick && data.tick.symbol === selectedSymbol) {
-        const price = parseFloat(data.tick.quote);
-        setCurrentPrice(price.toFixed(5));
-      }
-    };
-
-    const handleError = (data) => {
-      console.error('❌ Bot engine error:', data);
-      if (data && data.error) {
-        setError(`Bot error: ${data.error.message}`);
-      }
-    };
-
-    // Register for bot engine events
-    const observer = globalObserver || localObserver;
-    if (observer) {
-      observer.register('bot.buy', handleBuyContract);
-      observer.register('bot.contract', handleTradeComplete);
-      observer.register('bot.tick', handleTickUpdate);
-      observer.register('bot.error', handleError);
-    }
-
+  // Handle direct WebSocket trading events
+  const handleDirectTradingEvents = useCallback(() => {
+    console.log('🔄 Setting up direct trading event handlers...');
+    // All events are already handled in the WebSocket onmessage handler
+    // This function is kept for consistency with the previous pattern
     return () => {
-      const observer = globalObserver || localObserver;
-      if (observer) {
-        observer.unregister('bot.buy', handleBuyContract);
-        observer.unregister('bot.contract', handleTradeComplete);
-        observer.unregister('bot.tick', handleTickUpdate);
-        observer.unregister('bot.error', handleError);
-      }
+      console.log('🔄 Cleaning up direct trading event handlers...');
     };
-  }, [selectedSymbol, selectedContractType, currentStake, useMartingale, martingaleMultiplier, stake, isTrading, isUsingBotEngine]);
+  }, []);
 
   const startTrading = async () => {
-    console.log('🚀 BREAKPOINT 1: Attempting to start Speed Bot in hybrid mode...');
+    console.log('🚀 BREAKPOINT 1: Attempting to start Speed Bot in direct WebSocket mode...');
     console.log('🔍 BREAKPOINT 1.1: Current connection state - isConnected:', isConnected, 'isAuthorized:', isAuthorized);
     console.log('🔍 BREAKPOINT 1.2: WebSocket state:', websocket?.readyState, 'Expected OPEN:', WebSocket.OPEN);
 
@@ -946,22 +731,24 @@ const SpeedBot: React.FC = observer(() => {
     try {
       console.log('🔧 BREAKPOINT 4: Setting up trading state...');
       
-      // Don't disconnect WebSocket - keep it alive
-      console.log('🔍 BREAKPOINT 4.1: Maintaining existing WebSocket connection');
-      
       setCurrentStake(stake);
       setIsTrading(true);
       setIsExecutingTrade(false);
 
-      console.log('🤖 BREAKPOINT 5: Starting Speed Bot in hybrid mode using bot engine...');
+      console.log('🌐 BREAKPOINT 5: Starting Speed Bot in direct WebSocket mode...');
       console.log(`📊 BREAKPOINT 6: Configuration: ${selectedContractType} on ${selectedSymbol} with stake ${stake}`);
 
-      // Initialize bot engine
-      console.log('🔧 BREAKPOINT 7: Calling initializeBotEngine...');
-      await initializeBotEngine();
-      console.log('✅ BREAKPOINT 8: Bot engine initialization completed');
+      // Initialize direct trading
+      console.log('🔧 BREAKPOINT 7: Calling initializeDirectTrading...');
+      const success = initializeDirectTrading();
+      if (!success) {
+        console.log('❌ BREAKPOINT 8: Direct trading initialization failed');
+        setIsTrading(false);
+        return;
+      }
+      console.log('✅ BREAKPOINT 8: Direct trading initialization completed');
 
-      console.log('✅ BREAKPOINT 9: Speed Bot hybrid trading started successfully');
+      console.log('✅ BREAKPOINT 9: Speed Bot direct trading started successfully');
 
       // Start the trading loop
       console.log('⏰ BREAKPOINT 10: Setting timeout for trading loop...');
@@ -976,23 +763,23 @@ const SpeedBot: React.FC = observer(() => {
       }, 1000);
 
     } catch (error) {
-      console.error('❌ BREAKPOINT 14: Error starting Speed Bot hybrid mode:', error);
+      console.error('❌ BREAKPOINT 14: Error starting Speed Bot direct mode:', error);
       console.error('❌ BREAKPOINT 14.1: Error details:', error.message, error.stack);
       setError(`Failed to start Speed Bot: ${error.message}`);
       setIsTrading(false);
-      setIsUsingBotEngine(false);
+      setIsDirectTrading(false);
     }
   };
 
   // Trading loop for continuous trading
   const executeTradingLoop = useCallback(async () => {
     console.log('🔄 BREAKPOINT 14: executeTradingLoop called');
-    console.log('🔍 BREAKPOINT 15: Current state - isTrading:', isTrading, 'isUsingBotEngine:', isUsingBotEngine);
+    console.log('🔍 BREAKPOINT 15: Current state - isTrading:', isTrading, 'isDirectTrading:', isDirectTrading);
     
-    if (!isTrading || !isUsingBotEngine) {
-      console.log('🛑 BREAKPOINT 16: Trading loop stopped - not trading or bot engine not available');
+    if (!isTrading || !isDirectTrading) {
+      console.log('🛑 BREAKPOINT 16: Trading loop stopped - not trading or direct trading not available');
       console.log('  - isTrading:', isTrading);
-      console.log('  - isUsingBotEngine:', isUsingBotEngine);
+      console.log('  - isDirectTrading:', isDirectTrading);
       return;
     }
 
@@ -1014,9 +801,9 @@ const SpeedBot: React.FC = observer(() => {
       }
 
       // Execute a single trade
-      console.log('🚀 BREAKPOINT 21: Calling executeBotTrade...');
-      await executeBotTrade();
-      console.log('✅ BREAKPOINT 22: executeBotTrade completed');
+      console.log('🚀 BREAKPOINT 21: Calling executeDirectTrade...');
+      await executeDirectTrade();
+      console.log('✅ BREAKPOINT 22: executeDirectTrade completed');
 
       // Wait before next trade (2-5 seconds interval)
       const nextTradeDelay = Math.random() * 3000 + 2000; // 2-5 seconds
@@ -1043,28 +830,20 @@ const SpeedBot: React.FC = observer(() => {
         }
       }, 5000);
     }
-  }, [isTrading, isUsingBotEngine, currentStake, client, executeBotTrade]);
+  }, [isTrading, isDirectTrading, currentStake, client, executeDirectTrade]);
 
   const stopTrading = async () => {
     try {
       setIsTrading(false);
       setProposalId(null);
+      setIsDirectTrading(false);
 
-      // Stop bot engine if using hybrid mode
-      if (isUsingBotEngine && tradeEngine) {
-        console.log('🛑 Stopping bot engine...');
-        await tradeEngine.stop();
-        setIsUsingBotEngine(false);
-        setTradeEngine(null);
-        setBotInterface(null);
-      }
-
-      console.log('🛑 Speed Bot trading stopped');
+      console.log('🛑 Speed Bot direct trading stopped');
     } catch (error) {
       console.error('Error stopping Speed Bot:', error);
       setError(`Error stopping Speed Bot: ${error.message}`);
       setIsTrading(false);
-      setIsUsingBotEngine(false);
+      setIsDirectTrading(false);
     }
   };
 
@@ -1096,24 +875,24 @@ const SpeedBot: React.FC = observer(() => {
     setCurrentStake(stake);
   }, [stake]);
 
-  // Set up hybrid bot event handling when trading starts
+  // Set up direct trading event handling when trading starts
   useEffect(() => {
-    if (isTrading && isUsingBotEngine) {
-      const cleanup = handleBotEngineEvents();
+    if (isTrading && isDirectTrading) {
+      const cleanup = handleDirectTradingEvents();
       return cleanup;
     }
-  }, [isTrading, isUsingBotEngine, handleBotEngineEvents]);
+  }, [isTrading, isDirectTrading, handleDirectTradingEvents]);
 
-  // Start trading loop when bot engine is ready
+  // Start trading loop when direct trading is ready
   useEffect(() => {
-    if (isTrading && isUsingBotEngine && tradeEngine && !isExecutingTrade) {
+    if (isTrading && isDirectTrading && !isExecutingTrade) {
       const timer = setTimeout(() => {
         executeTradingLoop();
       }, 2000); // Start after 2 seconds
 
       return () => clearTimeout(timer);
     }
-  }, [isTrading, isUsingBotEngine, tradeEngine, isExecutingTrade, executeTradingLoop]);
+  }, [isTrading, isDirectTrading, isExecutingTrade, executeTradingLoop]);
 
   const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
 
@@ -1131,17 +910,17 @@ const SpeedBot: React.FC = observer(() => {
       </div>
 
       <div className="speed-bot__subtitle">
-        HYBRID BOT ENGINE MODE
+        DIRECT WEBSOCKET MODE
       </div>
 
       <div className="speed-bot__description">
-        <strong>Engine Used:</strong> {isUsingBotEngine ? 'Bot Builder TradeEngine' : 'Direct WebSocket API'}
+        <strong>Engine Used:</strong> {isDirectTrading ? 'Direct WebSocket API' : 'WebSocket Connection'}
         <br />
-        Uses the bot builder engine for reliable trade execution with Speed Bot configuration.
+        Uses direct WebSocket connection to Deriv API for fast trade execution.
         <br />
         <strong>This uses real money!</strong>
-        {isUsingBotEngine && <span style={{ color: 'green' }}> 🤖 Bot Engine Active</span>}
-        {!isUsingBotEngine && isTrading && <span style={{ color: 'orange' }}> 🔄 Initializing Bot Engine...</span>}
+        {isDirectTrading && <span style={{ color: 'green' }}> 🌐 Direct Trading Active</span>}
+        {!isDirectTrading && isTrading && <span style={{ color: 'orange' }}> 🔄 Initializing Direct Trading...</span>}
       </div>
 
       {error && (
@@ -1308,7 +1087,7 @@ const SpeedBot: React.FC = observer(() => {
               onClick={startTrading}
               disabled={!!error || !client?.is_logged_in}
             >
-              START HYBRID TRADING
+              START DIRECT TRADING
             </button>
           ) : (
             <button 
@@ -1353,8 +1132,8 @@ const SpeedBot: React.FC = observer(() => {
             <span>{isAuthorized ? '✅ Authorized' : '❌ Not Authorized'}</span>
           </div>
           <div className="speed-bot__stat">
-            <label>Bot Engine</label>
-            <span>{isUsingBotEngine ? '🤖 Active' : '❌ Inactive'}</span>
+            <label>Direct Trading</label>
+            <span>{isDirectTrading ? '🌐 Active' : '❌ Inactive'}</span>
           </div>
           <div className="speed-bot__stat">
             <label>Total Trades</label>
