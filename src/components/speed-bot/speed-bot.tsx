@@ -386,19 +386,17 @@ const SpeedBot: React.FC = observer(() => {
         websocket.close();
       }
     };
-  }, []);
+  }, [connectToAPI]);
 
-  useEffect(() => {
-    setCurrentStake(stake);
-  }, [stake]);
+  // Remove the undefined setCurrentStake function call
 
   // Error boundary fallback
   if (!run_panel) {
     return (
       <div className="speed-bot">
         <div className="speed-bot__error">
-          <h3>Speed Bot Unavailable</h3>
-          <p>Loading components...</p>
+          <h3>Speed Bot Loading...</h3>
+          <p>Please wait while the Speed Bot initializes...</p>
         </div>
       </div>
     );

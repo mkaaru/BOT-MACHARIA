@@ -1,4 +1,3 @@
-
 @use 'components/shared/styles/constants' as *;
 @use 'components/shared/styles/mixins' as *;
 
@@ -48,7 +47,7 @@
   &__placeholder {
     text-align: center;
     padding: 40px 20px;
-    
+
     p {
       margin: 10px 0;
       color: var(--text-general);
@@ -121,186 +120,40 @@
     color: #666;
 }
 .main {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+
+  &__tabs {
     display: flex;
+    border-bottom: 1px solid #ddd;
+    background: #f5f5f5;
+  }
+
+  &__tab {
+    padding: 10px 20px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+
+    &.active {
+      background: #fff;
+      border-bottom-color: #007bff;
+      color: #007bff;
+    }
+
+    &:hover {
+      background: #e9ecef;
+    }
+  }
+
+  &__content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
-    width: 100%;
-    height: calc(100vh - 9rem);
-    padding: 1.6rem;
-
-    @include mobile-or-tablet-screen {
-        height: calc(100vh - 6rem);
-        padding: 0;
-    }
-
-    &__container {
-        position: relative;
-        border: none;
-        max-width: 100%;
-        width: 100%;
-
-        &--active {
-            // css for onboard tour overlay
-            &:before {
-                content: '';
-                position: fixed;
-                left: 0;
-                top: 0;
-                width: 100%;
-                height: 100%;
-                background: rgb(0 0 0 / 72%);
-                opacity: 0.7;
-                z-index: 100;
-            }
-        }
-
-        .dc-tabs {
-            &__active-line {
-                background-color: var(--general-main-1);
-                transition: none;
-            }
-
-            &__active {
-                background: var(--general-main-1);
-            }
-
-            &__list {
-                background: var(--general-section-1);
-                justify-content: start;
-
-                @include mobile-or-tablet-screen {
-                    overflow-x: auto;
-                    overflow-y: hidden;
-                    -ms-overflow-style: none;
-                    scrollbar-width: none;
-
-                    &::-webkit-scrollbar {
-                        display: none;
-                    }
-                }
-
-                &--header {
-                    &--main {
-                        &__tabs {
-                            @include mobile-or-tablet-screen {
-                                width: 100%;
-                                overflow-x: auto;
-                                padding: 0.8rem 1.6rem 0;
-                            }
-                        }
-                    }
-                }
-
-                &--border-bottom {
-                    @include mobile-or-tablet-screen {
-                        border-bottom: 0;
-                    }
-                }
-            }
-
-            &__content {
-                @include mobile-or-tablet-screen {
-                    width: 100%;
-                    overflow-x: auto;
-
-                    &--no-result {
-                        @include flex-center;
-
-                        flex-direction: column;
-                        justify-content: flex-start;
-                        height: 100vh;
-                        margin-top: 5rem;
-
-                        svg {
-                            margin-bottom: 2.4rem;
-                        }
-
-                        h1 {
-                            margin-bottom: 0.8rem;
-                        }
-
-                        span {
-                            word-break: break-word;
-                            text-align: center;
-                        }
-                    }
-                }
-
-                &--main {
-                    &__tabs {
-                        display: flex;
-                        justify-content: space-between;
-
-                        @include mobile-or-tablet-screen {
-                            flex-direction: column;
-                            background-color: var(--general-section-1);
-                        }
-                    }
-                }
-            }
-
-            &__item {
-                border-top-left-radius: 1rem;
-                border-top-right-radius: 1rem;
-                height: 4.8rem;
-                padding: 0 2rem;
-                width: auto;
-
-                @include flex-center;
-
-                svg {
-                    padding-inline-end: 0;
-                    margin-inline-end: 0.8rem;
-
-                    @include mobile-or-tablet-screen {
-                        margin-inline-end: 0.4rem;
-                    }
-                }
-
-                &__icon {
-                    @include mobile-or-tablet-screen {
-                        padding-top: 0.5rem;
-                    }
-                }
-            }
-        }
-    }
-
-    &__run-strategy-wrapper {
-        inset-inline-end: 1.6rem;
-        top: 1.6rem;
-        z-index: 2;
-
-        @include desktop-screen {
-            position: absolute;
-        }
-
-        .animation {
-            &__button#db-animation {
-                &__run-button {
-                    background-color: var(--purchase-main-1);
-                }
-
-                &__stop-button {
-                    background-color: var(--button-primary-hover);
-                }
-            }
-
-            &__container {
-                background-color: var(--general-main-1);
-            }
-        }
-    }
-
-    &__sidebar-wrapper {
-        &--active {
-            position: fixed;
-            right: 0;
-        }
-
-        &--hidden {
-            display: none;
-        }
-    }
+  }
 }
 
 .animation__wrapper {
@@ -886,42 +739,42 @@
         padding: 0.5rem;
         width: 100%;
         min-height: min-content;
-        
+
         // Mobile: 1 column
         grid-template-columns: 1fr;
-        
+
         // Small mobile landscape: 2 columns
         @media (min-width: 480px) {
             grid-template-columns: repeat(2, 1fr);
         }
-        
+
         // Tablets: 3 columns
         @media (min-width: 768px) {
             grid-template-columns: repeat(3, 1fr);
             gap: 1.2rem;
             padding: 1rem;
         }
-        
+
         // Large tablets: 4 columns
         @media (min-width: 1024px) {
             grid-template-columns: repeat(4, 1fr);
         }
-        
+
         // Desktop: 5 columns
         @media (min-width: 1200px) {
             grid-template-columns: repeat(5, 1fr);
         }
-        
+
         // Large desktop: 6 columns
         @media (min-width: 1440px) {
             grid-template-columns: repeat(6, 1fr);
         }
-        
+
         // Extra large screens: 7 columns
         @media (min-width: 1920px) {
             grid-template-columns: repeat(7, 1fr);
         }
-        
+
         // Ultra wide screens: 8 columns
         @media (min-width: 2560px) {
             grid-template-columns: repeat(8, 1fr);
@@ -1034,11 +887,11 @@
     @media (max-width: 480px) {
         aspect-ratio: 1/1;
         min-height: 100px;
-        
+
         &__title {
             -webkit-line-clamp: 2;
         }
-        
+
         &__description {
             -webkit-line-clamp: 1;
         }
@@ -1046,11 +899,11 @@
 
     @media (min-width: 1024px) {
         aspect-ratio: 4/5;
-        
+
         &__title {
             -webkit-line-clamp: 4;
         }
-        
+
         &__description {
             -webkit-line-clamp: 3;
         }
@@ -2019,7 +1872,7 @@ font-family: 'Courier New', monospace;
       & > div {
         height: 100%;
         width: 100%;
-        
+
         iframe {
           width: 100%;
           height: 100%;

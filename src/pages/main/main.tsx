@@ -108,7 +108,7 @@ const AppWrapper = observer(() => {
   const [predictionModel, setPredictionModel] = useState('neural_network')
   const [stakeAmount, setStakeAmount] = useState('1.00')
   const [isConnected, setIsConnected] = useState(false)
-  const [isTrading, setIsTrading] = useState(false)
+  const [isTrading, setIsTrading] = useState(isTrading)
   const [currentTick, setCurrentTick] = useState<number | null>(null)
   const [currentPrice, setCurrentPrice] = useState<string>('---')
   const [tickHistory, setTickHistory] = useState<{[key: string]: number[]}>({})
@@ -501,6 +501,7 @@ const AppWrapper = observer(() => {
           if (data.msg_type === 'forget_all') {
             console.log('All subscriptions forgotten successfully')
           }
+        ```python
         } catch (parseError) {
           console.error('Error parsing WebSocket message:', parseError)
           setCurrentPrice('Parse Error')
