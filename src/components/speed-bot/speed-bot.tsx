@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
 import { useStore } from '@/hooks/useStore';
 import { observer } from 'mobx-react-lite';
+import getBotInterface from '@/external/bot-skeleton/services/tradeEngine/Interface/BotInterface';
+import { TradeEngine } from '@/external/bot-skeleton/services/tradeEngine/trade';
+import { globalObserver } from '@/utils/tmp/dummy';
 import './speed-bot.scss';
 
 interface Trade {
@@ -119,6 +122,11 @@ const SpeedBot: React.FC = observer(() => {
   const [lastTradeTime, setLastTradeTime] = useState(0);
   const [isExecutingTrade, setIsExecutingTrade] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Bot engine state
+  const [tradeEngine, setTradeEngine] = useState<any>(null);
+  const [botInterface, setBotInterface] = useState<any>(null);
+  const [isUsingBotEngine, setIsUsingBotEngine] = useState(false);
 
   const volatilitySymbols = [
     { value: 'R_10', label: 'Volatility 10 Index' },
@@ -599,181 +607,143 @@ const SpeedBot: React.FC = observer(() => {
     }
   }, [selectedSymbol, isTrading]);
 
-  // Generate trading strategy XML for bot builder with every tick execution
-  const generateSpeedBotStrategy = useCallback(() => {
+  // Initialize bot engine for hybrid approach
+  const initializeBotEngine = useCallback(async () => {
     try {
-      let prediction = overUnderValue;
-      let tradeType = selectedContractType;
+      console.log('🤖 Initializing bot engine for Speed Bot...');
 
-      // Map contract types and set appropriate predictions
-      switch (selectedContractType) {
-        case 'DIGITOVER':
-          tradeType = 'DIGITOVER';
-          prediction = overUnderValue;
-          break;
-        case 'DIGITUNDER':
-          tradeType = 'DIGITUNDER';
-          prediction = overUnderValue;
-          break;
-        case 'DIGITEVEN':
-          tradeType = 'DIGITEVEN';
-          prediction = undefined; // Even/Odd doesn't use prediction
-          break;
-        case 'DIGITODD':
-          tradeType = 'DIGITODD';
-          prediction = undefined; // Even/Odd doesn't use prediction
-          break;
-        case 'DIGITMATCH':
-          tradeType = 'DIGITMATCH';
-          prediction = overUnderValue;
-          break;
-        case 'DIGITDIFF':
-          tradeType = 'DIGITDIFF';
-          prediction = overUnderValue;
-          break;
-        case 'CALL':
-          tradeType = 'CALL';
-          prediction = undefined;
-          break;
-        case 'PUT':
-          tradeType = 'PUT';
-          prediction = undefined;
-          break;
-        default:
-          tradeType = 'DIGITOVER';
-          prediction = overUnderValue;
+      const authToken = getAuthToken();
+      if (!authToken) {
+        throw new Error('No authentication token available');
       }
 
-      const predictionBlock = prediction !== undefined ? `
-      <value name="PREDICTION">
-        <block type="math_number" id="prediction_${Date.now()}">
-          <field name="NUM">${prediction}</field>
-        </block>
-      </value>` : '';
+      // Create bot engine scope
+      const engineScope = {
+        observer: globalObserver || localObserver
+      };
 
-      // Generate strategy XML with every tick execution mode
-      const xmlStrategy = `<xml xmlns="http://www.w3.org/1999/xhtml" collection="false" is_dbot="true">
-  <variables></variables>
-  <block type="trade_definition_tradeoptions" id="trade_definition_${Date.now()}" x="0" y="0">
-    <field name="MARKET">synthetic_index</field>
-    <field name="UNDERLYING">${selectedSymbol}</field>
-    <field name="TRADETYPE">${tradeType}</field>
-    <field name="TYPE">ticks</field>
-    <value name="DURATION">
-      <block type="math_number" id="duration_${Date.now()}">
-        <field name="NUM">1</field>
-      </block>
-    </value>
-    <value name="AMOUNT">
-      <block type="math_number" id="amount_${Date.now()}">
-        <field name="NUM">${currentStake.toFixed(2)}</field>
-      </block>
-    </value>${predictionBlock}
-  </block>
-  <block type="before_purchase" id="before_purchase_${Date.now()}" x="0" y="200">
-    <statement name="BEFOREPURCHASE_STACK">
-      <block type="purchase" id="purchase_${Date.now()}">
-        <field name="PURCHASE_LIST">${tradeType}</field>
-        <field name="EXECUTION_MODE">EVERY_TICK</field>
-      </block>
-    </statement>
-  </block>
-  <block type="after_purchase" id="after_purchase_${Date.now()}" x="0" y="300">
-    <statement name="AFTERPURCHASE_STACK">
-      <block type="trade_again" id="trade_again_${Date.now()}">
-        <value name="CONDITION">
-          <block type="logic_boolean" id="condition_${Date.now()}">
-            <field name="BOOL">TRUE</field>
-          </block>
-        </value>
-      </block>
-    </statement>
-  </block>
-</xml>`;
+      // Initialize trade engine
+      const engine = new TradeEngine(engineScope);
+      
+      // Initialize with token and options
+      const initOptions = {
+        symbol: selectedSymbol,
+        currency: client?.currency || 'USD'
+      };
 
-      console.log('Generated Speed Bot strategy XML:', xmlStrategy);
-      return xmlStrategy;
+      console.log('🔧 Initializing trade engine with:', initOptions);
+      await engine.init(authToken, initOptions);
+
+      // Create bot interface
+      const botIface = getBotInterface(engine);
+
+      setTradeEngine(engine);
+      setBotInterface(botIface);
+      setIsUsingBotEngine(true);
+
+      console.log('✅ Bot engine initialized successfully');
+      return { engine, botIface };
+
     } catch (error) {
-      console.error('Error generating strategy XML:', error);
-      throw new Error('Failed to generate trading strategy');
+      console.error('❌ Failed to initialize bot engine:', error);
+      setError(`Bot engine initialization failed: ${error.message}`);
+      setIsUsingBotEngine(false);
+      throw error;
     }
-  }, [selectedSymbol, selectedContractType, currentStake, overUnderValue]);
+  }, [selectedSymbol, client]);
 
-  // Listen for bot builder events and update trade history
-  const handleBotEvents = useCallback(() => {
-    if (!run_panel || !isTrading) return;
+  // Handle bot engine trade events for hybrid approach
+  const handleBotEngineEvents = useCallback(() => {
+    if (!isTrading || !isUsingBotEngine) return;
 
-    // Listen for trade completion events from bot builder
-    const handleTradeResult = (result) => {
-      if (result && result.contract) {
-        const profit = parseFloat(result.profit) || 0;
-        const isWin = profit > 0;
-
+    const handleContract = (data) => {
+      console.log('🔄 Bot engine contract event:', data);
+      
+      if (data && data.contract_id) {
         const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const trade: Trade = {
           id: tradeId,
           timestamp: new Date().toLocaleTimeString(),
           symbol: selectedSymbol,
           contractType: selectedContractType,
-          result: isWin ? 'win' : 'loss',
+          result: 'pending',
           stake: currentStake,
-          profit: profit,
+          profit: 0,
         };
 
         setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
-        setTotalTrades(prev => prev + 1);
-
-        if (isWin) {
-          setWins(prev => prev + 1);
-        } else {
-          setLosses(prev => prev + 1);
-        }
-
-        // Apply martingale strategy if enabled
-        if (useMartingale && !isWin) {
-          setCurrentStake(prev => prev * martingaleMultiplier);
-        } else if (isWin) {
-          setCurrentStake(stake); // Reset to original stake on win
-        }
-
-        console.log(`Speed Bot trade completed:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`);
+        setTotalTrades(prev => {
+          const newTotal = prev + 1;
+          console.log(`📊 Total trades incremented to: ${newTotal}`);
+          return newTotal;
+        });
       }
     };
 
-    // Register for trade completion events
-    if (localObserver) {
-      localObserver.register('bot.trade_complete', handleTradeResult);
+    const handleTradeComplete = (data) => {
+      console.log('✅ Bot engine trade complete:', data);
+      
+      if (data && typeof data.profit !== 'undefined') {
+        const profit = parseFloat(data.profit) || 0;
+        const isWin = profit > 0;
+
+        // Update the most recent pending trade
+        setTradeHistory(prev => {
+          const updated = [...prev];
+          const pendingTrade = updated.find(trade => trade.result === 'pending');
+          if (pendingTrade) {
+            pendingTrade.result = isWin ? 'win' : 'loss';
+            pendingTrade.profit = profit;
+          }
+          return updated;
+        });
+
+        // Update win/loss counters
+        if (isWin) {
+          setWins(prev => prev + 1);
+          setCurrentStake(stake); // Reset to original stake on win
+        } else {
+          setLosses(prev => prev + 1);
+          // Apply martingale if enabled
+          if (useMartingale) {
+            setCurrentStake(prev => prev * martingaleMultiplier);
+          }
+        }
+
+        console.log(`🎯 Speed Bot hybrid trade:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`);
+      }
+    };
+
+    // Register for bot engine events
+    if (globalObserver) {
+      globalObserver.register('bot.contract', handleContract);
+      globalObserver.register('bot.trade_complete', handleTradeComplete);
+    } else if (localObserver) {
+      localObserver.register('bot.contract', handleContract);
+      localObserver.register('bot.trade_complete', handleTradeComplete);
     }
 
     return () => {
-      if (localObserver) {
-        localObserver.unregister('bot.trade_complete', handleTradeResult);
+      if (globalObserver) {
+        globalObserver.unregister('bot.contract', handleContract);
+        globalObserver.unregister('bot.trade_complete', handleTradeComplete);
+      } else if (localObserver) {
+        localObserver.unregister('bot.contract', handleContract);
+        localObserver.unregister('bot.trade_complete', handleTradeComplete);
       }
     };
-  }, [selectedSymbol, selectedContractType, currentStake, useMartingale, martingaleMultiplier, stake, run_panel, isTrading, localObserver]);
+  }, [selectedSymbol, selectedContractType, currentStake, useMartingale, martingaleMultiplier, stake, isTrading, isUsingBotEngine]);
 
   const startTrading = async () => {
-    console.log('🚀 Attempting to start Speed Bot trading...');
+    console.log('🚀 Attempting to start Speed Bot in hybrid mode...');
     
     // Reset any previous errors
     setError(null);
     
-    // Check WebSocket connection
-    if (!isConnected || !websocket || websocket.readyState !== WebSocket.OPEN) {
-      setError('WebSocket not connected. Please wait for connection to establish.');
-      return;
-    }
-
     // Check if user is logged in and has token
     const authToken = getAuthToken();
     if (!authToken) {
       setError('Please log in to Deriv first. Go to deriv.com and sign in, then try again.');
-      return;
-    }
-
-    // Check if WebSocket is authorized
-    if (!isAuthorized) {
-      setError('WebSocket not authorized. Please wait for authorization to complete or try refreshing the page.');
       return;
     }
 
@@ -803,23 +773,41 @@ const SpeedBot: React.FC = observer(() => {
       setCurrentStake(stake);
       setIsTrading(true);
       setIsExecutingTrade(false);
-      setProposalId(null);
 
-      console.log('✅ Speed Bot trading started');
+      console.log('🤖 Starting Speed Bot in hybrid mode using bot engine...');
       console.log(`📊 Configuration: ${selectedContractType} on ${selectedSymbol} with stake ${stake}`);
 
-      // Start the trading loop by getting first proposal
-      setTimeout(() => {
-        if (isTrading) { // Double check we're still supposed to be trading
-          console.log('🎯 Starting trading loop - getting first proposal...');
-          getPriceProposal();
-        }
-      }, 1000); // Give a bit more time for everything to settle
+      // Initialize bot engine
+      const { engine, botIface } = await initializeBotEngine();
+
+      // Configure trade options for bot engine
+      const tradeOptions = {
+        amount: currentStake,
+        basis: 'stake',
+        contract_type: selectedContractType,
+        currency: client?.currency || 'USD',
+        duration: 1,
+        duration_unit: 't',
+        symbol: selectedSymbol,
+      };
+
+      // Add prediction/barrier for digit contracts
+      if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType)) {
+        tradeOptions.barrier = overUnderValue.toString();
+      }
+
+      console.log('🎯 Starting bot engine with trade options:', tradeOptions);
+      
+      // Start the bot engine
+      await engine.start(tradeOptions);
+
+      console.log('✅ Speed Bot hybrid trading started successfully');
 
     } catch (error) {
-      console.error('❌ Error starting Speed Bot:', error);
+      console.error('❌ Error starting Speed Bot hybrid mode:', error);
       setError(`Failed to start Speed Bot: ${error.message}`);
       setIsTrading(false);
+      setIsUsingBotEngine(false);
     }
   };
 
@@ -827,11 +815,22 @@ const SpeedBot: React.FC = observer(() => {
     try {
       setIsTrading(false);
       setProposalId(null);
+      
+      // Stop bot engine if using hybrid mode
+      if (isUsingBotEngine && tradeEngine) {
+        console.log('🛑 Stopping bot engine...');
+        await tradeEngine.stop();
+        setIsUsingBotEngine(false);
+        setTradeEngine(null);
+        setBotInterface(null);
+      }
+      
       console.log('🛑 Speed Bot trading stopped');
     } catch (error) {
       console.error('Error stopping Speed Bot:', error);
       setError(`Error stopping Speed Bot: ${error.message}`);
       setIsTrading(false);
+      setIsUsingBotEngine(false);
     }
   };
 
@@ -863,13 +862,13 @@ const SpeedBot: React.FC = observer(() => {
     setCurrentStake(stake);
   }, [stake]);
 
-  // Set up bot event handling when trading starts
+  // Set up hybrid bot event handling when trading starts
   useEffect(() => {
-    if (isTrading) {
-      const cleanup = handleBotEvents();
+    if (isTrading && isUsingBotEngine) {
+      const cleanup = handleBotEngineEvents();
       return cleanup;
     }
-  }, [isTrading, handleBotEvents]);
+  }, [isTrading, isUsingBotEngine, handleBotEngineEvents]);
 
   const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
 
@@ -887,14 +886,15 @@ const SpeedBot: React.FC = observer(() => {
       </div>
 
       <div className="speed-bot__subtitle">
-        TRADE EVERY TICK
+        HYBRID BOT ENGINE MODE
       </div>
 
       <div className="speed-bot__description">
-        Execute trades on every tick without waiting for previous trades to close.
+        Uses the bot builder engine for reliable trade execution with Speed Bot configuration.
         <br />
         <strong>This uses real money!</strong>
-      </div>
+        {isUsingBotEngine && <span style={{ color: 'green' }}> 🤖 Bot Engine Active</span>}
+      </div></div>
 
       {error && (
         <div className="speed-bot__error-message">
@@ -1053,9 +1053,9 @@ const SpeedBot: React.FC = observer(() => {
             <button 
               className="speed-bot__start-btn"
               onClick={startTrading}
-              disabled={!isConnected || !!error || !isAuthorized}
+              disabled={!!error || !client?.is_logged_in}
             >
-              START TRADING
+              START HYBRID TRADING
             </button>
           ) : (
             <button 
@@ -1100,8 +1100,8 @@ const SpeedBot: React.FC = observer(() => {
             <span>{isAuthorized ? '✅ Authorized' : '❌ Not Authorized'}</span>
           </div>
           <div className="speed-bot__stat">
-            <label>Executing</label>
-            <span>{isExecutingTrade ? '⏳ Yes' : '✅ No'}</span>
+            <label>Bot Engine</label>
+            <span>{isUsingBotEngine ? '🤖 Active' : '❌ Inactive'}</span>
           </div>
           <div className="speed-bot__stat">
             <label>Total Trades</label>

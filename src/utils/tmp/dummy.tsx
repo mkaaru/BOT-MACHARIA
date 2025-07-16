@@ -1,32 +1,42 @@
-import { memo, SyntheticEvent } from 'react';
+import React from 'react';
 
-type TIconComponent = {
-    icon: string;
-    className?: string;
-    onClick?: () => void;
-    size?: number;
-    height?: number | string;
-    width?: number | string;
-    id?: string;
-    style?: { height?: number | string; width?: number | string };
+export const DummyComponent: React.FC = () => {
+    return <div>This is a dummy component</div>;
 };
 
-const IconComponent: React.FC<TIconComponent> = ({ icon, ...rest }) => {
-    const onError = (e: SyntheticEvent<HTMLImageElement, Event>) => {
-        // eslint-disable-next-line no-console
-        (e.target as HTMLImageElement).src = 'assets/icons/IcDashboard.svg';
-    };
+// Global observer for bot engine events
+export const globalObserver = {
+    observers: {} as { [key: string]: Array<(data: any) => void> },
 
-    return (
-        <div className='dummy-icon' {...rest}>
-            <img src={`assets/icons/${icon}.svg`} alt={icon} onError={onError} />
-        </div>
-    );
-};
+    register: function(event: string, callback: (data: any) => void) {
+        if (!this.observers[event]) {
+            this.observers[event] = [];
+        }
+        this.observers[event].push(callback);
+    },
 
-export const Icon = memo(IconComponent);
+    emit: function(event: string, data?: any) {
+        if (this.observers[event]) {
+            this.observers[event].forEach(callback => {
+                try {
+                    callback(data);
+                } catch (error) {
+                    console.error('Observer callback error:', error);
+                }
+            });
+        }
+    },
 
-export const IconTradeTypes = ({ children }) => {
-    // Simulate scrollbars
-    return <div className='dummy-IconTradeTypes'>{children}</div>;
+    unregister: function(event: string, callback?: (data: any) => void) {
+        if (this.observers[event]) {
+            if (callback) {
+                const index = this.observers[event].indexOf(callback);
+                if (index > -1) {
+                    this.observers[event].splice(index, 1);
+                }
+            } else {
+                this.observers[event] = [];
+            }
+        }
+    }
 };
