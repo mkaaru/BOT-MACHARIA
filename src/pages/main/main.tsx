@@ -108,7 +108,7 @@ const AppWrapper = observer(() => {
   const [predictionModel, setPredictionModel] = useState('neural_network')
   const [stakeAmount, setStakeAmount] = useState('1.00')
   const [isConnected, setIsConnected] = useState(false)
-  const [isTrading, setIsTrading] = useState(isTrading)
+  const [isTrading, setIsTrading] = useState(false)
   const [currentTick, setCurrentTick] = useState<number | null>(null)
   const [currentPrice, setCurrentPrice] = useState<string>('---')
   const [tickHistory, setTickHistory] = useState<{[key: string]: number[]}>({})
@@ -357,25 +357,23 @@ const AppWrapper = observer(() => {
             }
 
             if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
-                        try {
-                            await load_modal.loadFileFromContent(xmlContent);
-                            console.log("Bot loaded successfully!");
+                try {
+                    await load_modal.loadFileFromContent(xmlContent);
+                    console.log("Bot loaded successfully!");
 
-                            // Also update workspace name
-                            if (typeof updateWorkspaceName === 'function') {
-                                updateWorkspaceName(xmlContent);
-                            }
-                        } catch (loadError) {
-                            console.error("Error in load_modal.loadFileFromContent:", loadError);
-                            // Handle error gracefully without breaking the app
-                            return;
-                        }
-                    } else {
-                        console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
-                        console.log("load_modal object:", load_modal);
-                        // Handle error gracefully without breaking the app
-                        return;
+                    // Also update workspace name
+                    if (typeof updateWorkspaceName === 'function') {
+                        updateWorkspaceName(xmlContent);
                     }
+                } catch (loadError) {
+                    console.error("Error in load_modal.loadFileFromContent:", loadError);
+                    //Removed alert message
+                }
+            } else {
+                console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
+                console.log("load_modal object:", load_modal);
+                //Removed alert message
+            }
 
         } catch (error) {
             console.error("Error loading bot:", error);
@@ -509,7 +507,7 @@ const AppWrapper = observer(() => {
         }
       }
 
-      ws.onclose = (event) =>{
+      ws.onclose = (event) => {
         console.log('WebSocket connection closed:', event.code, event.reason)
         setIsConnected(false)
         setWebsocket(null)
@@ -543,7 +541,7 @@ const AppWrapper = observer(() => {
     const symbolMap = {
       // Forward mapping
       'R_10': '1HZ10V',
-      'R_25': '1HZ25V',
+      'R_25': '1HZ25V', 
       'R_50': '1HZ50V',
       'R_75': '1HZ75V',
       'R_100': '1HZ100V',
@@ -1230,9 +1228,9 @@ if __name__ == "__main__":
                                 <div className='free-bots__content-wrapper'>
                                     <div className='free-bots__content'>
                                         {bots.map((bot, index) => (
-                                            <div
+                                            <div 
                                                 className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
-                                                key={index}
+                                                key={index} 
                                                 onClick={() => {
                                                     handleBotClick(bot);
                                                 }}
@@ -1277,13 +1275,13 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <iframe
+                                <iframe 
                                     src="https://tracktool.netlify.app/signals.html"
                                     width="100%"
                                     height="100%"
-                                    style={{
-                                        border: 'none',
-                                        display: 'block',
+                                    style={{ 
+                                        border: 'none', 
+                                        display: 'block', 
                                         minHeight: '600px',
                                         height: 'calc(100vh - 200px)'
                                     }}
@@ -1297,7 +1295,7 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <Tabs
+                                <Tabs 
                                     className="analysis-tool-tabs"
                                     active_tab_icon_color="var(--brand-secondary)"
                                     background_color="var(--general-main-1)"
@@ -1326,7 +1324,7 @@ if __name__ == "__main__":
                             </Suspense>
                         </div>
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
-                            <div className={classNames('dashboard__chart__wrapper', {
+                            <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
