@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
 import { useStore } from '@/hooks/useStore';
@@ -104,8 +105,6 @@ const SpeedBot: React.FC = observer(() => {
   const [isTrading, setIsTrading] = useState(false);
 
   // Strategy options
-  const [alternateOverUnder, setAlternateOverUnder] = useState(false);
-  const [alternateOnLoss, setAlternateOnLoss] = useState(false);
   const [useMartingale, setUseMartingale] = useState(true);
   const [martingaleMultiplier, setMartingaleMultiplier] = useState(1.5);
 
@@ -405,7 +404,7 @@ const SpeedBot: React.FC = observer(() => {
               profit: 0,
             };
 
-            if (isTrading) {
+            if (isTrading && isDirectTrading) {
               setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
               setTotalTrades(prev => {
                 const newTotal = prev + 1;
@@ -490,12 +489,6 @@ const SpeedBot: React.FC = observer(() => {
               });
 
               if (tradeWasUpdated) {
-                setBalance(prev => {
-                  const newBalance = prev + profit;
-                  console.log(`💰 Balance updated after trade: ${prev} + ${profit} = ${newBalance}`);
-                  return newBalance;
-                });
-
                 if (isWin) {
                   setWins(prev => prev + 1);
                   setCurrentStake(stake);
@@ -597,6 +590,7 @@ const SpeedBot: React.FC = observer(() => {
       setIsTrading(false);
       setProposalId(null);
       setIsDirectTrading(false);
+      setIsExecutingTrade(false);
       console.log('🛑 Speed Bot stopped');
     } catch (error) {
       console.error('Error stopping Speed Bot:', error);
