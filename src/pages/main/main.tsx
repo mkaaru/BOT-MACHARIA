@@ -501,7 +501,6 @@ const AppWrapper = observer(() => {
           if (data.msg_type === 'forget_all') {
             console.log('All subscriptions forgotten successfully')
           }
-        ```python
         } catch (parseError) {
           console.error('Error parsing WebSocket message:', parseError)
           setCurrentPrice('Parse Error')
@@ -1325,7 +1324,7 @@ if __name__ == "__main__":
                             </Suspense>
                         </div>
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
-                            <div className={classNames('dashboard__chart-wrapper', {
+                            <div className={classNames('dashboard__chart__wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
