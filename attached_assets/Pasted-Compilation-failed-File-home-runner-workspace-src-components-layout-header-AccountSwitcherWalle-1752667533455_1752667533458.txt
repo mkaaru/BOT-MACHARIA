@@ -1,0 +1,156 @@
+Compilation failed
+
+File: /home/runner/workspace/src/components/layout/header/AccountSwitcherWallet/account-switcher-wallet-mobile.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+    ╭─[61:42]
+ 59 │                         columnNumber: 17
+ 60 │                     }, this),
+ 61 │                     /*#__PURE__*/ _jsxDEV(Icon, {
+    ·                                           ────
+ 62 │                         icon: 'IcChevronRightBold'
+ 63 │                     }, void 0, false, {
+    ╰────/nFile: /home/runner/workspace/src/components/notify-item/notify-item.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+    ╭─[24:42]
+ 22 │                 className: "notify__item-container",
+ 23 │                 children: [
+ 24 │                     /*#__PURE__*/ _jsxDEV(Icon, {
+    ·                                           ────
+ 25 │                         icon: getIcon(type),
+ 26 │                         size: "22"
+    ╰────/nFile: /home/runner/workspace/src/components/shared_ui/button/button.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+    ╭─[78:55]
+ 76 │                 columnNumber: 28
+ 77 │             }, this),
+ 78 │             is_submit_success && /*#__PURE__*/ _jsxDEV(Icon, {
+    ·                                                        ────
+ 79 │                 icon: "IcCheckmark",
+ 80 │                 color: "active",
+    ╰────/nFile: /home/runner/workspace/src/components/shared_ui/button/button.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+    ╭─[87:45]
+ 85 │                 columnNumber: 35
+ 86 │             }, this),
+ 87 │             is_plus && /*#__PURE__*/ _jsxDEV(Icon, {
+    ·                                              ────
+ 88 │                 icon: "IcAddBold",
+ 89 │                 color: "black",
+    ╰────/nFile: /home/runner/workspace/src/components/shared_ui/expansion-panel/array-renderer.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+    ╭─[40:54]
+ 38 │                                 `${item.value.length}`,
+ 39 │                                 ")",
+ 40 │                                 /*#__PURE__*/ _jsxDEV(Icon, {
+    ·                                                       ────
+ 41 │                                     className: "dc-expansion-panel__content-chevron-icon",
+ 42 │                                     icon: "IcChevronRight",
+    ╰────/nFile: /home/runner/workspace/src/components/shared_ui/input-field/increment-buttons.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+    ╭─[52:48]
+ 50 │                 type: type,
+ 51 │                 ...getPressEvents(incrementValue),
+ 52 │                 children: /*#__PURE__*/ _jsxDEV(Icon, {
+    ·                                                 ────
+ 53 │                     icon: "IcAdd",
+ 54 │                     className: 'dc-input-wrapper__icon dc-input-wrapper__icon--plus',
+    ╰────/nFile: /home/runner/workspace/src/components/shared_ui/input-field/increment-buttons.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+    ╭─[77:48]
+ 75 │                 type: type,
+ 76 │                 ...getPressEvents(decrementValue),
+ 77 │                 children: /*#__PURE__*/ _jsxDEV(Icon, {
+    ·                                                 ────
+ 78 │                     icon: "IcMinus",
+ 79 │                     className: 'dc-input-wrapper__icon dc-input-wrapper__icon--minus',
+    ╰────/nFile: /home/runner/workspace/src/components/shared_ui/select-native/select-native.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+     ╭─[126:65]
+ 124 │                                     lineNumber: 154,
+ 125 │                                     columnNumber: 25
+ 126 │                                 }, this) : /*#__PURE__*/ _jsxDEV(Icon, {
+     ·                                                                  ────
+ 127 │                                     className: "dc-select-native__suffix-icon",
+ 128 │                                     icon: suffix_icon
+     ╰────/nFile: /home/runner/workspace/src/components/shared_ui/tabs/tab.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+    ╭─[38:42]
+ 36 │         ref: active_tab_ref,
+ 37 │         children: [
+ 38 │             icon && /*#__PURE__*/ _jsxDEV(Icon, {
+    ·                                           ────
+ 39 │                 icon: icon,
+ 40 │                 size: icon_size,
+    ╰────/nFile: /home/runner/workspace/src/components/shared_ui/tooltip/tooltip.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+    ╭─[45:57]
+ 43 │                 columnNumber: 17
+ 44 │             }, this),
+ 45 │             icon === 'question' && /*#__PURE__*/ _jsxDEV(Icon, {
+    ·                                                          ────
+ 46 │                 icon: "IcUnknown",
+ 47 │                 className: icon_class
+    ╰────/nFile: /home/runner/workspace/src/components/shared_ui/tooltip/tooltip.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+    ╭─[53:52]
+ 51 │                 columnNumber: 37
+ 52 │             }, this),
+ 53 │             icon === 'dot' && /*#__PURE__*/ _jsxDEV(Icon, {
+    ·                                                     ────
+ 54 │                 icon: "IcCircle",
+ 55 │                 className: icon_class,
+    ╰────/nFile: /home/runner/workspace/src/components/speed-bot/speed-bot.tsx:1:1
+  × Module build failed:
+  ├─▶   ×   × Expected ',', got '{'
+  │     │      ╭─[/home/runner/workspace/src/components/speed-bot/speed-bot.tsx:899:1]
+  │     │  896 │         {isUsingBotEngine && <span style={{ color: 'green' }}> 🤖 Bot Engine Active</span>}
+  │     │  897 │       </div></div>
+  │     │  898 │
+  │     │  899 │       {error && (
+  │     │      ·       ─
+  │     │  900 │         <div className="speed-bot__error-message">
+  │     │  901 │           <p style={{ color: 'red', padding: '10px', backgroundColor: '#ffe6e6', borderRadius: '4px', margin: '10px 0' }}>
+  │     │  902 │             <strong>Error:</strong> {error}
+  │     │      ╰────
+  │     │
+  │   
+  ╰─▶ Syntax Error/nFile: /home/runner/workspace/src/components/trading-assesment-modal/index.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+    ╭─[36:42]
+ 34 │             /*#__PURE__*/ _jsxDEV(Modal.Body, {
+ 35 │                 children: [
+ 36 │                     /*#__PURE__*/ _jsxDEV(Icon, {
+    ·                                           ────
+ 37 │                         icon: 'ic-currency-eur-check',
+ 38 │                         className: "currency-icon",
+    ╰────/nFile: /home/runner/workspace/src/pages/dashboard/announcements/announcement-components.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+    ╭─[85:45]
+ 83 │         case 'MOVING_STRATEGIES_ANNOUNCE':
+ 84 │             {
+ 85 │                 return /*#__PURE__*/ _jsxDEV(Icon, {
+    ·                                              ────
+ 86 │                     icon: "IcMigrateStrategy",
+ 87 │                     className: "category-type",
+    ╰────/nFile: /home/runner/workspace/src/pages/dashboard/announcements/announcement-components.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+     ╭─[100:45]
+  98 │         case 'BLOCKLY_ANNOUNCE':
+  99 │             {
+ 100 │                 return /*#__PURE__*/ _jsxDEV(Icon, {
+     ·                                              ────
+ 101 │                     icon: "IcUpgradeBlockly",
+ 102 │                     className: "category-type",
+     ╰────/nFile: /home/runner/workspace/src/pages/dashboard/announcements/announcement-components.tsx:1:1
+  × ESModulesLinkingError: export 'Icon' (imported as 'Icon') was not found in '@/utils/tmp/dummy' (possible exports: DummyComponent, globalObserver)
+     ╭─[115:45]
+ 113 │         case 'ACCUMULATOR_ANNOUNCE':
+ 114 │             {
+ 115 │                 return /*#__PURE__*/ _jsxDEV(Icon, {
+     ·                                              ────
+ 116 │                     icon: "IcTradetypeAccu",
+ 117 │                     className: "category-type",
+     ╰────
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
