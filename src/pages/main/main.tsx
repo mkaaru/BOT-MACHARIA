@@ -507,7 +507,7 @@ const AppWrapper = observer(() => {
         }
       }
 
-      ws.onclose = (event) => {
+      ws.onclose = (event) =>{
         console.log('WebSocket connection closed:', event.code, event.reason)
         setIsConnected(false)
         setWebsocket(null)
@@ -541,7 +541,7 @@ const AppWrapper = observer(() => {
     const symbolMap = {
       // Forward mapping
       'R_10': '1HZ10V',
-      'R_25': '1HZ25V', 
+      'R_25': '1HZ25V',
       'R_50': '1HZ50V',
       'R_75': '1HZ75V',
       'R_100': '1HZ100V',
@@ -1228,9 +1228,9 @@ if __name__ == "__main__":
                                 <div className='free-bots__content-wrapper'>
                                     <div className='free-bots__content'>
                                         {bots.map((bot, index) => (
-                                            <div 
+                                            <div
                                                 className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
-                                                key={index} 
+                                                key={index}
                                                 onClick={() => {
                                                     handleBotClick(bot);
                                                 }}
@@ -1275,13 +1275,13 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <iframe 
+                                <iframe
                                     src="https://tracktool.netlify.app/signals.html"
                                     width="100%"
                                     height="100%"
-                                    style={{ 
-                                        border: 'none', 
-                                        display: 'block', 
+                                    style={{
+                                        border: 'none',
+                                        display: 'block',
                                         minHeight: '600px',
                                         height: 'calc(100vh - 200px)'
                                     }}
@@ -1295,7 +1295,7 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <Tabs 
+                                <Tabs
                                     className="analysis-tool-tabs"
                                     active_tab_icon_color="var(--brand-secondary)"
                                     background_color="var(--general-main-1)"
