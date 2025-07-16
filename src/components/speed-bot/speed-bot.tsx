@@ -484,6 +484,7 @@ const SpeedBot: React.FC = observer(() => {
             setIsAuthorized(false);
           }
 
+          // Request tick subscription immediately after authorization
           setTimeout(() => {
             try {
               const tickRequest = {
@@ -494,12 +495,25 @@ const SpeedBot: React.FC = observer(() => {
                 subscribe: 1,
                 req_id: Date.now() + 2000
               };
+              console.log('📊 Sending tick request:', JSON.stringify(tickRequest, null, 2));
               ws.send(JSON.stringify(tickRequest));
-              console.log('📊 Requesting tick history for', selectedSymbol);
+              console.log('📊 Tick subscription requested for', selectedSymbol);
+              
+              // Also request live ticks separately to ensure we get real-time data
+              setTimeout(() => {
+                const liveTickRequest = {
+                  ticks: selectedSymbol,
+                  subscribe: 1,
+                  req_id: Date.now() + 3000
+                };
+                console.log('📊 Sending live tick request:', JSON.stringify(liveTickRequest, null, 2));
+                ws.send(JSON.stringify(liveTickRequest));
+                console.log('📊 Live tick subscription requested for', selectedSymbol);
+              }, 500);
             } catch (error) {
-              console.error('❌ Error requesting tick history:', error);
+              console.error('❌ Error requesting tick subscription:', error);
             }
-          }, 1000);
+          }, 800);
         }, 200);
       };
 
@@ -853,9 +867,17 @@ const SpeedBot: React.FC = observer(() => {
             const price = parseFloat(data.tick.quote);
             setCurrentPrice(price.toFixed(5));
             
+            console.log(`🎯 TICK RECEIVED: ${data.tick.quote} for ${data.tick.symbol}`);
+            console.log(`🎯 Current states:`, {
+              isTrading,
+              isDirectTrading,
+              isExecutingTrade,
+              isRequestingProposal,
+              selectedContractType
+            });
+            
             // Enhanced tick processing with validation
             if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal) {
-              const tickStr = data.tick.quote.toString();
               // Get the last digit from the price - handle decimal places properly
               const priceStr = price.toString();
               const digits = priceStr.replace('.', ''); // Remove decimal point
@@ -866,24 +888,23 @@ const SpeedBot: React.FC = observer(() => {
               console.log(`   - Price string: "${priceStr}"`);
               console.log(`   - Digits: "${digits}"`);
               console.log(`   - Last digit: ${lastDigit}`);
-              console.log(`   - Trading states: isTrading=${isTrading}, isDirectTrading=${isDirectTrading}`);
-              console.log(`   - Execution states: isExecutingTrade=${isExecutingTrade}, isRequestingProposal=${isRequestingProposal}`);
+              console.log(`   - Contract type: ${selectedContractType}`);
               
               if (isNaN(lastDigit)) {
                 console.error('❌ Invalid last digit from tick:', data.tick.quote);
                 return;
               }
               
-              if (isGoodCondition(lastDigit, selectedContractType)) {
-                console.log('✅ Condition met - requesting proposal now!');
-                // Add a small delay to prevent overwhelming the API
-                setTimeout(() => {
-                  if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal) {
-                    getPriceProposal();
-                  }
-                }, 100);
+              // Force condition check for DIGITEVEN (should trigger on even digits: 0,2,4,6,8)
+              const conditionMet = isGoodCondition(lastDigit, selectedContractType);
+              console.log(`🎲 Condition check: digit=${lastDigit}, type=${selectedContractType}, result=${conditionMet}`);
+              
+              if (conditionMet) {
+                console.log('✅ CONDITION MET - requesting proposal immediately!');
+                // Request proposal immediately without delay
+                getPriceProposal();
               } else {
-                console.log(`⏳ Condition not met - waiting... (${selectedContractType} vs ${lastDigit})`);
+                console.log(`⏳ Condition not met - waiting for even digit... (current: ${lastDigit})`);
               }
             } else {
               const reasons = [];
@@ -892,9 +913,7 @@ const SpeedBot: React.FC = observer(() => {
               if (isExecutingTrade) reasons.push('executing trade');
               if (isRequestingProposal) reasons.push('requesting proposal');
               
-              if (reasons.length > 0) {
-                console.log(`⏸️ Skipping tick processing: ${reasons.join(', ')}`);
-              }
+              console.log(`⏸️ Skipping tick processing: ${reasons.join(', ')}`);
             }
           }
 
@@ -1209,6 +1228,16 @@ const SpeedBot: React.FC = observer(() => {
           >
             Reset Stats
           </button>
+          {isTrading && isAuthorized && (
+            <button 
+              className="speed-bot__test-btn"
+              onClick={getPriceProposal}
+              disabled={isExecutingTrade || isRequestingProposal}
+              style={{ backgroundColor: '#007cba', color: 'white', marginLeft: '10px' }}
+            >
+              Test Proposal
+            </button>
+          )}
         </div>
 
         {/* Active Contracts Section */}
