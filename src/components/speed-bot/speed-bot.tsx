@@ -195,8 +195,8 @@ const SpeedBot: React.FC = observer(() => {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [proposalId, setProposalId] = useState<string | null>(null);
 
-  // Buy contract function
-  const buyContract = useCallback(async (proposalId: string, proposalPrice: number) => {
+  // Buy contract function using proper Deriv API sequence
+  const buyContract = useCallback(async (proposalId: string) => {
     if (!websocket || websocket.readyState !== WebSocket.OPEN) {
       console.error('❌ Cannot buy contract: WebSocket not connected');
       setError('WebSocket connection lost');
@@ -218,16 +218,13 @@ const SpeedBot: React.FC = observer(() => {
     try {
       setIsExecutingTrade(true);
 
+      // Simple buy request with just the proposal ID - following Deriv API best practices
       const buyRequest = {
         buy: proposalId,
-        price: proposalPrice || currentStake, // Use the proposal price or current stake
-        subscribe: 1,
         req_id: Date.now()
       };
 
-      console.log('📈 Buying contract with request:', buyRequest);
-      console.log('💰 Using proposal price:', proposalPrice, 'Current stake:', currentStake);
-
+      console.log('📈 Buying contract with proposal ID:', proposalId);
       websocket.send(JSON.stringify(buyRequest));
 
       // Set timeout to reset executing state if no response
@@ -237,16 +234,16 @@ const SpeedBot: React.FC = observer(() => {
           setIsExecutingTrade(false);
           setError('Buy request timed out - trying again...');
         }
-      }, 8000); // Increased timeout
+      }, 8000);
 
     } catch (error) {
       console.error('Error buying contract:', error);
       setError(`Failed to buy contract: ${error.message}`);
       setIsExecutingTrade(false);
     }
-  }, [websocket, isAuthorized, currentStake, isExecutingTrade]);
+  }, [websocket, isAuthorized, isExecutingTrade]);
 
-  // Get price proposal with better error handling
+  // Get price proposal using proper Deriv API format
   const getPriceProposal = useCallback(() => {
     if (!websocket || websocket.readyState !== WebSocket.OPEN) {
       console.log('❌ Cannot get proposal: WebSocket not connected');
@@ -266,24 +263,27 @@ const SpeedBot: React.FC = observer(() => {
     }
 
     try {
-      let proposalRequest: any = {
+      // Build proposal request following Deriv API specification
+      const proposalRequest: any = {
         proposal: 1,
         amount: currentStake,
         basis: 'stake',
         contract_type: selectedContractType,
-        currency: 'USD',
+        currency: client?.currency || 'USD',
         duration: 1,
         duration_unit: 't',
         symbol: selectedSymbol,
         req_id: Date.now()
       };
 
-      // Add prediction for digit contracts
-      if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType)) {
+      // Add barrier/prediction for digit contracts that require it
+      if (['DIGITOVER', 'DIGITUNDER'].includes(selectedContractType)) {
+        proposalRequest.barrier = overUnderValue.toString();
+      } else if (['DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType)) {
         proposalRequest.barrier = overUnderValue.toString();
       }
 
-      console.log('📊 Getting price proposal:', proposalRequest);
+      console.log('📊 Getting price proposal with proper API format:', proposalRequest);
       websocket.send(JSON.stringify(proposalRequest));
 
     } catch (error) {
@@ -298,7 +298,7 @@ const SpeedBot: React.FC = observer(() => {
         }, 2000);
       }
     }
-  }, [websocket, isAuthorized, currentStake, selectedContractType, selectedSymbol, overUnderValue, isExecutingTrade, isTrading]);
+  }, [websocket, isAuthorized, currentStake, selectedContractType, selectedSymbol, overUnderValue, isExecutingTrade, isTrading, client]);
 
   // WebSocket connection
   const connectToAPI = useCallback(() => {
@@ -417,9 +417,10 @@ const SpeedBot: React.FC = observer(() => {
               // Auto-buy immediately if trading is active
               if (isTrading && !isExecutingTrade) {
                 console.log('🚀 Attempting to buy contract with proposal ID:', data.proposal.id);
+                console.log('💰 Proposal price:', data.proposal.ask_price);
                 // Buy immediately with minimal delay to prevent proposal expiry
                 setTimeout(() => {
-                  buyContract(data.proposal.id, data.proposal.ask_price);
+                  buyContract(data.proposal.id);
                 }, 100);
               }
             } else {
@@ -459,7 +460,7 @@ const SpeedBot: React.FC = observer(() => {
             });
             setLastTradeTime(Date.now());
 
-            // Subscribe to contract updates
+            // Subscribe to contract updates to monitor outcome
             if (data.buy.contract_id) {
               try {
                 const contractRequest = {
@@ -469,7 +470,7 @@ const SpeedBot: React.FC = observer(() => {
                   req_id: Date.now() + 3000
                 };
                 ws.send(JSON.stringify(contractRequest));
-                console.log('📈 Subscribed to contract updates:', data.buy.contract_id);
+                console.log('📈 Subscribed to contract updates for contract:', data.buy.contract_id);
               } catch (error) {
                 console.error('❌ Error subscribing to contract:', error);
               }
