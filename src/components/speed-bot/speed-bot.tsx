@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Localize } from '@deriv-com/translations';
 import { useStore } from '@/hooks/useStore';
@@ -151,28 +150,45 @@ const SpeedBot: React.FC = observer(() => {
     { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
   ];
 
-  // Validation for contract combinations
+  // Enhanced validation function with contract-specific rules
   const isValidCombination = useMemo(() => {
-    const validSymbols = volatilitySymbols.map(s => s.value);
-    if (!validSymbols.includes(selectedSymbol)) {
-      console.log('❌ Invalid symbol:', selectedSymbol);
-      return false;
-    }
-    
-    if (currentStake < 0.35) {
-      console.log('❌ Stake too low:', currentStake);
-      return false;
-    }
-    
-    if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType)) {
-      if (overUnderValue < 0 || overUnderValue > 9) {
-        console.log('❌ Invalid barrier value:', overUnderValue);
-        return false;
-      }
-    }
-    
-    return true;
-  }, [selectedSymbol, selectedContractType, overUnderValue, currentStake]);
+    const needsBarrier = ['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType);
+    const needsTouch = ['ONETOUCH', 'NOTOUCH'].includes(selectedContractType);
+    const needsRange = ['RANGE', 'UPORDOWN'].includes(selectedContractType);
+    const isMultiplier = selectedContractType.startsWith('MULT');
+    const isLookback = selectedContractType.startsWith('LB');
+    const isAsian = selectedContractType.startsWith('ASIAN');
+
+    // Validate barrier for digit contracts
+    const validBarrier = needsBarrier ? overUnderValue >= 0 && overUnderValue <= 9 : true;
+
+    // Validate touch/no-touch barriers
+    const validTouchBarrier = needsTouch ? overUnderValue > 0 : true;
+
+    // Validate range barriers
+    const validRangeBarrier = needsRange ? overUnderValue > 0 && overUnderValue < 10 : true;
+
+    // Validate multiplier parameters
+    const validMultiplier = isMultiplier ? currentStake >= 1 && currentStake <= 2000 : true;
+
+    // Validate lookback parameters
+    const validLookback = isLookback ? currentStake >= 1 && currentStake <= 500 : true;
+
+    // Validate Asian parameters
+    const validAsian = isAsian ? currentStake >= 1 && currentStake <= 1000 : true;
+
+    // General validations
+    const validStake = currentStake > 0 && currentStake <= 1000;
+    const validSymbol = selectedSymbol && selectedSymbol.length > 0;
+
+    // Contract-specific stake limits
+    const stakeLimit = isMultiplier ? 2000 : isLookback ? 500 : 1000;
+    const validStakeForContract = currentStake > 0 && currentStake <= stakeLimit;
+
+    return validBarrier && validTouchBarrier && validRangeBarrier && 
+           validMultiplier && validLookback && validAsian && 
+           validStakeForContract && validSymbol;
+  }, [selectedContractType, overUnderValue, currentStake, selectedSymbol]);
 
   const contractTypes = [
     { value: 'DIGITOVER', label: 'Over' },
@@ -186,7 +202,7 @@ const SpeedBot: React.FC = observer(() => {
   ];
 
   // Buy contract function using proper Deriv API sequence
-  const buyContract = useCallback(async (proposalId: string) => {
+  const buyContract = useCallback(async (proposalId: string, proposalPrice: number) => {
     console.log('📈 Buy contract attempt debug:', {
       websocketReady: websocket?.readyState === WebSocket.OPEN,
       isAuthorized,
@@ -227,6 +243,7 @@ const SpeedBot: React.FC = observer(() => {
 
       const buyRequest = {
         buy: proposalId,
+        price: proposalPrice,
         req_id: Date.now()
       };
 
@@ -239,7 +256,7 @@ const SpeedBot: React.FC = observer(() => {
           console.log('⏰ Buy request timeout - resetting execution state');
           setIsExecutingTrade(false);
           setError('Buy request timed out - trying again...');
-          
+
           // Retry if still trading
           if (isTrading && isDirectTrading) {
             setTimeout(() => {
@@ -257,7 +274,7 @@ const SpeedBot: React.FC = observer(() => {
       console.error('❌ Error buying contract:', error);
       setError(`Failed to buy contract: ${error.message}`);
       setIsExecutingTrade(false);
-      
+
       // Retry if still trading
       if (isTrading && isDirectTrading) {
         setTimeout(() => {
@@ -299,14 +316,14 @@ const SpeedBot: React.FC = observer(() => {
   // Strategy condition check - PROPER LOGIC FOR TRADING
   const isGoodCondition = useCallback((lastDigit: number, contractType: string) => {
     console.log(`🎯 Condition check: lastDigit=${lastDigit}, contractType=${contractType}, overUnderValue=${overUnderValue}`);
-    
+
     if (isNaN(lastDigit) || lastDigit < 0 || lastDigit > 9) {
       console.error('❌ Invalid last digit:', lastDigit);
       return false;
     }
-    
+
     let result = false;
-    
+
     switch (contractType) {
       case 'DIGITEVEN':
         result = lastDigit % 2 === 0; // 0, 2, 4, 6, 8
@@ -329,7 +346,7 @@ const SpeedBot: React.FC = observer(() => {
       default:
         result = false;
     }
-    
+
     console.log(`🎯 Final condition result: ${result ? '✅ TRADE NOW' : '❌ SKIP'} (${contractType}: digit=${lastDigit}, barrier=${overUnderValue})`);
     return result;
   }, [overUnderValue]);
@@ -381,24 +398,58 @@ const SpeedBot: React.FC = observer(() => {
 
     try {
       setIsRequestingProposal(true);
-      
-      const proposalRequest: any = {
+
+      const requestId = Date.now();
+      const needsBarrier = ['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType);
+
+      // Enhanced proposal request with additional parameters
+      const proposalRequest = {
         proposal: 1,
         amount: currentStake,
         basis: 'stake',
         contract_type: selectedContractType,
-        currency: client?.currency || 'USD',
-        symbol: selectedSymbol,
+        currency: 'USD',
         duration: 1,
         duration_unit: 't',
-        req_id: Date.now()
+        symbol: selectedSymbol,
+        req_id: requestId,
+        ...(needsBarrier && { barrier: overUnderValue }),
+        // Additional contract parameters
+        ...(selectedContractType === 'RANGE' && { 
+          barrier: overUnderValue,
+          barrier2: overUnderValue + 1 
+        }),
+        ...(selectedContractType === 'UPORDOWN' && { 
+          barrier: overUnderValue,
+          barrier2: overUnderValue + 1 
+        }),
+        ...(selectedContractType === 'ONETOUCH' && { barrier: overUnderValue }),
+        ...(selectedContractType === 'NOTOUCH' && { barrier: overUnderValue }),
+        ...(selectedContractType.startsWith('MULT') && { 
+          multiplier: 10,
+          amount: currentStake,
+          basis: 'stake'
+        }),
+        ...(selectedContractType.startsWith('LB') && { 
+          duration: 5,
+          duration_unit: 't'
+        }),
+        ...(selectedContractType.startsWith('ASIAN') && { 
+          duration: 5,
+          duration_unit: 't'
+        }),
+        // Add product type for specific contracts
+        ...(selectedContractType.startsWith('MULT') && { product_type: 'basic' }),
+        // Trading period parameters
+        trading_period_start: Math.floor(Date.now() / 1000),
+        // Risk management parameters
+        ...(selectedContractType.startsWith('MULT') && { 
+          limit_order: {
+            stop_loss: currentStake * 2,
+            take_profit: currentStake * 3
+          }
+        })
       };
-
-      if (['DIGITOVER', 'DIGITUNDER'].includes(selectedContractType)) {
-        proposalRequest.barrier = overUnderValue.toString();
-      } else if (['DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType)) {
-        proposalRequest.barrier = overUnderValue.toString();
-      }
 
       console.log('📊 Sending proposal request:', JSON.stringify(proposalRequest, null, 2));
       websocket.send(JSON.stringify(proposalRequest));
@@ -407,7 +458,7 @@ const SpeedBot: React.FC = observer(() => {
       const proposalTimeoutId = setTimeout(() => {
         console.log('⏰ Proposal request timeout - clearing flag');
         setIsRequestingProposal(false);
-        
+
         // Retry if still trading
         if (isTrading && isDirectTrading) {
           setTimeout(() => {
@@ -416,7 +467,7 @@ const SpeedBot: React.FC = observer(() => {
           }, 1000);
         }
       }, 3000); // Reduced timeout to 3 seconds
-      
+
       // Store timeout ID to clear it if proposal succeeds
       (window as any).proposalTimeoutId = proposalTimeoutId;
 
@@ -493,7 +544,7 @@ const SpeedBot: React.FC = observer(() => {
               console.log('📊 Sending tick request:', JSON.stringify(tickRequest, null, 2));
               ws.send(JSON.stringify(tickRequest));
               console.log('📊 Tick subscription requested for', selectedSymbol);
-              
+
               // Also request live ticks separately to ensure we get real-time data
               setTimeout(() => {
                 const liveTickRequest = {
@@ -549,89 +600,94 @@ const SpeedBot: React.FC = observer(() => {
             setIsAuthorized(false);
           }
 
-          // Handle price proposal response
-          if (data.proposal) {
-            console.log('💰 Raw proposal data:', JSON.stringify(data.proposal, null, 2));
-            
+          // Enhanced proposal success handling
+          if (data.proposal && !data.error) {
+            console.log('✅ Proposal received:', data.proposal);
+
             // Clear proposal timeout
             if ((window as any).proposalTimeoutId) {
               clearTimeout((window as any).proposalTimeoutId);
-              (window as any).proposalTimeoutId = null;
+              delete (window as any).proposalTimeoutId;
             }
-            
-            setIsRequestingProposal(false);
 
-            if (data.proposal.error) {
-              console.error('❌ Proposal error:', JSON.stringify(data.proposal.error, null, 2));
-              setError(`Proposal failed: ${data.proposal.error.message}`);
-              setIsExecutingTrade(false);
+            const proposal = data.proposal;
 
-              if (isTrading && isDirectTrading) {
-                setTimeout(() => {
-                  console.log('🔄 Retrying proposal after error...');
-                  getPriceProposal();
-                }, 2000);
-              }
+            // Enhanced proposal validation
+            if (!proposal.id) {
+              console.error('❌ Invalid proposal: No ID');
+              setError('Invalid proposal received. Retrying...');
+              setTimeout(() => {
+                if (isTrading) getPriceProposal();
+              }, 1000);
               return;
             }
 
-            if (data.proposal.id && data.proposal.ask_price) {
-              console.log('✅ Valid proposal received:');
-              console.log(`   - ID: ${data.proposal.id}`);
-              console.log(`   - Price: ${data.proposal.ask_price}`);
-              console.log(`   - Payout: ${data.proposal.payout}`);
-              console.log(`   - Display value: ${data.proposal.display_value}`);
-              
-              setProposalId(data.proposal.id);
+            // Price validation
+            const proposalPrice = parseFloat(proposal.ask_price || proposal.payout);
+            if (isNaN(proposalPrice) || proposalPrice <= 0) {
+              console.error('❌ Invalid proposal price:', proposalPrice);
+              setError('Invalid proposal price. Retrying...');
+              setTimeout(() => {
+                if (isTrading) getPriceProposal();
+              }, 1000);
+              return;
+            }
 
-              if (isTrading && isDirectTrading && !isExecutingTrade) {
-                console.log('🚀 All conditions met - buying contract immediately');
-                console.log('Buy conditions check:', {
-                  isTrading,
-                  isDirectTrading,
-                  isExecutingTrade,
-                  proposalId: data.proposal.id
-                });
-                
-                // Buy immediately without delay
-                buyContract(data.proposal.id);
-              } else {
-                console.log('⚠️ Cannot buy - conditions not met:', {
-                  isTrading,
-                  isDirectTrading,
-                  isExecutingTrade
-                });
-              }
-            } else {
-              console.log('⚠️ Invalid proposal received - missing required fields:');
-              console.log(`   - Has ID: ${!!data.proposal.id}`);
-              console.log(`   - Has ask_price: ${!!data.proposal.ask_price}`);
-              console.log('   - Full proposal:', data.proposal);
-              
-              if (isTrading && isDirectTrading) {
-                setTimeout(() => {
-                  console.log('🔄 Retrying due to invalid proposal...');
-                  getPriceProposal();
-                }, 1000);
-              }
+            // Balance check against proposal price
+            if (balance < proposalPrice) {
+              console.error('❌ Insufficient balance for proposal price');
+              setError(`Insufficient balance for proposal. Required: ${proposalPrice}, Available: ${balance}`);
+              setIsTrading(false);
+              return;
+            }
+
+            // Contract-specific proposal validation
+            if (selectedContractType.startsWith('MULT') && !proposal.multiplier) {
+              console.error('❌ Multiplier proposal missing multiplier value');
+              setError('Invalid multiplier proposal. Retrying...');
+              setTimeout(() => {
+                if (isTrading) getPriceProposal();
+              }, 1000);
+              return;
+            }
+
+            setProposalId(proposal.id);
+            setIsRequestingProposal(false);
+            setError(null);
+
+            // Log proposal details
+            console.log('📊 Proposal details:', {
+              id: proposal.id,
+              price: proposalPrice,
+              payout: proposal.payout,
+              contract_type: selectedContractType,
+              symbol: selectedSymbol,
+              spot: proposal.spot,
+              ask_price: proposal.ask_price
+            });
+
+            // Auto-buy if trading and direct trading enabled
+            if (isTrading && isDirectTrading && proposal.id) {
+              console.log('🚀 Auto-buying contract with proposal:', proposal.id);
+              buyContract(proposal.id, proposalPrice);
             }
           }
 
           // Handle buy response
           if (data.buy) {
             console.log('✅ Contract purchased successfully:', JSON.stringify(data.buy, null, 2));
-            
+
             // Clear any pending timeouts
             if ((window as any).buyTimeoutId) {
               clearTimeout((window as any).buyTimeoutId);
               (window as any).buyTimeoutId = null;
             }
-            
+
             if ((window as any).proposalTimeoutId) {
               clearTimeout((window as any).proposalTimeoutId);
               (window as any).proposalTimeoutId = null;
             }
-            
+
             // Reset all execution states
             setIsExecutingTrade(false);
             setIsRequestingProposal(false);
@@ -696,7 +752,7 @@ const SpeedBot: React.FC = observer(() => {
           if (data.sell) {
             console.log('✅ Contract sold successfully:', data.sell);
             const contractId = data.sell.contract_id;
-            
+
             // Remove from active contracts
             setActiveContracts(prev => {
               const newMap = new Map(prev);
@@ -722,13 +778,37 @@ const SpeedBot: React.FC = observer(() => {
               return updated;
             });
 
+            // Enhanced martingale logic with contract-specific adjustments
             if (profit > 0) {
               setWins(prev => prev + 1);
-              setCurrentStake(stake);
+              if (useMartingale) {
+                setCurrentStake(1); // Reset to base stake on win
+              }
             } else {
               setLosses(prev => prev + 1);
               if (useMartingale) {
-                setCurrentStake(prev => prev * martingaleMultiplier);
+                // Contract-specific martingale adjustments
+                const maxStake = selectedContractType.startsWith('MULT') ? 2000 : 
+                                selectedContractType.startsWith('LB') ? 500 : 1000;
+
+                const newStake = Math.min(currentStake * martingaleMultiplier, maxStake);
+
+                // Additional safety check for balance
+                if (newStake > balance) {
+                  console.warn('⚠️ Martingale stake exceeds balance, using maximum available');
+                  setCurrentStake(Math.floor(balance * 0.8)); // Use 80% of balance as safety margin
+                } else {
+                  setCurrentStake(newStake);
+                }
+
+                // Log martingale adjustment
+                console.log('📈 Martingale adjustment:', {
+                  previousStake: currentStake,
+                  newStake: newStake,
+                  maxStake: maxStake,
+                  balance: balance,
+                  contractType: selectedContractType
+                });
               }
             }
 
@@ -738,13 +818,13 @@ const SpeedBot: React.FC = observer(() => {
           // Handle buy errors
           if (data.error && (data.msg_type === 'buy' || data.error.details?.field === 'buy')) {
             console.error('❌ Buy contract error:', JSON.stringify(data.error, null, 2));
-            
+
             // Clear any pending timeout
             if ((window as any).buyTimeoutId) {
               clearTimeout((window as any).buyTimeoutId);
               (window as any).buyTimeoutId = null;
             }
-            
+
             setIsExecutingTrade(false);
             setIsRequestingProposal(false);
             setProposalId(null);
@@ -787,7 +867,7 @@ const SpeedBot: React.FC = observer(() => {
           if (data.proposal_open_contract) {
             const contract = data.proposal_open_contract;
             const contractId = contract.contract_id;
-            
+
             // Update active contract info
             if (contractId && activeContracts.has(contractId)) {
               setActiveContracts(prev => {
@@ -809,12 +889,12 @@ const SpeedBot: React.FC = observer(() => {
             if (contract.status === 'open' && contractId && activeContracts.has(contractId)) {
               const currentProfit = parseFloat(contract.profit || 0);
               const activeContract = activeContracts.get(contractId);
-              
+
               if (activeContract) {
                 const timeElapsed = Date.now() - activeContract.startTime;
                 const profitThreshold = currentStake * 0.8; // 80% profit threshold
                 const maxHoldTime = 45000; // 45 seconds max hold time
-                
+
                 // Sell conditions: good profit or max time reached
                 if (currentProfit >= profitThreshold || timeElapsed >= maxHoldTime) {
                   console.log(`🎯 Auto-selling contract ${contractId}: Profit=${currentProfit}, Time=${timeElapsed}ms`);
@@ -867,24 +947,24 @@ const SpeedBot: React.FC = observer(() => {
           if (data.tick && data.tick.symbol === selectedSymbol) {
             const price = parseFloat(data.tick.quote);
             setCurrentPrice(price.toFixed(5));
-            
+
             // Get the last digit from the price - handle decimal places properly
             const priceStr = data.tick.quote.toString();
             const lastDigit = parseInt(priceStr[priceStr.length - 1]);
-            
+
             console.log(`🎯 TICK: ${data.tick.quote} | Last Digit: ${lastDigit} | Need: >${overUnderValue} (DIGITOVER)`);
             console.log(`🎯 States: Trading=${isTrading}, Direct=${isDirectTrading}, Executing=${isExecutingTrade}, Requesting=${isRequestingProposal}`);
-            
+
             // Enhanced tick processing with validation
             if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal) {
               if (isNaN(lastDigit)) {
                 console.error('❌ Invalid last digit from tick:', data.tick.quote);
                 return;
               }
-              
+
               // Check condition based on contract type - SIMPLIFIED LOGIC
               let conditionMet = false;
-              
+
               switch (selectedContractType) {
                 case 'DIGITEVEN':
                   conditionMet = lastDigit % 2 === 0; // 0, 2, 4, 6, 8
@@ -914,16 +994,16 @@ const SpeedBot: React.FC = observer(() => {
                   conditionMet = false;
                   console.log(`🎯 Unknown contract type: ${selectedContractType}`);
               }
-              
+
               if (conditionMet) {
                 console.log(`🚀🚀🚀 CONDITION MET! Trading ${selectedContractType} with digit ${lastDigit} 🚀🚀🚀`);
-                
+
                 // Clear any existing timeouts
                 if ((window as any).proposalTimeoutId) {
                   clearTimeout((window as any).proposalTimeoutId);
                   (window as any).proposalTimeoutId = null;
                 }
-                
+
                 // Request proposal immediately
                 setTimeout(() => getPriceProposal(), 100);
               } else {
@@ -935,7 +1015,7 @@ const SpeedBot: React.FC = observer(() => {
               if (!isDirectTrading) reasons.push('not direct trading');
               if (isExecutingTrade) reasons.push('executing trade');
               if (isRequestingProposal) reasons.push('requesting proposal');
-              
+
               console.log(`⏸️ Skipping tick: ${reasons.join(', ')}`);
             }
           }
@@ -982,7 +1062,7 @@ const SpeedBot: React.FC = observer(() => {
 
   const startTrading = async () => {
     console.log('🚀 Starting Speed Bot with validation...');
-    
+
     const authToken = getAuthToken();
     if (!authToken) {
       setError('Please log in to Deriv first. Go to deriv.com and sign in, then try again.');
@@ -1348,7 +1428,7 @@ const SpeedBot: React.FC = observer(() => {
             <span>{activeContracts.size}</span>
           </div>
         </div>
-        
+
         {/* Debug Information Panel - Remove after testing */}
         {isTrading && (
           <div className="speed-bot__debug" style={{ 
