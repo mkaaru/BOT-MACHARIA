@@ -33,62 +33,85 @@ const SpeedBot: React.FC = observer(() => {
     );
   }
 
-  // Get token from client store with better error handling
+  // Get token from client store with comprehensive fallback methods
   const getAuthToken = () => {
-    console.log('🔍 Checking authentication...');
-    console.log('Client object:', client);
-    console.log('Is logged in:', client?.is_logged_in);
-
-    if (!client) {
-      console.log('❌ Client store not available');
+    console.log('🔍 BREAKPOINT AUTH-1: Checking authentication...');
+    
+    if (!client?.is_logged_in) {
+      console.log('❌ BREAKPOINT AUTH-2: User not logged in');
       return null;
     }
 
-    if (!client.is_logged_in) {
-      console.log('❌ User not logged in');
-      return null;
-    }
-
-    // Try multiple ways to get the token
+    // Try multiple token sources in order of preference
     let token = null;
 
-    // Check various possible token locations
+    // Method 1: Client getToken function
     if (client.getToken && typeof client.getToken === 'function') {
-      token = client.getToken();
-      console.log('🔑 Token from getToken():', token ? 'Available' : 'Null');
-    }
-
-    if (!token && client.token) {
-      token = client.token;
-      console.log('🔑 Token from client.token:', token ? 'Available' : 'Null');
-    }
-
-    if (!token && client.authentication?.token) {
-      token = client.authentication.token;
-      console.log('🔑 Token from client.authentication.token:', token ? 'Available' : 'Null');
-    }
-
-    // Check localStorage as fallback
-    if (!token) {
       try {
-        const storedTokens = localStorage.getItem('client.tokens');
-        if (storedTokens) {
-          const parsedTokens = JSON.parse(storedTokens);
-          if (parsedTokens && Object.keys(parsedTokens).length > 0) {
-            token = Object.values(parsedTokens)[0];
-            console.log('🔑 Token from localStorage:', token ? 'Available' : 'Null');
-          }
-        }
+        token = client.getToken();
+        console.log('🔑 BREAKPOINT AUTH-3: Token from getToken():', token ? `${token.substring(0, 10)}...` : 'Null');
       } catch (e) {
-        console.log('⚠️ Error reading tokens from localStorage:', e);
+        console.log('⚠️ BREAKPOINT AUTH-4: Error with getToken():', e);
       }
     }
 
-    if (token) {
-      console.log('✅ Authentication token found');
+    // Method 2: Direct token property
+    if (!token && client.token) {
+      token = client.token;
+      console.log('🔑 BREAKPOINT AUTH-5: Token from client.token:', token ? `${token.substring(0, 10)}...` : 'Null');
+    }
+
+    // Method 3: Check various localStorage keys
+    if (!token) {
+      const tokenKeys = ['client.tokens', 'accountsList', 'authToken'];
+      for (const key of tokenKeys) {
+        try {
+          const stored = localStorage.getItem(key);
+          if (stored) {
+            if (key === 'client.tokens' || key === 'accountsList') {
+              const parsed = JSON.parse(stored);
+              if (parsed && typeof parsed === 'object') {
+                const loginid = client.loginid || Object.keys(parsed)[0];
+                if (loginid && parsed[loginid]) {
+                  token = parsed[loginid];
+                  console.log(`🔑 BREAKPOINT AUTH-6: Token from ${key}[${loginid}]:`, token ? `${token.substring(0, 10)}...` : 'Null');
+                  break;
+                }
+              }
+            } else {
+              token = stored;
+              console.log(`🔑 BREAKPOINT AUTH-7: Token from ${key}:`, token ? `${token.substring(0, 10)}...` : 'Null');
+              break;
+            }
+          }
+        } catch (e) {
+          console.log(`⚠️ Error reading ${key}:`, e);
+        }
+      }
+    }
+
+    // Method 4: Check cookie if available
+    if (!token && document.cookie) {
+      try {
+        const cookies = document.cookie.split(';');
+        for (const cookie of cookies) {
+          const [name, value] = cookie.trim().split('=');
+          if (name === 'authToken' || name === 'token') {
+            token = value;
+            console.log('🔑 BREAKPOINT AUTH-8: Token from cookie:', token ? `${token.substring(0, 10)}...` : 'Null');
+            break;
+          }
+        }
+      } catch (e) {
+        console.log('⚠️ Error reading cookies:', e);
+      }
+    }
+
+    if (token && token.length > 20) {
+      console.log('✅ BREAKPOINT AUTH-9: Valid authentication token found');
       return token;
     } else {
-      console.log('❌ No authentication token found');
+      console.log('❌ BREAKPOINT AUTH-10: No valid authentication token found');
       return null;
     }
   };
@@ -154,123 +177,168 @@ const SpeedBot: React.FC = observer(() => {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [proposalId, setProposalId] = useState<string | null>(null);
 
-  // Buy contract function using proper Deriv API sequence
+  // Buy contract function with enhanced error handling and validation
   const buyContract = useCallback(async (proposalId: string) => {
-    console.log('🛒 BUY CONTRACT ATTEMPT - Full Debug Info:');
-    console.log('  - WebSocket state:', websocket?.readyState, '(should be 1 for OPEN)');
-    console.log('  - Is authorized:', isAuthorized);
-    console.log('  - Proposal ID:', proposalId);
-    console.log('  - Current user:', client?.loginid);
-    console.log('  - Account type:', client?.is_virtual ? 'Virtual' : 'Real');
-    console.log('  - Balance:', client?.balance, client?.currency);
-    console.log('  - Currently executing trade:', isExecutingTrade);
+    console.log('🛒 BREAKPOINT BUY-1: BUY CONTRACT ATTEMPT');
+    console.log('🛒 BREAKPOINT BUY-1.1: WebSocket state:', websocket?.readyState, '(1=OPEN, 2=CLOSING, 3=CLOSED)');
+    console.log('🛒 BREAKPOINT BUY-1.2: Is authorized:', isAuthorized);
+    console.log('🛒 BREAKPOINT BUY-1.3: Proposal ID:', proposalId);
+    console.log('🛒 BREAKPOINT BUY-1.4: Account:', client?.loginid, client?.is_virtual ? 'Virtual' : 'Real');
+    console.log('🛒 BREAKPOINT BUY-1.5: Balance:', client?.balance, client?.currency);
 
+    // Strict validation checks
+    if (!websocket) {
+      console.error('❌ BREAKPOINT BUY-2: WebSocket is null');
+      setError('WebSocket connection is null');
+      setIsExecutingTrade(false);
+      return;
+    }
+
+    if (websocket.readyState !== WebSocket.OPEN) {
+      console.error('❌ BREAKPOINT BUY-3: WebSocket not open, state:', websocket.readyState);
+      setError('WebSocket connection not open');
+      setIsExecutingTrade(false);
+      return;
+    }
+
+    if (!isAuthorized) {
+      console.error('❌ BREAKPOINT BUY-4: Not authorized');
+      setError('Not authorized for trading');
+      setIsExecutingTrade(false);
+      return;
+    }
+
+    if (!proposalId || proposalId.length < 10) {
+      console.error('❌ BREAKPOINT BUY-5: Invalid proposal ID:', proposalId);
+      setError('Invalid proposal ID');
+      setIsExecutingTrade(false);
+      return;
+    }
+
+    try {
+      // Create buy request with unique req_id
+      const buyRequest = {
+        buy: proposalId,
+        req_id: `buy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      };
+
+      console.log('📈 BREAKPOINT BUY-6: SENDING BUY REQUEST:', {
+        buy: proposalId,
+        req_id: buyRequest.req_id
+      });
+
+      // Send the buy request
+      websocket.send(JSON.stringify(buyRequest));
+      console.log('📈 BREAKPOINT BUY-7: BUY REQUEST SENT TO DERIV API');
+
+      // Set a timeout to handle no response scenarios
+      setTimeout(() => {
+        if (isExecutingTrade) {
+          console.log('⏰ BREAKPOINT BUY-8: Buy request timeout after 10 seconds');
+          setIsExecutingTrade(false);
+          setError('Buy request timed out - proposal may have expired');
+          
+          // Try to get a new proposal
+          if (isTrading) {
+            setTimeout(() => {
+              console.log('🔄 BREAKPOINT BUY-9: Getting new proposal after timeout...');
+              getPriceProposal();
+            }, 1000);
+          }
+        }
+      }, 10000); // 10 second timeout
+
+    } catch (error) {
+      console.error('❌ BREAKPOINT BUY-10: Exception during buy request:', error);
+      setError(`Buy request failed: ${error.message}`);
+      setIsExecutingTrade(false);
+      
+      // Try again after error
+      if (isTrading) {
+        setTimeout(() => {
+          console.log('🔄 BREAKPOINT BUY-11: Retrying after exception...');
+          getPriceProposal();
+        }, 2000);
+      }
+    }
+  }, [websocket, isAuthorized, isExecutingTrade, client, isTrading, getPriceProposal]);
+
+  // Get price proposal with enhanced validation and error handling
+  const getPriceProposal = useCallback(() => {
+    console.log('📊 BREAKPOINT PROP-REQ-1: Getting price proposal...');
+    
     if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-      console.error('❌ Cannot buy contract: WebSocket not connected');
+      console.log('❌ BREAKPOINT PROP-REQ-2: WebSocket not available');
       setError('WebSocket connection lost');
       return;
     }
 
     if (!isAuthorized) {
-      console.error('❌ Cannot buy contract: Not authorized');
-      setError('Not authorized - please check your login');
-      return;
-    }
-
-    if (!proposalId) {
-      console.error('❌ Cannot buy contract: No proposal ID');
-      setError('No proposal ID available');
-      return;
-    }
-
-    try {
-      setIsExecutingTrade(true);
-
-      // Simple buy request with just the proposal ID - following Deriv API best practices
-      const buyRequest = {
-        buy: proposalId,
-        req_id: Date.now()
-      };
-
-      console.log('📈 SENDING BUY REQUEST:', JSON.stringify(buyRequest));
-      console.log('📈 WebSocket ready state before send:', websocket.readyState);
-      
-      websocket.send(JSON.stringify(buyRequest));
-      console.log('📈 BUY REQUEST SENT SUCCESSFULLY');
-
-      // Set timeout to reset executing state if no response
-      setTimeout(() => {
-        if (isExecutingTrade) {
-          console.log('⏰ Buy request timeout - resetting execution state');
-          setIsExecutingTrade(false);
-          setError('Buy request timed out - trying again...');
-        }
-      }, 8000);
-
-    } catch (error) {
-      console.error('❌ Error sending buy request:', error);
-      setError(`Failed to buy contract: ${error.message}`);
-      setIsExecutingTrade(false);
-    }
-  }, [websocket, isAuthorized, isExecutingTrade, client]);
-
-  // Get price proposal using proper Deriv API format
-  const getPriceProposal = useCallback(() => {
-    if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-      console.log('❌ Cannot get proposal: WebSocket not connected');
-      setError('WebSocket connection lost. Reconnecting...');
-      return;
-    }
-
-    if (!isAuthorized) {
-      console.log('❌ Cannot get proposal: Not authorized');
-      setError('Not authorized. Please ensure you are logged in to Deriv.');
+      console.log('❌ BREAKPOINT PROP-REQ-3: Not authorized');
+      setError('Not authorized for proposals');
       return;
     }
 
     if (isExecutingTrade) {
-      console.log('⏳ Skipping proposal request - trade already executing');
+      console.log('⏳ BREAKPOINT PROP-REQ-4: Trade executing, skipping proposal');
       return;
     }
 
     try {
-      // Build proposal request following Deriv API specification for DIGITEVEN
+      // Validate stake amount
+      const stakeAmount = Math.max(currentStake, 0.35);
+      
+      // Build comprehensive proposal request
       const proposalRequest: any = {
         proposal: 1,
-        amount: currentStake,
+        amount: stakeAmount,
         basis: 'stake',
         contract_type: selectedContractType,
         currency: client?.currency || 'USD',
         symbol: selectedSymbol,
         duration: 1,
         duration_unit: 't',
-        req_id: Date.now()
+        req_id: `proposal_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
       };
 
-      // Add barrier/prediction for digit contracts that require it
+      // Add barriers for digit contracts that require them
       if (['DIGITOVER', 'DIGITUNDER'].includes(selectedContractType)) {
         proposalRequest.barrier = overUnderValue.toString();
+        console.log('📊 BREAKPOINT PROP-REQ-5: Added barrier for OVER/UNDER:', overUnderValue);
       } else if (['DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType)) {
         proposalRequest.barrier = overUnderValue.toString();
+        console.log('📊 BREAKPOINT PROP-REQ-6: Added barrier for MATCH/DIFF:', overUnderValue);
       }
-      // DIGITEVEN and DIGITODD don't need barriers - they're based on last digit even/odd
 
-      console.log('📊 Getting price proposal with proper API format:', proposalRequest);
+      console.log('📊 BREAKPOINT PROP-REQ-7: Sending proposal request:', {
+        ...proposalRequest,
+        req_id: proposalRequest.req_id
+      });
+
       websocket.send(JSON.stringify(proposalRequest));
+      console.log('📊 BREAKPOINT PROP-REQ-8: Proposal request sent to Deriv API');
+
+      // Set timeout for proposal response
+      setTimeout(() => {
+        if (!proposalId && isTrading && !isExecutingTrade) {
+          console.log('⏰ BREAKPOINT PROP-REQ-9: Proposal timeout, retrying...');
+          getPriceProposal();
+        }
+      }, 5000);
 
     } catch (error) {
-      console.error('Error getting proposal:', error);
-      setError(`Failed to get proposal: ${error.message}`);
+      console.error('❌ BREAKPOINT PROP-REQ-10: Error in proposal request:', error);
+      setError(`Proposal request failed: ${error.message}`);
 
-      // Retry after error
+      // Retry after error with backoff
       if (isTrading) {
         setTimeout(() => {
-          console.log('🔄 Retrying proposal after error...');
+          console.log('🔄 BREAKPOINT PROP-REQ-11: Retrying after error...');
           getPriceProposal();
-        }, 2000);
+        }, 3000);
       }
     }
-  }, [websocket, isAuthorized, currentStake, selectedContractType, selectedSymbol, overUnderValue, isExecutingTrade, isTrading, client]);
+  }, [websocket, isAuthorized, currentStake, selectedContractType, selectedSymbol, overUnderValue, isExecutingTrade, isTrading, client, proposalId]);
 
   // WebSocket connection
   const connectToAPI = useCallback(() => {
@@ -302,50 +370,51 @@ const SpeedBot: React.FC = observer(() => {
         console.log('✅ BREAKPOINT CONN-3: WebSocket connection established');
         setIsConnected(true);
         setWebsocket(ws);
+        setError(null); // Clear any previous errors
 
-        // Small delay to ensure connection is stable
+        // Immediate authorization attempt with proper sequencing
         setTimeout(() => {
-          // Authorize if user is logged in
           const authToken = getAuthToken();
           if (authToken) {
             const accountType = client?.is_virtual ? 'Demo' : 'Real';
-            console.log(`🔐 BREAKPOINT CONN-4: Authorizing with ${accountType} account token...`, authToken.substring(0, 10) + '...');
+            console.log(`🔐 BREAKPOINT CONN-4: Authorizing with ${accountType} account...`);
+            
             try {
               const authRequest = {
                 authorize: authToken,
-                req_id: Date.now() + 1000
+                req_id: `auth_${Date.now()}`
               };
+              console.log('📤 BREAKPOINT CONN-4.1: Sending auth request:', { ...authRequest, authorize: authRequest.authorize.substring(0, 10) + '...' });
               ws.send(JSON.stringify(authRequest));
             } catch (error) {
-              console.error('❌ BREAKPOINT CONN-5: Error sending authorization request:', error);
-              setError('Failed to send authorization request');
+              console.error('❌ BREAKPOINT CONN-5: Error sending authorization:', error);
+              setError('Failed to authorize connection');
+              setIsAuthorized(false);
             }
           } else {
-            console.log('⚠️ BREAKPOINT CONN-6: No token available for authorization');
-            console.log('Login status:', client?.is_logged_in);
-            console.log('Client available:', !!client);
-            setError('Please log in to start trading. Go to Deriv.com and sign in first.');
+            console.log('⚠️ BREAKPOINT CONN-6: No auth token - unauthorized mode');
+            setError('Please ensure you are logged in to Deriv first');
             setIsAuthorized(false);
+            
+            // Still get ticks for price display even without auth
+            setTimeout(() => {
+              try {
+                const tickRequest = {
+                  ticks_history: selectedSymbol,
+                  count: 20,
+                  end: 'latest',
+                  style: 'ticks',
+                  subscribe: 1,
+                  req_id: `ticks_unauth_${Date.now()}`
+                };
+                ws.send(JSON.stringify(tickRequest));
+                console.log('📊 BREAKPOINT CONN-6.1: Getting ticks (unauthorized)');
+              } catch (error) {
+                console.error('❌ Error getting unauthorized ticks:', error);
+              }
+            }, 500);
           }
-
-          // Request tick history after auth attempt (with or without auth)
-          setTimeout(() => {
-            try {
-              const tickRequest = {
-                ticks_history: selectedSymbol,
-                count: 120,
-                end: 'latest',
-                style: 'ticks',
-                subscribe: 1,
-                req_id: Date.now() + 2000
-              };
-              ws.send(JSON.stringify(tickRequest));
-              console.log('📊 BREAKPOINT CONN-7: Requesting tick history for', selectedSymbol);
-            } catch (error) {
-              console.error('❌ BREAKPOINT CONN-8: Error requesting tick history:', error);
-            }
-          }, 1000);
-        }, 200);
+        }, 100);
       };
 
       ws.onmessage = (event) => {
@@ -390,42 +459,56 @@ const SpeedBot: React.FC = observer(() => {
 
           // Handle price proposal response
           if (data.proposal) {
-            console.log('💰 Proposal received:', data.proposal);
+            console.log('💰 BREAKPOINT PROP-1: Proposal received:', {
+              id: data.proposal.id,
+              ask_price: data.proposal.ask_price,
+              error: data.proposal.error,
+              req_id: data.req_id
+            });
 
             if (data.proposal.error) {
-              console.error('❌ Proposal error:', data.proposal.error);
+              console.error('❌ BREAKPOINT PROP-2: Proposal error:', data.proposal.error);
               setError(`Proposal failed: ${data.proposal.error.message}`);
               setIsExecutingTrade(false);
 
-              // Retry getting proposal after error
+              // More aggressive retry on proposal errors
               if (isTrading) {
                 setTimeout(() => {
-                  console.log('🔄 Retrying proposal after error...');
+                  console.log('🔄 BREAKPOINT PROP-3: Retrying proposal after error...');
                   getPriceProposal();
-                }, 2000);
+                }, 1000); // Reduced from 2000ms
               }
               return;
             }
 
             if (data.proposal.id && data.proposal.ask_price) {
-              console.log('✅ Valid proposal received - ID:', data.proposal.id, 'Price:', data.proposal.ask_price);
+              console.log('✅ BREAKPOINT PROP-4: Valid proposal - ID:', data.proposal.id, 'Price:', data.proposal.ask_price);
               setProposalId(data.proposal.id);
+              setError(null); // Clear any previous errors
 
-              // Auto-buy immediately if trading is active
+              // IMMEDIATE buy attempt to prevent proposal expiry
               if (isTrading && !isExecutingTrade) {
-                console.log('🚀 Attempting to buy contract with proposal ID:', data.proposal.id);
-                console.log('💰 Proposal price:', data.proposal.ask_price);
-                // Buy immediately with minimal delay to prevent proposal expiry
-                setTimeout(() => {
+                console.log('🚀 BREAKPOINT PROP-5: IMMEDIATE buy attempt with proposal:', data.proposal.id);
+                setIsExecutingTrade(true); // Set this BEFORE the buy call
+                
+                // Buy with NO delay to prevent expiry
+                try {
                   buyContract(data.proposal.id);
-                }, 100);
+                } catch (error) {
+                  console.error('❌ BREAKPOINT PROP-6: Immediate buy failed:', error);
+                  setIsExecutingTrade(false);
+                  if (isTrading) {
+                    setTimeout(() => getPriceProposal(), 500);
+                  }
+                }
               }
             } else {
-              console.log('⚠️ Invalid proposal received:', data.proposal);
-              if (isTrading) {
+              console.log('⚠️ BREAKPOINT PROP-7: Invalid proposal structure:', data.proposal);
+              if (isTrading && !isExecutingTrade) {
                 setTimeout(() => {
+                  console.log('🔄 BREAKPOINT PROP-8: Retrying after invalid proposal...');
                   getPriceProposal();
-                }, 1000);
+                }, 500);
               }
             }
           }
