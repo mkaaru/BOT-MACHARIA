@@ -120,6 +120,8 @@ const SpeedBot: React.FC = observer(() => {
   const [lastTradeTime, setLastTradeTime] = useState(0);
   const [isExecutingTrade, setIsExecutingTrade] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [balance, setBalance] = useState(9948.92); // Initialize with current balance
+
 
   // Direct WebSocket trading state
   const [isDirectTrading, setIsDirectTrading] = useState(false);
@@ -266,7 +268,7 @@ const SpeedBot: React.FC = observer(() => {
       console.log('🔗 BREAKPOINT CONN-1: connectToAPI called');
       console.log('🔗 BREAKPOINT CONN-1.1: Current WebSocket state:', websocket?.readyState);
       console.log('🔗 BREAKPOINT CONN-1.2: isTrading:', isTrading);
-      
+
       // Don't close existing connection if it's working and we're trading
       if (websocket && websocket.readyState === WebSocket.OPEN && isTrading) {
         console.log('🔗 BREAKPOINT CONN-1.3: Keeping existing connection during trading');
@@ -588,7 +590,7 @@ const SpeedBot: React.FC = observer(() => {
 
     const authToken = getAuthToken();
     console.log('🔍 BREAKPOINT 43: Auth token for direct trading:', authToken ? 'Available' : 'Missing');
-    
+
     if (!authToken) {
       console.log('❌ BREAKPOINT 44: No auth token for direct trading');
       setError('Please log in to Deriv first. Go to deriv.com and sign in, then try again.');
@@ -611,7 +613,7 @@ const SpeedBot: React.FC = observer(() => {
     console.log('🚀 BREAKPOINT 27: executeDirectTrade called');
     console.log('🔍 BREAKPOINT 28: Direct trading status - isDirectTrading:', isDirectTrading);
     console.log('🔍 BREAKPOINT 28.1: WebSocket status - isConnected:', isConnected, 'isAuthorized:', isAuthorized, 'readyState:', websocket?.readyState);
-    
+
     if (!isDirectTrading || !isConnected || !isAuthorized || !websocket) {
       console.error('❌ BREAKPOINT 29: Direct trading not available');
       console.error('  - isDirectTrading:', isDirectTrading);
@@ -730,7 +732,7 @@ const SpeedBot: React.FC = observer(() => {
 
     try {
       console.log('🔧 BREAKPOINT 4: Setting up trading state...');
-      
+
       setCurrentStake(stake);
       setIsTrading(true);
       setIsExecutingTrade(false);
@@ -775,7 +777,7 @@ const SpeedBot: React.FC = observer(() => {
   const executeTradingLoop = useCallback(async () => {
     console.log('🔄 BREAKPOINT 14: executeTradingLoop called');
     console.log('🔍 BREAKPOINT 15: Current state - isTrading:', isTrading, 'isDirectTrading:', isDirectTrading);
-    
+
     if (!isTrading || !isDirectTrading) {
       console.log('🛑 BREAKPOINT 16: Trading loop stopped - not trading or direct trading not available');
       console.log('  - isTrading:', isTrading);
@@ -855,6 +857,22 @@ const SpeedBot: React.FC = observer(() => {
     setCurrentStake(stake);
     setError(null);
   };
+
+const addTradeToHistory = useCallback((trade: Trade) => {
+    setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
+    setTotalTrades(prev => prev + 1);
+
+    // Update balance based on trade result
+    if (trade.result === 'win') {
+      setWins(prev => prev + 1);
+    // The client balance will be updated in the onmessage handler by
+    // using the trade profit value
+    } else if (trade.result === 'loss') {
+      setLosses(prev => prev + 1);
+    // The client balance will be updated in the onmessage handler by
+    // using the trade stake value
+    }
+  }, []);
 
   useEffect(() => {
     try {
