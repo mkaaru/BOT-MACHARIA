@@ -1,3 +1,4 @@
+
 <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id="initial_stake">initial_stake</variable>
@@ -69,28 +70,28 @@
         <field name="VAR">initial_stake</field>
         <value name="VALUE">
           <shadow type="math_number">
-            <field name="NUM">1</field>
+            <field name="NUM">0.50</field>
           </shadow>
         </value>
         <next>
           <block type="variables_set">
-            <field name="VAR">martingale_multiplier</field>
+            <field name="VAR">current_stake</field>
             <value name="VALUE">
               <shadow type="math_number">
-                <field name="NUM">2</field>
+                <field name="NUM">0.50</field>
               </shadow>
             </value>
             <next>
               <block type="variables_set">
-                <field name="VAR">consecutive_losses</field>
+                <field name="VAR">martingale_multiplier</field>
                 <value name="VALUE">
                   <shadow type="math_number">
-                    <field name="NUM">0</field>
+                    <field name="NUM">1</field>
                   </shadow>
                 </value>
                 <next>
                   <block type="variables_set">
-                    <field name="VAR">last_profit</field>
+                    <field name="VAR">consecutive_losses</field>
                     <value name="VALUE">
                       <shadow type="math_number">
                         <field name="NUM">0</field>
@@ -98,34 +99,34 @@
                     </value>
                     <next>
                       <block type="variables_set">
-                        <field name="VAR">max_multiplier</field>
+                        <field name="VAR">last_profit</field>
                         <value name="VALUE">
                           <shadow type="math_number">
-                            <field name="NUM">2</field>
+                            <field name="NUM">0</field>
                           </shadow>
                         </value>
                         <next>
                           <block type="variables_set">
-                            <field name="VAR">max_consecutive_losses</field>
+                            <field name="VAR">max_multiplier</field>
                             <value name="VALUE">
                               <shadow type="math_number">
-                                <field name="NUM">10</field>
+                                <field name="NUM">2</field>
                               </shadow>
                             </value>
                             <next>
                               <block type="variables_set">
-                                <field name="VAR">trade_count</field>
+                                <field name="VAR">max_consecutive_losses</field>
                                 <value name="VALUE">
                                   <shadow type="math_number">
-                                    <field name="NUM">0</field>
+                                    <field name="NUM">10</field>
                                   </shadow>
                                 </value>
                                 <next>
                                   <block type="variables_set">
-                                    <field name="VAR">current_stake</field>
+                                    <field name="VAR">trade_count</field>
                                     <value name="VALUE">
                                       <shadow type="math_number">
-                                        <field name="NUM">1</field>
+                                        <field name="NUM">0</field>
                                       </shadow>
                                     </value>
                                   </block>
@@ -152,7 +153,7 @@
       <block type="text_print">
         <value name="TEXT">
           <block type="text_join">
-            <mutation items="4"></mutation>
+            <mutation items="6"></mutation>
             <value name="ADD0">
               <shadow type="text">
                 <field name="TEXT">📊 TRADE </field>
@@ -175,10 +176,20 @@
             </value>
             <value name="ADD2">
               <shadow type="text">
-                <field name="TEXT">: Multiplier </field>
+                <field name="TEXT">: Stake </field>
               </shadow>
             </value>
             <value name="ADD3">
+              <block type="variables_get">
+                <field name="VAR">current_stake</field>
+              </block>
+            </value>
+            <value name="ADD4">
+              <shadow type="text">
+                <field name="TEXT"> USD (</field>
+              </shadow>
+            </value>
+            <value name="ADD5">
               <block type="text_join">
                 <mutation items="2"></mutation>
                 <value name="ADD0">
@@ -188,7 +199,7 @@
                 </value>
                 <value name="ADD1">
                   <shadow type="text">
-                    <field name="TEXT">x</field>
+                    <field name="TEXT">x)</field>
                   </shadow>
                 </value>
               </block>
@@ -275,165 +286,33 @@
                       </block>
                     </value>
                     <statement name="DO0">
-                      <!-- On Loss: Check if we can increase multiplier -->
-                      <block type="controls_if">
-                        <value name="IF0">
-                          <block type="logic_operation">
-                            <field name="OP">AND</field>
+                      <!-- On Loss: Increase consecutive losses count -->
+                      <block type="variables_set">
+                        <field name="VAR">consecutive_losses</field>
+                        <value name="VALUE">
+                          <block type="math_arithmetic">
+                            <field name="OP">ADD</field>
                             <value name="A">
-                              <block type="logic_compare">
-                                <field name="OP">LT</field>
-                                <value name="A">
-                                  <block type="math_arithmetic">
-                                    <field name="OP">MULTIPLY</field>
-                                    <value name="A">
-                                      <block type="variables_get">
-                                        <field name="VAR">martingale_multiplier</field>
-                                      </block>
-                                    </value>
-                                    <value name="B">
-                                      <shadow type="math_number">
-                                        <field name="NUM">2</field>
-                                      </shadow>
-                                    </value>
-                                  </block>
-                                </value>
-                                <value name="B">
-                                  <block type="variables_get">
-                                    <field name="VAR">max_multiplier</field>
-                                  </block>
-                                </value>
+                              <block type="variables_get">
+                                <field name="VAR">consecutive_losses</field>
                               </block>
                             </value>
                             <value name="B">
-                              <block type="logic_compare">
-                                <field name="OP">LT</field>
-                                <value name="A">
-                                  <block type="math_arithmetic">
-                                    <field name="OP">ADD</field>
-                                    <value name="A">
-                                      <block type="variables_get">
-                                        <field name="VAR">consecutive_losses</field>
-                                      </block>
-                                    </value>
-                                    <value name="B">
-                                      <shadow type="math_number">
-                                        <field name="NUM">1</field>
-                                      </shadow>
-                                    </value>
-                                  </block>
-                                </value>
-                                <value name="B">
-                                  <block type="variables_get">
-                                    <field name="VAR">max_consecutive_losses</field>
-                                  </block>
-                                </value>
-                              </block>
+                              <shadow type="math_number">
+                                <field name="NUM">1</field>
+                              </shadow>
                             </value>
                           </block>
                         </value>
-                        <statement name="DO0">
-                          <!-- Double the multiplier -->
-                          <block type="variables_set">
-                            <field name="VAR">martingale_multiplier</field>
-                            <value name="VALUE">
-                              <block type="math_arithmetic">
-                                <field name="OP">MULTIPLY</field>
-                                <value name="A">
-                                  <block type="variables_get">
-                                    <field name="VAR">martingale_multiplier</field>
-                                  </block>
-                                </value>
-                                <value name="B">
-                                  <shadow type="math_number">
-                                    <field name="NUM">2</field>
-                                  </shadow>
-                                </value>
-                              </block>
-                            </value>
-                            <next>
-                              <!-- Update current stake -->
-                              <block type="variables_set">
-                                <field name="VAR">current_stake</field>
-                                <value name="VALUE">
-                                  <block type="math_arithmetic">
-                                    <field name="OP">MULTIPLY</field>
-                                    <value name="A">
-                                      <block type="variables_get">
-                                        <field name="VAR">initial_stake</field>
-                                      </block>
-                                    </value>
-                                    <value name="B">
-                                      <block type="variables_get">
-                                        <field name="VAR">martingale_multiplier</field>
-                                      </block>
-                                    </value>
-                                  </block>
-                                </value>
-                              </block>
-                            </next>
-                          </block>
-                            <next>
-                              <!-- Increase consecutive losses -->
-                              <block type="variables_set">
-                                <field name="VAR">consecutive_losses</field>
-                                <value name="VALUE">
-                                  <block type="math_arithmetic">
-                                    <field name="OP">ADD</field>
-                                    <value name="A">
-                                      <block type="variables_get">
-                                        <field name="VAR">consecutive_losses</field>
-                                      </block>
-                                    </value>
-                                    <value name="B">
-                                      <shadow type="math_number">
-                                        <field name="NUM">1</field>
-                                      </shadow>
-                                    </value>
-                                  </block>
-                                </value>
-                                <next>
-                                  <block type="text_print">
-                                    <value name="TEXT">
-                                      <block type="text_join">
-                                        <mutation items="2"></mutation>
-                                        <value name="ADD0">
-                                          <shadow type="text">
-                                            <field name="TEXT">🔴 LOSS: Next stake will be </field>
-                                          </shadow>
-                                        </value>
-                                        <value name="ADD1">
-                                          <block type="text_join">
-                                            <mutation items="2"></mutation>
-                                            <value name="ADD0">
-                                              <block type="variables_get">
-                                                <field name="VAR">martingale_multiplier</field>
-                                              </block>
-                                            </value>
-                                            <value name="ADD1">
-                                              <shadow type="text">
-                                                <field name="TEXT">x base</field>
-                                              </shadow>
-                                            </value>
-                                          </block>
-                                        </value>
-                                      </block>
-                                    </value>
-                                  </block>
-                                </next>
-                              </block>
-                            </next>
-                          </block>
-                        </statement>
                         <next>
-                          <!-- Check if limits exceeded, reset if so -->
+                          <!-- Check if we can increase multiplier -->
                           <block type="controls_if">
                             <value name="IF0">
                               <block type="logic_operation">
-                                <field name="OP">OR</field>
+                                <field name="OP">AND</field>
                                 <value name="A">
                                   <block type="logic_compare">
-                                    <field name="OP">GTE</field>
+                                    <field name="OP">LT</field>
                                     <value name="A">
                                       <block type="variables_get">
                                         <field name="VAR">martingale_multiplier</field>
@@ -448,7 +327,7 @@
                                 </value>
                                 <value name="B">
                                   <block type="logic_compare">
-                                    <field name="OP">GTE</field>
+                                    <field name="OP">LT</field>
                                     <value name="A">
                                       <block type="variables_get">
                                         <field name="VAR">consecutive_losses</field>
@@ -464,39 +343,79 @@
                               </block>
                             </value>
                             <statement name="DO0">
-                              <!-- Reset martingale -->
+                              <!-- Double the multiplier -->
                               <block type="variables_set">
                                 <field name="VAR">martingale_multiplier</field>
                                 <value name="VALUE">
-                                  <shadow type="math_number">
-                                    <field name="NUM">1</field>
-                                  </shadow>
-                                </value>
-                                <next>
-                                  <block type="variables_set">
-                                    <field name="VAR">consecutive_losses</field>
-                                    <value name="VALUE">
+                                  <block type="math_arithmetic">
+                                    <field name="OP">MULTIPLY</field>
+                                    <value name="A">
+                                      <block type="variables_get">
+                                        <field name="VAR">martingale_multiplier</field>
+                                      </block>
+                                    </value>
+                                    <value name="B">
                                       <shadow type="math_number">
-                                        <field name="NUM">0</field>
+                                        <field name="NUM">2</field>
                                       </shadow>
                                     </value>
-                                    <next>
-                                      <block type="variables_set">
-                                        <field name="VAR">current_stake</field>
-                                        <value name="VALUE">
+                                  </block>
+                                </value>
+                                <next>
+                                  <!-- Update current stake -->
+                                  <block type="variables_set">
+                                    <field name="VAR">current_stake</field>
+                                    <value name="VALUE">
+                                      <block type="math_arithmetic">
+                                        <field name="OP">MULTIPLY</field>
+                                        <value name="A">
                                           <block type="variables_get">
                                             <field name="VAR">initial_stake</field>
                                           </block>
                                         </value>
+                                        <value name="B">
+                                          <block type="variables_get">
+                                            <field name="VAR">martingale_multiplier</field>
+                                          </block>
+                                        </value>
                                       </block>
-                                    </next>
-                                  </block>
+                                    </value>
                                     <next>
                                       <block type="text_print">
                                         <value name="TEXT">
-                                          <shadow type="text">
-                                            <field name="TEXT">⚠️ MAX LIMIT: Reset to base stake</field>
-                                          </shadow>
+                                          <block type="text_join">
+                                            <mutation items="4"></mutation>
+                                            <value name="ADD0">
+                                              <shadow type="text">
+                                                <field name="TEXT">🔴 LOSS: Next stake will be </field>
+                                              </shadow>
+                                            </value>
+                                            <value name="ADD1">
+                                              <block type="variables_get">
+                                                <field name="VAR">current_stake</field>
+                                              </block>
+                                            </value>
+                                            <value name="ADD2">
+                                              <shadow type="text">
+                                                <field name="TEXT"> USD (</field>
+                                              </shadow>
+                                            </value>
+                                            <value name="ADD3">
+                                              <block type="text_join">
+                                                <mutation items="2"></mutation>
+                                                <value name="ADD0">
+                                                  <block type="variables_get">
+                                                    <field name="VAR">martingale_multiplier</field>
+                                                  </block>
+                                                </value>
+                                                <value name="ADD1">
+                                                  <shadow type="text">
+                                                    <field name="TEXT">x base)</field>
+                                                  </shadow>
+                                                </value>
+                                              </block>
+                                            </value>
+                                          </block>
                                         </value>
                                       </block>
                                     </next>
@@ -504,6 +423,86 @@
                                 </next>
                               </block>
                             </statement>
+                            <next>
+                              <!-- Check if limits exceeded, reset if so -->
+                              <block type="controls_if">
+                                <value name="IF0">
+                                  <block type="logic_operation">
+                                    <field name="OP">OR</field>
+                                    <value name="A">
+                                      <block type="logic_compare">
+                                        <field name="OP">GTE</field>
+                                        <value name="A">
+                                          <block type="variables_get">
+                                            <field name="VAR">martingale_multiplier</field>
+                                          </block>
+                                        </value>
+                                        <value name="B">
+                                          <block type="variables_get">
+                                            <field name="VAR">max_multiplier</field>
+                                          </block>
+                                        </value>
+                                      </block>
+                                    </value>
+                                    <value name="B">
+                                      <block type="logic_compare">
+                                        <field name="OP">GTE</field>
+                                        <value name="A">
+                                          <block type="variables_get">
+                                            <field name="VAR">consecutive_losses</field>
+                                          </block>
+                                        </value>
+                                        <value name="B">
+                                          <block type="variables_get">
+                                            <field name="VAR">max_consecutive_losses</field>
+                                          </block>
+                                        </value>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </value>
+                                <statement name="DO0">
+                                  <!-- Reset martingale -->
+                                  <block type="variables_set">
+                                    <field name="VAR">martingale_multiplier</field>
+                                    <value name="VALUE">
+                                      <shadow type="math_number">
+                                        <field name="NUM">1</field>
+                                      </shadow>
+                                    </value>
+                                    <next>
+                                      <block type="variables_set">
+                                        <field name="VAR">consecutive_losses</field>
+                                        <value name="VALUE">
+                                          <shadow type="math_number">
+                                            <field name="NUM">0</field>
+                                          </shadow>
+                                        </value>
+                                        <next>
+                                          <block type="variables_set">
+                                            <field name="VAR">current_stake</field>
+                                            <value name="VALUE">
+                                              <block type="variables_get">
+                                                <field name="VAR">initial_stake</field>
+                                              </block>
+                                            </value>
+                                            <next>
+                                              <block type="text_print">
+                                                <value name="TEXT">
+                                                  <shadow type="text">
+                                                    <field name="TEXT">⚠️ MAX LIMIT: Reset to base stake</field>
+                                                  </shadow>
+                                                </value>
+                                              </block>
+                                            </next>
+                                          </block>
+                                        </next>
+                                      </block>
+                                    </next>
+                                  </block>
+                                </statement>
+                              </block>
+                            </next>
                           </block>
                         </next>
                       </block>
@@ -550,16 +549,15 @@
                                         <field name="VAR">initial_stake</field>
                                       </block>
                                     </value>
-                                  </block>
-                                </next>
-                              </block>
-                                <next>
-                                  <block type="text_print">
-                                    <value name="TEXT">
-                                      <shadow type="text">
-                                        <field name="TEXT">🟢 WIN: Reset to base stake (Recovery achieved!)</field>
-                                      </shadow>
-                                    </value>
+                                    <next>
+                                      <block type="text_print">
+                                        <value name="TEXT">
+                                          <shadow type="text">
+                                            <field name="TEXT">🟢 WIN: Reset to base stake (Recovery achieved!)</field>
+                                          </shadow>
+                                        </value>
+                                      </block>
+                                    </next>
                                   </block>
                                 </next>
                               </block>
