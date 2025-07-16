@@ -612,20 +612,26 @@ const SpeedBot: React.FC = observer(() => {
   // Initialize bot engine for hybrid approach
   const initializeBotEngine = useCallback(async () => {
     try {
-      console.log('🤖 Initializing bot engine for Speed Bot...');
+      console.log('🤖 BREAKPOINT 42: Initializing bot engine for Speed Bot...');
 
       const authToken = getAuthToken();
+      console.log('🔍 BREAKPOINT 43: Auth token for bot engine:', authToken ? 'Available' : 'Missing');
       if (!authToken) {
+        console.log('❌ BREAKPOINT 44: No auth token for bot engine');
         throw new Error('No authentication token available');
       }
 
       // Create bot engine scope
+      console.log('🔧 BREAKPOINT 45: Creating bot engine scope...');
       const engineScope = {
         observer: globalObserver || localObserver
       };
+      console.log('🔍 BREAKPOINT 46: Engine scope created with observer:', !!engineScope.observer);
 
       // Initialize trade engine
+      console.log('🔧 BREAKPOINT 47: Creating TradeEngine instance...');
       const engine = new TradeEngine(engineScope);
+      console.log('✅ BREAKPOINT 48: TradeEngine instance created');
 
       // Initialize with token and options
       const initOptions = {
@@ -633,17 +639,21 @@ const SpeedBot: React.FC = observer(() => {
         currency: client?.currency || 'USD'
       };
 
-      console.log('🔧 Initializing trade engine with:', initOptions);
+      console.log('🔧 BREAKPOINT 49: Initializing trade engine with:', initOptions);
       await engine.init(authToken, initOptions);
+      console.log('✅ BREAKPOINT 50: Trade engine initialized');
 
       // Create bot interface
+      console.log('🔧 BREAKPOINT 51: Creating bot interface...');
       const botIface = getBotInterface(engine);
+      console.log('✅ BREAKPOINT 52: Bot interface created');
 
+      console.log('🔄 BREAKPOINT 53: Setting state variables...');
       setTradeEngine(engine);
       setBotInterface(botIface);
       setIsUsingBotEngine(true);
 
-      console.log('✅ Bot engine initialized successfully');
+      console.log('✅ BREAKPOINT 54: Bot engine initialized successfully');
       return { engine, botIface };
 
     } catch (error) {
@@ -656,13 +666,19 @@ const SpeedBot: React.FC = observer(() => {
 
   // Execute a single trade using bot engine
   const executeBotTrade = useCallback(async () => {
+    console.log('🚀 BREAKPOINT 27: executeBotTrade called');
+    console.log('🔍 BREAKPOINT 28: Engine status - tradeEngine:', !!tradeEngine, 'botInterface:', !!botInterface, 'isUsingBotEngine:', isUsingBotEngine);
+    
     if (!tradeEngine || !botInterface || !isUsingBotEngine) {
-      console.error('❌ Bot engine not available for trading');
+      console.error('❌ BREAKPOINT 29: Bot engine not available for trading');
+      console.error('  - tradeEngine:', !!tradeEngine);
+      console.error('  - botInterface:', !!botInterface);
+      console.error('  - isUsingBotEngine:', isUsingBotEngine);
       return;
     }
 
     try {
-      console.log('🚀 Executing bot engine trade...');
+      console.log('🚀 BREAKPOINT 30: Executing bot engine trade...');
 
       // Configure trade options for bot engine
       const tradeOptions = {
@@ -678,9 +694,12 @@ const SpeedBot: React.FC = observer(() => {
       // Add prediction/barrier for digit contracts
       if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType)) {
         tradeOptions.barrier = overUnderValue.toString();
+        console.log('🎯 BREAKPOINT 31: Added barrier for digit contract:', overUnderValue);
+      } else {
+        console.log('🎯 BREAKPOINT 32: No barrier needed for contract type:', selectedContractType);
       }
 
-      console.log('📊 Trade options:', tradeOptions);
+      console.log('📊 BREAKPOINT 33: Trade options configured:', tradeOptions);
 
       // Create a unique trade ID for tracking
       const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -704,12 +723,13 @@ const SpeedBot: React.FC = observer(() => {
       });
 
       // Use bot interface to purchase
+      console.log('💳 BREAKPOINT 34: Calling botInterface.purchase...');
       const purchaseResult = await botInterface.purchase(tradeOptions);
-
-      console.log('✅ Purchase executed:', purchaseResult);
+      console.log('✅ BREAKPOINT 35: Purchase result received:', purchaseResult);
 
       // Update the pending trade with contract details if available
       if (purchaseResult && purchaseResult.contract_id) {
+        console.log('🔄 BREAKPOINT 36: Updating trade history with contract ID:', purchaseResult.contract_id);
         setTradeHistory(prev => {
           const updated = [...prev];
           const tradeIndex = updated.findIndex(t => t.id === tradeId);
@@ -718,15 +738,23 @@ const SpeedBot: React.FC = observer(() => {
               ...updated[tradeIndex],
               id: purchaseResult.contract_id || tradeId, // Use contract ID if available
             };
+            console.log('✅ BREAKPOINT 37: Trade history updated successfully');
+          } else {
+            console.log('⚠️ BREAKPOINT 38: Trade not found in history for update');
           }
           return updated;
         });
+      } else {
+        console.log('⚠️ BREAKPOINT 39: No contract ID in purchase result');
       }
 
       return purchaseResult;
 
     } catch (error) {
-      console.error('❌ Bot engine trade execution failed:', error);
+      console.error('❌ BREAKPOINT 40: Bot engine trade execution failed:', error);
+      console.error('  - Error type:', typeof error);
+      console.error('  - Error message:', error.message);
+      console.error('  - Error stack:', error.stack);
       setError(`Trade execution failed: ${error.message}`);
 
       // Update the latest pending trade to show error
@@ -735,6 +763,7 @@ const SpeedBot: React.FC = observer(() => {
         if (updated[0] && updated[0].result === 'pending') {
           updated[0].result = 'loss';
           updated[0].profit = -updated[0].stake;
+          console.log('🔄 BREAKPOINT 41: Updated pending trade to show error');
         }
         return updated;
       });
@@ -847,14 +876,16 @@ const SpeedBot: React.FC = observer(() => {
   }, [selectedSymbol, selectedContractType, currentStake, useMartingale, martingaleMultiplier, stake, isTrading, isUsingBotEngine]);
 
   const startTrading = async () => {
-    console.log('🚀 Attempting to start Speed Bot in hybrid mode...');
+    console.log('🚀 BREAKPOINT 1: Attempting to start Speed Bot in hybrid mode...');
 
     // Reset any previous errors
     setError(null);
 
     // Check if user is logged in and has token
     const authToken = getAuthToken();
+    console.log('🔍 BREAKPOINT 2: Auth token check result:', authToken ? 'Token found' : 'No token');
     if (!authToken) {
+      console.log('❌ BREAKPOINT 3: No auth token - stopping execution');
       setError('Please log in to Deriv first. Go to deriv.com and sign in, then try again.');
       return;
     }
@@ -882,22 +913,30 @@ const SpeedBot: React.FC = observer(() => {
     }
 
     try {
+      console.log('🔧 BREAKPOINT 4: Setting up trading state...');
       setCurrentStake(stake);
       setIsTrading(true);
       setIsExecutingTrade(false);
 
-      console.log('🤖 Starting Speed Bot in hybrid mode using bot engine...');
-      console.log(`📊 Configuration: ${selectedContractType} on ${selectedSymbol} with stake ${stake}`);
+      console.log('🤖 BREAKPOINT 5: Starting Speed Bot in hybrid mode using bot engine...');
+      console.log(`📊 BREAKPOINT 6: Configuration: ${selectedContractType} on ${selectedSymbol} with stake ${stake}`);
 
       // Initialize bot engine
+      console.log('🔧 BREAKPOINT 7: Calling initializeBotEngine...');
       await initializeBotEngine();
+      console.log('✅ BREAKPOINT 8: Bot engine initialization completed');
 
-      console.log('✅ Speed Bot hybrid trading started successfully');
+      console.log('✅ BREAKPOINT 9: Speed Bot hybrid trading started successfully');
 
       // Start the trading loop
+      console.log('⏰ BREAKPOINT 10: Setting timeout for trading loop...');
       setTimeout(() => {
+        console.log('🔄 BREAKPOINT 11: Timeout triggered, checking if still trading:', isTrading);
         if (isTrading) {
+          console.log('🚀 BREAKPOINT 12: Calling executeTradingLoop...');
           executeTradingLoop();
+        } else {
+          console.log('🛑 BREAKPOINT 13: Not trading anymore, skipping loop');
         }
       }, 1000);
 
@@ -911,35 +950,49 @@ const SpeedBot: React.FC = observer(() => {
 
   // Trading loop for continuous trading
   const executeTradingLoop = useCallback(async () => {
+    console.log('🔄 BREAKPOINT 14: executeTradingLoop called');
+    console.log('🔍 BREAKPOINT 15: Current state - isTrading:', isTrading, 'isUsingBotEngine:', isUsingBotEngine);
+    
     if (!isTrading || !isUsingBotEngine) {
-      console.log('🛑 Trading loop stopped - not trading or bot engine not available');
+      console.log('🛑 BREAKPOINT 16: Trading loop stopped - not trading or bot engine not available');
+      console.log('  - isTrading:', isTrading);
+      console.log('  - isUsingBotEngine:', isUsingBotEngine);
       return;
     }
 
     try {
-      console.log('🔄 Executing trading loop...');
+      console.log('🔄 BREAKPOINT 17: Executing trading loop...');
 
       // Check if we have sufficient balance before trading
       if (client?.balance !== undefined) {
         const balance = parseFloat(client.balance);
+        console.log('💰 BREAKPOINT 18: Balance check - balance:', balance, 'currentStake:', currentStake);
         if (balance < currentStake) {
-          console.log('❌ Insufficient balance, stopping trading');
+          console.log('❌ BREAKPOINT 19: Insufficient balance, stopping trading');
           setError(`Insufficient balance: ${balance} ${client.currency || 'USD'}`);
           setIsTrading(false);
           return;
         }
+      } else {
+        console.log('⚠️ BREAKPOINT 20: No balance information available');
       }
 
       // Execute a single trade
+      console.log('🚀 BREAKPOINT 21: Calling executeBotTrade...');
       await executeBotTrade();
+      console.log('✅ BREAKPOINT 22: executeBotTrade completed');
 
       // Wait before next trade (2-5 seconds interval)
       const nextTradeDelay = Math.random() * 3000 + 2000; // 2-5 seconds
-      console.log(`⏱️ Next trade in ${(nextTradeDelay / 1000).toFixed(1)} seconds`);
+      console.log(`⏱️ BREAKPOINT 23: Next trade in ${(nextTradeDelay / 1000).toFixed(1)} seconds`);
 
       setTimeout(() => {
+        console.log('⏰ BREAKPOINT 24: Next trade timeout triggered, checking if still trading:', isTrading);
         if (isTrading) {
+          console.log('🔄 BREAKPOINT 25: Recursively calling executeTradingLoop');
           executeTradingLoop();
+        } else {
+          console.log('🛑 BREAKPOINT 26: Not trading anymore, stopping loop');
         }
       }, nextTradeDelay);
 
