@@ -188,7 +188,7 @@ const SpeedBot: React.FC = observer(() => {
   const [proposalId, setProposalId] = useState<string | null>(null);
 
   // Buy contract function
-  const buyContract = useCallback(async (proposalId: string) => {
+  const buyContract = useCallback(async (proposalId: string, proposalPrice: number) => {
     if (!websocket || websocket.readyState !== WebSocket.OPEN) {
       console.error('❌ Cannot buy contract: WebSocket not connected');
       setError('WebSocket connection lost');
@@ -212,25 +212,31 @@ const SpeedBot: React.FC = observer(() => {
       
       const buyRequest = {
         buy: proposalId,
-        price: currentStake,
+        price: proposalPrice || currentStake, // Use the proposal price or current stake
         subscribe: 1,
         req_id: Date.now()
       };
 
       console.log('📈 Buying contract with request:', buyRequest);
+      console.log('💰 Using proposal price:', proposalPrice, 'Current stake:', currentStake);
+      
       websocket.send(JSON.stringify(buyRequest));
       
       // Set timeout to reset executing state if no response
       setTimeout(() => {
-        setIsExecutingTrade(false);
-      }, 5000);
+        if (isExecutingTrade) {
+          console.log('⏰ Buy request timeout - resetting execution state');
+          setIsExecutingTrade(false);
+          setError('Buy request timed out - trying again...');
+        }
+      }, 8000); // Increased timeout
       
     } catch (error) {
       console.error('Error buying contract:', error);
       setError(`Failed to buy contract: ${error.message}`);
       setIsExecutingTrade(false);
     }
-  }, [websocket, isAuthorized, currentStake]);
+  }, [websocket, isAuthorized, currentStake, isExecutingTrade]);
 
   // Get price proposal with better error handling
   const getPriceProposal = useCallback(() => {
@@ -272,19 +278,19 @@ const SpeedBot: React.FC = observer(() => {
       console.log('📊 Getting price proposal:', proposalRequest);
       websocket.send(JSON.stringify(proposalRequest));
       
-      // Set timeout to retry if no response
-      setTimeout(() => {
-        if (isTrading && !isExecutingTrade && proposalId === null) {
-          console.log('⏰ Proposal timeout - retrying...');
-          getPriceProposal();
-        }
-      }, 3000);
-      
     } catch (error) {
       console.error('Error getting proposal:', error);
       setError(`Failed to get proposal: ${error.message}`);
+      
+      // Retry after error
+      if (isTrading) {
+        setTimeout(() => {
+          console.log('🔄 Retrying proposal after error...');
+          getPriceProposal();
+        }, 2000);
+      }
     }
-  }, [websocket, isAuthorized, currentStake, selectedContractType, selectedSymbol, overUnderValue, isExecutingTrade, isTrading, proposalId]);
+  }, [websocket, isAuthorized, currentStake, selectedContractType, selectedSymbol, overUnderValue, isExecutingTrade, isTrading]);
 
   // WebSocket connection
   const connectToAPI = useCallback(() => {
@@ -379,17 +385,41 @@ const SpeedBot: React.FC = observer(() => {
           // Handle price proposal response
           if (data.proposal) {
             console.log('💰 Proposal received:', data.proposal);
-            setProposalId(data.proposal.id);
             
-            // Auto-buy if trading is active and we have a valid proposal
-            if (isTrading && data.proposal.id && !data.proposal.error) {
-              console.log('🚀 Attempting to buy contract with proposal ID:', data.proposal.id);
-              setTimeout(() => {
-                buyContract(data.proposal.id);
-              }, 200); // Slightly longer delay for stability
-            } else if (data.proposal.error) {
+            if (data.proposal.error) {
               console.error('❌ Proposal error:', data.proposal.error);
               setError(`Proposal failed: ${data.proposal.error.message}`);
+              setIsExecutingTrade(false);
+              
+              // Retry getting proposal after error
+              if (isTrading) {
+                setTimeout(() => {
+                  console.log('🔄 Retrying proposal after error...');
+                  getPriceProposal();
+                }, 2000);
+              }
+              return;
+            }
+
+            if (data.proposal.id && data.proposal.ask_price) {
+              console.log('✅ Valid proposal received - ID:', data.proposal.id, 'Price:', data.proposal.ask_price);
+              setProposalId(data.proposal.id);
+              
+              // Auto-buy immediately if trading is active
+              if (isTrading && !isExecutingTrade) {
+                console.log('🚀 Attempting to buy contract with proposal ID:', data.proposal.id);
+                // Buy immediately with minimal delay to prevent proposal expiry
+                setTimeout(() => {
+                  buyContract(data.proposal.id, data.proposal.ask_price);
+                }, 100);
+              }
+            } else {
+              console.log('⚠️ Invalid proposal received:', data.proposal);
+              if (isTrading) {
+                setTimeout(() => {
+                  getPriceProposal();
+                }, 1000);
+              }
             }
           }
 
@@ -398,6 +428,7 @@ const SpeedBot: React.FC = observer(() => {
             console.log('✅ Contract purchased successfully:', data.buy);
             setIsExecutingTrade(false);
             setProposalId(null); // Reset proposal ID
+            setError(null); // Clear any previous errors
             
             const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             const trade: Trade = {
@@ -413,7 +444,6 @@ const SpeedBot: React.FC = observer(() => {
             setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
             setTotalTrades(prev => prev + 1);
             setLastTradeTime(Date.now());
-            setError(null); // Clear any previous errors
 
             // Subscribe to contract updates
             if (data.buy.contract_id) {
@@ -431,14 +461,41 @@ const SpeedBot: React.FC = observer(() => {
               }
             }
 
-            // Get next proposal for continuous trading with proper timing
+            // Get next proposal for continuous trading immediately
             if (isTrading) {
               setTimeout(() => {
-                if (isTrading && !isExecutingTrade) { // Double check we're still trading
+                if (isTrading && !isExecutingTrade) {
                   console.log('🔄 Getting next proposal for continuous trading...');
                   getPriceProposal();
                 }
-              }, 2000); // Wait 2 seconds before next trade for better stability
+              }, 500); // Reduced delay for faster trading
+            }
+          }
+
+          // Handle buy errors
+          if (data.error && data.msg_type === 'buy') {
+            console.error('❌ Buy contract error:', data.error);
+            setIsExecutingTrade(false);
+            setProposalId(null);
+            
+            if (data.error.code === 'InvalidContractProposal') {
+              setError('Proposal expired - getting new proposal...');
+              // Immediately get a new proposal
+              if (isTrading) {
+                setTimeout(() => {
+                  console.log('🔄 Getting new proposal after InvalidContractProposal error...');
+                  getPriceProposal();
+                }, 500);
+              }
+            } else {
+              setError(`Buy failed: ${data.error.message}`);
+              // Retry after other errors
+              if (isTrading) {
+                setTimeout(() => {
+                  console.log('🔄 Retrying after buy error...');
+                  getPriceProposal();
+                }, 2000);
+              }
             }
           }
 
