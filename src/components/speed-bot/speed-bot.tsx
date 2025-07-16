@@ -35,9 +35,19 @@ const SpeedBot: React.FC = observer(() => {
   // Get token from client store
   const getAuthToken = () => {
     if (client?.is_logged_in) {
-      const token = client.getToken ? client.getToken() : null;
+      // Try multiple ways to get the token
+      let token = null;
+      if (client.getToken) {
+        token = client.getToken();
+      } else if (client.token) {
+        token = client.token;
+      } else if (client.authentication?.token) {
+        token = client.authentication.token;
+      }
+      console.log('🔑 Retrieved token:', token ? 'Token available' : 'No token');
       return token;
     }
+    console.log('❌ User not logged in');
     return null;
   };
 
@@ -138,12 +148,27 @@ const SpeedBot: React.FC = observer(() => {
 
   // Buy contract function
   const buyContract = useCallback(async (proposalId: string) => {
-    if (!websocket || !isAuthorized) {
-      console.error('Cannot buy contract: WebSocket not connected or not authorized');
+    if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+      console.error('❌ Cannot buy contract: WebSocket not connected');
+      setError('WebSocket connection lost');
+      return;
+    }
+
+    if (!isAuthorized) {
+      console.error('❌ Cannot buy contract: Not authorized');
+      setError('Not authorized - please check your login');
+      return;
+    }
+
+    if (!proposalId) {
+      console.error('❌ Cannot buy contract: No proposal ID');
+      setError('No proposal ID available');
       return;
     }
 
     try {
+      setIsExecutingTrade(true);
+      
       const buyRequest = {
         buy: proposalId,
         price: currentStake,
@@ -151,11 +176,18 @@ const SpeedBot: React.FC = observer(() => {
         req_id: Date.now()
       };
 
-      console.log('📈 Buying contract:', buyRequest);
+      console.log('📈 Buying contract with request:', buyRequest);
       websocket.send(JSON.stringify(buyRequest));
+      
+      // Set timeout to reset executing state if no response
+      setTimeout(() => {
+        setIsExecutingTrade(false);
+      }, 5000);
+      
     } catch (error) {
       console.error('Error buying contract:', error);
       setError(`Failed to buy contract: ${error.message}`);
+      setIsExecutingTrade(false);
     }
   }, [websocket, isAuthorized, currentStake]);
 
@@ -212,32 +244,37 @@ const SpeedBot: React.FC = observer(() => {
         setIsConnected(true);
         setWebsocket(ws);
 
-        // Authorize if user is logged in
-        const authToken = getAuthToken();
-        if (client?.is_logged_in && authToken) {
-          console.log('🔐 Authorizing with token...');
-          const authRequest = {
-            authorize: authToken,
-            req_id: Date.now() + 1000
-          };
-          ws.send(JSON.stringify(authRequest));
-        } else {
-          console.log('⚠️ No token available for authorization');
-          console.log('Login status:', client?.is_logged_in);
-          console.log('Token available:', !!authToken);
-          setError('Please log in to start trading');
-        }
+        // Small delay to ensure connection is stable
+        setTimeout(() => {
+          // Authorize if user is logged in
+          const authToken = getAuthToken();
+          if (client?.is_logged_in && authToken) {
+            console.log('🔐 Authorizing with token...', authToken.substring(0, 10) + '...');
+            const authRequest = {
+              authorize: authToken,
+              req_id: Date.now() + 1000
+            };
+            ws.send(JSON.stringify(authRequest));
+          } else {
+            console.log('⚠️ No token available for authorization');
+            console.log('Login status:', client?.is_logged_in);
+            console.log('Client object:', client);
+            setError('Please log in to start trading');
+          }
 
-        // Request tick history
-        const tickRequest = {
-          ticks_history: selectedSymbol,
-          count: 120,
-          end: 'latest',
-          style: 'ticks',
-          subscribe: 1,
-          req_id: Date.now() + 2000
-        };
-        ws.send(JSON.stringify(tickRequest));
+          // Request tick history after auth attempt
+          setTimeout(() => {
+            const tickRequest = {
+              ticks_history: selectedSymbol,
+              count: 120,
+              end: 'latest',
+              style: 'ticks',
+              subscribe: 1,
+              req_id: Date.now() + 2000
+            };
+            ws.send(JSON.stringify(tickRequest));
+          }, 500);
+        }, 100);
       };
 
       ws.onmessage = (event) => {
@@ -271,17 +308,21 @@ const SpeedBot: React.FC = observer(() => {
             console.log('💰 Proposal received:', data.proposal);
             setProposalId(data.proposal.id);
             
-            // Auto-buy if trading is active
-            if (isTrading && data.proposal.id) {
+            // Auto-buy if trading is active and we have a valid proposal
+            if (isTrading && data.proposal.id && !data.proposal.error) {
+              console.log('🚀 Attempting to buy contract with proposal ID:', data.proposal.id);
               setTimeout(() => {
                 buyContract(data.proposal.id);
-              }, 100); // Small delay to ensure proposal is processed
+              }, 200); // Slightly longer delay for stability
+            } else if (data.proposal.error) {
+              console.error('❌ Proposal error:', data.proposal.error);
+              setError(`Proposal failed: ${data.proposal.error.message}`);
             }
           }
 
           // Handle buy response
           if (data.buy) {
-            console.log('✅ Contract purchased:', data.buy);
+            console.log('✅ Contract purchased successfully:', data.buy);
             const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             const trade: Trade = {
               id: tradeId,
@@ -296,12 +337,24 @@ const SpeedBot: React.FC = observer(() => {
             setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
             setTotalTrades(prev => prev + 1);
             setLastTradeTime(Date.now());
+            setError(null); // Clear any previous errors
+
+            // Subscribe to contract updates
+            if (data.buy.contract_id) {
+              const contractRequest = {
+                proposal_open_contract: 1,
+                contract_id: data.buy.contract_id,
+                subscribe: 1,
+                req_id: Date.now() + 3000
+              };
+              ws.send(JSON.stringify(contractRequest));
+            }
 
             // Get next proposal for continuous trading
             if (isTrading) {
               setTimeout(() => {
                 getPriceProposal();
-              }, 1000); // Wait 1 second before next trade
+              }, 1500); // Wait 1.5 seconds before next trade
             }
           }
 
@@ -547,10 +600,18 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
-    // Check if user has sufficient balance
-    if (client?.balance && parseFloat(client.balance) < stake) {
-      setError('Insufficient balance');
-      return;
+    // Check account type and balance
+    const accountType = client?.is_virtual ? 'Demo' : 'Real';
+    console.log(`📊 Account type: ${accountType}`);
+    
+    if (client?.balance) {
+      const balance = parseFloat(client.balance);
+      console.log(`💰 Account balance: ${balance} ${client.currency || 'USD'}`);
+      
+      if (balance < stake) {
+        setError(`Insufficient balance. Current: ${balance} ${client.currency || 'USD'}, Required: ${stake}`);
+        return;
+      }
     }
 
     // Check if WebSocket is authorized
@@ -559,16 +620,26 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
+    // Validate trading parameters
+    if (stake < 0.35) {
+      setError('Minimum stake is 0.35 USD');
+      return;
+    }
+
     try {
       setCurrentStake(stake);
       setError(null);
       setIsTrading(true);
+      setIsExecutingTrade(false);
 
       console.log('🚀 Speed Bot trading started using direct WebSocket');
       console.log(`Trading ${selectedContractType} on ${selectedSymbol} with stake ${stake}`);
+      console.log(`Account: ${accountType} (${client.currency || 'USD'})`);
 
       // Start the trading loop by getting first proposal
-      getPriceProposal();
+      setTimeout(() => {
+        getPriceProposal();
+      }, 500);
 
     } catch (error) {
       console.error('Error starting Speed Bot:', error);
