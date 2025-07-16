@@ -301,7 +301,7 @@ const SpeedBot: React.FC = observer(() => {
       }
 
       setError(null);
-      console.log('🚀 Connecting to WebSocket API...');
+      console.log('🚀 Connecting to WebSocket API with app_id 75771...');
       setIsConnected(false);
       setIsAuthorized(false);
 
@@ -317,7 +317,8 @@ const SpeedBot: React.FC = observer(() => {
           // Authorize if user is logged in
           const authToken = getAuthToken();
           if (authToken) {
-            console.log('🔐 Authorizing with token...', authToken.substring(0, 10) + '...');
+            const accountType = client?.is_virtual ? 'Demo' : 'Real';
+            console.log(`🔐 Authorizing with ${accountType} account token...`, authToken.substring(0, 10) + '...');
             try {
               const authRequest = {
                 authorize: authToken,
@@ -557,16 +558,29 @@ const SpeedBot: React.FC = observer(() => {
         }
       };
 
-      ws.onclose = () => {
-        console.log('WebSocket connection closed');
+      ws.onclose = (event) => {
+        console.log(`WebSocket connection closed - Code: ${event.code}, Reason: ${event.reason}`);
         setIsConnected(false);
+        setIsAuthorized(false);
         setWebsocket(null);
+        setIsExecutingTrade(false);
+        
+        // Auto-reconnect if trading was active
+        if (isTrading && !event.wasClean) {
+          console.log('🔄 Auto-reconnecting in 3 seconds...');
+          setTimeout(() => {
+            if (isTrading) {
+              connectToAPI();
+            }
+          }, 3000);
+        }
       };
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
         setIsConnected(false);
-        setError('Connection failed');
+        setIsAuthorized(false);
+        setError('WebSocket connection failed - reconnecting...');
       };
     } catch (error) {
       console.error('Error creating WebSocket connection:', error);
@@ -884,6 +898,15 @@ const SpeedBot: React.FC = observer(() => {
         <div className="speed-bot__login-warning">
           <p style={{ color: 'orange', padding: '10px', backgroundColor: '#fff3cd', borderRadius: '4px', margin: '10px 0' }}>
             <strong>⚠️ Not Logged In:</strong> Please go to <a href="https://deriv.com" target="_blank" rel="noopener noreferrer">deriv.com</a> and sign in to your account first, then refresh this page.
+          </p>
+        </div>
+      )}
+
+      {client?.is_logged_in && (
+        <div className="speed-bot__account-info">
+          <p style={{ color: client?.is_virtual ? 'blue' : 'green', padding: '10px', backgroundColor: client?.is_virtual ? '#e3f2fd' : '#e8f5e8', borderRadius: '4px', margin: '10px 0' }}>
+            <strong>🔗 Account Type:</strong> {client?.is_virtual ? 'Demo Account (Virtual Money)' : 'Real Account (Real Money)'} 
+            {!client?.is_virtual && <span style={{ color: 'red', fontWeight: 'bold' }}> - Trades will use real money!</span>}
           </p>
         </div>
       )}
