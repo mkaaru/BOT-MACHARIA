@@ -652,30 +652,114 @@ const SpeedBot: React.FC = observer(() => {
     }
   }, [selectedSymbol, client]);
 
+  // Execute a single trade using bot engine
+  const executeBotTrade = useCallback(async () => {
+    if (!tradeEngine || !botInterface || !isUsingBotEngine) {
+      console.error('❌ Bot engine not available for trading');
+      return;
+    }
+
+    try {
+      console.log('🚀 Executing bot engine trade...');
+      
+      // Configure trade options for bot engine
+      const tradeOptions = {
+        amount: currentStake,
+        basis: 'stake',
+        contract_type: selectedContractType,
+        currency: client?.currency || 'USD',
+        duration: 1,
+        duration_unit: 't',
+        symbol: selectedSymbol,
+      };
+
+      // Add prediction/barrier for digit contracts
+      if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType)) {
+        tradeOptions.barrier = overUnderValue.toString();
+      }
+
+      console.log('📊 Trade options:', tradeOptions);
+
+      // Create a unique trade ID for tracking
+      const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Add pending trade to history immediately
+      const pendingTrade: Trade = {
+        id: tradeId,
+        timestamp: new Date().toLocaleTimeString(),
+        symbol: selectedSymbol,
+        contractType: selectedContractType,
+        result: 'pending',
+        stake: currentStake,
+        profit: 0,
+      };
+
+      setTradeHistory(prev => [pendingTrade, ...prev.slice(0, 19)]);
+      setTotalTrades(prev => {
+        const newTotal = prev + 1;
+        console.log(`📊 Total trades incremented to: ${newTotal}`);
+        return newTotal;
+      });
+
+      // Use bot interface to purchase
+      const purchaseResult = await botInterface.purchase(tradeOptions);
+      
+      console.log('✅ Purchase executed:', purchaseResult);
+      
+      // Update the pending trade with contract details if available
+      if (purchaseResult && purchaseResult.contract_id) {
+        setTradeHistory(prev => {
+          const updated = [...prev];
+          const tradeIndex = updated.findIndex(t => t.id === tradeId);
+          if (tradeIndex >= 0) {
+            updated[tradeIndex] = {
+              ...updated[tradeIndex],
+              id: purchaseResult.contract_id || tradeId, // Use contract ID if available
+            };
+          }
+          return updated;
+        });
+      }
+
+      return purchaseResult;
+
+    } catch (error) {
+      console.error('❌ Bot engine trade execution failed:', error);
+      setError(`Trade execution failed: ${error.message}`);
+      
+      // Update the latest pending trade to show error
+      setTradeHistory(prev => {
+        const updated = [...prev];
+        if (updated[0] && updated[0].result === 'pending') {
+          updated[0].result = 'loss';
+          updated[0].profit = -updated[0].stake;
+        }
+        return updated;
+      });
+      
+      throw error;
+    }
+  }, [tradeEngine, botInterface, isUsingBotEngine, currentStake, selectedContractType, selectedSymbol, overUnderValue, client]);
+
   // Handle bot engine trade events for hybrid approach
   const handleBotEngineEvents = useCallback(() => {
     if (!isTrading || !isUsingBotEngine) return;
 
-    const handleContract = (data) => {
-      console.log('🔄 Bot engine contract event:', data);
+    const handleBuyContract = (data) => {
+      console.log('💰 Bot engine buy contract:', data);
       
-      if (data && data.contract_id) {
-        const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const trade: Trade = {
-          id: tradeId,
-          timestamp: new Date().toLocaleTimeString(),
-          symbol: selectedSymbol,
-          contractType: selectedContractType,
-          result: 'pending',
-          stake: currentStake,
-          profit: 0,
-        };
-
-        setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
-        setTotalTrades(prev => {
-          const newTotal = prev + 1;
-          console.log(`📊 Total trades incremented to: ${newTotal}`);
-          return newTotal;
+      if (data && data.buy) {
+        const buyData = data.buy;
+        console.log('✅ Contract purchased successfully:', buyData);
+        
+        // Update the most recent pending trade with buy details
+        setTradeHistory(prev => {
+          const updated = [...prev];
+          const pendingTrade = updated.find(trade => trade.result === 'pending');
+          if (pendingTrade && buyData.contract_id) {
+            pendingTrade.id = buyData.contract_id;
+          }
+          return updated;
         });
       }
     };
@@ -683,53 +767,79 @@ const SpeedBot: React.FC = observer(() => {
     const handleTradeComplete = (data) => {
       console.log('✅ Bot engine trade complete:', data);
       
-      if (data && typeof data.profit !== 'undefined') {
-        const profit = parseFloat(data.profit) || 0;
-        const isWin = profit > 0;
+      if (data && data.proposal_open_contract) {
+        const contract = data.proposal_open_contract;
+        
+        if (contract.is_sold || contract.status === 'sold') {
+          const profit = parseFloat(contract.profit || 0);
+          const isWin = profit > 0;
 
-        // Update the most recent pending trade
-        setTradeHistory(prev => {
-          const updated = [...prev];
-          const pendingTrade = updated.find(trade => trade.result === 'pending');
-          if (pendingTrade) {
-            pendingTrade.result = isWin ? 'win' : 'loss';
-            pendingTrade.profit = profit;
-          }
-          return updated;
-        });
+          // Update the trade with matching contract ID
+          setTradeHistory(prev => {
+            const updated = [...prev];
+            const tradeIndex = updated.findIndex(trade => 
+              trade.id === contract.contract_id || 
+              (trade.result === 'pending' && !updated.some(t => t.id === contract.contract_id))
+            );
+            
+            if (tradeIndex >= 0) {
+              updated[tradeIndex] = {
+                ...updated[tradeIndex],
+                id: contract.contract_id,
+                result: isWin ? 'win' : 'loss',
+                profit: profit,
+              };
+            }
+            return updated;
+          });
 
-        // Update win/loss counters
-        if (isWin) {
-          setWins(prev => prev + 1);
-          setCurrentStake(stake); // Reset to original stake on win
-        } else {
-          setLosses(prev => prev + 1);
-          // Apply martingale if enabled
-          if (useMartingale) {
-            setCurrentStake(prev => prev * martingaleMultiplier);
+          // Update win/loss counters
+          if (isWin) {
+            setWins(prev => prev + 1);
+            setCurrentStake(stake); // Reset to original stake on win
+          } else {
+            setLosses(prev => prev + 1);
+            // Apply martingale if enabled
+            if (useMartingale) {
+              setCurrentStake(prev => prev * martingaleMultiplier);
+            }
           }
+
+          console.log(`🎯 Speed Bot trade result:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`);
         }
+      }
+    };
 
-        console.log(`🎯 Speed Bot hybrid trade:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`);
+    const handleTickUpdate = (data) => {
+      if (data && data.tick && data.tick.symbol === selectedSymbol) {
+        const price = parseFloat(data.tick.quote);
+        setCurrentPrice(price.toFixed(5));
+      }
+    };
+
+    const handleError = (data) => {
+      console.error('❌ Bot engine error:', data);
+      if (data && data.error) {
+        setError(`Bot error: ${data.error.message}`);
       }
     };
 
     // Register for bot engine events
-    if (globalObserver) {
-      globalObserver.register('bot.contract', handleContract);
-      globalObserver.register('bot.trade_complete', handleTradeComplete);
-    } else if (localObserver) {
-      localObserver.register('bot.contract', handleContract);
-      localObserver.register('bot.trade_complete', handleTradeComplete);
+    const observer = globalObserver || localObserver;
+    if (observer) {
+      observer.register('bot.buy', handleBuyContract);
+      observer.register('bot.contract', handleTradeComplete);
+      observer.register('bot.tick', handleTickUpdate);
+      observer.register('bot.error', handleError);
     }
 
     return () => {
-      if (globalObserver) {
-        globalObserver.unregister('bot.contract', handleContract);
-        globalObserver.unregister('bot.trade_complete', handleTradeComplete);
-      } else if (localObserver) {
-        localObserver.unregister('bot.contract', handleContract);
-        localObserver.unregister('bot.trade_complete', handleTradeComplete);
+      const observer = globalObserver || localObserver;
+      if (observer) {
+        observer.unregister('bot.buy', handleBuyContract);
+        observer.unregister('bot.contract', handleTradeComplete);
+        observer.unregister('bot.tick', handleTickUpdate);
+        observer.unregister('bot.error', handleError);
       }
     };
   }, [selectedSymbol, selectedContractType, currentStake, useMartingale, martingaleMultiplier, stake, isTrading, isUsingBotEngine]);
@@ -778,30 +888,16 @@ const SpeedBot: React.FC = observer(() => {
       console.log(`📊 Configuration: ${selectedContractType} on ${selectedSymbol} with stake ${stake}`);
 
       // Initialize bot engine
-      const { engine, botIface } = await initializeBotEngine();
-
-      // Configure trade options for bot engine
-      const tradeOptions = {
-        amount: currentStake,
-        basis: 'stake',
-        contract_type: selectedContractType,
-        currency: client?.currency || 'USD',
-        duration: 1,
-        duration_unit: 't',
-        symbol: selectedSymbol,
-      };
-
-      // Add prediction/barrier for digit contracts
-      if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType)) {
-        tradeOptions.barrier = overUnderValue.toString();
-      }
-
-      console.log('🎯 Starting bot engine with trade options:', tradeOptions);
-      
-      // Start the bot engine
-      await engine.start(tradeOptions);
+      await initializeBotEngine();
 
       console.log('✅ Speed Bot hybrid trading started successfully');
+
+      // Start the trading loop
+      setTimeout(() => {
+        if (isTrading) {
+          executeTradingLoop();
+        }
+      }, 1000);
 
     } catch (error) {
       console.error('❌ Error starting Speed Bot hybrid mode:', error);
@@ -810,6 +906,53 @@ const SpeedBot: React.FC = observer(() => {
       setIsUsingBotEngine(false);
     }
   };
+
+  // Trading loop for continuous trading
+  const executeTradingLoop = useCallback(async () => {
+    if (!isTrading || !isUsingBotEngine) {
+      console.log('🛑 Trading loop stopped - not trading or bot engine not available');
+      return;
+    }
+
+    try {
+      console.log('🔄 Executing trading loop...');
+      
+      // Check if we have sufficient balance before trading
+      if (client?.balance !== undefined) {
+        const balance = parseFloat(client.balance);
+        if (balance < currentStake) {
+          console.log('❌ Insufficient balance, stopping trading');
+          setError(`Insufficient balance: ${balance} ${client.currency || 'USD'}`);
+          setIsTrading(false);
+          return;
+        }
+      }
+
+      // Execute a single trade
+      await executeBotTrade();
+
+      // Wait before next trade (2-5 seconds interval)
+      const nextTradeDelay = Math.random() * 3000 + 2000; // 2-5 seconds
+      console.log(`⏱️ Next trade in ${(nextTradeDelay / 1000).toFixed(1)} seconds`);
+
+      setTimeout(() => {
+        if (isTrading) {
+          executeTradingLoop();
+        }
+      }, nextTradeDelay);
+
+    } catch (error) {
+      console.error('❌ Trading loop error:', error);
+      
+      // Retry after error with longer delay
+      setTimeout(() => {
+        if (isTrading) {
+          console.log('🔄 Retrying trading loop after error...');
+          executeTradingLoop();
+        }
+      }, 5000);
+    }
+  }, [isTrading, isUsingBotEngine, currentStake, client, executeBotTrade]);
 
   const stopTrading = async () => {
     try {
@@ -869,6 +1012,17 @@ const SpeedBot: React.FC = observer(() => {
       return cleanup;
     }
   }, [isTrading, isUsingBotEngine, handleBotEngineEvents]);
+
+  // Start trading loop when bot engine is ready
+  useEffect(() => {
+    if (isTrading && isUsingBotEngine && tradeEngine && !isExecutingTrade) {
+      const timer = setTimeout(() => {
+        executeTradingLoop();
+      }, 2000); // Start after 2 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, [isTrading, isUsingBotEngine, tradeEngine, isExecutingTrade, executeTradingLoop]);
 
   const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
 
@@ -1115,20 +1269,35 @@ const SpeedBot: React.FC = observer(() => {
       </div>
 
       <div className="speed-bot__history">
-        <h3>Recent Trades</h3>
+        <h3>Recent Trades & Transactions</h3>
         <div className="speed-bot__trades">
           {tradeHistory.length === 0 ? (
-            <div className="speed-bot__no-trades">No trades yet</div>
+            <div className="speed-bot__no-trades">No trades yet - Start trading to see buy transactions</div>
           ) : (
             tradeHistory.map((trade) => (
               <div key={trade.id} className={`speed-bot__trade ${trade.result}`}>
-                <span className="speed-bot__trade-time">{trade.timestamp}</span>
-                <span className="speed-bot__trade-symbol">{trade.symbol}</span>
-                <span className="speed-bot__trade-type">{trade.contractType}</span>
-                <span className="speed-bot__trade-result">
-                  {trade.result === 'win' ? '✅' : trade.result === 'loss' ? '❌' : '⏳'} 
-                  {trade.profit !== 0 ? (trade.profit >= 0 ? '+' : '') + trade.profit.toFixed(2) : '---'}
-                </span>
+                <div className="speed-bot__trade-row">
+                  <span className="speed-bot__trade-time">{trade.timestamp}</span>
+                  <span className="speed-bot__trade-id">ID: {trade.id.substring(0, 8)}...</span>
+                </div>
+                <div className="speed-bot__trade-row">
+                  <span className="speed-bot__trade-symbol">{trade.symbol}</span>
+                  <span className="speed-bot__trade-type">{trade.contractType}</span>
+                  <span className="speed-bot__trade-stake">${trade.stake.toFixed(2)}</span>
+                </div>
+                <div className="speed-bot__trade-row">
+                  <span className="speed-bot__trade-status">
+                    {trade.result === 'win' ? '✅ WIN' : trade.result === 'loss' ? '❌ LOSS' : '⏳ PENDING'}
+                  </span>
+                  <span className="speed-bot__trade-profit">
+                    {trade.profit !== 0 ? (trade.profit >= 0 ? '+$' : '-$') + Math.abs(trade.profit).toFixed(2) : '---'}
+                  </span>
+                </div>
+                {trade.result === 'pending' && (
+                  <div className="speed-bot__trade-pending">
+                    🔄 Processing buy transaction...
+                  </div>
+                )}
               </div>
             ))
           )}

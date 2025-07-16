@@ -280,52 +280,92 @@
   }
 
   &__trade {
-    display: grid;
-    grid-template-columns: 80px 100px 120px 1fr;
-    gap: 10px;
-    padding: 10px;
-    border-bottom: 1px solid #eee;
-    font-size: 14px;
-
-    &:last-child {
-      border-bottom: none;
-    }
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 11px;
+    border: 1px solid transparent;
 
     &.win {
-      background: rgba(39, 174, 96, 0.05);
+      border-left: 4px solid #4BB543;
+      background: rgba(75, 181, 67, 0.1);
     }
 
     &.loss {
-      background: rgba(231, 76, 60, 0.05);
+      border-left: 4px solid #FF6B6B;
+      background: rgba(255, 107, 107, 0.1);
     }
 
-    @media (max-width: 768px) {
-      grid-template-columns: 1fr;
-      gap: 5px;
+    &.pending {
+      border-left: 4px solid #FFA500;
+      background: rgba(255, 165, 0, 0.1);
+      animation: pulse 2s infinite;
+    }
+
+    .speed-bot__trade-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    .speed-bot__trade-time {
+      font-weight: bold;
+      color: #888;
+    }
+
+    .speed-bot__trade-id {
+      font-family: monospace;
+      font-size: 10px;
+      color: #666;
+    }
+
+    .speed-bot__trade-symbol {
+      font-weight: bold;
+      color: #333;
+    }
+
+    .speed-bot__trade-type {
+      background: rgba(0, 123, 255, 0.2);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+    }
+
+    .speed-bot__trade-stake {
+      font-weight: bold;
+      color: #007bff;
+    }
+
+    .speed-bot__trade-status {
+      font-weight: bold;
+    }
+
+    .speed-bot__trade-profit {
+      font-weight: bold;
+      font-size: 12px;
+    }
+
+    .speed-bot__trade-pending {
+      margin-top: 8px;
+      padding: 4px 8px;
+      background: rgba(255, 165, 0, 0.2);
+      border-radius: 3px;
+      text-align: center;
+      font-size: 10px;
+      color: #FFA500;
     }
   }
 
-  &__trade-time {
-    color: #666;
-    font-size: 12px;
-  }
-
-  &__trade-symbol {
-    font-weight: 500;
-  }
-
-  &__trade-type {
-    color: #4a90e2;
-    font-size: 12px;
-  }
-
-  &__trade-result {
-    text-align: right;
-    font-weight: bold;
-
-    @media (max-width: 768px) {
-      text-align: left;
-    }
+  @keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
   }
 
   &__error {
