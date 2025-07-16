@@ -296,7 +296,7 @@ const SpeedBot: React.FC = observer(() => {
     }
   }, [websocket, isAuthorized]);
 
-  // Strategy condition check - ALWAYS RETURN TRUE FOR TESTING
+  // Strategy condition check - PROPER LOGIC FOR TRADING
   const isGoodCondition = useCallback((lastDigit: number, contractType: string) => {
     console.log(`🎯 Condition check: lastDigit=${lastDigit}, contractType=${contractType}, overUnderValue=${overUnderValue}`);
     
@@ -305,12 +305,6 @@ const SpeedBot: React.FC = observer(() => {
       return false;
     }
     
-    // FOR TESTING: ALWAYS TRADE ON EVERY TICK TO ENSURE EXECUTION WORKS
-    console.log(`🎯 TEST MODE: Always returning TRUE to test execution`);
-    return true;
-    
-    // Original logic (commented out for testing):
-    /*
     let result = false;
     
     switch (contractType) {
@@ -336,9 +330,8 @@ const SpeedBot: React.FC = observer(() => {
         result = false;
     }
     
-    console.log(`🎯 Final condition result: ${result ? '✅ TRADE' : '❌ SKIP'} (${contractType}: digit=${lastDigit}, barrier=${overUnderValue})`);
+    console.log(`🎯 Final condition result: ${result ? '✅ TRADE NOW' : '❌ SKIP'} (${contractType}: digit=${lastDigit}, barrier=${overUnderValue})`);
     return result;
-    */
   }, [overUnderValue]);
 
   // Get price proposal using proper Deriv API format
