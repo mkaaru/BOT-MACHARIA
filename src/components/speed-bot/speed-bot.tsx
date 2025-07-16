@@ -117,6 +117,8 @@ const SpeedBot: React.FC = observer(() => {
   const [isExecutingTrade, setIsExecutingTrade] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [balance, setBalance] = useState<number>(0);
+  const [isRequestingProposal, setIsRequestingProposal] = useState(false);
+  const [lastTradeTime, setLastTradeTime] = useState(0);
 
   // Direct WebSocket trading state
   const [isDirectTrading, setIsDirectTrading] = useState(false);
@@ -137,6 +139,29 @@ const SpeedBot: React.FC = observer(() => {
     { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
   ];
 
+  // Validation for contract combinations
+  const isValidCombination = useMemo(() => {
+    const validSymbols = volatilitySymbols.map(s => s.value);
+    if (!validSymbols.includes(selectedSymbol)) {
+      console.log('❌ Invalid symbol:', selectedSymbol);
+      return false;
+    }
+    
+    if (currentStake < 0.35) {
+      console.log('❌ Stake too low:', currentStake);
+      return false;
+    }
+    
+    if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType)) {
+      if (overUnderValue < 0 || overUnderValue > 9) {
+        console.log('❌ Invalid barrier value:', overUnderValue);
+        return false;
+      }
+    }
+    
+    return true;
+  }, [selectedSymbol, selectedContractType, overUnderValue, currentStake]);
+
   const contractTypes = [
     { value: 'DIGITOVER', label: 'Over' },
     { value: 'DIGITUNDER', label: 'Under' },
@@ -150,6 +175,17 @@ const SpeedBot: React.FC = observer(() => {
 
   // Buy contract function using proper Deriv API sequence
   const buyContract = useCallback(async (proposalId: string) => {
+    console.log('📈 Buy contract attempt debug:', {
+      websocketReady: websocket?.readyState === WebSocket.OPEN,
+      isAuthorized,
+      proposalId,
+      isExecutingTrade,
+      isTrading,
+      isDirectTrading,
+      currentStake,
+      balance
+    });
+
     if (!websocket || websocket.readyState !== WebSocket.OPEN) {
       console.error('❌ Cannot buy contract: WebSocket not connected');
       setError('WebSocket connection lost');
@@ -168,31 +204,57 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
+    if (isExecutingTrade) {
+      console.log('⚠️ Already executing trade - skipping');
+      return;
+    }
+
     try {
       setIsExecutingTrade(true);
+      setLastTradeTime(Date.now());
 
       const buyRequest = {
         buy: proposalId,
         req_id: Date.now()
       };
 
-      console.log('📈 Buying contract with proposal ID:', proposalId);
+      console.log('📈 Sending buy request:', JSON.stringify(buyRequest, null, 2));
       websocket.send(JSON.stringify(buyRequest));
 
-      setTimeout(() => {
+      // Timeout handler
+      const timeoutId = setTimeout(() => {
         if (isExecutingTrade) {
           console.log('⏰ Buy request timeout - resetting execution state');
           setIsExecutingTrade(false);
           setError('Buy request timed out - trying again...');
+          
+          // Retry if still trading
+          if (isTrading && isDirectTrading) {
+            setTimeout(() => {
+              console.log('🔄 Retrying after timeout...');
+              getPriceProposal();
+            }, 1000);
+          }
         }
-      }, 8000);
+      }, 10000);
+
+      // Store timeout ID to clear it if buy succeeds
+      (window as any).buyTimeoutId = timeoutId;
 
     } catch (error) {
-      console.error('Error buying contract:', error);
+      console.error('❌ Error buying contract:', error);
       setError(`Failed to buy contract: ${error.message}`);
       setIsExecutingTrade(false);
+      
+      // Retry if still trading
+      if (isTrading && isDirectTrading) {
+        setTimeout(() => {
+          console.log('🔄 Retrying after error...');
+          getPriceProposal();
+        }, 2000);
+      }
     }
-  }, [websocket, isAuthorized, isExecutingTrade]);
+  }, [websocket, isAuthorized, isExecutingTrade, isTrading, isDirectTrading, currentStake, balance]);
 
   // Sell contract function
   const sellContract = useCallback(async (contractId: string) => {
@@ -224,15 +286,41 @@ const SpeedBot: React.FC = observer(() => {
 
   // Strategy condition check (similar to your reference code)
   const isGoodCondition = useCallback((lastDigit: number, contractType: string) => {
-    if (contractType === 'DIGITEVEN') return [0, 2, 4, 6, 8].includes(lastDigit);
-    if (contractType === 'DIGITODD') return [1, 3, 5, 7, 9].includes(lastDigit);
-    if (contractType === 'DIGITOVER') return lastDigit > overUnderValue;
-    if (contractType === 'DIGITUNDER') return lastDigit < overUnderValue;
-    return true; // for other types like CALL/PUT
+    console.log(`🎯 Condition check: lastDigit=${lastDigit}, contractType=${contractType}, overUnderValue=${overUnderValue}`);
+    
+    if (isNaN(lastDigit)) {
+      console.error('❌ Invalid last digit:', lastDigit);
+      return false;
+    }
+    
+    let result = false;
+    if (contractType === 'DIGITEVEN') result = [0, 2, 4, 6, 8].includes(lastDigit);
+    else if (contractType === 'DIGITODD') result = [1, 3, 5, 7, 9].includes(lastDigit);
+    else if (contractType === 'DIGITOVER') result = lastDigit > overUnderValue;
+    else if (contractType === 'DIGITUNDER') result = lastDigit < overUnderValue;
+    else if (contractType === 'DIGITMATCH') result = lastDigit === overUnderValue;
+    else if (contractType === 'DIGITDIFF') result = lastDigit !== overUnderValue;
+    else result = true; // for other types like CALL/PUT
+    
+    console.log(`🎯 Condition result: ${result ? '✅ GOOD' : '❌ SKIP'}`);
+    return result;
   }, [overUnderValue]);
 
   // Get price proposal using proper Deriv API format
   const getPriceProposal = useCallback(() => {
+    console.log('📊 Proposal request debug:', {
+      websocketReady: websocket?.readyState === WebSocket.OPEN,
+      isAuthorized,
+      isExecutingTrade,
+      isRequestingProposal,
+      isTrading,
+      isDirectTrading,
+      currentStake,
+      selectedContractType,
+      selectedSymbol,
+      timeSinceLastTrade: Date.now() - lastTradeTime
+    });
+
     if (!websocket || websocket.readyState !== WebSocket.OPEN) {
       console.log('❌ Cannot get proposal: WebSocket not connected');
       setError('WebSocket connection lost. Reconnecting...');
@@ -250,7 +338,22 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
+    if (isRequestingProposal) {
+      console.log('⏳ Skipping proposal request - already requesting');
+      return;
+    }
+
+    // Rate limiting: minimum 1 second between trades
+    const timeSinceLastTrade = Date.now() - lastTradeTime;
+    if (timeSinceLastTrade < 1000) {
+      console.log(`⏳ Rate limit: waiting ${1000 - timeSinceLastTrade}ms`);
+      setTimeout(() => getPriceProposal(), 1000 - timeSinceLastTrade);
+      return;
+    }
+
     try {
+      setIsRequestingProposal(true);
+      
       const proposalRequest: any = {
         proposal: 1,
         amount: currentStake,
@@ -269,12 +372,18 @@ const SpeedBot: React.FC = observer(() => {
         proposalRequest.barrier = overUnderValue.toString();
       }
 
-      console.log('📊 Getting price proposal with proper API format:', proposalRequest);
+      console.log('📊 Sending proposal request:', JSON.stringify(proposalRequest, null, 2));
       websocket.send(JSON.stringify(proposalRequest));
 
+      // Clear request flag after timeout
+      setTimeout(() => {
+        setIsRequestingProposal(false);
+      }, 5000);
+
     } catch (error) {
-      console.error('Error getting proposal:', error);
+      console.error('❌ Error getting proposal:', error);
       setError(`Failed to get proposal: ${error.message}`);
+      setIsRequestingProposal(false);
 
       if (isTrading) {
         setTimeout(() => {
@@ -283,7 +392,7 @@ const SpeedBot: React.FC = observer(() => {
         }, 2000);
       }
     }
-  }, [websocket, isAuthorized, currentStake, selectedContractType, selectedSymbol, overUnderValue, isExecutingTrade, isTrading, client]);
+  }, [websocket, isAuthorized, currentStake, selectedContractType, selectedSymbol, overUnderValue, isExecutingTrade, isRequestingProposal, isTrading, isDirectTrading, client, lastTradeTime]);
 
   // WebSocket connection
   const connectToAPI = useCallback(() => {
@@ -388,14 +497,15 @@ const SpeedBot: React.FC = observer(() => {
 
           // Handle price proposal response
           if (data.proposal) {
-            console.log('💰 Proposal received:', data.proposal);
+            console.log('💰 Raw proposal data:', JSON.stringify(data.proposal, null, 2));
+            setIsRequestingProposal(false);
 
             if (data.proposal.error) {
-              console.error('❌ Proposal error:', data.proposal.error);
+              console.error('❌ Proposal error:', JSON.stringify(data.proposal.error, null, 2));
               setError(`Proposal failed: ${data.proposal.error.message}`);
               setIsExecutingTrade(false);
 
-              if (isTrading) {
+              if (isTrading && isDirectTrading) {
                 setTimeout(() => {
                   console.log('🔄 Retrying proposal after error...');
                   getPriceProposal();
@@ -405,19 +515,41 @@ const SpeedBot: React.FC = observer(() => {
             }
 
             if (data.proposal.id && data.proposal.ask_price) {
-              console.log('✅ Valid proposal received - ID:', data.proposal.id, 'Price:', data.proposal.ask_price);
+              console.log('✅ Valid proposal received:');
+              console.log(`   - ID: ${data.proposal.id}`);
+              console.log(`   - Price: ${data.proposal.ask_price}`);
+              console.log(`   - Payout: ${data.proposal.payout}`);
+              console.log(`   - Display value: ${data.proposal.display_value}`);
+              
               setProposalId(data.proposal.id);
 
-              if (isTrading && !isExecutingTrade) {
-                console.log('🚀 Attempting to buy contract with proposal ID:', data.proposal.id);
-                setTimeout(() => {
-                  buyContract(data.proposal.id);
-                }, 100);
+              if (isTrading && isDirectTrading && !isExecutingTrade) {
+                console.log('🚀 All conditions met - buying contract immediately');
+                console.log('Buy conditions check:', {
+                  isTrading,
+                  isDirectTrading,
+                  isExecutingTrade,
+                  proposalId: data.proposal.id
+                });
+                
+                // Buy immediately without delay
+                buyContract(data.proposal.id);
+              } else {
+                console.log('⚠️ Cannot buy - conditions not met:', {
+                  isTrading,
+                  isDirectTrading,
+                  isExecutingTrade
+                });
               }
             } else {
-              console.log('⚠️ Invalid proposal received:', data.proposal);
-              if (isTrading) {
+              console.log('⚠️ Invalid proposal received - missing required fields:');
+              console.log(`   - Has ID: ${!!data.proposal.id}`);
+              console.log(`   - Has ask_price: ${!!data.proposal.ask_price}`);
+              console.log('   - Full proposal:', data.proposal);
+              
+              if (isTrading && isDirectTrading) {
                 setTimeout(() => {
+                  console.log('🔄 Retrying due to invalid proposal...');
                   getPriceProposal();
                 }, 1000);
               }
@@ -426,8 +558,16 @@ const SpeedBot: React.FC = observer(() => {
 
           // Handle buy response
           if (data.buy) {
-            console.log('✅ Contract purchased successfully:', data.buy);
+            console.log('✅ Contract purchased successfully:', JSON.stringify(data.buy, null, 2));
+            
+            // Clear any pending timeout
+            if ((window as any).buyTimeoutId) {
+              clearTimeout((window as any).buyTimeoutId);
+              (window as any).buyTimeoutId = null;
+            }
+            
             setIsExecutingTrade(false);
+            setIsRequestingProposal(false);
             setProposalId(null);
             setError(null);
 
@@ -461,6 +601,7 @@ const SpeedBot: React.FC = observer(() => {
                     buyPrice: data.buy.buy_price,
                     startTime: Date.now()
                   });
+                  console.log(`📊 Active contracts: ${newMap.size}`);
                   return newMap;
                 });
               }
@@ -481,15 +622,7 @@ const SpeedBot: React.FC = observer(() => {
               }
             }
 
-            // Continue trading after a short delay
-            if (isTrading && isDirectTrading) {
-              setTimeout(() => {
-                if (isTrading && isDirectTrading && !isExecutingTrade) {
-                  console.log('🔄 Waiting for next good condition...');
-                  // The next trade will be triggered by tick condition check
-                }
-              }, 1000);
-            }
+            console.log('✅ Trade completed successfully - ready for next condition');
           }
 
           // Handle sell response
@@ -536,22 +669,38 @@ const SpeedBot: React.FC = observer(() => {
           }
 
           // Handle buy errors
-          if (data.error && data.msg_type === 'buy') {
-            console.error('❌ Buy contract error:', data.error);
+          if (data.error && (data.msg_type === 'buy' || data.error.details?.field === 'buy')) {
+            console.error('❌ Buy contract error:', JSON.stringify(data.error, null, 2));
+            
+            // Clear any pending timeout
+            if ((window as any).buyTimeoutId) {
+              clearTimeout((window as any).buyTimeoutId);
+              (window as any).buyTimeoutId = null;
+            }
+            
             setIsExecutingTrade(false);
+            setIsRequestingProposal(false);
             setProposalId(null);
 
             if (data.error.code === 'InvalidContractProposal') {
               setError('Proposal expired - getting new proposal...');
-              if (isTrading) {
+              if (isTrading && isDirectTrading) {
                 setTimeout(() => {
                   console.log('🔄 Getting new proposal after InvalidContractProposal error...');
                   getPriceProposal();
                 }, 500);
               }
+            } else if (data.error.code === 'InsufficientBalance') {
+              setError(`Insufficient balance: ${data.error.message}`);
+              setIsTrading(false);
+              setIsDirectTrading(false);
+            } else if (data.error.code === 'InvalidCurrency') {
+              setError(`Invalid currency: ${data.error.message}`);
+              setIsTrading(false);
+              setIsDirectTrading(false);
             } else {
-              setError(`Buy failed: ${data.error.message}`);
-              if (isTrading) {
+              setError(`Buy failed: ${data.error.message} (Code: ${data.error.code})`);
+              if (isTrading && isDirectTrading) {
                 setTimeout(() => {
                   console.log('🔄 Retrying after buy error...');
                   getPriceProposal();
@@ -652,16 +801,39 @@ const SpeedBot: React.FC = observer(() => {
             const price = parseFloat(data.tick.quote);
             setCurrentPrice(price.toFixed(5));
             
-            // Check strategy condition before getting proposal
-            if (isTrading && isDirectTrading && !isExecutingTrade) {
-              const lastDigit = Number(data.tick.quote.toString().slice(-1));
-              console.log(`📊 Tick: ${data.tick.quote} (Last Digit: ${lastDigit})`);
+            // Enhanced tick processing with validation
+            if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal) {
+              const tickStr = data.tick.quote.toString();
+              const lastDigitStr = tickStr.slice(-1);
+              const lastDigit = Number(lastDigitStr);
+              
+              console.log(`📊 Processing tick: ${data.tick.quote}`);
+              console.log(`   - Last digit string: "${lastDigitStr}"`);
+              console.log(`   - Last digit number: ${lastDigit}`);
+              console.log(`   - Is valid number: ${!isNaN(lastDigit)}`);
+              console.log(`   - Trading states: isTrading=${isTrading}, isDirectTrading=${isDirectTrading}`);
+              console.log(`   - Execution states: isExecutingTrade=${isExecutingTrade}, isRequestingProposal=${isRequestingProposal}`);
+              
+              if (isNaN(lastDigit)) {
+                console.error('❌ Invalid last digit from tick:', data.tick.quote);
+                return;
+              }
               
               if (isGoodCondition(lastDigit, selectedContractType)) {
-                console.log('✅ Good condition met, getting proposal...');
+                console.log('✅ Condition met - requesting proposal now!');
                 getPriceProposal();
               } else {
-                console.log('⏳ Waiting for good condition...');
+                console.log('⏳ Condition not met - waiting...');
+              }
+            } else {
+              const reasons = [];
+              if (!isTrading) reasons.push('not trading');
+              if (!isDirectTrading) reasons.push('not direct trading');
+              if (isExecutingTrade) reasons.push('executing trade');
+              if (isRequestingProposal) reasons.push('requesting proposal');
+              
+              if (reasons.length > 0) {
+                console.log(`⏸️ Skipping tick processing: ${reasons.join(', ')}`);
               }
             }
           }
@@ -707,9 +879,16 @@ const SpeedBot: React.FC = observer(() => {
   }, [selectedSymbol, isTrading]);
 
   const startTrading = async () => {
+    console.log('🚀 Starting Speed Bot with validation...');
+    
     const authToken = getAuthToken();
     if (!authToken) {
       setError('Please log in to Deriv first. Go to deriv.com and sign in, then try again.');
+      return;
+    }
+
+    if (!isValidCombination) {
+      setError('Invalid trading configuration. Please check your settings.');
       return;
     }
 
@@ -726,14 +905,29 @@ const SpeedBot: React.FC = observer(() => {
       }
     }
 
+    if (!isConnected || !isAuthorized) {
+      setError('Please wait for connection and authorization before starting.');
+      return;
+    }
+
     try {
       setCurrentStake(stake);
       setIsTrading(true);
       setIsDirectTrading(true);
       setIsExecutingTrade(false);
+      setIsRequestingProposal(false);
       setError(null);
+      setLastTradeTime(0);
 
-      console.log('🚀 Speed Bot started successfully');
+      console.log('✅ Speed Bot started successfully');
+      console.log('🎯 Configuration:', {
+        symbol: selectedSymbol,
+        contractType: selectedContractType,
+        stake: currentStake,
+        overUnderValue,
+        useMartingale,
+        martingaleMultiplier
+      });
     } catch (error) {
       console.error('❌ Error starting Speed Bot:', error);
       setError(`Failed to start Speed Bot: ${error.message}`);
@@ -1025,7 +1219,55 @@ const SpeedBot: React.FC = observer(() => {
             <label>Win Rate</label>
             <span>{winRate}%</span>
           </div>
+          <div className="speed-bot__stat">
+            <label>Execution State</label>
+            <span>{isExecutingTrade ? '🔄 Executing' : '✅ Ready'}</span>
+          </div>
+          <div className="speed-bot__stat">
+            <label>Proposal State</label>
+            <span>{isRequestingProposal ? '📊 Requesting' : '✅ Ready'}</span>
+          </div>
+          <div className="speed-bot__stat">
+            <label>Config Valid</label>
+            <span>{isValidCombination ? '✅ Valid' : '❌ Invalid'}</span>
+          </div>
+          <div className="speed-bot__stat">
+            <label>Active Contracts</label>
+            <span>{activeContracts.size}</span>
+          </div>
         </div>
+        
+        {/* Debug Information Panel - Remove after testing */}
+        {isTrading && (
+          <div className="speed-bot__debug" style={{ 
+            background: '#f0f0f0', 
+            padding: '10px', 
+            margin: '10px 0', 
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontFamily: 'monospace'
+          }}>
+            <h4>Debug Info (Remove in production)</h4>
+            <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+              {JSON.stringify({
+                websocketState: websocket?.readyState,
+                isConnected,
+                isAuthorized,
+                isTrading,
+                isDirectTrading,
+                isExecutingTrade,
+                isRequestingProposal,
+                proposalId,
+                currentStake,
+                selectedSymbol,
+                selectedContractType,
+                overUnderValue,
+                isValidCombination,
+                lastTradeTime: lastTradeTime ? new Date(lastTradeTime).toLocaleTimeString() : 'Never'
+              }, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
 
       <div className="speed-bot__history">
