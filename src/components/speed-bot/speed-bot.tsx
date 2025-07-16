@@ -1,3 +1,8 @@
+```
+```tool_code
+Here's the complete modified code with the fixes for balance synchronization and trade counting:
+
+```replit_final_file
 import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
 import { useStore } from '@/hooks/useStore';
@@ -437,13 +442,17 @@ const SpeedBot: React.FC = observer(() => {
               profit: 0,
             };
 
-            // Add trade to history and increment total trades counter
-            setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
-            setTotalTrades(prev => {
-              const newTotal = prev + 1;
-              console.log(`📊 Total trades incremented to: ${newTotal}`);
-              return newTotal;
-            });
+            // Only add trade to history and increment counter if still trading
+            if (isTrading) {
+              setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
+              setTotalTrades(prev => {
+                const newTotal = prev + 1;
+                console.log(`📊 Total trades incremented to: ${newTotal}`);
+                return newTotal;
+              });
+            } else {
+              console.log('🛑 Trade completed but bot stopped - not counting');
+            }
             setLastTradeTime(Date.now());
 
             // Subscribe to contract updates to monitor outcome using proper format
@@ -463,13 +472,17 @@ const SpeedBot: React.FC = observer(() => {
             }
 
             // Get next proposal for continuous trading immediately
-            if (isTrading) {
+            if (isTrading && isDirectTrading) {
               setTimeout(() => {
-                if (isTrading && !isExecutingTrade) {
+                if (isTrading && isDirectTrading && !isExecutingTrade) {
                   console.log('🔄 Getting next proposal for continuous trading...');
                   getPriceProposal();
+                } else {
+                  console.log('🛑 Not getting next proposal - trading stopped or executing');
                 }
               }, 500); // Reduced delay for faster trading
+            } else {
+              console.log('🛑 Not getting next proposal - trading or direct trading stopped');
             }
           }
 
@@ -673,12 +686,17 @@ const SpeedBot: React.FC = observer(() => {
         profit: 0,
       };
 
-      setTradeHistory(prev => [pendingTrade, ...prev.slice(0, 19)]);
-      setTotalTrades(prev => {
-        const newTotal = prev + 1;
-        console.log(`📊 BREAKPOINT 32: Total trades incremented to: ${newTotal}`);
-        return newTotal;
-      });
+      // Only add trade to history and increment counter if still trading
+      if (isTrading) {
+        setTradeHistory(prev => [pendingTrade, ...prev.slice(0, 19)]);
+        setTotalTrades(prev => {
+          const newTotal = prev + 1;
+          console.log(`📊 BREAKPOINT 32: Total trades incremented to: ${newTotal}`);
+          return newTotal;
+        });
+      } else {
+        console.log('🛑 Trade completed but bot stopped - not counting');
+      }
 
       // Get proposal first, then buy immediately
       console.log('💳 BREAKPOINT 33: Getting proposal for direct trade...');
