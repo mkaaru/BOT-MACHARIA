@@ -894,7 +894,7 @@ const SpeedBot: React.FC = observer(() => {
         <br />
         <strong>This uses real money!</strong>
         {isUsingBotEngine && <span style={{ color: 'green' }}> 🤖 Bot Engine Active</span>}
-      </div></div>
+      </div>
 
       {error && (
         <div className="speed-bot__error-message">
