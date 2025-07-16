@@ -120,7 +120,7 @@ const SpeedBot: React.FC = observer(() => {
   const [lastTradeTime, setLastTradeTime] = useState(0);
   const [isExecutingTrade, setIsExecutingTrade] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [balance, setBalance] = useState(9948.92); // Initialize with current balance
+  const [balance, setBalance] = useState<number>(0); // Will be updated from client balance
 
 
   // Direct WebSocket trading state
@@ -354,6 +354,19 @@ const SpeedBot: React.FC = observer(() => {
             setIsAuthorized(true);
             setError(null);
 
+            // Request balance updates
+            try {
+              const balanceRequest = {
+                balance: 1,
+                subscribe: 1,
+                req_id: Date.now() + 4000
+              };
+              ws.send(JSON.stringify(balanceRequest));
+              console.log('📊 Subscribed to balance updates');
+            } catch (error) {
+              console.error('❌ Error subscribing to balance:', error);
+            }
+
             // Start getting proposals when authorized and trading
             if (isTrading) {
               getPriceProposal();
@@ -487,6 +500,13 @@ const SpeedBot: React.FC = observer(() => {
             }
           }
 
+          // Handle balance updates
+          if (data.balance) {
+            const newBalance = parseFloat(data.balance.balance);
+            console.log('💰 Balance updated:', newBalance);
+            setBalance(newBalance);
+          }
+
           // Handle contract update (profit/loss)
           if (data.proposal_open_contract) {
             const contract = data.proposal_open_contract;
@@ -508,6 +528,13 @@ const SpeedBot: React.FC = observer(() => {
 
               // Only increment counters if we actually updated a trade
               if (tradeWasUpdated) {
+                // Update local balance immediately based on trade result
+                setBalance(prev => {
+                  const newBalance = prev + profit;
+                  console.log(`💰 Balance updated after trade: ${prev} + ${profit} = ${newBalance}`);
+                  return newBalance;
+                });
+
                 if (isWin) {
                   setWins(prev => prev + 1);
                   setCurrentStake(stake); // Reset to original stake on win
@@ -789,17 +816,12 @@ const SpeedBot: React.FC = observer(() => {
       console.log('🔄 BREAKPOINT 17: Executing trading loop...');
 
       // Check if we have sufficient balance before trading
-      if (client?.balance !== undefined) {
-        const balance = parseFloat(client.balance);
-        console.log('💰 BREAKPOINT 18: Balance check - balance:', balance, 'currentStake:', currentStake);
-        if (balance < currentStake) {
-          console.log('❌ BREAKPOINT 19: Insufficient balance, stopping trading');
-          setError(`Insufficient balance: ${balance} ${client.currency || 'USD'}`);
-          setIsTrading(false);
-          return;
-        }
-      } else {
-        console.log('⚠️ BREAKPOINT 20: No balance information available');
+      console.log('💰 BREAKPOINT 18: Balance check - balance:', balance, 'currentStake:', currentStake);
+      if (balance < currentStake) {
+        console.log('❌ BREAKPOINT 19: Insufficient balance, stopping trading');
+        setError(`Insufficient balance: ${balance.toFixed(2)} ${client?.currency || 'USD'}`);
+        setIsTrading(false);
+        return;
       }
 
       // Execute a single trade
@@ -892,6 +914,13 @@ const addTradeToHistory = useCallback((trade: Trade) => {
   useEffect(() => {
     setCurrentStake(stake);
   }, [stake]);
+
+  // Initialize balance from client store
+  useEffect(() => {
+    if (client?.balance !== undefined) {
+      setBalance(parseFloat(client.balance));
+    }
+  }, [client?.balance]);
 
   // Set up direct trading event handling when trading starts
   useEffect(() => {
@@ -1143,7 +1172,7 @@ const addTradeToHistory = useCallback((trade: Trade) => {
           </div>
           <div className="speed-bot__stat">
             <label>Balance</label>
-            <span>{client?.currency || 'USD'} {client?.balance ? parseFloat(client.balance).toFixed(2) : '0.00'}</span>
+            <span>{client?.currency || 'USD'} {balance.toFixed(2)}</span>
           </div>
           <div className="speed-bot__stat">
             <label>Auth Status</label>
