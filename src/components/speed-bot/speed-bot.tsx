@@ -102,7 +102,7 @@ const SpeedBot: React.FC = observer(() => {
 
   // Trading configuration
   const [selectedSymbol, setSelectedSymbol] = useState('R_10');
-  const [selectedContractType, setSelectedContractType] = useState('DIGITOVER');
+  const [selectedContractType, setSelectedContractType] = useState('DIGITEVEN');
   const [stake, setStake] = useState(1.0);
   const [overUnderValue, setOverUnderValue] = useState(5);
   const [isTrading, setIsTrading] = useState(false);
@@ -263,16 +263,16 @@ const SpeedBot: React.FC = observer(() => {
     }
 
     try {
-      // Build proposal request following Deriv API specification
+      // Build proposal request following Deriv API specification for DIGITEVEN
       const proposalRequest: any = {
         proposal: 1,
         amount: currentStake,
         basis: 'stake',
         contract_type: selectedContractType,
         currency: client?.currency || 'USD',
+        symbol: selectedSymbol,
         duration: 1,
         duration_unit: 't',
-        symbol: selectedSymbol,
         req_id: Date.now()
       };
 
@@ -282,6 +282,7 @@ const SpeedBot: React.FC = observer(() => {
       } else if (['DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType)) {
         proposalRequest.barrier = overUnderValue.toString();
       }
+      // DIGITEVEN and DIGITODD don't need barriers - they're based on last digit even/odd
 
       console.log('📊 Getting price proposal with proper API format:', proposalRequest);
       websocket.send(JSON.stringify(proposalRequest));
@@ -460,7 +461,7 @@ const SpeedBot: React.FC = observer(() => {
             });
             setLastTradeTime(Date.now());
 
-            // Subscribe to contract updates to monitor outcome
+            // Subscribe to contract updates to monitor outcome using proper format
             if (data.buy.contract_id) {
               try {
                 const contractRequest = {
@@ -1132,14 +1133,19 @@ const SpeedBot: React.FC = observer(() => {
             </div>
           </div>
           <div className="speed-bot__form-group">
-            <label>Over value (0)</label>
+            <label>
+              {['DIGITOVER', 'DIGITUNDER'].includes(selectedContractType) ? 'Barrier Value' : 
+               ['DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType) ? 'Match Value' : 
+               'Prediction Value'}
+            </label>
             <input
               type="number"
               value={overUnderValue}
               onChange={(e) => setOverUnderValue(parseInt(e.target.value))}
               min="0"
               max="9"
-              disabled={isTrading}
+              disabled={isTrading || ['DIGITEVEN', 'DIGITODD'].includes(selectedContractType)}
+              placeholder={['DIGITEVEN', 'DIGITODD'].includes(selectedContractType) ? 'N/A' : '0-9'}
             />
           </div>
         </div>
