@@ -3,7 +3,7 @@ import { Localize } from '@deriv-com/translations';
 import { useStore } from '@/hooks/useStore';
 import { observer } from 'mobx-react-lite';
 import getBotInterface from '@/external/bot-skeleton/services/tradeEngine/Interface/BotInterface';
-import { TradeEngine } from '@/external/bot-skeleton/services/tradeEngine/trade';
+import TradeEngine from '@/external/bot-skeleton/services/tradeEngine/trade';
 import { globalObserver } from '@/utils/tmp/dummy';
 import './speed-bot.scss';
 
