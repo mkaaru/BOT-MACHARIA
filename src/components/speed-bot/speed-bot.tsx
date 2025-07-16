@@ -156,15 +156,6 @@ const SpeedBot: React.FC = observer(() => {
 
   // Buy contract function using proper Deriv API sequence
   const buyContract = useCallback(async (proposalId: string) => {
-    console.log('🛒 BUY CONTRACT ATTEMPT - Full Debug Info:');
-    console.log('  - WebSocket state:', websocket?.readyState, '(should be 1 for OPEN)');
-    console.log('  - Is authorized:', isAuthorized);
-    console.log('  - Proposal ID:', proposalId);
-    console.log('  - Current user:', client?.loginid);
-    console.log('  - Account type:', client?.is_virtual ? 'Virtual' : 'Real');
-    console.log('  - Balance:', client?.balance, client?.currency);
-    console.log('  - Currently executing trade:', isExecutingTrade);
-
     if (!websocket || websocket.readyState !== WebSocket.OPEN) {
       console.error('❌ Cannot buy contract: WebSocket not connected');
       setError('WebSocket connection lost');
@@ -192,11 +183,8 @@ const SpeedBot: React.FC = observer(() => {
         req_id: Date.now()
       };
 
-      console.log('📈 SENDING BUY REQUEST:', JSON.stringify(buyRequest));
-      console.log('📈 WebSocket ready state before send:', websocket.readyState);
-      
+      console.log('📈 Buying contract with proposal ID:', proposalId);
       websocket.send(JSON.stringify(buyRequest));
-      console.log('📈 BUY REQUEST SENT SUCCESSFULLY');
 
       // Set timeout to reset executing state if no response
       setTimeout(() => {
@@ -208,11 +196,11 @@ const SpeedBot: React.FC = observer(() => {
       }, 8000);
 
     } catch (error) {
-      console.error('❌ Error sending buy request:', error);
+      console.error('Error buying contract:', error);
       setError(`Failed to buy contract: ${error.message}`);
       setIsExecutingTrade(false);
     }
-  }, [websocket, isAuthorized, isExecutingTrade, client]);
+  }, [websocket, isAuthorized, isExecutingTrade]);
 
   // Get price proposal using proper Deriv API format
   const getPriceProposal = useCallback(() => {
@@ -351,24 +339,10 @@ const SpeedBot: React.FC = observer(() => {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          
-          // Log ALL messages for debugging
-          console.log('📨 WebSocket Message Received:', data.msg_type || 'unknown', data);
 
           if (data.error) {
-            console.error('❌ WebSocket API error:', data.error);
-            console.error('❌ Error details:', {
-              code: data.error.code,
-              message: data.error.message,
-              details: data.error.details
-            });
+            console.error('WebSocket API error:', data.error);
             setError(data.error.message || 'API Error');
-            
-            // If it's a buy error, reset trade execution state
-            if (data.msg_type === 'buy') {
-              setIsExecutingTrade(false);
-              setProposalId(null);
-            }
             return;
           }
 
@@ -432,23 +406,19 @@ const SpeedBot: React.FC = observer(() => {
 
           // Handle buy response
           if (data.buy) {
-            console.log('✅ REAL CONTRACT PURCHASED SUCCESSFULLY:', data.buy);
-            console.log('💰 Contract ID:', data.buy.contract_id);
-            console.log('💰 Buy Price:', data.buy.buy_price);
-            console.log('💰 Payout:', data.buy.payout);
-            console.log('💰 Transaction ID:', data.buy.transaction_id);
+            console.log('✅ Contract purchased successfully:', data.buy);
             setIsExecutingTrade(false);
             setProposalId(null); // Reset proposal ID
             setError(null); // Clear any previous errors
 
-            const tradeId = `real_${data.buy.contract_id || Date.now()}`;
+            const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             const trade: Trade = {
               id: tradeId,
               timestamp: new Date().toLocaleTimeString(),
               symbol: selectedSymbol,
               contractType: selectedContractType,
               result: 'pending',
-              stake: parseFloat(data.buy.buy_price || currentStake),
+              stake: currentStake,
               profit: 0,
             };
 
@@ -456,7 +426,7 @@ const SpeedBot: React.FC = observer(() => {
             setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
             setTotalTrades(prev => {
               const newTotal = prev + 1;
-              console.log(`📊 REAL TRADE COUNT: ${newTotal}`);
+              console.log(`📊 Total trades incremented to: ${newTotal}`);
               return newTotal;
             });
             setLastTradeTime(Date.now());
@@ -660,7 +630,28 @@ const SpeedBot: React.FC = observer(() => {
       console.log('🚀 BREAKPOINT 31: Executing direct WebSocket trade...');
       console.log('🔍 BREAKPOINT 31.1: Current trading state - currentStake:', currentStake, 'selectedContractType:', selectedContractType);
 
-      // DON'T add fake trades to history - only add them when buy succeeds
+      // Create a unique trade ID for tracking
+      const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Add pending trade to history immediately
+      const pendingTrade: Trade = {
+        id: tradeId,
+        timestamp: new Date().toLocaleTimeString(),
+        symbol: selectedSymbol,
+        contractType: selectedContractType,
+        result: 'pending',
+        stake: currentStake,
+        profit: 0,
+      };
+
+      setTradeHistory(prev => [pendingTrade, ...prev.slice(0, 19)]);
+      setTotalTrades(prev => {
+        const newTotal = prev + 1;
+        console.log(`📊 BREAKPOINT 32: Total trades incremented to: ${newTotal}`);
+        return newTotal;
+      });
+
+      // Get proposal first, then buy immediately
       console.log('💳 BREAKPOINT 33: Getting proposal for direct trade...');
       getPriceProposal();
 
@@ -670,6 +661,18 @@ const SpeedBot: React.FC = observer(() => {
       console.error('  - Error message:', error.message);
       console.error('  - WebSocket state during error:', websocket?.readyState);
       setError(`Direct trade execution failed: ${error.message}`);
+
+      // Update the latest pending trade to show error
+      setTradeHistory(prev => {
+        const updated = [...prev];
+        if (updated[0] && updated[0].result === 'pending') {
+          updated[0].result = 'loss';
+          updated[0].profit = -updated[0].stake;
+          console.log('🔄 BREAKPOINT 35: Updated pending trade to show error');
+        }
+        return updated;
+      });
+
       throw error;
     }
   }, [isDirectTrading, isConnected, isAuthorized, websocket, isExecutingTrade, currentStake, selectedContractType, selectedSymbol, getPriceProposal]);
