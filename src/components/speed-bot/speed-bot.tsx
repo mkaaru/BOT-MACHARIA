@@ -300,21 +300,42 @@ const SpeedBot: React.FC = observer(() => {
   const isGoodCondition = useCallback((lastDigit: number, contractType: string) => {
     console.log(`🎯 Condition check: lastDigit=${lastDigit}, contractType=${contractType}, overUnderValue=${overUnderValue}`);
     
-    if (isNaN(lastDigit)) {
+    if (isNaN(lastDigit) || lastDigit < 0 || lastDigit > 9) {
       console.error('❌ Invalid last digit:', lastDigit);
       return false;
     }
     
     let result = false;
-    if (contractType === 'DIGITEVEN') result = [0, 2, 4, 6, 8].includes(lastDigit);
-    else if (contractType === 'DIGITODD') result = [1, 3, 5, 7, 9].includes(lastDigit);
-    else if (contractType === 'DIGITOVER') result = lastDigit > overUnderValue;
-    else if (contractType === 'DIGITUNDER') result = lastDigit < overUnderValue;
-    else if (contractType === 'DIGITMATCH') result = lastDigit === overUnderValue;
-    else if (contractType === 'DIGITDIFF') result = lastDigit !== overUnderValue;
-    else result = true; // for other types like CALL/PUT
     
-    console.log(`🎯 Condition result: ${result ? '✅ GOOD' : '❌ SKIP'}`);
+    // For immediate execution strategy - trade on every tick that meets condition
+    switch (contractType) {
+      case 'DIGITEVEN':
+        result = lastDigit % 2 === 0; // 0, 2, 4, 6, 8
+        break;
+      case 'DIGITODD':
+        result = lastDigit % 2 === 1; // 1, 3, 5, 7, 9
+        break;
+      case 'DIGITOVER':
+        result = lastDigit > overUnderValue;
+        break;
+      case 'DIGITUNDER':
+        result = lastDigit < overUnderValue;
+        break;
+      case 'DIGITMATCH':
+        result = lastDigit === overUnderValue;
+        break;
+      case 'DIGITDIFF':
+        result = lastDigit !== overUnderValue;
+        break;
+      case 'CALL':
+      case 'PUT':
+        result = true; // For rise/fall, trade on every tick
+        break;
+      default:
+        result = false;
+    }
+    
+    console.log(`🎯 Condition result: ${result ? '✅ TRADE' : '❌ SKIP'} (${contractType}: ${lastDigit})`);
     return result;
   }, [overUnderValue]);
 
@@ -388,9 +409,21 @@ const SpeedBot: React.FC = observer(() => {
       websocket.send(JSON.stringify(proposalRequest));
 
       // Clear request flag after timeout
-      setTimeout(() => {
+      const proposalTimeoutId = setTimeout(() => {
+        console.log('⏰ Proposal request timeout - clearing flag');
         setIsRequestingProposal(false);
-      }, 5000);
+        
+        // Retry if still trading
+        if (isTrading && isDirectTrading) {
+          setTimeout(() => {
+            console.log('🔄 Retrying proposal request after timeout...');
+            getPriceProposal();
+          }, 1000);
+        }
+      }, 3000); // Reduced timeout to 3 seconds
+      
+      // Store timeout ID to clear it if proposal succeeds
+      (window as any).proposalTimeoutId = proposalTimeoutId;
 
     } catch (error) {
       console.error('❌ Error getting proposal:', error);
@@ -510,6 +543,13 @@ const SpeedBot: React.FC = observer(() => {
           // Handle price proposal response
           if (data.proposal) {
             console.log('💰 Raw proposal data:', JSON.stringify(data.proposal, null, 2));
+            
+            // Clear proposal timeout
+            if ((window as any).proposalTimeoutId) {
+              clearTimeout((window as any).proposalTimeoutId);
+              (window as any).proposalTimeoutId = null;
+            }
+            
             setIsRequestingProposal(false);
 
             if (data.proposal.error) {
@@ -816,13 +856,16 @@ const SpeedBot: React.FC = observer(() => {
             // Enhanced tick processing with validation
             if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal) {
               const tickStr = data.tick.quote.toString();
-              const lastDigitStr = tickStr.slice(-1);
-              const lastDigit = Number(lastDigitStr);
+              // Get the last digit from the price - handle decimal places properly
+              const priceStr = price.toString();
+              const digits = priceStr.replace('.', ''); // Remove decimal point
+              const lastDigit = parseInt(digits[digits.length - 1]);
               
               console.log(`📊 Processing tick: ${data.tick.quote}`);
-              console.log(`   - Last digit string: "${lastDigitStr}"`);
-              console.log(`   - Last digit number: ${lastDigit}`);
-              console.log(`   - Is valid number: ${!isNaN(lastDigit)}`);
+              console.log(`   - Price: ${price}`);
+              console.log(`   - Price string: "${priceStr}"`);
+              console.log(`   - Digits: "${digits}"`);
+              console.log(`   - Last digit: ${lastDigit}`);
               console.log(`   - Trading states: isTrading=${isTrading}, isDirectTrading=${isDirectTrading}`);
               console.log(`   - Execution states: isExecutingTrade=${isExecutingTrade}, isRequestingProposal=${isRequestingProposal}`);
               
@@ -833,9 +876,14 @@ const SpeedBot: React.FC = observer(() => {
               
               if (isGoodCondition(lastDigit, selectedContractType)) {
                 console.log('✅ Condition met - requesting proposal now!');
-                getPriceProposal();
+                // Add a small delay to prevent overwhelming the API
+                setTimeout(() => {
+                  if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal) {
+                    getPriceProposal();
+                  }
+                }, 100);
               } else {
-                console.log('⏳ Condition not met - waiting...');
+                console.log(`⏳ Condition not met - waiting... (${selectedContractType} vs ${lastDigit})`);
               }
             } else {
               const reasons = [];
