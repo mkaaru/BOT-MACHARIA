@@ -27,6 +27,11 @@ export default class TransactionsStore {
         this.core = core;
         this.is_transaction_details_modal_open = false;
         this.disposeReactionsFn = this.registerReactions();
+        
+        // Listen for bot contract events from global observer
+        if (typeof window !== 'undefined' && window.globalObserver) {
+            window.globalObserver.register('bot.contract', this.onBotContractEvent);
+        }
 
         makeObservable(this, {
             elements: observable,

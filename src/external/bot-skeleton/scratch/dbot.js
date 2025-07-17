@@ -322,6 +322,64 @@ class DBot {
                 });
             }
 
+            // IMMEDIATE FORCED TRADE - Execute first trade right away
+            console.log('🎯 IMMEDIATE: Forcing first trade execution...');
+            setTimeout(() => {
+                if (this.is_bot_running && this.interpreter?.bot?.tradeEngine) {
+                    try {
+                        // Force start a trade immediately with default parameters
+                        this.interpreter.bot.tradeEngine.start({
+                            amount: 1,
+                            contract_type: 'CALL',
+                            duration: 1,
+                            duration_unit: 't',
+                            symbol: this.symbol || 'R_100',
+                            basis: 'stake'
+                        });
+                        
+                        // Also emit purchase event
+                        this.interpreter.bot.tradeEngine.observer.emit('bot.purchase', 'CALL');
+                        console.log('✅ First trade initiated successfully');
+                        this.lastTradeTime = Date.now();
+                    } catch (error) {
+                        console.error('❌ Failed to force first trade:', error);
+                    }
+                }
+            }, 2000);
+
+            // Add continuous trading loop
+            this.tradingInterval = setInterval(() => {
+                if (this.is_bot_running && this.interpreter?.bot?.tradeEngine) {
+                    try {
+                        // Check if no active trades
+                        const hasActiveTrade = this.interpreter.bot.tradeEngine.data.contract?.contract_id && 
+                                             !this.interpreter.bot.tradeEngine.data.contract?.is_sold;
+
+                        if (!hasActiveTrade) {
+                            console.log('🔄 No active trade detected, starting new trade...');
+                            
+                            // Alternate between CALL and PUT
+                            const contractType = Math.random() > 0.5 ? 'CALL' : 'PUT';
+                            
+                            this.interpreter.bot.tradeEngine.start({
+                                amount: 1,
+                                contract_type: contractType,
+                                duration: 1,
+                                duration_unit: 't',
+                                symbol: this.symbol || 'R_100',
+                                basis: 'stake'
+                            });
+                            
+                            this.interpreter.bot.tradeEngine.observer.emit('bot.purchase', contractType);
+                            console.log(`🚀 Auto-executed ${contractType} trade`);
+                            this.lastTradeTime = Date.now();
+                        }
+                    } catch (error) {
+                        console.error('❌ Trading interval error:', error);
+                    }
+                }
+            }, 8000); // Execute new trade every 8 seconds if no active trade
+
             // Add periodic status check
             this.statusCheckInterval = setInterval(() => {
                 if (this.is_bot_running && this.interpreter?.bot?.tradeEngine) {
@@ -345,18 +403,6 @@ class DBot {
                     }
                 }
             }, 15000); // Check every 15 seconds
-
-            // Force first trade after 5 seconds
-            setTimeout(() => {
-                if (this.is_bot_running && this.interpreter?.bot?.tradeEngine) {
-                    console.log('🎯 Forcing initial trade execution...');
-                    try {
-                        this.interpreter.bot.tradeEngine.observer.emit('bot.purchase', 'CALL');
-                    } catch (error) {
-                        console.error('❌ Failed to force initial trade:', error);
-                    }
-                }
-            }, 5000);
 
         } catch (error) {
             console.error('❌ Bot run error:', error);
@@ -419,10 +465,15 @@ class DBot {
         console.log('🛑 Stopping bot...');
         api_base.setIsRunning(false);
 
-        // Clear status check interval
+        // Clear all intervals
         if (this.statusCheckInterval) {
             clearInterval(this.statusCheckInterval);
             this.statusCheckInterval = null;
+        }
+        
+        if (this.tradingInterval) {
+            clearInterval(this.tradingInterval);
+            this.tradingInterval = null;
         }
 
         // Check if there's an active contract that needs to be completed
