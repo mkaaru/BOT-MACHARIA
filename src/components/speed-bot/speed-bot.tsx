@@ -388,13 +388,8 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
-    // Rate limiting: minimum 1 second between trades
-    const timeSinceLastTrade = Date.now() - lastTradeTime;
-    if (timeSinceLastTrade < 1000) {
-      console.log(`⏳ Rate limit: waiting ${1000 - timeSinceLastTrade}ms`);
-      setTimeout(() => getPriceProposal(), 1000 - timeSinceLastTrade);
-      return;
-    }
+    // No rate limiting - execute on every tick
+    console.log('⚡ No rate limiting - executing immediately on every tick');
 
     try {
       setIsRequestingProposal(true);
@@ -995,25 +990,18 @@ const SpeedBot: React.FC = observer(() => {
             console.log(`🎯 TICK: ${data.tick.quote} | Last Digit: ${lastDigit} | Contract: ${selectedContractType}`);
             console.log(`🎯 States: Trading=${isTrading}, Direct=${isDirectTrading}, Executing=${isExecutingTrade}, Requesting=${isRequestingProposal}, ProposalId=${proposalId}`);
 
-            // Enhanced tick processing with validation
+            // Execute trade on EVERY tick - removed rate limiting and conditions
             if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal && !proposalId) {
               if (isNaN(lastDigit)) {
                 console.error('❌ Invalid last digit from tick:', data.tick.quote);
                 return;
               }
 
-              // Rate limiting: minimum 3 seconds between trades
-              const timeSinceLastTrade = Date.now() - lastTradeTime;
-              if (lastTradeTime > 0 && timeSinceLastTrade < 3000) {
-                console.log(`⏳ Rate limit: waiting ${3000 - timeSinceLastTrade}ms before next trade`);
-                return;
-              }
-
-              // Trade immediately for all digit contracts - we're predicting the NEXT tick
-              console.log(`🚀🚀🚀 TRADING NOW! Contract: ${selectedContractType} predicting next tick 🚀🚀🚀`);
+              // Execute trade immediately on every tick
+              console.log(`🚀🚀🚀 EXECUTING TRADE ON EVERY TICK! Contract: ${selectedContractType} 🚀🚀🚀`);
               setLastTradeTime(Date.now());
               
-              // Request proposal immediately - no delay needed
+              // Request proposal immediately on every tick
               getPriceProposal();
             } else {
               const reasons = [];
@@ -1507,7 +1495,7 @@ const SpeedBot: React.FC = observer(() => {
               <br />
               • Current price: {currentPrice} (last digit: {currentPrice.slice(-1)})
               <br />
-              • Rate limit: {lastTradeTime && (Date.now() - lastTradeTime) < 3000 ? `${3000 - (Date.now() - lastTradeTime)}ms remaining` : 'Ready'}
+              • Rate limit: DISABLED - Trading on every tick
             </div>
           </div>
         )}
