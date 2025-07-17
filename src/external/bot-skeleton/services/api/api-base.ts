@@ -163,7 +163,7 @@ class APIBase {
 
             try {
                 const { authorize, error } = await this.api.authorize(this.token);
-                if (error) return error;
+                if (error) return Promise.reject(error);
 
                 if (this.has_active_symbols) {
                     this.toggleRunButton(false);

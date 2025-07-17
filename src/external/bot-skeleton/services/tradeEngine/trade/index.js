@@ -114,13 +114,14 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         // Earlier this used to happen as soon as we get ticks_history response and by the time GetTotalRuns gets called we have required info.
         this.accountInfo = api_base.account_info;
         this.token = api_base.token;
-        return new Promise(resolve => {
+        return new Promise((resolve, reject) => {
             // Try to recover from a situation where API doesn't give us a correct response on
             // "proposal_open_contract" which would make the bot run forever. When there's a "sell"
             // event, wait a couple seconds for the API to give us the correct "proposal_open_contract"
             // response, if there's none after x seconds. Send an explicit request, which _should_
             // solve the issue. This is a backup!
-            const subscription = api_base.api.onMessage().subscribe(({ data }) => {
+            try {
+                const subscription = api_base.api.onMessage().subscribe(({ data }) => {
                 if (data.msg_type === 'transaction' && data.transaction.action === 'sell') {
                     this.transaction_recovery_timeout = setTimeout(() => {
                         const { contract } = this.data;
@@ -136,6 +137,9 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
                 resolve();
             });
             api_base.pushSubscription(subscription);
+            } catch (error) {
+                reject(error);
+            }
         });
     }
 

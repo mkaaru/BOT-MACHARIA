@@ -215,7 +215,7 @@ class SpeedBotTradeEngine {
     this.token = token;
     
     if (!this.isConnected || !this.ws) {
-      throw new Error('WebSocket not connected');
+      return Promise.reject(new Error('WebSocket not connected'));
     }
 
     return new Promise((resolve, reject) => {
