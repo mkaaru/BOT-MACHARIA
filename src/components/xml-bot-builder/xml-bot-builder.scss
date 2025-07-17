@@ -58,7 +58,7 @@
     grid-template-columns: 1fr 1fr;
     gap: 1.6rem;
 
-    @include mobile {
+    @include mobile-screen {
       grid-template-columns: 1fr;
     }
   }
@@ -89,13 +89,13 @@
     justify-content: center;
     margin-top: 2rem;
 
-    @include mobile {
+    @include mobile-screen {
       flex-direction: column;
     }
   }
 
   // Mobile responsiveness
-  @include mobile {
+  @include mobile-screen {
     padding: 1.2rem;
     margin: 1rem;
     max-width: none;
