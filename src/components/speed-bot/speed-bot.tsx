@@ -481,9 +481,19 @@ const SpeedBot: React.FC = observer(() => {
     }
   }, [websocket, isAuthorized, currentStake, selectedContractType, selectedSymbol, overUnderValue, isExecutingTrade, isRequestingProposal, isTrading, isDirectTrading, client, lastTradeTime]);
 
-  // Function to unsubscribe from all active subscriptions
+  // Rate limiting for forget_all requests
+  const [lastForgetAllTime, setLastForgetAllTime] = useState(0);
+
+  // Function to unsubscribe from all active subscriptions with rate limiting
   const unsubscribeAll = useCallback((ws: WebSocket) => {
     if (ws && ws.readyState === WebSocket.OPEN && activeSubscriptions.size > 0) {
+      // Rate limit forget_all requests to maximum once per 2 seconds
+      const now = Date.now();
+      if (now - lastForgetAllTime < 2000) {
+        console.log('⏳ Rate limiting forget_all request - skipping');
+        return;
+      }
+
       try {
         const forgetAllRequest = {
           forget_all: 'ticks',
@@ -492,11 +502,12 @@ const SpeedBot: React.FC = observer(() => {
         console.log('🔄 Unsubscribing from all active subscriptions:', Array.from(activeSubscriptions));
         ws.send(JSON.stringify(forgetAllRequest));
         setActiveSubscriptions(new Set());
+        setLastForgetAllTime(now);
       } catch (error) {
         console.error('❌ Error unsubscribing from all subscriptions:', error);
       }
     }
-  }, [activeSubscriptions]);
+  }, [activeSubscriptions, lastForgetAllTime]);
 
   // WebSocket connection
   const connectToAPI = useCallback(() => {
@@ -1206,13 +1217,35 @@ const SpeedBot: React.FC = observer(() => {
       try {
         console.log(`🔄 Symbol changed to ${selectedSymbol}, managing subscriptions...`);
         
-        // First, unsubscribe from all existing subscriptions
-        if (activeSubscriptions.size > 0) {
-          unsubscribeAll(websocket);
+        // Check if we're already subscribed to this symbol
+        if (activeSubscriptions.has(selectedSymbol)) {
+          console.log(`📊 Already subscribed to ${selectedSymbol} - skipping`);
+          return;
+        }
+
+        // If we have other subscriptions, clear them first (with rate limiting)
+        if (activeSubscriptions.size > 0 && !activeSubscriptions.has(selectedSymbol)) {
+          console.log('🔄 Clearing existing subscriptions before subscribing to new symbol...');
+          
+          // Use individual forget requests instead of forget_all to avoid rate limits
+          activeSubscriptions.forEach(symbol => {
+            if (symbol !== selectedSymbol) {
+              try {
+                const forgetRequest = {
+                  forget: symbol,
+                  req_id: Date.now() + Math.random()
+                };
+                websocket.send(JSON.stringify(forgetRequest));
+                console.log(`🔄 Unsubscribed from ${symbol}`);
+              } catch (error) {
+                console.error(`❌ Error unsubscribing from ${symbol}:`, error);
+              }
+            }
+          });
           
           // Wait a moment then subscribe to new symbol
           setTimeout(() => {
-            if (!activeSubscriptions.has(selectedSymbol)) {
+            if (websocket.readyState === WebSocket.OPEN) {
               const liveTickRequest = {
                 ticks: selectedSymbol,
                 subscribe: 1,
@@ -1220,27 +1253,25 @@ const SpeedBot: React.FC = observer(() => {
               };
               websocket.send(JSON.stringify(liveTickRequest));
               console.log(`📊 Live tick subscription updated for ${selectedSymbol}`);
-              setActiveSubscriptions(prev => new Set(prev).add(selectedSymbol));
+              setActiveSubscriptions(new Set([selectedSymbol]));
             }
-          }, 500);
+          }, 1000);
         } else {
-          // No existing subscriptions, subscribe directly
-          if (!activeSubscriptions.has(selectedSymbol)) {
-            const liveTickRequest = {
-              ticks: selectedSymbol,
-              subscribe: 1,
-              req_id: Date.now()
-            };
-            websocket.send(JSON.stringify(liveTickRequest));
-            console.log(`📊 Live tick subscription updated for ${selectedSymbol}`);
-            setActiveSubscriptions(prev => new Set(prev).add(selectedSymbol));
-          }
+          // No existing subscriptions or already subscribed, subscribe directly
+          const liveTickRequest = {
+            ticks: selectedSymbol,
+            subscribe: 1,
+            req_id: Date.now()
+          };
+          websocket.send(JSON.stringify(liveTickRequest));
+          console.log(`📊 Live tick subscription updated for ${selectedSymbol}`);
+          setActiveSubscriptions(prev => new Set(prev).add(selectedSymbol));
         }
       } catch (error) {
         console.error('❌ Error resubscribing to ticks:', error);
       }
     }
-  }, [selectedSymbol, websocket, isAuthorized, activeSubscriptions, unsubscribeAll]);
+  }, [selectedSymbol, websocket, isAuthorized]);
 
   useEffect(() => {
     setCurrentStake(stake);
