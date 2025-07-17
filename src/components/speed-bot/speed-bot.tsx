@@ -1626,7 +1626,7 @@ const SpeedBot: React.FC = observer(() => {
         martingale: useMartingale,
         multiplier: martingaleMultiplier,
         tradeEveryTick: isTradeEveryTick,
-        barrier: overUnderBarrier,
+        barrier: overUnderValue,
         engineConnected: speedBotTradeEngine.isEngineConnected()
       });
 
@@ -1640,7 +1640,7 @@ const SpeedBot: React.FC = observer(() => {
       setIsTrading(false);
       alert('Error starting trading: ' + error.message);
     }
-  }, [selectedSymbol, selectedContractType, stake, useMartingale, martingaleMultiplier, isTradeEveryTick, overUnderBarrier]);
+  }, [selectedSymbol, selectedContractType, stake, useMartingale, martingaleMultiplier, isTradeEveryTick, overUnderValue]);
 
   const stopTrading = useCallback(() => {
     setIsTrading(false);
