@@ -149,6 +149,14 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         const [token, options] = expectInitArg(args);
         const { symbol } = options;
 
+        if (!token) {
+            throw new Error('Token is required for bot initialization');
+        }
+
+        if (!symbol) {
+            throw new Error('Symbol is required for bot initialization');
+        }
+
         this.initArgs = args;
         this.options = options;
 
@@ -163,6 +171,8 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         }
 
         if (!this.checkTicksPromiseExists()) this.watchTicks(symbol);
+        
+        console.log(`🎯 Bot initialized successfully with symbol: ${symbol}`);
     }
 
     start(tradeOptions) {

@@ -344,14 +344,14 @@ class DBot {
         try {
             // Execute first trade immediately
             this.executeTrade();
-            
+
             // Set up continuous trading
             this.tradingInterval = setInterval(() => {
                 if (this.is_bot_running && this.interpreter?.bot?.tradeEngine) {
                     this.executeTrade();
                 }
             }, 10000); // Execute trade every 10 seconds
-            
+
             // Set up status monitoring
             this.statusCheckInterval = setInterval(() => {
                 if (this.is_bot_running && this.interpreter?.bot?.tradeEngine) {
@@ -383,9 +383,9 @@ class DBot {
 
             // Alternate between CALL and PUT
             const contractType = Math.random() > 0.5 ? 'CALL' : 'PUT';
-            
+
             console.log(`🚀 Executing ${contractType} trade...`);
-            
+
             // Start trade with proper parameters
             this.interpreter.bot.tradeEngine.start({
                 amount: 1,
@@ -407,16 +407,16 @@ class DBot {
         try {
             const state = this.interpreter.bot.tradeEngine.store.getState();
             const timeSinceLastTrade = Date.now() - (this.lastTradeTime || 0);
-            
+
             console.log(`🔍 Bot Status: scope=${state.scope}, proposalsReady=${state.proposalsReady}, timeSinceLastTrade=${timeSinceLastTrade}ms`);
-            
+
             // If bot is stuck for more than 30 seconds, force restart
             if (timeSinceLastTrade > 30000) {
                 console.log('⚠️ Bot appears stuck, forcing restart...');
                 this.interpreter.bot.tradeEngine.forceNextTrade();
                 this.lastTradeTime = Date.now();
             }
-            
+
         } catch (error) {
             console.error('❌ Status check error:', error);
         }
@@ -478,7 +478,7 @@ class DBot {
             clearInterval(this.statusCheckInterval);
             this.statusCheckInterval = null;
         }
-        
+
         if (this.tradingInterval) {
             clearInterval(this.tradingInterval);
             this.tradingInterval = null;
@@ -871,4 +871,4 @@ class DBot {
     }
 }
 
-export default new DBot();
+export default new DBot.
