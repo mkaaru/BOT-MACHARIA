@@ -261,15 +261,26 @@ class DBot {
         try {
             api_base.is_stopping = false;
             const code = this.generateCode();
-            if (!this.interpreter.bot.tradeEngine.checkTicksPromiseExists()) this.interpreter = Interpreter();
+            
+            if (!code) {
+                globalObserver.emit('Error', { message: 'Failed to generate code from blocks' });
+                return;
+            }
+
+            if (!this.interpreter.bot.tradeEngine.checkTicksPromiseExists()) {
+                this.interpreter = Interpreter();
+            }
 
             this.is_bot_running = true;
-
             api_base.setIsRunning(true);
-            this.interpreter.run(code).catch(error => {
-                globalObserver.emit('Error', error);
-                this.stopBot();
-            });
+
+            const runPromise = this.interpreter.run(code);
+            if (runPromise && typeof runPromise.then === 'function') {
+                runPromise.catch(error => {
+                    globalObserver.emit('Error', error);
+                    this.stopBot();
+                });
+            }
         } catch (error) {
             globalObserver.emit('Error', error);
 
@@ -284,15 +295,27 @@ class DBot {
      * @param {Object} limitations Optional limitations (legacy argument)
      */
     generateCode(limitations = {}) {
-        try {
-            const promise = this.interpreter.run(code);
-            if (!promise || typeof promise.then !== 'function') {
-                return Promise.reject(new Error('Invalid promise returned from interpreter'));
-            }
-            return promise;
-        } catch (error) {
-            return Promise.reject(error);
+        if (!this.shouldRunBot()) {
+            return null;
         }
+
+        const is_sync_blocks_enabled = window.Blockly.getMainWorkspace().getBlocksByType('trade_definition_tradeoptions').length > 0;
+
+        window.Blockly.JavaScript.STATEMENT_PREFIX = 'return Bot.highlightBlock(%1);\n';
+        window.Blockly.JavaScript.addReservedWords('code,timeouts,setBlockStatus,Bot');
+
+        const code = `
+            var highlightPerStackTrace = false;
+            var code = function() {
+                ${window.Blockly.JavaScript.workspaceToCode(this.workspace)}
+            };
+        `;
+
+        if (is_sync_blocks_enabled) {
+            return `${code}\nBot.start(code);`;
+        }
+
+        return code;
     }
 
     /**

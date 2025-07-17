@@ -234,6 +234,11 @@ const Interpreter = () => {
 
     function run(code) {
         return new Promise((resolve, reject) => {
+            if (!code || typeof code !== 'string') {
+                reject(new Error('Invalid code provided to interpreter'));
+                return;
+            }
+
             const onError = e => {
                 if ($scope.stopped) {
                     return;
