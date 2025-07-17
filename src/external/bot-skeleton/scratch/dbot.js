@@ -260,6 +260,12 @@ class DBot {
 
         try {
             api_base.is_stopping = false;
+            
+            // Ensure interpreter and bot are properly initialized
+            if (!this.interpreter || !this.interpreter.bot) {
+                this.interpreter = Interpreter();
+            }
+            
             const code = this.generateCode();
             
             if (!code) {

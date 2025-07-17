@@ -100,6 +100,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
 
     start(tradeOptions) {
         if (!this.options) {
+            globalObserver.emit('Error', { message: 'Bot.init is not called. Please initialize the bot first.' });
             throw createError('NotInitialized', localize('Bot.init is not called'));
         }
 
