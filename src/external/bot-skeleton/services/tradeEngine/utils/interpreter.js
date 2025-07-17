@@ -18,7 +18,7 @@ JSInterpreter.prototype.restoreStateSnapshot = function (snapshot) {
     this.initFunc_(this, this.global);
 };
 
-const botInitialized = bot => bot && bot.tradeEngine.options;
+const botInitialized = bot => bot && bot.tradeEngine && bot.tradeEngine.options;
 const botStarted = bot => botInitialized(bot) && bot.tradeEngine.tradeOptions;
 const shouldRestartOnError = (bot, errorName = '') =>
     !unrecoverable_errors.includes(errorName) && botInitialized(bot) && bot.tradeEngine.options.shouldRestartOnError;

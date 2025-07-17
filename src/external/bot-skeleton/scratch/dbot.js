@@ -265,6 +265,21 @@ class DBot {
             if (!this.interpreter || !this.interpreter.bot) {
                 this.interpreter = Interpreter();
             }
+
+            // Check if bot is properly initialized before running
+            if (!this.interpreter.bot || !this.interpreter.bot.tradeEngine.options) {
+                // Initialize bot with default token and symbol if not already done
+                if (api_base.token && this.symbol) {
+                    this.interpreter.bot.tradeEngine.init(api_base.token, {
+                        symbol: this.symbol || 'R_100',
+                        candleInterval: 60,
+                        contractTypes: ['CALL', 'PUT']
+                    });
+                } else {
+                    globalObserver.emit('Error', { message: 'Bot initialization failed: Missing token or symbol' });
+                    return;
+                }
+            }
             
             const code = this.generateCode();
             
@@ -275,6 +290,14 @@ class DBot {
 
             if (!this.interpreter.bot.tradeEngine.checkTicksPromiseExists()) {
                 this.interpreter = Interpreter();
+                // Re-initialize after creating new interpreter
+                if (api_base.token && this.symbol) {
+                    this.interpreter.bot.tradeEngine.init(api_base.token, {
+                        symbol: this.symbol || 'R_100',
+                        candleInterval: 60,
+                        contractTypes: ['CALL', 'PUT']
+                    });
+                }
             }
 
             this.is_bot_running = true;
