@@ -308,10 +308,19 @@ class DBot {
             window.Blockly.JavaScript.javascriptGenerator.addReservedWords('code,timeouts,setBlockStatus,Bot');
         }
 
+        let generatedCode = '';
+        if (window.Blockly.JavaScript.workspaceToCode) {
+            generatedCode = window.Blockly.JavaScript.workspaceToCode(this.workspace);
+        } else if (window.Blockly.JavaScript.javascriptGenerator) {
+            generatedCode = window.Blockly.JavaScript.javascriptGenerator.workspaceToCode(this.workspace);
+        } else {
+            throw new Error('Unable to find Blockly JavaScript generator');
+        }
+
         const code = `
             var highlightPerStackTrace = false;
             var code = function() {
-                ${window.Blockly.JavaScript.workspaceToCode(this.workspace)}
+                ${generatedCode}
             };
         `;
 
