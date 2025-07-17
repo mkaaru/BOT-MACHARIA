@@ -189,8 +189,9 @@ export default Engine =>
         // Method to update profit after trade result
         updateTradeResult(profit) {
             this.martingaleState.lastTradeProfit = profit;
-            this.martingaleState.totalProfit += profit;
-            console.log(`💰 TRADE RESULT: P&L: ${profit} USD | Total P&L: ${this.martingaleState.totalProfit} USD`);
+            this.martingaleState.totalProfit = (this.martingaleState.totalProfit || 0) + profit;
+            this.isTradeConfirmed = true; // Mark trade as confirmed for martingale processing
+            console.log(`💰 TRADE RESULT: P&L: ${profit} USD | Total P&L: ${this.martingaleState.totalProfit} USD | Trade confirmed for martingale`);
         }
 
         // Getters for accessing martingale state
