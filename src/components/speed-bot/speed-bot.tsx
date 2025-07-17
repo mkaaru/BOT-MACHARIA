@@ -456,17 +456,17 @@ const SpeedBot: React.FC = observer(() => {
 
       // Clear request flag after timeout
       const proposalTimeoutId = setTimeout(() => {
-        console.log('⏰ Proposal request timeout - clearing flag');
+        console.log('⏰ Proposal request timeout - clearing flags');
         setIsRequestingProposal(false);
+        setProposalId(null);
 
-        // Retry if still trading
-        if (isTrading && isDirectTrading) {
-          setTimeout(() => {
-            console.log('🔄 Retrying proposal request after timeout...');
-            getPriceProposal();
-          }, 1000);
+        // Retry if still trading and no active execution
+        if (isTrading && isDirectTrading && !isExecutingTrade) {
+          console.log('🔄 Retrying proposal request after timeout...');
+          // Don't use setTimeout for retry, try immediately
+          getPriceProposal();
         }
-      }, 3000); // Reduced timeout to 3 seconds
+      }, 5000); // Increased timeout to 5 seconds for better reliability
 
       // Store timeout ID to clear it if proposal succeeds
       (window as any).proposalTimeoutId = proposalTimeoutId;
@@ -666,10 +666,18 @@ const SpeedBot: React.FC = observer(() => {
               ask_price: proposal.ask_price
             });
 
-            // Auto-buy if trading and direct trading enabled
-            if (isTrading && isDirectTrading && proposal.id) {
+            // Auto-buy immediately if trading and direct trading enabled
+            if (isTrading && isDirectTrading && proposal.id && !isExecutingTrade) {
               console.log('🚀 Auto-buying contract with proposal:', proposal.id);
+              // Buy immediately without delay
               buyContract(proposal.id, proposalPrice);
+            } else {
+              console.log('⚠️ Not auto-buying:', {
+                isTrading,
+                isDirectTrading,
+                hasProposalId: !!proposal.id,
+                isExecutingTrade
+              });
             }
           }
 
@@ -985,57 +993,53 @@ const SpeedBot: React.FC = observer(() => {
             const lastDigit = parseInt(priceStr[priceStr.length - 1]);
 
             console.log(`🎯 TICK: ${data.tick.quote} | Last Digit: ${lastDigit} | Contract: ${selectedContractType}`);
-            console.log(`🎯 States: Trading=${isTrading}, Direct=${isDirectTrading}, Executing=${isExecutingTrade}, Requesting=${isRequestingProposal}`);
+            console.log(`🎯 States: Trading=${isTrading}, Direct=${isDirectTrading}, Executing=${isExecutingTrade}, Requesting=${isRequestingProposal}, ProposalId=${proposalId}`);
 
             // Enhanced tick processing with validation
-            if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal) {
+            if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal && !proposalId) {
               if (isNaN(lastDigit)) {
                 console.error('❌ Invalid last digit from tick:', data.tick.quote);
                 return;
               }
 
-              // For DIGITEVEN and DIGITODD, trade on every tick since we predict the next tick
-              // For barrier contracts, check specific conditions
+              // Rate limiting: minimum 2 seconds between proposal requests
+              const timeSinceLastTrade = Date.now() - lastTradeTime;
+              if (lastTradeTime > 0 && timeSinceLastTrade < 2000) {
+                console.log(`⏳ Rate limit: waiting ${2000 - timeSinceLastTrade}ms before next trade`);
+                return;
+              }
+
+              // For digit contracts, we can trade on every eligible tick
               let shouldTrade = false;
 
               switch (selectedContractType) {
                 case 'DIGITEVEN':
-                  // Trade on every tick - we predict the NEXT tick will be even
-                  shouldTrade = true;
-                  console.log(`🎯 DIGITEVEN: Trading (predicting next tick will be EVEN)`);
-                  break;
                 case 'DIGITODD':
-                  // Trade on every tick - we predict the NEXT tick will be odd
+                  // Trade on every tick - we predict the NEXT tick
                   shouldTrade = true;
-                  console.log(`🎯 DIGITODD: Trading (predicting next tick will be ODD)`);
+                  console.log(`🎯 ${selectedContractType}: Trading (predicting next tick)`);
                   break;
                 case 'DIGITOVER':
-                  // Only trade when we want to predict next tick > barrier
-                  shouldTrade = true; // You can add condition here if needed
+                  shouldTrade = true;
                   console.log(`🎯 DIGITOVER: Trading (predicting next tick > ${overUnderValue})`);
                   break;
                 case 'DIGITUNDER':
-                  // Only trade when we want to predict next tick < barrier
-                  shouldTrade = true; // You can add condition here if needed
+                  shouldTrade = true;
                   console.log(`🎯 DIGITUNDER: Trading (predicting next tick < ${overUnderValue})`);
                   break;
                 case 'DIGITMATCH':
-                  // Only trade when we want to predict next tick = barrier
-                  shouldTrade = true; // You can add condition here if needed
+                  shouldTrade = true;
                   console.log(`🎯 DIGITMATCH: Trading (predicting next tick = ${overUnderValue})`);
                   break;
                 case 'DIGITDIFF':
-                  // Only trade when we want to predict next tick != barrier
-                  shouldTrade = true; // You can add condition here if needed
+                  shouldTrade = true;
                   console.log(`🎯 DIGITDIFF: Trading (predicting next tick != ${overUnderValue})`);
                   break;
                 case 'CALL':
-                  // Rise contract
                   shouldTrade = true;
                   console.log(`🎯 CALL: Trading (predicting price will rise)`);
                   break;
                 case 'PUT':
-                  // Fall contract
                   shouldTrade = true;
                   console.log(`🎯 PUT: Trading (predicting price will fall)`);
                   break;
@@ -1046,15 +1050,14 @@ const SpeedBot: React.FC = observer(() => {
 
               if (shouldTrade) {
                 console.log(`🚀🚀🚀 TRADING NOW! Contract: ${selectedContractType} on tick ${lastDigit} 🚀🚀🚀`);
-
-                // Clear any existing timeouts
-                if ((window as any).proposalTimeoutId) {
-                  clearTimeout((window as any).proposalTimeoutId);
-                  (window as any).proposalTimeoutId = null;
-                }
-
-                // Request proposal immediately
-                setTimeout(() => getPriceProposal(), 100);
+                setLastTradeTime(Date.now());
+                
+                // Request proposal with a small delay to ensure tick processing is complete
+                setTimeout(() => {
+                  if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal && !proposalId) {
+                    getPriceProposal();
+                  }
+                }, 50);
               } else {
                 console.log(`⏳ Waiting for trade condition...`);
               }
@@ -1064,6 +1067,7 @@ const SpeedBot: React.FC = observer(() => {
               if (!isDirectTrading) reasons.push('not direct trading');
               if (isExecutingTrade) reasons.push('executing trade');
               if (isRequestingProposal) reasons.push('requesting proposal');
+              if (proposalId) reasons.push('has pending proposal');
 
               console.log(`⏸️ Skipping tick: ${reasons.join(', ')}`);
             }
