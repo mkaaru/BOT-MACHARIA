@@ -297,26 +297,45 @@ const SpeedBot: React.FC = observer(() => {
   const sellContract = useCallback(async (contractId: string) => {
     if (!websocket || websocket.readyState !== WebSocket.OPEN) {
       console.error('❌ Cannot sell contract: WebSocket not connected');
+      setError('WebSocket connection lost');
       return;
     }
 
     if (!isAuthorized) {
       console.error('❌ Cannot sell contract: Not authorized');
+      setError('Not authorized - please check your login');
       return;
     }
 
     try {
+      // Convert contractId to integer as required by the API schema
+      const contractIdInt = parseInt(contractId, 10);
+      if (isNaN(contractIdInt)) {
+        console.error('❌ Invalid contract ID:', contractId);
+        setError('Invalid contract ID format');
+        return;
+      }
+
       const sellRequest = {
-        sell: contractId,
-        price: 0, // Sell at market price
+        sell: contractIdInt, // API requires integer, not string
+        price: 0, // Sell at market price (minimum price)
         req_id: Date.now()
       };
 
-      console.log('📤 Selling contract:', contractId);
+      console.log('📤 Selling contract:', JSON.stringify(sellRequest, null, 2));
       websocket.send(JSON.stringify(sellRequest));
 
+      // Set a timeout for sell response
+      const sellTimeoutId = setTimeout(() => {
+        console.log('⏰ Sell request timeout for contract:', contractId);
+        setError('Sell request timed out - contract may have expired');
+      }, 10000);
+
+      // Store timeout ID for cleanup
+      (window as any)[`sellTimeout_${contractId}`] = sellTimeoutId;
+
     } catch (error) {
-      console.error('Error selling contract:', error);
+      console.error('❌ Error selling contract:', error);
       setError(`Failed to sell contract: ${error.message}`);
     }
   }, [websocket, isAuthorized]);
@@ -880,23 +899,49 @@ const SpeedBot: React.FC = observer(() => {
             console.log('✅ Trade completed successfully - ready for next condition');
           }
 
-          // Handle sell response
+          // Handle sell response according to Deriv API schema
           if (data.sell) {
-            console.log('✅ Contract sold successfully:', data.sell);
-            const contractId = data.sell.contract_id;
+            console.log('✅ Contract sold successfully:', JSON.stringify(data.sell, null, 2));
+            
+            // Clear any pending sell timeout
+            const contractIdStr = data.sell.contract_id?.toString();
+            if (contractIdStr && (window as any)[`sellTimeout_${contractIdStr}`]) {
+              clearTimeout((window as any)[`sellTimeout_${contractIdStr}`]);
+              delete (window as any)[`sellTimeout_${contractIdStr}`];
+            }
+
+            // Extract sell receipt data according to API schema
+            const sellReceipt = data.sell;
+            const contractId = sellReceipt.contract_id;
+            const transactionId = sellReceipt.transaction_id;
+            const balanceAfter = parseFloat(sellReceipt.balance_after || 0);
+            const sellPrice = parseFloat(sellReceipt.sell_price || 0);
+            const buyPrice = parseFloat(sellReceipt.buy_price || 0);
+            const profit = sellPrice - buyPrice;
+
+            console.log('📊 Sell Receipt Details:', {
+              contractId,
+              transactionId,
+              sellPrice,
+              buyPrice,
+              profit,
+              balanceAfter
+            });
+
+            // Update balance from sell response
+            if (balanceAfter > 0) {
+              setBalance(balanceAfter);
+              console.log('💰 Balance updated from sell response:', balanceAfter);
+            }
 
             // Remove from active contracts
             setActiveContracts(prev => {
               const newMap = new Map(prev);
-              newMap.delete(contractId);
+              newMap.delete(contractId?.toString());
               return newMap;
             });
 
-            // Update trade history
-            const sellPrice = parseFloat(data.sell.sell_price || 0);
-            const buyPrice = parseFloat(data.sell.buy_price || 0);
-            const profit = sellPrice - buyPrice;
-
+            // Update trade history with sell results
             setTradeHistory(prev => {
               const updated = [...prev];
               const tradeIndex = updated.findIndex(t => t.result === 'pending');
@@ -906,45 +951,89 @@ const SpeedBot: React.FC = observer(() => {
                   result: profit > 0 ? 'win' : 'loss',
                   profit: profit
                 };
+                console.log('📊 Trade history updated:', updated[tradeIndex]);
               }
               return updated;
             });
 
-            // Enhanced martingale logic with contract-specific adjustments
+            // Update total profit/loss
+            const newTotalProfitLoss = totalProfitLoss + profit;
+            setTotalProfitLoss(newTotalProfitLoss);
+
+            // Enhanced trade result processing
             if (profit > 0) {
               setWins(prev => prev + 1);
+              console.log('🟢 MANUAL SELL - WIN:', {
+                profit: profit.toFixed(2),
+                totalPL: newTotalProfitLoss.toFixed(2)
+              });
+              
               if (useMartingale) {
-                setCurrentStake(1); // Reset to base stake on win
+                setCurrentStake(stake); // Reset to base stake on win
+                console.log('📈 Martingale reset to base stake:', stake);
               }
             } else {
               setLosses(prev => prev + 1);
+              console.log('🔴 MANUAL SELL - LOSS:', {
+                profit: profit.toFixed(2),
+                totalPL: newTotalProfitLoss.toFixed(2)
+              });
+              
+              // Apply martingale and alternate on loss logic for manual sells too
+              if (alternateOnLoss) {
+                console.log('🔄 ALTERNATE ON LOSS: Switching contract type due to manual sell loss');
+                setSelectedContractType(prev => {
+                  const alternates = {
+                    'DIGITEVEN': 'DIGITODD',
+                    'DIGITODD': 'DIGITEVEN',
+                    'DIGITOVER': 'DIGITUNDER',
+                    'DIGITUNDER': 'DIGITOVER',
+                    'DIGITMATCH': 'DIGITDIFF',
+                    'DIGITDIFF': 'DIGITMATCH'
+                  };
+                  const newType = alternates[prev] || prev;
+                  console.log(`🔄 Contract type changed: ${prev} → ${newType}`);
+                  return newType;
+                });
+              }
+              
               if (useMartingale) {
-                // Contract-specific martingale adjustments
                 const maxStake = selectedContractType.startsWith('MULT') ? 2000 : 
                                 selectedContractType.startsWith('LB') ? 500 : 1000;
 
                 const newStake = Math.min(currentStake * martingaleMultiplier, maxStake);
 
                 // Additional safety check for balance
-                if (newStake > balance) {
-                  console.warn('⚠️ Martingale stake exceeds balance, using maximum available');
-                  setCurrentStake(Math.floor(balance * 0.8)); // Use 80% of balance as safety margin
+                if (balance > 0 && newStake > balance * 0.9) {
+                  console.warn('⚠️ Martingale stake exceeds 90% of balance, limiting to safe amount');
+                  const safeStake = Math.max(stake, balance * 0.1);
+                  setCurrentStake(safeStake);
+                  console.log('📈 Martingale limited to safe stake:', safeStake);
                 } else {
                   setCurrentStake(newStake);
+                  console.log('📈 Martingale applied after manual sell:', {
+                    previousStake: currentStake,
+                    newStake,
+                    multiplier: martingaleMultiplier
+                  });
                 }
-
-                // Log martingale adjustment
-                console.log('📈 Martingale adjustment:', {
-                  previousStake: currentStake,
-                  newStake: newStake,
-                  maxStake: maxStake,
-                  balance: balance,
-                  contractType: selectedContractType
-                });
               }
             }
 
-            console.log(`📊 Contract sold: ${profit > 0 ? 'WIN' : 'LOSS'} Profit: ${profit}`);
+            // Check risk management thresholds
+            if (newTotalProfitLoss >= takeProfit) {
+              console.log(`🎯 TAKE PROFIT TRIGGERED after manual sell! Total P/L: $${newTotalProfitLoss.toFixed(2)}`);
+              setError(`✅ Take Profit reached at $${newTotalProfitLoss.toFixed(2)}! Bot stopped.`);
+              setIsTrading(false);
+              setIsDirectTrading(false);
+            } else if (newTotalProfitLoss <= -Math.abs(stopLoss)) {
+              console.log(`🛑 STOP LOSS TRIGGERED after manual sell! Total P/L: $${newTotalProfitLoss.toFixed(2)}`);
+              setError(`❌ Stop Loss reached at $${newTotalProfitLoss.toFixed(2)}! Bot stopped.`);
+              setIsTrading(false);
+              setIsDirectTrading(false);
+            }
+
+            console.log(`📊 Manual sell completed: ${profit > 0 ? 'WIN' : 'LOSS'} | Profit: $${profit.toFixed(2)} | Total P/L: $${newTotalProfitLoss.toFixed(2)}`);
           }
 
           // Handle proposal errors
@@ -976,6 +1065,32 @@ const SpeedBot: React.FC = observer(() => {
                 console.log('🔄 Retrying proposal after error...');
                 getPriceProposal();
               }, 3000);
+            }
+          }
+
+          // Handle sell errors according to API schema
+          if (data.error && data.msg_type === 'sell') {
+            console.error('❌ Sell contract error:', JSON.stringify(data.error, null, 2));
+
+            // Clear any pending sell timeout
+            if (data.echo_req?.sell) {
+              const contractId = data.echo_req.sell.toString();
+              if ((window as any)[`sellTimeout_${contractId}`]) {
+                clearTimeout((window as any)[`sellTimeout_${contractId}`]);
+                delete (window as any)[`sellTimeout_${contractId}`];
+              }
+            }
+
+            if (data.error.code === 'InvalidContractId') {
+              setError(`Invalid contract: ${data.error.message}`);
+            } else if (data.error.code === 'ContractSoldAlready') {
+              setError(`Contract already sold: ${data.error.message}`);
+            } else if (data.error.code === 'ContractExpired') {
+              setError(`Contract expired: ${data.error.message}`);
+            } else if (data.error.code === 'InvalidSellPrice') {
+              setError(`Invalid sell price: ${data.error.message}`);
+            } else {
+              setError(`Sell failed: ${data.error.message} (Code: ${data.error.code})`);
             }
           }
 
