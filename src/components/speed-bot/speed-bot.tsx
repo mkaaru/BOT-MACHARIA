@@ -885,7 +885,7 @@ const SpeedBot: React.FC = observer(() => {
     const observer = globalObserver || localObserver;
     if (observer) {
       observer.register('bot.buy', handleBuyContract);
-      observer.register('bot.contract', handleTradecomplete', handleTradeComplete);
+      observer.register('bot.contract', handleTradeComplete);
       observer.register('bot.tick', handleTickUpdate);
       observer.register('bot.error', handleError);
     }
