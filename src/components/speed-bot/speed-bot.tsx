@@ -528,33 +528,33 @@ const SpeedBot: React.FC = observer(() => {
           // Request tick subscription immediately after authorization
           setTimeout(() => {
             try {
-              const tickRequest = {
-                ticks_history: selectedSymbol,
-                count: 120,
-                end: 'latest',
-                style: 'ticks',
+              // First, subscribe to live ticks for real-time updates
+              const liveTickRequest = {
+                ticks: selectedSymbol,
                 subscribe: 1,
                 req_id: Date.now() + 2000
               };
-              console.log('📊 Sending tick request:', JSON.stringify(tickRequest, null, 2));
-              ws.send(JSON.stringify(tickRequest));
-              console.log('📊 Tick subscription requested for', selectedSymbol);
+              console.log('📊 Sending live tick request:', JSON.stringify(liveTickRequest, null, 2));
+              ws.send(JSON.stringify(liveTickRequest));
+              console.log('📊 Live tick subscription requested for', selectedSymbol);
 
-              // Also request live ticks separately to ensure we get real-time data
+              // Also get tick history for context
               setTimeout(() => {
-                const liveTickRequest = {
-                  ticks: selectedSymbol,
-                  subscribe: 1,
+                const tickHistoryRequest = {
+                  ticks_history: selectedSymbol,
+                  count: 10,
+                  end: 'latest',
+                  style: 'ticks',
                   req_id: Date.now() + 3000
                 };
-                console.log('📊 Sending live tick request:', JSON.stringify(liveTickRequest, null, 2));
-                ws.send(JSON.stringify(liveTickRequest));
-                console.log('📊 Live tick subscription requested for', selectedSymbol);
-              }, 500);
+                console.log('📊 Sending tick history request:', JSON.stringify(tickHistoryRequest, null, 2));
+                ws.send(JSON.stringify(tickHistoryRequest));
+                console.log('📊 Tick history requested for', selectedSymbol);
+              }, 300);
             } catch (error) {
               console.error('❌ Error requesting tick subscription:', error);
             }
-          }, 800);
+          }, 500);
         }, 200);
       };
 
@@ -979,15 +979,17 @@ const SpeedBot: React.FC = observer(() => {
             }
           }
 
+          // Handle live tick updates
           if (data.tick && data.tick.symbol === selectedSymbol) {
             const price = parseFloat(data.tick.quote);
-            setCurrentPrice(price.toFixed(5));
+            const formattedPrice = price.toFixed(5);
+            setCurrentPrice(formattedPrice);
 
             // Get the last digit from the price - handle decimal places properly
             const priceStr = data.tick.quote.toString();
             const lastDigit = parseInt(priceStr[priceStr.length - 1]);
 
-            console.log(`🎯 TICK: ${data.tick.quote} | Last Digit: ${lastDigit} | Contract: ${selectedContractType}`);
+            console.log(`🎯 LIVE TICK: ${data.tick.quote} | Last Digit: ${lastDigit} | Contract: ${selectedContractType} | Time: ${new Date().toLocaleTimeString()}`);
             console.log(`🎯 States: Trading=${isTrading}, Direct=${isDirectTrading}, Executing=${isExecutingTrade}, Requesting=${isRequestingProposal}, ProposalId=${proposalId}`);
 
             // Execute trade on EVERY tick - removed rate limiting and conditions
@@ -998,7 +1000,7 @@ const SpeedBot: React.FC = observer(() => {
               }
 
               // Execute trade immediately on every tick
-              console.log(`🚀🚀🚀 EXECUTING TRADE ON EVERY TICK! Contract: ${selectedContractType} 🚀🚀🚀`);
+              console.log(`🚀🚀🚀 EXECUTING TRADE ON EVERY TICK! Contract: ${selectedContractType} | Digit: ${lastDigit} 🚀🚀🚀`);
               setLastTradeTime(Date.now());
               
               // Request proposal immediately on every tick
@@ -1015,9 +1017,19 @@ const SpeedBot: React.FC = observer(() => {
             }
           }
 
-          if (data.history && data.history.prices) {
-            const lastPrice = parseFloat(data.history.prices[data.history.prices.length - 1]);
+          // Handle tick history response
+          if (data.history && data.history.prices && data.history.times) {
+            const prices = data.history.prices;
+            const lastPrice = parseFloat(prices[prices.length - 1]);
             setCurrentPrice(lastPrice.toFixed(5));
+            console.log(`📊 Tick history received: Latest price ${lastPrice.toFixed(5)}`);
+          }
+
+          // Handle other tick data formats
+          if (data.msg_type === 'tick' && data.echo_req?.ticks === selectedSymbol) {
+            const price = parseFloat(data.tick.quote);
+            setCurrentPrice(price.toFixed(5));
+            console.log(`📊 Alternative tick format: ${price.toFixed(5)}`);
           }
         } catch (error) {
           console.error('Error parsing message:', error);
@@ -1146,6 +1158,24 @@ const SpeedBot: React.FC = observer(() => {
       }
     };
   }, [connectToAPI]);
+
+  // Resubscribe to ticks when symbol changes
+  useEffect(() => {
+    if (websocket && websocket.readyState === WebSocket.OPEN && isAuthorized) {
+      try {
+        console.log(`🔄 Symbol changed to ${selectedSymbol}, resubscribing to ticks...`);
+        const liveTickRequest = {
+          ticks: selectedSymbol,
+          subscribe: 1,
+          req_id: Date.now()
+        };
+        websocket.send(JSON.stringify(liveTickRequest));
+        console.log(`📊 Live tick subscription updated for ${selectedSymbol}`);
+      } catch (error) {
+        console.error('❌ Error resubscribing to ticks:', error);
+      }
+    }
+  }, [selectedSymbol, websocket, isAuthorized]);
 
   useEffect(() => {
     setCurrentStake(stake);
