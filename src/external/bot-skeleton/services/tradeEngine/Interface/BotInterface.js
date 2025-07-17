@@ -8,7 +8,13 @@ const getBotInterface = tradeEngine => {
         init: (...args) => tradeEngine.init(...args),
         start: (...args) => tradeEngine.start(...args),
         stop: (...args) => tradeEngine.stop(...args),
-        purchase: contract_type => tradeEngine.purchase(contract_type),
+        purchase: (contractType, continuousTrading = true) => {
+            if (!contractType) {
+                throw createError('InvalidContractType', localize('Please specify a valid contract type.'));
+            }
+            tradeEngine.continuousTrading = continuousTrading;
+            globalObserver.emit('bot.purchase', contractType);
+        },
         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
         getPurchaseReference: () => tradeEngine.getPurchaseReference(),

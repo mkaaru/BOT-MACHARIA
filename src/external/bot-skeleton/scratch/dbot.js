@@ -337,6 +337,13 @@ class DBot {
                     sleep(1);
                     continue;
                 }
+                
+                // Check if continuous trading is enabled
+                if (!Bot.shouldContinueTrading()) {
+                    console.log('Continuous trading is disabled. Stopping bot execution.');
+                    break;
+                }
+                
                 // Execute purchase without waiting for contract states
                 BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
                 
