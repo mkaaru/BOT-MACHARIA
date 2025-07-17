@@ -246,6 +246,11 @@ const SpeedBot: React.FC = observer(() => {
   const [balance, setBalance] = useState<number>(0);
   const [isRequestingProposal, setIsRequestingProposal] = useState(false);
   const [lastTradeTime, setLastTradeTime] = useState(0);
+  
+  // Martingale state based on confirmed trade results
+  const [lastConfirmedTradeResult, setLastConfirmedTradeResult] = useState<'win' | 'loss' | null>(null);
+  const [consecutiveLossStreak, setConsecutiveLossStreak] = useState(0);
+  const [baseStake, setBaseStake] = useState(stake);
 
   // Direct WebSocket trading state
   const [isDirectTrading, setIsDirectTrading] = useState(false);
@@ -320,6 +325,43 @@ const SpeedBot: React.FC = observer(() => {
     { value: 'CALL', label: 'Rise' },
     { value: 'PUT', label: 'Fall' },
   ];
+
+  // Calculate martingale stake based on last confirmed trade result
+  const calculateMartingaleStake = useCallback(() => {
+    if (!useMartingale) {
+      return baseStake;
+    }
+
+    if (lastConfirmedTradeResult === 'loss' && consecutiveLossStreak > 0) {
+      // Apply martingale: multiply base stake by multiplier raised to power of consecutive losses
+      const martingaleStake = baseStake * Math.pow(martingaleMultiplier, consecutiveLossStreak);
+      
+      // Apply safety limits
+      const maxStake = selectedContractType.startsWith('MULT') ? 2000 : 
+                      selectedContractType.startsWith('LB') ? 500 : 1000;
+      
+      const finalStake = Math.min(martingaleStake, maxStake);
+      
+      // Additional balance check
+      if (balance > 0 && finalStake > balance * 0.9) {
+        console.warn(`⚠️ Martingale stake ${finalStake} exceeds 90% of balance ${balance}, using safe amount`);
+        return Math.max(baseStake, balance * 0.1);
+      }
+      
+      console.log(`📈 MARTINGALE APPLIED: Base=${baseStake} × ${martingaleMultiplier}^${consecutiveLossStreak} = ${finalStake} (Consecutive losses: ${consecutiveLossStreak})`);
+      return finalStake;
+    } else {
+      // No martingale needed - use base stake
+      console.log(`📊 USING BASE STAKE: ${baseStake} (Last result: ${lastConfirmedTradeResult || 'none'})`);
+      return baseStake;
+    }
+  }, [useMartingale, baseStake, martingaleMultiplier, lastConfirmedTradeResult, consecutiveLossStreak, selectedContractType, balance]);
+
+  // Update current stake when martingale parameters change
+  useEffect(() => {
+    const newStake = calculateMartingaleStake();
+    setCurrentStake(newStake);
+  }, [calculateMartingaleStake]);
 
   // Buy contract function using proper Deriv API sequence
   const buyContract = useCallback(async (proposalId: string, proposalPrice: number) => {
@@ -1385,6 +1427,22 @@ const SpeedBot: React.FC = observer(() => {
 
                 console.log(`📊 TRADE COMPLETED: ${isWin ? '🟢 WIN' : '🔴 LOSS'} | Profit: $${profit.toFixed(2)} | Total P/L: $${newTotalProfitLoss.toFixed(2)} | Mode: ${isTradeEveryTick ? 'EVERY TICK' : 'CONDITION'}`);
 
+                // CONFIRMED TRADE RESULT: Update martingale tracking based on actual closed trade
+                setLastConfirmedTradeResult(isWin ? 'win' : 'loss');
+                
+                if (isWin) {
+                  // WIN: Reset consecutive loss streak and martingale
+                  setConsecutiveLossStreak(0);
+                  console.log(`🟢 CONFIRMED WIN: Resetting consecutive loss streak and martingale to base stake $${baseStake}`);
+                } else {
+                  // LOSS: Increment consecutive loss streak for next trade's martingale
+                  setConsecutiveLossStreak(prev => {
+                    const newStreak = prev + 1;
+                    console.log(`🔴 CONFIRMED LOSS: Consecutive loss streak increased to ${newStreak} for next trade's martingale`);
+                    return newStreak;
+                  });
+                }
+
                 // RISK MANAGEMENT: Check Take Profit and Stop Loss thresholds
                 if (newTotalProfitLoss >= takeProfit) {
                   console.log(`🎯 TAKE PROFIT TRIGGERED! Total P/L: $${newTotalProfitLoss.toFixed(2)}. Stopping bot.`);
@@ -1405,15 +1463,12 @@ const SpeedBot: React.FC = observer(() => {
                 // TRADE RESULT PROCESSING
                 if (isWin) {
                   setWins(prev => prev + 1);
-                  console.log(`🟢 WIN: Resetting stake to base amount $${stake}`);
-                  // Reset stake to base amount on win
-                  setCurrentStake(stake);
                 } else {
                   setLosses(prev => prev + 1);
 
                   // ALTERNATE ON LOSS: Switch predictions if enabled
                   if (alternateOnLoss) {
-                    console.log(`🔄 ALTERNATE ON LOSS: Switching contract type due to loss`);
+                    console.log(`🔄 ALTERNATE ON LOSS: Switching contract type due to confirmed loss`);
                     setSelectedContractType(prev => {
                       const alternates = {
                         'DIGITEVEN': 'DIGITODD',
@@ -1428,34 +1483,17 @@ const SpeedBot: React.FC = observer(() => {
                       return newType;
                     });
                   }
-
-                  // MARTINGALE STRATEGY: Apply stake multiplication if enabled
-                  if (useMartingale) {
-                    const maxStake = selectedContractType.startsWith('MULT') ? 2000 : 
-                                    selectedContractType.startsWith('LB') ? 500 : 1000;
-                    const newStake = Math.min(currentStake * martingaleMultiplier, maxStake);
-
-                    // Additional safety check for balance
-                    if (balance > 0 && newStake > balance * 0.9) {
-                      console.warn(`⚠️ Martingale stake ${newStake} exceeds 90% of balance ${balance}, limiting to safe amount`);
-                      const safeStake = Math.max(stake, balance * 0.1);
-                      setCurrentStake(safeStake);
-                      console.log(`📈 Martingale limited: Using safe stake $${safeStake}`);
-                    } else {
-                      setCurrentStake(newStake);
-                      console.log(`📈 Martingale applied: Previous stake $${currentStake} → New stake $${newStake} (${martingaleMultiplier}x)`);
-                    }
-                  }
                 }
 
                 // Log detailed trade summary for Trade Every Tick mode
                 if (isTradeEveryTick) {
                   const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
-                  console.log(`🚀 TRADE EVERY TICK SUMMARY: 
+                  console.log(`🚀 CONFIRMED TRADE RESULT SUMMARY: 
                     Result: ${isWin ? 'WIN' : 'LOSS'}
                     Profit: $${profit.toFixed(2)}
                     Total P/L: $${newTotalProfitLoss.toFixed(2)}
-                    Current Stake: $${currentStake}
+                    Consecutive Losses: ${isWin ? 0 : consecutiveLossStreak + 1}
+                    Next Stake (Martingale): Will be calculated for next trade
                     Win Rate: ${winRate}%
                     Trades: ${totalTrades + 1}
                     Contract: ${selectedContractType}
@@ -1661,6 +1699,12 @@ const SpeedBot: React.FC = observer(() => {
     setTotalProfitLoss(0);
     setError(null);
     setActiveContracts(new Map());
+    
+    // Reset martingale state
+    setLastConfirmedTradeResult(null);
+    setConsecutiveLossStreak(0);
+    setBaseStake(stake);
+    console.log(`🔄 All stats and martingale state reset`);
   };
 
   useEffect(() => {
@@ -1729,7 +1773,12 @@ const SpeedBot: React.FC = observer(() => {
   }, [selectedSymbol, websocket, isAuthorized, unsubscribeAll, lastForgetAllTime]);
 
   useEffect(() => {
+    setBaseStake(stake);
     setCurrentStake(stake);
+    // Reset martingale state when base stake changes
+    setConsecutiveLossStreak(0);
+    setLastConfirmedTradeResult(null);
+    console.log(`💰 Base stake updated to $${stake}, martingale state reset`);
   }, [stake]);
 
   useEffect(() => {
@@ -2384,6 +2433,14 @@ const SpeedBot: React.FC = observer(() => {
           <div className="speed-bot__stat">
             <label>Active Contracts</label>
             <span>{activeContracts.size}</span>
+          </div>
+          <div className="speed-bot__stat">
+            <label>Consecutive Losses</label>
+            <span>{consecutiveLossStreak}</span>
+          </div>
+          <div className="speed-bot__stat">
+            <label>Last Trade Result</label>
+            <span>{lastConfirmedTradeResult ? (lastConfirmedTradeResult === 'win' ? '🟢 Win' : '🔴 Loss') : '⚪ None'}</span>
           </div>
         </div>
 
