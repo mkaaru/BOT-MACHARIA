@@ -76,6 +76,39 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.is_proposal_requested_for_accumulators = false;
         this.store = createStore(rootReducer, applyMiddleware(thunk));
         this.continuousTrading = true; // Default to continuous trading
+        this.contractTimeoutId = null;
+        this.purchaseInProgress = false;
+    }
+
+    // Method to check if contract is stuck and force completion
+    checkContractStatus() {
+        if (this.data.contract && this.data.contract.contract_id && !this.data.contract.is_sold) {
+            // Force request contract update
+            if (api_base.api) {
+                api_base.api.send({
+                    proposal_open_contract: 1,
+                    contract_id: this.data.contract.contract_id
+                }).then(response => {
+                    if (response.proposal_open_contract) {
+                        this.observer.emit('proposal.open_contract', response);
+                    }
+                }).catch(error => {
+                    console.error('Contract status check failed:', error);
+                });
+            }
+        }
+    }
+
+    // Method to force complete stuck contracts
+    forceCompleteContract() {
+        if (this.data.contract && this.data.contract.contract_id) {
+            // Mark contract as sold to unblock the bot
+            this.data.contract.is_sold = true;
+            this.observer.emit('contract.status', {
+                id: 'contract.sold',
+                data: this.data.contract,
+            });
+        }
     }
 
     init(...args) {

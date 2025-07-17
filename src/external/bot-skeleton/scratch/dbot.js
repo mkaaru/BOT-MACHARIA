@@ -369,12 +369,58 @@ class DBot {
 
         api_base.setIsRunning(false);
 
-        await this.interpreter.stop();
+        // Check if there's an active contract that needs to be completed
+        const hasActiveContract = this.interpreter?.bot?.tradeEngine?.data?.contract?.contract_id && 
+                                 !this.interpreter?.bot?.tradeEngine?.data?.contract?.is_sold;
+
+        if (hasActiveContract) {
+            globalObserver.emit('ui.log.info', 'Waiting for active contract to complete...');
+            
+            // Set up a timeout to force stop if contract doesn't complete
+            const forceStopTimeout = setTimeout(() => {
+                globalObserver.emit('ui.log.warn', 'Contract taking too long to complete, forcing bot stop');
+                this.forceStopBot();
+            }, 20000); // 20 second timeout
+
+            try {
+                await this.interpreter.stop();
+                clearTimeout(forceStopTimeout);
+            } catch (error) {
+                clearTimeout(forceStopTimeout);
+                globalObserver.emit('Error', error);
+            }
+        } else {
+            await this.interpreter.stop();
+        }
+
         this.is_bot_running = false;
         this.interpreter = null;
         this.interpreter = Interpreter();
         await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
         forgetAccumulatorsProposalRequest(this);
+    }
+
+    /**
+     * Force stops the bot without waiting for contract completion
+     */
+    async forceStopBot() {
+        try {
+            api_base.setIsRunning(false);
+            
+            if (this.interpreter) {
+                await this.interpreter.terminateSession();
+            }
+            
+            this.is_bot_running = false;
+            this.interpreter = null;
+            this.interpreter = Interpreter();
+            await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
+            forgetAccumulatorsProposalRequest(this);
+            
+            globalObserver.emit('ui.log.info', 'Bot stopped successfully');
+        } catch (error) {
+            globalObserver.emit('Error', error);
+        }
     }
 
     /**

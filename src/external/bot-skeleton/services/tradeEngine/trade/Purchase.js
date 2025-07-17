@@ -1,4 +1,3 @@
-
 import { LogTypes } from '../../../constants/messages';
 import { api_base } from '../../api/api-base';
 import { contractStatus, info, log } from '../utils/broadcast';
@@ -222,12 +221,12 @@ export default Engine =>
                 console.log('🛑 STOPPING: Profit threshold reached');
                 return false;
             }
-            
+
             if (totalProfit <= lossThreshold) {
                 console.log('🛑 STOPPING: Loss threshold reached');
                 return false;
             }
-            
+
             if (multiplier >= 64) {
                 console.log('🛑 STOPPING: Maximum martingale multiplier reached');
                 return false;
@@ -240,4 +239,77 @@ export default Engine =>
         regeneratePurchaseReference = () => {
             purchase_reference = getUUID();
         };
+
+        observePurchase() {
+        this.observer.register('bot.purchase', this.handlePurchase.bind(this));
+    }
+
+    handlePurchase(contractType) {
+        if (!this.beforePurchase()) {
+            return;
+        }
+
+        const proposal = this.data.proposals.find(p => p.contract_type === contractType);
+        if (!proposal) {
+            this.observer.emit('Error', new Error('Proposal not found'));
+            return;
+        }
+
+        const purchaseRequest = {
+            buy: proposal.id,
+            price: proposal.ask_price,
+        };
+
+        // Set purchase in progress flag
+        this.purchaseInProgress = true;
+
+        doUntilDone(() => api_base.api.send(purchaseRequest))
+            .then(this.handlePurchaseResponse.bind(this))
+            .catch(error => {
+                this.purchaseInProgress = false;
+                this.observer.emit('Error', error);
+            });
+    }
+
+    handlePurchaseResponse(response) {
+        this.purchaseInProgress = false;
+
+        if (response.error) {
+            this.observer.emit('Error', response.error);
+            return;
+        }
+
+        const { buy } = response;
+        this.data.contract = buy;
+
+        // Subscribe to contract updates
+        if (buy.contract_id) {
+            this.subscribeToContract(buy.contract_id);
+        }
+
+        this.observer.emit('contract.status', {
+            id: 'contract.purchased',
+            data: buy,
+        });
+    }
+
+    subscribeToContract(contractId) {
+        const subscription = {
+            proposal_open_contract: 1,
+            contract_id: contractId,
+            subscribe: 1
+        };
+
+        api_base.api.send(subscription).then(response => {
+            if (response.error) {
+                console.error('Contract subscription error:', response.error);
+                return;
+            }
+
+            // Handle initial contract state
+            if (response.proposal_open_contract) {
+                this.observer.emit('proposal.open_contract', response);
+            }
+        });
+    }
     };

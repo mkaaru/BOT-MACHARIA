@@ -179,10 +179,18 @@ const Interpreter = () => {
                 } else if (
                     bot.tradeEngine.isSold === false &&
                     !$scope.is_error_triggered &&
-                    isMultiplierContract(bot?.tradeEngine?.data?.contract?.contract_type ?? '')
+                    (isMultiplierContract(bot?.tradeEngine?.data?.contract?.contract_type ?? '') ||
+                     bot.tradeEngine.data?.contract?.contract_id)
                 ) {
+                    // Set up timeout for stuck contracts
+                    const contractTimeout = setTimeout(() => {
+                        console.warn('Contract taking too long to complete, forcing termination');
+                        terminateSession().then(() => resolve());
+                    }, 15000); // 15 second timeout
+
                     globalObserver.register('contract.status', async contractStatus => {
                         if (contractStatus.id === 'contract.sold') {
+                            clearTimeout(contractTimeout);
                             terminateSession().then(() => resolve());
                         }
                     });
