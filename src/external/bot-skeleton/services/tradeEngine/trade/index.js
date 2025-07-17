@@ -83,6 +83,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
     // Method to check if contract is stuck and force completion
     checkContractStatus() {
         if (this.data.contract && this.data.contract.contract_id && !this.data.contract.is_sold) {
+            console.log('🔍 Checking stuck contract status:', this.data.contract.contract_id);
             // Force request contract update
             if (api_base.api) {
                 api_base.api.send({
@@ -90,13 +91,46 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
                     contract_id: this.data.contract.contract_id
                 }).then(response => {
                     if (response.proposal_open_contract) {
+                        console.log('📄 Contract status response:', response.proposal_open_contract);
                         this.observer.emit('proposal.open_contract', response);
                     }
                 }).catch(error => {
-                    console.error('Contract status check failed:', error);
+                    console.error('❌ Contract status check failed:', error);
                 });
             }
         }
+    }
+
+    // Add method to check bot state
+    getBotState() {
+        const state = this.store.getState();
+        console.log('🤖 Bot State:', {
+            scope: state.scope,
+            proposalsReady: state.proposalsReady,
+            hasContract: !!this.data.contract?.contract_id,
+            contractSold: this.data.contract?.is_sold,
+            continuousTrading: this.continuousTrading
+        });
+        return state;
+    }
+
+    // Add method to force next trade cycle
+    forceNextTrade() {
+        console.log('🔄 Forcing next trade cycle...');
+        
+        // Clear any stuck contract
+        if (this.data.contract?.contract_id && !this.data.contract?.is_sold) {
+            console.log('🧹 Clearing stuck contract:', this.data.contract.contract_id);
+            this.data.contract.is_sold = true;
+        }
+        
+        // Reset to before purchase state
+        this.store.dispatch({ type: 'START' });
+        
+        // Emit signal to continue trading
+        setTimeout(() => {
+            this.observer.emit('REVERT', 'before');
+        }, 1000);
     }
 
     // Method to force complete stuck contracts

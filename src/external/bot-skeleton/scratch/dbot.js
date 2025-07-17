@@ -261,13 +261,17 @@ class DBot {
         try {
             api_base.is_stopping = false;
             
+            console.log('🚀 Starting bot run...');
+            
             // Ensure interpreter and bot are properly initialized
             if (!this.interpreter || !this.interpreter.bot) {
+                console.log('🔧 Creating new interpreter...');
                 this.interpreter = Interpreter();
             }
 
             // Check if bot is properly initialized before running
             if (!this.interpreter.bot || !this.interpreter.bot.tradeEngine.options) {
+                console.log('⚙️ Initializing trade engine...');
                 // Initialize bot with default token and symbol if not already done
                 if (api_base.token && this.symbol) {
                     this.interpreter.bot.tradeEngine.init(api_base.token, {
@@ -275,7 +279,9 @@ class DBot {
                         candleInterval: 60,
                         contractTypes: ['CALL', 'PUT']
                     });
+                    console.log(`✅ Trade engine initialized with symbol: ${this.symbol}`);
                 } else {
+                    console.error('❌ Bot initialization failed: Missing token or symbol');
                     globalObserver.emit('Error', { message: 'Bot initialization failed: Missing token or symbol' });
                     return;
                 }
@@ -284,11 +290,13 @@ class DBot {
             const code = this.generateCode();
             
             if (!code) {
+                console.error('❌ Failed to generate code from blocks');
                 globalObserver.emit('Error', { message: 'Failed to generate code from blocks' });
                 return;
             }
 
             if (!this.interpreter.bot.tradeEngine.checkTicksPromiseExists()) {
+                console.log('🔄 Recreating interpreter for tick service...');
                 this.interpreter = Interpreter();
                 // Re-initialize after creating new interpreter
                 if (api_base.token && this.symbol) {
@@ -302,15 +310,38 @@ class DBot {
 
             this.is_bot_running = true;
             api_base.setIsRunning(true);
+            
+            console.log('▶️ Executing bot code...');
 
             const runPromise = this.interpreter.run(code);
             if (runPromise && typeof runPromise.then === 'function') {
                 runPromise.catch(error => {
+                    console.error('❌ Bot execution error:', error);
                     globalObserver.emit('Error', error);
                     this.stopBot();
                 });
             }
+            
+            // Add periodic status check
+            this.statusCheckInterval = setInterval(() => {
+                if (this.is_bot_running && this.interpreter?.bot?.tradeEngine) {
+                    this.interpreter.bot.tradeEngine.getBotState();
+                    
+                    // Check for stuck state and force next trade if needed
+                    const state = this.interpreter.bot.tradeEngine.store.getState();
+                    if (state.scope === 'BEFORE_PURCHASE' && state.proposalsReady) {
+                        const timeSinceStart = Date.now() - (this.lastTradeTime || Date.now());
+                        if (timeSinceStart > 60000) { // 1 minute without trade
+                            console.log('⏰ Bot seems stuck, forcing next trade cycle...');
+                            this.interpreter.bot.tradeEngine.forceNextTrade();
+                            this.lastTradeTime = Date.now();
+                        }
+                    }
+                }
+            }, 30000); // Check every 30 seconds
+            
         } catch (error) {
+            console.error('❌ Bot run error:', error);
             globalObserver.emit('Error', error);
 
             if (this.interpreter) {
@@ -367,17 +398,26 @@ class DBot {
     async stopBot() {
         if (api_base.is_stopping) return;
 
+        console.log('🛑 Stopping bot...');
         api_base.setIsRunning(false);
+        
+        // Clear status check interval
+        if (this.statusCheckInterval) {
+            clearInterval(this.statusCheckInterval);
+            this.statusCheckInterval = null;
+        }
 
         // Check if there's an active contract that needs to be completed
         const hasActiveContract = this.interpreter?.bot?.tradeEngine?.data?.contract?.contract_id && 
                                  !this.interpreter?.bot?.tradeEngine?.data?.contract?.is_sold;
 
         if (hasActiveContract) {
+            console.log('⏳ Waiting for active contract to complete...');
             globalObserver.emit('ui.log.info', 'Waiting for active contract to complete...');
             
             // Set up a timeout to force stop if contract doesn't complete
             const forceStopTimeout = setTimeout(() => {
+                console.log('⚠️ Forcing bot stop due to timeout');
                 globalObserver.emit('ui.log.warn', 'Contract taking too long to complete, forcing bot stop');
                 this.forceStopBot();
             }, 20000); // 20 second timeout
@@ -398,6 +438,8 @@ class DBot {
         this.interpreter = Interpreter();
         await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
         forgetAccumulatorsProposalRequest(this);
+        
+        console.log('✅ Bot stopped successfully');
     }
 
     /**
