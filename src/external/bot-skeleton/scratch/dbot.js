@@ -871,4 +871,4 @@ class DBot {
     }
 }
 
-export default new DBot.
+export default new DBot();
