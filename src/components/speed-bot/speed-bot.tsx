@@ -269,14 +269,18 @@ const SpeedBot: React.FC = observer(() => {
   // Enhanced validation function with contract-specific rules
   const isValidCombination = useMemo(() => {
     const needsBarrier = ['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType);
+    const isEvenOdd = ['DIGITEVEN', 'DIGITODD'].includes(selectedContractType);
     const needsTouch = ['ONETOUCH', 'NOTOUCH'].includes(selectedContractType);
     const needsRange = ['RANGE', 'UPORDOWN'].includes(selectedContractType);
     const isMultiplier = selectedContractType.startsWith('MULT');
     const isLookback = selectedContractType.startsWith('LB');
     const isAsian = selectedContractType.startsWith('ASIAN');
 
-    // Validate barrier for digit contracts
+    // Validate barrier for digit contracts (not needed for Even/Odd)
     const validBarrier = needsBarrier ? overUnderValue >= 0 && overUnderValue <= 9 : true;
+
+    // Even/Odd contracts don't need barrier validation
+    const validEvenOdd = isEvenOdd ? true : true;
 
     // Validate touch/no-touch barriers
     const validTouchBarrier = needsTouch ? overUnderValue > 0 : true;
@@ -301,7 +305,7 @@ const SpeedBot: React.FC = observer(() => {
     const stakeLimit = isMultiplier ? 2000 : isLookback ? 500 : 1000;
     const validStakeForContract = currentStake > 0 && currentStake <= stakeLimit;
 
-    return validBarrier && validTouchBarrier && validRangeBarrier && 
+    return validBarrier && validEvenOdd && validTouchBarrier && validRangeBarrier && 
            validMultiplier && validLookback && validAsian && 
            validStakeForContract && validSymbol;
   }, [selectedContractType, overUnderValue, currentStake, selectedSymbol]);
@@ -450,7 +454,8 @@ const SpeedBot: React.FC = observer(() => {
 
   // Enhanced Strategy condition check - TRADE EVERY TICK LOGIC
   const isGoodCondition = useCallback((lastDigit: number, contractType: string) => {
-    console.log(`🎯 Condition check: lastDigit=${lastDigit}, contractType=${contractType}, overUnderValue=${overUnderValue}`);
+    const barrierText = ['DIGITEVEN', 'DIGITODD'].includes(contractType) ? 'N/A' : overUnderValue;
+    console.log(`🎯 Condition check: lastDigit=${lastDigit}, contractType=${contractType}, barrier=${barrierText}`);
 
     if (isNaN(lastDigit) || lastDigit < 0 || lastDigit > 9) {
       console.error('❌ Invalid last digit:', lastDigit);
@@ -464,11 +469,11 @@ const SpeedBot: React.FC = observer(() => {
       // For Trade Every Tick, we use the contract type to determine the trade decision
       switch (contractType) {
         case 'DIGITEVEN':
-          // Trade Even on every tick
+          // Trade Even on every tick - no barrier needed
           console.log(`🎯 Trade Every Tick: EVEN prediction for digit ${lastDigit}`);
           return true;
         case 'DIGITODD':
-          // Trade Odd on every tick (default for Trade Every Tick)
+          // Trade Odd on every tick - no barrier needed
           console.log(`🎯 Trade Every Tick: ODD prediction for digit ${lastDigit}`);
           return true;
         case 'DIGITOVER':
@@ -498,10 +503,14 @@ const SpeedBot: React.FC = observer(() => {
 
     switch (contractType) {
       case 'DIGITEVEN':
-        result = lastDigit % 2 === 0; // 0, 2, 4, 6, 8
+        // Even contracts: trade when last digit is even (0, 2, 4, 6, 8)
+        result = lastDigit % 2 === 0;
+        console.log(`🎯 EVEN check: digit ${lastDigit} is ${lastDigit % 2 === 0 ? 'EVEN' : 'ODD'} - ${result ? 'TRADE' : 'SKIP'}`);
         break;
       case 'DIGITODD':
-        result = lastDigit % 2 === 1; // 1, 3, 5, 7, 9
+        // Odd contracts: trade when last digit is odd (1, 3, 5, 7, 9)
+        result = lastDigit % 2 === 1;
+        console.log(`🎯 ODD check: digit ${lastDigit} is ${lastDigit % 2 === 1 ? 'ODD' : 'EVEN'} - ${result ? 'TRADE' : 'SKIP'}`);
         break;
       case 'DIGITOVER':
         result = lastDigit > overUnderValue;
@@ -519,7 +528,7 @@ const SpeedBot: React.FC = observer(() => {
         result = false;
     }
 
-    console.log(`🎯 Condition-based result: ${result ? '✅ TRADE NOW' : '❌ SKIP'} (${contractType}: digit=${lastDigit}, barrier=${overUnderValue})`);
+    console.log(`🎯 Condition-based result: ${result ? '✅ TRADE NOW' : '❌ SKIP'} (${contractType}: digit=${lastDigit}, barrier=${barrierText})`);
     return result;
   }, [overUnderValue, isTradeEveryTick]);
 
@@ -580,8 +589,8 @@ const SpeedBot: React.FC = observer(() => {
         req_id: requestId // Optional: Used to map request to response
       };
 
-      // Add barrier for specific contract types according to schema
-      if (needsBarrier) {
+      // Add barrier for specific contract types according to schema (not needed for Even/Odd)
+      if (needsBarrier && !['DIGITEVEN', 'DIGITODD'].includes(selectedContractType)) {
         proposalRequest.barrier = overUnderValue.toString();
       }
 
@@ -1812,6 +1821,9 @@ const SpeedBot: React.FC = observer(() => {
               {['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType) && 
                 ` (${overUnderValue})`
               }
+              {['DIGITEVEN', 'DIGITODD'].includes(selectedContractType) && 
+                ' (No barrier required)'
+              }
               <br />
               • Stake: ${currentStake.toFixed(2)} USD
               <br />
@@ -1907,12 +1919,16 @@ const SpeedBot: React.FC = observer(() => {
             </label>
             <input
               type="number"
-              value={overUnderValue}
+              value={['DIGITEVEN', 'DIGITODD'].includes(selectedContractType) ? '' : overUnderValue}
               onChange={(e) => setOverUnderValue(parseInt(e.target.value))}
               min="0"
               max="9"
               disabled={isTrading || ['DIGITEVEN', 'DIGITODD'].includes(selectedContractType)}
-              placeholder={['DIGITEVEN', 'DIGITODD'].includes(selectedContractType) ? 'N/A' : '0-9'}
+              placeholder={['DIGITEVEN', 'DIGITODD'].includes(selectedContractType) ? 'Not Required' : '0-9'}
+              style={{
+                backgroundColor: ['DIGITEVEN', 'DIGITODD'].includes(selectedContractType) ? '#f5f5f5' : 'white',
+                cursor: ['DIGITEVEN', 'DIGITODD'].includes(selectedContractType) ? 'not-allowed' : 'text'
+              }}
             />
           </div>
         </div>
