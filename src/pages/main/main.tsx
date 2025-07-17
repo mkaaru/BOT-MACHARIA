@@ -22,6 +22,7 @@ import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
 import AnalysistoolComponent from '@/components/analysistool/analysis';
 import PercentageTool from '@/components/percentage-tool/percentage-tool';
+import { XmlBotBuilder } from '@/components/xml-bot-builder';
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
@@ -507,7 +508,7 @@ const AppWrapper = observer(() => {
         }
       }
 
-      ws.onclose = (event) => {        console.log('WebSocket connection closed:', event.code, event.reason)
+      ws.onclose = (event) {        console.log('WebSocket connection closed:', event.code, event.reason)
         setIsConnected(false)
         setWebsocket(null)
         setCurrentPrice('Disconnected')
@@ -1263,6 +1264,9 @@ if __name__ == "__main__":
                             </div>
                         </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
+                         <div label={<><BotIcon /><Localize i18n_default_text='XML Bot Builder' /></>} id='id-xml-bot-builder'>
+                            <XmlBotBuilder />
+                        </div>
                         <div label={<><BotIcon /><Localize i18n_default_text='Smart Trading' /></>} id='id-smart-trading'>
                             <VolatilityAnalyzer />
                         </div>
