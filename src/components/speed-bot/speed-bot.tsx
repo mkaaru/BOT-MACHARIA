@@ -327,29 +327,70 @@ const SpeedBot: React.FC = observer(() => {
     switch (contractType) {
       case 'DIGITEVEN':
         result = lastDigit % 2 === 0; // 0, 2, 4, 6, 8
+        console.log(`📊 DIGITEVEN: ${lastDigit} is ${lastDigit % 2 === 0 ? 'EVEN ✅' : 'ODD ❌'}`);
         break;
       case 'DIGITODD':
         result = lastDigit % 2 === 1; // 1, 3, 5, 7, 9
+        console.log(`📊 DIGITODD: ${lastDigit} is ${lastDigit % 2 === 1 ? 'ODD ✅' : 'EVEN ❌'}`);
         break;
       case 'DIGITOVER':
         result = lastDigit > overUnderValue;
+        console.log(`📊 DIGITOVER: ${lastDigit} ${lastDigit > overUnderValue ? '>' : '≤'} ${overUnderValue} ${result ? '✅' : '❌'}`);
         break;
       case 'DIGITUNDER':
         result = lastDigit < overUnderValue;
+        console.log(`📊 DIGITUNDER: ${lastDigit} ${lastDigit < overUnderValue ? '<' : '≥'} ${overUnderValue} ${result ? '✅' : '❌'}`);
         break;
       case 'DIGITMATCH':
         result = lastDigit === overUnderValue;
+        console.log(`📊 DIGITMATCH: ${lastDigit} ${lastDigit === overUnderValue ? '==' : '!='} ${overUnderValue} ${result ? '✅' : '❌'}`);
         break;
       case 'DIGITDIFF':
         result = lastDigit !== overUnderValue;
+        console.log(`📊 DIGITDIFF: ${lastDigit} ${lastDigit !== overUnderValue ? '!=' : '=='} ${overUnderValue} ${result ? '✅' : '❌'}`);
+        break;
+      case 'CALL':
+      case 'PUT':
+        // For rise/fall, always trade (we're predicting direction)
+        result = true;
+        console.log(`📊 ${contractType}: Always trade - predicting direction ✅`);
         break;
       default:
         result = false;
+        console.log(`📊 Unknown contract type: ${contractType} ❌`);
     }
 
-    console.log(`🎯 Final condition result: ${result ? '✅ TRADE NOW' : '❌ SKIP'} (${contractType}: digit=${lastDigit}, barrier=${overUnderValue})`);
+    console.log(`🎯 Final condition result: ${result ? '🚀 TRADE NOW' : '⏸️ SKIP'} (${contractType}: digit=${lastDigit}, barrier=${overUnderValue})`);
     return result;
   }, [overUnderValue]);
+
+  // Manual trade trigger function
+  const triggerManualTrade = useCallback(() => {
+    console.log('🔥 MANUAL TRADE TRIGGERED');
+    
+    if (!isConnected || !isAuthorized) {
+      setError('Not connected or authorized');
+      return;
+    }
+
+    if (isExecutingTrade) {
+      console.log('⚠️ Trade already executing');
+      return;
+    }
+
+    if (isRequestingProposal) {
+      console.log('⚠️ Proposal already being requested');
+      return;
+    }
+
+    // Reset rate limit for manual trades
+    setLastTradeTime(0);
+    setError(null);
+    
+    // Trigger proposal request immediately
+    console.log('🚀 Requesting proposal for manual trade...');
+    getPriceProposal();
+  }, [isConnected, isAuthorized, isExecutingTrade, isRequestingProposal, getPriceProposal]);
 
   // Get price proposal using proper Deriv API format
   const getPriceProposal = useCallback(() => {
@@ -1009,12 +1050,18 @@ const SpeedBot: React.FC = observer(() => {
                 return;
               }
 
-              // Trade immediately for all digit contracts - we're predicting the NEXT tick
-              console.log(`🚀🚀🚀 TRADING NOW! Contract: ${selectedContractType} predicting next tick 🚀🚀🚀`);
-              setLastTradeTime(Date.now());
+              // Check if current conditions are good for trading
+              const shouldTrade = isGoodCondition(lastDigit, selectedContractType);
               
-              // Request proposal immediately - no delay needed
-              getPriceProposal();
+              if (shouldTrade) {
+                console.log(`🚀🚀🚀 TRADING NOW! Last digit ${lastDigit} is good for ${selectedContractType} 🚀🚀🚀`);
+                setLastTradeTime(Date.now());
+                
+                // Request proposal immediately
+                getPriceProposal();
+              } else {
+                console.log(`⏸️ Waiting for good condition: Last digit ${lastDigit} not suitable for ${selectedContractType}`);
+              }
             } else {
               const reasons = [];
               if (!isTrading) reasons.push('not trading');
@@ -1356,20 +1403,11 @@ const SpeedBot: React.FC = observer(() => {
           {isTrading && (
             <button 
               className="speed-bot__force-trade-btn"
-              onClick={() => {
-                console.log('🚀 Force trade triggered');
-                setError(null);
-                setLastTradeTime(0); // Reset rate limit
-                if (!isExecutingTrade && !isRequestingProposal && !proposalId) {
-                  getPriceProposal();
-                } else {
-                  console.log('⚠️ Cannot force trade - another operation in progress');
-                }
-              }}
+              onClick={triggerManualTrade}
               disabled={isExecutingTrade || isRequestingProposal || !!proposalId}
               style={{ backgroundColor: '#ff6b35', color: 'white', marginLeft: '10px' }}
             >
-              Force Trade
+              {isExecutingTrade ? 'Executing...' : isRequestingProposal ? 'Requesting...' : 'Manual Trade'}
             </button>
           )}
           {isConnected && !isAuthorized && (
@@ -1503,11 +1541,13 @@ const SpeedBot: React.FC = observer(() => {
             <div style={{ marginTop: '10px', padding: '5px', backgroundColor: '#e8f4fd', borderRadius: '3px' }}>
               <strong>🔧 Quick Actions:</strong>
               <br />
-              • Click "Force Trade" to trigger a trade immediately
+              • Click "Manual Trade" to trigger a trade immediately
               <br />
               • Current price: {currentPrice} (last digit: {currentPrice.slice(-1)})
               <br />
               • Rate limit: {lastTradeTime && (Date.now() - lastTradeTime) < 3000 ? `${3000 - (Date.now() - lastTradeTime)}ms remaining` : 'Ready'}
+              <br />
+              • Trading condition: {currentPrice ? (isGoodCondition(parseInt(currentPrice.slice(-1)), selectedContractType) ? '🟢 GOOD - Will trade on next tick' : '🔴 WAITING - Need good condition') : 'N/A'}
             </div>
           </div>
         )}
