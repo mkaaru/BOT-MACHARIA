@@ -626,6 +626,13 @@ const SpeedBot: React.FC = observer(() => {
             setIsAuthorized(true);
             setError(null);
 
+            // Set initial balance from authorize response if available
+            if (data.authorize.balance) {
+              const authBalance = parseFloat(data.authorize.balance);
+              console.log('💰 Initial balance from auth:', authBalance);
+              setBalance(authBalance);
+            }
+
             try {
               const balanceRequest = {
                 balance: 1,
@@ -639,7 +646,11 @@ const SpeedBot: React.FC = observer(() => {
             }
 
             if (isTrading) {
-              getPriceProposal();
+              // Add small delay to ensure balance is loaded
+              setTimeout(() => {
+                console.log('🚀 Starting trading after authorization...');
+                getPriceProposal();
+              }, 1000);
             }
           } else if (data.error && data.error.code === 'InvalidToken') {
             console.error('❌ Authorization failed:', data.error);
@@ -680,12 +691,15 @@ const SpeedBot: React.FC = observer(() => {
               return;
             }
 
-            // Balance check against proposal price
-            if (balance < proposalPrice) {
+            // Balance check against proposal price with better logging
+            console.log('💰 Balance check:', { balance, proposalPrice, currentStake });
+            if (balance < proposalPrice && balance > 0) {
               console.error('❌ Insufficient balance for proposal price');
-              setError(`Insufficient balance for proposal. Required: ${proposalPrice}, Available: ${balance}`);
+              setError(`Insufficient balance for proposal. Required: ${proposalPrice.toFixed(2)}, Available: ${balance.toFixed(2)}`);
               setIsTrading(false);
               return;
+            } else if (balance <= 0) {
+              console.log('⚠️ Balance not yet loaded, proceeding with proposal');
             }
 
             // Contract-specific proposal validation
@@ -1300,9 +1314,19 @@ const SpeedBot: React.FC = observer(() => {
 
   useEffect(() => {
     if (client?.balance !== undefined) {
-      setBalance(parseFloat(client.balance));
+      const newBalance = parseFloat(client.balance);
+      console.log('💰 Balance updated from client store:', newBalance);
+      setBalance(newBalance);
     }
   }, [client?.balance]);
+
+  // Additional balance update from WebSocket
+  useEffect(() => {
+    if (balance > 0) {
+      console.log('💰 Balance available:', balance, 'USD');
+      setError(null); // Clear any balance-related errors
+    }
+  }, [balance]);
 
   const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
 
@@ -1514,6 +1538,26 @@ const SpeedBot: React.FC = observer(() => {
               style={{ backgroundColor: '#ff6b35', color: 'white', marginLeft: '10px' }}
             >
               Reconnect & Auth
+            </button>
+          )}
+          {isAuthorized && (isRequestingProposal || isExecutingTrade) && (
+            <button 
+              className="speed-bot__force-restart-btn"
+              onClick={() => {
+                console.log('🔄 Force restarting bot states...');
+                setIsRequestingProposal(false);
+                setIsExecutingTrade(false);
+                setProposalId(null);
+                setError(null);
+                if (isTrading) {
+                  setTimeout(() => {
+                    getPriceProposal();
+                  }, 500);
+                }
+              }}
+              style={{ backgroundColor: '#e74c3c', color: 'white', marginLeft: '10px' }}
+            >
+              Force Restart
             </button>
           )}
         </div>
