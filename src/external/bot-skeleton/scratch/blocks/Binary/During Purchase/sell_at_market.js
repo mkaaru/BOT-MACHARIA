@@ -30,3 +30,8 @@ window.Blockly.Blocks.sell_at_market = {
 };
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.sell_at_market = () => 'Bot.sellAtMarket();\n';
+
+export default {
+    definition,
+    generator
+};
