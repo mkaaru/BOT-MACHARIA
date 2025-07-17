@@ -84,7 +84,16 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
 
         this.initArgs = args;
         this.options = options;
-        this.startPromise = this.loginAndGetBalance(token);
+        
+        // Ensure loginAndGetBalance always returns a promise
+        try {
+            this.startPromise = this.loginAndGetBalance(token);
+            if (!this.startPromise || typeof this.startPromise.then !== 'function') {
+                this.startPromise = Promise.resolve();
+            }
+        } catch (error) {
+            this.startPromise = Promise.reject(error);
+        }
 
         if (!this.checkTicksPromiseExists()) this.watchTicks(symbol);
     }
@@ -92,6 +101,11 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
     start(tradeOptions) {
         if (!this.options) {
             throw createError('NotInitialized', localize('Bot.init is not called'));
+        }
+
+        // Ensure startPromise exists and is a promise
+        if (!this.startPromise || typeof this.startPromise.then !== 'function') {
+            this.startPromise = Promise.resolve();
         }
 
         globalObserver.emit('bot.running');
@@ -114,6 +128,12 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         // Earlier this used to happen as soon as we get ticks_history response and by the time GetTotalRuns gets called we have required info.
         this.accountInfo = api_base.account_info;
         this.token = api_base.token;
+        
+        // Ensure we have a valid API connection
+        if (!api_base.api) {
+            return Promise.reject(new Error('API not initialized'));
+        }
+
         return new Promise((resolve, reject) => {
             // Try to recover from a situation where API doesn't give us a correct response on
             // "proposal_open_contract" which would make the bot run forever. When there's a "sell"
@@ -121,22 +141,31 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
             // response, if there's none after x seconds. Send an explicit request, which _should_
             // solve the issue. This is a backup!
             try {
-                const subscription = api_base.api.onMessage().subscribe(({ data }) => {
-                if (data.msg_type === 'transaction' && data.transaction.action === 'sell') {
-                    this.transaction_recovery_timeout = setTimeout(() => {
-                        const { contract } = this.data;
-                        const is_same_contract = contract.contract_id === data.transaction.contract_id;
-                        const is_open_contract = contract.status === 'open';
-                        if (is_same_contract && is_open_contract) {
-                            doUntilDone(() => {
-                                api_base.api.send({ proposal_open_contract: 1, contract_id: contract.contract_id });
-                            }, ['PriceMoved']);
-                        }
-                    }, 1500);
+                const onMessageResult = api_base.api.onMessage();
+                if (!onMessageResult || typeof onMessageResult.subscribe !== 'function') {
+                    resolve();
+                    return;
+                }
+                
+                const subscription = onMessageResult.subscribe(({ data }) => {
+                    if (data.msg_type === 'transaction' && data.transaction.action === 'sell') {
+                        this.transaction_recovery_timeout = setTimeout(() => {
+                            const { contract } = this.data;
+                            const is_same_contract = contract.contract_id === data.transaction.contract_id;
+                            const is_open_contract = contract.status === 'open';
+                            if (is_same_contract && is_open_contract) {
+                                doUntilDone(() => {
+                                    api_base.api.send({ proposal_open_contract: 1, contract_id: contract.contract_id });
+                                }, ['PriceMoved']);
+                            }
+                        }, 1500);
+                    }
+                });
+                
+                if (subscription) {
+                    api_base.pushSubscription(subscription);
                 }
                 resolve();
-            });
-            api_base.pushSubscription(subscription);
             } catch (error) {
                 reject(error);
             }

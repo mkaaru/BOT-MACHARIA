@@ -194,10 +194,16 @@ class APIBase {
     }
 
     async subscribe() {
+        if (!this.api) {
+            return Promise.resolve();
+        }
+
         const subscribeToStream = (streamName: string) => {
             return doUntilDone(
                 () => {
-                    const subscription = this.api?.send({
+                    if (!this.api) return Promise.resolve();
+                    
+                    const subscription = this.api.send({
                         [streamName]: 1,
                         subscribe: 1,
                         ...(streamName === 'balance' ? { account: 'all' } : {}),
@@ -214,7 +220,11 @@ class APIBase {
 
         const streamsToSubscribe = ['balance', 'transaction', 'proposal_open_contract'];
 
-        await Promise.all(streamsToSubscribe.map(subscribeToStream));
+        try {
+            await Promise.all(streamsToSubscribe.map(subscribeToStream));
+        } catch (error) {
+            console.error('Error subscribing to streams:', error);
+        }
     }
 
     getActiveSymbols = async () => {
