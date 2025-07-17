@@ -304,31 +304,20 @@ const SpeedBot: React.FC = observer(() => {
   // WebSocket connection
   const connectToAPI = useCallback(() => {
     try {
-      console.log('🔗 BREAKPOINT CONN-1: connectToAPI called');
-      console.log('🔗 BREAKPOINT CONN-1.1: Current WebSocket state:', websocket?.readyState);
-      console.log('🔗 BREAKPOINT CONN-1.2: isTrading:', isTrading);
-      
-      // Don't close existing connection if it's working and we're trading
-      if (websocket && websocket.readyState === WebSocket.OPEN && isTrading) {
-        console.log('🔗 BREAKPOINT CONN-1.3: Keeping existing connection during trading');
-        return;
-      }
-
       if (websocket) {
-        console.log('🔗 BREAKPOINT CONN-1.4: Closing existing WebSocket');
         websocket.close();
         setWebsocket(null);
       }
 
       setError(null);
-      console.log('🚀 BREAKPOINT CONN-2: Connecting to WebSocket API with app_id 75771...');
+      console.log('🚀 Connecting to WebSocket API with app_id 75771...');
       setIsConnected(false);
       setIsAuthorized(false);
 
       const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
 
       ws.onopen = () => {
-        console.log('✅ BREAKPOINT CONN-3: WebSocket connection established');
+        console.log('✅ WebSocket connection established');
         setIsConnected(true);
         setWebsocket(ws);
 
@@ -338,7 +327,7 @@ const SpeedBot: React.FC = observer(() => {
           const authToken = getAuthToken();
           if (authToken) {
             const accountType = client?.is_virtual ? 'Demo' : 'Real';
-            console.log(`🔐 BREAKPOINT CONN-4: Authorizing with ${accountType} account token...`, authToken.substring(0, 10) + '...');
+            console.log(`🔐 Authorizing with ${accountType} account token...`, authToken.substring(0, 10) + '...');
             try {
               const authRequest = {
                 authorize: authToken,
@@ -346,11 +335,11 @@ const SpeedBot: React.FC = observer(() => {
               };
               ws.send(JSON.stringify(authRequest));
             } catch (error) {
-              console.error('❌ BREAKPOINT CONN-5: Error sending authorization request:', error);
+              console.error('❌ Error sending authorization request:', error);
               setError('Failed to send authorization request');
             }
           } else {
-            console.log('⚠️ BREAKPOINT CONN-6: No token available for authorization');
+            console.log('⚠️ No token available for authorization');
             console.log('Login status:', client?.is_logged_in);
             console.log('Client available:', !!client);
             setError('Please log in to start trading. Go to Deriv.com and sign in first.');
@@ -369,9 +358,9 @@ const SpeedBot: React.FC = observer(() => {
                 req_id: Date.now() + 2000
               };
               ws.send(JSON.stringify(tickRequest));
-              console.log('📊 BREAKPOINT CONN-7: Requesting tick history for', selectedSymbol);
+              console.log('📊 Requesting tick history for', selectedSymbol);
             } catch (error) {
-              console.error('❌ BREAKPOINT CONN-8: Error requesting tick history:', error);
+              console.error('❌ Error requesting tick history:', error);
             }
           }, 1000);
         }, 200);
@@ -590,8 +579,7 @@ const SpeedBot: React.FC = observer(() => {
       };
 
       ws.onclose = (event) => {
-        console.log(`🔗 BREAKPOINT CONN-9: WebSocket connection closed - Code: ${event.code}, Reason: ${event.reason}`);
-        console.log(`🔗 BREAKPOINT CONN-9.1: wasClean: ${event.wasClean}, isTrading: ${isTrading}`);
+        console.log(`WebSocket connection closed - Code: ${event.code}, Reason: ${event.reason}`);
         setIsConnected(false);
         setIsAuthorized(false);
         setWebsocket(null);
@@ -599,10 +587,9 @@ const SpeedBot: React.FC = observer(() => {
 
         // Auto-reconnect if trading was active
         if (isTrading && !event.wasClean) {
-          console.log('🔄 BREAKPOINT CONN-10: Auto-reconnecting in 3 seconds...');
+          console.log('🔄 Auto-reconnecting in 3 seconds...');
           setTimeout(() => {
             if (isTrading) {
-              console.log('🔄 BREAKPOINT CONN-11: Reconnecting...');
               connectToAPI();
             }
           }, 3000);
@@ -610,7 +597,7 @@ const SpeedBot: React.FC = observer(() => {
       };
 
       ws.onerror = (error) => {
-        console.error('🔗 BREAKPOINT CONN-12: WebSocket error:', error);
+        console.error('WebSocket error:', error);
         setIsConnected(false);
         setIsAuthorized(false);
         setError('WebSocket connection failed - reconnecting...');
@@ -626,7 +613,6 @@ const SpeedBot: React.FC = observer(() => {
   const initializeBotEngine = useCallback(async () => {
     try {
       console.log('🤖 BREAKPOINT 42: Initializing bot engine for Speed Bot...');
-      console.log('🔍 BREAKPOINT 42.1: WebSocket before bot engine init - isConnected:', isConnected, 'readyState:', websocket?.readyState);
 
       const authToken = getAuthToken();
       console.log('🔍 BREAKPOINT 43: Auth token for bot engine:', authToken ? 'Available' : 'Missing');
@@ -654,11 +640,8 @@ const SpeedBot: React.FC = observer(() => {
       };
 
       console.log('🔧 BREAKPOINT 49: Initializing trade engine with:', initOptions);
-      console.log('🔍 BREAKPOINT 49.1: WebSocket during bot engine init - isConnected:', isConnected, 'readyState:', websocket?.readyState);
-      
       await engine.init(authToken, initOptions);
       console.log('✅ BREAKPOINT 50: Trade engine initialized');
-      console.log('🔍 BREAKPOINT 50.1: WebSocket after bot engine init - isConnected:', isConnected, 'readyState:', websocket?.readyState);
 
       // Create bot interface
       console.log('🔧 BREAKPOINT 51: Creating bot interface...');
@@ -671,25 +654,20 @@ const SpeedBot: React.FC = observer(() => {
       setIsUsingBotEngine(true);
 
       console.log('✅ BREAKPOINT 54: Bot engine initialized successfully');
-      console.log('🔍 BREAKPOINT 54.1: Final WebSocket state - isConnected:', isConnected, 'readyState:', websocket?.readyState);
-      
       return { engine, botIface };
 
     } catch (error) {
-      console.error('❌ BREAKPOINT 55: Failed to initialize bot engine:', error);
-      console.error('❌ BREAKPOINT 55.1: Error details:', error.message, error.stack);
-      console.error('❌ BREAKPOINT 55.2: WebSocket state during error:', websocket?.readyState);
+      console.error('❌ Failed to initialize bot engine:', error);
       setError(`Bot engine initialization failed: ${error.message}`);
       setIsUsingBotEngine(false);
       throw error;
     }
-  }, [selectedSymbol, client, isConnected, websocket]);
+  }, [selectedSymbol, client]);
 
   // Execute a single trade using bot engine
   const executeBotTrade = useCallback(async () => {
     console.log('🚀 BREAKPOINT 27: executeBotTrade called');
     console.log('🔍 BREAKPOINT 28: Engine status - tradeEngine:', !!tradeEngine, 'botInterface:', !!botInterface, 'isUsingBotEngine:', isUsingBotEngine);
-    console.log('🔍 BREAKPOINT 28.1: WebSocket status - isConnected:', isConnected, 'isAuthorized:', isAuthorized, 'readyState:', websocket?.readyState);
     
     if (!tradeEngine || !botInterface || !isUsingBotEngine) {
       console.error('❌ BREAKPOINT 29: Bot engine not available for trading');
@@ -701,7 +679,6 @@ const SpeedBot: React.FC = observer(() => {
 
     try {
       console.log('🚀 BREAKPOINT 30: Executing bot engine trade...');
-      console.log('🔍 BREAKPOINT 30.1: Current trading state - currentStake:', currentStake, 'selectedContractType:', selectedContractType);
 
       // Configure trade options for bot engine
       const tradeOptions = {
@@ -741,17 +718,14 @@ const SpeedBot: React.FC = observer(() => {
       setTradeHistory(prev => [pendingTrade, ...prev.slice(0, 19)]);
       setTotalTrades(prev => {
         const newTotal = prev + 1;
-        console.log(`📊 BREAKPOINT 33.1: Total trades incremented to: ${newTotal}`);
+        console.log(`📊 Total trades incremented to: ${newTotal}`);
         return newTotal;
       });
 
       // Use bot interface to purchase
       console.log('💳 BREAKPOINT 34: Calling botInterface.purchase...');
-      console.log('💳 BREAKPOINT 34.1: Purchase method available:', typeof botInterface.purchase);
-      
       const purchaseResult = await botInterface.purchase(tradeOptions);
       console.log('✅ BREAKPOINT 35: Purchase result received:', purchaseResult);
-      console.log('✅ BREAKPOINT 35.1: Purchase result type:', typeof purchaseResult);
 
       // Update the pending trade with contract details if available
       if (purchaseResult && purchaseResult.contract_id) {
@@ -781,7 +755,6 @@ const SpeedBot: React.FC = observer(() => {
       console.error('  - Error type:', typeof error);
       console.error('  - Error message:', error.message);
       console.error('  - Error stack:', error.stack);
-      console.error('  - WebSocket state during error:', websocket?.readyState);
       setError(`Trade execution failed: ${error.message}`);
 
       // Update the latest pending trade to show error
@@ -797,7 +770,7 @@ const SpeedBot: React.FC = observer(() => {
 
       throw error;
     }
-  }, [tradeEngine, botInterface, isUsingBotEngine, currentStake, selectedContractType, selectedSymbol, overUnderValue, client, isConnected, isAuthorized, websocket]);
+  }, [tradeEngine, botInterface, isUsingBotEngine, currentStake, selectedContractType, selectedSymbol, overUnderValue, client]);
 
   // Handle bot engine trade events for hybrid approach
   const handleBotEngineEvents = useCallback(() => {
@@ -904,8 +877,6 @@ const SpeedBot: React.FC = observer(() => {
 
   const startTrading = async () => {
     console.log('🚀 BREAKPOINT 1: Attempting to start Speed Bot in hybrid mode...');
-    console.log('🔍 BREAKPOINT 1.1: Current connection state - isConnected:', isConnected, 'isAuthorized:', isAuthorized);
-    console.log('🔍 BREAKPOINT 1.2: WebSocket state:', websocket?.readyState, 'Expected OPEN:', WebSocket.OPEN);
 
     // Reset any previous errors
     setError(null);
@@ -921,7 +892,6 @@ const SpeedBot: React.FC = observer(() => {
 
     // Validate trading parameters
     if (stake < 0.35) {
-      console.log('❌ BREAKPOINT 3.1: Stake validation failed - minimum 0.35');
       setError('Minimum stake is 0.35 USD');
       return;
     }
@@ -929,14 +899,13 @@ const SpeedBot: React.FC = observer(() => {
     // Check account details if available
     if (client) {
       const accountType = client?.is_virtual ? 'Demo' : 'Real';
-      console.log(`📊 BREAKPOINT 3.2: Account type: ${accountType}`);
+      console.log(`📊 Account type: ${accountType}`);
 
       if (client?.balance !== undefined) {
         const balance = parseFloat(client.balance);
-        console.log(`💰 BREAKPOINT 3.3: Account balance: ${balance} ${client.currency || 'USD'}`);
+        console.log(`💰 Account balance: ${balance} ${client.currency || 'USD'}`);
 
         if (balance < stake) {
-          console.log('❌ BREAKPOINT 3.4: Insufficient balance');
           setError(`Insufficient balance. Current: ${balance} ${client.currency || 'USD'}, Required: ${stake}`);
           return;
         }
@@ -945,10 +914,6 @@ const SpeedBot: React.FC = observer(() => {
 
     try {
       console.log('🔧 BREAKPOINT 4: Setting up trading state...');
-      
-      // Don't disconnect WebSocket - keep it alive
-      console.log('🔍 BREAKPOINT 4.1: Maintaining existing WebSocket connection');
-      
       setCurrentStake(stake);
       setIsTrading(true);
       setIsExecutingTrade(false);
@@ -976,8 +941,7 @@ const SpeedBot: React.FC = observer(() => {
       }, 1000);
 
     } catch (error) {
-      console.error('❌ BREAKPOINT 14: Error starting Speed Bot hybrid mode:', error);
-      console.error('❌ BREAKPOINT 14.1: Error details:', error.message, error.stack);
+      console.error('❌ Error starting Speed Bot hybrid mode:', error);
       setError(`Failed to start Speed Bot: ${error.message}`);
       setIsTrading(false);
       setIsUsingBotEngine(false);
@@ -1135,13 +1099,10 @@ const SpeedBot: React.FC = observer(() => {
       </div>
 
       <div className="speed-bot__description">
-        <strong>Engine Used:</strong> {isUsingBotEngine ? 'Bot Builder TradeEngine' : 'Direct WebSocket API'}
-        <br />
         Uses the bot builder engine for reliable trade execution with Speed Bot configuration.
         <br />
         <strong>This uses real money!</strong>
         {isUsingBotEngine && <span style={{ color: 'green' }}> 🤖 Bot Engine Active</span>}
-        {!isUsingBotEngine && isTrading && <span style={{ color: 'orange' }}> 🔄 Initializing Bot Engine...</span>}
       </div>
 
       {error && (
