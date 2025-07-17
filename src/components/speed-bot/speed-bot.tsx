@@ -1748,6 +1748,16 @@ const SpeedBot: React.FC = observer(() => {
     }
   }, [balance]);
 
+  // Add missing state variables
+  const [apiToken, setApiToken] = useState('');
+  const [connectionStatus, setConnectionStatus] = useState('Disconnected');
+  const [totalRuns, setTotalRuns] = useState(0);
+  const [winCount, setWinCount] = useState(0);
+  const [lossCount, setLossCount] = useState(0);
+  const [totalProfit, setTotalProfit] = useState(0);
+  const [consecutiveLosses, setConsecutiveLosses] = useState(0);
+  const [lastTick, setLastTick] = useState(null);
+
   // Monitor connection status
   useEffect(() => {
     const checkConnection = () => {
@@ -1848,7 +1858,7 @@ const SpeedBot: React.FC = observer(() => {
         }
       } else if (contractType === 'CALL' || contractType === 'PUT') {
         // For over/under, use barrier
-        barrier = overUnderBarrier.toString();
+        barrier = overUnderValue.toString();
 
         if (alternateOnLoss && consecutiveLosses > 0) {
           // Alternate contract type on loss
@@ -1897,7 +1907,7 @@ const SpeedBot: React.FC = observer(() => {
     lastTick, 
     stake, 
     selectedContractType, 
-    overUnderBarrier,
+    overUnderValue,
     useMartingale, 
     martingaleMultiplier, 
     consecutiveLosses,
