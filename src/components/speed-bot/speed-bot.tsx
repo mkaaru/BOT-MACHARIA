@@ -929,9 +929,9 @@ const SpeedBot: React.FC = observer(() => {
             console.log('📋 Purchase Details:', JSON.stringify(data.buy, null, 2));
             
             // Extract purchase information
-            const contractId = data.buy.contract_id;
-            const buyPrice = data.buy.buy_price;
-            const payout = data.buy.payout;
+            const contractId = data.buy.contract_id?.toString();
+            const buyPrice = parseFloat(data.buy.buy_price || currentStake);
+            const payout = parseFloat(data.buy.payout || 0);
             const transactionId = data.buy.transaction_id;
             
             console.log('✅ TRADE EXECUTION CONFIRMED:', {
@@ -981,38 +981,53 @@ const SpeedBot: React.FC = observer(() => {
               return newTotal;
             });
 
-            // Store active contract for monitoring
+            // Store active contract for monitoring with proper contract ID handling
             if (contractId) {
+              const contractData = {
+                ...trade,
+                contractId,
+                buyPrice,
+                startTime: Date.now(),
+                payout,
+                currentProfit: 0,
+                currentPrice: 0,
+                status: 'open'
+              };
+
               setActiveContracts(prev => {
                 const newMap = new Map(prev);
-                newMap.set(contractId, {
-                  ...trade,
-                  contractId,
-                  buyPrice: parseFloat(buyPrice || currentStake),
-                  startTime: Date.now(),
-                  payout: parseFloat(payout || 0)
-                });
+                newMap.set(contractId, contractData);
                 console.log(`📊 ACTIVE CONTRACTS COUNT: ${newMap.size}`);
+                console.log(`📊 Active contract added:`, {
+                  contractId,
+                  buyPrice,
+                  payout,
+                  symbol: selectedSymbol,
+                  contractType: selectedContractType
+                });
                 return newMap;
               });
 
-              // Subscribe to contract updates
+              // Subscribe to contract updates with proper error handling
               try {
                 const contractRequest = {
                   proposal_open_contract: 1,
-                  contract_id: contractId,
+                  contract_id: parseInt(contractId, 10), // API expects integer
                   subscribe: 1,
                   req_id: Date.now() + 3000
                 };
+                console.log('📈 Subscribing to contract updates:', JSON.stringify(contractRequest, null, 2));
                 ws.send(JSON.stringify(contractRequest));
                 console.log('📈 Subscribed to contract updates for:', contractId);
               } catch (error) {
                 console.error('❌ Error subscribing to contract updates:', error);
               }
+            } else {
+              console.error('❌ No contract ID received from buy response');
             }
 
             // Show success message to user
-            setError(`✅ Trade executed! Contract ID: ${contractId?.toString().substring(0, 8)}...`);
+            setError(`✅ Trade executed! Contract ID: ${contractId?.substring(0, 8)}...`);
             
             console.log('🚀 TRADE EXECUTION COMPLETE - Bot ready for next opportunity');
             console.log('📊 Current Status:', {
@@ -1270,64 +1285,86 @@ const SpeedBot: React.FC = observer(() => {
           // Handle contract update (profit/loss)
           if (data.proposal_open_contract) {
             const contract = data.proposal_open_contract;
-            const contractId = contract.contract_id;
+            const contractId = contract.contract_id?.toString();
+
+            console.log('📈 Contract update received:', {
+              contractId,
+              status: contract.status,
+              profit: contract.profit,
+              bid_price: contract.bid_price,
+              is_sold: contract.is_sold
+            });
 
             // Update active contract info
             if (contractId && activeContracts.has(contractId)) {
+              const currentProfit = parseFloat(contract.profit || 0);
+              const currentPrice = parseFloat(contract.bid_price || 0);
+              
               setActiveContracts(prev => {
                 const newMap = new Map(prev);
                 const existingContract = newMap.get(contractId);
                 if (existingContract) {
-                  newMap.set(contractId, {
+                  const updatedContract = {
                     ...existingContract,
-                    currentProfit: parseFloat(contract.profit || 0),
-                    currentPrice: parseFloat(contract.bid_price || 0),
+                    currentProfit,
+                    currentPrice,
                     status: contract.status
-                  });
+                  };
+                  newMap.set(contractId, updatedContract);
+                  console.log(`📊 Contract ${contractId} updated: Profit=${currentProfit}, Price=${currentPrice}, Status=${contract.status}`);
                 }
                 return newMap;
               });
-            }
 
-            // Auto-sell logic: sell if profit reaches certain threshold or after certain time
-            if (contract.status === 'open' && contractId && activeContracts.has(contractId)) {
-              const currentProfit = parseFloat(contract.profit || 0);
-              const activeContract = activeContracts.get(contractId);
+              // Auto-sell logic: sell if profit reaches certain threshold or after certain time
+              if (contract.status === 'open') {
+                const activeContract = activeContracts.get(contractId);
+                if (activeContract) {
+                  const timeElapsed = Date.now() - activeContract.startTime;
+                  const profitThreshold = currentStake * 0.8; // 80% profit threshold
+                  const maxHoldTime = 45000; // 45 seconds max hold time
 
-              if (activeContract) {
-                const timeElapsed = Date.now() - activeContract.startTime;
-                const profitThreshold = currentStake * 0.8; // 80% profit threshold
-                const maxHoldTime = 45000; // 45 seconds max hold time
-
-                // Sell conditions: good profit or max time reached
-                if (currentProfit >= profitThreshold || timeElapsed >= maxHoldTime) {
-                  console.log(`🎯 Auto-selling contract ${contractId}: Profit=${currentProfit}, Time=${timeElapsed}ms`);
-                  sellContract(contractId);
+                  // Sell conditions: good profit or max time reached
+                  if (currentProfit >= profitThreshold || timeElapsed >= maxHoldTime) {
+                    console.log(`🎯 Auto-selling contract ${contractId}: Profit=${currentProfit.toFixed(2)}, Time=${timeElapsed}ms`);
+                    sellContract(contractId);
+                  }
                 }
               }
+            } else if (contractId) {
+              console.warn(`⚠️ Received update for unknown contract ID: ${contractId}`);
             }
 
             // Handle natural contract completion
-            if (contract.is_sold || contract.status === 'sold') {
+            if (contract.is_sold || contract.status === 'sold' || contract.status === 'won' || contract.status === 'lost') {
               const profit = parseFloat(contract.profit || 0);
               const isWin = profit > 0;
+
+              console.log(`🏁 Contract ${contractId} completed: ${isWin ? 'WIN' : 'LOSS'} | Profit: $${profit.toFixed(2)}`);
 
               // Remove from active contracts
               if (contractId) {
                 setActiveContracts(prev => {
                   const newMap = new Map(prev);
                   newMap.delete(contractId);
+                  console.log(`📊 Contract ${contractId} removed from active contracts. Remaining: ${newMap.size}`);
                   return newMap;
                 });
               }
 
+              // Find and update the corresponding trade in history
               let tradeWasUpdated = false;
               setTradeHistory(prev => {
                 const updated = [...prev];
-                if (updated[0] && updated[0].result === 'pending') {
-                  updated[0].result = isWin ? 'win' : 'loss';
-                  updated[0].profit = profit;
+                const tradeIndex = updated.findIndex(t => t.result === 'pending');
+                if (tradeIndex !== -1) {
+                  updated[tradeIndex] = {
+                    ...updated[tradeIndex],
+                    result: isWin ? 'win' : 'loss',
+                    profit: profit
+                  };
                   tradeWasUpdated = true;
+                  console.log(`📊 Trade history updated for index ${tradeIndex}:`, updated[tradeIndex]);
                 }
                 return updated;
               });
@@ -1392,7 +1429,7 @@ const SpeedBot: React.FC = observer(() => {
                     // Additional safety check for balance
                     if (balance > 0 && newStake > balance * 0.9) {
                       console.warn(`⚠️ Martingale stake ${newStake} exceeds 90% of balance ${balance}, limiting to safe amount`);
-                      const safeStake = Math.max(stake, balance * 0.1); // Use at least base stake or 10% of balance
+                      const safeStake = Math.max(stake, balance * 0.1);
                       setCurrentStake(safeStake);
                       console.log(`📈 Martingale limited: Using safe stake $${safeStake}`);
                     } else {
