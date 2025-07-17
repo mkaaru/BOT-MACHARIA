@@ -162,11 +162,8 @@ class APIBase {
             if (!this.api) return;
 
             try {
-                const response = await this.api.authorize(this.token);
-                if (!response) return Promise.reject(new Error('No response from API'));
-                
-                const { authorize, error } = response;
-                if (error) return Promise.reject(error);
+                const { authorize, error } = await this.api.authorize(this.token);
+                if (error) return error;
 
                 if (this.has_active_symbols) {
                     this.toggleRunButton(false);
@@ -197,16 +194,10 @@ class APIBase {
     }
 
     async subscribe() {
-        if (!this.api) {
-            return Promise.resolve();
-        }
-
         const subscribeToStream = (streamName: string) => {
             return doUntilDone(
                 () => {
-                    if (!this.api) return Promise.resolve();
-                    
-                    const subscription = this.api.send({
+                    const subscription = this.api?.send({
                         [streamName]: 1,
                         subscribe: 1,
                         ...(streamName === 'balance' ? { account: 'all' } : {}),
@@ -223,11 +214,7 @@ class APIBase {
 
         const streamsToSubscribe = ['balance', 'transaction', 'proposal_open_contract'];
 
-        try {
-            await Promise.all(streamsToSubscribe.map(subscribeToStream));
-        } catch (error) {
-            console.error('Error subscribing to streams:', error);
-        }
+        await Promise.all(streamsToSubscribe.map(subscribeToStream));
     }
 
     getActiveSymbols = async () => {

@@ -1,70 +1,10 @@
-// Trade verification helper function
-const verifyTradeExecution = () => {
-  console.log('🔍 TRADE VERIFICATION REPORT:');
-  console.log('================================');
-  console.log('🔗 WebSocket Status:', {
-    connected: websocket?.readyState === WebSocket.OPEN,
-    authorized: isAuthorized,
-    url: 'wss://ws.derivws.com/websockets/v3?app_id=75771'
-  });
-
-  console.log('🔑 Authentication:', {
-    clientLoggedIn: client?.is_logged_in,
-    tokenAvailable: !!getAuthToken(),
-    accountType: client?.is_virtual ? 'Demo' : 'Real',
-    currency: client?.currency || 'USD',
-    balance: balance
-  });
-
-  console.log('🎯 Trading Configuration:', {
-    symbol: selectedSymbol,
-    contractType: selectedContractType,
-    stake: currentStake,
-    barrier: overUnderValue,
-    validConfig: isValidCombination
-  });
-
-  console.log('⚡ Execution States:', {
-    isTrading,
-    isDirectTrading,
-    isExecutingTrade,
-    isRequestingProposal,
-    proposalId: proposalId ? 'Available' : 'None'
-  });
-
-  console.log('📊 Trade Statistics:', {
-    totalTrades,
-    activeContracts: activeContracts.size,
-    totalPL: totalProfitLoss,
-    lastTradeTime: lastTradeTime ? new Date(lastTradeTime).toISOString() : 'Never'
-  });
-
-  console.log('================================');
-
-  // Check for common issues
-  if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-    console.error('❌ ISSUE: WebSocket not connected');
-  }
-  if (!isAuthorized) {
-    console.error('❌ ISSUE: Not authorized');
-  }
-  if (!getAuthToken()) {
-    console.error('❌ ISSUE: No authentication token');
-  }
-  if (!isValidCombination) {
-    console.error('❌ ISSUE: Invalid trading configuration');
-  }
-  if (balance < currentStake) {
-    console.error('❌ ISSUE: Insufficient balance');
-  }
-};
-
-
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
 import { useStore } from '@/hooks/useStore';
 import { observer } from 'mobx-react-lite';
-import { speedBotTradeEngine } from './trade-engine';
+import getBotInterface from '@/external/bot-skeleton/services/tradeEngine/Interface/BotInterface';
+import TradeEngine from '@/external/bot-skeleton/services/tradeEngine/trade';
+import { globalObserver } from '@/utils/tmp/dummy';
 import './speed-bot.scss';
 
 interface Trade {
@@ -78,135 +18,79 @@ interface Trade {
 }
 
 const SpeedBot: React.FC = observer(() => {
-  try {
-    const store = useStore();
-    const run_panel = store?.run_panel;
-    const client = store?.client;
+  const store = useStore();
+  const run_panel = store?.run_panel;
+  const blockly_store = store?.blockly_store;
+  const client = store?.client;
 
-    // Early return if required stores are not available
-    if (!store) {
-      return (
-        <div className="speed-bot">
-          <div className="speed-bot__error">
-            <h3>Speed Bot Loading...</h3>
-            <p>Initializing Speed Bot services...</p>
-          </div>
+  // Early return if required stores are not available
+  if (!run_panel || !client) {
+    return (
+      <div className="speed-bot">
+        <div className="speed-bot__error">
+          <h3>Speed Bot Unavailable</h3>
+          <p>Required services are not available. Please ensure you are logged in and try again.</p>
         </div>
-      );
-    }
+      </div>
+    );
+  }
 
-    if (!run_panel || !client) {
-      return (
-        <div className="speed-bot">
-          <div className="speed-bot__error">
-            <h3>Speed Bot Unavailable</h3>
-            <p>Required services are not available. Please ensure you are logged in and try again.</p>
-          </div>
-        </div>
-      );
-    }
-
-  // Get token from client store with comprehensive token retrieval
+  // Get token from client store with better error handling
   const getAuthToken = () => {
     console.log('🔍 Checking authentication...');
     console.log('Client object:', client);
     console.log('Is logged in:', client?.is_logged_in);
 
-    if (!client?.is_logged_in) {
+    if (!client) {
+      console.log('❌ Client store not available');
+      return null;
+    }
+
+    if (!client.is_logged_in) {
       console.log('❌ User not logged in');
       return null;
     }
 
-    // Try multiple token sources in order of preference
+    // Try multiple ways to get the token
     let token = null;
 
-    // Method 1: Client store methods
+    // Check various possible token locations
     if (client.getToken && typeof client.getToken === 'function') {
-      try {
-        token = client.getToken();
-        if (token) console.log('🔑 Token from getToken():', token.substring(0, 20) + '...');
-      } catch (e) {
-        console.log('⚠️ Error calling getToken():', e);
-      }
+      token = client.getToken();
+      console.log('🔑 Token from getToken():', token ? 'Available' : 'Null');
     }
 
-    // Method 2: Client properties
     if (!token && client.token) {
       token = client.token;
-      console.log('🔑 Token from client.token:', token.substring(0, 20) + '...');
+      console.log('🔑 Token from client.token:', token ? 'Available' : 'Null');
     }
 
-    // Method 3: Authentication object
-    if (!token && client.accounts) {
-      const activeLoginId = client.loginid;
-      if (activeLoginId && client.accounts[activeLoginId]?.token) {
-        token = client.accounts[activeLoginId].token;
-        console.log('🔑 Token from client.accounts:', token.substring(0, 20) + '...');
-      }
+    if (!token && client.authentication?.token) {
+      token = client.authentication.token;
+      console.log('🔑 Token from client.authentication.token:', token ? 'Available' : 'Null');
     }
 
-    // Method 4: Direct localStorage access with multiple key patterns
+    // Check localStorage as fallback
     if (!token) {
       try {
-        // Try different localStorage key patterns
-        const tokenSources = [
-          'client.tokens',
-          'authToken', 
-          'accountsList',
-          localStorage.getItem('active_loginid')
-        ];
-
-        for (const source of tokenSources) {
-          if (!token && source) {
-            const stored = localStorage.getItem(source);
-            if (stored && stored !== 'null') {
-              try {
-                // Try parsing as JSON first
-                const parsed = JSON.parse(stored);
-                if (typeof parsed === 'object' && parsed) {
-                  // Extract first available token
-                  const tokenValue = Object.values(parsed)[0];
-                  if (typeof tokenValue === 'string' && tokenValue.length > 10) {
-                    token = tokenValue;
-                    console.log(`🔑 Token from localStorage.${source}:`, token.substring(0, 20) + '...');
-                    break;
-                  }
-                }
-              } catch (e) {
-                // Try as direct string
-                if (stored.length > 10 && stored.startsWith('a1-')) {
-                  token = stored;
-                  console.log(`🔑 Token from localStorage.${source} (direct):`, token.substring(0, 20) + '...');
-                  break;
-                }
-              }
-            }
+        const storedTokens = localStorage.getItem('client.tokens');
+        if (storedTokens) {
+          const parsedTokens = JSON.parse(storedTokens);
+          if (parsedTokens && Object.keys(parsedTokens).length > 0) {
+            token = Object.values(parsedTokens)[0];
+            console.log('🔑 Token from localStorage:', token ? 'Available' : 'Null');
           }
         }
       } catch (e) {
-        console.log('⚠️ Error reading from localStorage:', e);
+        console.log('⚠️ Error reading tokens from localStorage:', e);
       }
     }
 
-    // Method 5: Check URL parameters as last resort
-    if (!token) {
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlToken = urlParams.get('token');
-        if (urlToken && urlToken.length > 10) {
-          token = urlToken;
-          console.log('🔑 Token from URL params:', token.substring(0, 20) + '...');
-        }
-      } catch (e) {
-        console.log('⚠️ Error reading URL params:', e);
-      }
-    }
-
-    if (token && token.length > 10) {
-      console.log('✅ Authentication token found and validated');
+    if (token) {
+      console.log('✅ Authentication token found');
       return token;
     } else {
-      console.log('❌ No valid authentication token found');
+      console.log('❌ No authentication token found');
       return null;
     }
   };
@@ -215,25 +99,19 @@ const SpeedBot: React.FC = observer(() => {
   const [isConnected, setIsConnected] = useState(false);
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [currentPrice, setCurrentPrice] = useState<string>('---');
-  const [activeSubscriptions, setActiveSubscriptions] = useState<Set<string>>(new Set());
 
-  // Trading configuration - Set defaults for Trade Every Tick requirements
-  const [selectedSymbol, setSelectedSymbol] = useState('R_100'); // Volatility 100 Index
-  const [selectedContractType, setSelectedContractType] = useState('DIGITODD'); // Odd prediction
-  const [stake, setStake] = useState(0.5); // $0.5 stake
+  // Trading configuration
+  const [selectedSymbol, setSelectedSymbol] = useState('R_10');
+  const [selectedContractType, setSelectedContractType] = useState('DIGITEVEN');
+  const [stake, setStake] = useState(1.0);
   const [overUnderValue, setOverUnderValue] = useState(5);
   const [isTrading, setIsTrading] = useState(false);
 
-  // Strategy options - Configured for Trade Every Tick
+  // Strategy options
+  const [alternateOverUnder, setAlternateOverUnder] = useState(false);
+  const [alternateOnLoss, setAlternateOnLoss] = useState(false);
   const [useMartingale, setUseMartingale] = useState(true);
-  const [martingaleMultiplier, setMartingaleMultiplier] = useState(2.0); // Martingale Factor: 2
-
-  // Risk Management - Set to specified thresholds
-  const [takeProfit, setTakeProfit] = useState(5); // Take Profit: $5
-  const [stopLoss, setStopLoss] = useState(30); // Stop Loss: $30
-  const [totalProfitLoss, setTotalProfitLoss] = useState(0);
-  const [alternateOnLoss, setAlternateOnLoss] = useState(true); // Alternate on Loss enabled
-  const [isTradeEveryTick, setIsTradeEveryTick] = useState(true); // Trade Every Tick enabled by default
+  const [martingaleMultiplier, setMartingaleMultiplier] = useState(1.5);
 
   // Trading state
   const [currentStake, setCurrentStake] = useState(1.0);
@@ -241,22 +119,14 @@ const SpeedBot: React.FC = observer(() => {
   const [totalTrades, setTotalTrades] = useState(0);
   const [wins, setWins] = useState(0);
   const [losses, setLosses] = useState(0);
+  const [lastTradeTime, setLastTradeTime] = useState(0);
   const [isExecutingTrade, setIsExecutingTrade] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [balance, setBalance] = useState<number>(0);
-  const [isRequestingProposal, setIsRequestingProposal] = useState(false);
-  const [lastTradeTime, setLastTradeTime] = useState(0);
-  
-  // Martingale state based on confirmed trade results
-  const [lastConfirmedTradeResult, setLastConfirmedTradeResult] = useState<'win' | 'loss' | null>(null);
-  const [consecutiveLossStreak, setConsecutiveLossStreak] = useState(0);
-  const [baseStake, setBaseStake] = useState(stake);
 
-  // Direct WebSocket trading state
-  const [isDirectTrading, setIsDirectTrading] = useState(false);
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [proposalId, setProposalId] = useState<string | null>(null);
-  const [activeContracts, setActiveContracts] = useState<Map<string, any>>(new Map());
+  // Bot engine state
+  const [tradeEngine, setTradeEngine] = useState<any>(null);
+  const [botInterface, setBotInterface] = useState<any>(null);
+  const [isUsingBotEngine, setIsUsingBotEngine] = useState(false);
 
   const volatilitySymbols = [
     { value: 'R_10', label: 'Volatility 10 Index' },
@@ -271,50 +141,6 @@ const SpeedBot: React.FC = observer(() => {
     { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
   ];
 
-  // Enhanced validation function with contract-specific rules
-  const isValidCombination = useMemo(() => {
-    const needsBarrier = ['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType);
-    const isEvenOdd = ['DIGITEVEN', 'DIGITODD'].includes(selectedContractType);
-    const needsTouch = ['ONETOUCH', 'NOTOUCH'].includes(selectedContractType);
-    const needsRange = ['RANGE', 'UPORDOWN'].includes(selectedContractType);
-    const isMultiplier = selectedContractType.startsWith('MULT');
-    const isLookback = selectedContractType.startsWith('LB');
-    const isAsian = selectedContractType.startsWith('ASIAN');
-
-    // Validate barrier for digit contracts (not needed for Even/Odd)
-    const validBarrier = needsBarrier ? overUnderValue >= 0 && overUnderValue <= 9 : true;
-
-    // Even/Odd contracts don't need barrier validation
-    const validEvenOdd = isEvenOdd ? true : true;
-
-    // Validate touch/no-touch barriers
-    const validTouchBarrier = needsTouch ? overUnderValue > 0 : true;
-
-    // Validate range barriers
-    const validRangeBarrier = needsRange ? overUnderValue > 0 && overUnderValue < 10 : true;
-
-    // Validate multiplier parameters
-    const validMultiplier = isMultiplier ? currentStake >= 1 && currentStake <= 2000 : true;
-
-    // Validate lookback parameters
-    const validLookback = isLookback ? currentStake >= 1 && currentStake <= 500 : true;
-
-    // Validate Asian parameters
-    const validAsian = isAsian ? currentStake >= 1 && currentStake <= 1000 : true;
-
-    // General validations
-    const validStake = currentStake > 0 && currentStake <= 1000;
-    const validSymbol = selectedSymbol && selectedSymbol.length > 0;
-
-    // Contract-specific stake limits
-    const stakeLimit = isMultiplier ? 2000 : isLookback ? 500 : 1000;
-    const validStakeForContract = currentStake > 0 && currentStake <= stakeLimit;
-
-    return validBarrier && validEvenOdd && validTouchBarrier && validRangeBarrier && 
-           validMultiplier && validLookback && validAsian && 
-           validStakeForContract && validSymbol;
-  }, [selectedContractType, overUnderValue, currentStake, selectedSymbol]);
-
   const contractTypes = [
     { value: 'DIGITOVER', label: 'Over' },
     { value: 'DIGITUNDER', label: 'Under' },
@@ -326,56 +152,51 @@ const SpeedBot: React.FC = observer(() => {
     { value: 'PUT', label: 'Fall' },
   ];
 
-  // Calculate martingale stake based on last confirmed trade result
-  const calculateMartingaleStake = useCallback(() => {
-    if (!useMartingale) {
-      return baseStake;
-    }
+  // Safe observer pattern implementation
+  const createObserver = () => {
+    const observers: { [key: string]: Array<(data: any) => void> } = {};
 
-    if (lastConfirmedTradeResult === 'loss' && consecutiveLossStreak > 0) {
-      // Apply martingale: multiply base stake by multiplier raised to power of consecutive losses
-      const martingaleStake = baseStake * Math.pow(martingaleMultiplier, consecutiveLossStreak);
-      
-      // Apply safety limits
-      const maxStake = selectedContractType.startsWith('MULT') ? 2000 : 
-                      selectedContractType.startsWith('LB') ? 500 : 1000;
-      
-      const finalStake = Math.min(martingaleStake, maxStake);
-      
-      // Additional balance check
-      if (balance > 0 && finalStake > balance * 0.9) {
-        console.warn(`⚠️ Martingale stake ${finalStake} exceeds 90% of balance ${balance}, using safe amount`);
-        return Math.max(baseStake, balance * 0.1);
+    return {
+      register: (event: string, callback: (data: any) => void) => {
+        if (!observers[event]) {
+          observers[event] = [];
+        }
+        observers[event].push(callback);
+      },
+      emit: (event: string, data?: any) => {
+        if (observers[event]) {
+          observers[event].forEach(callback => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error('Observer callback error:', error);
+            }
+          });
+        }
+      },
+      unregister: (event: string, callback?: (data: any) => void) => {
+        if (observers[event]) {
+          if (callback) {
+            const index = observers[event].indexOf(callback);
+            if (index > -1) {
+              observers[event].splice(index, 1);
+            }
+          } else {
+            observers[event] = [];
+          }
+        }
       }
-      
-      console.log(`📈 MARTINGALE APPLIED: Base=${baseStake} × ${martingaleMultiplier}^${consecutiveLossStreak} = ${finalStake} (Consecutive losses: ${consecutiveLossStreak})`);
-      return finalStake;
-    } else {
-      // No martingale needed - use base stake
-      console.log(`📊 USING BASE STAKE: ${baseStake} (Last result: ${lastConfirmedTradeResult || 'none'})`);
-      return baseStake;
-    }
-  }, [useMartingale, baseStake, martingaleMultiplier, lastConfirmedTradeResult, consecutiveLossStreak, selectedContractType, balance]);
+    };
+  };
 
-  // Update current stake when martingale parameters change
-  useEffect(() => {
-    const newStake = calculateMartingaleStake();
-    setCurrentStake(newStake);
-  }, [calculateMartingaleStake]);
+  const localObserver = createObserver();
+
+  // State for tracking authorization
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [proposalId, setProposalId] = useState<string | null>(null);
 
   // Buy contract function using proper Deriv API sequence
-  const buyContract = useCallback(async (proposalId: string, proposalPrice: number) => {
-    console.log('📈 Buy contract attempt debug:', {
-      websocketReady: websocket?.readyState === WebSocket.OPEN,
-      isAuthorized,
-      proposalId,
-      isExecutingTrade,
-      isTrading,
-      isDirectTrading,
-      currentStake,
-      balance
-    });
-
+  const buyContract = useCallback(async (proposalId: string) => {
     if (!websocket || websocket.readyState !== WebSocket.OPEN) {
       console.error('❌ Cannot buy contract: WebSocket not connected');
       setError('WebSocket connection lost');
@@ -394,201 +215,36 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
-    if (isExecutingTrade) {
-      console.log('⚠️ Already executing trade - skipping');
-      return;
-    }
-
     try {
       setIsExecutingTrade(true);
-      setLastTradeTime(Date.now());
 
+      // Simple buy request with just the proposal ID - following Deriv API best practices
       const buyRequest = {
         buy: proposalId,
-        price: proposalPrice,
         req_id: Date.now()
       };
 
-      console.log('📈 Sending buy request:', JSON.stringify(buyRequest, null, 2));
+      console.log('📈 Buying contract with proposal ID:', proposalId);
       websocket.send(JSON.stringify(buyRequest));
 
-      // Timeout handler
-      const timeoutId = setTimeout(() => {
+      // Set timeout to reset executing state if no response
+      setTimeout(() => {
         if (isExecutingTrade) {
           console.log('⏰ Buy request timeout - resetting execution state');
           setIsExecutingTrade(false);
           setError('Buy request timed out - trying again...');
-
-          // Retry if still trading
-          if (isTrading && isDirectTrading) {
-            setTimeout(() => {
-              console.log('🔄 Retrying after timeout...');
-              getPriceProposal();
-            }, 1000);
-          }
         }
-      }, 10000);
-
-      // Store timeout ID to clear it if buy succeeds
-      (window as any).buyTimeoutId = timeoutId;
+      }, 8000);
 
     } catch (error) {
-      console.error('❌ Error buying contract:', error);
+      console.error('Error buying contract:', error);
       setError(`Failed to buy contract: ${error.message}`);
       setIsExecutingTrade(false);
-
-      // Retry if still trading
-      if (isTrading && isDirectTrading) {
-        setTimeout(() => {
-          console.log('🔄 Retrying after error...');
-          getPriceProposal();
-        }, 2000);
-      }
     }
-  }, [websocket, isAuthorized, isExecutingTrade, isTrading, isDirectTrading, currentStake, balance]);
+  }, [websocket, isAuthorized, isExecutingTrade]);
 
-  // Sell contract function
-  const sellContract = useCallback(async (contractId: string) => {
-    if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-      console.error('❌ Cannot sell contract: WebSocket not connected');
-      setError('WebSocket connection lost');
-      return;
-    }
-
-    if (!isAuthorized) {
-      console.error('❌ Cannot sell contract: Not authorized');
-      setError('Not authorized - please check your login');
-      return;
-    }
-
-    try {
-      // Convert contractId to integer as required by the API schema
-      const contractIdInt = parseInt(contractId, 10);
-      if (isNaN(contractIdInt)) {
-        console.error('❌ Invalid contract ID:', contractId);
-        setError('Invalid contract ID format');
-        return;
-      }
-
-      const sellRequest = {
-        sell: contractIdInt, // API requires integer, not string
-        price: 0, // Sell at market price (minimum price)
-        req_id: Date.now()
-      };
-
-      console.log('📤 Selling contract:', JSON.stringify(sellRequest, null, 2));
-      websocket.send(JSON.stringify(sellRequest));
-
-      // Set a timeout for sell response
-      const sellTimeoutId = setTimeout(() => {
-        console.log('⏰ Sell request timeout for contract:', contractId);
-        setError('Sell request timed out - contract may have expired');
-      }, 10000);
-
-      // Store timeout ID for cleanup
-      (window as any)[`sellTimeout_${contractId}`] = sellTimeoutId;
-
-    } catch (error) {
-      console.error('❌ Error selling contract:', error);
-      setError(`Failed to sell contract: ${error.message}`);
-    }
-  }, [websocket, isAuthorized]);
-
-  // Enhanced Strategy condition check - TRADE EVERY TICK LOGIC
-  const isGoodCondition = useCallback((lastDigit: number, contractType: string) => {
-    const barrierText = ['DIGITEVEN', 'DIGITODD'].includes(contractType) ? 'N/A' : overUnderValue;
-    console.log(`🎯 Condition check: lastDigit=${lastDigit}, contractType=${contractType}, barrier=${barrierText}`);
-
-    if (isNaN(lastDigit) || lastDigit < 0 || lastDigit > 9) {
-      console.error('❌ Invalid last digit:', lastDigit);
-      return false;
-    }
-
-    // TRADE EVERY TICK MODE: Execute on every tick with predefined logic
-    if (isTradeEveryTick) {
-      console.log(`🚀 TRADE EVERY TICK: Processing tick with digit=${lastDigit}`);
-
-      // For Trade Every Tick, we use the contract type to determine the trade decision
-      switch (contractType) {
-        case 'DIGITEVEN':
-          // Trade Even on every tick - no barrier needed
-          console.log(`🎯 Trade Every Tick: EVEN prediction for digit ${lastDigit}`);
-          return true;
-        case 'DIGITODD':
-          // Trade Odd on every tick - no barrier needed
-          console.log(`🎯 Trade Every Tick: ODD prediction for digit ${lastDigit}`);
-          return true;
-        case 'DIGITOVER':
-          // Trade Over with barrier on every tick
-          console.log(`🎯 Trade Every Tick: OVER ${overUnderValue} prediction for digit ${lastDigit}`);
-          return true;
-        case 'DIGITUNDER':
-          // Trade Under with barrier on every tick
-          console.log(`🎯 Trade Every Tick: UNDER ${overUnderValue} prediction for digit ${lastDigit}`);
-          return true;
-        case 'DIGITMATCH':
-          // Trade Matches with specific digit on every tick
-          console.log(`🎯 Trade Every Tick: MATCHES ${overUnderValue} prediction for digit ${lastDigit}`);
-          return true;
-        case 'DIGITDIFF':
-          // Trade Differs from specific digit on every tick
-          console.log(`🎯 Trade Every Tick: DIFFERS ${overUnderValue} prediction for digit ${lastDigit}`);
-          return true;
-        default:
-          console.log(`🎯 Trade Every Tick: Unknown contract type ${contractType}, trading anyway`);
-          return true;
-      }
-    }
-
-    // CONDITION-BASED MODE: Traditional logic-based trading
-    let result = false;
-
-    switch (contractType) {
-      case 'DIGITEVEN':
-        // Even contracts: trade when last digit is even (0, 2, 4, 6, 8)
-        result = lastDigit % 2 === 0;
-        console.log(`🎯 EVEN check: digit ${lastDigit} is ${lastDigit % 2 === 0 ? 'EVEN' : 'ODD'} - ${result ? 'TRADE' : 'SKIP'}`);
-        break;
-      case 'DIGITODD':
-        // Odd contracts: trade when last digit is odd (1, 3, 5, 7, 9)
-        result = lastDigit % 2 === 1;
-        console.log(`🎯 ODD check: digit ${lastDigit} is ${lastDigit % 2 === 1 ? 'ODD' : 'EVEN'} - ${result ? 'TRADE' : 'SKIP'}`);
-        break;
-      case 'DIGITOVER':
-        result = lastDigit > overUnderValue;
-        break;
-      case 'DIGITUNDER':
-        result = lastDigit < overUnderValue;
-        break;
-      case 'DIGITMATCH':
-        result = lastDigit === overUnderValue;
-        break;
-      case 'DIGITDIFF':
-        result = lastDigit !== overUnderValue;
-        break;
-      default:
-        result = false;
-    }
-
-    console.log(`🎯 Condition-based result: ${result ? '✅ TRADE NOW' : '❌ SKIP'} (${contractType}: digit=${lastDigit}, barrier=${barrierText})`);
-    return result;
-  }, [overUnderValue, isTradeEveryTick]);
-
-  // Get price proposal using proper Deriv API format according to schema
+  // Get price proposal using proper Deriv API format
   const getPriceProposal = useCallback(() => {
-    console.log('📊 Proposal request debug:', {
-      websocketReady: websocket?.readyState === WebSocket.OPEN,
-      isAuthorized,
-      isExecutingTrade,
-      isRequestingProposal,
-      isTrading,
-      isDirectTrading,
-      currentStake,
-      selectedContractType,
-      selectedSymbol,
-      timeSinceLastTrade: Date.now() - lastTradeTime
-    });
-
     if (!websocket || websocket.readyState !== WebSocket.OPEN) {
       console.log('❌ Cannot get proposal: WebSocket not connected');
       setError('WebSocket connection lost. Reconnecting...');
@@ -606,167 +262,83 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
-    if (isRequestingProposal) {
-      console.log('⏳ Skipping proposal request - already requesting');
-      return;
-    }
-
     try {
-      setIsRequestingProposal(true);
-      setError(null); // Clear any previous errors
-
-      const requestId = Date.now();
-      const needsBarrier = ['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType);
-
-      // Build proposal request according to Deriv API schema
+      // Build proposal request following Deriv API specification for DIGITEVEN
       const proposalRequest: any = {
-        proposal: 1, // Must be 1 according to schema
-        contract_type: selectedContractType, // Required: The proposed contract type
-        currency: client?.currency || 'USD', // Required: Account currency
-        symbol: selectedSymbol, // Required: Symbol (from active_symbols)
-        amount: currentStake, // Stake amount
-        basis: 'stake', // Type of amount
-        duration: 1, // Duration quantity for 1 tick
-        duration_unit: 't', // Duration unit: 't' for ticks
-        req_id: requestId // Optional: Used to map request to response
+        proposal: 1,
+        amount: currentStake,
+        basis: 'stake',
+        contract_type: selectedContractType,
+        currency: client?.currency || 'USD',
+        symbol: selectedSymbol,
+        duration: 1,
+        duration_unit: 't',
+        req_id: Date.now()
       };
 
-      // Add barrier for specific contract types according to schema (not needed for Even/Odd)
-      if (needsBarrier && !['DIGITEVEN', 'DIGITODD'].includes(selectedContractType)) {
+      // Add barrier/prediction for digit contracts that require it
+      if (['DIGITOVER', 'DIGITUNDER'].includes(selectedContractType)) {
+        proposalRequest.barrier = overUnderValue.toString();
+      } else if (['DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType)) {
         proposalRequest.barrier = overUnderValue.toString();
       }
+      // DIGITEVEN and DIGITODD don't need barriers - they're based on last digit even/odd
 
-      // Handle specific contract types according to schema
-      switch (selectedContractType) {
-        case 'RANGE':
-        case 'UPORDOWN':
-          proposalRequest.barrier = overUnderValue.toString();
-          proposalRequest.barrier2 = (overUnderValue + 1).toString();
-          break;
-
-        case 'ONETOUCH':
-        case 'NOTOUCH':
-          proposalRequest.barrier = overUnderValue.toString();
-          break;
-
-        case 'MULTUP':
-        case 'MULTDOWN':
-          proposalRequest.multiplier = 10;
-          proposalRequest.product_type = 'basic';
-          proposalRequest.limit_order = {
-            stop_loss: currentStake * 2,
-            take_profit: currentStake * 3
-          };
-          break;
-
-        case 'LBHIGHLOW':
-        case 'LBFLOATCALL':
-        case 'LBFLOATPUT':
-        case 'ASIANU':
-        case 'ASIAND':
-          proposalRequest.duration = 5;
-          proposalRequest.duration_unit = 't';
-          break;
-      }
-
-      console.log('📊 Sending Deriv API proposal request:', JSON.stringify(proposalRequest, null, 2));
+      console.log('📊 Getting price proposal with proper API format:', proposalRequest);
       websocket.send(JSON.stringify(proposalRequest));
 
-      // Set timeout for proposal response - longer timeout for stability
-      const proposalTimeoutId = setTimeout(() => {
-        console.log('⏰ Proposal request timeout - clearing flags and retrying');
-        setIsRequestingProposal(false);
-        setProposalId(null);
-        setError('Proposal timeout - retrying...');
-
-        // Retry if still trading
-        if (isTrading && isDirectTrading && !isExecutingTrade) {
-          setTimeout(() => {
-            console.log('🔄 Retrying proposal after timeout...');
-            getPriceProposal();
-          }, 1000);
-        }
-      }, 5000); // Increased timeout for better reliability
-
-      // Store timeout ID for cleanup
-      (window as any).proposalTimeoutId = proposalTimeoutId;
-
     } catch (error) {
-      console.error('❌ Error getting proposal:', error);
-      setError(`Proposal error: ${error.message}`);
-      setIsRequestingProposal(false);
+      console.error('Error getting proposal:', error);
+      setError(`Failed to get proposal: ${error.message}`);
 
-      // Retry on error
-      if (isTrading && isDirectTrading) {
+      // Retry after error
+      if (isTrading) {
         setTimeout(() => {
           console.log('🔄 Retrying proposal after error...');
           getPriceProposal();
         }, 2000);
       }
     }
-  }, [websocket, isAuthorized, currentStake, selectedContractType, selectedSymbol, overUnderValue, isExecutingTrade, isRequestingProposal, isTrading, isDirectTrading, client, lastTradeTime]);
-
-  // Rate limiting for forget_all requests and tick history
-  const [lastForgetAllTime, setLastForgetAllTime] = useState(0);
-  const [lastTickHistoryTime, setLastTickHistoryTime] = useState(0);
-  const [hasRequestedTickHistory, setHasRequestedTickHistory] = useState(false);
-
-  // Function to unsubscribe from all active subscriptions with rate limiting
-  const unsubscribeAll = useCallback((ws: WebSocket) => {
-    if (ws && ws.readyState === WebSocket.OPEN && activeSubscriptions.size > 0) {
-      // Rate limit forget_all requests to maximum once per 2 seconds
-      const now = Date.now();
-      if (now - lastForgetAllTime < 2000) {
-        console.log('⏳ Rate limiting forget_all request - skipping');
-        return;
-      }
-
-      try {
-        const forgetAllRequest = {
-          forget_all: 'ticks',
-          req_id: Date.now()
-        };
-        console.log('🔄 Unsubscribing from all active subscriptions:', Array.from(activeSubscriptions));
-        ws.send(JSON.stringify(forgetAllRequest));
-        setActiveSubscriptions(new Set());
-        setLastForgetAllTime(now);
-      } catch (error) {
-        console.error('❌ Error unsubscribing from all subscriptions:', error);
-      }
-    }
-  }, [activeSubscriptions, lastForgetAllTime]);
+  }, [websocket, isAuthorized, currentStake, selectedContractType, selectedSymbol, overUnderValue, isExecutingTrade, isTrading, client]);
 
   // WebSocket connection
   const connectToAPI = useCallback(() => {
     try {
+      console.log('🔗 BREAKPOINT CONN-1: connectToAPI called');
+      console.log('🔗 BREAKPOINT CONN-1.1: Current WebSocket state:', websocket?.readyState);
+      console.log('🔗 BREAKPOINT CONN-1.2: isTrading:', isTrading);
+      
+      // Don't close existing connection if it's working and we're trading
       if (websocket && websocket.readyState === WebSocket.OPEN && isTrading) {
+        console.log('🔗 BREAKPOINT CONN-1.3: Keeping existing connection during trading');
         return;
       }
 
       if (websocket) {
-        // Unsubscribe from all active subscriptions before closing
-        unsubscribeAll(websocket);
+        console.log('🔗 BREAKPOINT CONN-1.4: Closing existing WebSocket');
         websocket.close();
         setWebsocket(null);
       }
 
       setError(null);
-      console.log('🚀 Connecting to WebSocket API with app_id 75771...');
+      console.log('🚀 BREAKPOINT CONN-2: Connecting to WebSocket API with app_id 75771...');
       setIsConnected(false);
       setIsAuthorized(false);
 
       const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
 
       ws.onopen = () => {
-        console.log('✅ WebSocket connection established');
+        console.log('✅ BREAKPOINT CONN-3: WebSocket connection established');
         setIsConnected(true);
         setWebsocket(ws);
 
+        // Small delay to ensure connection is stable
         setTimeout(() => {
+          // Authorize if user is logged in
           const authToken = getAuthToken();
           if (authToken) {
             const accountType = client?.is_virtual ? 'Demo' : 'Real';
-            console.log(`🔐 Authorizing with ${accountType} account token...`, authToken.substring(0, 10) + '...');
+            console.log(`🔐 BREAKPOINT CONN-4: Authorizing with ${accountType} account token...`, authToken.substring(0, 10) + '...');
             try {
               const authRequest = {
                 authorize: authToken,
@@ -774,64 +346,34 @@ const SpeedBot: React.FC = observer(() => {
               };
               ws.send(JSON.stringify(authRequest));
             } catch (error) {
-              console.error('❌ Error sending authorization request:', error);
+              console.error('❌ BREAKPOINT CONN-5: Error sending authorization request:', error);
               setError('Failed to send authorization request');
             }
           } else {
-            console.log('⚠️ No token available for authorization');
+            console.log('⚠️ BREAKPOINT CONN-6: No token available for authorization');
+            console.log('Login status:', client?.is_logged_in);
+            console.log('Client available:', !!client);
             setError('Please log in to start trading. Go to Deriv.com and sign in first.');
             setIsAuthorized(false);
           }
 
-          // Subscribe to ticks using Deriv API Ticks Stream schema
+          // Request tick history after auth attempt (with or without auth)
           setTimeout(() => {
             try {
-              // Check if already subscribed to this symbol
-              if (!activeSubscriptions.has(selectedSymbol)) {
-                // Subscribe to live ticks according to Deriv API schema
-                const ticksStreamRequest = {
-                  ticks: selectedSymbol, // Required: The short symbol name
-                  subscribe: 1, // Optional: Set to 1 for continuous updates
-                  req_id: Date.now() + 2000 // Optional: Used to map request to response
-                };
-                console.log('📊 Sending Deriv API compliant ticks stream request:', JSON.stringify(ticksStreamRequest, null, 2));
-                ws.send(JSON.stringify(ticksStreamRequest));
-                console.log('📊 Ticks stream subscription requested for', selectedSymbol);
-
-                // Add to active subscriptions
-                setActiveSubscriptions(prev => new Set(prev).add(selectedSymbol));
-              } else {
-                console.log('📊 Already subscribed to', selectedSymbol, '- skipping subscription');
-              }
-
-              // Optional: Get initial tick history (rate limited)
-              if (!hasRequestedTickHistory) {
-                const now = Date.now();
-                if (now - lastTickHistoryTime > 10000) { // 10 second rate limit
-                  setTimeout(() => {
-                    const tickHistoryRequest = {
-                      ticks_history: selectedSymbol,
-                      count: 5, // Minimal count for initial data
-                      end: 'latest',
-                      style: 'ticks',
-                      req_id: Date.now() + 3000
-                    };
-                    console.log('📊 Sending tick history request:', JSON.stringify(tickHistoryRequest, null, 2));
-                    ws.send(JSON.stringify(tickHistoryRequest));
-                    console.log('📊 Tick history requested for', selectedSymbol);
-                    setLastTickHistoryTime(now);
-                    setHasRequestedTickHistory(true);
-                  }, 1000);
-                } else {
-                  console.log('⏳ Rate limiting tick history request - too soon since last request');
-                }
-              } else {
-                console.log('📊 Tick history already requested for this session - skipping');
-              }
+              const tickRequest = {
+                ticks_history: selectedSymbol,
+                count: 120,
+                end: 'latest',
+                style: 'ticks',
+                subscribe: 1,
+                req_id: Date.now() + 2000
+              };
+              ws.send(JSON.stringify(tickRequest));
+              console.log('📊 BREAKPOINT CONN-7: Requesting tick history for', selectedSymbol);
             } catch (error) {
-              console.error('❌ Error requesting tick subscription:', error);
+              console.error('❌ BREAKPOINT CONN-8: Error requesting tick history:', error);
             }
-          }, 500);
+          }, 1000);
         }, 200);
       };
 
@@ -851,31 +393,9 @@ const SpeedBot: React.FC = observer(() => {
             setIsAuthorized(true);
             setError(null);
 
-            // Set initial balance from authorize response if available
-            if (data.authorize.balance) {
-              const authBalance = parseFloat(data.authorize.balance);
-              console.log('💰 Initial balance from auth:', authBalance);
-              setBalance(authBalance);
-            }
-
-            try {
-              const balanceRequest = {
-                balance: 1,
-                subscribe: 1,
-                req_id: Date.now() + 4000
-              };
-              ws.send(JSON.stringify(balanceRequest));
-              console.log('📊 Subscribed to balance updates');
-            } catch (error) {
-              console.error('❌ Error subscribing to balance:', error);
-            }
-
+            // Start getting proposals when authorized and trading
             if (isTrading) {
-              // Add small delay to ensure balance is loaded
-              setTimeout(() => {
-                console.log('🚀 Starting trading after authorization...');
-                getPriceProposal();
-              }, 1000);
+              getPriceProposal();
             }
           } else if (data.error && data.error.code === 'InvalidToken') {
             console.error('❌ Authorization failed:', data.error);
@@ -883,135 +403,54 @@ const SpeedBot: React.FC = observer(() => {
             setIsAuthorized(false);
           }
 
-          // Enhanced proposal success handling
-          if (data.proposal && !data.error) {
-            console.log('✅ Proposal received:', data.proposal);
+          // Handle price proposal response
+          if (data.proposal) {
+            console.log('💰 Proposal received:', data.proposal);
 
-            // Clear proposal timeout
-            if ((window as any).proposalTimeoutId) {
-              clearTimeout((window as any).proposalTimeoutId);
-              delete (window as any).proposalTimeoutId;
-            }
+            if (data.proposal.error) {
+              console.error('❌ Proposal error:', data.proposal.error);
+              setError(`Proposal failed: ${data.proposal.error.message}`);
+              setIsExecutingTrade(false);
 
-            const proposal = data.proposal;
-
-            // Enhanced proposal validation
-            if (!proposal.id) {
-              console.error('❌ Invalid proposal: No ID');
-              setError('Invalid proposal received. Retrying...');
-              setTimeout(() => {
-                if (isTrading) getPriceProposal();
-              }, 1000);
+              // Retry getting proposal after error
+              if (isTrading) {
+                setTimeout(() => {
+                  console.log('🔄 Retrying proposal after error...');
+                  getPriceProposal();
+                }, 2000);
+              }
               return;
             }
 
-            // Price validation
-            const proposalPrice = parseFloat(proposal.ask_price || proposal.payout);
-            if (isNaN(proposalPrice) || proposalPrice <= 0) {
-              console.error('❌ Invalid proposal price:', proposalPrice);
-              setError('Invalid proposal price. Retrying...');
-              setTimeout(() => {
-                if (isTrading) getPriceProposal();
-              }, 1000);
-              return;
-            }
+            if (data.proposal.id && data.proposal.ask_price) {
+              console.log('✅ Valid proposal received - ID:', data.proposal.id, 'Price:', data.proposal.ask_price);
+              setProposalId(data.proposal.id);
 
-            // Balance check against proposal price with better logging
-            console.log('💰 Balance check:', { balance, proposalPrice, currentStake });
-            if (balance < proposalPrice && balance > 0) {
-              console.error('❌ Insufficient balance for proposal price');
-              setError(`Insufficient balance for proposal. Required: ${proposalPrice.toFixed(2)}, Available: ${balance.toFixed(2)}`);
-              setIsTrading(false);
-              return;
-            } else if (balance <= 0) {
-              console.log('⚠️ Balance not yet loaded, proceeding with proposal');
-            }
-
-            // Contract-specific proposal validation
-            if (selectedContractType.startsWith('MULT') && !proposal.multiplier) {
-              console.error('❌ Multiplier proposal missing multiplier value');
-              setError('Invalid multiplier proposal. Retrying...');
-              setTimeout(() => {
-                if (isTrading) getPriceProposal();
-              }, 1000);
-              return;
-            }
-
-            setProposalId(proposal.id);
-            setIsRequestingProposal(false);
-            setError(null);
-
-            // Log proposal details
-            console.log('📊 Proposal details:', {
-              id: proposal.id,
-              price: proposalPrice,
-              payout: proposal.payout,
-              contract_type: selectedContractType,
-              symbol: selectedSymbol,
-              spot: proposal.spot,
-              ask_price: proposal.ask_price
-            });
-
-            // Auto-buy immediately if trading and direct trading enabled
-            if (isTrading && isDirectTrading && proposal.id && !isExecutingTrade) {
-              console.log('🚀 Auto-buying contract with proposal:', proposal.id);
-              // Buy immediately without delay
-              buyContract(proposal.id, proposalPrice);
+              // Auto-buy immediately if trading is active
+              if (isTrading && !isExecutingTrade) {
+                console.log('🚀 Attempting to buy contract with proposal ID:', data.proposal.id);
+                console.log('💰 Proposal price:', data.proposal.ask_price);
+                // Buy immediately with minimal delay to prevent proposal expiry
+                setTimeout(() => {
+                  buyContract(data.proposal.id);
+                }, 100);
+              }
             } else {
-              console.log('⚠️ Not auto-buying:', {
-                isTrading,
-                isDirectTrading,
-                hasProposalId: !!proposal.id,
-                isExecutingTrade
-              });
-
-              // If we have a proposal but not buying, clear it to allow new proposals
-              if (proposal.id && !isExecutingTrade) {
-                console.log('🔄 Clearing stuck proposal to allow new requests');
-                setProposalId(null);
-                setIsRequestingProposal(false);
+              console.log('⚠️ Invalid proposal received:', data.proposal);
+              if (isTrading) {
+                setTimeout(() => {
+                  getPriceProposal();
+                }, 1000);
               }
             }
           }
 
-          // Handle buy response with comprehensive logging
+          // Handle buy response
           if (data.buy) {
-            console.log('🎉 CONTRACT PURCHASED SUCCESSFULLY! 🎉');
-            console.log('📋 Purchase Details:', JSON.stringify(data.buy, null, 2));
-
-            // Extract purchase information
-            const contractId = data.buy.contract_id?.toString();
-            const buyPrice = parseFloat(data.buy.buy_price || currentStake);
-            const payout = parseFloat(data.buy.payout || 0);
-            const transactionId = data.buy.transaction_id;
-
-            console.log('✅ TRADE EXECUTION CONFIRMED:', {
-              contractId,
-              buyPrice,
-              payout,
-              transactionId,
-              symbol: selectedSymbol,
-              contractType: selectedContractType,
-              stake: currentStake,
-              timestamp: new Date().toISOString()
-            });
-
-            // Clear any pending timeouts
-            if ((window as any).buyTimeoutId) {
-              clearTimeout((window as any).buyTimeoutId);
-              (window as any).buyTimeoutId = null;
-            }
-
-            if ((window as any).proposalTimeoutId) {
-              clearTimeout((window as any).proposalTimeoutId);
-              (window as any).proposalTimeoutId = null;
-            }
-
-            // Reset all execution states
+            console.log('✅ Contract purchased successfully:', data.buy);
             setIsExecutingTrade(false);
-            setIsRequestingProposal(false);
-            setProposalId(null);
-            setError(null);
+            setProposalId(null); // Reset proposal ID
+            setError(null); // Clear any previous errors
 
             const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             const trade: Trade = {
@@ -1024,300 +463,61 @@ const SpeedBot: React.FC = observer(() => {
               profit: 0,
             };
 
-            // Update trade history and statistics
+            // Add trade to history and increment total trades counter
             setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
             setTotalTrades(prev => {
               const newTotal = prev + 1;
-              console.log(`📊 TOTAL TRADES COUNT: ${newTotal}`);
+              console.log(`📊 Total trades incremented to: ${newTotal}`);
               return newTotal;
             });
+            setLastTradeTime(Date.now());
 
-            // Store active contract for monitoring with proper contract ID handling
-            if (contractId) {
-              const contractData = {
-                ...trade,
-                contractId,
-                buyPrice,
-                startTime: Date.now(),
-                payout,
-                currentProfit: 0,
-                currentPrice: 0,
-                status: 'open'
-              };
-
-              setActiveContracts(prev => {
-                const newMap = new Map(prev);
-                newMap.set(contractId, contractData);
-                console.log(`📊 ACTIVE CONTRACTS COUNT: ${newMap.size}`);
-                console.log(`📊 Active contract added:`, {
-                  contractId,
-                  buyPrice,
-                  payout,
-                  symbol: selectedSymbol,
-                  contractType: selectedContractType
-                });
-                return newMap;
-              });
-
-              // Subscribe to contract updates with proper error handling
+            // Subscribe to contract updates to monitor outcome using proper format
+            if (data.buy.contract_id) {
               try {
                 const contractRequest = {
                   proposal_open_contract: 1,
-                  contract_id: parseInt(contractId, 10), // API expects integer
+                  contract_id: data.buy.contract_id,
                   subscribe: 1,
                   req_id: Date.now() + 3000
                 };
-                console.log('📈 Subscribing to contract updates:', JSON.stringify(contractRequest, null, 2));
                 ws.send(JSON.stringify(contractRequest));
-                console.log('📈 Subscribed to contract updates for:', contractId);
+                console.log('📈 Subscribed to contract updates for contract:', data.buy.contract_id);
               } catch (error) {
-                console.error('❌ Error subscribing to contract updates:', error);
-              }
-            } else {
-              console.error('❌ No contract ID received from buy response');
-            }
-
-            // Show success message to user
-            setError(`✅ Trade executed! Contract ID: ${contractId?.substring(0, 8)}...`);
-
-            console.log('🚀 TRADE EXECUTION COMPLETE - Bot ready for next opportunity');
-            console.log('📊 Current Status:', {
-              totalTrades: totalTrades + 1,
-              activeContracts: activeContracts.size + 1,
-              totalPL: totalProfitLoss,
-              isTrading: isTrading,
-              isDirectTrading: isDirectTrading
-            });
-          }
-
-          // Handle sell response according to Deriv API schema
-          if (data.sell) {
-            console.log('✅ Contract sold successfully:', JSON.stringify(data.sell, null, 2));
-
-            // Clear any pending sell timeout
-            const contractIdStr = data.sell.contract_id?.toString();
-            if (contractIdStr && (window as any)[`sellTimeout_${contractIdStr}`]) {
-              clearTimeout((window as any)[`sellTimeout_${contractIdStr}`]);
-              delete (window as any)[`sellTimeout_${contractIdStr}`];
-            }
-
-            // Extract sell receipt data according to API schema
-            const sellReceipt = data.sell;
-            const contractId = sellReceipt.contract_id;
-            const transactionId = sellReceipt.transaction_id;
-            const balanceAfter = parseFloat(sellReceipt.balance_after || 0);
-            const sellPrice = parseFloat(sellReceipt.sell_price || 0);
-            const buyPrice = parseFloat(sellReceipt.buy_price || 0);
-            const profit = sellPrice - buyPrice;
-
-            console.log('📊 Sell Receipt Details:', {
-              contractId,
-              transactionId,
-              sellPrice,
-              buyPrice,
-              profit,
-              balanceAfter
-            });
-
-            // Update balance from sell response
-            if (balanceAfter > 0) {
-              setBalance(balanceAfter);
-              console.log('💰 Balance updated from sell response:', balanceAfter);
-            }
-
-            // Remove from active contracts
-            setActiveContracts(prev => {
-              const newMap = new Map(prev);
-              newMap.delete(contractId?.toString());
-              return newMap;
-            });
-
-            // Update trade history with sell results
-            setTradeHistory(prev => {
-              const updated = [...prev];
-              const tradeIndex = updated.findIndex(t => t.result === 'pending');
-              if (tradeIndex !== -1) {
-                updated[tradeIndex] = {
-                  ...updated[tradeIndex],
-                  result: profit > 0 ? 'win' : 'loss',
-                  profit: profit
-                };
-                console.log('📊 Trade history updated:', updated[tradeIndex]);
-              }
-              return updated;
-            });
-
-            // Update total profit/loss
-            const newTotalProfitLoss = totalProfitLoss + profit;
-            setTotalProfitLoss(newTotalProfitLoss);
-
-            // Enhanced trade result processing
-            if (profit > 0) {
-              setWins(prev => prev + 1);
-              console.log('🟢 MANUAL SELL - WIN:', {
-                profit: profit.toFixed(2),
-                totalPL: newTotalProfitLoss.toFixed(2)
-              });
-
-              if (useMartingale) {
-                setCurrentStake(stake); // Reset to base stake on win
-                console.log('📈 Martingale reset to base stake:', stake);
-              }
-            } else {
-              setLosses(prev => prev + 1);
-              console.log('🔴 MANUAL SELL - LOSS:', {
-                profit: profit.toFixed(2),
-                totalPL: newTotalProfitLoss.toFixed(2)
-              });
-
-              // Apply martingale and alternate on loss logic for manual sells too
-              if (alternateOnLoss) {
-                console.log('🔄 ALTERNATE ON LOSS: Switching contract type due to manual sell loss');
-                setSelectedContractType(prev => {
-                  const alternates = {
-                    'DIGITEVEN': 'DIGITODD',
-                    'DIGITODD': 'DIGITEVEN',
-                    'DIGITOVER': 'DIGITUNDER',
-                    'DIGITUNDER': 'DIGITOVER',
-                    'DIGITMATCH': 'DIGITDIFF',
-                    'DIGITDIFF': 'DIGITMATCH'
-                  };
-                  const newType = alternates[prev] || prev;
-                  console.log(`🔄 Contract type changed: ${prev} → ${newType}`);
-                  return newType;
-                });
-              }
-
-              if (useMartingale) {
-                const maxStake = selectedContractType.startsWith('MULT') ? 2000 : 
-                                selectedContractType.startsWith('LB') ? 500 : 1000;
-
-                const newStake = Math.min(currentStake * martingaleMultiplier, maxStake);
-
-                // Additional safety check for balance
-                if (balance > 0 && newStake > balance * 0.9) {
-                  console.warn('⚠️ Martingale stake exceeds 90% of balance, limiting to safe amount');
-                  const safeStake = Math.max(stake, balance * 0.1);
-                  setCurrentStake(safeStake);
-                  console.log('📈 Martingale limited to safe stake:', safeStake);
-                } else {
-                  setCurrentStake(newStake);
-                  console.log('📈 Martingale applied after manual sell:', {
-                    previousStake: currentStake,
-                    newStake,
-                    multiplier: martingaleMultiplier
-                  });
-                }
+                console.error('❌ Error subscribing to contract:', error);
               }
             }
 
-            // Check risk management thresholds
-            if (newTotalProfitLoss >= takeProfit) {
-              console.log(`🎯 TAKE PROFIT TRIGGERED after manual sell! Total P/L: $${newTotalProfitLoss.toFixed(2)}`);
-              setError(`✅ Take Profit reached at $${newTotalProfitLoss.toFixed(2)}! Bot stopped.`);
-              setIsTrading(false);
-              setIsDirectTrading(false);
-            } else if (newTotalProfitLoss <= -Math.abs(stopLoss)) {
-              console.log(`🛑 STOP LOSS TRIGGERED after manual sell! Total P/L: $${newTotalProfitLoss.toFixed(2)}`);
-              setError(`❌ Stop Loss reached at $${newTotalProfitLoss.toFixed(2)}! Bot stopped.`);
-              setIsTrading(false);
-              setIsDirectTrading(false);
-            }
-
-            console.log(`📊 Manual sell completed: ${profit > 0 ? 'WIN' : 'LOSS'} | Profit: $${profit.toFixed(2)} | Total P/L: $${newTotalProfitLoss.toFixed(2)}`);
-          }
-
-          // Handle proposal errors
-          if (data.error && data.msg_type === 'proposal') {
-            console.error('❌ Proposal error:', JSON.stringify(data.error, null, 2));
-
-            // Clear proposal timeout
-            if ((window as any).proposalTimeoutId) {
-              clearTimeout((window as any).proposalTimeoutId);
-              (window as any).proposalTimeoutId = null;
-            }
-
-            setIsRequestingProposal(false);
-            setProposalId(null);
-
-            if (data.error.code === 'InvalidSymbol') {
-              setError(`Invalid symbol: ${data.error.message}`);
-            } else if (data.error.code === 'InvalidContractType') {
-              setError(`Invalid contract type: ${data.error.message}`);
-            } else if (data.error.code === 'MarketIsClosed') {
-              setError(`Market is closed: ${data.error.message}`);
-            } else {
-              setError(`Proposal failed: ${data.error.message} (Code: ${data.error.code})`);
-            }
-
-            // Retry after error if still trading
-            if (isTrading && isDirectTrading) {
+            // Get next proposal for continuous trading immediately
+            if (isTrading) {
               setTimeout(() => {
-                console.log('🔄 Retrying proposal after error...');
-                getPriceProposal();
-              }, 3000);
-            }
-          }
-
-          // Handle sell errors according to API schema
-          if (data.error && data.msg_type === 'sell') {
-            console.error('❌ Sell contract error:', JSON.stringify(data.error, null, 2));
-
-            // Clear any pending sell timeout
-            if (data.echo_req?.sell) {
-              const contractId = data.echo_req.sell.toString();
-              if ((window as any)[`sellTimeout_${contractId}`]) {
-                clearTimeout((window as any)[`sellTimeout_${contractId}`]);
-                delete (window as any)[`sellTimeout_${contractId}`];
-              }
-            }
-
-            if (data.error.code === 'InvalidContractId') {
-              setError(`Invalid contract: ${data.error.message}`);
-            } else if (data.error.code === 'ContractSoldAlready') {
-              setError(`Contract already sold: ${data.error.message}`);
-            } else if (data.error.code === 'ContractExpired') {
-              setError(`Contract expired: ${data.error.message}`);
-            } else if (data.error.code === 'InvalidSellPrice') {
-              setError(`Invalid sell price: ${data.error.message}`);
-            } else {
-              setError(`Sell failed: ${data.error.message} (Code: ${data.error.code})`);
+                if (isTrading && !isExecutingTrade) {
+                  console.log('🔄 Getting next proposal for continuous trading...');
+                  getPriceProposal();
+                }
+              }, 500); // Reduced delay for faster trading
             }
           }
 
           // Handle buy errors
-          if (data.error && (data.msg_type === 'buy' || data.error.details?.field === 'buy')) {
-            console.error('❌ Buy contract error:', JSON.stringify(data.error, null, 2));
-
-            // Clear any pending timeout
-            if ((window as any).buyTimeoutId) {
-              clearTimeout((window as any).buyTimeoutId);
-              (window as any).buyTimeoutId = null;
-            }
-
+          if (data.error && data.msg_type === 'buy') {
+            console.error('❌ Buy contract error:', data.error);
             setIsExecutingTrade(false);
-            setIsRequestingProposal(false);
             setProposalId(null);
 
             if (data.error.code === 'InvalidContractProposal') {
               setError('Proposal expired - getting new proposal...');
-              if (isTrading && isDirectTrading) {
+              // Immediately get a new proposal
+              if (isTrading) {
                 setTimeout(() => {
                   console.log('🔄 Getting new proposal after InvalidContractProposal error...');
                   getPriceProposal();
                 }, 500);
               }
-            } else if (data.error.code === 'InsufficientBalance') {
-              setError(`Insufficient balance: ${data.error.message}`);
-              setIsTrading(false);
-              setIsDirectTrading(false);
-            } else if (data.error.code === 'InvalidCurrency') {
-              setError(`Invalid currency: ${data.error.message}`);
-              setIsTrading(false);
-              setIsDirectTrading(false);
             } else {
-              setError(`Buy failed: ${data.error.message} (Code: ${data.error.code})`);
-              if (isTrading && isDirectTrading) {
+              setError(`Buy failed: ${data.error.message}`);
+              // Retry after other errors
+              if (isTrading) {
                 setTimeout(() => {
                   console.log('🔄 Retrying after buy error...');
                   getPriceProposal();
@@ -1326,285 +526,62 @@ const SpeedBot: React.FC = observer(() => {
             }
           }
 
-          // Handle balance updates
-          if (data.balance) {
-            const newBalance = parseFloat(data.balance.balance);
-            console.log('💰 Balance updated:', newBalance);
-            setBalance(newBalance);
-          }
-
           // Handle contract update (profit/loss)
           if (data.proposal_open_contract) {
             const contract = data.proposal_open_contract;
-            const contractId = contract.contract_id?.toString();
-
-            console.log('📈 Contract update received:', {
-              contractId,
-              status: contract.status,
-              profit: contract.profit,
-              bid_price: contract.bid_price,
-              is_sold: contract.is_sold
-            });
-
-            // Update active contract info
-            if (contractId && activeContracts.has(contractId)) {
-              const currentProfit = parseFloat(contract.profit || 0);
-              const currentPrice = parseFloat(contract.bid_price || 0);
-
-              setActiveContracts(prev => {
-                const newMap = new Map(prev);
-                const existingContract = newMap.get(contractId);
-                if (existingContract) {
-                  const updatedContract = {
-                    ...existingContract,
-                    currentProfit,
-                    currentPrice,
-                    status: contract.status
-                  };
-                  newMap.set(contractId, updatedContract);
-                  console.log(`📊 Contract ${contractId} updated: Profit=${currentProfit}, Price=${currentPrice}, Status=${contract.status}`);
-                }
-                return newMap;
-              });
-
-              // Auto-sell logic: sell if profit reaches certain threshold or after certain time
-              if (contract.status === 'open') {
-                const activeContract = activeContracts.get(contractId);
-                if (activeContract) {
-                  const timeElapsed = Date.now() - activeContract.startTime;
-                  const profitThreshold = currentStake * 0.8; // 80% profit threshold
-                  const maxHoldTime = 45000; // 45 seconds max hold time
-
-                  // Sell conditions: good profit or max time reached
-                  if (currentProfit >= profitThreshold || timeElapsed >= maxHoldTime) {
-                    console.log(`🎯 Auto-selling contract ${contractId}: Profit=${currentProfit.toFixed(2)}, Time=${timeElapsed}ms`);
-                    sellContract(contractId);
-                  }
-                }
-              }
-            } else if (contractId) {
-              console.warn(`⚠️ Received update for unknown contract ID: ${contractId}`);
-            }
-
-            // Handle natural contract completion
-            if (contract.is_sold || contract.status === 'sold' || contract.status === 'won' || contract.status === 'lost') {
+            if (contract.is_sold || contract.status === 'sold') {
               const profit = parseFloat(contract.profit || 0);
               const isWin = profit > 0;
 
-              console.log(`🏁 Contract ${contractId} completed: ${isWin ? 'WIN' : 'LOSS'} | Profit: $${profit.toFixed(2)}`);
-
-              // Remove from active contracts
-              if (contractId) {
-                setActiveContracts(prev => {
-                  const newMap = new Map(prev);
-                  newMap.delete(contractId);
-                  console.log(`📊 Contract ${contractId} removed from active contracts. Remaining: ${newMap.size}`);
-                  return newMap;
-                });
-              }
-
-              // Find and update the corresponding trade in history
+              // Update the most recent trade with result
               let tradeWasUpdated = false;
               setTradeHistory(prev => {
                 const updated = [...prev];
-                const tradeIndex = updated.findIndex(t => t.result === 'pending');
-                if (tradeIndex !== -1) {
-                  updated[tradeIndex] = {
-                    ...updated[tradeIndex],
-                    result: isWin ? 'win' : 'loss',
-                    profit: profit
-                  };
+                if (updated[0] && updated[0].result === 'pending') {
+                  updated[0].result = isWin ? 'win' : 'loss';
+                  updated[0].profit = profit;
                   tradeWasUpdated = true;
-                  console.log(`📊 Trade history updated for index ${tradeIndex}:`, updated[tradeIndex]);
                 }
                 return updated;
               });
 
+              // Only increment counters if we actually updated a trade
               if (tradeWasUpdated) {
-                // Update total profit/loss
-                const newTotalProfitLoss = totalProfitLoss + profit;
-                setTotalProfitLoss(newTotalProfitLoss);
-
-                console.log(`📊 TRADE COMPLETED: ${isWin ? '🟢 WIN' : '🔴 LOSS'} | Profit: $${profit.toFixed(2)} | Total P/L: $${newTotalProfitLoss.toFixed(2)} | Mode: ${isTradeEveryTick ? 'EVERY TICK' : 'CONDITION'}`);
-
-                // CONFIRMED TRADE RESULT: Update martingale tracking based on actual closed trade
-                setLastConfirmedTradeResult(isWin ? 'win' : 'loss');
-                
-                if (isWin) {
-                  // WIN: Reset consecutive loss streak and martingale
-                  setConsecutiveLossStreak(0);
-                  console.log(`🟢 CONFIRMED WIN: Resetting consecutive loss streak and martingale to base stake $${baseStake}`);
-                } else {
-                  // LOSS: Increment consecutive loss streak for next trade's martingale
-                  setConsecutiveLossStreak(prev => {
-                    const newStreak = prev + 1;
-                    console.log(`🔴 CONFIRMED LOSS: Consecutive loss streak increased to ${newStreak} for next trade's martingale`);
-                    return newStreak;
-                  });
-                }
-
-                // RISK MANAGEMENT: Check Take Profit and Stop Loss thresholds
-                if (newTotalProfitLoss >= takeProfit) {
-                  console.log(`🎯 TAKE PROFIT TRIGGERED! Total P/L: $${newTotalProfitLoss.toFixed(2)}. Stopping bot.`);
-                  setError(`✅ Take Profit reached at $${newTotalProfitLoss.toFixed(2)}! Bot stopped.`);
-                  setIsTrading(false);
-                  setIsDirectTrading(false);
-                  return;
-                }
-
-                if (newTotalProfitLoss <= -Math.abs(stopLoss)) {
-                  console.log(`🛑 STOP LOSS TRIGGERED! Total P/L: $${newTotalProfitLoss.toFixed(2)}. Stopping bot.`);
-                  setError(`❌ Stop Loss reached at $${newTotalProfitLoss.toFixed(2)}! Bot stopped.`);
-                  setIsTrading(false);
-                  setIsDirectTrading(false);
-                  return;
-                }
-
-                // TRADE RESULT PROCESSING
                 if (isWin) {
                   setWins(prev => prev + 1);
+                  setCurrentStake(stake); // Reset to original stake on win
                 } else {
                   setLosses(prev => prev + 1);
-
-                  // ALTERNATE ON LOSS: Switch predictions if enabled
-                  if (alternateOnLoss) {
-                    console.log(`🔄 ALTERNATE ON LOSS: Switching contract type due to confirmed loss`);
-                    setSelectedContractType(prev => {
-                      const alternates = {
-                        'DIGITEVEN': 'DIGITODD',
-                        'DIGITODD': 'DIGITEVEN',
-                        'DIGITOVER': 'DIGITUNDER',
-                        'DIGITUNDER': 'DIGITOVER',
-                        'DIGITMATCH': 'DIGITDIFF',
-                        'DIGITDIFF': 'DIGITMATCH'
-                      };
-                      const newType = alternates[prev] || prev;
-                      console.log(`🔄 Contract type changed: ${prev} → ${newType}`);
-                      return newType;
-                    });
+                  // Apply martingale if enabled
+                  if (useMartingale) {
+                    setCurrentStake(prev => prev * martingaleMultiplier);
                   }
                 }
-
-                // Log detailed trade summary for Trade Every Tick mode
-                if (isTradeEveryTick) {
-                  const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
-                  console.log(`🚀 CONFIRMED TRADE RESULT SUMMARY: 
-                    Result: ${isWin ? 'WIN' : 'LOSS'}
-                    Profit: $${profit.toFixed(2)}
-                    Total P/L: $${newTotalProfitLoss.toFixed(2)}
-                    Consecutive Losses: ${isWin ? 0 : consecutiveLossStreak + 1}
-                    Next Stake (Martingale): Will be calculated for next trade
-                    Win Rate: ${winRate}%
-                    Trades: ${totalTrades + 1}
-                    Contract: ${selectedContractType}
-                  `);
-                }
               }
+
+              console.log(`Contract completed:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`, `Trade counted: ${tradeWasUpdated}`);
             }
           }
 
-          // Handle subscription confirmation for ticks
-          if (data.msg_type === 'tick' && data.subscription) {
-            console.log('✅ Tick subscription confirmed for:', data.subscription.id);
-            setActiveSubscriptions(prev => new Set(prev).add(data.echo_req?.ticks || selectedSymbol));
+          // Handle tick history and other responses
+          if (data.history) {
+            console.log('📊 Tick history received');
           }
 
-          // Handle forget_all response
-          if (data.msg_type === 'forget_all') {
-            console.log('✅ All subscriptions forgotten successfully');
-            setActiveSubscriptions(new Set());
-          }
-
-          // Handle tick updates according to Deriv API Ticks Stream response schema
           if (data.tick && data.tick.symbol === selectedSymbol) {
-            // Extract tick data according to schema
-            const tickData = data.tick;
-            const price = parseFloat(tickData.quote); // Market value at the epoch
-            const epoch = tickData.epoch; // Epoch time of the tick
-            const pipSize = tickData.pip_size; // Number of decimal points
-
-            const formattedPrice = price.toFixed(Math.max(0, -Math.log10(pipSize)));
-            setCurrentPrice(formattedPrice);
-
-            // Get the last digit from the price quote for digit trading
-            const priceStr = tickData.quote.toString();
-            const lastDigit = parseInt(priceStr[priceStr.length - 1]);
-
-            // Log tick data for high-frequency symbols
-            if (selectedSymbol.includes('1HZ') && tickData.symbol === selectedSymbol) {
-              console.log(`🔥 HIGH-FREQ TICK: ${selectedSymbol} = ${tickData.quote} | Epoch: ${epoch} | Last Digit: ${lastDigit} | Pip Size: ${pipSize}`);
-            }
-
-            console.log(`🎯 TICK RECEIVED: Quote=${tickData.quote} | Last Digit=${lastDigit} | Contract=${selectedContractType} | Time=${new Date(epoch * 1000).toLocaleTimeString()}`);
-            console.log(`🎯 Bot States: Trading=${isTrading}, Direct=${isDirectTrading}, Executing=${isExecutingTrade}, Requesting=${isRequestingProposal}, ProposalId=${proposalId}`);
-
-            // Handle existing proposal first
-            if (proposalId && !isExecutingTrade) {
-              console.log(`🎯 Found existing proposal ${proposalId}, executing buy immediately`);
-              const approximatePrice = currentStake;
-              buyContract(proposalId, approximatePrice);
-              return;
-            }
-
-            // TRADE EVERY TICK LOGIC: Execute on every tick or based on conditions
-            if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal && !proposalId) {
-              if (isNaN(lastDigit)) {
-                console.error('❌ Invalid last digit from tick quote:', tickData.quote);
-                return;
-              }
-
-              // Determine if we should trade
-              const shouldTrade = isTradeEveryTick || isGoodCondition(lastDigit, selectedContractType);
-
-              if (shouldTrade) {
-                const tradeMode = isTradeEveryTick ? 'TRADE EVERY TICK' : 'CONDITION-BASED';
-                console.log(`🚀🚀🚀 EXECUTING ${tradeMode}! Symbol: ${selectedSymbol} | Contract: ${selectedContractType} | Last Digit: ${lastDigit} | Quote: ${tickData.quote} | Epoch: ${epoch} | Total P/L: ${totalProfitLoss.toFixed(2)} 🚀🚀🚀`);
-
-                setLastTradeTime(Date.now());
-
-                // Request proposal immediately for this tick
-                getPriceProposal();
-              } else {
-                console.log(`⏸️ Skipping tick - condition not met: lastDigit=${lastDigit}, contract=${selectedContractType}, quote=${tickData.quote}`);
-              }
-            } else {
-              const reasons = [];
-              if (!isTrading) reasons.push('not trading');
-              if (!isDirectTrading) reasons.push('not direct trading');
-              if (isExecutingTrade) reasons.push('executing trade');
-              if (isRequestingProposal) reasons.push('requesting proposal');
-              if (proposalId) reasons.push('has pending proposal');
-
-              console.log(`⏸️ Skipping tick: ${reasons.join(', ')} | Quote: ${tickData.quote}`);
-            }
-          }
-
-          // Handle tick history response
-          if (data.history && data.history.prices && data.history.times) {
-            const prices = data.history.prices;
-            const lastPrice = parseFloat(prices[prices.length - 1]);
-            setCurrentPrice(lastPrice.toFixed(5));
-            console.log(`📊 Tick history received: Latest price ${lastPrice.toFixed(5)}`);
-          }
-
-          // Handle rate limit errors specifically
-          if (data.error && data.error.code === 'RateLimit') {
-            console.warn('⚠️ Rate limit reached:', data.error.message);
-            setError(`Rate limit reached: ${data.error.message}. Reducing request frequency...`);
-
-            // Don't retry immediately, wait longer
-            if (data.msg_type === 'ticks_history') {
-              console.log('📊 Tick history rate limited - will not retry');
-              setHasRequestedTickHistory(true); // Prevent further requests
-            }
-            return; // Don't process as a regular error
-          }
-
-          // Handle other tick data formats
-          if (data.msg_type === 'tick' && data.echo_req?.ticks === selectedSymbol) {
             const price = parseFloat(data.tick.quote);
             setCurrentPrice(price.toFixed(5));
-            console.log(`📊 Alternative tick format: ${price.toFixed(5)}`);
+
+            // Log tick updates when trading is active
+            if (isTrading) {
+              console.log('📈 New tick received:', price, 'Trading active:', isTrading);
+            }
+          }
+
+          if (data.history && data.history.prices) {
+            const lastPrice = parseFloat(data.history.prices[data.history.prices.length - 1]);
+            setCurrentPrice(lastPrice.toFixed(5));
+            console.log('📊 Historical price updated:', lastPrice);
           }
         } catch (error) {
           console.error('Error parsing message:', error);
@@ -1613,26 +590,27 @@ const SpeedBot: React.FC = observer(() => {
       };
 
       ws.onclose = (event) => {
-        console.log(`🔗 WebSocket connection closed - Code: ${event.code}, Reason: ${event.reason}`);
+        console.log(`🔗 BREAKPOINT CONN-9: WebSocket connection closed - Code: ${event.code}, Reason: ${event.reason}`);
+        console.log(`🔗 BREAKPOINT CONN-9.1: wasClean: ${event.wasClean}, isTrading: ${isTrading}`);
         setIsConnected(false);
         setIsAuthorized(false);
         setWebsocket(null);
         setIsExecutingTrade(false);
-        setActiveSubscriptions(new Set()); // Clear all subscriptions on close
-        setHasRequestedTickHistory(false); // Reset tick history flag for new connection
 
+        // Auto-reconnect if trading was active
         if (isTrading && !event.wasClean) {
-          console.log('🔄 Auto-reconnecting in 5 seconds...');
+          console.log('🔄 BREAKPOINT CONN-10: Auto-reconnecting in 3 seconds...');
           setTimeout(() => {
             if (isTrading) {
+              console.log('🔄 BREAKPOINT CONN-11: Reconnecting...');
               connectToAPI();
             }
-          }, 5000); // Increased reconnection delay
+          }, 3000);
         }
       };
 
       ws.onerror = (error) => {
-        console.error('🔗 WebSocket error:', error);
+        console.error('🔗 BREAKPOINT CONN-12: WebSocket error:', error);
         setIsConnected(false);
         setIsAuthorized(false);
         setError('WebSocket connection failed - reconnecting...');
@@ -1644,51 +622,451 @@ const SpeedBot: React.FC = observer(() => {
     }
   }, [selectedSymbol, isTrading]);
 
-  const startTrading = useCallback(async () => {
+  // Initialize bot engine for hybrid approach
+  const initializeBotEngine = useCallback(async () => {
     try {
-      // Reset trade engine stats
-      speedBotTradeEngine.resetStats();
-      speedBotTradeEngine.setBaseAmount(stake);
+      console.log('🤖 BREAKPOINT 42: Initializing bot engine for Speed Bot...');
+      console.log('🔍 BREAKPOINT 42.1: WebSocket before bot engine init - isConnected:', isConnected, 'readyState:', websocket?.readyState);
 
-      setIsTrading(true);
-      setTotalRuns(0);
-      setWinCount(0);
-      setLossCount(0);
-      setTotalProfit(0);
-      setConsecutiveLosses(0);
-
-      console.log('Started trading with settings:', {
-        symbol: selectedSymbol,
-        contractType: selectedContractType,
-        stake,
-        martingale: useMartingale,
-        multiplier: martingaleMultiplier,
-        tradeEveryTick: isTradeEveryTick,
-        barrier: overUnderValue,
-        engineConnected: speedBotTradeEngine.isEngineConnected()
-      });
-
-      // Check if trade engine is connected
-      if (!speedBotTradeEngine.isEngineConnected()) {
-        throw new Error('Trade engine not connected. Please check your connection.');
+      const authToken = getAuthToken();
+      console.log('🔍 BREAKPOINT 43: Auth token for bot engine:', authToken ? 'Available' : 'Missing');
+      if (!authToken) {
+        console.log('❌ BREAKPOINT 44: No auth token for bot engine');
+        throw new Error('No authentication token available');
       }
 
-    } catch (error) {
-      console.error('Error starting trading:', error);
-      setIsTrading(false);
-      alert('Error starting trading: ' + error.message);
-    }
-  }, [selectedSymbol, selectedContractType, stake, useMartingale, martingaleMultiplier, isTradeEveryTick, overUnderValue]);
+      // Create bot engine scope
+      console.log('🔧 BREAKPOINT 45: Creating bot engine scope...');
+      const engineScope = {
+        observer: globalObserver || localObserver
+      };
+      console.log('🔍 BREAKPOINT 46: Engine scope created with observer:', !!engineScope.observer);
 
-  const stopTrading = useCallback(() => {
-    setIsTrading(false);
-    setIsExecutingTrade(false);
-    console.log('Trading stopped. Final stats:', {
-      totalRuns: speedBotTradeEngine.getTotalRuns(),
-      totalProfit: speedBotTradeEngine.getTotalProfit(),
-      consecutiveLosses: speedBotTradeEngine.getConsecutiveLosses()
-    });
-  }, []);
+      // Initialize trade engine
+      console.log('🔧 BREAKPOINT 47: Creating TradeEngine instance...');
+      const engine = new TradeEngine(engineScope);
+      console.log('✅ BREAKPOINT 48: TradeEngine instance created');
+
+      // Initialize with token and options
+      const initOptions = {
+        symbol: selectedSymbol,
+        currency: client?.currency || 'USD'
+      };
+
+      console.log('🔧 BREAKPOINT 49: Initializing trade engine with:', initOptions);
+      console.log('🔍 BREAKPOINT 49.1: WebSocket during bot engine init - isConnected:', isConnected, 'readyState:', websocket?.readyState);
+      
+      await engine.init(authToken, initOptions);
+      console.log('✅ BREAKPOINT 50: Trade engine initialized');
+      console.log('🔍 BREAKPOINT 50.1: WebSocket after bot engine init - isConnected:', isConnected, 'readyState:', websocket?.readyState);
+
+      // Create bot interface
+      console.log('🔧 BREAKPOINT 51: Creating bot interface...');
+      const botIface = getBotInterface(engine);
+      console.log('✅ BREAKPOINT 52: Bot interface created');
+
+      console.log('🔄 BREAKPOINT 53: Setting state variables...');
+      setTradeEngine(engine);
+      setBotInterface(botIface);
+      setIsUsingBotEngine(true);
+
+      console.log('✅ BREAKPOINT 54: Bot engine initialized successfully');
+      console.log('🔍 BREAKPOINT 54.1: Final WebSocket state - isConnected:', isConnected, 'readyState:', websocket?.readyState);
+      
+      return { engine, botIface };
+
+    } catch (error) {
+      console.error('❌ BREAKPOINT 55: Failed to initialize bot engine:', error);
+      console.error('❌ BREAKPOINT 55.1: Error details:', error.message, error.stack);
+      console.error('❌ BREAKPOINT 55.2: WebSocket state during error:', websocket?.readyState);
+      setError(`Bot engine initialization failed: ${error.message}`);
+      setIsUsingBotEngine(false);
+      throw error;
+    }
+  }, [selectedSymbol, client, isConnected, websocket]);
+
+  // Execute a single trade using bot engine
+  const executeBotTrade = useCallback(async () => {
+    console.log('🚀 BREAKPOINT 27: executeBotTrade called');
+    console.log('🔍 BREAKPOINT 28: Engine status - tradeEngine:', !!tradeEngine, 'botInterface:', !!botInterface, 'isUsingBotEngine:', isUsingBotEngine);
+    console.log('🔍 BREAKPOINT 28.1: WebSocket status - isConnected:', isConnected, 'isAuthorized:', isAuthorized, 'readyState:', websocket?.readyState);
+    
+    if (!tradeEngine || !botInterface || !isUsingBotEngine) {
+      console.error('❌ BREAKPOINT 29: Bot engine not available for trading');
+      console.error('  - tradeEngine:', !!tradeEngine);
+      console.error('  - botInterface:', !!botInterface);
+      console.error('  - isUsingBotEngine:', isUsingBotEngine);
+      return;
+    }
+
+    try {
+      console.log('🚀 BREAKPOINT 30: Executing bot engine trade...');
+      console.log('🔍 BREAKPOINT 30.1: Current trading state - currentStake:', currentStake, 'selectedContractType:', selectedContractType);
+
+      // Configure trade options for bot engine
+      const tradeOptions = {
+        amount: currentStake,
+        basis: 'stake',
+        contract_type: selectedContractType,
+        currency: client?.currency || 'USD',
+        duration: 1,
+        duration_unit: 't',
+        symbol: selectedSymbol,
+      };
+
+      // Add prediction/barrier for digit contracts
+      if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType)) {
+        tradeOptions.barrier = overUnderValue.toString();
+        console.log('🎯 BREAKPOINT 31: Added barrier for digit contract:', overUnderValue);
+      } else {
+        console.log('🎯 BREAKPOINT 32: No barrier needed for contract type:', selectedContractType);
+      }
+
+      console.log('📊 BREAKPOINT 33: Trade options configured:', tradeOptions);
+
+      // Create a unique trade ID for tracking
+      const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Add pending trade to history immediately
+      const pendingTrade: Trade = {
+        id: tradeId,
+        timestamp: new Date().toLocaleTimeString(),
+        symbol: selectedSymbol,
+        contractType: selectedContractType,
+        result: 'pending',
+        stake: currentStake,
+        profit: 0,
+      };
+
+      setTradeHistory(prev => [pendingTrade, ...prev.slice(0, 19)]);
+      setTotalTrades(prev => {
+        const newTotal = prev + 1;
+        console.log(`📊 BREAKPOINT 33.1: Total trades incremented to: ${newTotal}`);
+        return newTotal;
+      });
+
+      // Use bot interface to purchase
+      console.log('💳 BREAKPOINT 34: Calling botInterface.purchase...');
+      console.log('💳 BREAKPOINT 34.1: Purchase method available:', typeof botInterface.purchase);
+      
+      const purchaseResult = await botInterface.purchase(tradeOptions);
+      console.log('✅ BREAKPOINT 35: Purchase result received:', purchaseResult);
+      console.log('✅ BREAKPOINT 35.1: Purchase result type:', typeof purchaseResult);
+
+      // Update the pending trade with contract details if available
+      if (purchaseResult && purchaseResult.contract_id) {
+        console.log('🔄 BREAKPOINT 36: Updating trade history with contract ID:', purchaseResult.contract_id);
+        setTradeHistory(prev => {
+          const updated = [...prev];
+          const tradeIndex = updated.findIndex(t => t.id === tradeId);
+          if (tradeIndex >= 0) {
+            updated[tradeIndex] = {
+              ...updated[tradeIndex],
+              id: purchaseResult.contract_id || tradeId, // Use contract ID if available
+            };
+            console.log('✅ BREAKPOINT 37: Trade history updated successfully');
+          } else {
+            console.log('⚠️ BREAKPOINT 38: Trade not found in history for update');
+          }
+          return updated;
+        });
+      } else {
+        console.log('⚠️ BREAKPOINT 39: No contract ID in purchase result');
+      }
+
+      return purchaseResult;
+
+    } catch (error) {
+      console.error('❌ BREAKPOINT 40: Bot engine trade execution failed:', error);
+      console.error('  - Error type:', typeof error);
+      console.error('  - Error message:', error.message);
+      console.error('  - Error stack:', error.stack);
+      console.error('  - WebSocket state during error:', websocket?.readyState);
+      setError(`Trade execution failed: ${error.message}`);
+
+      // Update the latest pending trade to show error
+      setTradeHistory(prev => {
+        const updated = [...prev];
+        if (updated[0] && updated[0].result === 'pending') {
+          updated[0].result = 'loss';
+          updated[0].profit = -updated[0].stake;
+          console.log('🔄 BREAKPOINT 41: Updated pending trade to show error');
+        }
+        return updated;
+      });
+
+      throw error;
+    }
+  }, [tradeEngine, botInterface, isUsingBotEngine, currentStake, selectedContractType, selectedSymbol, overUnderValue, client, isConnected, isAuthorized, websocket]);
+
+  // Handle bot engine trade events for hybrid approach
+  const handleBotEngineEvents = useCallback(() => {
+    if (!isTrading || !isUsingBotEngine) return;
+
+    const handleBuyContract = (data) => {
+      console.log('💰 Bot engine buy contract:', data);
+
+      if (data && data.buy) {
+        const buyData = data.buy;
+        console.log('✅ Contract purchased successfully:', buyData);
+
+        // Update the most recent pending trade with buy details
+        setTradeHistory(prev => {
+          const updated = [...prev];
+          const pendingTrade = updated.find(trade => trade.result === 'pending');
+          if (pendingTrade && buyData.contract_id) {
+            pendingTrade.id = buyData.contract_id;
+          }
+          return updated;
+        });
+      }
+    };
+
+    const handleTradeComplete = (data) => {
+      console.log('✅ Bot engine trade complete:', data);
+
+      if (data && data.proposal_open_contract) {
+        const contract = data.proposal_open_contract;
+
+        if (contract.is_sold || contract.status === 'sold') {
+          const profit = parseFloat(contract.profit || 0);
+          const isWin = profit > 0;
+
+          // Update the trade with matching contract ID
+          setTradeHistory(prev => {
+            const updated = [...prev];
+            const tradeIndex = updated.findIndex(trade => 
+              trade.id === contract.contract_id || 
+              (trade.result === 'pending' && !updated.some(t => t.id === contract.contract_id))
+            );
+
+            if (tradeIndex >= 0) {
+              updated[tradeIndex] = {
+                ...updated[tradeIndex],
+                id: contract.contract_id,
+                result: isWin ? 'win' : 'loss',
+                profit: profit,
+              };
+            }
+            return updated;
+          });
+
+          // Update win/loss counters
+          if (isWin) {
+            setWins(prev => prev + 1);
+            setCurrentStake(stake); // Reset to original stake on win
+          } else {
+            setLosses(prev => prev + 1);
+            // Apply martingale if enabled
+            if (useMartingale) {
+              setCurrentStake(prev => prev * martingaleMultiplier);
+            }
+          }
+
+          console.log(`🎯 Speed Bot trade result:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`);
+        }
+      }
+    };
+
+    const handleTickUpdate = (data) => {
+      if (data && data.tick && data.tick.symbol === selectedSymbol) {
+        const price = parseFloat(data.tick.quote);
+        setCurrentPrice(price.toFixed(5));
+      }
+    };
+
+    const handleError = (data) => {
+      console.error('❌ Bot engine error:', data);
+      if (data && data.error) {
+        setError(`Bot error: ${data.error.message}`);
+      }
+    };
+
+    // Register for bot engine events
+    const observer = globalObserver || localObserver;
+    if (observer) {
+      observer.register('bot.buy', handleBuyContract);
+      observer.register('bot.contract', handleTradeComplete);
+      observer.register('bot.tick', handleTickUpdate);
+      observer.register('bot.error', handleError);
+    }
+
+    return () => {
+      const observer = globalObserver || localObserver;
+      if (observer) {
+        observer.unregister('bot.buy', handleBuyContract);
+        observer.unregister('bot.contract', handleTradeComplete);
+        observer.unregister('bot.tick', handleTickUpdate);
+        observer.unregister('bot.error', handleError);
+      }
+    };
+  }, [selectedSymbol, selectedContractType, currentStake, useMartingale, martingaleMultiplier, stake, isTrading, isUsingBotEngine]);
+
+  const startTrading = async () => {
+    console.log('🚀 BREAKPOINT 1: Attempting to start Speed Bot in hybrid mode...');
+    console.log('🔍 BREAKPOINT 1.1: Current connection state - isConnected:', isConnected, 'isAuthorized:', isAuthorized);
+    console.log('🔍 BREAKPOINT 1.2: WebSocket state:', websocket?.readyState, 'Expected OPEN:', WebSocket.OPEN);
+
+    // Reset any previous errors
+    setError(null);
+
+    // Check if user is logged in and has token
+    const authToken = getAuthToken();
+    console.log('🔍 BREAKPOINT 2: Auth token check result:', authToken ? 'Token found' : 'No token');
+    if (!authToken) {
+      console.log('❌ BREAKPOINT 3: No auth token - stopping execution');
+      setError('Please log in to Deriv first. Go to deriv.com and sign in, then try again.');
+      return;
+    }
+
+    // Validate trading parameters
+    if (stake < 0.35) {
+      console.log('❌ BREAKPOINT 3.1: Stake validation failed - minimum 0.35');
+      setError('Minimum stake is 0.35 USD');
+      return;
+    }
+
+    // Check account details if available
+    if (client) {
+      const accountType = client?.is_virtual ? 'Demo' : 'Real';
+      console.log(`📊 BREAKPOINT 3.2: Account type: ${accountType}`);
+
+      if (client?.balance !== undefined) {
+        const balance = parseFloat(client.balance);
+        console.log(`💰 BREAKPOINT 3.3: Account balance: ${balance} ${client.currency || 'USD'}`);
+
+        if (balance < stake) {
+          console.log('❌ BREAKPOINT 3.4: Insufficient balance');
+          setError(`Insufficient balance. Current: ${balance} ${client.currency || 'USD'}, Required: ${stake}`);
+          return;
+        }
+      }
+    }
+
+    try {
+      console.log('🔧 BREAKPOINT 4: Setting up trading state...');
+      
+      // Don't disconnect WebSocket - keep it alive
+      console.log('🔍 BREAKPOINT 4.1: Maintaining existing WebSocket connection');
+      
+      setCurrentStake(stake);
+      setIsTrading(true);
+      setIsExecutingTrade(false);
+
+      console.log('🤖 BREAKPOINT 5: Starting Speed Bot in hybrid mode using bot engine...');
+      console.log(`📊 BREAKPOINT 6: Configuration: ${selectedContractType} on ${selectedSymbol} with stake ${stake}`);
+
+      // Initialize bot engine
+      console.log('🔧 BREAKPOINT 7: Calling initializeBotEngine...');
+      await initializeBotEngine();
+      console.log('✅ BREAKPOINT 8: Bot engine initialization completed');
+
+      console.log('✅ BREAKPOINT 9: Speed Bot hybrid trading started successfully');
+
+      // Start the trading loop
+      console.log('⏰ BREAKPOINT 10: Setting timeout for trading loop...');
+      setTimeout(() => {
+        console.log('🔄 BREAKPOINT 11: Timeout triggered, checking if still trading:', isTrading);
+        if (isTrading) {
+          console.log('🚀 BREAKPOINT 12: Calling executeTradingLoop...');
+          executeTradingLoop();
+        } else {
+          console.log('🛑 BREAKPOINT 13: Not trading anymore, skipping loop');
+        }
+      }, 1000);
+
+    } catch (error) {
+      console.error('❌ BREAKPOINT 14: Error starting Speed Bot hybrid mode:', error);
+      console.error('❌ BREAKPOINT 14.1: Error details:', error.message, error.stack);
+      setError(`Failed to start Speed Bot: ${error.message}`);
+      setIsTrading(false);
+      setIsUsingBotEngine(false);
+    }
+  };
+
+  // Trading loop for continuous trading
+  const executeTradingLoop = useCallback(async () => {
+    console.log('🔄 BREAKPOINT 14: executeTradingLoop called');
+    console.log('🔍 BREAKPOINT 15: Current state - isTrading:', isTrading, 'isUsingBotEngine:', isUsingBotEngine);
+    
+    if (!isTrading || !isUsingBotEngine) {
+      console.log('🛑 BREAKPOINT 16: Trading loop stopped - not trading or bot engine not available');
+      console.log('  - isTrading:', isTrading);
+      console.log('  - isUsingBotEngine:', isUsingBotEngine);
+      return;
+    }
+
+    try {
+      console.log('🔄 BREAKPOINT 17: Executing trading loop...');
+
+      // Check if we have sufficient balance before trading
+      if (client?.balance !== undefined) {
+        const balance = parseFloat(client.balance);
+        console.log('💰 BREAKPOINT 18: Balance check - balance:', balance, 'currentStake:', currentStake);
+        if (balance < currentStake) {
+          console.log('❌ BREAKPOINT 19: Insufficient balance, stopping trading');
+          setError(`Insufficient balance: ${balance} ${client.currency || 'USD'}`);
+          setIsTrading(false);
+          return;
+        }
+      } else {
+        console.log('⚠️ BREAKPOINT 20: No balance information available');
+      }
+
+      // Execute a single trade
+      console.log('🚀 BREAKPOINT 21: Calling executeBotTrade...');
+      await executeBotTrade();
+      console.log('✅ BREAKPOINT 22: executeBotTrade completed');
+
+      // Wait before next trade (2-5 seconds interval)
+      const nextTradeDelay = Math.random() * 3000 + 2000; // 2-5 seconds
+      console.log(`⏱️ BREAKPOINT 23: Next trade in ${(nextTradeDelay / 1000).toFixed(1)} seconds`);
+
+      setTimeout(() => {
+        console.log('⏰ BREAKPOINT 24: Next trade timeout triggered, checking if still trading:', isTrading);
+        if (isTrading) {
+          console.log('🔄 BREAKPOINT 25: Recursively calling executeTradingLoop');
+          executeTradingLoop();
+        } else {
+          console.log('🛑 BREAKPOINT 26: Not trading anymore, stopping loop');
+        }
+      }, nextTradeDelay);
+
+    } catch (error) {
+      console.error('❌ Trading loop error:', error);
+
+      // Retry after error with longer delay
+      setTimeout(() => {
+        if (isTrading) {
+          console.log('🔄 Retrying trading loop after error...');
+          executeTradingLoop();
+        }
+      }, 5000);
+    }
+  }, [isTrading, isUsingBotEngine, currentStake, client, executeBotTrade]);
+
+  const stopTrading = async () => {
+    try {
+      setIsTrading(false);
+      setProposalId(null);
+
+      // Stop bot engine if using hybrid mode
+      if (isUsingBotEngine && tradeEngine) {
+        console.log('🛑 Stopping bot engine...');
+        await tradeEngine.stop();
+        setIsUsingBotEngine(false);
+        setTradeEngine(null);
+        setBotInterface(null);
+      }
+
+      console.log('🛑 Speed Bot trading stopped');
+    } catch (error) {
+      console.error('Error stopping Speed Bot:', error);
+      setError(`Error stopping Speed Bot: ${error.message}`);
+      setIsTrading(false);
+      setIsUsingBotEngine(false);
+    }
+  };
 
   const resetStats = () => {
     setTradeHistory([]);
@@ -1696,19 +1074,17 @@ const SpeedBot: React.FC = observer(() => {
     setWins(0);
     setLosses(0);
     setCurrentStake(stake);
-    setTotalProfitLoss(0);
     setError(null);
-    setActiveContracts(new Map());
-    
-    // Reset martingale state
-    setLastConfirmedTradeResult(null);
-    setConsecutiveLossStreak(0);
-    setBaseStake(stake);
-    console.log(`🔄 All stats and martingale state reset`);
   };
 
   useEffect(() => {
-    connectToAPI();
+    try {
+      connectToAPI();
+    } catch (error) {
+      console.error('Error in connectToAPI:', error);
+      setError('Failed to initialize connection');
+    }
+
     return () => {
       if (websocket) {
         websocket.close();
@@ -1716,265 +1092,28 @@ const SpeedBot: React.FC = observer(() => {
     };
   }, [connectToAPI]);
 
-  // Resubscribe to ticks when symbol changes
   useEffect(() => {
-    if (websocket && websocket.readyState === WebSocket.OPEN && isAuthorized) {
-      try {
-        console.log(`🔄 Symbol changed to ${selectedSymbol}, managing subscriptions...`);
-
-        // Check if we're already subscribed to this symbol
-        if (activeSubscriptions.has(selectedSymbol)) {
-          console.log(`📊 Already subscribed to ${selectedSymbol} - skipping`);
-          return;
-        }
-
-        // Rate limit symbol changes to prevent overwhelming the API
-        const now = Date.now();
-        if (now - lastForgetAllTime < 3000) { // 3 second minimum between symbol changes
-          console.log('⏳ Rate limiting symbol change - too soon since last change');
-          return;
-        }
-
-        // If we have other subscriptions, clear them first (with rate limiting)
-        if (activeSubscriptions.size > 0 && !activeSubscriptions.has(selectedSymbol)) {
-          console.log('🔄 Clearing existing subscriptions before subscribing to new symbol...');
-
-          // Use forget_all with rate limiting
-          unsubscribeAll(websocket);
-
-          // Wait longer before subscribing to new symbol
-          setTimeout(() => {
-            if (websocket.readyState === WebSocket.OPEN) {
-              const liveTickRequest = {
-                ticks: selectedSymbol,
-                subscribe: 1,
-                req_id: Date.now()
-              };
-              websocket.send(JSON.stringify(liveTickRequest));
-              console.log(`📊 Live tick subscription updated for ${selectedSymbol}`);
-              setActiveSubscriptions(new Set([selectedSymbol]));
-            }
-          }, 2000); // Increased delay
-        } else {
-          // No existing subscriptions or already subscribed, subscribe directly
-          const liveTickRequest = {
-            ticks: selectedSymbol,
-            subscribe: 1,
-            req_id: Date.now()
-          };
-          websocket.send(JSON.stringify(liveTickRequest));
-          console.log(`📊 Live tick subscription updated for ${selectedSymbol}`);
-          setActiveSubscriptions(prev => new Set(prev).add(selectedSymbol));
-        }
-      } catch (error) {
-        console.error('❌ Error resubscribing to ticks:', error);
-      }
-    }
-  }, [selectedSymbol, websocket, isAuthorized, unsubscribeAll, lastForgetAllTime]);
-
-  useEffect(() => {
-    setBaseStake(stake);
     setCurrentStake(stake);
-    // Reset martingale state when base stake changes
-    setConsecutiveLossStreak(0);
-    setLastConfirmedTradeResult(null);
-    console.log(`💰 Base stake updated to $${stake}, martingale state reset`);
   }, [stake]);
 
+  // Set up hybrid bot event handling when trading starts
   useEffect(() => {
-    if (client?.balance !== undefined) {
-      const newBalance = parseFloat(client.balance);
-      console.log('💰 Balance updated from client store:', newBalance);
-      setBalance(newBalance);
+    if (isTrading && isUsingBotEngine) {
+      const cleanup = handleBotEngineEvents();
+      return cleanup;
     }
-  }, [client?.balance]);
+  }, [isTrading, isUsingBotEngine, handleBotEngineEvents]);
 
-  // Additional balance update from WebSocket
+  // Start trading loop when bot engine is ready
   useEffect(() => {
-    if (balance > 0) {
-      console.log('💰 Balance available:', balance, 'USD');
-      setError(null); // Clear any balance-related errors
+    if (isTrading && isUsingBotEngine && tradeEngine && !isExecutingTrade) {
+      const timer = setTimeout(() => {
+        executeTradingLoop();
+      }, 2000); // Start after 2 seconds
+
+      return () => clearTimeout(timer);
     }
-  }, [balance]);
-
-  // Add missing state variables
-  const [apiToken, setApiToken] = useState('');
-  const [connectionStatus, setConnectionStatus] = useState('Disconnected');
-  const [totalRuns, setTotalRuns] = useState(0);
-  const [winCount, setWinCount] = useState(0);
-  const [lossCount, setLossCount] = useState(0);
-  const [totalProfit, setTotalProfit] = useState(0);
-  const [consecutiveLosses, setConsecutiveLosses] = useState(0);
-  const [lastTick, setLastTick] = useState(null);
-
-  // Monitor connection status
-  useEffect(() => {
-    const checkConnection = () => {
-      if (speedBotTradeEngine.isEngineConnected()) {
-        setConnectionStatus(isAuthorized ? 'Connected & Authorized' : 'Connected');
-      } else {
-        setConnectionStatus('Disconnected');
-        setIsAuthorized(false);
-      }
-    };
-
-    const interval = setInterval(checkConnection, 1000);
-    return () => clearInterval(interval);
-  }, [isAuthorized]);
-
-  // Authorization handler
-  const handleAuthorization = async () => {
-    if (!apiToken.trim()) {
-      alert('Please enter your API token');
-      return;
-    }
-
-    try {
-      await speedBotTradeEngine.authorize(apiToken);
-      setIsAuthorized(true);
-      console.log('Successfully authorized');
-    } catch (error) {
-      console.error('Authorization failed:', error);
-      alert('Authorization failed: ' + error.message);
-      setIsAuthorized(false);
-    }
-  };
-
-  // Monitor trade engine stats
-  useEffect(() => {
-    const updateStats = () => {
-      if (speedBotTradeEngine.isEngineConnected()) {
-        const engineStats = {
-          totalRuns: speedBotTradeEngine.getTotalRuns(),
-          totalProfit: speedBotTradeEngine.getTotalProfit(),
-          consecutiveLosses: speedBotTradeEngine.getConsecutiveLosses(),
-          lastTradeProfit: speedBotTradeEngine.getLastTradeProfit()
-        };
-
-        setTotalRuns(engineStats.totalRuns);
-        setTotalProfit(engineStats.totalProfit);
-        setConsecutiveLosses(engineStats.consecutiveLosses);
-
-        // Update win/loss counts based on last trade
-        if (engineStats.lastTradeProfit > 0) {
-          setWinCount(prev => Math.max(prev, engineStats.totalRuns - speedBotTradeEngine.getConsecutiveLosses()));
-        } else if (engineStats.lastTradeProfit < 0) {
-          setLossCount(prev => Math.max(prev, engineStats.consecutiveLosses));
-        }
-
-        // Check stop conditions
-        if (engineStats.totalProfit <= -stopLoss) {
-          console.log('Stop loss reached');
-          stopTrading();
-        }
-
-        if (engineStats.totalProfit >= takeProfit) {
-          console.log('Take profit reached');
-          stopTrading();
-        }
-      }
-    };
-
-    const interval = setInterval(updateStats, 1000);
-    return () => clearInterval(interval);
-  }, [stopLoss, takeProfit]);
-
-  const executeTrade = useCallback(async () => {
-    if (!isTrading || !lastTick) return;
-
-    try {
-      setIsExecutingTrade(true);
-
-      // Calculate current stake with martingale if enabled
-      let currentStake = stake;
-      if (useMartingale && consecutiveLosses > 0) {
-        currentStake = stake * Math.pow(martingaleMultiplier, consecutiveLosses);
-      }
-
-      // Determine contract type and parameters based on strategy
-      let contractType = selectedContractType;
-      let prediction;
-      let barrier;
-
-      if (contractType === 'DIGITEVEN' || contractType === 'DIGITODD') {
-        // For even/odd, determine prediction from contract type
-        prediction = contractType === 'DIGITEVEN' ? 0 : 1; // 0 for even, 1 for odd
-
-        if (alternateOnLoss && consecutiveLosses > 0) {
-          // Alternate contract type on loss
-          contractType = contractType === 'DIGITEVEN' ? 'DIGITODD' : 'DIGITEVEN';
-          prediction = contractType === 'DIGITEVEN' ? 0 : 1;
-        }
-      } else if (contractType === 'CALL' || contractType === 'PUT') {
-        // For over/under, use barrier
-        barrier = overUnderValue.toString();
-
-        if (alternateOnLoss && consecutiveLosses > 0) {
-          // Alternate contract type on loss
-          contractType = contractType === 'CALL' ? 'PUT' : 'CALL';
-        }
-      }
-
-      console.log('Executing trade:', {
-        contractType,
-        stake: currentStake,
-        symbol: selectedSymbol,
-        barrier,
-        prediction
-      });
-
-      // Execute actual trade using the trade engine
-      const tradeOptions = {
-        symbol: selectedSymbol,
-        contract_type: contractType,
-        amount: currentStake,
-        currency: 'USD', // You may want to make this configurable
-        duration: 1,
-        duration_unit: 't', // 1 tick
-        ...(barrier && { barrier }),
-        ...(prediction !== undefined && { prediction })
-      };
-
-      const tradeResult = await speedBotTradeEngine.executeTrade(tradeOptions);
-
-      console.log('Trade executed successfully:', tradeResult);
-
-      // The contract result will be handled by the trade engine's contract update handler
-      // We'll update stats when the contract is settled
-
-    } catch (error) {
-      console.error('Trade execution error:', error);
-      // On error, still count as a loss for martingale purposes
-      setConsecutiveLosses(prev => prev + 1);
-      setLossCount(prev => prev + 1);
-      setTotalRuns(prev => prev + 1);
-    } finally {
-      setIsExecutingTrade(false);
-    }
-  }, [
-    isTrading, 
-    lastTick, 
-    stake, 
-    selectedContractType, 
-    overUnderValue,
-    useMartingale, 
-    martingaleMultiplier, 
-    consecutiveLosses,
-    alternateOnLoss,
-    selectedSymbol
-  ]);
-
-  // Auto trading effect
-  useEffect(() => {
-    if (isTrading && isTradeEveryTick && lastTick && !isExecutingTrade) {
-      const tradeTimer = setTimeout(() => {
-        executeTrade();
-      }, 1000); // Wait 1 second between trades
-
-      return () => clearTimeout(tradeTimer);
-    }
-  }, [isTrading, isTradeEveryTick, lastTick, isExecutingTrade, executeTrade]);
-
+  }, [isTrading, isUsingBotEngine, tradeEngine, isExecutingTrade, executeTradingLoop]);
 
   const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
 
@@ -1992,52 +1131,17 @@ const SpeedBot: React.FC = observer(() => {
       </div>
 
       <div className="speed-bot__subtitle">
-        DIRECT WEBSOCKET MODE
+        HYBRID BOT ENGINE MODE
       </div>
 
       <div className="speed-bot__description">
-        <strong>Engine Used:</strong> {isDirectTrading ? 'Direct WebSocket API' : 'WebSocket Connection'}
+        <strong>Engine Used:</strong> {isUsingBotEngine ? 'Bot Builder TradeEngine' : 'Direct WebSocket API'}
         <br />
-        Uses direct WebSocket connection to Deriv API for fast trade execution.
+        Uses the bot builder engine for reliable trade execution with Speed Bot configuration.
         <br />
         <strong>This uses real money!</strong>
-        {isDirectTrading && <span style={{ color: 'green' }}> 🌐 Direct Trading Active</span>}
-        {!isDirectTrading && isTrading && <span style={{ color: 'orange' }}> 🔄 Initializing Direct Trading...</span>}
-
-        {/* Trade Every Tick Information Panel */}
-        {isTradeEveryTick && (
-          <div style={{ 
-            marginTop: '10px', 
-            padding: '10px', 
-            backgroundColor: '#e8f5e8', 
-            border: '1px solid #4caf50', 
-            borderRadius: '4px' 
-          }}>
-            <strong>🚀 TRADE EVERY TICK MODE ACTIVE</strong>
-            <br />
-            <small>
-              • Market: {volatilitySymbols.find(s => s.value === selectedSymbol)?.label || selectedSymbol}
-              <br />
-              • Prediction: {contractTypes.find(c => c.value === selectedContractType)?.label || selectedContractType}
-              {['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType) && 
-                ` (${overUnderValue})`
-              }
-              {['DIGITEVEN', 'DIGITODD'].includes(selectedContractType) && 
-                ' (No barrier required)'
-              }
-              <br />
-              • Stake: ${currentStake.toFixed(2)} USD
-              <br />
-              • Take Profit: ${takeProfit.toFixed(2)} USD | Stop Loss: ${stopLoss.toFixed(2)} USD
-              <br />
-              • Martingale: {useMartingale ? `Enabled (${martingaleMultiplier}x)` : 'Disabled'}
-              <br />
-              • Alternate on Loss: {alternateOnLoss ? 'Enabled' : 'Disabled'}
-              <br />
-              <strong>⚡ Trades on EVERY tick without waiting for previous trades to close</strong>
-            </small>
-          </div>
-        )}
+        {isUsingBotEngine && <span style={{ color: 'green' }}> 🤖 Bot Engine Active</span>}
+        {!isUsingBotEngine && isTrading && <span style={{ color: 'orange' }}> 🔄 Initializing Bot Engine...</span>}
       </div>
 
       {error && (
@@ -2065,50 +1169,30 @@ const SpeedBot: React.FC = observer(() => {
         </div>
       )}
 
-       <div className="speed-bot__authorization">
-          <h3>API Authorization</h3>
-          <div className="speed-bot__auth-status">
-            <span className={`speed-bot__status ${connectionStatus.includes('Connected') ? 'connected' : 'disconnected'}`}>
-              Status: {connectionStatus}
-            </span>
-          </div>
-          <div className="speed-bot__form-row">
-            <div className="speed-bot__form-group">
-              <label>API Token</label>
-              <input
-                type="password"
-                value={apiToken}
-                onChange={(e) => setApiToken(e.target.value)}
-                placeholder="Enter your Deriv API token"
-                disabled={isAuthorized}
-              />
-            </div>
-            <button
-              className={`speed-bot__auth-btn ${isAuthorized ? 'authorized' : ''}`}
-              onClick={handleAuthorization}
-              disabled={isAuthorized || !speedBotTradeEngine.isEngineConnected()}
-            >
-              {isAuthorized ? 'Authorized' : 'Authorize'}
-            </button>
-          </div>
+      {isConnected && !isAuthorized && client?.is_logged_in && (
+        <div className="speed-bot__auth-warning">
+          <p style={{ color: 'blue', padding: '10px', backgroundColor: '#d1ecf1', borderRadius: '4px', margin: '10px 0' }}>
+            <strong>🔐 Authorizing:</strong> Please wait while we authorize your connection...
+          </p>
         </div>
+      )}
 
-        <div className="speed-bot__controls">
-          <div className="speed-bot__form-row">
-            <div className="speed-bot__form-group">
-              <label>Symbol</label>
-              <select
-                value={selectedSymbol}
-                onChange={(e) => setSelectedSymbol(e.target.value)}
-                disabled={isTrading}
-              >
-                <option value="R_10">Volatility 10 Index</option>
-                <option value="R_25">Volatility 25 Index</option>
-                <option value="R_50">Volatility 50 Index</option>
-                <option value="R_75">Volatility 75 Index</option>
-                <option value="R_100">Volatility 100 Index</option>
-              </select>
-            </div>
+      <div className="speed-bot__form">
+        <div className="speed-bot__form-row">
+          <div className="speed-bot__form-group">
+            <label>Symbol</label>
+            <select 
+              value={selectedSymbol} 
+              onChange={(e) => setSelectedSymbol(e.target.value)}
+              disabled={isTrading}
+            >
+              {volatilitySymbols.map(symbol => (
+                <option key={symbol.value} value={symbol.value}>
+                  {symbol.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="speed-bot__form-group">
             <label>Contract Type</label>
             <select 
@@ -2148,61 +1232,34 @@ const SpeedBot: React.FC = observer(() => {
             </label>
             <input
               type="number"
-              value={['DIGITEVEN', 'DIGITODD'].includes(selectedContractType) ? '' : overUnderValue}
+              value={overUnderValue}
               onChange={(e) => setOverUnderValue(parseInt(e.target.value))}
               min="0"
               max="9"
               disabled={isTrading || ['DIGITEVEN', 'DIGITODD'].includes(selectedContractType)}
-              placeholder={['DIGITEVEN', 'DIGITODD'].includes(selectedContractType) ? 'Not Required' : '0-9'}
-              style={{
-                backgroundColor: ['DIGITEVEN', 'DIGITODD'].includes(selectedContractType) ? '#f5f5f5' : 'white',
-                cursor: ['DIGITEVEN', 'DIGITODD'].includes(selectedContractType) ? 'not-allowed' : 'text'
-              }}
+              placeholder={['DIGITEVEN', 'DIGITODD'].includes(selectedContractType) ? 'N/A' : '0-9'}
             />
           </div>
         </div>
 
         <div className="speed-bot__form-row">
           <div className="speed-bot__form-group">
-            <label>Take Profit ($)</label>
-            <input
-              type="number"
-              value={takeProfit}
-              onChange={(e) => setTakeProfit(parseFloat(e.target.value))}
-              min="1"
-              step="0.01"
-              disabled={isTrading}
-            />
+            <label>Ticks</label>
+            <input type="number" value="1" readOnly />
           </div>
           <div className="speed-bot__form-group">
-            <label>Stop Loss ($)</label>
-            <input
-              type="number"
-              value={stopLoss}
-              onChange={(e) => setStopLoss(parseFloat(e.target.value))}
-              min="1"
-              step="0.01"
-              disabled={isTrading}
-            />
+            <label>Duration</label>
+            <input type="number" value="1" readOnly />
           </div>
         </div>
 
         <div className="speed-bot__toggles">
           <div className="speed-bot__toggle-row">
-            <label>Trade Every Tick</label>
+            <label>Alternate Over and Under</label>
             <input
               type="checkbox"
-              checked={isTradeEveryTick}
-              onChange={(e) => setIsTradeEveryTick(e.target.checked)}
-              disabled={isTrading}
-            />
-          </div>
-          <div className="speed-bot__toggle-row">
-            <label>Use Martingale</label>
-            <input
-              type="checkbox"
-              checked={useMartingale}
-              onChange={(e) => setUseMartingale(e.target.checked)}
+              checked={alternateOverUnder}
+              onChange={(e) => setAlternateOverUnder(e.target.checked)}
               disabled={isTrading}
             />
           </div>
@@ -2215,11 +1272,20 @@ const SpeedBot: React.FC = observer(() => {
               disabled={isTrading}
             />
           </div>
+          <div className="speed-bot__toggle-row">
+            <label>Use Martingale</label>
+            <input
+              type="checkbox"
+              checked={useMartingale}
+              onChange={(e) => setUseMartingale(e.target.checked)}
+              disabled={isTrading}
+            />
+          </div>
         </div>
 
         <div className="speed-bot__form-row">
           <div className="speed-bot__form-group">
-            <label>Martingale Factor</label>
+            <label>Martingale</label>
             <input
               type="number"
               value={martingaleMultiplier}
@@ -2229,17 +1295,29 @@ const SpeedBot: React.FC = observer(() => {
               disabled={isTrading || !useMartingale}
             />
           </div>
+          <div className="speed-bot__form-group">
+            <label>Run Profit %</label>
+            <input type="number" defaultValue="2" />
+          </div>
         </div>
 
         <div className="speed-bot__control-buttons">
-          <button
-            className={`speed-bot__main-btn ${isTrading ? 'stop' : 'start'}`}
-            onClick={isTrading ? stopTrading : startTrading}
-            disabled={isExecutingTrade || !isAuthorized}
-            title={!isAuthorized ? 'Please authorize with API token first' : ''}
-          >
-            {isTrading ? 'Stop Trading' : 'Start Trading'}
-          </button>
+          {!isTrading ? (
+            <button 
+              className="speed-bot__start-btn"
+              onClick={startTrading}
+              disabled={!!error || !client?.is_logged_in}
+            >
+              START HYBRID TRADING
+            </button>
+          ) : (
+            <button 
+              className="speed-bot__stop-btn"
+              onClick={stopTrading}
+            >
+              STOP TRADING
+            </button>
+          )}
           <button 
             className="speed-bot__reset-btn"
             onClick={resetStats}
@@ -2247,125 +1325,7 @@ const SpeedBot: React.FC = observer(() => {
           >
             Reset Stats
           </button>
-          {isAuthorized && (
-            <button 
-              className="speed-bot__test-btn"
-              onClick={() => {
-                console.log('🧪 Manual proposal test triggered');
-                setError(null);
-                setLastTradeTime(0); // Reset rate limit
-                getPriceProposal();
-              }}
-              disabled={isExecutingTrade || isRequestingProposal}
-              style={{ backgroundColor: '#007cba', color: 'white', marginLeft: '10px' }}
-            >
-              {isRequestingProposal ? 'Requesting...' : 'Test Trade Now'}
-            </button>
-          )}
-          {isTrading && (
-            <button 
-              className="speed-bot__force-trade-btn"
-              onClick={() => {
-                console.log('🚀 Force trade triggered - bypassing all conditions');
-                setError(null);
-                setLastTradeTime(0); // Reset rate limit
-                if (!isExecutingTrade && !isRequestingProposal && !proposalId) {
-                  console.log('💥 FORCE EXECUTING TRADE NOW!');
-                  getPriceProposal();
-                } else {
-                  console.log('⚠️ Cannot force trade - clearing states and retrying...');
-                  setIsExecutingTrade(false);
-                  setIsRequestingProposal(false);
-                  setProposalId(null);
-                  setTimeout(() => getPriceProposal(), 100);
-                }
-              }}
-              style={{ backgroundColor: '#ff6b35', color: 'white', marginLeft: '10px' }}
-            >
-              Force Trade
-            </button>
-          )}
-          {proposalId && !isExecutingTrade && (
-            <button 
-              className="speed-bot__force-execute-btn"
-              onClick={() => {
-                console.log('⚡ Force executing with existing proposal:', proposalId);
-                const approximatePrice = currentStake;
-                buyContract(proposalId, approximatePrice);
-              }}
-              style={{ backgroundColor: '#28a745', color: 'white', marginLeft: '10px' }}
-            >
-              Execute Now
-            </button>
-          )}
-          {isConnected && !isAuthorized && (
-            <button 
-              className="speed-bot__reconnect-btn"
-              onClick={connectToAPI}
-              style={{ backgroundColor: '#ff6b35', color: 'white', marginLeft: '10px' }}
-            >
-              Reconnect & Auth
-            </button>
-          )}
-          <button 
-            className="speed-bot__verify-btn"
-            onClick={verifyTradeExecution}
-            style={{ backgroundColor: '#9c27b0', color: 'white', marginLeft: '10px' }}
-          >
-            Verify Setup
-          </button>
-          {isAuthorized && (isRequestingProposal || isExecutingTrade) && (
-            <button 
-              className="speed-bot__force-restart-btn"
-              onClick={() => {
-                console.log('🔄 Force restarting bot states...');
-                setIsRequestingProposal(false);
-                setIsExecutingTrade(false);
-                setProposalId(null);
-                setError(null);
-                if (isTrading) {
-                  setTimeout(() => {
-                    getPriceProposal();
-                  }, 500);
-                }
-              }}
-              style={{ backgroundColor: '#e74c3c', color: 'white', marginLeft: '10px' }}
-            >
-              Force Restart
-            </button>
-          )}
         </div>
-
-        {/* Active Contracts Section */}
-        {activeContracts.size > 0 && (
-          <div className="speed-bot__active-contracts">
-            <h3>Active Contracts ({activeContracts.size})</h3>
-            <div className="speed-bot__contracts-list">
-              {Array.from(activeContracts.entries()).map(([contractId, contract]) => (
-                <div key={contractId} className="speed-bot__contract-item">
-                  <div className="speed-bot__contract-info">
-                    <span className="speed-bot__contract-id">
-                      {contractId.substring(0, 8)}...
-                    </span>
-                    <span className="speed-bot__contract-symbol">
-                      {contract.symbol} - {contract.contractType}
-                    </span>
-                    <span className="speed-bot__contract-profit">
-                      Profit: {contract.currentProfit ? `$${contract.currentProfit.toFixed(2)}` : 'Calculating...'}
-                    </span>
-                  </div>
-                  <button 
-                    className="speed-bot__sell-btn"
-                    onClick={() => sellContract(contractId)}
-                    disabled={!isAuthorized}
-                  >
-                    Sell Now
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="speed-bot__stats">
@@ -2386,15 +1346,15 @@ const SpeedBot: React.FC = observer(() => {
           </div>
           <div className="speed-bot__stat">
             <label>Balance</label>
-            <span>{client?.currency || 'USD'} {balance.toFixed(2)}</span>
+            <span>{client?.currency || 'USD'} {client?.balance ? parseFloat(client.balance).toFixed(2) : '0.00'}</span>
           </div>
           <div className="speed-bot__stat">
             <label>Auth Status</label>
             <span>{isAuthorized ? '✅ Authorized' : '❌ Not Authorized'}</span>
           </div>
           <div className="speed-bot__stat">
-            <label>Direct Trading</label>
-            <span>{isDirectTrading ? '🌐 Active' : '❌ Inactive'}</span>
+            <label>Bot Engine</label>
+            <span>{isUsingBotEngine ? '🤖 Active' : '❌ Inactive'}</span>
           </div>
           <div className="speed-bot__stat">
             <label>Total Trades</label>
@@ -2404,124 +1364,14 @@ const SpeedBot: React.FC = observer(() => {
             <label>Win Rate</label>
             <span>{winRate}%</span>
           </div>
-          <div className="speed-bot__stat">
-            <label>Total P/L</label>
-            <span style={{ color: totalProfitLoss >= 0 ? 'green' : 'red' }}>
-              ${totalProfitLoss.toFixed(2)}
-            </span>
-          </div>
-          <div className="speed-bot__stat">
-            <label>Take Profit</label>
-            <span>${takeProfit.toFixed(2)}</span>
-          </div>
-          <div className="speed-bot__stat">
-            <label>Stop Loss</label>
-            <span>-${stopLoss.toFixed(2)}</span>
-          </div>
-          <div className="speed-bot__stat">
-            <label>Trade Mode</label>
-            <span>{isTradeEveryTick ? '🔥 Every Tick' : '🎯 Condition'}</span>
-          </div>
-          <div className="speed-bot__stat">
-            <label>Execution State</label>
-            <span>{isExecutingTrade ? '🔄 Executing' : '✅ Ready'}</span>
-          </div>
-          <div className="speed-bot__stat">
-            <label>Config Valid</label>
-            <span>{isValidCombination ? '✅ Valid' : '❌ Invalid'}</span>
-          </div>
-          <div className="speed-bot__stat">
-            <label>Active Contracts</label>
-            <span>{activeContracts.size}</span>
-          </div>
-          <div className="speed-bot__stat">
-            <label>Consecutive Losses</label>
-            <span>{consecutiveLossStreak}</span>
-          </div>
-          <div className="speed-bot__stat">
-            <label>Last Trade Result</label>
-            <span>{lastConfirmedTradeResult ? (lastConfirmedTradeResult === 'win' ? '🟢 Win' : '🔴 Loss') : '⚪ None'}</span>
-          </div>
         </div>
-
-        {/* Enhanced Debug Information Panel */}
-        {(isTrading || isConnected) && (
-          <div className="speed-bot__debug" style={{ 
-            background: isTrading ? '#e8f5e8' : '#f0f0f0', 
-            padding: '15px', 
-            margin: '10px 0', 
-            borderRadius: '8px',
-            fontSize: '12px',
-            fontFamily: 'monospace',
-            border: isTrading ? '2px solid #4caf50' : '1px solid #ccc'
-          }}>
-            <h4 style={{ margin: '0 0 10px 0', color: isTrading ? '#2e7d32' : '#333' }}>
-              🔍 Real-Time Trade Monitor {isTrading ? '(ACTIVE)' : '(STANDBY)'}
-            </h4>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-              <div>
-                <strong>🔗 Connection Status:</strong>
-                <br />WebSocket: {websocket?.readyState === 1 ? '✅ Connected' : '❌ Disconnected'}
-                <br />Authorized: {isAuthorized ? '✅ Yes' : '❌ No'}
-                <br />Token Available: {getAuthToken() ? '✅ Yes' : '❌ No'}
-
-                <br /><br /><strong>🎯 Trading Status:</strong>
-                <br />Mode: {isTradeEveryTick ? '🔥 Every Tick' : '🎯 Condition-Based'}
-                <br />Executing: {isExecutingTrade ? '⚡ YES' : '✅ Ready'}
-                <br />Requesting Proposal: {isRequestingProposal ? '⏳ YES' : '✅ Ready'}
-                <br />Proposal ID: {proposalId ? '✅ Ready' : '❌ None'}
-              </div>
-
-              <div>
-                <strong>📊 Current Trade Config:</strong>
-                <br />Symbol: {selectedSymbol}
-                <br />Contract: {selectedContractType}
-                <br />Stake: ${currentStake}
-                <br />Price: {currentPrice} (Last digit: {currentPrice.slice(-1)})
-                <br />Barrier: {overUnderValue}
-
-                <br /><br /><strong>📈 Performance:</strong>
-                <br />Total Trades: {totalTrades}
-                <br />Active Contracts: {activeContracts.size}
-                <br />Total P/L: ${totalProfitLoss.toFixed(2)}
-                <br />Win Rate: {winRate}%
-              </div>
-            </div>
-
-            <div style={{ 
-              marginTop: '15px', 
-              padding: '10px', 
-              backgroundColor: isTrading ? '#c8e6c9' : '#e3f2fd', 
-              borderRadius: '4px',
-              borderLeft: `4px solid ${isTrading ? '#4caf50' : '#2196f3'}`
-            }}>
-              <strong>🔧 Trade Execution Monitor:</strong>
-              <br />Last Trade: {lastTradeTime ? new Date(lastTradeTime).toLocaleTimeString() : 'Never'}
-              <br />Time Since: {lastTradeTime ? `${Math.floor((Date.now() - lastTradeTime) / 1000)}s ago` : 'N/A'}
-              <br />Config Valid: {isValidCombination ? '✅ Valid' : '❌ Invalid - Check settings'}
-              <br />Balance: ${balance.toFixed(2)} {client?.currency || 'USD'}
-              {error && (
-                <>
-                  <br /><span style={{ color: 'red' }}>⚠️ Error: {error}</span>
-                </>
-              )}
-            </div>
-
-            <div style={{ marginTop: '10px', textAlign: 'center' }}>
-              <small style={{ color: '#666' }}>
-                {isTrading ? '🟢 Bot is actively monitoring for trade opportunities' : '🔴 Bot is stopped'}
-              </small>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="speed-bot__history">
         <h3>Recent Trades & Transactions</h3>
         <div className="speed-bot__trades">
           {tradeHistory.length === 0 ? (
-            <div className="speed-bot__no-trades">No trades yet - Start trading to see transactions</div>
+            <div className="speed-bot__no-trades">No trades yet - Start trading to see buy transactions</div>
           ) : (
             tradeHistory.map((trade) => (
               <div key={trade.id} className={`speed-bot__trade ${trade.result}`}>
@@ -2544,7 +1394,7 @@ const SpeedBot: React.FC = observer(() => {
                 </div>
                 {trade.result === 'pending' && (
                   <div className="speed-bot__trade-pending">
-                    🔄 Processing transaction...
+                    🔄 Processing buy transaction...
                   </div>
                 )}
               </div>
@@ -2554,18 +1404,6 @@ const SpeedBot: React.FC = observer(() => {
       </div>
     </div>
   );
-  } catch (error) {
-    console.error('Speed Bot error:', error);
-    return (
-      <div className="speed-bot">
-        <div className="speed-bot__error">
-          <h3>Speed Bot Error</h3>
-          <p>An error occurred while loading the Speed Bot. Please refresh the page and try again.</p>
-          <p style={{ color: 'red', fontSize: '12px' }}>Error: {error.message}</p>
-        </div>
-      </div>
-    );
-  }
 });
 
 export default SpeedBot;

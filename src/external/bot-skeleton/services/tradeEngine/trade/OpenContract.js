@@ -6,77 +6,42 @@ import { openContractReceived, sell } from './state/actions';
 export default Engine =>
     class OpenContract extends Engine {
         observeOpenContract() {
-            this.observer.register('proposal.open_contract', this.handleOpenContract.bind(this));
-            this.observer.register('contract.status', this.handleContractStatus.bind(this));
-        }
+            if (!api_base.api) return;
+            const subscription = api_base.api.onMessage().subscribe(({ data }) => {
+                if (data.msg_type === 'proposal_open_contract') {
+                    const contract = data.proposal_open_contract;
 
-        handleOpenContract(proposal) {
-            if (!proposal.open_contract) {
-                return;
-            }
+                    if (!contract || !this.expectedContractId(contract?.contract_id)) {
+                        return;
+                    }
 
-            const { open_contract } = proposal;
-            this.data.contract = open_contract;
+                    this.setContractFlags(contract);
 
-            // Check if contract is already sold
-            if (open_contract.is_sold) {
-                this.observer.emit('contract.status', {
-                    id: 'contract.sold',
-                    data: open_contract,
-                });
-                return;
-            }
+                    this.data.contract = contract;
 
-            // Monitor contract status
-            this.observer.emit('contract.status', {
-                id: 'contract.open',
-                data: open_contract,
+                    broadcastContract({ accountID: api_base.account_info.loginid, ...contract });
+
+                    if (this.isSold) {
+                        this.contractId = '';
+                        clearTimeout(this.transaction_recovery_timeout);
+                        this.updateTotals(contract);
+                        contractStatus({
+                            id: 'contract.sold',
+                            data: contract.transaction_ids.sell,
+                            contract,
+                        });
+
+                        if (this.afterPromise) {
+                            this.afterPromise();
+                        }
+
+                        this.store.dispatch(sell());
+                    } else {
+                        this.store.dispatch(openContractReceived());
+                    }
+                }
             });
-
-            // Set up timeout for stuck contracts
-            if (this.contractTimeoutId) {
-                clearTimeout(this.contractTimeoutId);
-            }
-
-            this.contractTimeoutId = setTimeout(() => {
-                if (this.data.contract && this.data.contract.contract_id === open_contract.contract_id) {
-                    // Force contract completion if stuck
-                    this.observer.emit('contract.status', {
-                        id: 'contract.sold',
-                        data: this.data.contract,
-                    });
-                }
-            }, 30000); // 30 second timeout
-        }
-
-        handleContractStatus(contract) {
-            if (!contract.data) {
-                return;
-            }
-
-            const contractData = contract.data;
-
-            // Update contract data
-            if (contractData.contract_id === this.data.contract?.contract_id) {
-                this.data.contract = { ...this.data.contract, ...contractData };
-            }
-
-            // Check various sold conditions
-            if (contractData.is_sold || 
-                contractData.contract_status === 'sold' || 
-                contractData.status === 'sold' ||
-                contractData.is_settleable) {
-
-                if (this.contractTimeoutId) {
-                    clearTimeout(this.contractTimeoutId);
-                    this.contractTimeoutId = null;
-                }
-
-                this.observer.emit('contract.status', {
-                    id: 'contract.sold',
-                    data: contractData,
-                });
-            }
+            api_base.pushSubscription(subscription);
         }
 
         waitForAfter() {

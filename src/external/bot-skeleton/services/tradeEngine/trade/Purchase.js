@@ -1,3 +1,4 @@
+
 import { LogTypes } from '../../../constants/messages';
 import { api_base } from '../../api/api-base';
 import { contractStatus, info, log } from '../utils/broadcast';
@@ -221,12 +222,12 @@ export default Engine =>
                 console.log('🛑 STOPPING: Profit threshold reached');
                 return false;
             }
-
+            
             if (totalProfit <= lossThreshold) {
                 console.log('🛑 STOPPING: Loss threshold reached');
                 return false;
             }
-
+            
             if (multiplier >= 64) {
                 console.log('🛑 STOPPING: Maximum martingale multiplier reached');
                 return false;
@@ -239,123 +240,4 @@ export default Engine =>
         regeneratePurchaseReference = () => {
             purchase_reference = getUUID();
         };
-
-        observePurchase() {
-        this.observer.register('bot.purchase', this.handlePurchase.bind(this));
-    }
-
-    handlePurchase(contractType) {
-        console.log('🎯 Purchase handler called with contract type:', contractType);
-
-        if (this.purchaseInProgress) {
-            console.log('⏳ Purchase already in progress, skipping...');
-            return Promise.resolve();
-        }
-
-        this.purchaseInProgress = true;
-
-        // Use the actual purchase method for real trading
-        return this.purchase(contractType).then(() => {
-            console.log('✅ Purchase completed successfully');
-            this.purchaseInProgress = false;
-            
-            // Simulate contract completion after a short delay
-            setTimeout(() => {
-                this.simulateContractCompletion();
-            }, 5000);
-            
-        }).catch(error => {
-            console.error('❌ Purchase failed:', error);
-            this.purchaseInProgress = false;
-            
-            // Still create a simulated contract for demonstration
-            this.simulateContractCompletion();
-        });
-    }
-
-    simulateContractCompletion() {
-        // Create realistic contract for transaction logging
-        const contractId = 'contract_' + Date.now();
-        const buyPrice = 1.00;
-        const payout = buyPrice * 1.95;
-        const profit = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 2); // Random profit/loss
-
-        const contract = {
-            contract_id: contractId,
-            transaction_ids: { buy: Date.now() },
-            buy_price: buyPrice,
-            payout: payout,
-            profit: profit,
-            contract_type: this.tradeOptions?.contract_type || 'CALL',
-            entry_tick_display_value: (Math.random() * 1000).toFixed(5),
-            exit_tick_display_value: (Math.random() * 1000).toFixed(5),
-            entry_tick_time: Date.now() / 1000,
-            exit_tick_time: (Date.now() + 1000) / 1000,
-            date_start: Date.now() / 1000,
-            is_completed: true,
-            is_sold: true,
-            status: 'sold'
-        };
-
-        // Log the completed transaction
-        console.log('📊 Logging completed transaction:', contract);
-        
-        // Store in data for reference
-        this.data.contract = contract;
-        
-        // Emit contract events
-        globalObserver.emit('bot.contract', contract);
-        
-        this.observer.emit('contract.status', {
-            id: 'contract.sold',
-            data: contract,
-        });
-
-        // Update martingale state
-        this.updateTradeResult(profit);
-
-        console.log('✅ Transaction logged and completed');
-    }
-
-    handlePurchaseResponse(response) {
-        this.purchaseInProgress = false;
-
-        if (response.error) {
-            this.observer.emit('Error', response.error);
-            return;
-        }
-
-        const { buy } = response;
-        this.data.contract = buy;
-
-        // Subscribe to contract updates
-        if (buy.contract_id) {
-            this.subscribeToContract(buy.contract_id);
-        }
-
-        this.observer.emit('contract.status', {
-            id: 'contract.purchased',
-            data: buy,
-        });
-    }
-
-    subscribeToContract(contractId) {
-        const subscription = {
-            proposal_open_contract: 1,
-            contract_id: contractId,
-            subscribe: 1
-        };
-
-        api_base.api.send(subscription).then(response => {
-            if (response.error) {
-                console.error('Contract subscription error:', response.error);
-                return;
-            }
-
-            // Handle initial contract state
-            if (response.proposal_open_contract) {
-                this.observer.emit('proposal.open_contract', response);
-            }
-        });
-    }
     };

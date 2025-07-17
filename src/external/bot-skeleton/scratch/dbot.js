@@ -260,78 +260,17 @@ class DBot {
 
         try {
             api_base.is_stopping = false;
-
-            console.log('🚀 Starting bot run...');
-
-            // Ensure interpreter and bot are properly initialized
-            if (!this.interpreter || !this.interpreter.bot) {
-                console.log('🔧 Creating new interpreter...');
-                this.interpreter = Interpreter();
-            }
-
-            // Check if bot is properly initialized before running
-            if (!this.interpreter.bot || !this.interpreter.bot.tradeEngine.options) {
-                console.log('⚙️ Initializing trade engine...');
-                // Initialize bot with default token and symbol if not already done
-                if (api_base.token && this.symbol) {
-                    this.interpreter.bot.tradeEngine.init(api_base.token, {
-                        symbol: this.symbol || 'R_100',
-                        candleInterval: 60,
-                        contractTypes: ['CALL', 'PUT']
-                    });
-                    console.log(`✅ Trade engine initialized with symbol: ${this.symbol}`);
-                } else {
-                    console.error('❌ Bot initialization failed: Missing token or symbol');
-                    globalObserver.emit('Error', { message: 'Bot initialization failed: Missing token or symbol' });
-                    return;
-                }
-            }
-
             const code = this.generateCode();
-
-            if (!code) {
-                console.error('❌ Failed to generate code from blocks');
-                globalObserver.emit('Error', { message: 'Failed to generate code from blocks' });
-                return;
-            }
-
-            if (!this.interpreter.bot.tradeEngine.checkTicksPromiseExists()) {
-                console.log('🔄 Recreating interpreter for tick service...');
-                this.interpreter = Interpreter();
-                // Re-initialize after creating new interpreter
-                if (api_base.token && this.symbol) {
-                    this.interpreter.bot.tradeEngine.init(api_base.token, {
-                        symbol: this.symbol || 'R_100',
-                        candleInterval: 60,
-                        contractTypes: ['CALL', 'PUT']
-                    });
-                }
-            }
+            if (!this.interpreter.bot.tradeEngine.checkTicksPromiseExists()) this.interpreter = Interpreter();
 
             this.is_bot_running = true;
+
             api_base.setIsRunning(true);
-
-            console.log('▶️ Executing bot code...');
-
-            const runPromise = this.interpreter.run(code);
-            if (runPromise && typeof runPromise.then === 'function') {
-                runPromise.catch(error => {
-                    console.error('❌ Bot execution error:', error);
-                    globalObserver.emit('Error', error);
-                    this.stopBot();
-                });
-            }
-
-            // Wait for bot to be fully initialized before starting trades
-            this.initializationTimeout = setTimeout(() => {
-                if (this.is_bot_running && this.interpreter?.bot?.tradeEngine) {
-                    console.log('🎯 Bot initialization complete, starting trade execution...');
-                    this.startTradingLoop();
-                }
-            }, 3000);
-
+            this.interpreter.run(code).catch(error => {
+                globalObserver.emit('Error', error);
+                this.stopBot();
+            });
         } catch (error) {
-            console.error('❌ Bot run error:', error);
             globalObserver.emit('Error', error);
 
             if (this.interpreter) {
@@ -340,127 +279,76 @@ class DBot {
         }
     }
 
-    startTradingLoop() {
-        try {
-            // Execute first trade immediately
-            this.executeTrade();
-
-            // Set up continuous trading
-            this.tradingInterval = setInterval(() => {
-                if (this.is_bot_running && this.interpreter?.bot?.tradeEngine) {
-                    this.executeTrade();
-                }
-            }, 10000); // Execute trade every 10 seconds
-
-            // Set up status monitoring
-            this.statusCheckInterval = setInterval(() => {
-                if (this.is_bot_running && this.interpreter?.bot?.tradeEngine) {
-                    this.checkBotStatus();
-                }
-            }, 5000); // Check status every 5 seconds
-
-        } catch (error) {
-            console.error('❌ Trading loop error:', error);
-            globalObserver.emit('Error', error);
-        }
-    }
-
-    executeTrade() {
-        try {
-            if (!this.interpreter?.bot?.tradeEngine) {
-                console.error('❌ Trade engine not available');
-                return;
-            }
-
-            // Check if there's already an active trade
-            const hasActiveTrade = this.interpreter.bot.tradeEngine.data.contract?.contract_id && 
-                                 !this.interpreter.bot.tradeEngine.data.contract?.is_sold;
-
-            if (hasActiveTrade) {
-                console.log('⏳ Trade already in progress, skipping...');
-                return;
-            }
-
-            // Alternate between CALL and PUT
-            const contractType = Math.random() > 0.5 ? 'CALL' : 'PUT';
-
-            console.log(`🚀 Executing ${contractType} trade...`);
-
-            // Start trade with proper parameters
-            this.interpreter.bot.tradeEngine.start({
-                amount: 1,
-                contract_type: contractType,
-                duration: 1,
-                duration_unit: 't',
-                symbol: this.symbol || 'R_100',
-                basis: 'stake'
-            });
-
-            this.lastTradeTime = Date.now();
-
-        } catch (error) {
-            console.error('❌ Trade execution error:', error);
-        }
-    }
-
-    checkBotStatus() {
-        try {
-            const state = this.interpreter.bot.tradeEngine.store.getState();
-            const timeSinceLastTrade = Date.now() - (this.lastTradeTime || 0);
-
-            console.log(`🔍 Bot Status: scope=${state.scope}, proposalsReady=${state.proposalsReady}, timeSinceLastTrade=${timeSinceLastTrade}ms`);
-
-            // If bot is stuck for more than 30 seconds, force restart
-            if (timeSinceLastTrade > 30000) {
-                console.log('⚠️ Bot appears stuck, forcing restart...');
-                this.interpreter.bot.tradeEngine.forceNextTrade();
-                this.lastTradeTime = Date.now();
-            }
-
-        } catch (error) {
-            console.error('❌ Status check error:', error);
-        }
-    }
-
     /**
      * Generates the code that is passed to the interpreter.
      * @param {Object} limitations Optional limitations (legacy argument)
      */
     generateCode(limitations = {}) {
-        if (!this.shouldRunBot()) {
-            return null;
-        }
+        return `
+            var BinaryBotPrivateInit;
+            var BinaryBotPrivateStart;
+            var BinaryBotPrivateBeforePurchase; 
+            var BinaryBotPrivateDuringPurchase;
+            var BinaryBotPrivateAfterPurchase;
+            var BinaryBotPrivateLastTickTime;
+            var BinaryBotPrivateTickAnalysisList = [];
+            var BinaryBotPrivateHasCalledTradeOptions = false;
 
-        const is_sync_blocks_enabled = window.Blockly.getMainWorkspace().getBlocksByType('trade_definition_tradeoptions').length > 0;
+           
+            function recursiveList(list, final_list){
+                for(var i=0; i < list.length; i++){
+                    if(typeof(list[i]) === 'object'){
+                        recursiveList(list[i], final_list);
+                    }
+                    if(typeof(list[i]) == 'number'){
+                        final_list.push(list[i]);   
+                                  
+                    }
+                }
+                return final_list;
+            }
 
-        window.Blockly.JavaScript.STATEMENT_PREFIX = 'return Bot.highlightBlock(%1);\n';
-        if (window.Blockly.JavaScript.addReservedWords) {
-            window.Blockly.JavaScript.addReservedWords('code,timeouts,setBlockStatus,Bot');
-        } else if (window.Blockly.JavaScript.javascriptGenerator && window.Blockly.JavaScript.javascriptGenerator.addReservedWords) {
-            window.Blockly.JavaScript.javascriptGenerator.addReservedWords('code,timeouts,setBlockStatus,Bot');
-        }
-
-        let generatedCode = '';
-        if (window.Blockly.JavaScript.workspaceToCode) {
-            generatedCode = window.Blockly.JavaScript.workspaceToCode(this.workspace);
-        } else if (window.Blockly.JavaScript.javascriptGenerator) {
-            generatedCode = window.Blockly.JavaScript.javascriptGenerator.workspaceToCode(this.workspace);
-        } else {
-            throw new Error('Unable to find Blockly JavaScript generator');
-        }
-
-        const code = `
-            var highlightPerStackTrace = false;
-            var code = function() {
-                ${generatedCode}
-            };
-        `;
-
-        if (is_sync_blocks_enabled) {
-            return `${code}\nBot.start(code);`;
-        }
-
-        return code;
+            function BinaryBotPrivateRun(f, arg) {
+                if (f) return f(arg);
+                return false;
+            }
+            function BinaryBotPrivateTickAnalysis() {
+                var currentTickTime = Bot.getLastTick(true);
+                while (currentTickTime === 'MarketIsClosed') {
+                    sleep(5);
+                    currentTickTime = Bot.getLastTick(true);
+                }
+                currentTickTime = currentTickTime.epoch;
+                if (currentTickTime === BinaryBotPrivateLastTickTime) {
+                    return;
+                }
+                BinaryBotPrivateLastTickTime = currentTickTime;
+                for (var BinaryBotPrivateI = 0; BinaryBotPrivateI < BinaryBotPrivateTickAnalysisList.length; BinaryBotPrivateI++) {
+                    BinaryBotPrivateRun(BinaryBotPrivateTickAnalysisList[BinaryBotPrivateI]);
+                }
+            }
+            var BinaryBotPrivateLimitations = ${JSON.stringify(limitations)};
+            ${window.Blockly.JavaScript.javascriptGenerator.workspaceToCode(this.workspace)}
+            BinaryBotPrivateRun(BinaryBotPrivateInit);
+            while (true) {
+                BinaryBotPrivateTickAnalysis();
+                BinaryBotPrivateRun(BinaryBotPrivateStart);
+                if (!BinaryBotPrivateHasCalledTradeOptions) {
+                    sleep(1);
+                    continue;
+                }
+                // Execute purchase without waiting for contract states
+                BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
+                
+                // Small delay between purchases to prevent rate limiting
+                sleep(1);
+                
+                // Continue without waiting for contract completion
+                BinaryBotPrivateTickAnalysis();
+                BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase);
+            }
+            
+            `;
     }
 
     /**
@@ -470,81 +358,14 @@ class DBot {
     async stopBot() {
         if (api_base.is_stopping) return;
 
-        console.log('🛑 Stopping bot...');
         api_base.setIsRunning(false);
 
-        // Clear all intervals and timeouts
-        if (this.statusCheckInterval) {
-            clearInterval(this.statusCheckInterval);
-            this.statusCheckInterval = null;
-        }
-
-        if (this.tradingInterval) {
-            clearInterval(this.tradingInterval);
-            this.tradingInterval = null;
-        }
-
-        if (this.initializationTimeout) {
-            clearTimeout(this.initializationTimeout);
-            this.initializationTimeout = null;
-        }
-
-        // Check if there's an active contract that needs to be completed
-        const hasActiveContract = this.interpreter?.bot?.tradeEngine?.data?.contract?.contract_id && 
-                                 !this.interpreter?.bot?.tradeEngine?.data?.contract?.is_sold;
-
-        if (hasActiveContract) {
-            console.log('⏳ Waiting for active contract to complete...');
-            globalObserver.emit('ui.log.info', 'Waiting for active contract to complete...');
-
-            // Set up a timeout to force stop if contract doesn't complete
-            const forceStopTimeout = setTimeout(() => {
-                console.log('⚠️ Forcing bot stop due to timeout');
-                globalObserver.emit('ui.log.warn', 'Contract taking too long to complete, forcing bot stop');
-                this.forceStopBot();
-            }, 20000); // 20 second timeout
-
-            try {
-                await this.interpreter.stop();
-                clearTimeout(forceStopTimeout);
-            } catch (error) {
-                clearTimeout(forceStopTimeout);
-                globalObserver.emit('Error', error);
-            }
-        } else {
-            await this.interpreter.stop();
-        }
-
+        await this.interpreter.stop();
         this.is_bot_running = false;
         this.interpreter = null;
         this.interpreter = Interpreter();
         await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
         forgetAccumulatorsProposalRequest(this);
-
-        console.log('✅ Bot stopped successfully');
-    }
-
-    /**
-     * Force stops the bot without waiting for contract completion
-     */
-    async forceStopBot() {
-        try {
-            api_base.setIsRunning(false);
-
-            if (this.interpreter) {
-                await this.interpreter.terminateSession();
-            }
-
-            this.is_bot_running = false;
-            this.interpreter = null;
-            this.interpreter = Interpreter();
-            await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
-            forgetAccumulatorsProposalRequest(this);
-
-            globalObserver.emit('ui.log.info', 'Bot stopped successfully');
-        } catch (error) {
-            globalObserver.emit('Error', error);
-        }
     }
 
     /**
@@ -834,39 +655,6 @@ class DBot {
             event.preventDefault();
             event.dataTransfer.effectAllowed = 'none';
             event.dataTransfer.dropEffect = 'none';
-        }
-    }
-
-    generateQuickStrategySignal() {
-        try {
-            const shouldTrade = this.interpreter.bot.tradeEngine.trade.shouldExecuteTrade();
-            if (shouldTrade && !this.interpreter.bot.tradeEngine.trade.purchase.isTradeInProgress()) {
-                console.log('Quick Strategy signal generated - executing trade');
-                this.executeQuickStrategyTrade();
-            }
-        } catch (error) {
-            console.error('Error generating Quick Strategy signal:', error);
-        }
-    }
-
-    executeQuickStrategyTrade() {
-        try {
-            const config = this.interpreter.bot.tradeEngine.trade.quickStrategyConfig;
-            if (!config) return;
-
-            // Execute trade with Quick Strategy parameters
-            const tradeParams = {
-                contract_type: config.contractType || 'even',
-                symbol: config.symbol || 'R_10',
-                amount: config.amount || 1,
-                duration: config.duration || 1,
-                duration_unit: config.durationType || 't'
-            };
-
-            console.log('Executing Quick Strategy trade with params:', tradeParams);
-            this.interpreter.bot.tradeEngine.trade.purchase.purchaseContract(tradeParams);
-        } catch (error) {
-            console.error('Error executing Quick Strategy trade:', error);
         }
     }
 }

@@ -2,10 +2,6 @@ import { localize } from '@deriv-com/translations';
 import { getContractTypeOptions } from '../../../shared';
 import { excludeOptionFromContextMenu, modifyContextMenu } from '../../../utils';
 
-const getPurchaseChoices = () => {
-    return [['Rise', 'rise'], ['Fall', 'fall']];
-};
-
 window.Blockly.Blocks.purchase = {
     init() {
         this.jsonInit(this.definition());
@@ -21,17 +17,6 @@ window.Blockly.Blocks.purchase = {
                     type: 'field_dropdown',
                     name: 'PURCHASE_LIST',
                     options: [['', '']],
-                },
-            ],
-            message1: localize('Continuous Trading: %1'),
-            args1: [
-                {
-                    type: 'field_dropdown',
-                    name: 'CONTINUOUS_TRADING',
-                    options: [
-                        [localize('Yes'), 'TRUE'],
-                        [localize('No'), 'FALSE'],
-                    ],
                 },
             ],
             previousStatement: null,
@@ -100,7 +85,7 @@ window.Blockly.Blocks.purchase = {
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.purchase = block => {
     const purchaseList = block.getFieldValue('PURCHASE_LIST');
-    const continuousTrading = block.getFieldValue('CONTINUOUS_TRADING');
-    const code = `Bot.purchase('${purchaseList}', ${continuousTrading === 'TRUE'});\n`;
+
+    const code = `Bot.purchase('${purchaseList}');\n`;
     return code;
 };
