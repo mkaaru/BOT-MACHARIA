@@ -110,9 +110,9 @@ const SpeedBot: React.FC = observer(() => {
   // Strategy options
   const [alternateOverUnder, setAlternateOverUnder] = useState(false);
   const [alternateOnLoss, setAlternateOnLoss] = useState(false);
-  const [useMartingale, setUseMartingale] = useState(true);
+  const [useMartingale, setUseMartingale] = useState(false);
   const [martingaleMultiplier, setMartingaleMultiplier] = useState(1.5);
-  const [continuousPurchase, setContinuousPurchase] = useState(false);
+  const [continuousPurchase, setContinuousPurchase] = useState(true);
 
   // Trading state
   const [currentStake, setCurrentStake] = useState(1.0);
@@ -885,7 +885,7 @@ const SpeedBot: React.FC = observer(() => {
     const observer = globalObserver || localObserver;
     if (observer) {
       observer.register('bot.buy', handleBuyContract);
-      observer.register('bot.contract', handleTradeComplete);
+      observer.register('bot.contract', handleTradecomplete', handleTradeComplete);
       observer.register('bot.tick', handleTickUpdate);
       observer.register('bot.error', handleError);
     }
@@ -1300,18 +1300,6 @@ const SpeedBot: React.FC = observer(() => {
         </div>
 
         <div className="speed-bot__toggles">
-          <div className="speed-bot__toggle-row">
-            <label>Continuous Purchase</label>
-            <input
-              type="checkbox"
-              checked={continuousPurchase}
-              onChange={(e) => setContinuousPurchase(e.target.checked)}
-              disabled={isTrading}
-            />
-            <small style={{ color: '#666', fontSize: '12px', marginLeft: '10px' }}>
-              {continuousPurchase ? 'Buys immediately without waiting (martingale may not work properly)' : 'Waits for contract to close before next trade (proper martingale)'}
-            </small>
-          </div>
           <div className="speed-bot__toggle-row">
             <label>Alternate Over and Under</label>
             <input

@@ -391,3 +391,26 @@
     background-color: #f44336;
   }
 }
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 10px;
+
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.toggle-description {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 15px;
+  padding: 8px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  border-left: 3px solid #007acc;
+}

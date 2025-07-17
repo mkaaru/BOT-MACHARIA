@@ -18,11 +18,16 @@ export default Engine =>
                 multiplier: 1,
                 consecutiveLosses: 0,
                 lastTradeProfit: 0,
-                currentPurchasePrice: 0
+                currentPurchasePrice: 0,
+                totalProfit: 0
             };
 
-        // Track if trade result is confirmed and ready for martingale processing
-        this.isTradeConfirmed = false;
+            // Track if trade result is confirmed and ready for martingale processing
+            this.isTradeConfirmed = false;
+            
+            // Trading mode configuration
+            this.continuousMode = true; // Default to continuous mode
+            this.waitingForContractClose = false;
         }
 
         purchase(contract_type) {
@@ -135,48 +140,54 @@ export default Engine =>
         }
 
         applyMartingaleLogic() {
-            // Apply martingale logic based on last confirmed closed trade result
-        const { baseAmount, multiplier, consecutiveLosses, lastTradeProfit } = this.martingaleState;
+            const { baseAmount, multiplier, consecutiveLosses, lastTradeProfit } = this.martingaleState;
             const maxMultiplier = 64;
             const maxConsecutiveLosses = 10;
 
             // Initialize base amount on first run
             if (!baseAmount) {
                 this.martingaleState.baseAmount = this.tradeOptions.amount;
-                console.log(`🟦 INITIAL: Base amount set to ${this.martingaleState.baseAmount} USD`);
+                console.log(`🟦 MARTINGALE INIT: Base amount set to ${this.martingaleState.baseAmount} USD`);
                 return;
             }
+
             // Only apply martingale if we have a confirmed closed trade result
-            if (lastTradeProfit !== null && this.isTradeConfirmed) {
+            if (this.isTradeConfirmed && lastTradeProfit !== null) {
                 console.log(`📊 MARTINGALE ANALYSIS: Last confirmed trade P&L: ${lastTradeProfit} USD`);
+                console.log(`📊 Current state - Multiplier: ${multiplier}x, Consecutive losses: ${consecutiveLosses}`);
 
                 if (lastTradeProfit < 0) {
                     // Loss: Apply martingale
-                    const newMultiplier = multiplier * 2;
+                    const newMultiplier = Math.min(multiplier * 2, maxMultiplier);
                     const newConsecutiveLosses = consecutiveLosses + 1;
 
-                    if (newMultiplier <= maxMultiplier && newConsecutiveLosses <= maxConsecutiveLosses) {
+                    if (newConsecutiveLosses <= maxConsecutiveLosses) {
                         this.martingaleState.multiplier = newMultiplier;
                         this.martingaleState.consecutiveLosses = newConsecutiveLosses;
-                        this.tradeOptions.amount = baseAmount * newMultiplier;
-                        console.log(`🔴 CONFIRMED LOSS: Stake increased to ${this.tradeOptions.amount} USD (${newMultiplier}x base)`);
+                        this.tradeOptions.amount = Math.round((baseAmount * newMultiplier) * 100) / 100; // Round to 2 decimals
+                        console.log(`🔴 LOSS DETECTED: Stake increased to ${this.tradeOptions.amount} USD (${newMultiplier}x base, ${newConsecutiveLosses} consecutive losses)`);
                     } else {
-                        // Reset on limits
+                        // Reset on max consecutive losses
                         this.resetMartingale();
-                        console.log(`⚠️ MAX LIMIT REACHED: Reset to base ${this.martingaleState.baseAmount} USD`);
+                        console.log(`⚠️ MAX CONSECUTIVE LOSSES REACHED: Reset to base ${this.martingaleState.baseAmount} USD`);
                     }
                 } else if (lastTradeProfit > 0) {
                     // Win: Reset martingale
                     this.resetMartingale();
-                    console.log(`🟢 CONFIRMED WIN: Reset to base ${this.martingaleState.baseAmount} USD (Recovery achieved!)`);
+                    console.log(`🟢 WIN DETECTED: Reset to base ${this.martingaleState.baseAmount} USD (Martingale sequence completed!)`);
                 } else {
                     // Break-even: Keep current multiplier
-                    this.tradeOptions.amount = baseAmount * multiplier;
+                    this.tradeOptions.amount = Math.round((baseAmount * multiplier) * 100) / 100;
                     console.log(`🟡 BREAK-EVEN: Maintaining ${this.tradeOptions.amount} USD (${multiplier}x base)`);
                 }
 
                 // Mark trade as processed
                 this.isTradeConfirmed = false;
+                console.log(`✅ MARTINGALE UPDATE: Next stake will be ${this.tradeOptions.amount} USD`);
+            } else {
+                // No confirmed trade yet, use current settings
+                this.tradeOptions.amount = Math.round((baseAmount * multiplier) * 100) / 100;
+                console.log(`🔄 MARTINGALE PENDING: Using current stake ${this.tradeOptions.amount} USD (${multiplier}x base) - Waiting for trade confirmation`);
             }
         }
 
@@ -191,7 +202,14 @@ export default Engine =>
             this.martingaleState.lastTradeProfit = profit;
             this.martingaleState.totalProfit = (this.martingaleState.totalProfit || 0) + profit;
             this.isTradeConfirmed = true; // Mark trade as confirmed for martingale processing
-            console.log(`💰 TRADE RESULT: P&L: ${profit} USD | Total P&L: ${this.martingaleState.totalProfit} USD | Trade confirmed for martingale`);
+            
+            // In sequential mode, mark that contract has closed
+            if (!this.continuousMode) {
+                this.setWaitingForContractClose(false);
+            }
+            
+            console.log(`💰 TRADE RESULT CONFIRMED: P&L: ${profit} USD | Total P&L: ${this.martingaleState.totalProfit.toFixed(2)} USD`);
+            console.log(`🎯 MARTINGALE READY: Trade result confirmed, next purchase will apply martingale logic`);
         }
 
         // Getters for accessing martingale state
@@ -242,6 +260,31 @@ export default Engine =>
             }
 
             return true;
+        }
+
+        // Method to set trading mode
+        setContinuousMode(continuous) {
+            this.continuousMode = continuous;
+            console.log(`🔧 TRADING MODE: ${continuous ? 'Continuous' : 'Sequential'} purchase mode activated`);
+        }
+
+        // Check if ready to purchase
+        canPurchase() {
+            if (this.continuousMode) {
+                return true; // Always ready in continuous mode
+            } else {
+                return !this.waitingForContractClose; // Wait for contract close in sequential mode
+            }
+        }
+
+        // Mark that we're waiting for contract close
+        setWaitingForContractClose(waiting) {
+            this.waitingForContractClose = waiting;
+            if (waiting) {
+                console.log('⏳ SEQUENTIAL MODE: Waiting for contract to close before next purchase');
+            } else {
+                console.log('✅ SEQUENTIAL MODE: Ready for next purchase');
+            }
         }
 
         getPurchaseReference = () => purchase_reference;
