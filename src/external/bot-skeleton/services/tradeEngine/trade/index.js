@@ -7,7 +7,7 @@ import { api_base } from '../../api/api-base';
 import { checkBlocksForProposalRequest, doUntilDone } from '../utils/helpers';
 import { expectInitArg } from '../utils/sanitize';
 import { proposalsReady, start } from './state/actions';
-import * as constants from './state/constants';
+import *as constants from './state/constants';
 import rootReducer from './state/reducers';
 import Balance from './Balance';
 import OpenContract from './OpenContract';
@@ -117,16 +117,16 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
     // Add method to force next trade cycle
     forceNextTrade() {
         console.log('🔄 Forcing next trade cycle...');
-        
+
         // Clear any stuck contract
         if (this.data.contract?.contract_id && !this.data.contract?.is_sold) {
             console.log('🧹 Clearing stuck contract:', this.data.contract.contract_id);
             this.data.contract.is_sold = true;
         }
-        
+
         // Reset to before purchase state
         this.store.dispatch({ type: 'START' });
-        
+
         // Emit signal to continue trading
         setTimeout(() => {
             this.observer.emit('REVERT', 'before');

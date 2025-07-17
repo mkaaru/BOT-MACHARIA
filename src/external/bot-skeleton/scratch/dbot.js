@@ -260,9 +260,9 @@ class DBot {
 
         try {
             api_base.is_stopping = false;
-            
+
             console.log('🚀 Starting bot run...');
-            
+
             // Ensure interpreter and bot are properly initialized
             if (!this.interpreter || !this.interpreter.bot) {
                 console.log('🔧 Creating new interpreter...');
@@ -286,9 +286,9 @@ class DBot {
                     return;
                 }
             }
-            
+
             const code = this.generateCode();
-            
+
             if (!code) {
                 console.error('❌ Failed to generate code from blocks');
                 globalObserver.emit('Error', { message: 'Failed to generate code from blocks' });
@@ -310,7 +310,7 @@ class DBot {
 
             this.is_bot_running = true;
             api_base.setIsRunning(true);
-            
+
             console.log('▶️ Executing bot code...');
 
             const runPromise = this.interpreter.run(code);
@@ -321,12 +321,12 @@ class DBot {
                     this.stopBot();
                 });
             }
-            
+
             // Add periodic status check
             this.statusCheckInterval = setInterval(() => {
                 if (this.is_bot_running && this.interpreter?.bot?.tradeEngine) {
                     this.interpreter.bot.tradeEngine.getBotState();
-                    
+
                     // Check for stuck state and force next trade if needed
                     const state = this.interpreter.bot.tradeEngine.store.getState();
                     if (state.scope === 'BEFORE_PURCHASE' && state.proposalsReady) {
@@ -339,7 +339,7 @@ class DBot {
                     }
                 }
             }, 30000); // Check every 30 seconds
-            
+
         } catch (error) {
             console.error('❌ Bot run error:', error);
             globalObserver.emit('Error', error);
@@ -400,7 +400,7 @@ class DBot {
 
         console.log('🛑 Stopping bot...');
         api_base.setIsRunning(false);
-        
+
         // Clear status check interval
         if (this.statusCheckInterval) {
             clearInterval(this.statusCheckInterval);
@@ -414,7 +414,7 @@ class DBot {
         if (hasActiveContract) {
             console.log('⏳ Waiting for active contract to complete...');
             globalObserver.emit('ui.log.info', 'Waiting for active contract to complete...');
-            
+
             // Set up a timeout to force stop if contract doesn't complete
             const forceStopTimeout = setTimeout(() => {
                 console.log('⚠️ Forcing bot stop due to timeout');
@@ -438,7 +438,7 @@ class DBot {
         this.interpreter = Interpreter();
         await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
         forgetAccumulatorsProposalRequest(this);
-        
+
         console.log('✅ Bot stopped successfully');
     }
 
@@ -448,17 +448,17 @@ class DBot {
     async forceStopBot() {
         try {
             api_base.setIsRunning(false);
-            
+
             if (this.interpreter) {
                 await this.interpreter.terminateSession();
             }
-            
+
             this.is_bot_running = false;
             this.interpreter = null;
             this.interpreter = Interpreter();
             await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
             forgetAccumulatorsProposalRequest(this);
-            
+
             globalObserver.emit('ui.log.info', 'Bot stopped successfully');
         } catch (error) {
             globalObserver.emit('Error', error);
@@ -752,6 +752,39 @@ class DBot {
             event.preventDefault();
             event.dataTransfer.effectAllowed = 'none';
             event.dataTransfer.dropEffect = 'none';
+        }
+    }
+
+    generateQuickStrategySignal() {
+        try {
+            const shouldTrade = this.interpreter.bot.tradeEngine.trade.shouldExecuteTrade();
+            if (shouldTrade && !this.interpreter.bot.tradeEngine.trade.purchase.isTradeInProgress()) {
+                console.log('Quick Strategy signal generated - executing trade');
+                this.executeQuickStrategyTrade();
+            }
+        } catch (error) {
+            console.error('Error generating Quick Strategy signal:', error);
+        }
+    }
+
+    executeQuickStrategyTrade() {
+        try {
+            const config = this.interpreter.bot.tradeEngine.trade.quickStrategyConfig;
+            if (!config) return;
+
+            // Execute trade with Quick Strategy parameters
+            const tradeParams = {
+                contract_type: config.contractType || 'even',
+                symbol: config.symbol || 'R_10',
+                amount: config.amount || 1,
+                duration: config.duration || 1,
+                duration_unit: config.durationType || 't'
+            };
+
+            console.log('Executing Quick Strategy trade with params:', tradeParams);
+            this.interpreter.bot.tradeEngine.trade.purchase.purchaseContract(tradeParams);
+        } catch (error) {
+            console.error('Error executing Quick Strategy trade:', error);
         }
     }
 }
