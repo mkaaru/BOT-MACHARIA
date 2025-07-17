@@ -815,6 +815,38 @@ const SpeedBot: React.FC = observer(() => {
             console.log(`📊 Contract sold: ${profit > 0 ? 'WIN' : 'LOSS'} Profit: ${profit}`);
           }
 
+          // Handle proposal errors
+          if (data.error && data.msg_type === 'proposal') {
+            console.error('❌ Proposal error:', JSON.stringify(data.error, null, 2));
+            
+            // Clear proposal timeout
+            if ((window as any).proposalTimeoutId) {
+              clearTimeout((window as any).proposalTimeoutId);
+              (window as any).proposalTimeoutId = null;
+            }
+
+            setIsRequestingProposal(false);
+            setProposalId(null);
+
+            if (data.error.code === 'InvalidSymbol') {
+              setError(`Invalid symbol: ${data.error.message}`);
+            } else if (data.error.code === 'InvalidContractType') {
+              setError(`Invalid contract type: ${data.error.message}`);
+            } else if (data.error.code === 'MarketIsClosed') {
+              setError(`Market is closed: ${data.error.message}`);
+            } else {
+              setError(`Proposal failed: ${data.error.message} (Code: ${data.error.code})`);
+            }
+
+            // Retry after error if still trading
+            if (isTrading && isDirectTrading) {
+              setTimeout(() => {
+                console.log('🔄 Retrying proposal after error...');
+                getPriceProposal();
+              }, 3000);
+            }
+          }
+
           // Handle buy errors
           if (data.error && (data.msg_type === 'buy' || data.error.details?.field === 'buy')) {
             console.error('❌ Buy contract error:', JSON.stringify(data.error, null, 2));
@@ -952,7 +984,7 @@ const SpeedBot: React.FC = observer(() => {
             const priceStr = data.tick.quote.toString();
             const lastDigit = parseInt(priceStr[priceStr.length - 1]);
 
-            console.log(`🎯 TICK: ${data.tick.quote} | Last Digit: ${lastDigit} | Need: >${overUnderValue} (DIGITOVER)`);
+            console.log(`🎯 TICK: ${data.tick.quote} | Last Digit: ${lastDigit} | Contract: ${selectedContractType}`);
             console.log(`🎯 States: Trading=${isTrading}, Direct=${isDirectTrading}, Executing=${isExecutingTrade}, Requesting=${isRequestingProposal}`);
 
             // Enhanced tick processing with validation
@@ -962,41 +994,58 @@ const SpeedBot: React.FC = observer(() => {
                 return;
               }
 
-              // Check condition based on contract type - SIMPLIFIED LOGIC
-              let conditionMet = false;
+              // For DIGITEVEN and DIGITODD, trade on every tick since we predict the next tick
+              // For barrier contracts, check specific conditions
+              let shouldTrade = false;
 
               switch (selectedContractType) {
                 case 'DIGITEVEN':
-                  conditionMet = lastDigit % 2 === 0; // 0, 2, 4, 6, 8
-                  console.log(`🎯 DIGITEVEN: ${lastDigit} is ${conditionMet ? 'EVEN ✅' : 'ODD ❌'}`);
+                  // Trade on every tick - we predict the NEXT tick will be even
+                  shouldTrade = true;
+                  console.log(`🎯 DIGITEVEN: Trading (predicting next tick will be EVEN)`);
                   break;
                 case 'DIGITODD':
-                  conditionMet = lastDigit % 2 === 1; // 1, 3, 5, 7, 9
-                  console.log(`🎯 DIGITODD: ${lastDigit} is ${conditionMet ? 'ODD ✅' : 'EVEN ❌'}`);
+                  // Trade on every tick - we predict the NEXT tick will be odd
+                  shouldTrade = true;
+                  console.log(`🎯 DIGITODD: Trading (predicting next tick will be ODD)`);
                   break;
                 case 'DIGITOVER':
-                  conditionMet = lastDigit > overUnderValue;
-                  console.log(`🎯 DIGITOVER: ${lastDigit} > ${overUnderValue} = ${conditionMet ? '✅ TRADE' : '❌ SKIP'}`);
+                  // Only trade when we want to predict next tick > barrier
+                  shouldTrade = true; // You can add condition here if needed
+                  console.log(`🎯 DIGITOVER: Trading (predicting next tick > ${overUnderValue})`);
                   break;
                 case 'DIGITUNDER':
-                  conditionMet = lastDigit < overUnderValue;
-                  console.log(`🎯 DIGITUNDER: ${lastDigit} < ${overUnderValue} = ${conditionMet ? '✅ TRADE' : '❌ SKIP'}`);
+                  // Only trade when we want to predict next tick < barrier
+                  shouldTrade = true; // You can add condition here if needed
+                  console.log(`🎯 DIGITUNDER: Trading (predicting next tick < ${overUnderValue})`);
                   break;
                 case 'DIGITMATCH':
-                  conditionMet = lastDigit === overUnderValue;
-                  console.log(`🎯 DIGITMATCH: ${lastDigit} === ${overUnderValue} = ${conditionMet ? '✅ TRADE' : '❌ SKIP'}`);
+                  // Only trade when we want to predict next tick = barrier
+                  shouldTrade = true; // You can add condition here if needed
+                  console.log(`🎯 DIGITMATCH: Trading (predicting next tick = ${overUnderValue})`);
                   break;
                 case 'DIGITDIFF':
-                  conditionMet = lastDigit !== overUnderValue;
-                  console.log(`🎯 DIGITDIFF: ${lastDigit} !== ${overUnderValue} = ${conditionMet ? '✅ TRADE' : '❌ SKIP'}`);
+                  // Only trade when we want to predict next tick != barrier
+                  shouldTrade = true; // You can add condition here if needed
+                  console.log(`🎯 DIGITDIFF: Trading (predicting next tick != ${overUnderValue})`);
+                  break;
+                case 'CALL':
+                  // Rise contract
+                  shouldTrade = true;
+                  console.log(`🎯 CALL: Trading (predicting price will rise)`);
+                  break;
+                case 'PUT':
+                  // Fall contract
+                  shouldTrade = true;
+                  console.log(`🎯 PUT: Trading (predicting price will fall)`);
                   break;
                 default:
-                  conditionMet = false;
+                  shouldTrade = false;
                   console.log(`🎯 Unknown contract type: ${selectedContractType}`);
               }
 
-              if (conditionMet) {
-                console.log(`🚀🚀🚀 CONDITION MET! Trading ${selectedContractType} with digit ${lastDigit} 🚀🚀🚀`);
+              if (shouldTrade) {
+                console.log(`🚀🚀🚀 TRADING NOW! Contract: ${selectedContractType} on tick ${lastDigit} 🚀🚀🚀`);
 
                 // Clear any existing timeouts
                 if ((window as any).proposalTimeoutId) {
@@ -1007,7 +1056,7 @@ const SpeedBot: React.FC = observer(() => {
                 // Request proposal immediately
                 setTimeout(() => getPriceProposal(), 100);
               } else {
-                console.log(`⏳ Waiting for digit > ${overUnderValue}... (current: ${lastDigit})`);
+                console.log(`⏳ Waiting for trade condition...`);
               }
             } else {
               const reasons = [];
@@ -1331,14 +1380,27 @@ const SpeedBot: React.FC = observer(() => {
           >
             Reset Stats
           </button>
-          {isTrading && isAuthorized && (
+          {isAuthorized && (
             <button 
               className="speed-bot__test-btn"
-              onClick={getPriceProposal}
+              onClick={() => {
+                console.log('🧪 Manual proposal test triggered');
+                setError(null);
+                getPriceProposal();
+              }}
               disabled={isExecutingTrade || isRequestingProposal}
               style={{ backgroundColor: '#007cba', color: 'white', marginLeft: '10px' }}
             >
-              Test Proposal
+              {isRequestingProposal ? 'Requesting...' : 'Test Proposal'}
+            </button>
+          )}
+          {isConnected && !isAuthorized && (
+            <button 
+              className="speed-bot__reconnect-btn"
+              onClick={connectToAPI}
+              style={{ backgroundColor: '#ff6b35', color: 'white', marginLeft: '10px' }}
+            >
+              Reconnect & Auth
             </button>
           )}
         </div>

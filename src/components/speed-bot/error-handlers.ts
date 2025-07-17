@@ -60,6 +60,30 @@ export const mapDerivErrorToTradeError = (derivError: any): TradeError => {
   const { code, message, details } = derivError;
   
   switch (code) {
+    case 'InvalidSymbol':
+      return createTradeError(
+        ERROR_CODES.UNSUPPORTED_SYMBOL,
+        'Invalid trading symbol. Please select a valid symbol.',
+        details,
+        false
+      );
+      
+    case 'InvalidContractType':
+      return createTradeError(
+        ERROR_CODES.INVALID_CONTRACT,
+        'Invalid contract type. Please check your contract selection.',
+        details,
+        false
+      );
+      
+    case 'ProposalError':
+      return createTradeError(
+        ERROR_CODES.INVALID_CONTRACT,
+        'Proposal request failed. Please check your parameters.',
+        details,
+        true,
+        2000
+      );
     case 'InvalidContractProposal':
       return createTradeError(
         ERROR_CODES.INVALID_CONTRACT,
