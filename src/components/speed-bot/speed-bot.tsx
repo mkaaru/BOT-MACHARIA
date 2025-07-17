@@ -1073,6 +1073,11 @@ const SpeedBot: React.FC = observer(() => {
             // Get the last digit from the price - handle decimal places properly
             const priceStr = data.tick.quote.toString();
             const lastDigit = parseInt(priceStr[priceStr.length - 1]);
+            
+            // For high-frequency symbols, ensure we're getting valid tick data
+            if (selectedSymbol.includes('1HZ') && data.tick.symbol === selectedSymbol) {
+              console.log(`🔥 HIGH-FREQ TICK: ${selectedSymbol} = ${data.tick.quote} | Last Digit: ${lastDigit} | Should Execute: ${isTrading && isDirectTrading}`);
+            }
 
             console.log(`🎯 LIVE TICK: ${data.tick.quote} | Last Digit: ${lastDigit} | Contract: ${selectedContractType} | Time: ${new Date().toLocaleTimeString()}`);
             console.log(`🎯 States: Trading=${isTrading}, Direct=${isDirectTrading}, Executing=${isExecutingTrade}, Requesting=${isRequestingProposal}, ProposalId=${proposalId}`);
@@ -1093,12 +1098,19 @@ const SpeedBot: React.FC = observer(() => {
                 return;
               }
 
-              // Execute trade immediately on every tick
-              console.log(`🚀🚀🚀 EXECUTING TRADE ON EVERY TICK! Contract: ${selectedContractType} | Digit: ${lastDigit} 🚀🚀🚀`);
-              setLastTradeTime(Date.now());
-              
-              // Request proposal immediately on every tick
-              getPriceProposal();
+              // For high-frequency symbols like 1HZ, execute immediately on every tick
+              const isHighFrequency = selectedSymbol.includes('1HZ');
+              const shouldTrade = isHighFrequency ? true : isGoodCondition(lastDigit, selectedContractType);
+
+              if (shouldTrade) {
+                console.log(`🚀🚀🚀 EXECUTING TRADE! Symbol: ${selectedSymbol} | Contract: ${selectedContractType} | Digit: ${lastDigit} | High-Freq: ${isHighFrequency} 🚀🚀🚀`);
+                setLastTradeTime(Date.now());
+                
+                // Request proposal immediately
+                getPriceProposal();
+              } else {
+                console.log(`⏸️ Skipping tick - condition not met: lastDigit=${lastDigit}, contract=${selectedContractType}`);
+              }
             } else {
               const reasons = [];
               if (!isTrading) reasons.push('not trading');
@@ -1532,16 +1544,20 @@ const SpeedBot: React.FC = observer(() => {
             <button 
               className="speed-bot__force-trade-btn"
               onClick={() => {
-                console.log('🚀 Force trade triggered');
+                console.log('🚀 Force trade triggered - bypassing all conditions');
                 setError(null);
                 setLastTradeTime(0); // Reset rate limit
                 if (!isExecutingTrade && !isRequestingProposal && !proposalId) {
+                  console.log('💥 FORCE EXECUTING TRADE NOW!');
                   getPriceProposal();
                 } else {
-                  console.log('⚠️ Cannot force trade - another operation in progress');
+                  console.log('⚠️ Cannot force trade - clearing states and retrying...');
+                  setIsExecutingTrade(false);
+                  setIsRequestingProposal(false);
+                  setProposalId(null);
+                  setTimeout(() => getPriceProposal(), 100);
                 }
               }}
-              disabled={isExecutingTrade || isRequestingProposal || !!proposalId}
               style={{ backgroundColor: '#ff6b35', color: 'white', marginLeft: '10px' }}
             >
               Force Trade
