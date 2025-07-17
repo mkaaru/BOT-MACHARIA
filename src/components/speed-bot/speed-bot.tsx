@@ -109,23 +109,23 @@ const SpeedBot: React.FC = observer(() => {
   const [currentPrice, setCurrentPrice] = useState<string>('---');
   const [activeSubscriptions, setActiveSubscriptions] = useState<Set<string>>(new Set());
 
-  // Trading configuration
-  const [selectedSymbol, setSelectedSymbol] = useState('R_100');
-  const [selectedContractType, setSelectedContractType] = useState('DIGITODD');
-  const [stake, setStake] = useState(0.5);
+  // Trading configuration - Set defaults for Trade Every Tick requirements
+  const [selectedSymbol, setSelectedSymbol] = useState('R_100'); // Volatility 100 Index
+  const [selectedContractType, setSelectedContractType] = useState('DIGITODD'); // Odd prediction
+  const [stake, setStake] = useState(0.5); // $0.5 stake
   const [overUnderValue, setOverUnderValue] = useState(5);
   const [isTrading, setIsTrading] = useState(false);
 
-  // Strategy options
+  // Strategy options - Configured for Trade Every Tick
   const [useMartingale, setUseMartingale] = useState(true);
-  const [martingaleMultiplier, setMartingaleMultiplier] = useState(2.0);
+  const [martingaleMultiplier, setMartingaleMultiplier] = useState(2.0); // Martingale Factor: 2
   
-  // Risk Management
-  const [takeProfit, setTakeProfit] = useState(5);
-  const [stopLoss, setStopLoss] = useState(30);
+  // Risk Management - Set to specified thresholds
+  const [takeProfit, setTakeProfit] = useState(5); // Take Profit: $5
+  const [stopLoss, setStopLoss] = useState(30); // Stop Loss: $30
   const [totalProfitLoss, setTotalProfitLoss] = useState(0);
-  const [alternateOnLoss, setAlternateOnLoss] = useState(true);
-  const [isTradeEveryTick, setIsTradeEveryTick] = useState(true);
+  const [alternateOnLoss, setAlternateOnLoss] = useState(true); // Alternate on Loss enabled
+  const [isTradeEveryTick, setIsTradeEveryTick] = useState(true); // Trade Every Tick enabled by default
 
   // Trading state
   const [currentStake, setCurrentStake] = useState(1.0);
@@ -321,7 +321,7 @@ const SpeedBot: React.FC = observer(() => {
     }
   }, [websocket, isAuthorized]);
 
-  // Strategy condition check - TRADE EVERY TICK LOGIC
+  // Enhanced Strategy condition check - TRADE EVERY TICK LOGIC
   const isGoodCondition = useCallback((lastDigit: number, contractType: string) => {
     console.log(`🎯 Condition check: lastDigit=${lastDigit}, contractType=${contractType}, overUnderValue=${overUnderValue}`);
 
@@ -330,13 +330,43 @@ const SpeedBot: React.FC = observer(() => {
       return false;
     }
 
-    // If Trade Every Tick is enabled, always return true
+    // TRADE EVERY TICK MODE: Execute on every tick with predefined logic
     if (isTradeEveryTick) {
-      console.log(`🚀 TRADE EVERY TICK: Always trading on tick with digit=${lastDigit}`);
-      return true;
+      console.log(`🚀 TRADE EVERY TICK: Processing tick with digit=${lastDigit}`);
+      
+      // For Trade Every Tick, we use the contract type to determine the trade decision
+      switch (contractType) {
+        case 'DIGITEVEN':
+          // Trade Even on every tick
+          console.log(`🎯 Trade Every Tick: EVEN prediction for digit ${lastDigit}`);
+          return true;
+        case 'DIGITODD':
+          // Trade Odd on every tick (default for Trade Every Tick)
+          console.log(`🎯 Trade Every Tick: ODD prediction for digit ${lastDigit}`);
+          return true;
+        case 'DIGITOVER':
+          // Trade Over with barrier on every tick
+          console.log(`🎯 Trade Every Tick: OVER ${overUnderValue} prediction for digit ${lastDigit}`);
+          return true;
+        case 'DIGITUNDER':
+          // Trade Under with barrier on every tick
+          console.log(`🎯 Trade Every Tick: UNDER ${overUnderValue} prediction for digit ${lastDigit}`);
+          return true;
+        case 'DIGITMATCH':
+          // Trade Matches with specific digit on every tick
+          console.log(`🎯 Trade Every Tick: MATCHES ${overUnderValue} prediction for digit ${lastDigit}`);
+          return true;
+        case 'DIGITDIFF':
+          // Trade Differs from specific digit on every tick
+          console.log(`🎯 Trade Every Tick: DIFFERS ${overUnderValue} prediction for digit ${lastDigit}`);
+          return true;
+        default:
+          console.log(`🎯 Trade Every Tick: Unknown contract type ${contractType}, trading anyway`);
+          return true;
+      }
     }
 
-    // Original condition-based logic
+    // CONDITION-BASED MODE: Traditional logic-based trading
     let result = false;
 
     switch (contractType) {
@@ -362,7 +392,7 @@ const SpeedBot: React.FC = observer(() => {
         result = false;
     }
 
-    console.log(`🎯 Final condition result: ${result ? '✅ TRADE NOW' : '❌ SKIP'} (${contractType}: digit=${lastDigit}, barrier=${overUnderValue})`);
+    console.log(`🎯 Condition-based result: ${result ? '✅ TRADE NOW' : '❌ SKIP'} (${contractType}: digit=${lastDigit}, barrier=${overUnderValue})`);
     return result;
   }, [overUnderValue, isTradeEveryTick]);
 
@@ -1055,61 +1085,85 @@ const SpeedBot: React.FC = observer(() => {
                 const newTotalProfitLoss = totalProfitLoss + profit;
                 setTotalProfitLoss(newTotalProfitLoss);
 
-                // Check risk management thresholds
+                console.log(`📊 TRADE COMPLETED: ${isWin ? '🟢 WIN' : '🔴 LOSS'} | Profit: $${profit.toFixed(2)} | Total P/L: $${newTotalProfitLoss.toFixed(2)} | Mode: ${isTradeEveryTick ? 'EVERY TICK' : 'CONDITION'}`);
+
+                // RISK MANAGEMENT: Check Take Profit and Stop Loss thresholds
                 if (newTotalProfitLoss >= takeProfit) {
-                  console.log(`🎯 TAKE PROFIT HIT! Total P/L: ${newTotalProfitLoss}. Stopping bot.`);
-                  setError(`Take Profit reached at $${newTotalProfitLoss.toFixed(2)}`);
+                  console.log(`🎯 TAKE PROFIT TRIGGERED! Total P/L: $${newTotalProfitLoss.toFixed(2)}. Stopping bot.`);
+                  setError(`✅ Take Profit reached at $${newTotalProfitLoss.toFixed(2)}! Bot stopped.`);
                   setIsTrading(false);
                   setIsDirectTrading(false);
                   return;
                 }
 
-                if (newTotalProfitLoss <= -stopLoss) {
-                  console.log(`🛑 STOP LOSS HIT! Total P/L: ${newTotalProfitLoss}. Stopping bot.`);
-                  setError(`Stop Loss reached at $${newTotalProfitLoss.toFixed(2)}`);
+                if (newTotalProfitLoss <= -Math.abs(stopLoss)) {
+                  console.log(`🛑 STOP LOSS TRIGGERED! Total P/L: $${newTotalProfitLoss.toFixed(2)}. Stopping bot.`);
+                  setError(`❌ Stop Loss reached at $${newTotalProfitLoss.toFixed(2)}! Bot stopped.`);
                   setIsTrading(false);
                   setIsDirectTrading(false);
                   return;
                 }
 
+                // TRADE RESULT PROCESSING
                 if (isWin) {
                   setWins(prev => prev + 1);
-                  // Reset stake on win
+                  console.log(`🟢 WIN: Resetting stake to base amount $${stake}`);
+                  // Reset stake to base amount on win
                   setCurrentStake(stake);
                 } else {
                   setLosses(prev => prev + 1);
                   
-                  // Alternate prediction on loss if enabled
+                  // ALTERNATE ON LOSS: Switch predictions if enabled
                   if (alternateOnLoss) {
-                    console.log(`🔄 Alternating contract type due to loss`);
+                    console.log(`🔄 ALTERNATE ON LOSS: Switching contract type due to loss`);
                     setSelectedContractType(prev => {
-                      switch (prev) {
-                        case 'DIGITEVEN':
-                          return 'DIGITODD';
-                        case 'DIGITODD':
-                          return 'DIGITEVEN';
-                        case 'DIGITOVER':
-                          return 'DIGITUNDER';
-                        case 'DIGITUNDER':
-                          return 'DIGITOVER';
-                        default:
-                          return prev;
-                      }
+                      const alternates = {
+                        'DIGITEVEN': 'DIGITODD',
+                        'DIGITODD': 'DIGITEVEN',
+                        'DIGITOVER': 'DIGITUNDER',
+                        'DIGITUNDER': 'DIGITOVER',
+                        'DIGITMATCH': 'DIGITDIFF',
+                        'DIGITDIFF': 'DIGITMATCH'
+                      };
+                      const newType = alternates[prev] || prev;
+                      console.log(`🔄 Contract type changed: ${prev} → ${newType}`);
+                      return newType;
                     });
                   }
                   
-                  // Apply martingale if enabled
+                  // MARTINGALE STRATEGY: Apply stake multiplication if enabled
                   if (useMartingale) {
                     const maxStake = selectedContractType.startsWith('MULT') ? 2000 : 
                                     selectedContractType.startsWith('LB') ? 500 : 1000;
                     const newStake = Math.min(currentStake * martingaleMultiplier, maxStake);
-                    setCurrentStake(newStake);
-                    console.log(`📈 Martingale applied: New stake ${newStake}`);
+
+                    // Additional safety check for balance
+                    if (balance > 0 && newStake > balance * 0.9) {
+                      console.warn(`⚠️ Martingale stake ${newStake} exceeds 90% of balance ${balance}, limiting to safe amount`);
+                      const safeStake = Math.max(stake, balance * 0.1); // Use at least base stake or 10% of balance
+                      setCurrentStake(safeStake);
+                      console.log(`📈 Martingale limited: Using safe stake $${safeStake}`);
+                    } else {
+                      setCurrentStake(newStake);
+                      console.log(`📈 Martingale applied: Previous stake $${currentStake} → New stake $${newStake} (${martingaleMultiplier}x)`);
+                    }
                   }
                 }
-              }
 
-              console.log(`📊 Contract completed:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`, `Total P/L: ${totalProfitLoss + profit}`, `Trade counted: ${tradeWasUpdated}`);
+                // Log detailed trade summary for Trade Every Tick mode
+                if (isTradeEveryTick) {
+                  const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
+                  console.log(`🚀 TRADE EVERY TICK SUMMARY: 
+                    Result: ${isWin ? 'WIN' : 'LOSS'}
+                    Profit: $${profit.toFixed(2)}
+                    Total P/L: $${newTotalProfitLoss.toFixed(2)}
+                    Current Stake: $${currentStake}
+                    Win Rate: ${winRate}%
+                    Trades: ${totalTrades + 1}
+                    Contract: ${selectedContractType}
+                  `);
+                }
+              }
             }
           }
 
@@ -1444,6 +1498,38 @@ const SpeedBot: React.FC = observer(() => {
         <strong>This uses real money!</strong>
         {isDirectTrading && <span style={{ color: 'green' }}> 🌐 Direct Trading Active</span>}
         {!isDirectTrading && isTrading && <span style={{ color: 'orange' }}> 🔄 Initializing Direct Trading...</span>}
+        
+        {/* Trade Every Tick Information Panel */}
+        {isTradeEveryTick && (
+          <div style={{ 
+            marginTop: '10px', 
+            padding: '10px', 
+            backgroundColor: '#e8f5e8', 
+            border: '1px solid #4caf50', 
+            borderRadius: '4px' 
+          }}>
+            <strong>🚀 TRADE EVERY TICK MODE ACTIVE</strong>
+            <br />
+            <small>
+              • Market: {volatilitySymbols.find(s => s.value === selectedSymbol)?.label || selectedSymbol}
+              <br />
+              • Prediction: {contractTypes.find(c => c.value === selectedContractType)?.label || selectedContractType}
+              {['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType) && 
+                ` (${overUnderValue})`
+              }
+              <br />
+              • Stake: ${currentStake.toFixed(2)} USD
+              <br />
+              • Take Profit: ${takeProfit.toFixed(2)} USD | Stop Loss: ${stopLoss.toFixed(2)} USD
+              <br />
+              • Martingale: {useMartingale ? `Enabled (${martingaleMultiplier}x)` : 'Disabled'}
+              <br />
+              • Alternate on Loss: {alternateOnLoss ? 'Enabled' : 'Disabled'}
+              <br />
+              <strong>⚡ Trades on EVERY tick without waiting for previous trades to close</strong>
+            </small>
+          </div>
+        )}
       </div>
 
       {error && (
