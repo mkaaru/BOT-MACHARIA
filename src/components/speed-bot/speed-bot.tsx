@@ -110,15 +110,22 @@ const SpeedBot: React.FC = observer(() => {
   const [activeSubscriptions, setActiveSubscriptions] = useState<Set<string>>(new Set());
 
   // Trading configuration
-  const [selectedSymbol, setSelectedSymbol] = useState('R_10');
-  const [selectedContractType, setSelectedContractType] = useState('DIGITEVEN');
-  const [stake, setStake] = useState(1.0);
+  const [selectedSymbol, setSelectedSymbol] = useState('R_100');
+  const [selectedContractType, setSelectedContractType] = useState('DIGITODD');
+  const [stake, setStake] = useState(0.5);
   const [overUnderValue, setOverUnderValue] = useState(5);
   const [isTrading, setIsTrading] = useState(false);
 
   // Strategy options
   const [useMartingale, setUseMartingale] = useState(true);
-  const [martingaleMultiplier, setMartingaleMultiplier] = useState(1.5);
+  const [martingaleMultiplier, setMartingaleMultiplier] = useState(2.0);
+  
+  // Risk Management
+  const [takeProfit, setTakeProfit] = useState(5);
+  const [stopLoss, setStopLoss] = useState(30);
+  const [totalProfitLoss, setTotalProfitLoss] = useState(0);
+  const [alternateOnLoss, setAlternateOnLoss] = useState(true);
+  const [isTradeEveryTick, setIsTradeEveryTick] = useState(true);
 
   // Trading state
   const [currentStake, setCurrentStake] = useState(1.0);
@@ -314,7 +321,7 @@ const SpeedBot: React.FC = observer(() => {
     }
   }, [websocket, isAuthorized]);
 
-  // Strategy condition check - PROPER LOGIC FOR TRADING
+  // Strategy condition check - TRADE EVERY TICK LOGIC
   const isGoodCondition = useCallback((lastDigit: number, contractType: string) => {
     console.log(`🎯 Condition check: lastDigit=${lastDigit}, contractType=${contractType}, overUnderValue=${overUnderValue}`);
 
@@ -323,6 +330,13 @@ const SpeedBot: React.FC = observer(() => {
       return false;
     }
 
+    // If Trade Every Tick is enabled, always return true
+    if (isTradeEveryTick) {
+      console.log(`🚀 TRADE EVERY TICK: Always trading on tick with digit=${lastDigit}`);
+      return true;
+    }
+
+    // Original condition-based logic
     let result = false;
 
     switch (contractType) {
@@ -350,7 +364,7 @@ const SpeedBot: React.FC = observer(() => {
 
     console.log(`🎯 Final condition result: ${result ? '✅ TRADE NOW' : '❌ SKIP'} (${contractType}: digit=${lastDigit}, barrier=${overUnderValue})`);
     return result;
-  }, [overUnderValue]);
+  }, [overUnderValue, isTradeEveryTick]);
 
   // Get price proposal using proper Deriv API format
   const getPriceProposal = useCallback(() => {
@@ -1037,18 +1051,65 @@ const SpeedBot: React.FC = observer(() => {
               });
 
               if (tradeWasUpdated) {
+                // Update total profit/loss
+                const newTotalProfitLoss = totalProfitLoss + profit;
+                setTotalProfitLoss(newTotalProfitLoss);
+
+                // Check risk management thresholds
+                if (newTotalProfitLoss >= takeProfit) {
+                  console.log(`🎯 TAKE PROFIT HIT! Total P/L: ${newTotalProfitLoss}. Stopping bot.`);
+                  setError(`Take Profit reached at $${newTotalProfitLoss.toFixed(2)}`);
+                  setIsTrading(false);
+                  setIsDirectTrading(false);
+                  return;
+                }
+
+                if (newTotalProfitLoss <= -stopLoss) {
+                  console.log(`🛑 STOP LOSS HIT! Total P/L: ${newTotalProfitLoss}. Stopping bot.`);
+                  setError(`Stop Loss reached at $${newTotalProfitLoss.toFixed(2)}`);
+                  setIsTrading(false);
+                  setIsDirectTrading(false);
+                  return;
+                }
+
                 if (isWin) {
                   setWins(prev => prev + 1);
+                  // Reset stake on win
                   setCurrentStake(stake);
                 } else {
                   setLosses(prev => prev + 1);
+                  
+                  // Alternate prediction on loss if enabled
+                  if (alternateOnLoss) {
+                    console.log(`🔄 Alternating contract type due to loss`);
+                    setSelectedContractType(prev => {
+                      switch (prev) {
+                        case 'DIGITEVEN':
+                          return 'DIGITODD';
+                        case 'DIGITODD':
+                          return 'DIGITEVEN';
+                        case 'DIGITOVER':
+                          return 'DIGITUNDER';
+                        case 'DIGITUNDER':
+                          return 'DIGITOVER';
+                        default:
+                          return prev;
+                      }
+                    });
+                  }
+                  
+                  // Apply martingale if enabled
                   if (useMartingale) {
-                    setCurrentStake(prev => prev * martingaleMultiplier);
+                    const maxStake = selectedContractType.startsWith('MULT') ? 2000 : 
+                                    selectedContractType.startsWith('LB') ? 500 : 1000;
+                    const newStake = Math.min(currentStake * martingaleMultiplier, maxStake);
+                    setCurrentStake(newStake);
+                    console.log(`📈 Martingale applied: New stake ${newStake}`);
                   }
                 }
               }
 
-              console.log(`📊 Contract completed:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`, `Trade counted: ${tradeWasUpdated}`);
+              console.log(`📊 Contract completed:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`, `Total P/L: ${totalProfitLoss + profit}`, `Trade counted: ${tradeWasUpdated}`);
             }
           }
 
@@ -1091,19 +1152,18 @@ const SpeedBot: React.FC = observer(() => {
               return;
             }
 
-            // Execute trade on EVERY tick - removed rate limiting and conditions
+            // Execute trade based on mode - Trade Every Tick or Condition-based
             if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal && !proposalId) {
               if (isNaN(lastDigit)) {
                 console.error('❌ Invalid last digit from tick:', data.tick.quote);
                 return;
               }
 
-              // For high-frequency symbols like 1HZ, execute immediately on every tick
-              const isHighFrequency = selectedSymbol.includes('1HZ');
-              const shouldTrade = isHighFrequency ? true : isGoodCondition(lastDigit, selectedContractType);
+              // Check if we should trade based on the current mode
+              const shouldTrade = isTradeEveryTick || isGoodCondition(lastDigit, selectedContractType);
 
               if (shouldTrade) {
-                console.log(`🚀🚀🚀 EXECUTING TRADE! Symbol: ${selectedSymbol} | Contract: ${selectedContractType} | Digit: ${lastDigit} | High-Freq: ${isHighFrequency} 🚀🚀🚀`);
+                console.log(`🚀🚀🚀 EXECUTING TRADE! Mode: ${isTradeEveryTick ? 'EVERY TICK' : 'CONDITION-BASED'} | Symbol: ${selectedSymbol} | Contract: ${selectedContractType} | Digit: ${lastDigit} | Total P/L: ${totalProfitLoss} 🚀🚀🚀`);
                 setLastTradeTime(Date.now());
                 
                 // Request proposal immediately
@@ -1267,6 +1327,7 @@ const SpeedBot: React.FC = observer(() => {
     setWins(0);
     setLosses(0);
     setCurrentStake(stake);
+    setTotalProfitLoss(0);
     setError(null);
     setActiveContracts(new Map());
   };
@@ -1475,7 +1536,41 @@ const SpeedBot: React.FC = observer(() => {
           </div>
         </div>
 
+        <div className="speed-bot__form-row">
+          <div className="speed-bot__form-group">
+            <label>Take Profit ($)</label>
+            <input
+              type="number"
+              value={takeProfit}
+              onChange={(e) => setTakeProfit(parseFloat(e.target.value))}
+              min="1"
+              step="0.01"
+              disabled={isTrading}
+            />
+          </div>
+          <div className="speed-bot__form-group">
+            <label>Stop Loss ($)</label>
+            <input
+              type="number"
+              value={stopLoss}
+              onChange={(e) => setStopLoss(parseFloat(e.target.value))}
+              min="1"
+              step="0.01"
+              disabled={isTrading}
+            />
+          </div>
+        </div>
+
         <div className="speed-bot__toggles">
+          <div className="speed-bot__toggle-row">
+            <label>Trade Every Tick</label>
+            <input
+              type="checkbox"
+              checked={isTradeEveryTick}
+              onChange={(e) => setIsTradeEveryTick(e.target.checked)}
+              disabled={isTrading}
+            />
+          </div>
           <div className="speed-bot__toggle-row">
             <label>Use Martingale</label>
             <input
@@ -1485,11 +1580,20 @@ const SpeedBot: React.FC = observer(() => {
               disabled={isTrading}
             />
           </div>
+          <div className="speed-bot__toggle-row">
+            <label>Alternate on Loss</label>
+            <input
+              type="checkbox"
+              checked={alternateOnLoss}
+              onChange={(e) => setAlternateOnLoss(e.target.checked)}
+              disabled={isTrading}
+            />
+          </div>
         </div>
 
         <div className="speed-bot__form-row">
           <div className="speed-bot__form-group">
-            <label>Martingale</label>
+            <label>Martingale Factor</label>
             <input
               type="number"
               value={martingaleMultiplier}
@@ -1676,12 +1780,26 @@ const SpeedBot: React.FC = observer(() => {
             <span>{winRate}%</span>
           </div>
           <div className="speed-bot__stat">
-            <label>Execution State</label>
-            <span>{isExecutingTrade ? '🔄 Executing' : '✅ Ready'}</span>
+            <label>Total P/L</label>
+            <span style={{ color: totalProfitLoss >= 0 ? 'green' : 'red' }}>
+              ${totalProfitLoss.toFixed(2)}
+            </span>
           </div>
           <div className="speed-bot__stat">
-            <label>Proposal State</label>
-            <span>{isRequestingProposal ? '📊 Requesting' : '✅ Ready'}</span>
+            <label>Take Profit</label>
+            <span>${takeProfit.toFixed(2)}</span>
+          </div>
+          <div className="speed-bot__stat">
+            <label>Stop Loss</label>
+            <span>-${stopLoss.toFixed(2)}</span>
+          </div>
+          <div className="speed-bot__stat">
+            <label>Trade Mode</label>
+            <span>{isTradeEveryTick ? '🔥 Every Tick' : '🎯 Condition'}</span>
+          </div>
+          <div className="speed-bot__stat">
+            <label>Execution State</label>
+            <span>{isExecutingTrade ? '🔄 Executing' : '✅ Ready'}</span>
           </div>
           <div className="speed-bot__stat">
             <label>Config Valid</label>
