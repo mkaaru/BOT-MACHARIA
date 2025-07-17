@@ -1,3 +1,66 @@
+
+// Trade verification helper function
+const verifyTradeExecution = () => {
+  console.log('🔍 TRADE VERIFICATION REPORT:');
+  console.log('================================');
+  console.log('🔗 WebSocket Status:', {
+    connected: websocket?.readyState === WebSocket.OPEN,
+    authorized: isAuthorized,
+    url: 'wss://ws.derivws.com/websockets/v3?app_id=75771'
+  });
+  
+  console.log('🔑 Authentication:', {
+    clientLoggedIn: client?.is_logged_in,
+    tokenAvailable: !!getAuthToken(),
+    accountType: client?.is_virtual ? 'Demo' : 'Real',
+    currency: client?.currency || 'USD',
+    balance: balance
+  });
+  
+  console.log('🎯 Trading Configuration:', {
+    symbol: selectedSymbol,
+    contractType: selectedContractType,
+    stake: currentStake,
+    barrier: overUnderValue,
+    validConfig: isValidCombination
+  });
+  
+  console.log('⚡ Execution States:', {
+    isTrading,
+    isDirectTrading,
+    isExecutingTrade,
+    isRequestingProposal,
+    proposalId: proposalId ? 'Available' : 'None'
+  });
+  
+  console.log('📊 Trade Statistics:', {
+    totalTrades,
+    activeContracts: activeContracts.size,
+    totalPL: totalProfitLoss,
+    lastTradeTime: lastTradeTime ? new Date(lastTradeTime).toISOString() : 'Never'
+  });
+  
+  console.log('================================');
+  
+  // Check for common issues
+  if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+    console.error('❌ ISSUE: WebSocket not connected');
+  }
+  if (!isAuthorized) {
+    console.error('❌ ISSUE: Not authorized');
+  }
+  if (!getAuthToken()) {
+    console.error('❌ ISSUE: No authentication token');
+  }
+  if (!isValidCombination) {
+    console.error('❌ ISSUE: Invalid trading configuration');
+  }
+  if (balance < currentStake) {
+    console.error('❌ ISSUE: Insufficient balance');
+  }
+};
+
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Localize } from '@deriv-com/translations';
 import { useStore } from '@/hooks/useStore';
@@ -43,62 +106,107 @@ const SpeedBot: React.FC = observer(() => {
       );
     }
 
-  // Get token from client store with better error handling
+  // Get token from client store with comprehensive token retrieval
   const getAuthToken = () => {
     console.log('🔍 Checking authentication...');
     console.log('Client object:', client);
     console.log('Is logged in:', client?.is_logged_in);
 
-    if (!client) {
-      console.log('❌ Client store not available');
-      return null;
-    }
-
-    if (!client.is_logged_in) {
+    if (!client?.is_logged_in) {
       console.log('❌ User not logged in');
       return null;
     }
 
-    // Try multiple ways to get the token
+    // Try multiple token sources in order of preference
     let token = null;
 
-    // Check various possible token locations
+    // Method 1: Client store methods
     if (client.getToken && typeof client.getToken === 'function') {
-      token = client.getToken();
-      console.log('🔑 Token from getToken():', token ? 'Available' : 'Null');
-    }
-
-    if (!token && client.token) {
-      token = client.token;
-      console.log('🔑 Token from client.token:', token ? 'Available' : 'Null');
-    }
-
-    if (!token && client.authentication?.token) {
-      token = client.authentication.token;
-      console.log('🔑 Token from client.authentication.token:', token ? 'Available' : 'Null');
-    }
-
-    // Check localStorage as fallback
-    if (!token) {
       try {
-        const storedTokens = localStorage.getItem('client.tokens');
-        if (storedTokens) {
-          const parsedTokens = JSON.parse(storedTokens);
-          if (parsedTokens && Object.keys(parsedTokens).length > 0) {
-            token = Object.values(parsedTokens)[0];
-            console.log('🔑 Token from localStorage:', token ? 'Available' : 'Null');
-          }
-        }
+        token = client.getToken();
+        if (token) console.log('🔑 Token from getToken():', token.substring(0, 20) + '...');
       } catch (e) {
-        console.log('⚠️ Error reading tokens from localStorage:', e);
+        console.log('⚠️ Error calling getToken():', e);
       }
     }
 
-    if (token) {
-      console.log('✅ Authentication token found');
+    // Method 2: Client properties
+    if (!token && client.token) {
+      token = client.token;
+      console.log('🔑 Token from client.token:', token.substring(0, 20) + '...');
+    }
+
+    // Method 3: Authentication object
+    if (!token && client.accounts) {
+      const activeLoginId = client.loginid;
+      if (activeLoginId && client.accounts[activeLoginId]?.token) {
+        token = client.accounts[activeLoginId].token;
+        console.log('🔑 Token from client.accounts:', token.substring(0, 20) + '...');
+      }
+    }
+
+    // Method 4: Direct localStorage access with multiple key patterns
+    if (!token) {
+      try {
+        // Try different localStorage key patterns
+        const tokenSources = [
+          'client.tokens',
+          'authToken', 
+          'accountsList',
+          localStorage.getItem('active_loginid')
+        ];
+
+        for (const source of tokenSources) {
+          if (!token && source) {
+            const stored = localStorage.getItem(source);
+            if (stored && stored !== 'null') {
+              try {
+                // Try parsing as JSON first
+                const parsed = JSON.parse(stored);
+                if (typeof parsed === 'object' && parsed) {
+                  // Extract first available token
+                  const tokenValue = Object.values(parsed)[0];
+                  if (typeof tokenValue === 'string' && tokenValue.length > 10) {
+                    token = tokenValue;
+                    console.log(`🔑 Token from localStorage.${source}:`, token.substring(0, 20) + '...');
+                    break;
+                  }
+                }
+              } catch (e) {
+                // Try as direct string
+                if (stored.length > 10 && stored.startsWith('a1-')) {
+                  token = stored;
+                  console.log(`🔑 Token from localStorage.${source} (direct):`, token.substring(0, 20) + '...');
+                  break;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.log('⚠️ Error reading from localStorage:', e);
+      }
+    }
+
+    // Method 5: Check URL parameters as last resort
+    if (!token) {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('token');
+        if (urlToken && urlToken.length > 10) {
+          token = urlToken;
+          console.log('🔑 Token from URL params:', token.substring(0, 20) + '...');
+        }
+      } catch (e) {
+        console.log('⚠️ Error reading URL params:', e);
+      }
+    }
+
+    if (token && token.length > 10) {
+      console.log('✅ Authentication token found and validated');
       return token;
     } else {
-      console.log('❌ No authentication token found');
+      console.log('❌ No valid authentication token found');
       return null;
     }
   };
@@ -452,11 +560,9 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
-    // Trade Every Tick: No rate limiting - execute immediately on every tick
-    console.log('⚡ TRADE EVERY TICK: No rate limiting - executing immediately');
-
     try {
       setIsRequestingProposal(true);
+      setError(null); // Clear any previous errors
 
       const requestId = Date.now();
       const needsBarrier = ['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType);
@@ -483,23 +589,19 @@ const SpeedBot: React.FC = observer(() => {
       switch (selectedContractType) {
         case 'RANGE':
         case 'UPORDOWN':
-          // For range contracts, add barrier and barrier2
           proposalRequest.barrier = overUnderValue.toString();
           proposalRequest.barrier2 = (overUnderValue + 1).toString();
           break;
         
         case 'ONETOUCH':
         case 'NOTOUCH':
-          // Touch/No Touch contracts need barrier
           proposalRequest.barrier = overUnderValue.toString();
           break;
         
         case 'MULTUP':
         case 'MULTDOWN':
-          // Multiplier contracts
           proposalRequest.multiplier = 10;
           proposalRequest.product_type = 'basic';
-          // Add limit orders for risk management
           proposalRequest.limit_order = {
             stop_loss: currentStake * 2,
             take_profit: currentStake * 3
@@ -509,49 +611,46 @@ const SpeedBot: React.FC = observer(() => {
         case 'LBHIGHLOW':
         case 'LBFLOATCALL':
         case 'LBFLOATPUT':
-          // Lookback contracts
-          proposalRequest.duration = 5;
-          proposalRequest.duration_unit = 't';
-          break;
-        
         case 'ASIANU':
         case 'ASIAND':
-          // Asian contracts
           proposalRequest.duration = 5;
           proposalRequest.duration_unit = 't';
           break;
       }
 
-      console.log('📊 Sending Deriv API compliant proposal request:', JSON.stringify(proposalRequest, null, 2));
+      console.log('📊 Sending Deriv API proposal request:', JSON.stringify(proposalRequest, null, 2));
       websocket.send(JSON.stringify(proposalRequest));
 
-      // Set timeout for proposal response
+      // Set timeout for proposal response - longer timeout for stability
       const proposalTimeoutId = setTimeout(() => {
-        console.log('⏰ Proposal request timeout - clearing flags');
+        console.log('⏰ Proposal request timeout - clearing flags and retrying');
         setIsRequestingProposal(false);
         setProposalId(null);
+        setError('Proposal timeout - retrying...');
 
-        // For Trade Every Tick: Retry immediately if still trading
+        // Retry if still trading
         if (isTrading && isDirectTrading && !isExecutingTrade) {
-          console.log('🔄 TRADE EVERY TICK: Retrying proposal immediately after timeout...');
-          getPriceProposal();
+          setTimeout(() => {
+            console.log('🔄 Retrying proposal after timeout...');
+            getPriceProposal();
+          }, 1000);
         }
-      }, 3000); // Reduced timeout for faster execution in Trade Every Tick mode
+      }, 5000); // Increased timeout for better reliability
 
       // Store timeout ID for cleanup
       (window as any).proposalTimeoutId = proposalTimeoutId;
 
     } catch (error) {
       console.error('❌ Error getting proposal:', error);
-      setError(`Failed to get proposal: ${error.message}`);
+      setError(`Proposal error: ${error.message}`);
       setIsRequestingProposal(false);
 
-      // For Trade Every Tick: Quick retry on error
+      // Retry on error
       if (isTrading && isDirectTrading) {
         setTimeout(() => {
-          console.log('🔄 TRADE EVERY TICK: Quick retry after proposal error...');
+          console.log('🔄 Retrying proposal after error...');
           getPriceProposal();
-        }, 500); // Faster retry for Trade Every Tick
+        }, 2000);
       }
     }
   }, [websocket, isAuthorized, currentStake, selectedContractType, selectedSymbol, overUnderValue, isExecutingTrade, isRequestingProposal, isTrading, isDirectTrading, client, lastTradeTime]);
@@ -824,9 +923,27 @@ const SpeedBot: React.FC = observer(() => {
             }
           }
 
-          // Handle buy response
+          // Handle buy response with comprehensive logging
           if (data.buy) {
-            console.log('✅ Contract purchased successfully:', JSON.stringify(data.buy, null, 2));
+            console.log('🎉 CONTRACT PURCHASED SUCCESSFULLY! 🎉');
+            console.log('📋 Purchase Details:', JSON.stringify(data.buy, null, 2));
+            
+            // Extract purchase information
+            const contractId = data.buy.contract_id;
+            const buyPrice = data.buy.buy_price;
+            const payout = data.buy.payout;
+            const transactionId = data.buy.transaction_id;
+            
+            console.log('✅ TRADE EXECUTION CONFIRMED:', {
+              contractId,
+              buyPrice,
+              payout,
+              transactionId,
+              symbol: selectedSymbol,
+              contractType: selectedContractType,
+              stake: currentStake,
+              timestamp: new Date().toISOString()
+            });
 
             // Clear any pending timeouts
             if ((window as any).buyTimeoutId) {
@@ -845,7 +962,6 @@ const SpeedBot: React.FC = observer(() => {
             setProposalId(null);
             setError(null);
 
-            const contractId = data.buy.contract_id;
             const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             const trade: Trade = {
               id: tradeId,
@@ -857,31 +973,30 @@ const SpeedBot: React.FC = observer(() => {
               profit: 0,
             };
 
-            if (isTrading && isDirectTrading) {
-              setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
-              setTotalTrades(prev => {
-                const newTotal = prev + 1;
-                console.log(`📊 Total trades incremented to: ${newTotal}`);
-                return newTotal;
+            // Update trade history and statistics
+            setTradeHistory(prev => [trade, ...prev.slice(0, 19)]);
+            setTotalTrades(prev => {
+              const newTotal = prev + 1;
+              console.log(`📊 TOTAL TRADES COUNT: ${newTotal}`);
+              return newTotal;
+            });
+
+            // Store active contract for monitoring
+            if (contractId) {
+              setActiveContracts(prev => {
+                const newMap = new Map(prev);
+                newMap.set(contractId, {
+                  ...trade,
+                  contractId,
+                  buyPrice: parseFloat(buyPrice || currentStake),
+                  startTime: Date.now(),
+                  payout: parseFloat(payout || 0)
+                });
+                console.log(`📊 ACTIVE CONTRACTS COUNT: ${newMap.size}`);
+                return newMap;
               });
 
-              // Store active contract for potential selling
-              if (contractId) {
-                setActiveContracts(prev => {
-                  const newMap = new Map(prev);
-                  newMap.set(contractId, {
-                    ...trade,
-                    contractId,
-                    buyPrice: data.buy.buy_price,
-                    startTime: Date.now()
-                  });
-                  console.log(`📊 Active contracts: ${newMap.size}`);
-                  return newMap;
-                });
-              }
-            }
-
-            if (contractId) {
+              // Subscribe to contract updates
               try {
                 const contractRequest = {
                   proposal_open_contract: 1,
@@ -890,13 +1005,23 @@ const SpeedBot: React.FC = observer(() => {
                   req_id: Date.now() + 3000
                 };
                 ws.send(JSON.stringify(contractRequest));
-                console.log('📈 Subscribed to contract updates for contract:', contractId);
+                console.log('📈 Subscribed to contract updates for:', contractId);
               } catch (error) {
-                console.error('❌ Error subscribing to contract:', error);
+                console.error('❌ Error subscribing to contract updates:', error);
               }
             }
 
-            console.log('✅ Trade completed successfully - ready for next condition');
+            // Show success message to user
+            setError(`✅ Trade executed! Contract ID: ${contractId?.toString().substring(0, 8)}...`);
+            
+            console.log('🚀 TRADE EXECUTION COMPLETE - Bot ready for next opportunity');
+            console.log('📊 Current Status:', {
+              totalTrades: totalTrades + 1,
+              activeContracts: activeContracts.size + 1,
+              totalPL: totalProfitLoss,
+              isTrading: isTrading,
+              isDirectTrading: isDirectTrading
+            });
           }
 
           // Handle sell response according to Deriv API schema
@@ -1908,6 +2033,13 @@ const SpeedBot: React.FC = observer(() => {
               Reconnect & Auth
             </button>
           )}
+          <button 
+            className="speed-bot__verify-btn"
+            onClick={verifyTradeExecution}
+            style={{ backgroundColor: '#9c27b0', color: 'white', marginLeft: '10px' }}
+          >
+            Verify Setup
+          </button>
           {isAuthorized && (isRequestingProposal || isExecutingTrade) && (
             <button 
               className="speed-bot__force-restart-btn"
@@ -2030,45 +2162,74 @@ const SpeedBot: React.FC = observer(() => {
           </div>
         </div>
 
-        {/* Debug Information Panel - Remove after testing */}
-        {isTrading && (
+        {/* Enhanced Debug Information Panel */}
+        {(isTrading || isConnected) && (
           <div className="speed-bot__debug" style={{ 
-            background: '#f0f0f0', 
-            padding: '10px', 
+            background: isTrading ? '#e8f5e8' : '#f0f0f0', 
+            padding: '15px', 
             margin: '10px 0', 
-            borderRadius: '4px',
+            borderRadius: '8px',
             fontSize: '12px',
-            fontFamily: 'monospace'
+            fontFamily: 'monospace',
+            border: isTrading ? '2px solid #4caf50' : '1px solid #ccc'
           }}>
-            <h4>Debug Info (Remove in production)</h4>
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-              {JSON.stringify({
-                websocketState: websocket?.readyState,
-                isConnected,
-                isAuthorized,
-                isTrading,
-                isDirectTrading,
-                isExecutingTrade,
-                isRequestingProposal,
-                proposalId,
-                currentStake,
-                selectedSymbol,
-                selectedContractType,
-                overUnderValue,
-                isValidCombination,
-                lastTradeTime: lastTradeTime ? new Date(lastTradeTime).toLocaleTimeString() : 'Never',
-                currentPrice,
-                timeSinceLastTrade: lastTradeTime ? `${Math.floor((Date.now() - lastTradeTime) / 1000)}s ago` : 'Never'
-              }, null, 2)}
-            </pre>
-            <div style={{ marginTop: '10px', padding: '5px', backgroundColor: '#e8f4fd', borderRadius: '3px' }}>
-              <strong>🔧 Quick Actions:</strong>
-              <br />
-              • Click "Force Trade" to trigger a trade immediately
-              <br />
-              • Current price: {currentPrice} (last digit: {currentPrice.slice(-1)})
-              <br />
-              • Rate limit: DISABLED - Trading on every tick
+            <h4 style={{ margin: '0 0 10px 0', color: isTrading ? '#2e7d32' : '#333' }}>
+              🔍 Real-Time Trade Monitor {isTrading ? '(ACTIVE)' : '(STANDBY)'}
+            </h4>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+              <div>
+                <strong>🔗 Connection Status:</strong>
+                <br />WebSocket: {websocket?.readyState === 1 ? '✅ Connected' : '❌ Disconnected'}
+                <br />Authorized: {isAuthorized ? '✅ Yes' : '❌ No'}
+                <br />Token Available: {getAuthToken() ? '✅ Yes' : '❌ No'}
+                
+                <br /><br /><strong>🎯 Trading Status:</strong>
+                <br />Mode: {isTradeEveryTick ? '🔥 Every Tick' : '🎯 Condition-Based'}
+                <br />Executing: {isExecutingTrade ? '⚡ YES' : '✅ Ready'}
+                <br />Requesting Proposal: {isRequestingProposal ? '⏳ YES' : '✅ Ready'}
+                <br />Proposal ID: {proposalId ? '✅ Ready' : '❌ None'}
+              </div>
+              
+              <div>
+                <strong>📊 Current Trade Config:</strong>
+                <br />Symbol: {selectedSymbol}
+                <br />Contract: {selectedContractType}
+                <br />Stake: ${currentStake}
+                <br />Price: {currentPrice} (Last digit: {currentPrice.slice(-1)})
+                <br />Barrier: {overUnderValue}
+                
+                <br /><br /><strong>📈 Performance:</strong>
+                <br />Total Trades: {totalTrades}
+                <br />Active Contracts: {activeContracts.size}
+                <br />Total P/L: ${totalProfitLoss.toFixed(2)}
+                <br />Win Rate: {winRate}%
+              </div>
+            </div>
+            
+            <div style={{ 
+              marginTop: '15px', 
+              padding: '10px', 
+              backgroundColor: isTrading ? '#c8e6c9' : '#e3f2fd', 
+              borderRadius: '4px',
+              borderLeft: `4px solid ${isTrading ? '#4caf50' : '#2196f3'}`
+            }}>
+              <strong>🔧 Trade Execution Monitor:</strong>
+              <br />Last Trade: {lastTradeTime ? new Date(lastTradeTime).toLocaleTimeString() : 'Never'}
+              <br />Time Since: {lastTradeTime ? `${Math.floor((Date.now() - lastTradeTime) / 1000)}s ago` : 'N/A'}
+              <br />Config Valid: {isValidCombination ? '✅ Valid' : '❌ Invalid - Check settings'}
+              <br />Balance: ${balance.toFixed(2)} {client?.currency || 'USD'}
+              {error && (
+                <>
+                  <br /><span style={{ color: 'red' }}>⚠️ Error: {error}</span>
+                </>
+              )}
+            </div>
+            
+            <div style={{ marginTop: '10px', textAlign: 'center' }}>
+              <small style={{ color: '#666' }}>
+                {isTrading ? '🟢 Bot is actively monitoring for trade opportunities' : '🔴 Bot is stopped'}
+              </small>
             </div>
           </div>
         )}
