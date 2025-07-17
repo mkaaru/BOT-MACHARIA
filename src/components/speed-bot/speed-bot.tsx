@@ -122,6 +122,8 @@ const SpeedBot: React.FC = observer(() => {
   const [lastTradeTime, setLastTradeTime] = useState(0);
   const [isExecutingTrade, setIsExecutingTrade] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [consecutiveLosses, setConsecutiveLosses] = useState(0);
+  const [baseStake, setBaseStake] = useState(stake);
 
   // Bot engine state
   const [tradeEngine, setTradeEngine] = useState<any>(null);
@@ -668,7 +670,7 @@ const SpeedBot: React.FC = observer(() => {
   const executeBotTrade = useCallback(async () => {
     console.log('🚀 BREAKPOINT 27: executeBotTrade called');
     console.log('🔍 BREAKPOINT 28: Engine status - tradeEngine:', !!tradeEngine, 'botInterface:', !!botInterface, 'isUsingBotEngine:', isUsingBotEngine);
-    
+
     if (!tradeEngine || !botInterface || !isUsingBotEngine) {
       console.error('❌ BREAKPOINT 29: Bot engine not available for trading');
       console.error('  - tradeEngine:', !!tradeEngine);
@@ -915,6 +917,8 @@ const SpeedBot: React.FC = observer(() => {
     try {
       console.log('🔧 BREAKPOINT 4: Setting up trading state...');
       setCurrentStake(stake);
+      setBaseStake(stake); // Set base stake at the start
+      setConsecutiveLosses(0); // Reset losses
       setIsTrading(true);
       setIsExecutingTrade(false);
 
@@ -952,7 +956,7 @@ const SpeedBot: React.FC = observer(() => {
   const executeTradingLoop = useCallback(async () => {
     console.log('🔄 BREAKPOINT 14: executeTradingLoop called');
     console.log('🔍 BREAKPOINT 15: Current state - isTrading:', isTrading, 'isUsingBotEngine:', isUsingBotEngine);
-    
+
     if (!isTrading || !isUsingBotEngine) {
       console.log('🛑 BREAKPOINT 16: Trading loop stopped - not trading or bot engine not available');
       console.log('  - isTrading:', isTrading);
@@ -1038,8 +1042,30 @@ const SpeedBot: React.FC = observer(() => {
     setWins(0);
     setLosses(0);
     setCurrentStake(stake);
+    setConsecutiveLosses(0);
     setError(null);
   };
+
+  const handleStakeChange = (newStake: number) => {
+    if (newStake >= 0.35) {
+      setCurrentStake(newStake);
+    } else {
+      setError('Minimum stake is 0.35 USD');
+    }
+  };
+
+  // Martingale logic
+  const handleTradeCompletion = useCallback((trade: Trade) => {
+    if (useMartingale) {
+      if (trade.result === 'win') {
+        setCurrentStake(baseStake);
+        setConsecutiveLosses(0);
+      } else {
+        setConsecutiveLosses(prev => prev + 1);
+        setCurrentStake(prevStake => prevStake * martingaleMultiplier);
+      }
+    }
+  }, [useMartingale, martingaleMultiplier, baseStake]);
 
   useEffect(() => {
     try {
@@ -1058,6 +1084,7 @@ const SpeedBot: React.FC = observer(() => {
 
   useEffect(() => {
     setCurrentStake(stake);
+    setBaseStake(stake);
   }, [stake]);
 
   // Set up hybrid bot event handling when trading starts
