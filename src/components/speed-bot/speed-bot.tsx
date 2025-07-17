@@ -504,10 +504,15 @@ const SpeedBot: React.FC = observer(() => {
         // Retry if still trading and no active execution
         if (isTrading && isDirectTrading && !isExecutingTrade) {
           console.log('🔄 Retrying proposal request after timeout...');
-          // Don't use setTimeout for retry, try immediately
-          getPriceProposal();
+          // Add small delay before retry to avoid rapid requests
+          setTimeout(() => {
+            if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal) {
+              console.log('🔄 Executing timeout retry...');
+              getPriceProposal();
+            }
+          }, 1000);
         }
-      }, 5000); // Increased timeout to 5 seconds for better reliability
+      }, 8000); // Increased timeout to 8 seconds for better reliability
 
       // Store timeout ID to clear it if proposal succeeds
       (window as any).proposalTimeoutId = proposalTimeoutId;
@@ -1043,10 +1048,10 @@ const SpeedBot: React.FC = observer(() => {
                 return;
               }
 
-              // Rate limiting: minimum 3 seconds between trades
+              // Rate limiting: minimum 2 seconds between trades (reduced from 3)
               const timeSinceLastTrade = Date.now() - lastTradeTime;
-              if (lastTradeTime > 0 && timeSinceLastTrade < 3000) {
-                console.log(`⏳ Rate limit: waiting ${3000 - timeSinceLastTrade}ms before next trade`);
+              if (lastTradeTime > 0 && timeSinceLastTrade < 2000) {
+                console.log(`⏳ Rate limit: waiting ${2000 - timeSinceLastTrade}ms before next trade`);
                 return;
               }
 
@@ -1054,11 +1059,17 @@ const SpeedBot: React.FC = observer(() => {
               const shouldTrade = isGoodCondition(lastDigit, selectedContractType);
               
               if (shouldTrade) {
-                console.log(`🚀🚀🚀 TRADING NOW! Last digit ${lastDigit} is good for ${selectedContractType} 🚀🚀🚀`);
+                console.log(`🚀🚀🚀 TRADING CONDITION MET! Last digit ${lastDigit} is good for ${selectedContractType} 🚀🚀🚀`);
+                console.log(`🎯 Starting trade sequence: ${selectedSymbol} ${selectedContractType} $${currentStake}`);
+                
+                // Set last trade time and request proposal immediately
                 setLastTradeTime(Date.now());
                 
-                // Request proposal immediately
-                getPriceProposal();
+                // Use setTimeout to ensure state updates are processed
+                setTimeout(() => {
+                  console.log('📊 Requesting proposal for tick condition...');
+                  getPriceProposal();
+                }, 100);
               } else {
                 console.log(`⏸️ Waiting for good condition: Last digit ${lastDigit} not suitable for ${selectedContractType}`);
               }
@@ -1070,7 +1081,9 @@ const SpeedBot: React.FC = observer(() => {
               if (isRequestingProposal) reasons.push('requesting proposal');
               if (proposalId) reasons.push('has pending proposal');
 
-              console.log(`⏸️ Skipping tick: ${reasons.join(', ')}`);
+              if (reasons.length > 0) {
+                console.log(`⏸️ Skipping tick: ${reasons.join(', ')}`);
+              }
             }
           }
 
@@ -1164,6 +1177,21 @@ const SpeedBot: React.FC = observer(() => {
         useMartingale,
         martingaleMultiplier
       });
+
+      // Add periodic proposal trigger every 10 seconds as backup (for testing)
+      const intervalId = setInterval(() => {
+        if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal && !proposalId) {
+          console.log('🔄 Periodic proposal trigger (backup mechanism)');
+          const timeSinceLastTrade = Date.now() - lastTradeTime;
+          if (timeSinceLastTrade > 10000) { // 10 seconds since last trade
+            console.log('⏰ Triggering periodic proposal request...');
+            getPriceProposal();
+          }
+        }
+      }, 10000);
+
+      // Store interval ID for cleanup
+      (window as any).tradingIntervalId = intervalId;
     } catch (error) {
       console.error('❌ Error starting Speed Bot:', error);
       setError(`Failed to start Speed Bot: ${error.message}`);
@@ -1178,6 +1206,13 @@ const SpeedBot: React.FC = observer(() => {
       setProposalId(null);
       setIsDirectTrading(false);
       setIsExecutingTrade(false);
+      
+      // Clear periodic interval
+      if ((window as any).tradingIntervalId) {
+        clearInterval((window as any).tradingIntervalId);
+        delete (window as any).tradingIntervalId;
+      }
+      
       console.log('🛑 Speed Bot stopped');
     } catch (error) {
       console.error('Error stopping Speed Bot:', error);
