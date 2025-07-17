@@ -1002,65 +1002,19 @@ const SpeedBot: React.FC = observer(() => {
                 return;
               }
 
-              // Rate limiting: minimum 2 seconds between proposal requests
+              // Rate limiting: minimum 3 seconds between trades
               const timeSinceLastTrade = Date.now() - lastTradeTime;
-              if (lastTradeTime > 0 && timeSinceLastTrade < 2000) {
-                console.log(`⏳ Rate limit: waiting ${2000 - timeSinceLastTrade}ms before next trade`);
+              if (lastTradeTime > 0 && timeSinceLastTrade < 3000) {
+                console.log(`⏳ Rate limit: waiting ${3000 - timeSinceLastTrade}ms before next trade`);
                 return;
               }
 
-              // For digit contracts, we can trade on every eligible tick
-              let shouldTrade = false;
-
-              switch (selectedContractType) {
-                case 'DIGITEVEN':
-                case 'DIGITODD':
-                  // Trade on every tick - we predict the NEXT tick
-                  shouldTrade = true;
-                  console.log(`🎯 ${selectedContractType}: Trading (predicting next tick)`);
-                  break;
-                case 'DIGITOVER':
-                  shouldTrade = true;
-                  console.log(`🎯 DIGITOVER: Trading (predicting next tick > ${overUnderValue})`);
-                  break;
-                case 'DIGITUNDER':
-                  shouldTrade = true;
-                  console.log(`🎯 DIGITUNDER: Trading (predicting next tick < ${overUnderValue})`);
-                  break;
-                case 'DIGITMATCH':
-                  shouldTrade = true;
-                  console.log(`🎯 DIGITMATCH: Trading (predicting next tick = ${overUnderValue})`);
-                  break;
-                case 'DIGITDIFF':
-                  shouldTrade = true;
-                  console.log(`🎯 DIGITDIFF: Trading (predicting next tick != ${overUnderValue})`);
-                  break;
-                case 'CALL':
-                  shouldTrade = true;
-                  console.log(`🎯 CALL: Trading (predicting price will rise)`);
-                  break;
-                case 'PUT':
-                  shouldTrade = true;
-                  console.log(`🎯 PUT: Trading (predicting price will fall)`);
-                  break;
-                default:
-                  shouldTrade = false;
-                  console.log(`🎯 Unknown contract type: ${selectedContractType}`);
-              }
-
-              if (shouldTrade) {
-                console.log(`🚀🚀🚀 TRADING NOW! Contract: ${selectedContractType} on tick ${lastDigit} 🚀🚀🚀`);
-                setLastTradeTime(Date.now());
-                
-                // Request proposal with a small delay to ensure tick processing is complete
-                setTimeout(() => {
-                  if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal && !proposalId) {
-                    getPriceProposal();
-                  }
-                }, 50);
-              } else {
-                console.log(`⏳ Waiting for trade condition...`);
-              }
+              // Trade immediately for all digit contracts - we're predicting the NEXT tick
+              console.log(`🚀🚀🚀 TRADING NOW! Contract: ${selectedContractType} predicting next tick 🚀🚀🚀`);
+              setLastTradeTime(Date.now());
+              
+              // Request proposal immediately - no delay needed
+              getPriceProposal();
             } else {
               const reasons = [];
               if (!isTrading) reasons.push('not trading');
@@ -1390,12 +1344,32 @@ const SpeedBot: React.FC = observer(() => {
               onClick={() => {
                 console.log('🧪 Manual proposal test triggered');
                 setError(null);
+                setLastTradeTime(0); // Reset rate limit
                 getPriceProposal();
               }}
               disabled={isExecutingTrade || isRequestingProposal}
               style={{ backgroundColor: '#007cba', color: 'white', marginLeft: '10px' }}
             >
-              {isRequestingProposal ? 'Requesting...' : 'Test Proposal'}
+              {isRequestingProposal ? 'Requesting...' : 'Test Trade Now'}
+            </button>
+          )}
+          {isTrading && (
+            <button 
+              className="speed-bot__force-trade-btn"
+              onClick={() => {
+                console.log('🚀 Force trade triggered');
+                setError(null);
+                setLastTradeTime(0); // Reset rate limit
+                if (!isExecutingTrade && !isRequestingProposal && !proposalId) {
+                  getPriceProposal();
+                } else {
+                  console.log('⚠️ Cannot force trade - another operation in progress');
+                }
+              }}
+              disabled={isExecutingTrade || isRequestingProposal || !!proposalId}
+              style={{ backgroundColor: '#ff6b35', color: 'white', marginLeft: '10px' }}
+            >
+              Force Trade
             </button>
           )}
           {isConnected && !isAuthorized && (
@@ -1521,9 +1495,20 @@ const SpeedBot: React.FC = observer(() => {
                 selectedContractType,
                 overUnderValue,
                 isValidCombination,
-                lastTradeTime: lastTradeTime ? new Date(lastTradeTime).toLocaleTimeString() : 'Never'
+                lastTradeTime: lastTradeTime ? new Date(lastTradeTime).toLocaleTimeString() : 'Never',
+                currentPrice,
+                timeSinceLastTrade: lastTradeTime ? `${Math.floor((Date.now() - lastTradeTime) / 1000)}s ago` : 'Never'
               }, null, 2)}
             </pre>
+            <div style={{ marginTop: '10px', padding: '5px', backgroundColor: '#e8f4fd', borderRadius: '3px' }}>
+              <strong>🔧 Quick Actions:</strong>
+              <br />
+              • Click "Force Trade" to trigger a trade immediately
+              <br />
+              • Current price: {currentPrice} (last digit: {currentPrice.slice(-1)})
+              <br />
+              • Rate limit: {lastTradeTime && (Date.now() - lastTradeTime) < 3000 ? `${3000 - (Date.now() - lastTradeTime)}ms remaining` : 'Ready'}
+            </div>
           </div>
         )}
       </div>
