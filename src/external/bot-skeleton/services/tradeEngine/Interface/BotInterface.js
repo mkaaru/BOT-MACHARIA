@@ -33,6 +33,74 @@ const getBotInterface = tradeEngine => {
         readDetails: i => getDetail(i - 1),
         getTotalRuns: () => tradeEngine.totalRuns,
         shouldContinueTrading: () => tradeEngine.shouldContinueTrading?.() || true,
+
+        /**
+         * Purchase a contract
+         * @param {Object} options - Purchase options
+         */
+        async purchase(options) {
+            try {
+                console.log('🚀 BotInterface: Purchasing contract with options:', options);
+
+                // Set trade options
+                if (options.amount) tradeEngine.tradeOptions.amount = options.amount;
+                if (options.duration) tradeEngine.tradeOptions.duration = options.duration;
+                if (options.duration_unit) tradeEngine.tradeOptions.duration_unit = options.duration_unit;
+                if (options.symbol) tradeEngine.tradeOptions.symbol = options.symbol;
+                if (options.contract_type) tradeEngine.tradeOptions.contract_type = options.contract_type;
+                if (options.currency) tradeEngine.tradeOptions.currency = options.currency;
+                if (options.basis) tradeEngine.tradeOptions.basis = options.basis;
+                if (options.barrier) tradeEngine.tradeOptions.barrier = options.barrier;
+
+                // Execute purchase through trade engine
+                const result = await tradeEngine.purchase(options.contract_type || 'DIGITEVEN');
+                console.log('✅ BotInterface: Purchase completed:', result);
+
+                return result;
+            } catch (error) {
+                console.error('❌ BotInterface: Purchase failed:', error);
+                throw error;
+            }
+        },
+
+        /**
+         * Set continuous purchase mode
+         * @param {boolean} continuous - True for continuous, false for sequential
+         */
+        setContinuousMode(continuous) {
+            if (tradeEngine && typeof tradeEngine.setContinuousMode === 'function') {
+                tradeEngine.setContinuousMode(continuous);
+                console.log(`🔧 BotInterface: Continuous mode set to ${continuous ? 'Continuous' : 'Sequential'}`);
+            } else {
+                console.warn('⚠️ BotInterface: setContinuousMode not available on trade engine');
+            }
+        },
+
+        /**
+         * Get martingale state
+         */
+        getMartingaleState() {
+            if (tradeEngine && tradeEngine.getMartingaleMultiplier) {
+                return {
+                    multiplier: tradeEngine.getMartingaleMultiplier(),
+                    consecutiveLosses: tradeEngine.getConsecutiveLosses(),
+                    baseAmount: tradeEngine.getBaseAmount(),
+                    totalProfit: tradeEngine.getTotalProfit(),
+                    lastTradeProfit: tradeEngine.getLastTradeProfit()
+                };
+            }
+            return null;
+        },
+
+        /**
+         * Reset martingale strategy
+         */
+        resetMartingale() {
+            if (tradeEngine && typeof tradeEngine.resetMartingale === 'function') {
+                tradeEngine.resetMartingale();
+                console.log('🔄 BotInterface: Martingale strategy reset');
+            }
+        },
     };
 };
 
