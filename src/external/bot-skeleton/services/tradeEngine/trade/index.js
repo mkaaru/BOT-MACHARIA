@@ -264,6 +264,35 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
             this.checkProposalReady();
         } else {
             this.store.dispatch(proposalsReady());
+            
+            // Force execute a simple trade if proposals aren't required
+            setTimeout(() => {
+                if (this.data.proposals && this.data.proposals.length === 0) {
+                    console.log('🔧 No proposals found, creating default proposal for trade execution');
+                    this.executeDirectTrade();
+                }
+            }, 2000);
+        }
+    }
+
+    executeDirectTrade() {
+        try {
+            // Create a simple trade request for testing
+            const tradeParams = {
+                contract_type: 'CALL',
+                symbol: this.options.symbol || 'R_10',
+                amount: 1,
+                duration: 5,
+                duration_unit: 't',
+                basis: 'stake'
+            };
+            
+            console.log('🚀 Executing direct trade:', tradeParams);
+            
+            // Use the observer to trigger a purchase
+            this.observer.emit('bot.purchase', tradeParams.contract_type);
+        } catch (error) {
+            console.error('❌ Direct trade execution failed:', error);
         }
     }
 }

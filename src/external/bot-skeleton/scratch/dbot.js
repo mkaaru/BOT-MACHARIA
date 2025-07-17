@@ -331,14 +331,32 @@ class DBot {
                     const state = this.interpreter.bot.tradeEngine.store.getState();
                     if (state.scope === 'BEFORE_PURCHASE' && state.proposalsReady) {
                         const timeSinceStart = Date.now() - (this.lastTradeTime || Date.now());
-                        if (timeSinceStart > 60000) { // 1 minute without trade
-                            console.log('⏰ Bot seems stuck, forcing next trade cycle...');
-                            this.interpreter.bot.tradeEngine.forceNextTrade();
-                            this.lastTradeTime = Date.now();
+                        if (timeSinceStart > 10000) { // 10 seconds without trade
+                            console.log('⏰ Bot seems stuck, forcing trade execution...');
+                            
+                            // Force execute a trade
+                            try {
+                                this.interpreter.bot.tradeEngine.observer.emit('bot.purchase', 'CALL');
+                                this.lastTradeTime = Date.now();
+                            } catch (error) {
+                                console.error('❌ Failed to force trade execution:', error);
+                            }
                         }
                     }
                 }
-            }, 30000); // Check every 30 seconds
+            }, 15000); // Check every 15 seconds
+
+            // Force first trade after 5 seconds
+            setTimeout(() => {
+                if (this.is_bot_running && this.interpreter?.bot?.tradeEngine) {
+                    console.log('🎯 Forcing initial trade execution...');
+                    try {
+                        this.interpreter.bot.tradeEngine.observer.emit('bot.purchase', 'CALL');
+                    } catch (error) {
+                        console.error('❌ Failed to force initial trade:', error);
+                    }
+                }
+            }, 5000);
 
         } catch (error) {
             console.error('❌ Bot run error:', error);

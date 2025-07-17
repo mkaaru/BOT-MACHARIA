@@ -100,7 +100,32 @@ export default class TransactionsStore {
     };
 
     onBotContractEvent(data: TContractInfo) {
+        console.log('📝 Transaction store received contract event:', data);
         this.pushTransaction(data);
+        
+        // Force UI update
+        if (this.transactions.length > 0) {
+            console.log('✅ Transaction added. Total transactions:', this.transactions.length);
+        }
+    }
+
+    // Add method to manually add test transaction
+    addTestTransaction() {
+        const testTransaction = {
+            type: 'CONTRACT',
+            data: {
+                contract_id: 'test_' + Date.now(),
+                buy_price: 1.00,
+                payout: 1.95,
+                profit: 0.95,
+                contract_type: 'CALL',
+                is_completed: true,
+                status: 'sold'
+            }
+        };
+        
+        console.log('🧪 Adding test transaction:', testTransaction);
+        this.pushTransaction(testTransaction.data);
     }
 
     pushTransaction(data: TContractInfo) {
