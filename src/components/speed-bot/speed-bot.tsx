@@ -739,6 +739,13 @@ const SpeedBot: React.FC = observer(() => {
                 hasProposalId: !!proposal.id,
                 isExecutingTrade
               });
+              
+              // If we have a proposal but not buying, clear it to allow new proposals
+              if (proposal.id && !isExecutingTrade) {
+                console.log('🔄 Clearing stuck proposal to allow new requests');
+                setProposalId(null);
+                setIsRequestingProposal(false);
+              }
             }
           }
 
@@ -1070,6 +1077,15 @@ const SpeedBot: React.FC = observer(() => {
             console.log(`🎯 LIVE TICK: ${data.tick.quote} | Last Digit: ${lastDigit} | Contract: ${selectedContractType} | Time: ${new Date().toLocaleTimeString()}`);
             console.log(`🎯 States: Trading=${isTrading}, Direct=${isDirectTrading}, Executing=${isExecutingTrade}, Requesting=${isRequestingProposal}, ProposalId=${proposalId}`);
 
+            // Handle existing proposal first
+            if (proposalId && !isExecutingTrade) {
+              console.log(`🎯 Found existing proposal ${proposalId}, attempting to buy immediately`);
+              // Use the current price as approximate proposal price since we have the proposal ID
+              const approximatePrice = currentStake; // Use stake as fallback price
+              buyContract(proposalId, approximatePrice);
+              return;
+            }
+
             // Execute trade on EVERY tick - removed rate limiting and conditions
             if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal && !proposalId) {
               if (isNaN(lastDigit)) {
@@ -1089,7 +1105,7 @@ const SpeedBot: React.FC = observer(() => {
               if (!isDirectTrading) reasons.push('not direct trading');
               if (isExecutingTrade) reasons.push('executing trade');
               if (isRequestingProposal) reasons.push('requesting proposal');
-              if (proposalId) reasons.push('has pending proposal');
+              if (proposalId) reasons.push('has pending proposal - will process');
 
               console.log(`⏸️ Skipping tick: ${reasons.join(', ')}`);
             }
@@ -1529,6 +1545,19 @@ const SpeedBot: React.FC = observer(() => {
               style={{ backgroundColor: '#ff6b35', color: 'white', marginLeft: '10px' }}
             >
               Force Trade
+            </button>
+          )}
+          {proposalId && !isExecutingTrade && (
+            <button 
+              className="speed-bot__force-execute-btn"
+              onClick={() => {
+                console.log('⚡ Force executing with existing proposal:', proposalId);
+                const approximatePrice = currentStake;
+                buyContract(proposalId, approximatePrice);
+              }}
+              style={{ backgroundColor: '#28a745', color: 'white', marginLeft: '10px' }}
+            >
+              Execute Now
             </button>
           )}
           {isConnected && !isAuthorized && (
