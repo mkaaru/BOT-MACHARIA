@@ -396,7 +396,7 @@ const SpeedBot: React.FC = observer(() => {
     return result;
   }, [overUnderValue, isTradeEveryTick]);
 
-  // Get price proposal using proper Deriv API format
+  // Get price proposal using proper Deriv API format according to schema
   const getPriceProposal = useCallback(() => {
     console.log('📊 Proposal request debug:', {
       websocketReady: websocket?.readyState === WebSocket.OPEN,
@@ -433,8 +433,8 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
-    // No rate limiting - execute on every tick
-    console.log('⚡ No rate limiting - executing immediately on every tick');
+    // Trade Every Tick: No rate limiting - execute immediately on every tick
+    console.log('⚡ TRADE EVERY TICK: No rate limiting - executing immediately');
 
     try {
       setIsRequestingProposal(true);
@@ -442,73 +442,84 @@ const SpeedBot: React.FC = observer(() => {
       const requestId = Date.now();
       const needsBarrier = ['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedContractType);
 
-      // Enhanced proposal request with additional parameters
-      const proposalRequest = {
-        proposal: 1,
-        amount: currentStake,
-        basis: 'stake',
-        contract_type: selectedContractType,
-        currency: 'USD',
-        duration: 1,
-        duration_unit: 't',
-        symbol: selectedSymbol,
-        req_id: requestId,
-        ...(needsBarrier && { barrier: overUnderValue }),
-        // Additional contract parameters
-        ...(selectedContractType === 'RANGE' && { 
-          barrier: overUnderValue,
-          barrier2: overUnderValue + 1 
-        }),
-        ...(selectedContractType === 'UPORDOWN' && { 
-          barrier: overUnderValue,
-          barrier2: overUnderValue + 1 
-        }),
-        ...(selectedContractType === 'ONETOUCH' && { barrier: overUnderValue }),
-        ...(selectedContractType === 'NOTOUCH' && { barrier: overUnderValue }),
-        ...(selectedContractType.startsWith('MULT') && { 
-          multiplier: 10,
-          amount: currentStake,
-          basis: 'stake'
-        }),
-        ...(selectedContractType.startsWith('LB') && { 
-          duration: 5,
-          duration_unit: 't'
-        }),
-        ...(selectedContractType.startsWith('ASIAN') && { 
-          duration: 5,
-          duration_unit: 't'
-        }),
-        // Add product type for specific contracts
-        ...(selectedContractType.startsWith('MULT') && { product_type: 'basic' }),
-        // Trading period parameters
-        trading_period_start: Math.floor(Date.now() / 1000),
-        // Risk management parameters
-        ...(selectedContractType.startsWith('MULT') && { 
-          limit_order: {
-            stop_loss: currentStake * 2,
-            take_profit: currentStake * 3
-          }
-        })
+      // Build proposal request according to Deriv API schema
+      const proposalRequest: any = {
+        proposal: 1, // Must be 1 according to schema
+        contract_type: selectedContractType, // Required: The proposed contract type
+        currency: client?.currency || 'USD', // Required: Account currency
+        symbol: selectedSymbol, // Required: Symbol (from active_symbols)
+        amount: currentStake, // Stake amount
+        basis: 'stake', // Type of amount
+        duration: 1, // Duration quantity for 1 tick
+        duration_unit: 't', // Duration unit: 't' for ticks
+        req_id: requestId // Optional: Used to map request to response
       };
 
-      console.log('📊 Sending proposal request:', JSON.stringify(proposalRequest, null, 2));
+      // Add barrier for specific contract types according to schema
+      if (needsBarrier) {
+        proposalRequest.barrier = overUnderValue.toString();
+      }
+
+      // Handle specific contract types according to schema
+      switch (selectedContractType) {
+        case 'RANGE':
+        case 'UPORDOWN':
+          // For range contracts, add barrier and barrier2
+          proposalRequest.barrier = overUnderValue.toString();
+          proposalRequest.barrier2 = (overUnderValue + 1).toString();
+          break;
+        
+        case 'ONETOUCH':
+        case 'NOTOUCH':
+          // Touch/No Touch contracts need barrier
+          proposalRequest.barrier = overUnderValue.toString();
+          break;
+        
+        case 'MULTUP':
+        case 'MULTDOWN':
+          // Multiplier contracts
+          proposalRequest.multiplier = 10;
+          proposalRequest.product_type = 'basic';
+          // Add limit orders for risk management
+          proposalRequest.limit_order = {
+            stop_loss: currentStake * 2,
+            take_profit: currentStake * 3
+          };
+          break;
+        
+        case 'LBHIGHLOW':
+        case 'LBFLOATCALL':
+        case 'LBFLOATPUT':
+          // Lookback contracts
+          proposalRequest.duration = 5;
+          proposalRequest.duration_unit = 't';
+          break;
+        
+        case 'ASIANU':
+        case 'ASIAND':
+          // Asian contracts
+          proposalRequest.duration = 5;
+          proposalRequest.duration_unit = 't';
+          break;
+      }
+
+      console.log('📊 Sending Deriv API compliant proposal request:', JSON.stringify(proposalRequest, null, 2));
       websocket.send(JSON.stringify(proposalRequest));
 
-      // Clear request flag after timeout
+      // Set timeout for proposal response
       const proposalTimeoutId = setTimeout(() => {
         console.log('⏰ Proposal request timeout - clearing flags');
         setIsRequestingProposal(false);
         setProposalId(null);
 
-        // Retry if still trading and no active execution
+        // For Trade Every Tick: Retry immediately if still trading
         if (isTrading && isDirectTrading && !isExecutingTrade) {
-          console.log('🔄 Retrying proposal request after timeout...');
-          // Don't use setTimeout for retry, try immediately
+          console.log('🔄 TRADE EVERY TICK: Retrying proposal immediately after timeout...');
           getPriceProposal();
         }
-      }, 5000); // Increased timeout to 5 seconds for better reliability
+      }, 3000); // Reduced timeout for faster execution in Trade Every Tick mode
 
-      // Store timeout ID to clear it if proposal succeeds
+      // Store timeout ID for cleanup
       (window as any).proposalTimeoutId = proposalTimeoutId;
 
     } catch (error) {
@@ -516,11 +527,12 @@ const SpeedBot: React.FC = observer(() => {
       setError(`Failed to get proposal: ${error.message}`);
       setIsRequestingProposal(false);
 
-      if (isTrading) {
+      // For Trade Every Tick: Quick retry on error
+      if (isTrading && isDirectTrading) {
         setTimeout(() => {
-          console.log('🔄 Retrying proposal after error...');
+          console.log('🔄 TRADE EVERY TICK: Quick retry after proposal error...');
           getPriceProposal();
-        }, 2000);
+        }, 500); // Faster retry for Trade Every Tick
       }
     }
   }, [websocket, isAuthorized, currentStake, selectedContractType, selectedSymbol, overUnderValue, isExecutingTrade, isRequestingProposal, isTrading, isDirectTrading, client, lastTradeTime]);
@@ -602,20 +614,20 @@ const SpeedBot: React.FC = observer(() => {
             setIsAuthorized(false);
           }
 
-          // Request tick subscription immediately after authorization
+          // Subscribe to ticks using Deriv API Ticks Stream schema
           setTimeout(() => {
             try {
               // Check if already subscribed to this symbol
               if (!activeSubscriptions.has(selectedSymbol)) {
-                // First, subscribe to live ticks for real-time updates
-                const liveTickRequest = {
-                  ticks: selectedSymbol,
-                  subscribe: 1,
-                  req_id: Date.now() + 2000
+                // Subscribe to live ticks according to Deriv API schema
+                const ticksStreamRequest = {
+                  ticks: selectedSymbol, // Required: The short symbol name
+                  subscribe: 1, // Optional: Set to 1 for continuous updates
+                  req_id: Date.now() + 2000 // Optional: Used to map request to response
                 };
-                console.log('📊 Sending live tick request:', JSON.stringify(liveTickRequest, null, 2));
-                ws.send(JSON.stringify(liveTickRequest));
-                console.log('📊 Live tick subscription requested for', selectedSymbol);
+                console.log('📊 Sending Deriv API compliant ticks stream request:', JSON.stringify(ticksStreamRequest, null, 2));
+                ws.send(JSON.stringify(ticksStreamRequest));
+                console.log('📊 Ticks stream subscription requested for', selectedSymbol);
                 
                 // Add to active subscriptions
                 setActiveSubscriptions(prev => new Set(prev).add(selectedSymbol));
@@ -623,14 +635,14 @@ const SpeedBot: React.FC = observer(() => {
                 console.log('📊 Already subscribed to', selectedSymbol, '- skipping subscription');
               }
 
-              // Rate limit tick history requests - only request once per connection and symbol
+              // Optional: Get initial tick history (rate limited)
               if (!hasRequestedTickHistory) {
                 const now = Date.now();
                 if (now - lastTickHistoryTime > 10000) { // 10 second rate limit
                   setTimeout(() => {
                     const tickHistoryRequest = {
                       ticks_history: selectedSymbol,
-                      count: 5, // Reduced count to minimize rate limit impact
+                      count: 5, // Minimal count for initial data
                       end: 'latest',
                       style: 'ticks',
                       req_id: Date.now() + 3000
@@ -640,7 +652,7 @@ const SpeedBot: React.FC = observer(() => {
                     console.log('📊 Tick history requested for', selectedSymbol);
                     setLastTickHistoryTime(now);
                     setHasRequestedTickHistory(true);
-                  }, 1000); // Increased delay
+                  }, 1000);
                 } else {
                   console.log('⏳ Rate limiting tick history request - too soon since last request');
                 }
@@ -1179,51 +1191,57 @@ const SpeedBot: React.FC = observer(() => {
             setActiveSubscriptions(new Set());
           }
 
-          // Handle live tick updates
+          // Handle tick updates according to Deriv API Ticks Stream response schema
           if (data.tick && data.tick.symbol === selectedSymbol) {
-            const price = parseFloat(data.tick.quote);
-            const formattedPrice = price.toFixed(5);
+            // Extract tick data according to schema
+            const tickData = data.tick;
+            const price = parseFloat(tickData.quote); // Market value at the epoch
+            const epoch = tickData.epoch; // Epoch time of the tick
+            const pipSize = tickData.pip_size; // Number of decimal points
+            
+            const formattedPrice = price.toFixed(Math.max(0, -Math.log10(pipSize)));
             setCurrentPrice(formattedPrice);
 
-            // Get the last digit from the price - handle decimal places properly
-            const priceStr = data.tick.quote.toString();
+            // Get the last digit from the price quote for digit trading
+            const priceStr = tickData.quote.toString();
             const lastDigit = parseInt(priceStr[priceStr.length - 1]);
             
-            // For high-frequency symbols, ensure we're getting valid tick data
-            if (selectedSymbol.includes('1HZ') && data.tick.symbol === selectedSymbol) {
-              console.log(`🔥 HIGH-FREQ TICK: ${selectedSymbol} = ${data.tick.quote} | Last Digit: ${lastDigit} | Should Execute: ${isTrading && isDirectTrading}`);
+            // Log tick data for high-frequency symbols
+            if (selectedSymbol.includes('1HZ') && tickData.symbol === selectedSymbol) {
+              console.log(`🔥 HIGH-FREQ TICK: ${selectedSymbol} = ${tickData.quote} | Epoch: ${epoch} | Last Digit: ${lastDigit} | Pip Size: ${pipSize}`);
             }
 
-            console.log(`🎯 LIVE TICK: ${data.tick.quote} | Last Digit: ${lastDigit} | Contract: ${selectedContractType} | Time: ${new Date().toLocaleTimeString()}`);
-            console.log(`🎯 States: Trading=${isTrading}, Direct=${isDirectTrading}, Executing=${isExecutingTrade}, Requesting=${isRequestingProposal}, ProposalId=${proposalId}`);
+            console.log(`🎯 TICK RECEIVED: Quote=${tickData.quote} | Last Digit=${lastDigit} | Contract=${selectedContractType} | Time=${new Date(epoch * 1000).toLocaleTimeString()}`);
+            console.log(`🎯 Bot States: Trading=${isTrading}, Direct=${isDirectTrading}, Executing=${isExecutingTrade}, Requesting=${isRequestingProposal}, ProposalId=${proposalId}`);
 
             // Handle existing proposal first
             if (proposalId && !isExecutingTrade) {
-              console.log(`🎯 Found existing proposal ${proposalId}, attempting to buy immediately`);
-              // Use the current price as approximate proposal price since we have the proposal ID
-              const approximatePrice = currentStake; // Use stake as fallback price
+              console.log(`🎯 Found existing proposal ${proposalId}, executing buy immediately`);
+              const approximatePrice = currentStake;
               buyContract(proposalId, approximatePrice);
               return;
             }
 
-            // Execute trade based on mode - Trade Every Tick or Condition-based
+            // TRADE EVERY TICK LOGIC: Execute on every tick or based on conditions
             if (isTrading && isDirectTrading && !isExecutingTrade && !isRequestingProposal && !proposalId) {
               if (isNaN(lastDigit)) {
-                console.error('❌ Invalid last digit from tick:', data.tick.quote);
+                console.error('❌ Invalid last digit from tick quote:', tickData.quote);
                 return;
               }
 
-              // Check if we should trade based on the current mode
+              // Determine if we should trade
               const shouldTrade = isTradeEveryTick || isGoodCondition(lastDigit, selectedContractType);
 
               if (shouldTrade) {
-                console.log(`🚀🚀🚀 EXECUTING TRADE! Mode: ${isTradeEveryTick ? 'EVERY TICK' : 'CONDITION-BASED'} | Symbol: ${selectedSymbol} | Contract: ${selectedContractType} | Digit: ${lastDigit} | Total P/L: ${totalProfitLoss} 🚀🚀🚀`);
+                const tradeMode = isTradeEveryTick ? 'TRADE EVERY TICK' : 'CONDITION-BASED';
+                console.log(`🚀🚀🚀 EXECUTING ${tradeMode}! Symbol: ${selectedSymbol} | Contract: ${selectedContractType} | Last Digit: ${lastDigit} | Quote: ${tickData.quote} | Epoch: ${epoch} | Total P/L: ${totalProfitLoss.toFixed(2)} 🚀🚀🚀`);
+                
                 setLastTradeTime(Date.now());
                 
-                // Request proposal immediately
+                // Request proposal immediately for this tick
                 getPriceProposal();
               } else {
-                console.log(`⏸️ Skipping tick - condition not met: lastDigit=${lastDigit}, contract=${selectedContractType}`);
+                console.log(`⏸️ Skipping tick - condition not met: lastDigit=${lastDigit}, contract=${selectedContractType}, quote=${tickData.quote}`);
               }
             } else {
               const reasons = [];
@@ -1231,9 +1249,9 @@ const SpeedBot: React.FC = observer(() => {
               if (!isDirectTrading) reasons.push('not direct trading');
               if (isExecutingTrade) reasons.push('executing trade');
               if (isRequestingProposal) reasons.push('requesting proposal');
-              if (proposalId) reasons.push('has pending proposal - will process');
+              if (proposalId) reasons.push('has pending proposal');
 
-              console.log(`⏸️ Skipping tick: ${reasons.join(', ')}`);
+              console.log(`⏸️ Skipping tick: ${reasons.join(', ')} | Quote: ${tickData.quote}`);
             }
           }
 
