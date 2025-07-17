@@ -162,7 +162,10 @@ class APIBase {
             if (!this.api) return;
 
             try {
-                const { authorize, error } = await this.api.authorize(this.token);
+                const response = await this.api.authorize(this.token);
+                if (!response) return Promise.reject(new Error('No response from API'));
+                
+                const { authorize, error } = response;
                 if (error) return Promise.reject(error);
 
                 if (this.has_active_symbols) {

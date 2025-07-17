@@ -84,7 +84,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
 
         this.initArgs = args;
         this.options = options;
-        
+
         // Ensure loginAndGetBalance always returns a promise
         try {
             this.startPromise = this.loginAndGetBalance(token);
@@ -128,7 +128,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         // Earlier this used to happen as soon as we get ticks_history response and by the time GetTotalRuns gets called we have required info.
         this.accountInfo = api_base.account_info;
         this.token = api_base.token;
-        
+
         // Ensure we have a valid API connection
         if (!api_base.api) {
             return Promise.reject(new Error('API not initialized'));
@@ -141,16 +141,16 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
             // response, if there's none after x seconds. Send an explicit request, which _should_
             // solve the issue. This is a backup!
             try {
-                const onMessageResult = api_base.api.onMessage();
-                if (!onMessageResult || typeof onMessageResult.subscribe !== 'function') {
-                    resolve();
-                    return;
+                if (!api_base.api || !api_base.api.onMessage) {
+                    return reject(new Error('API not initialized'));
                 }
-                
-                const subscription = onMessageResult.subscribe(({ data }) => {
-                    if (data.msg_type === 'transaction' && data.transaction.action === 'sell') {
+
+                const subscription = api_base.api.onMessage().subscribe(({ data }) => {
+                    if (!data || !data.msg_type) return;
+
+                    if (data.msg_type === 'transaction' && data.transaction && data.transaction.action === 'sell') {
                         this.transaction_recovery_timeout = setTimeout(() => {
-                            const { contract } = this.data;
+                            const { contract } = this.data || {};
                             const is_same_contract = contract.contract_id === data.transaction.contract_id;
                             const is_open_contract = contract.status === 'open';
                             if (is_same_contract && is_open_contract) {
@@ -161,7 +161,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
                         }, 1500);
                     }
                 });
-                
+
                 if (subscription) {
                     api_base.pushSubscription(subscription);
                 }

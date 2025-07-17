@@ -284,78 +284,15 @@ class DBot {
      * @param {Object} limitations Optional limitations (legacy argument)
      */
     generateCode(limitations = {}) {
-        return `
-            var BinaryBotPrivateInit;
-            var BinaryBotPrivateStart;
-            var BinaryBotPrivateBeforePurchase; 
-            var BinaryBotPrivateDuringPurchase;
-            var BinaryBotPrivateAfterPurchase;
-            var BinaryBotPrivateLastTickTime;
-            var BinaryBotPrivateTickAnalysisList = [];
-            var BinaryBotPrivateHasCalledTradeOptions = false;
-
-           
-            function recursiveList(list, final_list){
-                for(var i=0; i < list.length; i++){
-                    if(typeof(list[i]) === 'object'){
-                        recursiveList(list[i], final_list);
-                    }
-                    if(typeof(list[i]) == 'number'){
-                        final_list.push(list[i]);   
-                                  
-                    }
-                }
-                return final_list;
+        try {
+            const promise = this.interpreter.run(code);
+            if (!promise || typeof promise.then !== 'function') {
+                return Promise.reject(new Error('Invalid promise returned from interpreter'));
             }
-
-            function BinaryBotPrivateRun(f, arg) {
-                if (f) return f(arg);
-                return false;
-            }
-            function BinaryBotPrivateTickAnalysis() {
-                var currentTickTime = Bot.getLastTick(true);
-                while (currentTickTime === 'MarketIsClosed') {
-                    sleep(5);
-                    currentTickTime = Bot.getLastTick(true);
-                }
-                currentTickTime = currentTickTime.epoch;
-                if (currentTickTime === BinaryBotPrivateLastTickTime) {
-                    return;
-                }
-                BinaryBotPrivateLastTickTime = currentTickTime;
-                for (var BinaryBotPrivateI = 0; BinaryBotPrivateI < BinaryBotPrivateTickAnalysisList.length; BinaryBotPrivateI++) {
-                    BinaryBotPrivateRun(BinaryBotPrivateTickAnalysisList[BinaryBotPrivateI]);
-                }
-            }
-            var BinaryBotPrivateLimitations = ${JSON.stringify(limitations)};
-            ${window.Blockly.JavaScript.javascriptGenerator.workspaceToCode(this.workspace)}
-            BinaryBotPrivateRun(BinaryBotPrivateInit);
-            while (true) {
-                BinaryBotPrivateTickAnalysis();
-                BinaryBotPrivateRun(BinaryBotPrivateStart);
-                if (!BinaryBotPrivateHasCalledTradeOptions) {
-                    sleep(1);
-                    continue;
-                }
-                
-                // Check if continuous trading is enabled
-                if (!Bot.shouldContinueTrading()) {
-                    console.log('Continuous trading is disabled. Stopping bot execution.');
-                    break;
-                }
-                
-                // Execute purchase without waiting for contract states
-                BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
-                
-                // Small delay between purchases to prevent rate limiting
-                sleep(1);
-                
-                // Continue without waiting for contract completion
-                BinaryBotPrivateTickAnalysis();
-                BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase);
-            }
-            
-            `;
+            return promise;
+        } catch (error) {
+            return Promise.reject(error);
+        }
     }
 
     /**
