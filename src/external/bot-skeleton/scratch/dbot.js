@@ -302,7 +302,11 @@ class DBot {
         const is_sync_blocks_enabled = window.Blockly.getMainWorkspace().getBlocksByType('trade_definition_tradeoptions').length > 0;
 
         window.Blockly.JavaScript.STATEMENT_PREFIX = 'return Bot.highlightBlock(%1);\n';
-        window.Blockly.JavaScript.addReservedWords('code,timeouts,setBlockStatus,Bot');
+        if (window.Blockly.JavaScript.addReservedWords) {
+            window.Blockly.JavaScript.addReservedWords('code,timeouts,setBlockStatus,Bot');
+        } else if (window.Blockly.JavaScript.javascriptGenerator && window.Blockly.JavaScript.javascriptGenerator.addReservedWords) {
+            window.Blockly.JavaScript.javascriptGenerator.addReservedWords('code,timeouts,setBlockStatus,Bot');
+        }
 
         const code = `
             var highlightPerStackTrace = false;
