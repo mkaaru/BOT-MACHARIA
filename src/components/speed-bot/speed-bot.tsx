@@ -481,8 +481,10 @@ const SpeedBot: React.FC = observer(() => {
     }
   }, [websocket, isAuthorized, currentStake, selectedContractType, selectedSymbol, overUnderValue, isExecutingTrade, isRequestingProposal, isTrading, isDirectTrading, client, lastTradeTime]);
 
-  // Rate limiting for forget_all requests
+  // Rate limiting for forget_all requests and tick history
   const [lastForgetAllTime, setLastForgetAllTime] = useState(0);
+  const [lastTickHistoryTime, setLastTickHistoryTime] = useState(0);
+  const [hasRequestedTickHistory, setHasRequestedTickHistory] = useState(false);
 
   // Function to unsubscribe from all active subscriptions with rate limiting
   const unsubscribeAll = useCallback((ws: WebSocket) => {
@@ -577,19 +579,30 @@ const SpeedBot: React.FC = observer(() => {
                 console.log('📊 Already subscribed to', selectedSymbol, '- skipping subscription');
               }
 
-              // Also get tick history for context
-              setTimeout(() => {
-                const tickHistoryRequest = {
-                  ticks_history: selectedSymbol,
-                  count: 10,
-                  end: 'latest',
-                  style: 'ticks',
-                  req_id: Date.now() + 3000
-                };
-                console.log('📊 Sending tick history request:', JSON.stringify(tickHistoryRequest, null, 2));
-                ws.send(JSON.stringify(tickHistoryRequest));
-                console.log('📊 Tick history requested for', selectedSymbol);
-              }, 300);
+              // Rate limit tick history requests - only request once per connection and symbol
+              if (!hasRequestedTickHistory) {
+                const now = Date.now();
+                if (now - lastTickHistoryTime > 10000) { // 10 second rate limit
+                  setTimeout(() => {
+                    const tickHistoryRequest = {
+                      ticks_history: selectedSymbol,
+                      count: 5, // Reduced count to minimize rate limit impact
+                      end: 'latest',
+                      style: 'ticks',
+                      req_id: Date.now() + 3000
+                    };
+                    console.log('📊 Sending tick history request:', JSON.stringify(tickHistoryRequest, null, 2));
+                    ws.send(JSON.stringify(tickHistoryRequest));
+                    console.log('📊 Tick history requested for', selectedSymbol);
+                    setLastTickHistoryTime(now);
+                    setHasRequestedTickHistory(true);
+                  }, 1000); // Increased delay
+                } else {
+                  console.log('⏳ Rate limiting tick history request - too soon since last request');
+                }
+              } else {
+                console.log('📊 Tick history already requested for this session - skipping');
+              }
             } catch (error) {
               console.error('❌ Error requesting tick subscription:', error);
             }
@@ -1076,6 +1089,19 @@ const SpeedBot: React.FC = observer(() => {
             console.log(`📊 Tick history received: Latest price ${lastPrice.toFixed(5)}`);
           }
 
+          // Handle rate limit errors specifically
+          if (data.error && data.error.code === 'RateLimit') {
+            console.warn('⚠️ Rate limit reached:', data.error.message);
+            setError(`Rate limit reached: ${data.error.message}. Reducing request frequency...`);
+            
+            // Don't retry immediately, wait longer
+            if (data.msg_type === 'ticks_history') {
+              console.log('📊 Tick history rate limited - will not retry');
+              setHasRequestedTickHistory(true); // Prevent further requests
+            }
+            return; // Don't process as a regular error
+          }
+
           // Handle other tick data formats
           if (data.msg_type === 'tick' && data.echo_req?.ticks === selectedSymbol) {
             const price = parseFloat(data.tick.quote);
@@ -1095,14 +1121,15 @@ const SpeedBot: React.FC = observer(() => {
         setWebsocket(null);
         setIsExecutingTrade(false);
         setActiveSubscriptions(new Set()); // Clear all subscriptions on close
+        setHasRequestedTickHistory(false); // Reset tick history flag for new connection
 
         if (isTrading && !event.wasClean) {
-          console.log('🔄 Auto-reconnecting in 3 seconds...');
+          console.log('🔄 Auto-reconnecting in 5 seconds...');
           setTimeout(() => {
             if (isTrading) {
               connectToAPI();
             }
-          }, 3000);
+          }, 5000); // Increased reconnection delay
         }
       };
 
@@ -1223,27 +1250,21 @@ const SpeedBot: React.FC = observer(() => {
           return;
         }
 
+        // Rate limit symbol changes to prevent overwhelming the API
+        const now = Date.now();
+        if (now - lastForgetAllTime < 3000) { // 3 second minimum between symbol changes
+          console.log('⏳ Rate limiting symbol change - too soon since last change');
+          return;
+        }
+
         // If we have other subscriptions, clear them first (with rate limiting)
         if (activeSubscriptions.size > 0 && !activeSubscriptions.has(selectedSymbol)) {
           console.log('🔄 Clearing existing subscriptions before subscribing to new symbol...');
           
-          // Use individual forget requests instead of forget_all to avoid rate limits
-          activeSubscriptions.forEach(symbol => {
-            if (symbol !== selectedSymbol) {
-              try {
-                const forgetRequest = {
-                  forget: symbol,
-                  req_id: Date.now() + Math.random()
-                };
-                websocket.send(JSON.stringify(forgetRequest));
-                console.log(`🔄 Unsubscribed from ${symbol}`);
-              } catch (error) {
-                console.error(`❌ Error unsubscribing from ${symbol}:`, error);
-              }
-            }
-          });
+          // Use forget_all with rate limiting
+          unsubscribeAll(websocket);
           
-          // Wait a moment then subscribe to new symbol
+          // Wait longer before subscribing to new symbol
           setTimeout(() => {
             if (websocket.readyState === WebSocket.OPEN) {
               const liveTickRequest = {
@@ -1255,7 +1276,7 @@ const SpeedBot: React.FC = observer(() => {
               console.log(`📊 Live tick subscription updated for ${selectedSymbol}`);
               setActiveSubscriptions(new Set([selectedSymbol]));
             }
-          }, 1000);
+          }, 2000); // Increased delay
         } else {
           // No existing subscriptions or already subscribed, subscribe directly
           const liveTickRequest = {
@@ -1271,7 +1292,7 @@ const SpeedBot: React.FC = observer(() => {
         console.error('❌ Error resubscribing to ticks:', error);
       }
     }
-  }, [selectedSymbol, websocket, isAuthorized]);
+  }, [selectedSymbol, websocket, isAuthorized, unsubscribeAll, lastForgetAllTime]);
 
   useEffect(() => {
     setCurrentStake(stake);
