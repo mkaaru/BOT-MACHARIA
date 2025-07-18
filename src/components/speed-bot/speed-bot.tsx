@@ -140,7 +140,7 @@ const SpeedBot: React.FC = observer(() => {
           { value: 'DIGITODD', label: 'Odd' }
         ];
     }
-  };
+  };</old_str>
 
   // Get auth token
   const getAuthToken = () => {
@@ -372,6 +372,19 @@ const SpeedBot: React.FC = observer(() => {
         return;
       }
 
+      // Validate contract types
+      const contracts = getContractTypes();
+      if (!contracts || contracts.length === 0) {
+        setError('Invalid trade type configuration');
+        return;
+      }
+
+      // Validate selected contract type
+      if (!contractType || !contracts.find(c => c.value === contractType)) {
+        setError('Invalid contract type selected');
+        return;
+      }</old_str>
+
       // Initialize bot engine if not connected
       if (!isConnected) {
         await initializeBotEngine();
@@ -481,6 +494,14 @@ const SpeedBot: React.FC = observer(() => {
     }
   }, [stake, isTrading]);
 
+  // Initialize contract type when trade type changes
+  useEffect(() => {
+    const contracts = getContractTypes();
+    if (contracts && contracts.length > 0 && !contracts.find(c => c.value === contractType)) {
+      setSelectedContractType(contracts[0].value);
+    }
+  }, [tradeType]);
+
   const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
 
   return (
@@ -538,7 +559,7 @@ const SpeedBot: React.FC = observer(() => {
                 onChange={(e) => {
                   setTradeType(e.target.value);
                   const contracts = getContractTypes();
-                  if (contracts.length > 0) {
+                  if (contracts && contracts.length > 0) {
                     setSelectedContractType(contracts[0].value);
                   }
                 }}
@@ -558,11 +579,11 @@ const SpeedBot: React.FC = observer(() => {
                 onChange={(e) => setSelectedContractType(e.target.value)}
                 disabled={isTrading}
               >
-                {getContractTypes().map(contract => (
+                {getContractTypes()?.map(contract => (
                   <option key={contract.value} value={contract.value}>
                     {contract.label}
                   </option>
-                ))}
+                )) || []}
               </select>
             </div>
             {['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(contractType) && (
