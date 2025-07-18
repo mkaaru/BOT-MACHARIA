@@ -31,13 +31,8 @@ const BotBuilder = observer(() => {
     let deleted_block_id: null | string = null;
 
     React.useEffect(() => {
-        console.log('🎯 BotBuilder component mounting...');
-        console.log('📊 Initial state:', { active_tab, is_loading, is_running });
         onMount();
-        return () => {
-            console.log('🎯 BotBuilder component unmounting...');
-            onUnmount();
-        };
+        return () => onUnmount();
     }, [onMount, onUnmount]);
 
     React.useEffect(() => {

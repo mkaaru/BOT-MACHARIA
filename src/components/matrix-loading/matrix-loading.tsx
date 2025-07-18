@@ -24,8 +24,6 @@ const MatrixLoading: React.FC<MatrixLoadingProps> = ({
     useEffect(() => {
         if (!show) return;
 
-        console.log(`🔄 Matrix Loading started: ${message}`);
-
         const stepInterval = setInterval(() => {
             setCurrentStep((prev) => (prev + 1) % scanningSteps.length);
         }, 1000);
@@ -37,19 +35,11 @@ const MatrixLoading: React.FC<MatrixLoadingProps> = ({
             });
         }, 100);
 
-        // Timeout after 30 seconds
-        const timeout = setTimeout(() => {
-            console.error('❌ Matrix loading timeout - forcing hide');
-            clearInterval(stepInterval);
-            clearInterval(progressInterval);
-        }, 30000);
-
         return () => {
             clearInterval(stepInterval);
             clearInterval(progressInterval);
-            clearTimeout(timeout);
         };
-    }, [show, message]);
+    }, [show]);
 
     const generateMatrixChars = () => {
         const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';

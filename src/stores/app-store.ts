@@ -159,13 +159,11 @@ export default class AppStore {
 
         if (!this.dbot_store) return;
 
-        try {
-            console.log('🚀 Starting DBot workspace initialization...');
-            await DBot.initWorkspace('/', this.dbot_store, this.api_helpers_store, ui.is_mobile, false);
-            console.log('✅ DBot workspace initialization completed successfully');
-        } catch (error) {
-            console.error('❌ DBot workspace initialization failed:', error);
-        }
+        blockly_store.setLoading(true);
+        await DBot.initWorkspace('/', this.dbot_store, this.api_helpers_store, ui.is_mobile, false);
+
+        blockly_store.setContainerSize();
+        blockly_store.setLoading(false);
 
         this.registerCurrencyReaction.call(this);
         this.registerOnAccountSwitch.call(this);

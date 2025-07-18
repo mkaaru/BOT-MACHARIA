@@ -209,61 +209,7 @@ export default Engine =>
             }
             
             console.log(`💰 TRADE RESULT CONFIRMED: P&L: ${profit} USD | Total P&L: ${this.martingaleState.totalProfit.toFixed(2)} USD`);
-            
-            // Implement martingale logic immediately if contract is lost
-            if (profit < 0) {
-                this.implementMartingaleOnLoss();
-            } else if (profit > 0) {
-                this.resetMartingaleOnWin();
-            }
-            
             console.log(`🎯 MARTINGALE READY: Trade result confirmed, next purchase will apply martingale logic`);
-        }
-
-        // Implement martingale logic when contract is lost
-        implementMartingaleOnLoss() {
-            const { baseAmount, multiplier, consecutiveLosses } = this.martingaleState;
-            const maxMultiplier = 64;
-            const maxConsecutiveLosses = 10;
-
-            // Initialize base amount if not set
-            if (!baseAmount) {
-                this.martingaleState.baseAmount = this.tradeOptions.amount;
-                console.log(`🟦 MARTINGALE INIT: Base amount set to ${this.martingaleState.baseAmount} USD`);
-                return;
-            }
-
-            console.log(`🔴 LOSS DETECTED: Implementing martingale strategy`);
-            
-            // Check if we can increase the multiplier
-            const newMultiplier = Math.min(multiplier * 2, maxMultiplier);
-            const newConsecutiveLosses = consecutiveLosses + 1;
-
-            if (newConsecutiveLosses <= maxConsecutiveLosses && newMultiplier <= maxMultiplier) {
-                // Apply martingale: double the stake
-                this.martingaleState.multiplier = newMultiplier;
-                this.martingaleState.consecutiveLosses = newConsecutiveLosses;
-                this.tradeOptions.amount = Math.round((baseAmount * newMultiplier) * 100) / 100;
-                
-                console.log(`📈 MARTINGALE APPLIED: Stake increased from ${baseAmount * multiplier} to ${this.tradeOptions.amount} USD`);
-                console.log(`📊 Multiplier: ${multiplier}x → ${newMultiplier}x | Consecutive losses: ${consecutiveLosses} → ${newConsecutiveLosses}`);
-            } else {
-                // Reset if limits exceeded
-                this.resetMartingale();
-                console.log(`⚠️ MARTINGALE LIMIT REACHED: Reset to base amount ${this.martingaleState.baseAmount} USD`);
-            }
-        }
-
-        // Reset martingale on win
-        resetMartingaleOnWin() {
-            console.log(`🟢 WIN DETECTED: Resetting martingale strategy`);
-            const previousMultiplier = this.martingaleState.multiplier;
-            const previousAmount = this.tradeOptions.amount;
-            
-            this.resetMartingale();
-            
-            console.log(`📉 MARTINGALE RESET: Stake reduced from ${previousAmount} USD (${previousMultiplier}x) to ${this.tradeOptions.amount} USD (1x)`);
-            console.log(`🎉 MARTINGALE SEQUENCE COMPLETED: Recovery achieved!`);
         }
 
         // Getters for accessing martingale state

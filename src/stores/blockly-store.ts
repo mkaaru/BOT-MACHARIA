@@ -32,41 +32,6 @@ export default class BlocklyStore {
     };
 
     onMount = (): void => {
-        console.log('🔧 BlocklyStore onMount called');
-        this.setLoading(true);
-        
-        // Check if Blockly is available at all
-        if (typeof window === 'undefined') {
-            console.error('❌ Window object not available');
-            this.setLoading(false);
-            return;
-        }
-
-        // Wait for DBot initialization which should create the workspace
-        const checkBlocklyInitialization = (retryCount = 0) => {
-            console.log(`🔍 Checking Blockly initialization (attempt ${retryCount + 1})`);
-            
-            if (window.Blockly?.derivWorkspace) {
-                console.log('✅ Blockly workspace found and ready');
-                this.setContainerSize();
-                this.setLoading(false);
-                return;
-            }
-
-            if (retryCount < 15) {
-                console.log(`⏳ Blockly not ready, waiting... (${retryCount + 1}/15)`);
-                setTimeout(() => {
-                    checkBlocklyInitialization(retryCount + 1);
-                }, 1000);
-            } else {
-                console.error('❌ Blockly failed to initialize after 15 attempts');
-                this.setLoading(false);
-            }
-        };
-
-        // Start checking for initialization
-        checkBlocklyInitialization();
-        
         window.addEventListener('resize', this.setContainerSize);
     };
 
