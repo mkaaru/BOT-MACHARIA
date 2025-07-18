@@ -1,86 +1,102 @@
 .speed-bot {
-  max-width: 1000px;
-  margin: 0 auto;
   padding: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f8f9fa;
+  border-radius: 8px;
+  max-width: 1400px;
+  margin: 0 auto;
 
   &__header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
-    background: #333;
-    color: white;
-    padding: 15px 20px;
+    padding: 15px;
+    background: white;
     border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    h2 {
+      margin: 0;
+      color: #333;
+      font-size: 24px;
+    }
   }
 
-  &__title {
+  &__status {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 18px;
-    font-weight: bold;
-  }
-
-  &__icon {
-    font-size: 20px;
-  }
-
-  &__nav {
-    display: flex;
     gap: 10px;
   }
 
-  &__nav-item {
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    color: white;
-    padding: 8px 16px;
+  &__connection {
+    padding: 6px 12px;
     border-radius: 4px;
-    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
 
-    &.active {
-      background: rgba(255, 255, 255, 0.2);
+    &.connected {
+      background: #d4edda;
+      color: #155724;
     }
 
-    &:hover {
-      background: rgba(255, 255, 255, 0.1);
-    }
-  }
-
-  &__subtitle {
-    text-align: center;
-    font-size: 16px;
-    font-weight: bold;
-    color: #4a90e2;
-    margin-bottom: 10px;
-    letter-spacing: 1px;
-  }
-
-  &__description {
-    text-align: center;
-    color: #666;
-    margin-bottom: 30px;
-    line-height: 1.5;
-
-    strong {
-      color: #e74c3c;
+    &.disconnected {
+      background: #f8d7da;
+      color: #721c24;
     }
   }
 
-  &__form {
-    background: #f8f9fa;
-    padding: 25px;
-    border-radius: 8px;
-    margin-bottom: 25px;
-  }
-
-  &__form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
+  &__error {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #f5c6cb;
     margin-bottom: 20px;
+  }
+
+  &__login-warning {
+    background: #fff3cd;
+    color: #856404;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #ffeaa7;
+    margin-bottom: 20px;
+    text-align: center;
+
+    p {
+      margin: 0;
+    }
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  &__section {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    h3 {
+      margin: 0 0 15px 0;
+      color: #2c5aa0;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 8px 12px;
+      background: #e3f2fd;
+      border-radius: 4px;
+      border-left: 4px solid #2c5aa0;
+    }
+  }
+
+  &__form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    align-items: end;
 
     @media (max-width: 768px) {
       grid-template-columns: 1fr;
@@ -92,78 +108,71 @@
     flex-direction: column;
 
     label {
-      font-weight: 500;
       margin-bottom: 5px;
+      font-weight: 500;
       color: #333;
+      font-size: 12px;
+      text-transform: uppercase;
     }
 
     input, select {
-      padding: 10px;
+      padding: 10px 12px;
       border: 1px solid #ddd;
       border-radius: 4px;
       font-size: 14px;
+      background: white;
 
       &:focus {
         outline: none;
-        border-color: #4a90e2;
+        border-color: #2c5aa0;
+        box-shadow: 0 0 0 2px rgba(44, 90, 160, 0.1);
       }
 
       &:disabled {
-        background: #f5f5f5;
+        background-color: #f8f9fa;
+        color: #6c757d;
         cursor: not-allowed;
       }
     }
-  }
 
-  &__stake-input {
-    position: relative;
-    display: flex;
-    align-items: center;
-
-    input {
-      flex: 1;
-      padding-right: 50px;
+    input[type="number"] {
+      text-align: right;
     }
   }
 
-  &__currency {
-    position: absolute;
-    right: 10px;
-    color: #666;
-    font-size: 12px;
-  }
-
-  &__toggles {
-    margin: 25px 0;
-  }
-
-  &__toggle-row {
+  &__checkbox-group {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 12px 0;
-    border-bottom: 1px solid #eee;
-
-    &:last-child {
-      border-bottom: none;
-    }
+    gap: 10px;
 
     label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
       font-weight: 500;
       color: #333;
+      cursor: pointer;
+      text-transform: none;
     }
 
     input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
-      cursor: pointer;
+      margin: 0;
+      transform: scale(1.2);
     }
+  }
+
+  &__controls {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   &__control-buttons {
     display: flex;
     gap: 15px;
-    margin-top: 25px;
+    justify-content: center;
 
     @media (max-width: 768px) {
       flex-direction: column;
@@ -171,14 +180,14 @@
   }
 
   &__start-btn, &__stop-btn, &__reset-btn {
-    flex: 1;
-    padding: 15px;
+    padding: 15px 30px;
     border: none;
     border-radius: 6px;
     font-size: 16px;
-    font-weight: bold;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
+    min-width: 150px;
 
     &:disabled {
       opacity: 0.6;
@@ -187,29 +196,35 @@
   }
 
   &__start-btn {
-    background: linear-gradient(135deg, #4a90e2, #357abd);
+    background: linear-gradient(135deg, #28a745, #20c997);
     color: white;
 
     &:hover:not(:disabled) {
-      background: linear-gradient(135deg, #357abd, #2968a3);
+      background: linear-gradient(135deg, #218838, #1aa085);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
   }
 
   &__stop-btn {
-    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    background: linear-gradient(135deg, #dc3545, #e83e4b);
     color: white;
 
     &:hover:not(:disabled) {
-      background: linear-gradient(135deg, #c0392b, #a93226);
+      background: linear-gradient(135deg, #c82333, #d93441);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
   }
 
   &__reset-btn {
-    background: #6c757d;
+    background: linear-gradient(135deg, #6c757d, #868e96);
     color: white;
 
     &:hover:not(:disabled) {
-      background: #5a6268;
+      background: linear-gradient(135deg, #5a6268, #6f777e);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
   }
 
@@ -217,27 +232,35 @@
     background: white;
     padding: 20px;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin-bottom: 25px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    h3 {
+      margin: 0 0 15px 0;
+      color: #333;
+      font-size: 18px;
+    }
   }
 
   &__stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 15px;
   }
 
   &__stat {
-    display: flex;
-    flex-direction: column;
     text-align: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
 
     label {
-      font-size: 12px;
+      display: block;
+      font-size: 11px;
       color: #666;
-      margin-bottom: 5px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      font-weight: 500;
     }
 
     span {
@@ -245,12 +268,12 @@
       font-weight: bold;
       color: #333;
 
-      &.connected {
-        color: #27ae60;
+      &.profit {
+        color: #28a745;
       }
 
-      &.disconnected {
-        color: #e74c3c;
+      &.loss {
+        color: #dc3545;
       }
     }
   }
@@ -259,136 +282,142 @@
     background: white;
     padding: 20px;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
     h3 {
       margin: 0 0 15px 0;
       color: #333;
+      font-size: 18px;
     }
   }
 
   &__trades {
-    max-height: 300px;
+    max-height: 400px;
     overflow-y: auto;
   }
 
   &__no-trades {
     text-align: center;
     color: #666;
-    padding: 20px;
+    padding: 40px;
     font-style: italic;
+    background: #f8f9fa;
+    border-radius: 6px;
   }
 
   &__trade {
-    padding: 12px;
-    margin-bottom: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
     border-radius: 6px;
-    background: rgba(255, 255, 255, 0.08);
-    font-size: 11px;
-    border: 1px solid transparent;
+    border-left: 4px solid #ddd;
+    background: white;
+    border: 1px solid #e9ecef;
 
     &.win {
-      border-left: 4px solid #4BB543;
-      background: rgba(75, 181, 67, 0.1);
+      background: #d4edda;
+      border-left-color: #28a745;
+      border-color: #c3e6cb;
     }
 
     &.loss {
-      border-left: 4px solid #FF6B6B;
-      background: rgba(255, 107, 107, 0.1);
+      background: #f8d7da;
+      border-left-color: #dc3545;
+      border-color: #f5c6cb;
     }
 
     &.pending {
-      border-left: 4px solid #FFA500;
-      background: rgba(255, 165, 0, 0.1);
-      animation: pulse 2s infinite;
+      background: #fff3cd;
+      border-left-color: #ffc107;
+      border-color: #ffeaa7;
     }
+  }
 
-    .speed-bot__trade-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 4px;
+  &__trade-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
 
-      &:last-child {
-        margin-bottom: 0;
-      }
-    }
+  &__trade-result {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
 
-    .speed-bot__trade-time {
-      font-weight: bold;
-      color: #888;
-    }
+  &__trade-time {
+    font-size: 12px;
+    color: #666;
+    font-family: monospace;
+  }
 
-    .speed-bot__trade-id {
-      font-family: monospace;
-      font-size: 10px;
-      color: #666;
-    }
+  &__trade-symbol {
+    font-weight: 600;
+    color: #333;
+    font-size: 13px;
+  }
 
-    .speed-bot__trade-symbol {
-      font-weight: bold;
-      color: #333;
-    }
+  &__trade-type {
+    font-size: 11px;
+    background: #e9ecef;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #495057;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
 
-    .speed-bot__trade-type {
-      background: rgba(0, 123, 255, 0.2);
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-size: 10px;
-    }
+  &__trade-prediction {
+    font-size: 11px;
+    background: #d1ecf1;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #0c5460;
+    font-weight: 500;
+  }
 
-    .speed-bot__trade-stake {
-      font-weight: bold;
-      color: #007bff;
-    }
+  &__trade-stake {
+    font-weight: 600;
+    color: #333;
+    font-size: 13px;
+  }
 
-    .speed-bot__trade-status {
-      font-weight: bold;
-    }
+  &__trade-status {
+    font-weight: 700;
+    font-size: 13px;
+  }
 
-    .speed-bot__trade-profit {
-      font-weight: bold;
-      font-size: 12px;
-    }
+  &__trade-profit {
+    font-weight: 700;
+    font-size: 13px;
+    font-family: monospace;
+  }
 
-    .speed-bot__trade-pending {
-      margin-top: 8px;
-      padding: 4px 8px;
-      background: rgba(255, 165, 0, 0.2);
-      border-radius: 3px;
+  // Responsive improvements
+  @media (max-width: 768px) {
+    padding: 10px;
+
+    &__header {
+      padding: 10px;
+      flex-direction: column;
+      gap: 10px;
       text-align: center;
-      font-size: 10px;
-      color: #FFA500;
-    }
-  }
-
-  @keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.7; }
-    100% { opacity: 1; }
-  }
-
-  &__error {
-    text-align: center;
-    padding: 40px 20px;
-
-    h3 {
-      color: var(--text-prominent);
-      margin-bottom: 16px;
     }
 
-    p {
-      color: var(--text-general);
-      opacity: 0.8;
+    &__section {
+      padding: 15px;
     }
-  }
 
-    &__status-indicator--connected {
-    background-color: #4caf50;
-  }
-
-  &__status-indicator--disconnected {
-    background-color: #f44336;
+    &__trade-info,
+    &__trade-result {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 5px;
+    }
   }
 }
 
