@@ -108,37 +108,45 @@ const SpeedBot: React.FC = observer(() => {
   ];
 
   const getContractTypes = () => {
-    switch (tradeType) {
-      case 'digits':
-        return [
-          { value: 'DIGITEVEN', label: 'Even' },
-          { value: 'DIGITODD', label: 'Odd' }
-        ];
-      case 'even_odd':
-        return [
-          { value: 'DIGITEVEN', label: 'Even' },
-          { value: 'DIGITODD', label: 'Odd' }
-        ];
-      case 'over_under':
-        return [
-          { value: 'DIGITOVER', label: 'Over' },
-          { value: 'DIGITUNDER', label: 'Under' }
-        ];
-      case 'matches_differs':
-        return [
-          { value: 'DIGITMATCH', label: 'Matches' },
-          { value: 'DIGITDIFF', label: 'Differs' }
-        ];
-      case 'rise_fall':
-        return [
-          { value: 'CALL', label: 'Rise' },
-          { value: 'PUT', label: 'Fall' }
-        ];
-      default:
-        return [
-          { value: 'DIGITEVEN', label: 'Even' },
-          { value: 'DIGITODD', label: 'Odd' }
-        ];
+    try {
+      switch (tradeType) {
+        case 'digits':
+          return [
+            { value: 'DIGITEVEN', label: 'Even' },
+            { value: 'DIGITODD', label: 'Odd' }
+          ];
+        case 'even_odd':
+          return [
+            { value: 'DIGITEVEN', label: 'Even' },
+            { value: 'DIGITODD', label: 'Odd' }
+          ];
+        case 'over_under':
+          return [
+            { value: 'DIGITOVER', label: 'Over' },
+            { value: 'DIGITUNDER', label: 'Under' }
+          ];
+        case 'matches_differs':
+          return [
+            { value: 'DIGITMATCH', label: 'Matches' },
+            { value: 'DIGITDIFF', label: 'Differs' }
+          ];
+        case 'rise_fall':
+          return [
+            { value: 'CALL', label: 'Rise' },
+            { value: 'PUT', label: 'Fall' }
+          ];
+        default:
+          return [
+            { value: 'DIGITEVEN', label: 'Even' },
+            { value: 'DIGITODD', label: 'Odd' }
+          ];
+      }
+    } catch (error) {
+      console.error('Error in getContractTypes:', error);
+      return [
+        { value: 'DIGITEVEN', label: 'Even' },
+        { value: 'DIGITODD', label: 'Odd' }
+      ];
     }
   };
 
@@ -376,13 +384,13 @@ const SpeedBot: React.FC = observer(() => {
 
       // Validate contract types
       const contracts = getContractTypes();
-      if (!contracts || contracts.length === 0) {
+      if (!contracts || !Array.isArray(contracts) || contracts.length === 0) {
         setError('Invalid trade type configuration');
         return;
       }
 
       // Validate selected contract type
-      if (!contractType || !contracts.find(c => c.value === contractType)) {
+      if (!contractType || !contracts.find(c => c && c.value === contractType)) {
         setError('Invalid contract type selected');
         return;
       }
@@ -500,11 +508,19 @@ const SpeedBot: React.FC = observer(() => {
 
   // Initialize contract type when trade type changes
   useEffect(() => {
-    const contracts = getContractTypes();
-    if (contracts && contracts.length > 0 && !contracts.find(c => c.value === contractType)) {
-      setSelectedContractType(contracts[0].value);
+    try {
+      const contracts = getContractTypes();
+      if (contracts && Array.isArray(contracts) && contracts.length > 0) {
+        const currentContractExists = contracts.find(c => c && c.value === contractType);
+        if (!currentContractExists && contracts[0] && contracts[0].value) {
+          setSelectedContractType(contracts[0].value);
+        }
+      }
+    } catch (error) {
+      console.error('Error initializing contract type:', error);
+      setSelectedContractType('DIGITEVEN');
     }
-  }, [tradeType]);
+  }, [tradeType, contractType]);
 
   const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
 
@@ -583,11 +599,13 @@ const SpeedBot: React.FC = observer(() => {
                 onChange={(e) => setSelectedContractType(e.target.value)}
                 disabled={isTrading}
               >
-                {getContractTypes()?.map(contract => (
-                  <option key={contract.value} value={contract.value}>
-                    {contract.label}
-                  </option>
-                )) || []}
+                {getContractTypes()?.map((contract, index) => 
+                  contract ? (
+                    <option key={contract.value || index} value={contract.value}>
+                      {contract.label}
+                    </option>
+                  ) : null
+                ) || []}
               </select>
             </div>
             {['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(contractType) && (
