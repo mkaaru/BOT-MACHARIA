@@ -385,7 +385,9 @@ const SpeedBot: React.FC = observer(() => {
       if (!contractType || !contracts.find(c => c.value === contractType)) {
         setError('Invalid contract type selected');
         return;
-      }</old_str>
+      }
+
+      // Initialize bot engine if not connected</old_str>
 
       // Initialize bot engine if not connected
       if (!isConnected) {
