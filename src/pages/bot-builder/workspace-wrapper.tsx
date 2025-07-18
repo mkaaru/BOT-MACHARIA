@@ -21,13 +21,13 @@ const WorkspaceWrapper = observer(() => {
     }, []);
 
     React.useEffect(() => {
-        // Retry mechanism if Blockly doesn't load
-        if (!is_loading && !window.Blockly?.derivWorkspace && retryCount < 3) {
-            console.log(`🔄 Retrying Blockly initialization (attempt ${retryCount + 1})`);
+        // Enhanced retry mechanism if Blockly doesn't load
+        if (!is_loading && !window.Blockly?.derivWorkspace && retryCount < 5) {
+            console.log(`🔄 Retrying Blockly initialization (attempt ${retryCount + 1}/5)`);
             setTimeout(() => {
                 setRetryCount(prev => prev + 1);
                 onMount();
-            }, 1000 * (retryCount + 1));
+            }, 2000);
         }
     }, [is_loading, retryCount, onMount]);
 
@@ -68,12 +68,30 @@ const WorkspaceWrapper = observer(() => {
             alignItems: 'center', 
             height: '400px',
             fontSize: '16px',
-            color: '#999'
+            color: '#999',
+            textAlign: 'center',
+            padding: '20px'
         }}>
-            <div>Bot Builder not available</div>
+            <div>Bot Builder Initialization</div>
             <div style={{ fontSize: '14px', marginTop: '10px' }}>
-                {retryCount < 3 ? 'Retrying...' : 'Please refresh the page'}
+                {retryCount < 5 ? `Attempting to load... (${retryCount + 1}/5)` : 'Failed to load. Please refresh the page.'}
             </div>
+            {retryCount >= 5 && (
+                <button 
+                    onClick={() => window.location.reload()} 
+                    style={{
+                        marginTop: '15px',
+                        padding: '10px 20px',
+                        backgroundColor: '#ff444f',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Refresh Page
+                </button>
+            )}
         </div>
     );
 });

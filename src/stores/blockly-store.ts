@@ -35,26 +35,36 @@ export default class BlocklyStore {
         console.log('🔧 BlocklyStore onMount called');
         this.setLoading(true);
         
-        // Initialize Blockly workspace if not already present
-        if (!window.Blockly?.derivWorkspace) {
-            console.log('🚀 Initializing Blockly workspace...');
-            // Set a timeout to allow Blockly to initialize
-            setTimeout(() => {
-                if (window.Blockly?.derivWorkspace) {
-                    console.log('✅ Blockly workspace initialized successfully');
-                    this.setLoading(false);
-                } else {
-                    console.warn('⚠️ Blockly workspace not found, retrying...');
-                    // Retry after a longer delay
-                    setTimeout(() => {
-                        this.setLoading(false);
-                    }, 2000);
-                }
-            }, 1000);
-        } else {
-            console.log('✅ Blockly workspace already exists');
+        // Check if Blockly is available at all
+        if (typeof window === 'undefined') {
+            console.error('❌ Window object not available');
             this.setLoading(false);
+            return;
         }
+
+        // Wait for DBot initialization which should create the workspace
+        const checkBlocklyInitialization = (retryCount = 0) => {
+            console.log(`🔍 Checking Blockly initialization (attempt ${retryCount + 1})`);
+            
+            if (window.Blockly?.derivWorkspace) {
+                console.log('✅ Blockly workspace found and ready');
+                this.setLoading(false);
+                return;
+            }
+
+            if (retryCount < 10) {
+                console.log(`⏳ Blockly not ready, waiting... (${retryCount + 1}/10)`);
+                setTimeout(() => {
+                    checkBlocklyInitialization(retryCount + 1);
+                }, 500);
+            } else {
+                console.error('❌ Blockly failed to initialize after 10 attempts');
+                this.setLoading(false);
+            }
+        };
+
+        // Start checking for initialization
+        checkBlocklyInitialization();
         
         window.addEventListener('resize', this.setContainerSize);
     };
