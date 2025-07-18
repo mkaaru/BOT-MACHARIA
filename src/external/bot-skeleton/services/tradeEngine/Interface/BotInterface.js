@@ -27,6 +27,9 @@ const getBotInterface = tradeEngine => {
 
         // Method to update trade results
         updateTradeResult: (profit) => tradeEngine.updateTradeResult?.(profit),
+        
+        // Check if waiting for contract to close
+        isWaitingForContractClose: () => tradeEngine.isWaitingForContractClose || false,
 
         // Utility methods
         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),

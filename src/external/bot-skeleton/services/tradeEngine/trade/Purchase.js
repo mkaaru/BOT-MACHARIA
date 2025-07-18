@@ -24,13 +24,34 @@ export default Engine =>
 
             // Track if trade result is confirmed and ready for martingale processing
             this.isTradeConfirmed = false;
-            
+
             // Trading mode configuration
             this.continuousMode = true; // Default to continuous mode
             this.waitingForContractClose = false;
+            this.isWaitingForContractClose = false; // Add new state
         }
 
         purchase(contract_type) {
+            // Prevent purchase if waiting for previous contract to close
+            if (this.isWaitingForContractClose) {
+                throw new Error('Cannot purchase: waiting for previous contract to close');
+            }
+
+            const { currency, is_sold } = this.data.contract;
+            const is_same_symbol = this.data.contract.underlying === this.options.symbol;
+            const should_forget_proposal = is_sold && is_same_symbol;
+
+            if (should_forget_proposal) {
+                this.forgetProposals();
+            }
+
+            if (!this.options.timeMachine) {
+                // Remove continuous trading check to allow martingale
+                if (false) {
+                    throw new InvalidContractTypeError();
+                }
+            }
+
             // Apply martingale logic before purchase
             this.applyMartingaleLogic();
 
@@ -202,12 +223,15 @@ export default Engine =>
             this.martingaleState.lastTradeProfit = profit;
             this.martingaleState.totalProfit = (this.martingaleState.totalProfit || 0) + profit;
             this.isTradeConfirmed = true; // Mark trade as confirmed for martingale processing
-            
+
             // In sequential mode, mark that contract has closed
             if (!this.continuousMode) {
                 this.setWaitingForContractClose(false);
             }
-            
+
+            // Clear the waiting flag
+            this.isWaitingForContractClose = false;
+
             console.log(`💰 TRADE RESULT CONFIRMED: P&L: ${profit} USD | Total P&L: ${this.martingaleState.totalProfit.toFixed(2)} USD`);
             console.log(`🎯 MARTINGALE READY: Trade result confirmed, next purchase will apply martingale logic`);
         }
