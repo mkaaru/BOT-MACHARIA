@@ -477,21 +477,14 @@ const SpeedBot: React.FC = observer(() => {
                 ws.send(JSON.stringify(contractRequest));
                 console.log('📈 Subscribed to contract updates for contract:', data.buy.contract_id);
 
-                // Set pending contract for sequential mode
+                // Sequential mode: Wait for contract to close
                 setPendingContractId(data.buy.contract_id);
                 setWaitingForContractClose(true);
-                console.log('⏳ Sequential mode: Waiting for contract to close before next trade');
+                console.log('⏳ Sequential mode: Contract purchased, waiting for closure...');
               } catch (error) {
                 console.error('❌ Error subscribing to contract:', error);
               }
             }
-
-            // Handle next trade in sequential mode
-          if (isTrading) {
-              console.log('📊 Sequential Mode: Contract purchased, now waiting for closure...');
-              setWaitingForContractClose(true); // Wait for contract to close
-              setPendingContractId(data.buy.contract_id);
-          }
           }
 
           // Handle buy errors
@@ -528,6 +521,8 @@ const SpeedBot: React.FC = observer(() => {
               const profit = parseFloat(contract.profit || 0);
               const isWin = profit > 0;
 
+              console.log(`📊 Contract Result: ${isWin ? 'WIN' : 'LOSS'} | Profit: ${profit} | Current Stake: ${currentStake}`);
+
               // Update the most recent trade with result
               let tradeWasUpdated = false;
               setTradeHistory(prev => {
@@ -540,37 +535,44 @@ const SpeedBot: React.FC = observer(() => {
                 return updated;
               });
 
-              // Only increment counters if we actually updated a trade
+              // Only update counters and apply martingale if we actually updated a trade
               if (tradeWasUpdated) {
-                // Update win/loss counters
-              if (isWin) {
-                setWins(prev => prev + 1);
-                setConsecutiveLosses(0);
-                setCurrentStake(baseStake); // Reset to base stake on win
-              } else {
-                setLosses(prev => prev + 1);
-                setConsecutiveLosses(prev => prev + 1);
-                // Apply martingale if enabled
-                if (useMartingale) {
-                  setCurrentStake(prev => prev * martingaleMultiplier);
+                if (isWin) {
+                  setWins(prev => prev + 1);
+                  setConsecutiveLosses(0);
+                  // Reset to base stake on win
+                  console.log(`🟢 WIN: Resetting stake from ${currentStake} to ${baseStake}`);
+                  setCurrentStake(baseStake);
+                } else {
+                  setLosses(prev => prev + 1);
+                  setConsecutiveLosses(prev => {
+                    const newConsecutiveLosses = prev + 1;
+                    console.log(`🔴 LOSS: Consecutive losses: ${newConsecutiveLosses}`);
+                    
+                    // Apply martingale if enabled
+                    if (useMartingale) {
+                      const newStake = currentStake * martingaleMultiplier;
+                      console.log(`💰 MARTINGALE: Increasing stake from ${currentStake} to ${newStake} (${martingaleMultiplier}x multiplier)`);
+                      setCurrentStake(newStake);
+                    }
+                    
+                    return newConsecutiveLosses;
+                  });
                 }
+
+                // Clear waiting state and allow next trade
+                console.log('✅ Sequential Mode: Contract closed - ready for next trade');
+                setWaitingForContractClose(false);
+                setPendingContractId(null);
+
+                // Start next trade after delay to ensure proper martingale stake is applied
+                setTimeout(() => {
+                  if (isTrading) {
+                    console.log(`🚀 Sequential Mode: Starting next trade with stake: ${isWin ? baseStake : (useMartingale ? currentStake * martingaleMultiplier : currentStake)}`);
+                    getPriceProposal();
+                  }
+                }, 3000);
               }
-
-              // Sequential Mode: Contract closed - clear waiting state and trigger next trade
-              console.log('✅ Sequential Mode: Contract closed - ready for next trade');
-              setWaitingForContractClose(false);
-              setPendingContractId(null);
-
-              // Trigger next trade after short delay
-              setTimeout(() => {
-                if (isTrading && !waitingForContractClose) {
-                  console.log('🚀 Sequential Mode: Starting next trade after contract closure');
-                  executeTradingLoop();
-                }
-              }, 2000);
-              }
-
-              console.log(`Contract completed:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`, `Martingale multiplier: ${useMartingale ? martingaleMultiplier : 'disabled'}`, `Next stake: ${isWin ? baseStake : (useMartingale ? currentStake * martingaleMultiplier : currentStake)}`);
             }
           }
 
@@ -898,16 +900,14 @@ const SpeedBot: React.FC = observer(() => {
   }, [selectedSymbol, selectedContractType, currentStake, useMartingale, martingaleMultiplier, stake, isTrading, isUsingBotEngine]);
 
   const startTrading = async () => {
-    console.log('🚀 BREAKPOINT 1: Attempting to start Speed Bot in hybrid mode...');
+    console.log('🚀 Starting Speed Bot trading...');
 
     // Reset any previous errors
     setError(null);
 
     // Check if user is logged in and has token
     const authToken = getAuthToken();
-    console.log('🔍 BREAKPOINT 2: Auth token check result:', authToken ? 'Token found' : 'No token');
     if (!authToken) {
-      console.log('❌ BREAKPOINT 3: No auth token - stopping execution');
       setError('Please log in to Deriv first. Go to deriv.com and sign in, then try again.');
       return;
     }
@@ -918,120 +918,91 @@ const SpeedBot: React.FC = observer(() => {
       return;
     }
 
-    // Check account details if available
-    if (client) {
-      const accountType = client?.is_virtual ? 'Demo' : 'Real';
-      console.log(`📊 Account type: ${accountType}`);
+    // Check WebSocket connection
+    if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+      setError('WebSocket not connected. Please wait for connection.');
+      return;
+    }
 
-      if (client?.balance !== undefined) {
-        const balance = parseFloat(client.balance);
-        console.log(`💰 Account balance: ${balance} ${client.currency || 'USD'}`);
+    if (!isAuthorized) {
+      setError('Not authorized. Please ensure you are logged in.');
+      return;
+    }
 
-        if (balance < stake) {
-          setError(`Insufficient balance. Current: ${balance} ${client.currency || 'USD'}, Required: ${stake}`);
-          return;
-        }
+    // Check account balance
+    if (client?.balance !== undefined) {
+      const balance = parseFloat(client.balance);
+      if (balance < stake) {
+        setError(`Insufficient balance. Current: ${balance} ${client.currency || 'USD'}, Required: ${stake}`);
+        return;
       }
     }
 
     try {
-      console.log('🔧 BREAKPOINT 4: Setting up trading state...');
+      // Initialize trading state
       setCurrentStake(stake);
-      setBaseStake(stake); // Set base stake at the start
-      setConsecutiveLosses(0); // Reset losses
+      setBaseStake(stake);
+      setConsecutiveLosses(0);
+      setWaitingForContractClose(false);
+      setPendingContractId(null);
       setIsTrading(true);
       setIsExecutingTrade(false);
 
-      console.log('🤖 BREAKPOINT 5: Starting Speed Bot in hybrid mode using bot engine...');
-      console.log(`📊 BREAKPOINT 6: Configuration: ${selectedContractType} on ${selectedSymbol} with stake ${stake}`);
+      console.log(`✅ Speed Bot started: ${selectedContractType} on ${selectedSymbol} with stake ${stake}`);
+      console.log(`🎯 Martingale ${useMartingale ? 'ENABLED' : 'DISABLED'} | Multiplier: ${martingaleMultiplier}x`);
 
-      // Initialize bot engine
-      console.log('🔧 BREAKPOINT 7: Calling initializeBotEngine...');
-      await initializeBotEngine();
-      console.log('✅ BREAKPOINT 8: Bot engine initialization completed');
-
-      console.log('✅ BREAKPOINT 9: Speed Bot hybrid trading started successfully');
-
-      // Start the trading loop
-      console.log('⏰ BREAKPOINT 10: Setting timeout for trading loop...');
+      // Start first trade after short delay
       setTimeout(() => {
-        console.log('🔄 BREAKPOINT 11: Timeout triggered, checking if still trading:', isTrading);
         if (isTrading) {
-          console.log('🚀 BREAKPOINT 12: Calling executeTradingLoop...');
-          executeTradingLoop();
-        } else {
-          console.log('🛑 BREAKPOINT 13: Not trading anymore, skipping loop');
+          console.log('🚀 Starting first trade...');
+          getPriceProposal();
         }
       }, 1000);
 
     } catch (error) {
-      console.error('❌ Error starting Speed Bot hybrid mode:', error);
+      console.error('❌ Error starting Speed Bot:', error);
       setError(`Failed to start Speed Bot: ${error.message}`);
       setIsTrading(false);
-      setIsUsingBotEngine(false);
     }
   };
 
-  // Trading loop for continuous trading
+  // Sequential trading execution - only executes one trade and waits for closure
   const executeTradingLoop = useCallback(async () => {
-    console.log('🔄 BREAKPOINT 14: executeTradingLoop called');
-    console.log('🔍 BREAKPOINT 15: Current state - isTrading:', isTrading, 'isUsingBotEngine:', isUsingBotEngine);
+    console.log('🔄 Sequential Mode: Trading loop called');
 
-    if (!isTrading || !isUsingBotEngine) {
-      console.log('🛑 BREAKPOINT 16: Trading loop stopped - not trading or bot engine not available');
-      console.log('  - isTrading:', isTrading);
-      console.log('  - isUsingBotEngine:', isUsingBotEngine);
+    if (!isTrading) {
+      console.log('🛑 Trading stopped, exiting loop');
       return;
     }
 
     // In sequential mode, check if we're waiting for contract closure
     if (waitingForContractClose) {
-      console.log('⏳ Sequential mode: Waiting for contract closure, skipping trade execution');
-      setTimeout(() => {
-        if (isTrading) {
-          executeTradingLoop();
-        }
-      }, 1000);
+      console.log('⏳ Sequential mode: Waiting for contract closure, cannot start new trade');
       return;
     }
 
     try {
-      console.log('🔄 BREAKPOINT 17: Executing trading loop...');
-
       // Check if we have sufficient balance before trading
       if (client?.balance !== undefined) {
         const balance = parseFloat(client.balance);
-        console.log('💰 BREAKPOINT 18: Balance check - balance:', balance, 'currentStake:', currentStake);
+        console.log(`💰 Balance check: ${balance} ${client.currency || 'USD'}, required: ${currentStake}`);
         if (balance < currentStake) {
-          console.log('❌ BREAKPOINT 19: Insufficient balance, stopping trading');
+          console.log('❌ Insufficient balance, stopping trading');
           setError(`Insufficient balance: ${balance} ${client.currency || 'USD'}`);
           setIsTrading(false);
           return;
         }
-      } else {
-        console.log('⚠️ BREAKPOINT 20: No balance information available');
       }
 
-      // Execute a single trade
-      console.log('🚀 BREAKPOINT 21: Calling executeBotTrade...');
-      await executeBotTrade();
-      console.log('✅ BREAKPOINT 22: executeBotTrade completed');
-
-        // Sequential mode: Will be triggered when contract closes
-        console.log('⏳ Sequential mode: Waiting for contract closure to trigger next trade');
+      // Execute only one trade and wait for it to complete
+      console.log(`🚀 Sequential Mode: Executing single trade with stake: ${currentStake}`);
+      getPriceProposal();
 
     } catch (error) {
-      console.error('❌ Trading loop error:', error);
-
-      // Retry after error with longer delay
-      setTimeout(() => {
-        if (isTrading) {
-          console.log('🔄 Retrying trading loop after error...');
-          executeTradingLoop();
-        }
-      }, 5000);
+      console.error('❌ Trading execution error:', error);
+      setError(`Trading error: ${error.message}`);
     }
-  }, [isTrading, isUsingBotEngine, currentStake, client, executeBotTrade, waitingForContractClose]);
+  }, [isTrading, currentStake, client, waitingForContractClose, getPriceProposal]);
 
   const stopTrading = async () => {
     try {
