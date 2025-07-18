@@ -140,7 +140,9 @@ const SpeedBot: React.FC = observer(() => {
           { value: 'DIGITODD', label: 'Odd' }
         ];
     }
-  };</old_str>
+  };
+
+  // Get auth token</old_str>
 
   // Get auth token
   const getAuthToken = () => {
