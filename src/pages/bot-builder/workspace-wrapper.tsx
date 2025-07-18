@@ -10,7 +10,6 @@ import './workspace.scss';
 const WorkspaceWrapper = observer(() => {
     const { blockly_store } = useStore();
     const { onMount, onUnmount, is_loading } = blockly_store;
-    const [retryCount, setRetryCount] = React.useState(0);
 
     React.useEffect(() => {
         console.log('🔄 WorkspaceWrapper mounting...');
@@ -18,18 +17,7 @@ const WorkspaceWrapper = observer(() => {
         return () => {
             onUnmount();
         };
-    }, []);
-
-    React.useEffect(() => {
-        // Enhanced retry mechanism if Blockly doesn't load
-        if (!is_loading && !window.Blockly?.derivWorkspace && retryCount < 5) {
-            console.log(`🔄 Retrying Blockly initialization (attempt ${retryCount + 1}/5)`);
-            setTimeout(() => {
-                setRetryCount(prev => prev + 1);
-                onMount();
-            }, 2000);
-        }
-    }, [is_loading, retryCount, onMount]);
+    }, [onMount, onUnmount]);
 
     if (is_loading) {
         console.log('⏳ Blockly is loading...');
@@ -74,24 +62,22 @@ const WorkspaceWrapper = observer(() => {
         }}>
             <div>Bot Builder Initialization</div>
             <div style={{ fontSize: '14px', marginTop: '10px' }}>
-                {retryCount < 5 ? `Attempting to load... (${retryCount + 1}/5)` : 'Failed to load. Please refresh the page.'}
+                Failed to load. Please refresh the page.
             </div>
-            {retryCount >= 5 && (
-                <button 
-                    onClick={() => window.location.reload()} 
-                    style={{
-                        marginTop: '15px',
-                        padding: '10px 20px',
-                        backgroundColor: '#ff444f',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer'
-                    }}
-                >
-                    Refresh Page
-                </button>
-            )}
+            <button 
+                onClick={() => window.location.reload()} 
+                style={{
+                    marginTop: '15px',
+                    padding: '10px 20px',
+                    backgroundColor: '#ff444f',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                }}
+            >
+                Refresh Page
+            </button>
         </div>
     );
 });

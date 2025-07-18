@@ -48,17 +48,18 @@ export default class BlocklyStore {
             
             if (window.Blockly?.derivWorkspace) {
                 console.log('✅ Blockly workspace found and ready');
+                this.setContainerSize();
                 this.setLoading(false);
                 return;
             }
 
-            if (retryCount < 10) {
-                console.log(`⏳ Blockly not ready, waiting... (${retryCount + 1}/10)`);
+            if (retryCount < 15) {
+                console.log(`⏳ Blockly not ready, waiting... (${retryCount + 1}/15)`);
                 setTimeout(() => {
                     checkBlocklyInitialization(retryCount + 1);
-                }, 500);
+                }, 1000);
             } else {
-                console.error('❌ Blockly failed to initialize after 10 attempts');
+                console.error('❌ Blockly failed to initialize after 15 attempts');
                 this.setLoading(false);
             }
         };

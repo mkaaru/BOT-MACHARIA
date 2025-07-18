@@ -159,24 +159,12 @@ export default class AppStore {
 
         if (!this.dbot_store) return;
 
-        blockly_store.setLoading(true);
-        
         try {
             console.log('🚀 Starting DBot workspace initialization...');
             await DBot.initWorkspace('/', this.dbot_store, this.api_helpers_store, ui.is_mobile, false);
-            
-            // Verify workspace was created
-            if (window.Blockly?.derivWorkspace) {
-                console.log('✅ DBot workspace initialization completed successfully');
-                blockly_store.setContainerSize();
-                blockly_store.setLoading(false);
-            } else {
-                console.warn('⚠️ DBot initialization completed but workspace not found');
-                // Let the blockly store handle its own loading state
-            }
+            console.log('✅ DBot workspace initialization completed successfully');
         } catch (error) {
             console.error('❌ DBot workspace initialization failed:', error);
-            blockly_store.setLoading(false);
         }
 
         this.registerCurrencyReaction.call(this);
