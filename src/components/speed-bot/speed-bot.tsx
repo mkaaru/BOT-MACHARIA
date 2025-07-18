@@ -81,6 +81,11 @@ const SpeedBot: React.FC = observer(() => {
   const [botInterface, setBotInterface] = useState<any>(null);
   const [isConnected, setIsConnected] = useState(false);
 
+  // ML Prediction State
+  const [useMlPrediction, setUseMlPrediction] = useState(false);
+  const [mlConfidenceThreshold, setMlConfidenceThreshold] = useState(0.7);
+  const [mlPrediction, setMlPrediction] = useState<any>(null);
+
   const volatilitySymbols = [
     { value: 'R_10', label: 'Volatility 10 Index' },
     { value: 'R_25', label: 'Volatility 25 Index' },
@@ -219,11 +224,16 @@ const SpeedBot: React.FC = observer(() => {
     try {
       console.log('🚀 Executing trade...');
 
+      let predictedContractType = contractType;
+      if (useMlPrediction && mlPrediction && mlPrediction.confidence >= mlConfidenceThreshold) {
+        predictedContractType = mlPrediction.prediction === 'even' ? 'DIGITEVEN' : 'DIGITODD';
+      }
+
       // Build trade options
       const tradeOptions: any = {
         amount: currentStake,
         basis: 'stake',
-        contract_type: contractType,
+        contract_type: predictedContractType,
         currency: client?.currency || 'USD',
         duration: duration,
         duration_unit: durationType,
@@ -243,7 +253,7 @@ const SpeedBot: React.FC = observer(() => {
         id: tradeId,
         timestamp: new Date().toLocaleTimeString(),
         symbol: selectedSymbol,
-        contractType: contractType,
+        contractType: predictedContractType,
         result: 'pending',
         stake: currentStake,
         profit: 0,
@@ -273,7 +283,7 @@ const SpeedBot: React.FC = observer(() => {
         return updated;
       });
     }
-  }, [tradeEngine, botInterface, isConnected, currentStake, contractType, selectedSymbol, duration, durationType, barrier, client]);
+  }, [tradeEngine, botInterface, isConnected, currentStake, contractType, selectedSymbol, duration, durationType, barrier, client, useMlPrediction, mlPrediction, mlConfidenceThreshold]);
 
   // Handle trade result
   const handleTradeResult = useCallback((profit: number) => {
@@ -375,6 +385,11 @@ const SpeedBot: React.FC = observer(() => {
 
       console.log('✅ Speed Bot trading started');
 
+      // Simulate ML Prediction (Replace with actual ML integration)
+      if (useMlPrediction) {
+        simulateMLPrediction();
+      }
+
       // Start first trade
       setTimeout(() => {
         if (isTrading) {
@@ -386,6 +401,20 @@ const SpeedBot: React.FC = observer(() => {
       console.error('❌ Error starting trading:', error);
       setError(`Failed to start trading: ${error.message}`);
     }
+  };
+
+  // Simulate ML Prediction - Replace with actual ML integration
+  const simulateMLPrediction = () => {
+    // Simulate prediction data
+    const simulatedPrediction = {
+      prediction: Math.random() > 0.5 ? 'even' : 'odd',
+      evenProbability: Math.random(),
+      oddProbability: Math.random(),
+      confidence: Math.random(),
+    };
+    setMlPrediction(simulatedPrediction);
+
+    console.log('🔮 Simulated ML Prediction:', simulatedPrediction);
   };
 
   // Stop trading
@@ -613,8 +642,59 @@ const SpeedBot: React.FC = observer(() => {
                 />
               </div>
             )}
+            <div className="speed-bot__checkbox-group">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={useMlPrediction}
+                  onChange={(e) => setUseMlPrediction(e.target.checked)}
+                  disabled={isTrading}
+                />
+                Use ML Prediction
+              </label>
+            </div>
+            {useMlPrediction && (
+              <div className="speed-bot__form-group">
+                <label>ML Confidence Threshold</label>
+                <input
+                  type="number"
+                  value={mlConfidenceThreshold}
+                  onChange={(e) => setMlConfidenceThreshold(parseFloat(e.target.value))}
+                  min="0.1"
+                  max="1.0"
+                  step="0.1"
+                  disabled={isTrading}
+                />
+              </div>
+            )}
           </div>
         </div>
+
+        {/* ML Prediction Display */}
+        {useMlPrediction && mlPrediction && (
+          <div className="speed-bot__section">
+            <h3>3. ML Prediction</h3>
+            <div className="speed-bot__ml-prediction">
+              <div className={`prediction-badge ${mlPrediction.prediction}`}>
+                {mlPrediction.prediction.toUpperCase()}
+              </div>
+              <div className="prediction-stats">
+                <div className="stat">
+                  <label>Even:</label>
+                  <span>{(mlPrediction.evenProbability * 100).toFixed(1)}%</span>
+                </div>
+                <div className="stat">
+                  <label>Odd:</label>
+                  <span>{(mlPrediction.oddProbability * 100).toFixed(1)}%</span>
+                </div>
+                <div className="stat">
+                  <label>Confidence:</label>
+                  <span>{(mlPrediction.confidence * 100).toFixed(1)}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Restart Trading Conditions */}
         <div className="speed-bot__section">
