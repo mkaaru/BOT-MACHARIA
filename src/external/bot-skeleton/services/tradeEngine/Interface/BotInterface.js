@@ -24,6 +24,11 @@ const getBotInterface = tradeEngine => {
         getLastTradeProfit: () => tradeEngine.getLastTradeProfit?.() || 0,
         getCurrentPurchasePrice: () => tradeEngine.getCurrentPurchasePrice?.() || 0,
         getTotalProfit: () => tradeEngine.getTotalProfit?.() || 0,
+        
+        // Martingale control methods
+        setMartingaleEnabled: (enabled) => tradeEngine.setMartingaleEnabled?.(enabled),
+        setMartingaleLimits: (maxMultiplier, maxConsecutiveLosses) => tradeEngine.setMartingaleLimits?.(maxMultiplier, maxConsecutiveLosses),
+        updateTradeResult: (profit) => tradeEngine.updateTradeResult?.(profit),
 
         // Method to update trade results
         updateTradeResult: (profit) => tradeEngine.updateTradeResult?.(profit),

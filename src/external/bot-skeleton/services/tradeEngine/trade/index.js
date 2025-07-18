@@ -120,6 +120,16 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
                     const contract = data.proposal_open_contract;
                     if (contract.is_sold) {
                         this.isWaitingForContractClose = false;
+                        
+                        // Calculate profit/loss for martingale
+                        const profit = parseFloat(contract.sell_price) - parseFloat(contract.buy_price);
+                        console.log(`📈 CONTRACT CLOSED: Buy: ${contract.buy_price}, Sell: ${contract.sell_price}, P&L: ${profit}`);
+                        
+                        // Update martingale state with trade result
+                        if (this.updateTradeResult) {
+                            this.updateTradeResult(profit);
+                        }
+                        
                         globalObserver.emit('contract.closed', contract);
                     }
                 }
