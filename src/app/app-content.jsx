@@ -171,6 +171,17 @@ const AppContent = observer(() => {
 
     if (common?.error) return null;
 
+    // Debug logging
+    useEffect(() => {
+        console.log(`🚀 App Content - is_loading: ${is_loading}, forceShowApp: ${forceShowApp}`);
+        if (is_loading) {
+            console.log('📊 Loading reasons:', {
+                client_loading: client.is_loading,
+                // Add other relevant loading states here
+            });
+        }
+    }, [is_loading, forceShowApp]);
+
     return is_loading && !forceShowApp ? (
         <MatrixLoading message={localize('Initializing your account...')} show={true} />
     ) : (

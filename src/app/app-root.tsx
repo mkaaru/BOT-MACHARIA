@@ -43,16 +43,33 @@ const AppRoot = () => {
     useEffect(() => {
         const initializeApi = async () => {
             if (!api_base_initialized.current) {
-                await api_base.init();
-                api_base_initialized.current = true;
-                setIsApiInitialized(true);
+                try {
+                    // Add timeout for API initialization
+                    const initPromise = api_base.init();
+                    const timeoutPromise = new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('API initialization timeout')), 30000)
+                    );
+                    
+                    await Promise.race([initPromise, timeoutPromise]);
+                    api_base_initialized.current = true;
+                    setIsApiInitialized(true);
+                    console.log('✅ API initialized successfully');
+                } catch (error) {
+                    console.error('❌ API initialization failed:', error);
+                    // Still set as initialized to prevent infinite loading
+                    api_base_initialized.current = true;
+                    setIsApiInitialized(true);
+                }
             }
         };
 
         initializeApi();
     }, []);
 
-    if (!store || !is_api_initialized) return <AppRootLoader />;
+    // Temporary bypass - remove this after debugging
+    const shouldBypassLoading = window.location.search.includes('bypass=true');
+    
+    if (!store || (!is_api_initialized && !shouldBypassLoading)) return <AppRootLoader />;
 
     return (
         <Suspense fallback={<AppRootLoader />}>

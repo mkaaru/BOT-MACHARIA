@@ -6,6 +6,61 @@ interface MatrixLoadingProps {
     show?: boolean;
 }
 
+const MatrixLoading: React.FC<MatrixLoadingProps> = ({ message = 'Loading...', show = true }) => {
+    const [progress, setProgress] = useState(0);
+
+    useEffect(() => {
+        if (!show) return;
+
+        console.log(`🔄 Matrix Loading started: ${message}`);
+        
+        const interval = setInterval(() => {
+            setProgress(prev => {
+                if (prev >= 100) {
+                    console.warn('⚠️ Matrix loading reached 100% but still showing - this might indicate a stuck state');
+                    return 100;
+                }
+                return prev + 1;
+            });
+        }, 100);
+
+        // Timeout after 30 seconds
+        const timeout = setTimeout(() => {
+            console.error('❌ Matrix loading timeout - forcing hide');
+            clearInterval(interval);
+        }, 30000);
+
+        return () => {
+            clearInterval(interval);
+            clearTimeout(timeout);
+        };
+    }, [show, message]);
+
+    if (!show) return null;
+
+    return (
+        <div className="matrix-loading">
+            <div className="matrix-text">{message}</div>
+            <div className="progress-bar">
+                <div 
+                    className="progress-fill" 
+                    style={{ width: `${progress}%` }}
+                />
+            </div>
+            <div className="status-text">
+                System Status: ACTIVE • Scanning Markets...
+            </div>
+        </div>
+    );
+};
+
+export default MatrixLoading;
+
+interface MatrixLoadingProps {
+    message?: string;
+    show?: boolean;
+}
+
 const MatrixLoading: React.FC<MatrixLoadingProps> = ({ 
     message = 'Initializing Deriv Bot...', 
     show = true 
