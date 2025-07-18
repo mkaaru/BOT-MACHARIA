@@ -112,7 +112,7 @@ const SpeedBot: React.FC = observer(() => {
   const [alternateOnLoss, setAlternateOnLoss] = useState(false);
   const [useMartingale, setUseMartingale] = useState(false);
   const [martingaleMultiplier, setMartingaleMultiplier] = useState(1.5);
-  const [continuousPurchase, setContinuousPurchase] = useState(true);
+  const [waitingForContractClose, setWaitingForContractClose] = useState(false);
 
   // Trading state
   const [currentStake, setCurrentStake] = useState(1.0);
@@ -125,7 +125,6 @@ const SpeedBot: React.FC = observer(() => {
   const [error, setError] = useState<string | null>(null);
   const [consecutiveLosses, setConsecutiveLosses] = useState(0);
   const [baseStake, setBaseStake] = useState(stake);
-  const [waitingForContractClose, setWaitingForContractClose] = useState(false);
   const [pendingContractId, setPendingContractId] = useState<string | null>(null);
 
   // Bot engine state
@@ -479,11 +478,9 @@ const SpeedBot: React.FC = observer(() => {
                 console.log('📈 Subscribed to contract updates for contract:', data.buy.contract_id);
 
                 // Set pending contract for sequential mode
-                if (!continuousPurchase) {
-                  setPendingContractId(data.buy.contract_id);
-                  setWaitingForContractClose(true);
-                  console.log('⏳ Sequential mode: Waiting for contract to close before next trade');
-                }
+                setPendingContractId(data.buy.contract_id);
+                setWaitingForContractClose(true);
+                console.log('⏳ Sequential mode: Waiting for contract to close before next trade');
               } catch (error) {
                 console.error('❌ Error subscribing to contract:', error);
               }
@@ -491,18 +488,9 @@ const SpeedBot: React.FC = observer(() => {
 
             // Handle next trade based on mode
             if (isTrading) {
-              if (continuousPurchase) {
-                // Continuous mode: Get next proposal immediately
-                setTimeout(() => {
-                  if (isTrading && !isExecutingTrade) {
-                    console.log('🔄 Getting next proposal for continuous trading...');
-                    getPriceProposal();
-                  }
-                }, 500);
-              } else {
-                // Sequential mode: Wait for contract to close (handled in contract update)
-                console.log('⏳ Sequential mode: Will wait for contract closure before next trade');
-              }
+                console.log('📊 Contract closed, setting up next trade...');
+                setWaitingForContractClose(false);
+                // This will trigger the useEffect to start the next trade
             }
           }
 
@@ -568,10 +556,8 @@ const SpeedBot: React.FC = observer(() => {
                 }
 
                 // Clear waiting state for sequential mode
-                if (!continuousPurchase) {
-                  setWaitingForContractClose(false);
-                  setPendingContractId(null);
-                }
+                setWaitingForContractClose(false);
+                setPendingContractId(null);
               }
 
               console.log(`Contract completed:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`, `Martingale multiplier: ${useMartingale ? martingaleMultiplier : 'disabled'}`, `Next stake: ${isWin ? baseStake : (useMartingale ? currentStake * martingaleMultiplier : currentStake)}`);
@@ -979,7 +965,7 @@ const SpeedBot: React.FC = observer(() => {
   // Trading loop for continuous trading
   const executeTradingLoop = useCallback(async () => {
     console.log('🔄 BREAKPOINT 14: executeTradingLoop called');
-    console.log('🔍 BREAKPOINT 15: Current state - isTrading:', isTrading, 'isUsingBotEngine:', isUsingBotEngine, 'continuousPurchase:', continuousPurchase);
+    console.log('🔍 BREAKPOINT 15: Current state - isTrading:', isTrading, 'isUsingBotEngine:', isUsingBotEngine);
 
     if (!isTrading || !isUsingBotEngine) {
       console.log('🛑 BREAKPOINT 16: Trading loop stopped - not trading or bot engine not available');
@@ -989,7 +975,7 @@ const SpeedBot: React.FC = observer(() => {
     }
 
     // In sequential mode, check if we're waiting for contract closure
-    if (!continuousPurchase && waitingForContractClose) {
+    if (waitingForContractClose) {
       console.log('⏳ Sequential mode: Waiting for contract closure, skipping trade execution');
       setTimeout(() => {
         if (isTrading) {
@@ -1021,25 +1007,8 @@ const SpeedBot: React.FC = observer(() => {
       await executeBotTrade();
       console.log('✅ BREAKPOINT 22: executeBotTrade completed');
 
-      // Handle next trade timing based on mode
-      if (continuousPurchase) {
-        // Continuous mode: Wait before next trade (2-5 seconds interval)
-        const nextTradeDelay = Math.random() * 3000 + 2000; // 2-5 seconds
-        console.log(`⏱️ BREAKPOINT 23: Continuous mode - Next trade in ${(nextTradeDelay / 1000).toFixed(1)} seconds`);
-
-        setTimeout(() => {
-          console.log('⏰ BREAKPOINT 24: Next trade timeout triggered, checking if still trading:', isTrading);
-          if (isTrading) {
-            console.log('🔄 BREAKPOINT 25: Recursively calling executeTradingLoop');
-            executeTradingLoop();
-          } else {
-            console.log('🛑 BREAKPOINT 26: Not trading anymore, stopping loop');
-          }
-        }, nextTradeDelay);
-      } else {
         // Sequential mode: Will be triggered when contract closes
         console.log('⏳ Sequential mode: Waiting for contract closure to trigger next trade');
-      }
 
     } catch (error) {
       console.error('❌ Trading loop error:', error);
@@ -1052,7 +1021,7 @@ const SpeedBot: React.FC = observer(() => {
         }
       }, 5000);
     }
-  }, [isTrading, isUsingBotEngine, currentStake, client, executeBotTrade, continuousPurchase, waitingForContractClose]);
+  }, [isTrading, isUsingBotEngine, currentStake, client, executeBotTrade, waitingForContractClose]);
 
   const stopTrading = async () => {
     try {
@@ -1153,7 +1122,7 @@ const SpeedBot: React.FC = observer(() => {
 
   // Trigger next trade in sequential mode when contract closes
   useEffect(() => {
-    if (isTrading && !continuousPurchase && !waitingForContractClose && !isExecutingTrade) {
+    if (isTrading && !waitingForContractClose && !isExecutingTrade) {
       const timer = setTimeout(() => {
         if (isTrading) {
           executeTradingLoop();
@@ -1162,7 +1131,7 @@ const SpeedBot: React.FC = observer(() => {
 
       return () => clearTimeout(timer);
     }
-  }, [isTrading, continuousPurchase, waitingForContractClose, isExecutingTrade, executeTradingLoop]);
+  }, [isTrading, waitingForContractClose, isExecutingTrade, executeTradingLoop]);
 
   const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
 
@@ -1404,7 +1373,7 @@ const SpeedBot: React.FC = observer(() => {
           </div>
           <div className="speed-bot__stat">
             <label>Trading Mode</label>
-            <span>{continuousPurchase ? '⚡ Continuous' : '⏳ Sequential'}</span>
+            <span>⏳ Sequential</span>
           </div>
           <div className="speed-bot__stat">
             <label>Total Trades</label>
