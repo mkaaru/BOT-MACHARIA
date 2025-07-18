@@ -32,6 +32,30 @@ export default class BlocklyStore {
     };
 
     onMount = (): void => {
+        console.log('🔧 BlocklyStore onMount called');
+        this.setLoading(true);
+        
+        // Initialize Blockly workspace if not already present
+        if (!window.Blockly?.derivWorkspace) {
+            console.log('🚀 Initializing Blockly workspace...');
+            // Set a timeout to allow Blockly to initialize
+            setTimeout(() => {
+                if (window.Blockly?.derivWorkspace) {
+                    console.log('✅ Blockly workspace initialized successfully');
+                    this.setLoading(false);
+                } else {
+                    console.warn('⚠️ Blockly workspace not found, retrying...');
+                    // Retry after a longer delay
+                    setTimeout(() => {
+                        this.setLoading(false);
+                    }, 2000);
+                }
+            }, 1000);
+        } else {
+            console.log('✅ Blockly workspace already exists');
+            this.setLoading(false);
+        }
+        
         window.addEventListener('resize', this.setContainerSize);
     };
 
