@@ -486,12 +486,12 @@ const SpeedBot: React.FC = observer(() => {
               }
             }
 
-            // Handle next trade based on mode
-            if (isTrading) {
-                console.log('📊 Contract closed, setting up next trade...');
-                setWaitingForContractClose(false);
-                // This will trigger the useEffect to start the next trade
-            }
+            // Handle next trade in sequential mode
+          if (isTrading) {
+              console.log('📊 Sequential Mode: Contract purchased, now waiting for closure...');
+              setWaitingForContractClose(true); // Wait for contract to close
+              setPendingContractId(data.buy.contract_id);
+          }
           }
 
           // Handle buy errors
@@ -542,22 +542,32 @@ const SpeedBot: React.FC = observer(() => {
 
               // Only increment counters if we actually updated a trade
               if (tradeWasUpdated) {
-                if (isWin) {
-                  setWins(prev => prev + 1);
-                  setConsecutiveLosses(0);
-                  setCurrentStake(baseStake); // Reset to base stake on win
-                } else {
-                  setLosses(prev => prev + 1);
-                  setConsecutiveLosses(prev => prev + 1);
-                  // Apply martingale if enabled
-                  if (useMartingale) {
-                    setCurrentStake(prev => prev * martingaleMultiplier);
-                  }
+                // Update win/loss counters
+              if (isWin) {
+                setWins(prev => prev + 1);
+                setConsecutiveLosses(0);
+                setCurrentStake(baseStake); // Reset to base stake on win
+              } else {
+                setLosses(prev => prev + 1);
+                setConsecutiveLosses(prev => prev + 1);
+                // Apply martingale if enabled
+                if (useMartingale) {
+                  setCurrentStake(prev => prev * martingaleMultiplier);
                 }
+              }
 
-                // Clear waiting state for sequential mode
-                setWaitingForContractClose(false);
-                setPendingContractId(null);
+              // Sequential Mode: Contract closed - clear waiting state and trigger next trade
+              console.log('✅ Sequential Mode: Contract closed - ready for next trade');
+              setWaitingForContractClose(false);
+              setPendingContractId(null);
+
+              // Trigger next trade after short delay
+              setTimeout(() => {
+                if (isTrading && !waitingForContractClose) {
+                  console.log('🚀 Sequential Mode: Starting next trade after contract closure');
+                  executeTradingLoop();
+                }
+              }, 2000);
               }
 
               console.log(`Contract completed:`, isWin ? 'WIN' : 'LOSS', `Profit: ${profit}`, `Martingale multiplier: ${useMartingale ? martingaleMultiplier : 'disabled'}`, `Next stake: ${isWin ? baseStake : (useMartingale ? currentStake * martingaleMultiplier : currentStake)}`);

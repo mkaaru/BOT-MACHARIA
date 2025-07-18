@@ -114,11 +114,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.accountInfo = api_base.account_info;
         this.token = api_base.token;
         return new Promise(resolve => {
-            // Try to recover from a situation where API doesn't give us a correct response on
-            // "proposal_open_contract" which would make the bot run forever. When there's a "sell"
-            // event, wait a couple seconds for the API to give us the correct "proposal_open_contract"
-            // response, if there's none after x seconds. Send an explicit request, which _should_
-            // solve the issue. This is a backup!
+            // Sequential mode: Wait for contract completion before allowing next trade
             const subscription = api_base.api.onMessage().subscribe(({ data }) => {
                 if (data.msg_type === 'transaction' && data.transaction.action === 'sell') {
                     this.transaction_recovery_timeout = setTimeout(() => {
