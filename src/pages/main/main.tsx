@@ -83,6 +83,15 @@ const BotIcon = () => (
 import VolatilityAnalyzer from '@/components/volatility-analyzer/volatility-analyzer';
 import SpeedBot from '@/components/speed-bot/speed-bot';
 
+// Define a placeholder component for the Trading Hub
+const TradingHubDisplay = () => (
+    <div>
+        <h1>Trading Hub</h1>
+        <p>This is the Trading Hub section.</p>
+        {/* Add your Trading Hub content here */}
+    </div>
+);
+
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
     const { dashboard, load_modal, run_panel, quick_strategy, summary_card } = useStore();
@@ -501,7 +510,8 @@ const AppWrapper = observer(() => {
           if (data.msg_type === 'forget_all') {
             console.log('All subscriptions forgotten successfully')
           }
-        } catch (parseError) {
+        } catch```python
+(parseError) {
           console.error('Error parsing WebSocket message:', parseError)
           setCurrentPrice('Parse Error')
         }
