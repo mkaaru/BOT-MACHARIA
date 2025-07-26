@@ -74,7 +74,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         // Update configuration in real-time
         if (window.dbot?.interpreter?.bot) {
             const botInterface = window.dbot.interpreter.bot.getInterface();
-            
+
             // Update bot builder parameters immediately
             if (botInterface.updateConfig) {
                 botInterface.updateConfig({
@@ -198,7 +198,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             // Auto-determine symbol and contract type based on active strategy
             let symbol = '1HZ10V'; // Volatility 10 (1s) for fast execution
             let contractType = 'DIGITEVEN'; // Default contract type
-            
+
             // Strategy-based symbol and contract selection
             if (tradingState.isAutoOverUnderActive) {
                 symbol = '1HZ25V'; // Volatility 25 for over/under
@@ -237,7 +237,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             // Use the main trade engine through the bot interface
             if (window.dbot?.interpreter?.bot) {
                 const botInterface = window.dbot.interpreter.bot.getInterface();
-                
+
                 // Initialize trade engine with bot configuration
                 if (!window.dbot.interpreter.bot.tradeEngine.initArgs) {
                     await botInterface.init(api_base.token, { 
@@ -254,7 +254,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 // Start trading with the parameters
                 botInterface.start(tradeParams);
-                
+
                 addLog(`✅ Trade submitted through ${botConfig.selectedStrategy} strategy`);
                 setTradingState(prev => ({
                     ...prev,
@@ -451,7 +451,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         };
 
         globalObserver.register('bot.contract', handleBotContractEvent);
-        
+
         return () => {
             globalObserver.unregisterAll('bot.contract');
         };
@@ -509,6 +509,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     const newConfig = {...botConfig, selectedStrategy: e.target.value};
                                     setBotConfig(newConfig);
                                     updateBotBuilder(newConfig);
+                                    addLog(`🔄 Strategy changed to: ${e.target.value.toUpperCase()}`);
                                 }}
                                 disabled={tradingState.isContinuousTrading}
                             >
@@ -769,7 +770,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     </div>
                 </div>
 
-                
+
             </div>
         </div>
     );
