@@ -69,12 +69,13 @@ const TradingHubDisplay: React.FC = observer(() => {
         console.log('🔄', logMessage);
     }, []);
 
-    // Sync bot configuration with bot builder
+    // Sync bot configuration with bot builder immediately
     const updateBotBuilder = useCallback((config: typeof botConfig) => {
+        // Update configuration in real-time
         if (window.dbot?.interpreter?.bot) {
             const botInterface = window.dbot.interpreter.bot.getInterface();
             
-            // Update bot builder parameters
+            // Update bot builder parameters immediately
             if (botInterface.updateConfig) {
                 botInterface.updateConfig({
                     strategy: config.selectedStrategy,
@@ -82,19 +83,31 @@ const TradingHubDisplay: React.FC = observer(() => {
                     martingaleMultiplier: config.martingaleMultiplier,
                     maxConsecutiveLosses: config.maxConsecutiveLosses,
                     stopLoss: config.stopLoss,
-                    takeProfit: config.takeProfit
+                    takeProfit: config.takeProfit,
+                    autoSymbolSelection: true,
+                    autoContractSelection: true
                 });
             }
 
-            // Update strategy-specific settings
-            if (config.selectedStrategy === 'martingale') {
-                botInterface.setMartingaleLimits?.(config.martingaleMultiplier, config.maxConsecutiveLosses);
-                botInterface.setMartingaleEnabled?.(true);
-            }
+            // Configure strategy settings
+            botInterface.setMartingaleLimits?.(config.martingaleMultiplier, config.maxConsecutiveLosses);
+            botInterface.setMartingaleEnabled?.(config.selectedStrategy.includes('martingale'));
+            botInterface.setStopLoss?.(config.stopLoss);
+            botInterface.setTakeProfit?.(config.takeProfit);
+            botInterface.setInitialStake?.(config.initialStake);
 
-            addLog(`🔧 Bot builder updated with ${config.selectedStrategy} strategy settings`);
+            // Apply settings to trade engine
+            if (window.dbot.interpreter.bot.tradeEngine) {
+                window.dbot.interpreter.bot.tradeEngine.updateSettings({
+                    stake: config.initialStake,
+                    martingaleMultiplier: config.martingaleMultiplier,
+                    maxLoss: config.maxConsecutiveLosses,
+                    stopLoss: config.stopLoss,
+                    takeProfit: config.takeProfit
+                });
+            }
         }
-    }, [addLog]);
+    }, []);
 
     const scrollToBottom = useCallback(() => {
         logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -182,17 +195,23 @@ const TradingHubDisplay: React.FC = observer(() => {
             setTradingState(prev => ({ ...prev, isTradeInProgress: true }));
             addLog(`🎯 Executing Auto ${botConfig.selectedStrategy.toUpperCase()} trade: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${botConfig.symbol}`);
 
-            // Auto-determine symbol and contract type based on strategy
-            let symbol = recommendation.symbol || '1HZ10V'; // Default to Volatility 10 (1s)
+            // Auto-determine symbol and contract type based on active strategy
+            let symbol = '1HZ10V'; // Volatility 10 (1s) for fast execution
             let contractType = 'DIGITEVEN'; // Default contract type
             
-            // Strategy-based contract selection
+            // Strategy-based symbol and contract selection
             if (tradingState.isAutoOverUnderActive) {
+                symbol = '1HZ25V'; // Volatility 25 for over/under
                 contractType = recommendation.strategy === 'under' ? 'DIGITUNDER' : 'DIGITOVER';
+                addLog(`🎯 Auto Over/Under: ${contractType} on ${symbol}`);
             } else if (tradingState.isAutoDifferActive) {
+                symbol = '1HZ50V'; // Volatility 50 for even/odd
                 contractType = recommendation.lastDigit % 2 === 0 ? 'DIGITODD' : 'DIGITEVEN';
+                addLog(`🎯 Auto Differ: ${contractType} on ${symbol}`);
             } else if (tradingState.isAutoO5U4Active) {
+                symbol = '1HZ75V'; // Volatility 75 for O5U4
                 contractType = recommendation.barrier > 5 ? 'DIGITUNDER' : 'DIGITOVER';
+                addLog(`🎯 Auto O5U4: ${contractType} on ${symbol}`);
             }
 
             // Create enhanced trade parameters with bot configuration
@@ -480,7 +499,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 </div>
 
                 <div className="bot-configuration-section">
-                    <h3>⚙️ Bot Configuration</h3>
+                    <h3>⚙️ Auto Trading Configuration</h3>
                     <div className="config-grid">
                         <div className="config-group">
                             <label>Strategy:</label>
@@ -514,40 +533,36 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 disabled={tradingState.isContinuousTrading}
                             />
                         </div>
-                        {botConfig.selectedStrategy === 'martingale' && (
-                            <>
-                                <div className="config-group">
-                                    <label>Martingale Multiplier:</label>
-                                    <input 
-                                        type="number" 
-                                        value={botConfig.martingaleMultiplier} 
-                                        onChange={(e) => {
-                                            const newConfig = {...botConfig, martingaleMultiplier: parseFloat(e.target.value) || 2};
-                                            setBotConfig(newConfig);
-                                            updateBotBuilder(newConfig);
-                                        }}
-                                        min="1.1" 
-                                        step="0.1"
-                                        disabled={tradingState.isContinuousTrading}
-                                    />
-                                </div>
-                                <div className="config-group">
-                                    <label>Max Consecutive Losses:</label>
-                                    <input 
-                                        type="number" 
-                                        value={botConfig.maxConsecutiveLosses} 
-                                        onChange={(e) => {
-                                            const newConfig = {...botConfig, maxConsecutiveLosses: parseInt(e.target.value) || 5};
-                                            setBotConfig(newConfig);
-                                            updateBotBuilder(newConfig);
-                                        }}
-                                        min="1" 
-                                        step="1"
-                                        disabled={tradingState.isContinuousTrading}
-                                    />
-                                </div>
-                            </>
-                        )}
+                        <div className="config-group">
+                            <label>Martingale Multiplier:</label>
+                            <input 
+                                type="number" 
+                                value={botConfig.martingaleMultiplier} 
+                                onChange={(e) => {
+                                    const newConfig = {...botConfig, martingaleMultiplier: parseFloat(e.target.value) || 2};
+                                    setBotConfig(newConfig);
+                                    updateBotBuilder(newConfig);
+                                }}
+                                min="1.1" 
+                                step="0.1"
+                                disabled={tradingState.isContinuousTrading}
+                            />
+                        </div>
+                        <div className="config-group">
+                            <label>Max Consecutive Losses:</label>
+                            <input 
+                                type="number" 
+                                value={botConfig.maxConsecutiveLosses} 
+                                onChange={(e) => {
+                                    const newConfig = {...botConfig, maxConsecutiveLosses: parseInt(e.target.value) || 5};
+                                    setBotConfig(newConfig);
+                                    updateBotBuilder(newConfig);
+                                }}
+                                min="1" 
+                                step="1"
+                                disabled={tradingState.isContinuousTrading}
+                            />
+                        </div>
                         <div className="config-group">
                             <label>Stop Loss ($):</label>
                             <input 
@@ -578,6 +593,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 disabled={tradingState.isContinuousTrading}
                             />
                         </div>
+                    </div>
+                    <div className="config-info">
+                        <p>📍 Symbol & Contract Type are automatically selected based on active trading strategy</p>
                     </div>
                 </div>
 
@@ -700,7 +718,19 @@ const TradingHubDisplay: React.FC = observer(() => {
                         </div>
                         <div className="summary-item">
                             <span className="summary-label">Auto Symbol:</span>
-                            <span className="summary-value">Strategy-Based</span>
+                            <span className="summary-value">
+                                {tradingState.isAutoOverUnderActive ? '1HZ25V' : 
+                                 tradingState.isAutoDifferActive ? '1HZ50V' : 
+                                 tradingState.isAutoO5U4Active ? '1HZ75V' : '1HZ10V'}
+                            </span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">Auto Contract:</span>
+                            <span className="summary-value">
+                                {tradingState.isAutoOverUnderActive ? 'Over/Under' : 
+                                 tradingState.isAutoDifferActive ? 'Even/Odd' : 
+                                 tradingState.isAutoO5U4Active ? 'O5U4' : 'Strategy-Based'}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -739,20 +769,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     </div>
                 </div>
 
-                <div className="market-data-section">
-                    <h3>📈 Market Data</h3>
-                    <div className="market-data-grid">
-                        {marketData.map(data => (
-                            <div key={data.symbol} className="market-data-card">
-                                <div className="data-symbol">{data.symbol}</div>
-                                <div className="data-tick">Last: {data.lastTick}</div>
-                                <div className="data-recommendation">{data.recommendation}</div>
-                                <div className="data-confidence">{data.confidence.toFixed(1)}%</div>
-                                <div className="data-update">{new Date(data.lastUpdate).toLocaleTimeString()}</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                
             </div>
         </div>
     );

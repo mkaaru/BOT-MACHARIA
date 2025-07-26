@@ -446,6 +446,21 @@
             }
         }
     }
+
+    .config-info {
+        margin-top: 16px;
+        padding: 12px;
+        background: var(--fill-hover);
+        border-radius: 6px;
+        border-left: 4px solid var(--brand-blue);
+
+        p {
+            margin: 0;
+            font-size: 13px;
+            color: var(--text-less-prominent);
+            font-style: italic;
+        }
+    }
 }
 
 .trading-summary-section {
