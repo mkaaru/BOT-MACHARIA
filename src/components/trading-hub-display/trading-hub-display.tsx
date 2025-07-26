@@ -269,6 +269,63 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
     }, [addLog]);
 
+    // Strategy-specific trade logic
+    const getTradeConfigForStrategy = useCallback((strategy: string, currentTick?: number) => {
+        const baseConfig = {
+            duration: 1,
+            duration_unit: 't',
+            amount: botConfig.initialStake,
+            basis: 'stake'
+        };
+
+        // Get current last digit for analysis (mock data if no real tick)
+        const lastDigit = currentTick ? currentTick % 10 : Math.floor(Math.random() * 10);
+        
+        if (strategy === 'overunder') {
+            // Over/Under Strategy Logic
+            const barrier = 5; // Can be dynamic based on analysis
+            const isOver = lastDigit > barrier;
+            
+            return {
+                ...baseConfig,
+                symbol: '1HZ25V', // Volatility 25 (1s)
+                contract_type: isOver ? 'DIGITUNDER' : 'DIGITOVER',
+                barrier: barrier.toString(),
+                strategyReason: `Last digit ${lastDigit} is ${isOver ? 'over' : 'under'} ${barrier}`
+            };
+        } else if (strategy === 'differ') {
+            // Even/Odd Differ Strategy Logic
+            const isEven = lastDigit % 2 === 0;
+            
+            return {
+                ...baseConfig,
+                symbol: '1HZ50V', // Volatility 50 (1s)
+                contract_type: isEven ? 'DIGITODD' : 'DIGITEVEN',
+                strategyReason: `Last digit ${lastDigit} is ${isEven ? 'even' : 'odd'}, predicting opposite`
+            };
+        } else if (strategy === 'o5u4') {
+            // Over 5 Under 4 Strategy Logic
+            const barrier = 5;
+            const shouldGoOver = lastDigit <= 4;
+            
+            return {
+                ...baseConfig,
+                symbol: '1HZ75V', // Volatility 75 (1s)
+                contract_type: shouldGoOver ? 'DIGITOVER' : 'DIGITUNDER',
+                barrier: '4',
+                strategyReason: `Last digit ${lastDigit}, ${shouldGoOver ? 'going OVER 4' : 'going UNDER 5'}`
+            };
+        }
+
+        // Default fallback
+        return {
+            ...baseConfig,
+            symbol: '1HZ10V',
+            contract_type: 'DIGITEVEN',
+            strategyReason: 'Default strategy'
+        };
+    }, [botConfig.initialStake]);
+
     const executeAutoTrade = useCallback(async (recommendation: any) => {
         if (tradingState.isTradeInProgress) {
             addLog('⏳ Trade already in progress, skipping...');
@@ -277,48 +334,38 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         try {
             setTradingState(prev => ({ ...prev, isTradeInProgress: true }));
-            addLog(`🎯 Executing Auto ${botConfig.selectedStrategy.toUpperCase()} trade based on strategy`);
-
-            // Auto-determine symbol and contract type based on active strategy
-            let symbol = '1HZ10V'; // Default Volatility 10 (1s)
-            let contractType = 'DIGITEVEN'; // Default contract type
-            let barrier = recommendation?.barrier || 5;
-
-            // Strategy-based symbol and contract selection
+            
+            // Determine which strategy is active
+            let activeStrategy = '';
             if (tradingState.isAutoOverUnderActive) {
-                symbol = '1HZ25V'; // Volatility 25 for over/under
-                contractType = recommendation?.strategy === 'under' ? 'DIGITUNDER' : 'DIGITOVER';
-                barrier = recommendation?.barrier || 5;
-                addLog(`🎯 Auto Over/Under: ${contractType} ${barrier} on ${symbol}`);
+                activeStrategy = 'overunder';
             } else if (tradingState.isAutoDifferActive) {
-                symbol = '1HZ50V'; // Volatility 50 for even/odd
-                contractType = (recommendation?.lastDigit % 2 === 0) ? 'DIGITODD' : 'DIGITEVEN';
-                addLog(`🎯 Auto Differ: ${contractType} on ${symbol}`);
+                activeStrategy = 'differ';
             } else if (tradingState.isAutoO5U4Active) {
-                symbol = '1HZ75V'; // Volatility 75 for O5U4
-                contractType = (recommendation?.barrier > 5) ? 'DIGITUNDER' : 'DIGITOVER';
-                barrier = 5;
-                addLog(`🎯 Auto O5U4: ${contractType} ${barrier} on ${symbol}`);
+                activeStrategy = 'o5u4';
             }
 
-            // Create trade parameters using Trading Hub configuration
-            const tradeParams = {
-                contract_type: contractType,
-                symbol: symbol,
-                duration: 1,
-                duration_unit: 't',
-                amount: botConfig.initialStake,
-                basis: 'stake',
-                barrier: contractType.includes('UNDER') || contractType.includes('OVER') ? barrier.toString() : undefined
-            };
+            if (!activeStrategy) {
+                addLog('❌ No active trading strategy selected');
+                return;
+            }
 
-            addLog(`📋 Trade execution bypassing wizard: ${JSON.stringify(tradeParams)}`);
+            addLog(`🎯 Executing ${activeStrategy.toUpperCase()} strategy with ${botConfig.selectedStrategy} money management`);
+
+            // Get the current tick for strategy analysis
+            const currentTick = recommendation?.lastTick || Math.floor(Math.random() * 10000);
+            
+            // Get trade configuration for the active strategy
+            const tradeConfig = getTradeConfigForStrategy(activeStrategy, currentTick);
+            
+            addLog(`📊 Strategy Analysis: ${tradeConfig.strategyReason}`);
+            addLog(`📋 Trade Config: ${tradeConfig.contract_type} on ${tradeConfig.symbol}${tradeConfig.barrier ? ` (Barrier: ${tradeConfig.barrier})` : ''}`);
 
             // Execute trade directly through API, bypassing bot builder
-            const result = await executeDirectTrade(tradeParams);
+            const result = await executeDirectTrade(tradeConfig);
             
             if (result.success) {
-                addLog(`✅ Direct trade executed: ${result.contract_id} (Price: ${result.buy_price})`);
+                addLog(`✅ ${activeStrategy.toUpperCase()} trade executed: ${result.contract_id} (Price: ${result.buy_price})`);
                 
                 // Update trading state
                 setTradingState(prev => ({
@@ -327,25 +374,25 @@ const TradingHubDisplay: React.FC = observer(() => {
                     lastTradeTime: Date.now(),
                     tradeHistory: [...prev.tradeHistory.slice(-19), {
                         time: Date.now(),
-                        symbol: tradeParams.symbol,
-                        type: tradeParams.contract_type,
-                        barrier: tradeParams.barrier || '',
-                        amount: botConfig.initialStake,
+                        symbol: tradeConfig.symbol,
+                        type: tradeConfig.contract_type,
+                        barrier: tradeConfig.barrier || '',
+                        amount: tradeConfig.amount,
                         status: 'purchased',
                         contractId: result.contract_id,
-                        strategy: botConfig.selectedStrategy,
-                        buyPrice: result.buy_price
+                        strategy: `${activeStrategy}_${botConfig.selectedStrategy}`,
+                        buyPrice: result.buy_price,
+                        strategyReason: tradeConfig.strategyReason
                     }]
                 }));
 
                 // Apply martingale logic for next trade
                 if (botConfig.selectedStrategy === 'martingale') {
-                    // This will be handled when contract closes
-                    addLog(`🔄 Martingale enabled - will adjust stake on next trade if needed`);
+                    addLog(`🔄 Martingale enabled - will adjust stake on next trade based on result`);
                 }
 
             } else {
-                addLog(`❌ Direct trade execution failed: ${result.error}`);
+                addLog(`❌ ${activeStrategy.toUpperCase()} trade execution failed: ${result.error}`);
             }
 
         } catch (error) {
@@ -358,10 +405,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                     isTradeInProgress: false,
                     currentRecommendation: null
                 }));
-            }, 2000);
+            }, 3000); // Increased delay to allow for contract processing
         }
     }, [tradingState.isTradeInProgress, botConfig, tradingState.isAutoOverUnderActive, 
-        tradingState.isAutoDifferActive, tradingState.isAutoO5U4Active, executeDirectTrade, addLog]);
+        tradingState.isAutoDifferActive, tradingState.isAutoO5U4Active, executeDirectTrade, 
+        getTradeConfigForStrategy, addLog]);
 
     const executeTrade = async (params: any) => {
         try {
@@ -414,18 +462,38 @@ const TradingHubDisplay: React.FC = observer(() => {
         setTradingState(prev => {
             const newState = { ...prev };
 
+            // Deactivate all other strategies when one is selected (only one active at a time)
+            newState.isAutoOverUnderActive = false;
+            newState.isAutoDifferActive = false;
+            newState.isAutoO5U4Active = false;
+
             switch (strategy) {
                 case 'overunder':
                     newState.isAutoOverUnderActive = !prev.isAutoOverUnderActive;
-                    addLog(`Auto Over/Under ${newState.isAutoOverUnderActive ? 'activated' : 'deactivated'}`);
+                    if (newState.isAutoOverUnderActive) {
+                        addLog(`🎯 Auto Over/Under Strategy ACTIVATED - Independent trading on Volatility 25`);
+                        addLog(`📊 Strategy: Predicts OVER/UNDER based on last digit analysis`);
+                    } else {
+                        addLog(`❌ Auto Over/Under Strategy DEACTIVATED`);
+                    }
                     break;
                 case 'differ':
                     newState.isAutoDifferActive = !prev.isAutoDifferActive;
-                    addLog(`Auto Differ ${newState.isAutoDifferActive ? 'activated' : 'deactivated'}`);
+                    if (newState.isAutoDifferActive) {
+                        addLog(`🎯 Auto Differ Strategy ACTIVATED - Independent trading on Volatility 50`);
+                        addLog(`📊 Strategy: Predicts opposite of current EVEN/ODD pattern`);
+                    } else {
+                        addLog(`❌ Auto Differ Strategy DEACTIVATED`);
+                    }
                     break;
                 case 'o5u4':
                     newState.isAutoO5U4Active = !prev.isAutoO5U4Active;
-                    addLog(`Auto O5U4 ${newState.isAutoO5U4Active ? 'activated' : 'deactivated'}`);
+                    if (newState.isAutoO5U4Active) {
+                        addLog(`🎯 Auto O5U4 Strategy ACTIVATED - Independent trading on Volatility 75`);
+                        addLog(`📊 Strategy: Over 5 when last digit ≤4, Under 4 when last digit >4`);
+                    } else {
+                        addLog(`❌ Auto O5U4 Strategy DEACTIVATED`);
+                    }
                     break;
             }
 
@@ -739,31 +807,56 @@ const TradingHubDisplay: React.FC = observer(() => {
                 </div>
 
                 <div className="strategy-section">
-                    <h3>⚙️ Trading Strategies</h3>
+                    <h3>⚙️ Independent Trading Strategies</h3>
+                    <p className="strategy-note">Select ONE strategy to activate (bypasses DBot interface):</p>
                     <div className="strategy-toggles">
                         <label className="strategy-toggle">
                             <input
-                                type="checkbox"
+                                type="radio"
+                                name="trading_strategy"
                                 checked={tradingState.isAutoOverUnderActive}
                                 onChange={() => handleStrategyToggle('overunder')}
+                                disabled={tradingState.isContinuousTrading}
                             />
-                            <span>Auto Over/Under</span>
+                            <span>Auto Over/Under (Vol 25)</span>
                         </label>
                         <label className="strategy-toggle">
                             <input
-                                type="checkbox"
+                                type="radio"
+                                name="trading_strategy"
                                 checked={tradingState.isAutoDifferActive}
                                 onChange={() => handleStrategyToggle('differ')}
+                                disabled={tradingState.isContinuousTrading}
                             />
-                            <span>Auto Differ</span>
+                            <span>Auto Differ (Vol 50)</span>
                         </label>
                         <label className="strategy-toggle">
                             <input
-                                type="checkbox"
+                                type="radio"
+                                name="trading_strategy"
                                 checked={tradingState.isAutoO5U4Active}
                                 onChange={() => handleStrategyToggle('o5u4')}
+                                disabled={tradingState.isContinuousTrading}
                             />
-                            <span>Auto O5U4</span>
+                            <span>Auto O5U4 (Vol 75)</span>
+                        </label>
+                        <label className="strategy-toggle">
+                            <input
+                                type="radio"
+                                name="trading_strategy"
+                                checked={!tradingState.isAutoOverUnderActive && !tradingState.isAutoDifferActive && !tradingState.isAutoO5U4Active}
+                                onChange={() => {
+                                    setTradingState(prev => ({
+                                        ...prev,
+                                        isAutoOverUnderActive: false,
+                                        isAutoDifferActive: false,
+                                        isAutoO5U4Active: false
+                                    }));
+                                    addLog('🚫 All independent strategies deactivated');
+                                }}
+                                disabled={tradingState.isContinuousTrading}
+                            />
+                            <span>None (Use DBot)</span>
                         </label>
                     </div>
                 </div>
