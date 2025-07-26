@@ -9,6 +9,8 @@ import {
 } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
 import { TAuthData } from '@/types/api-types';
 
+export { CONNECTION_STATUS };
+
 export const useApiBase = () => {
     const [connectionStatus, setConnectionStatus] = useState<CONNECTION_STATUS>(CONNECTION_STATUS.UNKNOWN);
     const [isAuthorized, setIsAuthorized] = useState<boolean>(false);

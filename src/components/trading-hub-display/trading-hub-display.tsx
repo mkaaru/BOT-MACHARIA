@@ -7,10 +7,12 @@ import { observer as globalObserver } from '../../external/bot-skeleton/utils/ob
 import { useStore } from '@/hooks/useStore';
 import useThemeSwitcher from '@/hooks/useThemeSwitcher';
 import marketAnalyzer, { TradeRecommendation } from '../../services/market-analyzer';
+import { useApiBase } from '@/hooks/useApiBase';
 
 const TradingHubDisplay: React.FC = () => {
     const MINIMUM_STAKE = '0.35';
     const { is_dark_mode_on } = useThemeSwitcher();
+    const { connectionStatus, isAuthorized, accountList, authData } = useApiBase();
 
     const [isAutoDifferActive, setIsAutoDifferActive] = useState(false);
     const [isAutoOverUnderActive, setIsAutoOverUnderActive] = useState(false);
@@ -53,7 +55,7 @@ const TradingHubDisplay: React.FC = () => {
     const lastMartingaleActionRef = useRef<string>('initial');
     const lastWinTimeRef = useRef<number>(0);
 
-    const { run_panel, transactions, client } = useStore();
+    const { run_panel, transactions } = useStore();
 
     const [activeContracts, setActiveContracts] = useState<Record<string, any>>({});
     const contractUpdateInterval = useRef<NodeJS.Timeout | null>(null);
@@ -61,11 +63,8 @@ const TradingHubDisplay: React.FC = () => {
     const [winCount, setWinCount] = useState(0);
     const [lossCount, setLossCount] = useState(0);
 
-    // WebSocket connection monitoring
-    const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
-    const [connectionAttempts, setConnectionAttempts] = useState(0);
-    const maxReconnectAttempts = 5;
-    const wsConnectionCheckInterval = useRef<NodeJS.Timeout | null>(null);
+    // Use bot skeleton connection status
+    const isWebSocketConnected = connectionStatus === 'OPENED' && isAuthorized;
 
     const currentStakeRef = useRef(MINIMUM_STAKE);
     const currentConsecutiveLossesRef = useRef(0);
@@ -348,7 +347,7 @@ const TradingHubDisplay: React.FC = () => {
         }
 
         // Validate client authentication
-        if (!client?.loginid || !client?.is_logged_in) {
+        if (!isAuthorized || !authData?.loginid) {
             console.error('Client not authenticated');
             return;
         }
@@ -426,44 +425,7 @@ const TradingHubDisplay: React.FC = () => {
         console.log('Stopping continuous trading...');
     };
 
-    // WebSocket connection monitoring
-    const checkWebSocketConnection = () => {
-        const isConnected = api_base && api_base.api && api_base.api.readyState === WebSocket.OPEN;
-        
-        if (isConnected !== isWebSocketConnected) {
-            setIsWebSocketConnected(isConnected);
-        }
-        
-        if (isConnected) {
-            setConnectionAttempts(0);
-            console.log('WebSocket connection verified - CONNECTED');
-        } else {
-            console.log('WebSocket connection check - DISCONNECTED', {
-                api_base_exists: !!api_base,
-                api_exists: !!api_base?.api,
-                readyState: api_base?.api?.readyState,
-                WebSocket_OPEN: WebSocket.OPEN,
-                connection_attempts: connectionAttempts
-            });
-            
-            if (connectionAttempts < maxReconnectAttempts) {
-                console.log(`WebSocket disconnected, attempting to reconnect... (${connectionAttempts + 1}/${maxReconnectAttempts})`);
-                setConnectionAttempts(prev => prev + 1);
-                
-                // Attempt to reconnect
-                setTimeout(() => {
-                    if (api_base && api_base.init) {
-                        console.log('Attempting reconnection...');
-                        api_base.init(true).catch((error) => {
-                            console.error('Reconnection failed:', error);
-                        });
-                    }
-                }, 3000 * Math.pow(2, connectionAttempts)); // Exponential backoff
-            } else {
-                console.error('Max WebSocket reconnection attempts reached');
-            }
-        }
-    };
+    
 
     useEffect(() => {
         try {
@@ -480,57 +442,10 @@ const TradingHubDisplay: React.FC = () => {
                 console.log(`Loaded saved martingale from storage: ${savedMartingale}`);
                 setMartingale(savedMartingale);
             }
-
-            // Initialize API connection if not already connected
-            if (!api_base.api || api_base.api.readyState !== WebSocket.OPEN) {
-                console.log('Initializing API connection...');
-                api_base.init().then(() => {
-                    console.log('API initialization completed');
-                    checkWebSocketConnection(); // Check after initialization
-                }).catch((error) => {
-                    console.error('API initialization failed:', error);
-                });
-            }
-
-            // Add WebSocket event listeners
-            const setupWebSocketListeners = () => {
-                if (api_base && api_base.api) {
-                    api_base.api.addEventListener('open', () => {
-                        console.log('WebSocket opened');
-                        setIsWebSocketConnected(true);
-                        setConnectionAttempts(0);
-                    });
-                    
-                    api_base.api.addEventListener('close', () => {
-                        console.log('WebSocket closed');
-                        setIsWebSocketConnected(false);
-                    });
-                    
-                    api_base.api.addEventListener('error', (error) => {
-                        console.error('WebSocket error:', error);
-                        setIsWebSocketConnected(false);
-                    });
-                }
-            };
-
-            // Setup listeners if API is already available
-            if (api_base.api) {
-                setupWebSocketListeners();
-            }
-
-            // Start WebSocket connection monitoring
-            wsConnectionCheckInterval.current = setInterval(checkWebSocketConnection, 5000);
-            checkWebSocketConnection(); // Initial check
         } catch (e) {
             console.warn('Could not load settings from localStorage', e);
         }
-
-        return () => {
-            if (wsConnectionCheckInterval.current) {
-                clearInterval(wsConnectionCheckInterval.current);
-            }
-        };
-    }, [client?.loginid, connectionAttempts]);
+    }, []);
 
     useEffect(() => {
         const session_id = `tradingHub_${Date.now()}`;
