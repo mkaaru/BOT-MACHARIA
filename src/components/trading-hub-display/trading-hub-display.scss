@@ -156,7 +156,8 @@
 
 // Main container
 .trading-hub-modern {
-    max-width: 800px;
+    max-width: 1200px;
+    width: 100%;
     margin: 0 auto;
     padding: var(--space-md);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -164,21 +165,46 @@
     transition: background var(--transition-normal);
     overflow-x: hidden;
 
-    @media (max-width: 768px) {
+    @media (max-width: 1024px) {
+        max-width: 100%;
         padding: var(--space-sm);
+    }
+
+    @media (max-width: 768px) {
+        padding: var(--space-xs);
+        min-height: auto;
+    }
+
+    @media (max-width: 480px) {
+        padding: 8px;
     }
 }
 
 // Content wrapper with scrolling
 .trading-hub-content {
-    max-height: 550px;
+    max-height: 80vh;
     overflow-y: auto;
     overflow-x: hidden;
     padding-right: 4px;
-    padding-bottom: 100px;
+    padding-bottom: 20px;
+
+    @media (max-width: 768px) {
+        max-height: 90vh;
+        padding-right: 2px;
+        padding-bottom: 10px;
+    }
+
+    @media (max-width: 480px) {
+        max-height: 95vh;
+        padding-right: 0;
+    }
 
     &::-webkit-scrollbar {
         width: 6px;
+
+        @media (max-width: 768px) {
+            width: 4px;
+        }
     }
 
     &::-webkit-scrollbar-track {
@@ -217,6 +243,19 @@
     justify-content: space-between;
     margin-bottom: var(--space-md);
     min-height: 50px;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+
+    @media (max-width: 768px) {
+        flex-direction: column;
+        align-items: flex-start;
+        margin-bottom: var(--space-sm);
+        min-height: auto;
+    }
+
+    @media (max-width: 480px) {
+        margin-bottom: var(--space-xs);
+    }
 }
 
 .logo-section {
@@ -273,10 +312,23 @@
     display: flex;
     gap: var(--space-sm);
     align-items: center;
+    flex-wrap: wrap;
+
+    @media (max-width: 1024px) {
+        gap: var(--space-xs);
+    }
 
     @media (max-width: 768px) {
-        flex-direction: column;
+        width: 100%;
+        justify-content: space-between;
+        flex-direction: row;
         gap: var(--space-xs);
+    }
+
+    @media (max-width: 480px) {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
     }
 }
 
@@ -293,7 +345,7 @@
     }
 
     .compact-input {
-        width: 150px;
+        width: 120px;
         padding: var(--space-xs) var(--space-sm);
         border: 1px solid var(--border-primary);
         border-radius: var(--radius-sm);
@@ -314,9 +366,20 @@
             cursor: not-allowed;
         }
 
+        @media (max-width: 1024px) {
+            width: 100px;
+            font-size: 0.8rem;
+        }
+
         @media (max-width: 768px) {
-            width: 70px;
+            width: 80px;
             padding: var(--space-xs);
+            font-size: 0.75rem;
+        }
+
+        @media (max-width: 480px) {
+            width: 100%;
+            min-width: 80px;
             font-size: 0.75rem;
         }
     }
@@ -366,6 +429,11 @@
     border-radius: 50%;
     background: #10b981;
     animation: pulse-glow 2s infinite;
+
+    &.disconnected {
+        background: #ef4444;
+        animation: pulse-glow 1s infinite;
+    }
 }
 
 .pulse-dot {
@@ -389,9 +457,20 @@
     gap: var(--space-md);
     margin-bottom: var(--space-lg);
 
+    @media (max-width: 1200px) {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: var(--space-sm);
+    }
+
     @media (max-width: 768px) {
         grid-template-columns: 1fr;
         gap: var(--space-sm);
+        margin-bottom: var(--space-md);
+    }
+
+    @media (max-width: 480px) {
+        gap: var(--space-xs);
+        margin-bottom: var(--space-sm);
     }
 }
 
@@ -719,12 +798,29 @@
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: var(--space-lg);
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-md);
     margin-bottom: var(--space-lg);
+
+    @media (max-width: 1024px) {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: var(--space-sm);
+    }
 
     @media (max-width: 768px) {
         grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-sm);
+        margin-bottom: var(--space-md);
+    }
+
+    @media (max-width: 480px) {
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-xs);
+        margin-bottom: var(--space-sm);
+    }
+
+    @media (max-width: 320px) {
+        grid-template-columns: 1fr;
     }
 }
 

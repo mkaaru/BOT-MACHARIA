@@ -61,6 +61,12 @@ const TradingHubDisplay: React.FC = () => {
     const [winCount, setWinCount] = useState(0);
     const [lossCount, setLossCount] = useState(0);
 
+    // WebSocket connection monitoring
+    const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
+    const [connectionAttempts, setConnectionAttempts] = useState(0);
+    const maxReconnectAttempts = 5;
+    const wsConnectionCheckInterval = useRef<NodeJS.Timeout | null>(null);
+
     const currentStakeRef = useRef(MINIMUM_STAKE);
     const currentConsecutiveLossesRef = useRef(0);
     const contractSettledTimeRef = useRef(0);
@@ -336,7 +342,16 @@ const TradingHubDisplay: React.FC = () => {
     };
 
     const executeSingleTrade = async (strategy: string, symbol: string) => {
-        if (isTradeInProgress) return;
+        if (isTradeInProgress || !isWebSocketConnected) {
+            console.warn('Cannot execute trade: trade in progress or WebSocket disconnected');
+            return;
+        }
+
+        // Validate client authentication
+        if (!client?.loginid || !client?.is_logged_in) {
+            console.error('Client not authenticated');
+            return;
+        }
 
         setIsTradeInProgress(true);
         
@@ -359,6 +374,8 @@ const TradingHubDisplay: React.FC = () => {
                     return;
             }
 
+            console.log(`Executing ${strategy.toUpperCase()} trade on ${symbol} with stake ${currentStake}`);
+
             const trade = await api_base.api.send({
                 buy: 1,
                 parameters: {
@@ -374,12 +391,26 @@ const TradingHubDisplay: React.FC = () => {
             if (trade.buy) {
                 activeContractRef.current = trade.buy.contract_id;
                 setTradeCount(prev => prev + 1);
-                console.log(`${strategy.toUpperCase()} trade executed on ${symbol}: ${trade.buy.contract_id}`);
+                console.log(`${strategy.toUpperCase()} trade executed successfully:`, {
+                    contract_id: trade.buy.contract_id,
+                    symbol: symbol,
+                    stake: currentStake,
+                    buy_price: trade.buy.buy_price
+                });
+            } else if (trade.error) {
+                console.error('Trade execution error:', trade.error);
+                throw new Error(trade.error.message || 'Trade execution failed');
             }
         } catch (error) {
             console.error('Trade execution failed:', error);
-        } finally {
+            // Reset trade progress on error
             setIsTradeInProgress(false);
+            // You might want to show a user notification here
+        } finally {
+            // Only set to false if no error occurred above
+            if (isTradeInProgress) {
+                setIsTradeInProgress(false);
+            }
         }
     };
 
@@ -393,6 +424,29 @@ const TradingHubDisplay: React.FC = () => {
         setIsContinuousTrading(false);
         setIsTrading(false);
         console.log('Stopping continuous trading...');
+    };
+
+    // WebSocket connection monitoring
+    const checkWebSocketConnection = () => {
+        if (api_base && api_base.api && api_base.api.readyState === WebSocket.OPEN) {
+            setIsWebSocketConnected(true);
+            setConnectionAttempts(0);
+        } else {
+            setIsWebSocketConnected(false);
+            if (connectionAttempts < maxReconnectAttempts) {
+                console.log(`WebSocket disconnected, attempting to reconnect... (${connectionAttempts + 1}/${maxReconnectAttempts})`);
+                setConnectionAttempts(prev => prev + 1);
+                
+                // Attempt to reconnect
+                setTimeout(() => {
+                    if (api_base && api_base.init) {
+                        api_base.init();
+                    }
+                }, 3000 * Math.pow(2, connectionAttempts)); // Exponential backoff
+            } else {
+                console.error('Max WebSocket reconnection attempts reached');
+            }
+        }
     };
 
     useEffect(() => {
@@ -410,10 +464,20 @@ const TradingHubDisplay: React.FC = () => {
                 console.log(`Loaded saved martingale from storage: ${savedMartingale}`);
                 setMartingale(savedMartingale);
             }
+
+            // Start WebSocket connection monitoring
+            wsConnectionCheckInterval.current = setInterval(checkWebSocketConnection, 5000);
+            checkWebSocketConnection(); // Initial check
         } catch (e) {
             console.warn('Could not load settings from localStorage', e);
         }
-    }, [client?.loginid]);
+
+        return () => {
+            if (wsConnectionCheckInterval.current) {
+                clearInterval(wsConnectionCheckInterval.current);
+            }
+        };
+    }, [client?.loginid, connectionAttempts]);
 
     useEffect(() => {
         const session_id = `tradingHub_${Date.now()}`;
@@ -649,6 +713,11 @@ const TradingHubDisplay: React.FC = () => {
                     </div>
                     
                     <div className="status-bar">
+                        <div className="status-item">
+                            <div className={`status-dot ${isWebSocketConnected ? '' : 'disconnected'}`}></div>
+                            <span>WebSocket: {isWebSocketConnected ? 'Connected' : 'Disconnected'}</span>
+                        </div>
+                        <div className="status-separator"></div>
                         <div className="status-item">
                             <div className="status-dot"></div>
                             <span>Analysis: {isAnalysisReady ? 'Ready' : 'Loading'}</span>
@@ -900,9 +969,9 @@ const TradingHubDisplay: React.FC = () => {
                 {/* Trading Controls */}
                 <div className="trading-controls">
                     <button
-                        className={`main-trade-btn ${isContinuousTrading ? 'stop' : 'start'} ${!isAnalysisReady || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active) ? 'disabled' : ''}`}
+                        className={`main-trade-btn ${isContinuousTrading ? 'stop' : 'start'} ${!isAnalysisReady || !isWebSocketConnected || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active) ? 'disabled' : ''}`}
                         onClick={isContinuousTrading ? stopContinuousTrading : startContinuousTrading}
-                        disabled={!isAnalysisReady || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active)}
+                        disabled={!isAnalysisReady || !isWebSocketConnected || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active)}
                     >
                         <div className="btn-content">
                             <div className="btn-icon">
