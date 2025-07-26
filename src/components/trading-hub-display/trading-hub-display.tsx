@@ -430,16 +430,19 @@ const TradingHubDisplay: React.FC = () => {
     const checkWebSocketConnection = () => {
         const isConnected = api_base && api_base.api && api_base.api.readyState === WebSocket.OPEN;
         
+        if (isConnected !== isWebSocketConnected) {
+            setIsWebSocketConnected(isConnected);
+        }
+        
         if (isConnected) {
-            setIsWebSocketConnected(true);
             setConnectionAttempts(0);
             console.log('WebSocket connection verified - CONNECTED');
         } else {
-            setIsWebSocketConnected(false);
             console.log('WebSocket connection check - DISCONNECTED', {
                 api_base_exists: !!api_base,
                 api_exists: !!api_base?.api,
                 readyState: api_base?.api?.readyState,
+                WebSocket_OPEN: WebSocket.OPEN,
                 connection_attempts: connectionAttempts
             });
             
@@ -483,9 +486,36 @@ const TradingHubDisplay: React.FC = () => {
                 console.log('Initializing API connection...');
                 api_base.init().then(() => {
                     console.log('API initialization completed');
+                    checkWebSocketConnection(); // Check after initialization
                 }).catch((error) => {
                     console.error('API initialization failed:', error);
                 });
+            }
+
+            // Add WebSocket event listeners
+            const setupWebSocketListeners = () => {
+                if (api_base && api_base.api) {
+                    api_base.api.addEventListener('open', () => {
+                        console.log('WebSocket opened');
+                        setIsWebSocketConnected(true);
+                        setConnectionAttempts(0);
+                    });
+                    
+                    api_base.api.addEventListener('close', () => {
+                        console.log('WebSocket closed');
+                        setIsWebSocketConnected(false);
+                    });
+                    
+                    api_base.api.addEventListener('error', (error) => {
+                        console.error('WebSocket error:', error);
+                        setIsWebSocketConnected(false);
+                    });
+                }
+            };
+
+            // Setup listeners if API is already available
+            if (api_base.api) {
+                setupWebSocketListeners();
             }
 
             // Start WebSocket connection monitoring
@@ -1004,6 +1034,7 @@ const TradingHubDisplay: React.FC = () => {
                         className={`main-trade-btn ${isContinuousTrading ? 'stop' : 'start'} ${!isAnalysisReady || !isWebSocketConnected || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active) ? 'disabled' : ''}`}
                         onClick={isContinuousTrading ? stopContinuousTrading : startContinuousTrading}
                         disabled={!isAnalysisReady || !isWebSocketConnected || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active)}
+                        title={!isWebSocketConnected ? 'WebSocket connection required to start trading' : ''}
                     >
                         <div className="btn-content">
                             <div className="btn-icon">
