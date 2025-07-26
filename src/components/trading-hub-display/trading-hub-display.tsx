@@ -294,55 +294,112 @@ const TradingHubDisplay: React.FC = () => {
         try {
             const symbol = o5u4Analysis.bestSymbol;
             const currentStake = manageStake('get');
+            const halfStake = parseFloat(currentStake) / 2;
             
-            // Execute both Over 5 and Under 4 trades
-            const over5Trade = await api_base.api.send({
-                buy: 1,
-                parameters: {
-                    contract_type: 'DIGITOVER',
-                    symbol: symbol,
-                    amount: parseFloat(currentStake) / 2,
-                    duration: 1,
-                    duration_unit: 't',
-                    barrier: '5'
-                }
+            // Prepare purchase parameters for both trades
+            const over5Params = {
+                contract_type: 'DIGITOVER',
+                symbol: symbol,
+                amount: halfStake,
+                duration: 1,
+                duration_unit: 't',
+                barrier: '5',
+                basis: 'stake',
+                currency: 'USD'
+            };
+
+            const under4Params = {
+                contract_type: 'DIGITUNDER',
+                symbol: symbol,
+                amount: halfStake,
+                duration: 1,
+                duration_unit: 't',
+                barrier: '4',
+                basis: 'stake',
+                currency: 'USD'
+            };
+
+            // Get proposals for both trades
+            const over5Proposal = await doUntilDone(() => 
+                api_base.api.send({
+                    proposal: 1,
+                    ...over5Params
+                })
+            );
+
+            const under4Proposal = await doUntilDone(() => 
+                api_base.api.send({
+                    proposal: 1,
+                    ...under4Params
+                })
+            );
+
+            if (over5Proposal.error || under4Proposal.error) {
+                throw new Error('Proposal failed for O5U4 trades');
+            }
+
+            console.log('O5U4 Proposals received:', {
+                over5: over5Proposal.proposal,
+                under4: under4Proposal.proposal
             });
 
-            const under4Trade = await api_base.api.send({
-                buy: 1,
-                parameters: {
-                    contract_type: 'DIGITUNDER',
-                    symbol: symbol,
-                    amount: parseFloat(currentStake) / 2,
-                    duration: 1,
-                    duration_unit: 't',
-                    barrier: '4'
-                }
-            });
+            // Execute both purchases
+            const over5Purchase = await doUntilDone(() =>
+                api_base.api.send({
+                    buy: over5Proposal.proposal.id,
+                    price: over5Proposal.proposal.ask_price
+                })
+            );
 
-            if (over5Trade.buy && under4Trade.buy) {
+            const under4Purchase = await doUntilDone(() =>
+                api_base.api.send({
+                    buy: under4Proposal.proposal.id,
+                    price: under4Proposal.proposal.ask_price
+                })
+            );
+
+            if (over5Purchase.error || under4Purchase.error) {
+                throw new Error('Purchase failed for O5U4 trades');
+            }
+
+            if (over5Purchase.buy && under4Purchase.buy) {
                 o5u4ActiveContracts.current = {
-                    over5ContractId: over5Trade.buy.contract_id,
-                    under4ContractId: under4Trade.buy.contract_id,
+                    over5ContractId: over5Purchase.buy.contract_id,
+                    under4ContractId: under4Purchase.buy.contract_id,
                     over5Result: 'pending',
                     under4Result: 'pending',
                     bothSettled: false
                 };
 
-                activeContractRef.current = over5Trade.buy.contract_id;
+                activeContractRef.current = over5Purchase.buy.contract_id;
                 setTradeCount(prev => prev + 1);
-                console.log(`O5U4 trade executed on ${symbol}: Over 5 (${over5Trade.buy.contract_id}) and Under 4 (${under4Trade.buy.contract_id})`);
+                console.log(`O5U4 trade executed on ${symbol}:`, {
+                    over5: over5Purchase.buy.contract_id,
+                    under4: under4Purchase.buy.contract_id
+                });
+
+                // Subscribe to contract updates for both contracts
+                globalObserver.emit('contract.purchase', {
+                    contract_id: over5Purchase.buy.contract_id,
+                    buy_price: over5Purchase.buy.buy_price
+                });
+                globalObserver.emit('contract.purchase', {
+                    contract_id: under4Purchase.buy.contract_id,
+                    buy_price: under4Purchase.buy.buy_price
+                });
             }
         } catch (error) {
             console.error('O5U4 trade execution failed:', error);
         } finally {
-            setIsTradeInProgress(false);
+            setTimeout(() => {
+                setIsTradeInProgress(false);
+            }, 1000);
         }
     };
 
     const executeSingleTrade = async (strategy: string, symbol: string) => {
-        if (isTradeInProgress || !isWebSocketConnected) {
-            console.warn('Cannot execute trade: trade in progress or WebSocket disconnected');
+        if (isTradeInProgress) {
+            console.warn('Cannot execute trade: trade in progress');
             return;
         }
 
@@ -375,41 +432,74 @@ const TradingHubDisplay: React.FC = () => {
 
             console.log(`Executing ${strategy.toUpperCase()} trade on ${symbol} with stake ${currentStake}`);
 
-            const trade = await api_base.api.send({
-                buy: 1,
-                parameters: {
-                    contract_type: contractType,
-                    symbol: symbol,
-                    amount: parseFloat(currentStake),
-                    duration: 1,
-                    duration_unit: 't',
-                    barrier: barrier
-                }
+            // Use the proper purchase parameters structure
+            const purchaseParams = {
+                contract_type: contractType,
+                symbol: symbol,
+                amount: parseFloat(currentStake),
+                duration: 1,
+                duration_unit: 't',
+                barrier: barrier,
+                basis: 'stake',
+                currency: 'USD'
+            };
+
+            // First get proposal to validate
+            const proposal = await doUntilDone(() => 
+                api_base.api.send({
+                    proposal: 1,
+                    ...purchaseParams
+                })
+            ).catch(error => {
+                console.error('Proposal failed:', error);
+                throw error;
             });
 
-            if (trade.buy) {
-                activeContractRef.current = trade.buy.contract_id;
+            if (proposal.error) {
+                throw new Error(proposal.error.message || 'Proposal failed');
+            }
+
+            console.log('Proposal received:', proposal.proposal);
+
+            // Execute the purchase using proposal ID
+            const purchaseResult = await doUntilDone(() =>
+                api_base.api.send({
+                    buy: proposal.proposal.id,
+                    price: proposal.proposal.ask_price
+                })
+            ).catch(error => {
+                console.error('Purchase failed:', error);
+                throw error;
+            });
+
+            if (purchaseResult.error) {
+                throw new Error(purchaseResult.error.message || 'Purchase failed');
+            }
+
+            if (purchaseResult.buy) {
+                activeContractRef.current = purchaseResult.buy.contract_id;
                 setTradeCount(prev => prev + 1);
                 console.log(`${strategy.toUpperCase()} trade executed successfully:`, {
-                    contract_id: trade.buy.contract_id,
+                    contract_id: purchaseResult.buy.contract_id,
                     symbol: symbol,
                     stake: currentStake,
-                    buy_price: trade.buy.buy_price
+                    buy_price: purchaseResult.buy.buy_price
                 });
-            } else if (trade.error) {
-                console.error('Trade execution error:', trade.error);
-                throw new Error(trade.error.message || 'Trade execution failed');
+
+                // Subscribe to contract updates
+                globalObserver.emit('contract.purchase', {
+                    contract_id: purchaseResult.buy.contract_id,
+                    buy_price: purchaseResult.buy.buy_price
+                });
             }
         } catch (error) {
             console.error('Trade execution failed:', error);
-            // Reset trade progress on error
             setIsTradeInProgress(false);
-            // You might want to show a user notification here
         } finally {
-            // Only set to false if no error occurred above
-            if (isTradeInProgress) {
+            // Set timeout to reset trade progress after a short delay
+            setTimeout(() => {
                 setIsTradeInProgress(false);
-            }
+            }, 1000);
         }
     };
 
