@@ -946,10 +946,9 @@ const TradingHubDisplay: React.FC = () => {
                 {/* Trading Controls */}
                 <div className="trading-controls">
                     <button
-                        className={`main-trade-btn ${isContinuousTrading ? 'stop' : 'start'} ${!isAnalysisReady || !isWebSocketConnected || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active) ? 'disabled' : ''}`}
+                        className={`main-trade-btn ${isContinuousTrading ? 'stop' : 'start'} ${!isAnalysisReady || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active) ? 'disabled' : ''}`}
                         onClick={isContinuousTrading ? stopContinuousTrading : startContinuousTrading}
-                        disabled={!isAnalysisReady || !isWebSocketConnected || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active)}
-                        title={!isWebSocketConnected ? 'WebSocket connection required to start trading' : ''}
+                        disabled={!isAnalysisReady || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active)}
                     >
                         <div className="btn-content">
                             <div className="btn-icon">
