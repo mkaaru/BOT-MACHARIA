@@ -795,7 +795,10 @@ const TradingHubDisplay: React.FC = () => {
                         
                         <button
                             className={`strategy-toggle ${isAutoDifferActive ? 'active' : ''}`}
-                            onClick={() => setIsAutoDifferActive(!isAutoDifferActive)}
+                            onClick={() => {
+                                setIsAutoDifferActive(!isAutoDifferActive);
+                                console.log(`AutoDiffer ${!isAutoDifferActive ? 'activated' : 'deactivated'}`);
+                            }}
                             disabled={!isAnalysisReady}
                         >
                             {isAutoDifferActive ? 'Deactivate AutoDiffer' : 'Activate AutoDiffer'}
@@ -858,7 +861,10 @@ const TradingHubDisplay: React.FC = () => {
                         
                         <button
                             className={`strategy-toggle ${isAutoOverUnderActive ? 'active' : ''}`}
-                            onClick={() => setIsAutoOverUnderActive(!isAutoOverUnderActive)}
+                            onClick={() => {
+                                setIsAutoOverUnderActive(!isAutoOverUnderActive);
+                                console.log(`Auto Over/Under ${!isAutoOverUnderActive ? 'activated' : 'deactivated'}`);
+                            }}
                             disabled={!isAnalysisReady}
                         >
                             {isAutoOverUnderActive ? 'Deactivate Over/Under' : 'Activate Over/Under'}
@@ -958,7 +964,10 @@ const TradingHubDisplay: React.FC = () => {
                         
                         <button
                             className={`strategy-toggle ${isAutoO5U4Active ? 'active' : ''}`}
-                            onClick={() => setIsAutoO5U4Active(!isAutoO5U4Active)}
+                            onClick={() => {
+                                setIsAutoO5U4Active(!isAutoO5U4Active);
+                                console.log(`Auto O5U4 ${!isAutoO5U4Active ? 'activated' : 'deactivated'}`);
+                            }}
                             disabled={!isAnalysisReady}
                         >
                             {isAutoO5U4Active ? 'Deactivate O5U4' : 'Activate O5U4'}
