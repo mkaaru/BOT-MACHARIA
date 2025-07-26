@@ -57,6 +57,14 @@ const TradingHubDisplay: React.FC = observer(() => {
         takeProfit: 100
     });
 
+    // Martingale state management for direct trading
+    const [martingaleState, setMartingaleState] = useState({
+        currentStake: 1,
+        consecutiveLosses: 0,
+        isActive: false,
+        totalProfit: 0
+    });
+
     const [marketData, setMarketData] = useState<MarketData[]>([]);
     const [logs, setLogs] = useState<string[]>([]);
     const logsEndRef = useRef<HTMLDivElement>(null);
@@ -185,36 +193,115 @@ const TradingHubDisplay: React.FC = observer(() => {
     }, [tradingState.isContinuousTrading, tradingState.currentRecommendation, tradingState.isTradeInProgress, 
         tradingState.isAutoOverUnderActive, tradingState.isAutoDifferActive, tradingState.isAutoO5U4Active]);
 
+    // Direct trade engine execution bypassing market wizard
+    const executeDirectTrade = useCallback(async (tradeConfig: any) => {
+        if (!api_base.api) {
+            addLog('❌ API not connected! Cannot execute trade.');
+            return { success: false, error: 'API not connected' };
+        }
+
+        try {
+            addLog(`🚀 Direct trade execution: ${tradeConfig.contract_type} on ${tradeConfig.symbol}`);
+            
+            // Step 1: Get proposal
+            const proposalRequest = {
+                proposal: 1,
+                amount: tradeConfig.amount,
+                basis: 'stake',
+                contract_type: tradeConfig.contract_type,
+                currency: 'USD',
+                duration: tradeConfig.duration || 1,
+                duration_unit: tradeConfig.duration_unit || 't',
+                symbol: tradeConfig.symbol,
+                ...(tradeConfig.barrier && { barrier: tradeConfig.barrier })
+            };
+
+            addLog(`📊 Getting proposal: ${JSON.stringify(proposalRequest)}`);
+            const proposalResponse = await api_base.api.send(proposalRequest);
+
+            if (proposalResponse.error) {
+                addLog(`❌ Proposal error: ${proposalResponse.error.message}`);
+                return { success: false, error: proposalResponse.error.message };
+            }
+
+            if (!proposalResponse.proposal) {
+                addLog(`❌ No proposal received`);
+                return { success: false, error: 'No proposal received' };
+            }
+
+            const proposalId = proposalResponse.proposal.id;
+            const displayValue = proposalResponse.proposal.display_value;
+            addLog(`✅ Proposal received: ID=${proposalId}, Price=${displayValue}`);
+
+            // Step 2: Purchase the contract
+            const buyRequest = {
+                buy: proposalId,
+                price: tradeConfig.amount
+            };
+
+            addLog(`💰 Purchasing contract: ${JSON.stringify(buyRequest)}`);
+            const buyResponse = await api_base.api.send(buyRequest);
+
+            if (buyResponse.error) {
+                addLog(`❌ Purchase error: ${buyResponse.error.message}`);
+                return { success: false, error: buyResponse.error.message };
+            }
+
+            if (!buyResponse.buy) {
+                addLog(`❌ Purchase failed - no buy confirmation`);
+                return { success: false, error: 'Purchase failed' };
+            }
+
+            const contractId = buyResponse.buy.contract_id;
+            const buyPrice = buyResponse.buy.buy_price;
+            addLog(`🎉 Contract purchased! ID=${contractId}, Price=${buyPrice}`);
+
+            return {
+                success: true,
+                contract_id: contractId,
+                buy_price: buyPrice,
+                proposal_id: proposalId
+            };
+
+        } catch (error) {
+            addLog(`💥 Direct trade execution failed: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }, [addLog]);
+
     const executeAutoTrade = useCallback(async (recommendation: any) => {
-        if (tradingState.isTradeInProgress || run_panel.is_running) {
+        if (tradingState.isTradeInProgress) {
             addLog('⏳ Trade already in progress, skipping...');
             return;
         }
 
         try {
             setTradingState(prev => ({ ...prev, isTradeInProgress: true }));
-            addLog(`🎯 Executing Auto ${botConfig.selectedStrategy.toUpperCase()} trade: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${botConfig.symbol}`);
+            addLog(`🎯 Executing Auto ${botConfig.selectedStrategy.toUpperCase()} trade based on strategy`);
 
             // Auto-determine symbol and contract type based on active strategy
-            let symbol = '1HZ10V'; // Volatility 10 (1s) for fast execution
+            let symbol = '1HZ10V'; // Default Volatility 10 (1s)
             let contractType = 'DIGITEVEN'; // Default contract type
+            let barrier = recommendation?.barrier || 5;
 
             // Strategy-based symbol and contract selection
             if (tradingState.isAutoOverUnderActive) {
                 symbol = '1HZ25V'; // Volatility 25 for over/under
-                contractType = recommendation.strategy === 'under' ? 'DIGITUNDER' : 'DIGITOVER';
-                addLog(`🎯 Auto Over/Under: ${contractType} on ${symbol}`);
+                contractType = recommendation?.strategy === 'under' ? 'DIGITUNDER' : 'DIGITOVER';
+                barrier = recommendation?.barrier || 5;
+                addLog(`🎯 Auto Over/Under: ${contractType} ${barrier} on ${symbol}`);
             } else if (tradingState.isAutoDifferActive) {
                 symbol = '1HZ50V'; // Volatility 50 for even/odd
-                contractType = recommendation.lastDigit % 2 === 0 ? 'DIGITODD' : 'DIGITEVEN';
+                contractType = (recommendation?.lastDigit % 2 === 0) ? 'DIGITODD' : 'DIGITEVEN';
                 addLog(`🎯 Auto Differ: ${contractType} on ${symbol}`);
             } else if (tradingState.isAutoO5U4Active) {
                 symbol = '1HZ75V'; // Volatility 75 for O5U4
-                contractType = recommendation.barrier > 5 ? 'DIGITUNDER' : 'DIGITOVER';
-                addLog(`🎯 Auto O5U4: ${contractType} on ${symbol}`);
+                contractType = (recommendation?.barrier > 5) ? 'DIGITUNDER' : 'DIGITOVER';
+                barrier = 5;
+                addLog(`🎯 Auto O5U4: ${contractType} ${barrier} on ${symbol}`);
             }
 
-            // Create enhanced trade parameters with bot configuration
+            // Create trade parameters using Trading Hub configuration
             const tradeParams = {
                 contract_type: contractType,
                 symbol: symbol,
@@ -222,40 +309,18 @@ const TradingHubDisplay: React.FC = observer(() => {
                 duration_unit: 't',
                 amount: botConfig.initialStake,
                 basis: 'stake',
-                barrier: recommendation.barrier,
-                // Martingale configuration
-                martingale_enabled: botConfig.selectedStrategy === 'martingale',
-                martingale_multiplier: botConfig.martingaleMultiplier,
-                max_consecutive_losses: botConfig.maxConsecutiveLosses,
-                // Risk management
-                stop_loss: botConfig.stopLoss,
-                take_profit: botConfig.takeProfit
+                barrier: contractType.includes('UNDER') || contractType.includes('OVER') ? barrier.toString() : undefined
             };
 
-            addLog(`📋 Trade params: ${JSON.stringify(tradeParams)}`);
+            addLog(`📋 Trade execution bypassing wizard: ${JSON.stringify(tradeParams)}`);
 
-            // Use the main trade engine through the bot interface
-            if (window.dbot?.interpreter?.bot) {
-                const botInterface = window.dbot.interpreter.bot.getInterface();
-
-                // Initialize trade engine with bot configuration
-                if (!window.dbot.interpreter.bot.tradeEngine.initArgs) {
-                    await botInterface.init(api_base.token, { 
-                        symbol: botConfig.symbol,
-                        strategy: botConfig.selectedStrategy
-                    });
-                }
-
-                // Configure martingale settings if enabled
-                if (botConfig.selectedStrategy === 'martingale') {
-                    botInterface.setMartingaleLimits?.(botConfig.martingaleMultiplier, botConfig.maxConsecutiveLosses);
-                    botInterface.setMartingaleEnabled?.(true);
-                }
-
-                // Start trading with the parameters
-                botInterface.start(tradeParams);
-
-                addLog(`✅ Trade submitted through ${botConfig.selectedStrategy} strategy`);
+            // Execute trade directly through API, bypassing bot builder
+            const result = await executeDirectTrade(tradeParams);
+            
+            if (result.success) {
+                addLog(`✅ Direct trade executed: ${result.contract_id} (Price: ${result.buy_price})`);
+                
+                // Update trading state
                 setTradingState(prev => ({
                     ...prev,
                     totalTrades: prev.totalTrades + 1,
@@ -263,26 +328,28 @@ const TradingHubDisplay: React.FC = observer(() => {
                     tradeHistory: [...prev.tradeHistory.slice(-19), {
                         time: Date.now(),
                         symbol: tradeParams.symbol,
-                        type: recommendation.strategy,
-                        barrier: recommendation.barrier,
+                        type: tradeParams.contract_type,
+                        barrier: tradeParams.barrier || '',
                         amount: botConfig.initialStake,
-                        status: 'submitted',
-                        contractId: 'pending',
-                        strategy: botConfig.selectedStrategy
+                        status: 'purchased',
+                        contractId: result.contract_id,
+                        strategy: botConfig.selectedStrategy,
+                        buyPrice: result.buy_price
                     }]
                 }));
-            } else {
-                // Fallback to direct API execution
-                const result = await executeTrade(tradeParams);
-                if (result.success) {
-                    addLog(`✅ Trade executed successfully: ${result.contract_id}`);
-                } else {
-                    addLog(`❌ Trade execution failed: ${result.error}`);
+
+                // Apply martingale logic for next trade
+                if (botConfig.selectedStrategy === 'martingale') {
+                    // This will be handled when contract closes
+                    addLog(`🔄 Martingale enabled - will adjust stake on next trade if needed`);
                 }
+
+            } else {
+                addLog(`❌ Direct trade execution failed: ${result.error}`);
             }
 
         } catch (error) {
-            addLog(`❌ Trade execution error: ${error.message}`);
+            addLog(`❌ Auto trade execution error: ${error.message}`);
         } finally {
             // Reset trade in progress after delay
             setTimeout(() => {
@@ -293,7 +360,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                 }));
             }, 2000);
         }
-    }, [tradingState.isTradeInProgress, run_panel.is_running, botConfig]);
+    }, [tradingState.isTradeInProgress, botConfig, tradingState.isAutoOverUnderActive, 
+        tradingState.isAutoDifferActive, tradingState.isAutoO5U4Active, executeDirectTrade, addLog]);
 
     const executeTrade = async (params: any) => {
         try {
@@ -427,35 +495,82 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
     }, [run_panel.is_running, tradingState.isContinuousTrading, addLog]);
 
-    // Listen for bot events
+    // Contract monitoring for direct trades
     useEffect(() => {
-        const handleBotContractEvent = (data: any) => {
-            if (data.buy) {
-                addLog(`✅ Contract purchased: ${data.buy.contract_id} at ${data.buy.buy_price}`);
-                setTradingState(prev => ({
-                    ...prev,
-                    totalTrades: prev.totalTrades + 1,
-                    lastTradeTime: Date.now()
-                }));
-            }
-            if (data.is_sold) {
-                const profit = parseFloat(data.sell_price || 0) - parseFloat(data.buy_price || 0);
-                addLog(`📊 Contract closed: P&L ${profit > 0 ? '+' : ''}${profit.toFixed(2)}`);
-                setTradingState(prev => ({
-                    ...prev,
-                    profit: prev.profit + profit,
-                    winTrades: profit > 0 ? prev.winTrades + 1 : prev.winTrades,
-                    lossTrades: profit < 0 ? prev.lossTrades + 1 : prev.lossTrades
-                }));
-            }
-        };
+        if (!api_base.api) return;
 
-        globalObserver.register('bot.contract', handleBotContractEvent);
+        const subscription = api_base.api.onMessage().subscribe(({ data }) => {
+            // Monitor contract updates
+            if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract) {
+                const contract = data.proposal_open_contract;
+                
+                if (contract.is_sold) {
+                    const profit = parseFloat(contract.sell_price) - parseFloat(contract.buy_price);
+                    const isWin = profit > 0;
+                    
+                    addLog(`📊 Contract ${contract.contract_id} closed: P&L ${profit > 0 ? '+' : ''}${profit.toFixed(2)}`);
+                    
+                    // Update trading statistics
+                    setTradingState(prev => ({
+                        ...prev,
+                        profit: prev.profit + profit,
+                        winTrades: isWin ? prev.winTrades + 1 : prev.winTrades,
+                        lossTrades: !isWin ? prev.lossTrades + 1 : prev.lossTrades
+                    }));
+
+                    // Handle martingale logic for direct trades
+                    if (botConfig.selectedStrategy === 'martingale') {
+                        setMartingaleState(prev => {
+                            const newConsecutiveLosses = isWin ? 0 : prev.consecutiveLosses + 1;
+                            const newStake = isWin ? 
+                                botConfig.initialStake : 
+                                Math.min(
+                                    prev.currentStake * botConfig.martingaleMultiplier,
+                                    botConfig.initialStake * Math.pow(botConfig.martingaleMultiplier, botConfig.maxConsecutiveLosses)
+                                );
+
+                            addLog(`🎲 Martingale: ${isWin ? 'WIN' : 'LOSS'} - Next stake: ${newStake}, Consecutive losses: ${newConsecutiveLosses}`);
+
+                            return {
+                                ...prev,
+                                currentStake: newStake,
+                                consecutiveLosses: newConsecutiveLosses,
+                                totalProfit: prev.totalProfit + profit,
+                                isActive: newConsecutiveLosses > 0 && newConsecutiveLosses < botConfig.maxConsecutiveLosses
+                            };
+                        });
+
+                        // Update bot config with new stake for next trade
+                        setBotConfig(prevConfig => ({
+                            ...prevConfig,
+                            initialStake: isWin ? prevConfig.initialStake : 
+                                Math.min(
+                                    martingaleState.currentStake * prevConfig.martingaleMultiplier,
+                                    prevConfig.initialStake * Math.pow(prevConfig.martingaleMultiplier, prevConfig.maxConsecutiveLosses)
+                                )
+                        }));
+                    }
+                }
+            }
+
+            // Handle transaction events
+            if (data.msg_type === 'transaction' && data.transaction) {
+                const transaction = data.transaction;
+                if (transaction.action === 'buy') {
+                    addLog(`💰 Transaction: Buy ${transaction.contract_id} for ${transaction.amount}`);
+                } else if (transaction.action === 'sell') {
+                    addLog(`💸 Transaction: Sell ${transaction.contract_id} for ${transaction.amount}`);
+                }
+            }
+        });
+
+        api_base.pushSubscription(subscription);
 
         return () => {
-            globalObserver.unregisterAll('bot.contract');
+            subscription.unsubscribe();
         };
-    }, [addLog]);
+    }, [addLog, botConfig.selectedStrategy, botConfig.martingaleMultiplier, 
+        botConfig.maxConsecutiveLosses, botConfig.initialStake, martingaleState.currentStake]);
 
     return (
         <div className="trading-hub-container">
@@ -682,8 +797,12 @@ const TradingHubDisplay: React.FC = observer(() => {
                 </div>
 
                 <div className="trading-summary-section">
-                    <h3>📊 Trading Summary</h3>
+                    <h3>📊 Direct Trading Engine Summary</h3>
                     <div className="summary-grid">
+                        <div className="summary-item">
+                            <span className="summary-label">Trade Mode:</span>
+                            <span className="summary-value">🚀 DIRECT API (Bypassing Wizard)</span>
+                        </div>
                         <div className="summary-item">
                             <span className="summary-label">Strategy:</span>
                             <span className="summary-value">{botConfig.selectedStrategy.toUpperCase()}</span>
@@ -708,6 +827,14 @@ const TradingHubDisplay: React.FC = observer(() => {
                         <div className="summary-item">
                             <span className="summary-label">Current Stake:</span>
                             <span className="summary-value">${botConfig.initialStake}</span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">Martingale State:</span>
+                            <span className="summary-value">
+                                {martingaleState.isActive ? 
+                                    `🔄 Active (${martingaleState.consecutiveLosses} losses)` : 
+                                    '✅ Reset'}
+                            </span>
                         </div>
                         <div className="summary-item">
                             <span className="summary-label">Stop Loss:</span>
