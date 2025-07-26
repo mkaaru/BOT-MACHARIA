@@ -255,126 +255,132 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     return (
         <div className="trading-hub-container">
-            {/* Strategy Selection */}
-            <div className="strategy-section">
-                <h3>🎯 Trading Strategy</h3>
-                <div className="strategy-buttons">
-                    {['overunder', 'differ', 'o5u4'].map(strategy => (
-                        <button
-                            key={strategy}
-                            className={`strategy-btn ${tradingState.selectedStrategy === strategy ? 'active' : ''}`}
-                            onClick={() => setTradingState(prev => ({ ...prev, selectedStrategy: strategy }))}
-                            disabled={tradingState.isRunning}
-                        >
-                            {strategy.toUpperCase()}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Configuration */}
-            <div className="config-section">
-                <h3>⚙️ Configuration</h3>
-                <div className="config-grid">
-                    <div className="config-item">
-                        <label>Stake ($)</label>
-                        <input
-                            type="number"
-                            value={tradingState.currentStake}
-                            onChange={e => setTradingState(prev => ({ ...prev, currentStake: parseFloat(e.target.value) || 1 }))}
-                            min="1"
-                            step="0.1"
-                            disabled={tradingState.isRunning}
-                        />
-                    </div>
-                    <div className="config-item">
-                        <label>Stop Loss ($)</label>
-                        <input
-                            type="number"
-                            value={tradingState.stopLoss}
-                            onChange={e => setTradingState(prev => ({ ...prev, stopLoss: parseFloat(e.target.value) || 50 }))}
-                            min="1"
-                            disabled={tradingState.isRunning}
-                        />
-                    </div>
-                    <div className="config-item">
-                        <label>Take Profit ($)</label>
-                        <input
-                            type="number"
-                            value={tradingState.takeProfit}
-                            onChange={e => setTradingState(prev => ({ ...prev, takeProfit: parseFloat(e.target.value) || 100 }))}
-                            min="1"
-                            disabled={tradingState.isRunning}
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* Controls */}
-            <div className="controls-section">
-                <h3>🎮 Controls</h3>
-                <div className="control-buttons">
-                    <button
-                        className={`control-btn ${tradingState.isRunning ? 'stop' : 'start'}`}
-                        onClick={toggleTrading}
-                        disabled={tradingState.isTradeInProgress}
-                    >
-                        {tradingState.isRunning ? '⏹️ Stop' : '▶️ Start'} Trading
-                    </button>
-                    <button
-                        className="control-btn manual"
-                        onClick={executeTrade}
-                        disabled={tradingState.isRunning || tradingState.isTradeInProgress}
-                    >
-                        🎯 Manual Trade
-                    </button>
-                    <button
-                        className="control-btn reset"
-                        onClick={resetStats}
-                    >
-                        🔄 Reset Stats
-                    </button>
-                </div>
-            </div>
-
-            {/* Statistics */}
-            <div className="stats-section">
-                <h3>📊 Statistics</h3>
-                <div className="stats-grid">
-                    <div className="stat-item">
-                        <span className="stat-label">Total Trades</span>
-                        <span className="stat-value">{tradingState.totalTrades}</span>
-                    </div>
-                    <div className="stat-item">
-                        <span className="stat-label">Win Rate</span>
-                        <span className="stat-value">
-                            {tradingState.totalTrades > 0 ? 
-                                ((tradingState.winTrades / tradingState.totalTrades) * 100).toFixed(1) : 0}%
-                        </span>
-                    </div>
-                    <div className="stat-item">
-                        <span className="stat-label">Total P&L</span>
-                        <span className={`stat-value ${tradingState.totalProfit >= 0 ? 'profit' : 'loss'}`}>
-                            ${tradingState.totalProfit.toFixed(2)}
-                        </span>
-                    </div>
-                    <div className="stat-item">
-                        <span className="stat-label">Last Result</span>
-                        <span className="stat-value">{tradingState.lastTradeResult}</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Activity Logs */}
-            <div className="logs-section">
-                <h3>📝 Activity Logs</h3>
-                <div className="logs-container">
-                    {logs.map((log, index) => (
-                        <div key={index} className="log-entry">
-                            {log}
+            <div className="trading-hub-grid">
+                <div className="main-content">
+                    {/* Strategy Selection */}
+                    <div className="strategy-section">
+                        <h3>🎯 Trading Strategy</h3>
+                        <div className="strategy-buttons">
+                            {['overunder', 'differ', 'o5u4'].map(strategy => (
+                                <button
+                                    key={strategy}
+                                    className={`strategy-btn ${tradingState.selectedStrategy === strategy ? 'active' : ''}`}
+                                    onClick={() => setTradingState(prev => ({ ...prev, selectedStrategy: strategy }))}
+                                    disabled={tradingState.isRunning}
+                                >
+                                    {strategy.toUpperCase()}
+                                </button>
+                            ))}
                         </div>
-                    ))}
-                    <div ref={logsEndRef} />
+                    </div>
+
+                    {/* Configuration */}
+                    <div className="config-section">
+                        <h3>⚙️ Configuration</h3>
+                        <div className="config-grid">
+                            <div className="config-item">
+                                <label>Stake ($)</label>
+                                <input
+                                    type="number"
+                                    value={tradingState.currentStake}
+                                    onChange={e => setTradingState(prev => ({ ...prev, currentStake: parseFloat(e.target.value) || 1 }))}
+                                    min="1"
+                                    step="0.1"
+                                    disabled={tradingState.isRunning}
+                                />
+                            </div>
+                            <div className="config-item">
+                                <label>Stop Loss ($)</label>
+                                <input
+                                    type="number"
+                                    value={tradingState.stopLoss}
+                                    onChange={e => setTradingState(prev => ({ ...prev, stopLoss: parseFloat(e.target.value) || 50 }))}
+                                    min="1"
+                                    disabled={tradingState.isRunning}
+                                />
+                            </div>
+                            <div className="config-item">
+                                <label>Take Profit ($)</label>
+                                <input
+                                    type="number"
+                                    value={tradingState.takeProfit}
+                                    onChange={e => setTradingState(prev => ({ ...prev, takeProfit: parseFloat(e.target.value) || 100 }))}
+                                    min="1"
+                                    disabled={tradingState.isRunning}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Controls */}
+                    <div className="controls-section">
+                        <h3>🎮 Controls</h3>
+                        <div className="control-buttons">
+                            <button
+                                className={`control-btn ${tradingState.isRunning ? 'stop' : 'start'}`}
+                                onClick={toggleTrading}
+                                disabled={tradingState.isTradeInProgress}
+                            >
+                                {tradingState.isRunning ? '⏹️ Stop' : '▶️ Start'} Trading
+                            </button>
+                            <button
+                                className="control-btn manual"
+                                onClick={executeTrade}
+                                disabled={tradingState.isRunning || tradingState.isTradeInProgress}
+                            >
+                                🎯 Manual Trade
+                            </button>
+                            <button
+                                className="control-btn reset"
+                                onClick={resetStats}
+                            >
+                                🔄 Reset Stats
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="sidebar-content">
+                    {/* Statistics */}
+                    <div className="stats-section">
+                        <h3>📊 Statistics</h3>
+                        <div className="stats-grid">
+                            <div className="stat-item">
+                                <span className="stat-label">Total Trades</span>
+                                <span className="stat-value">{tradingState.totalTrades}</span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="stat-label">Win Rate</span>
+                                <span className="stat-value">
+                                    {tradingState.totalTrades > 0 ? 
+                                        ((tradingState.winTrades / tradingState.totalTrades) * 100).toFixed(1) : 0}%
+                                </span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="stat-label">Total P&L</span>
+                                <span className={`stat-value ${tradingState.totalProfit >= 0 ? 'profit' : 'loss'}`}>
+                                    ${tradingState.totalProfit.toFixed(2)}
+                                </span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="stat-label">Last Result</span>
+                                <span className="stat-value">{tradingState.lastTradeResult}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Activity Logs */}
+                    <div className="logs-section">
+                        <h3>📝 Activity Logs</h3>
+                        <div className="logs-container">
+                            {logs.map((log, index) => (
+                                <div key={index} className="log-entry">
+                                    {log}
+                                </div>
+                            ))}
+                            <div ref={logsEndRef} />
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
