@@ -319,20 +319,28 @@ const TradingHubDisplay: React.FC = observer(() => {
     }, [tradingState]);
 
     return (
-        <div className="trading-hub">
-            <h2>Deriv Trading Hub</h2>
-            <div className="log-section">
-                <h3>📜 Logs</h3>
-                <div className="logs-container">
-                    {logs.map((log, index) => (
-                        <div key={index} className="log-item">{log}</div>
-                    ))}
-                    <div ref={logsEndRef} />
+        <div className="trading-hub-container">
+            <div className="trading-hub-header">
+                <h2>🎯 Deriv Trading Hub</h2>
+                <div className="status-indicator">
+                    <span className={`status-dot ${api_base.api ? 'connected' : 'disconnected'}`}></span>
+                    {api_base.api ? 'Connected' : 'Disconnected'}
                 </div>
             </div>
 
-            <div className="connection-status">
-                    <h3>🔗 Connection Status</h3>
+            <div className="trading-hub-content">
+                <div className="logs-section">
+                    <h3>📜 Activity Logs</h3>
+                    <div className="logs-container">
+                        {logs.map((log, index) => (
+                            <div key={index} className="log-item">{log}</div>
+                        ))}
+                        <div ref={logsEndRef} />
+                    </div>
+                </div>
+
+                <div className="connection-status">
+                    <h3>🔗 System Status</h3>
                     <div className="status-grid">
                         <div className="status-item">
                             <span className="status-label">API:</span>
@@ -359,9 +367,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                     <h3>📊 Current Recommendation</h3>
                     {tradingState.currentRecommendation ? (
                         <div className="recommendation-card">
-                            <div className="rec-symbol">{tradingState.currentRecommendation.symbol}</div>
-                            <div className="rec-type">
-                                {tradingState.currentRecommendation.strategy.toUpperCase()} {tradingState.currentRecommendation.barrier}
+                            <div className="rec-header">
+                                <span className="rec-symbol">{tradingState.currentRecommendation.symbol}</span>
+                                <span className="rec-type">
+                                    {tradingState.currentRecommendation.strategy.toUpperCase()} {tradingState.currentRecommendation.barrier}
+                                </span>
                             </div>
                             <div className="rec-reason">{tradingState.currentRecommendation.reason}</div>
                             <div className="rec-percentages">
@@ -376,36 +386,41 @@ const TradingHubDisplay: React.FC = observer(() => {
                     )}
                 </div>
 
-            <div className="strategy-toggles">
-                <label>
-                    Auto Over/Under:
-                    <input
-                        type="checkbox"
-                        checked={tradingState.isAutoOverUnderActive}
-                        onChange={() => handleStrategyToggle('overunder')}
-                    />
-                </label>
-                <label>
-                    Auto Differ:
-                    <input
-                        type="checkbox"
-                        checked={tradingState.isAutoDifferActive}
-                        onChange={() => handleStrategyToggle('differ')}
-                    />
-                </label>
-                <label>
-                    Auto O5U4:
-                    <input
-                        type="checkbox"
-                        checked={tradingState.isAutoO5U4Active}
-                        onChange={() => handleStrategyToggle('o5u4')}
-                    />
-                </label>
-            </div>
+                <div className="strategy-section">
+                    <h3>⚙️ Trading Strategies</h3>
+                    <div className="strategy-toggles">
+                        <label className="strategy-toggle">
+                            <input
+                                type="checkbox"
+                                checked={tradingState.isAutoOverUnderActive}
+                                onChange={() => handleStrategyToggle('overunder')}
+                            />
+                            <span>Auto Over/Under</span>
+                        </label>
+                        <label className="strategy-toggle">
+                            <input
+                                type="checkbox"
+                                checked={tradingState.isAutoDifferActive}
+                                onChange={() => handleStrategyToggle('differ')}
+                            />
+                            <span>Auto Differ</span>
+                        </label>
+                        <label className="strategy-toggle">
+                            <input
+                                type="checkbox"
+                                checked={tradingState.isAutoO5U4Active}
+                                onChange={() => handleStrategyToggle('o5u4')}
+                            />
+                            <span>Auto O5U4</span>
+                        </label>
+                    </div>
+                </div>
 
-            <div className="control-buttons">
+                <div className="control-section">
+                    <h3>🎮 Trading Controls</h3>
+                    <div className="control-buttons">
                         <button
-                            className={`btn ${tradingState.isContinuousTrading ? 'btn-danger' : 'btn-success'}`}
+                            className={`control-btn ${tradingState.isContinuousTrading ? 'stop-btn' : 'start-btn'}`}
                             onClick={toggleContinuousTrading}
                             disabled={tradingState.isTradeInProgress}
                         >
@@ -413,7 +428,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         </button>
 
                         <button
-                            className="btn btn-primary"
+                            className="control-btn manual-btn"
                             onClick={executeManualTrade}
                             disabled={tradingState.isTradeInProgress || !tradingState.currentRecommendation}
                         >
@@ -421,25 +436,27 @@ const TradingHubDisplay: React.FC = observer(() => {
                         </button>
 
                         <button
-                            className="btn btn-warning"
+                            className="control-btn reset-btn"
                             onClick={resetStats}
                         >
                             🔄 Reset Stats
                         </button>
                     </div>
+                </div>
 
-            <div className="market-data-section">
-                <h3>📈 Market Data</h3>
-                <div className="market-data-grid">
-                    {marketData.map(data => (
-                        <div key={data.symbol} className="market-data-card">
-                            <div className="data-symbol">{data.symbol}</div>
-                            <div className="data-tick">Last Tick: {data.lastTick}</div>
-                            <div className="data-recommendation">Recommendation: {data.recommendation}</div>
-                            <div className="data-confidence">Confidence: {data.confidence.toFixed(1)}%</div>
-                            <div className="data-update">Updated: {new Date(data.lastUpdate).toLocaleTimeString()}</div>
-                        </div>
-                    ))}
+                <div className="market-data-section">
+                    <h3>📈 Market Data</h3>
+                    <div className="market-data-grid">
+                        {marketData.map(data => (
+                            <div key={data.symbol} className="market-data-card">
+                                <div className="data-symbol">{data.symbol}</div>
+                                <div className="data-tick">Last: {data.lastTick}</div>
+                                <div className="data-recommendation">{data.recommendation}</div>
+                                <div className="data-confidence">{data.confidence.toFixed(1)}%</div>
+                                <div className="data-update">{new Date(data.lastUpdate).toLocaleTimeString()}</div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>
