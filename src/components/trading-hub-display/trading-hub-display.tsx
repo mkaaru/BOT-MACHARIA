@@ -1,120 +1,55 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
-import marketAnalyzer from '@/services/market-analyzer';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
-import { observer as globalObserver } from '@/external/bot-skeleton/utils/observer';
 import './trading-hub-display.scss';
 
 interface TradingState {
-    isContinuousTrading: boolean;
-    isAutoOverUnderActive: boolean;
-    isAutoDifferActive: boolean;
-    isAutoO5U4Active: boolean;
-    isTradeInProgress: boolean;
-    lastTradeTime: number;
-    balance: number;
-    profit: number;
+    isRunning: boolean;
+    selectedStrategy: string;
+    currentStake: number;
+    stopLoss: number;
+    takeProfit: number;
     totalTrades: number;
     winTrades: number;
     lossTrades: number;
-    currentRecommendation: any;
-    tradeHistory: any[];
+    totalProfit: number;
+    lastTradeResult: string;
+    isTradeInProgress: boolean;
 }
 
-interface MarketData {
+interface TradeConfig {
     symbol: string;
-    lastTick: number;
-    recommendation: string;
-    confidence: number;
-    lastUpdate: number;
+    contract_type: string;
+    amount: number;
+    duration: number;
+    duration_unit: string;
+    barrier?: string;
 }
 
 const TradingHubDisplay: React.FC = observer(() => {
-    const { run_panel, dashboard } = useStore();
+    const { run_panel } = useStore();
     const [tradingState, setTradingState] = useState<TradingState>({
-        isContinuousTrading: false,
-        isAutoOverUnderActive: false,
-        isAutoDifferActive: false,
-        isAutoO5U4Active: false,
-        isTradeInProgress: false,
-        lastTradeTime: 0,
-        balance: 10000,
-        profit: 0,
+        isRunning: false,
+        selectedStrategy: 'overunder',
+        currentStake: 1,
+        stopLoss: 50,
+        takeProfit: 100,
         totalTrades: 0,
         winTrades: 0,
         lossTrades: 0,
-        currentRecommendation: null,
-        tradeHistory: []
+        totalProfit: 0,
+        lastTradeResult: 'None',
+        isTradeInProgress: false
     });
 
-    const [botConfig, setBotConfig] = useState({
-        selectedStrategy: 'martingale',
-        initialStake: 1,
-        martingaleMultiplier: 2,
-        maxConsecutiveLosses: 5,
-        stopLoss: 50,
-        takeProfit: 100
-    });
-
-    // Martingale state management for direct trading
-    const [martingaleState, setMartingaleState] = useState({
-        currentStake: 1,
-        consecutiveLosses: 0,
-        isActive: false,
-        totalProfit: 0
-    });
-
-    const [marketData, setMarketData] = useState<MarketData[]>([]);
     const [logs, setLogs] = useState<string[]>([]);
     const logsEndRef = useRef<HTMLDivElement>(null);
-    const tradeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const addLog = useCallback((message: string) => {
         const timestamp = new Date().toLocaleTimeString();
         const logMessage = `[${timestamp}] ${message}`;
         setLogs(prev => [...prev.slice(-49), logMessage]);
-        console.log('🔄', logMessage);
-    }, []);
-
-    // Sync bot configuration with bot builder immediately
-    const updateBotBuilder = useCallback((config: typeof botConfig) => {
-        // Update configuration in real-time
-        if (window.dbot?.interpreter?.bot) {
-            const botInterface = window.dbot.interpreter.bot.getInterface();
-
-            // Update bot builder parameters immediately
-            if (botInterface.updateConfig) {
-                botInterface.updateConfig({
-                    strategy: config.selectedStrategy,
-                    initialStake: config.initialStake,
-                    martingaleMultiplier: config.martingaleMultiplier,
-                    maxConsecutiveLosses: config.maxConsecutiveLosses,
-                    stopLoss: config.stopLoss,
-                    takeProfit: config.takeProfit,
-                    autoSymbolSelection: true,
-                    autoContractSelection: true
-                });
-            }
-
-            // Configure strategy settings
-            botInterface.setMartingaleLimits?.(config.martingaleMultiplier, config.maxConsecutiveLosses);
-            botInterface.setMartingaleEnabled?.(config.selectedStrategy.includes('martingale'));
-            botInterface.setStopLoss?.(config.stopLoss);
-            botInterface.setTakeProfit?.(config.takeProfit);
-            botInterface.setInitialStake?.(config.initialStake);
-
-            // Apply settings to trade engine
-            if (window.dbot.interpreter.bot.tradeEngine) {
-                window.dbot.interpreter.bot.tradeEngine.updateSettings({
-                    stake: config.initialStake,
-                    martingaleMultiplier: config.martingaleMultiplier,
-                    maxLoss: config.maxConsecutiveLosses,
-                    stopLoss: config.stopLoss,
-                    takeProfit: config.takeProfit
-                });
-            }
-        }
     }, []);
 
     const scrollToBottom = useCallback(() => {
@@ -123,100 +58,30 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     useEffect(scrollToBottom, [logs]);
 
-    // Initialize market analyzer and API connection
-    useEffect(() => {
-        addLog('Initializing trading system...');
-
-        // Check API connection
+    // Direct API trade execution
+    const executeDirectTrade = useCallback(async (config: TradeConfig) => {
         if (!api_base.api) {
-            addLog('❌ API not connected! Please ensure you are logged in to Deriv.');
-            return;
-        }
-
-        addLog('✅ API connection available');
-
-        if (!marketAnalyzer.isReadyForTrading()) {
-            marketAnalyzer.start();
-            addLog('Market analyzer started');
-        }
-
-        const unsubscribe = marketAnalyzer.onAnalysis((recommendation, allStats) => {
-            if (recommendation) {
-                addLog(`📊 New recommendation: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol} (${recommendation.reason})`);
-
-                setTradingState(prev => ({
-                    ...prev,
-                    currentRecommendation: recommendation
-                }));
-            }
-
-            // Update market data
-            const newMarketData = Object.entries(allStats).map(([symbol, stats]) => ({
-                symbol,
-                lastTick: stats.currentLastDigit,
-                recommendation: stats.recommendation,
-                confidence: Math.max(...stats.digitPercentages),
-                lastUpdate: stats.lastUpdated
-            }));
-            setMarketData(newMarketData);
-        });
-
-        return () => {
-            unsubscribe();
-            marketAnalyzer.stop();
-        };
-    }, []);
-
-    // Auto-trade effect - separate from market analyzer
-    useEffect(() => {
-        if (tradingState.isContinuousTrading && 
-            tradingState.currentRecommendation &&
-            !tradingState.isTradeInProgress &&
-            (tradingState.isAutoOverUnderActive || tradingState.isAutoDifferActive || tradingState.isAutoO5U4Active)) {
-
-            // Clear any existing timeout
-            if (tradeTimeoutRef.current) {
-                clearTimeout(tradeTimeoutRef.current);
-            }
-
-            // Execute trade after a short delay to prevent rapid trades
-            tradeTimeoutRef.current = setTimeout(() => {
-                executeAutoTrade(tradingState.currentRecommendation);
-            }, 1000);
-        }
-
-        return () => {
-            if (tradeTimeoutRef.current) {
-                clearTimeout(tradeTimeoutRef.current);
-            }
-        };
-    }, [tradingState.isContinuousTrading, tradingState.currentRecommendation, tradingState.isTradeInProgress, 
-        tradingState.isAutoOverUnderActive, tradingState.isAutoDifferActive, tradingState.isAutoO5U4Active]);
-
-    // Direct trade engine execution bypassing market wizard
-    const executeDirectTrade = useCallback(async (tradeConfig: any) => {
-        if (!api_base.api) {
-            addLog('❌ API not connected! Cannot execute trade.');
+            addLog('❌ API not connected');
             return { success: false, error: 'API not connected' };
         }
 
         try {
-            addLog(`🚀 Direct trade execution: ${tradeConfig.contract_type} on ${tradeConfig.symbol}`);
+            setTradingState(prev => ({ ...prev, isTradeInProgress: true }));
+            addLog(`🚀 Executing ${config.contract_type} on ${config.symbol}`);
 
-            // Step 1: Get proposal
+            // Get proposal
             const proposalRequest = {
                 proposal: 1,
-                amount: tradeConfig.amount,
+                amount: config.amount,
                 basis: 'stake',
-                contract_type: tradeConfig.contract_type,
+                contract_type: config.contract_type,
                 currency: 'USD',
-                duration: tradeConfig.duration || 1,
-                duration_unit: tradeConfig.duration_unit || 't',
-                symbol: tradeConfig.symbol,
-                ...(tradeConfig.barrier && { barrier: tradeConfig.barrier })
+                duration: config.duration,
+                duration_unit: config.duration_unit,
+                symbol: config.symbol,
+                ...(config.barrier && { barrier: config.barrier })
             };
 
-            addLog(`📊 Getting proposal: ${JSON.stringify(proposalRequest)}`);
             const proposalResponse = await api_base.api.send(proposalRequest);
 
             if (proposalResponse.error) {
@@ -224,22 +89,15 @@ const TradingHubDisplay: React.FC = observer(() => {
                 return { success: false, error: proposalResponse.error.message };
             }
 
-            if (!proposalResponse.proposal) {
-                addLog(`❌ No proposal received`);
-                return { success: false, error: 'No proposal received' };
-            }
-
             const proposalId = proposalResponse.proposal.id;
-            const displayValue = proposalResponse.proposal.display_value;
-            addLog(`✅ Proposal received: ID=${proposalId}, Price=${displayValue}`);
+            addLog(`✅ Proposal received: ${proposalId}`);
 
-            // Step 2: Purchase the contract
+            // Purchase contract
             const buyRequest = {
                 buy: proposalId,
-                price: tradeConfig.amount
+                price: config.amount
             };
 
-            addLog(`💰 Purchasing contract: ${JSON.stringify(buyRequest)}`);
             const buyResponse = await api_base.api.send(buyRequest);
 
             if (buyResponse.error) {
@@ -247,282 +105,130 @@ const TradingHubDisplay: React.FC = observer(() => {
                 return { success: false, error: buyResponse.error.message };
             }
 
-            if (!buyResponse.buy) {
-                addLog(`❌ Purchase failed - no buy confirmation`);
-                return { success: false, error: 'Purchase failed' };
-            }
-
             const contractId = buyResponse.buy.contract_id;
             const buyPrice = buyResponse.buy.buy_price;
-            addLog(`🎉 Contract purchased! ID=${contractId}, Price=${buyPrice}`);
+            addLog(`🎉 Contract purchased: ${contractId} for $${buyPrice}`);
 
             return {
                 success: true,
                 contract_id: contractId,
-                buy_price: buyPrice,
-                proposal_id: proposalId
+                buy_price: buyPrice
             };
 
         } catch (error) {
-            addLog(`💥 Direct trade execution failed: ${error.message}`);
+            addLog(`💥 Trade execution failed: ${error.message}`);
             return { success: false, error: error.message };
-        }
-    }, [addLog]);
-
-    // Strategy-specific trade logic
-    const getTradeConfigForStrategy = useCallback((strategy: string, currentTick?: number) => {
-        const baseConfig = {
-            duration: 1,
-            duration_unit: 't',
-            amount: botConfig.initialStake,
-            basis: 'stake'
-        };
-
-        // Get current last digit for analysis (mock data if no real tick)
-        const lastDigit = currentTick ? currentTick % 10 : Math.floor(Math.random() * 10);
-
-        if (strategy === 'overunder') {
-            // Over/Under Strategy Logic
-            const barrier = 5; // Can be dynamic based on analysis
-            const isOver = lastDigit > barrier;
-
-            return {
-                ...baseConfig,
-                symbol: '1HZ25V', // Volatility 25 (1s)
-                contract_type: isOver ? 'DIGITUNDER' : 'DIGITOVER',
-                barrier: barrier.toString(),
-                strategyReason: `Last digit ${lastDigit} is ${isOver ? 'over' : 'under'} ${barrier}`
-            };
-        } else if (strategy === 'differ') {
-            // Even/Odd Differ Strategy Logic
-            const isEven = lastDigit % 2 === 0;
-
-            return {
-                ...baseConfig,
-                symbol: '1HZ50V', // Volatility 50 (1s)
-                contract_type: isEven ? 'DIGITODD' : 'DIGITEVEN',
-                strategyReason: `Last digit ${lastDigit} is ${isEven ? 'even' : 'odd'}, predicting opposite`
-            };
-        } else if (strategy === 'o5u4') {
-            // Over 5 Under 4 Strategy Logic
-            const barrier = 5;
-            const shouldGoOver = lastDigit <= 4;
-
-            return {
-                ...baseConfig,
-                symbol: '1HZ75V', // Volatility 75 (1s)
-                contract_type: shouldGoOver ? 'DIGITOVER' : 'DIGITUNDER',
-                barrier: '4',
-                strategyReason: `Last digit ${lastDigit}, ${shouldGoOver ? 'going OVER 4' : 'going UNDER 5'}`
-            };
-        }
-
-        // Default fallback
-        return {
-            ...baseConfig,
-            symbol: '1HZ10V',
-            contract_type: 'DIGITEVEN',
-            strategyReason: 'Default strategy'
-        };
-    }, [botConfig.initialStake]);
-
-    const executeAutoTrade = useCallback(async (recommendation: any) => {
-        if (tradingState.isTradeInProgress) {
-            addLog('⏳ Trade already in progress, skipping...');
-            return;
-        }
-
-        try {
-            setTradingState(prev => ({ ...prev, isTradeInProgress: true }));
-
-            // Determine which strategy is active
-            let activeStrategy = '';
-            if (tradingState.isAutoOverUnderActive) {
-                activeStrategy = 'overunder';
-            } else if (tradingState.isAutoDifferActive) {
-                activeStrategy = 'differ';
-            } else if (tradingState.isAutoO5U4Active) {
-                activeStrategy = 'o5u4';
-            }
-
-            if (!activeStrategy) {
-                addLog('❌ No active trading strategy selected');
-                return;
-            }
-
-            addLog(`🎯 Executing ${activeStrategy.toUpperCase()} strategy with ${botConfig.selectedStrategy} money management`);
-
-            // Get the current tick for strategy analysis
-            const currentTick = recommendation?.lastTick || Math.floor(Math.random() * 10000);
-
-            // Get trade configuration for the active strategy
-            const tradeConfig = getTradeConfigForStrategy(activeStrategy, currentTick);
-
-            addLog(`📊 Strategy Analysis: ${tradeConfig.strategyReason}`);
-            addLog(`📋 Trade Config: ${tradeConfig.contract_type} on ${tradeConfig.symbol}${tradeConfig.barrier ? ` (Barrier: ${tradeConfig.barrier})` : ''}`);
-
-            // Execute trade directly through API, bypassing bot builder
-            const result = await executeDirectTrade(tradeConfig);
-
-            if (result.success) {
-                addLog(`✅ ${activeStrategy.toUpperCase()} trade executed: ${result.contract_id} (Price: ${result.buy_price})`);
-
-                // Update trading state
-                setTradingState(prev => ({
-                    ...prev,
-                    totalTrades: prev.totalTrades + 1,
-                    lastTradeTime: Date.now(),
-                    tradeHistory: [...prev.tradeHistory.slice(-19), {
-                        time: Date.now(),
-                        symbol: tradeConfig.symbol,
-                        type: tradeConfig.contract_type,
-                        barrier: tradeConfig.barrier || '',
-                        amount: tradeConfig.amount,
-                        status: 'purchased',
-                        contractId: result.contract_id,
-                        strategy: `${activeStrategy}_${botConfig.selectedStrategy}`,
-                        buyPrice: result.buy_price,
-                        strategyReason: tradeConfig.strategyReason
-                    }]
-                }));
-
-                // Apply martingale logic for next trade
-                if (botConfig.selectedStrategy === 'martingale') {
-                    addLog(`🔄 Martingale enabled - will adjust stake on next trade based on result`);
-                }
-
-            } else {
-                addLog(`❌ ${activeStrategy.toUpperCase()} trade execution failed: ${result.error}`);
-            }
-
-        } catch (error) {
-            addLog(`❌ Auto trade execution error: ${error.message}`);
         } finally {
-            // Reset trade in progress after delay
             setTimeout(() => {
-                setTradingState(prev => ({ 
-                    ...prev, 
-                    isTradeInProgress: false,
-                    currentRecommendation: null
-                }));
-            }, 3000); // Increased delay to allow for contract processing
+                setTradingState(prev => ({ ...prev, isTradeInProgress: false }));
+            }, 2000);
         }
-    }, [tradingState.isTradeInProgress, botConfig, tradingState.isAutoOverUnderActive, 
-        tradingState.isAutoDifferActive, tradingState.isAutoO5U4Active, executeDirectTrade, 
-        getTradeConfigForStrategy, addLog]);
-
-    const executeManualTrade = useCallback(async () => {
-        if (!tradingState.currentRecommendation) {
-            addLog('❌ No recommendation available for manual trade');
-            return;
-        }
-
-        if (run_panel.is_running) {
-            addLog('⚠️ Main trading engine is running, manual trade not available');
-            return;
-        }
-
-        addLog('🎯 Executing manual trade...');
-        await executeAutoTrade(tradingState.currentRecommendation);
-    }, [tradingState.currentRecommendation, executeAutoTrade, run_panel.is_running]);
-
-    // Strategy-specific trade logic
-    const handleStrategyToggle = useCallback((strategy: string) => {
-        setTradingState(prev => {
-            const newState = { ...prev };
-
-            // Deactivate all other strategies when one is selected (only one active at a time)
-            newState.isAutoOverUnderActive = false;
-            newState.isAutoDifferActive = false;
-            newState.isAutoO5U4Active = false;
-
-            switch (strategy) {
-                case 'overunder':
-                    newState.isAutoOverUnderActive = !prev.isAutoOverUnderActive;
-                    if (newState.isAutoOverUnderActive) {
-                        addLog(`🎯 Auto Over/Under Strategy ACTIVATED - Independent trading on Volatility 25`);
-                        addLog(`📊 Strategy: Predicts OVER/UNDER based on last digit analysis`);
-                    } else {
-                        addLog(`❌ Auto Over/Under Strategy DEACTIVATED`);
-                    }
-                    break;
-                case 'differ':
-                    newState.isAutoDifferActive = !prev.isAutoDifferActive;
-                    if (newState.isAutoDifferActive) {
-                        addLog(`🎯 Auto Differ Strategy ACTIVATED - Independent trading on Volatility 50`);
-                        addLog(`📊 Strategy: Predicts opposite of current EVEN/ODD pattern`);
-                    } else {
-                        addLog(`❌ Auto Differ Strategy DEACTIVATED`);
-                    }
-                    break;
-                case 'o5u4':
-                    newState.isAutoO5U4Active = !prev.isAutoO5U4Active;
-                    if (newState.isAutoO5U4Active) {
-                        addLog(`🎯 Auto O5U4 Strategy ACTIVATED - Independent trading on Volatility 75`);
-                        addLog(`📊 Strategy: Over 5 when last digit ≤4, Under 4 when last digit >4`);
-                    } else {
-                        addLog(`❌ Auto O5U4 Strategy DEACTIVATED`);
-                    }
-                    break;
-            }
-
-            return newState;
-        });
     }, [addLog]);
 
-    const toggleContinuousTrading = useCallback(() => {
+    // Strategy logic
+    const getTradeConfig = useCallback((strategy: string): TradeConfig => {
+        const baseConfig = {
+            amount: tradingState.currentStake,
+            duration: 1,
+            duration_unit: 't'
+        };
+
+        // Generate random last digit for strategy analysis
+        const lastDigit = Math.floor(Math.random() * 10);
+
+        switch (strategy) {
+            case 'overunder':
+                const barrier = 5;
+                const isOver = lastDigit > barrier;
+                return {
+                    ...baseConfig,
+                    symbol: '1HZ25V',
+                    contract_type: isOver ? 'DIGITUNDER' : 'DIGITOVER',
+                    barrier: barrier.toString()
+                };
+
+            case 'differ':
+                const isEven = lastDigit % 2 === 0;
+                return {
+                    ...baseConfig,
+                    symbol: '1HZ50V',
+                    contract_type: isEven ? 'DIGITODD' : 'DIGITEVEN'
+                };
+
+            case 'o5u4':
+                const shouldGoOver = lastDigit <= 4;
+                return {
+                    ...baseConfig,
+                    symbol: '1HZ75V',
+                    contract_type: shouldGoOver ? 'DIGITOVER' : 'DIGITUNDER',
+                    barrier: '4'
+                };
+
+            default:
+                return {
+                    ...baseConfig,
+                    symbol: '1HZ10V',
+                    contract_type: 'DIGITEVEN'
+                };
+        }
+    }, [tradingState.currentStake]);
+
+    const executeTrade = useCallback(async () => {
+        if (tradingState.isTradeInProgress) {
+            addLog('⏳ Trade already in progress');
+            return;
+        }
+
+        const config = getTradeConfig(tradingState.selectedStrategy);
+        addLog(`🎯 Strategy: ${tradingState.selectedStrategy.toUpperCase()}`);
+
+        const result = await executeDirectTrade(config);
+
+        if (result.success) {
+            setTradingState(prev => ({
+                ...prev,
+                totalTrades: prev.totalTrades + 1,
+                lastTradeResult: 'Executed'
+            }));
+        }
+    }, [tradingState.selectedStrategy, tradingState.isTradeInProgress, executeDirectTrade, getTradeConfig]);
+
+    const toggleTrading = useCallback(() => {
         setTradingState(prev => {
-            const newState = !prev.isContinuousTrading;
-            addLog(`Continuous trading ${newState ? 'started' : 'stopped'}`);
-
-            if (newState) {
-                // Start the main run panel if not already running
-                if (!run_panel.is_running) {
-                    addLog(`🚀 Starting main trading engine...`);
-                    // Trigger the main run button
-                    run_panel.onRunButtonClick();
-                }
-            } else {
-                // Stop the main run panel if running
-                if (run_panel.is_running) {
-                    addLog(`⏹️ Stopping main trading engine...`);
-                    run_panel.onStopButtonClick();
-                }
-            }
-
-            return { ...prev, isContinuousTrading: newState };
+            const newRunning = !prev.isRunning;
+            addLog(`Trading ${newRunning ? 'STARTED' : 'STOPPED'}`);
+            return { ...prev, isRunning: newRunning };
         });
-    }, [addLog, run_panel]);
+    }, [addLog]);
 
     const resetStats = useCallback(() => {
         setTradingState(prev => ({
             ...prev,
-            profit: 0,
             totalTrades: 0,
             winTrades: 0,
             lossTrades: 0,
-            tradeHistory: []
+            totalProfit: 0,
+            lastTradeResult: 'None'
         }));
-        addLog('Statistics reset');
+        addLog('📊 Statistics reset');
     }, [addLog]);
 
-    // Sync with Run Panel state
+    // Auto trading effect
     useEffect(() => {
-        if (run_panel.is_running && !tradingState.isContinuousTrading) {
-            setTradingState(prev => ({ ...prev, isContinuousTrading: true }));
-            addLog('🔗 Synced with main trading engine - Trading started');
-        } else if (!run_panel.is_running && tradingState.isContinuousTrading) {
-            setTradingState(prev => ({ ...prev, isContinuousTrading: false }));
-            addLog('🔗 Synced with main trading engine - Trading stopped');
-        }
-    }, [run_panel.is_running, tradingState.isContinuousTrading, addLog]);
+        if (!tradingState.isRunning || tradingState.isTradeInProgress) return;
 
-    // Contract monitoring for direct trades
+        const interval = setInterval(() => {
+            executeTrade();
+        }, 5000); // Execute every 5 seconds
+
+        return () => clearInterval(interval);
+    }, [tradingState.isRunning, tradingState.isTradeInProgress, executeTrade]);
+
+    // Monitor contract results
     useEffect(() => {
         if (!api_base.api) return;
 
         const subscription = api_base.api.onMessage().subscribe(({ data }) => {
-            // Monitor contract updates
             if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract) {
                 const contract = data.proposal_open_contract;
 
@@ -530,233 +236,145 @@ const TradingHubDisplay: React.FC = observer(() => {
                     const profit = parseFloat(contract.sell_price) - parseFloat(contract.buy_price);
                     const isWin = profit > 0;
 
-                    addLog(`📊 Contract ${contract.contract_id} closed: P&L ${profit > 0 ? '+' : ''}${profit.toFixed(2)}`);
+                    addLog(`📊 Contract closed: P&L ${profit > 0 ? '+' : ''}${profit.toFixed(2)}`);
 
-                    // Update trading statistics
                     setTradingState(prev => ({
                         ...prev,
-                        profit: prev.profit + profit,
+                        totalProfit: prev.totalProfit + profit,
                         winTrades: isWin ? prev.winTrades + 1 : prev.winTrades,
-                        lossTrades: !isWin ? prev.lossTrades + 1 : prev.lossTrades
+                        lossTrades: !isWin ? prev.lossTrades + 1 : prev.lossTrades,
+                        lastTradeResult: isWin ? 'Win' : 'Loss'
                     }));
-
-                    // Handle martingale logic for direct trades
-                    if (botConfig.selectedStrategy === 'martingale') {
-                        setMartingaleState(prev => {
-                            const newConsecutiveLosses = isWin ? 0 : prev.consecutiveLosses + 1;
-                            const newStake = isWin ? 
-                                botConfig.initialStake : 
-                                Math.min(
-                                    prev.currentStake * botConfig.martingaleMultiplier,
-                                    botConfig.initialStake * Math.pow(botConfig.martingaleMultiplier, botConfig.maxConsecutiveLosses)
-                                );
-
-                            addLog(`🎲 Martingale: ${isWin ? 'WIN' : 'LOSS'} - Next stake: ${newStake}, Consecutive losses: ${newConsecutiveLosses}`);
-
-                            return {
-                                ...prev,
-                                currentStake: newStake,
-                                consecutiveLosses: newConsecutiveLosses,
-                                totalProfit: prev.totalProfit + profit,
-                                isActive: newConsecutiveLosses > 0 && newConsecutiveLosses < botConfig.maxConsecutiveLosses
-                            };
-                        });
-
-                        // Update bot config with new stake for next trade
-                        setBotConfig(prevConfig => ({
-                            ...prevConfig,
-                            initialStake: isWin ? prevConfig.initialStake : 
-                                Math.min(
-                                    martingaleState.currentStake * prevConfig.martingaleMultiplier,
-                                    prevConfig.initialStake * Math.pow(prevConfig.martingaleMultiplier, prevConfig.maxConsecutiveLosses)
-                                )
-                        }));
-                    }
-                }
-            }
-
-            // Handle transaction events
-            if (data.msg_type === 'transaction' && data.transaction) {
-                const transaction = data.transaction;
-                if (transaction.action === 'buy') {
-                    addLog(`💰 Transaction: Buy ${transaction.contract_id} for ${transaction.amount}`);
-                } else if (transaction.action === 'sell') {
-                    addLog(`💸 Transaction: Sell ${transaction.contract_id} for ${transaction.amount}`);
                 }
             }
         });
 
         api_base.pushSubscription(subscription);
-
-        return () => {
-            subscription.unsubscribe();
-        };
-    }, [addLog, botConfig.selectedStrategy, botConfig.martingaleMultiplier, 
-        botConfig.maxConsecutiveLosses, botConfig.initialStake, martingaleState.currentStake]);
+        return () => subscription.unsubscribe();
+    }, [addLog]);
 
     return (
-        <div className="trading-hub-wrapper">
-            {/* Independent Trading Strategies Card */}
-            <div className="strategy-card">
-                <div className="card-header">
-                    <span className="icon">⚙️</span>
-                    <span className="title">Independent Trading Strategies</span>
+        <div className="trading-hub-container">
+            {/* Strategy Selection */}
+            <div className="strategy-section">
+                <h3>🎯 Trading Strategy</h3>
+                <div className="strategy-buttons">
+                    {['overunder', 'differ', 'o5u4'].map(strategy => (
+                        <button
+                            key={strategy}
+                            className={`strategy-btn ${tradingState.selectedStrategy === strategy ? 'active' : ''}`}
+                            onClick={() => setTradingState(prev => ({ ...prev, selectedStrategy: strategy }))}
+                            disabled={tradingState.isRunning}
+                        >
+                            {strategy.toUpperCase()}
+                        </button>
+                    ))}
                 </div>
-                <div className="card-subtitle">
-                    Select ONE strategy to activate (bypasses DBot interface):
-                </div>
-                <div className="strategy-options">
-                    <div 
-                        className={`strategy-option ${tradingState.isAutoOverUnderActive ? 'selected' : ''}`}
-                        onClick={() => !tradingState.isContinuousTrading && handleStrategyToggle('overunder')}
-                    >
-                        Auto Over/Under (Vol 25)
+            </div>
+
+            {/* Configuration */}
+            <div className="config-section">
+                <h3>⚙️ Configuration</h3>
+                <div className="config-grid">
+                    <div className="config-item">
+                        <label>Stake ($)</label>
+                        <input
+                            type="number"
+                            value={tradingState.currentStake}
+                            onChange={e => setTradingState(prev => ({ ...prev, currentStake: parseFloat(e.target.value) || 1 }))}
+                            min="1"
+                            step="0.1"
+                            disabled={tradingState.isRunning}
+                        />
                     </div>
-                    <div 
-                        className={`strategy-option ${tradingState.isAutoDifferActive ? 'selected' : ''}`}
-                        onClick={() => !tradingState.isContinuousTrading && handleStrategyToggle('differ')}
-                    >
-                        Auto Differ (Vol 50)
+                    <div className="config-item">
+                        <label>Stop Loss ($)</label>
+                        <input
+                            type="number"
+                            value={tradingState.stopLoss}
+                            onChange={e => setTradingState(prev => ({ ...prev, stopLoss: parseFloat(e.target.value) || 50 }))}
+                            min="1"
+                            disabled={tradingState.isRunning}
+                        />
                     </div>
-                    <div 
-                        className={`strategy-option ${tradingState.isAutoO5U4Active ? 'selected' : ''}`}
-                        onClick={() => !tradingState.isContinuousTrading && handleStrategyToggle('o5u4')}
-                    >
-                        Auto O5U4 (Vol 75)
-                    </div>
-                    <div 
-                        className={`strategy-option ${!tradingState.isAutoOverUnderActive && !tradingState.isAutoDifferActive && !tradingState.isAutoO5U4Active ? 'selected' : ''}`}
-                        onClick={() => {
-                            if (!tradingState.isContinuousTrading) {
-                                setTradingState(prev => ({
-                                    ...prev,
-                                    isAutoOverUnderActive: false,
-                                    isAutoDifferActive: false,
-                                    isAutoO5U4Active: false
-                                }));
-                                addLog('🚫 All independent strategies deactivated');
-                            }
-                        }}
-                    >
-                        None (Use DBot)
+                    <div className="config-item">
+                        <label>Take Profit ($)</label>
+                        <input
+                            type="number"
+                            value={tradingState.takeProfit}
+                            onChange={e => setTradingState(prev => ({ ...prev, takeProfit: parseFloat(e.target.value) || 100 }))}
+                            min="1"
+                            disabled={tradingState.isRunning}
+                        />
                     </div>
                 </div>
             </div>
 
-            {/* Trading Controls Card */}
-            <div className="controls-card">
-                <div className="card-header">
-                    <span className="icon">🎮</span>
-                    <span className="title">Trading Controls</span>
-                </div>
+            {/* Controls */}
+            <div className="controls-section">
+                <h3>🎮 Controls</h3>
                 <div className="control-buttons">
-                    <button 
-                        className={`control-btn ${(tradingState.isContinuousTrading || run_panel.is_running) ? 'stop' : 'start'}`}
-                        onClick={toggleContinuousTrading}
-                        disabled={tradingState.isTradeInProgress || run_panel.is_stop_button_disabled}
+                    <button
+                        className={`control-btn ${tradingState.isRunning ? 'stop' : 'start'}`}
+                        onClick={toggleTrading}
+                        disabled={tradingState.isTradeInProgress}
                     >
-                        <span className="icon">
-                            {(tradingState.isContinuousTrading || run_panel.is_running) ? '⏹️' : '▶️'}
-                        </span>
-                        {(tradingState.isContinuousTrading || run_panel.is_running) ? 'Start Trading' : 'Start Trading'}
+                        {tradingState.isRunning ? '⏹️ Stop' : '▶️ Start'} Trading
                     </button>
-                    <button 
+                    <button
                         className="control-btn manual"
-                        onClick={executeManualTrade}
-                        disabled={tradingState.isTradeInProgress || !tradingState.currentRecommendation || run_panel.is_running}
+                        onClick={executeTrade}
+                        disabled={tradingState.isRunning || tradingState.isTradeInProgress}
                     >
-                        <span className="icon">🎯</span>
-                        Manual Trade
+                        🎯 Manual Trade
                     </button>
-                    <button 
+                    <button
                         className="control-btn reset"
                         onClick={resetStats}
                     >
-                        <span className="icon">🔄</span>
-                        Reset Stats
+                        🔄 Reset Stats
                     </button>
                 </div>
             </div>
 
-            {/* Direct Trading Engine Summary Card */}
-            <div className="summary-card">
-                <div className="card-header">
-                    <span className="icon">📊</span>
-                    <span className="title">Direct Trading Engine Summary</span>
+            {/* Statistics */}
+            <div className="stats-section">
+                <h3>📊 Statistics</h3>
+                <div className="stats-grid">
+                    <div className="stat-item">
+                        <span className="stat-label">Total Trades</span>
+                        <span className="stat-value">{tradingState.totalTrades}</span>
+                    </div>
+                    <div className="stat-item">
+                        <span className="stat-label">Win Rate</span>
+                        <span className="stat-value">
+                            {tradingState.totalTrades > 0 ? 
+                                ((tradingState.winTrades / tradingState.totalTrades) * 100).toFixed(1) : 0}%
+                        </span>
+                    </div>
+                    <div className="stat-item">
+                        <span className="stat-label">Total P&L</span>
+                        <span className={`stat-value ${tradingState.totalProfit >= 0 ? 'profit' : 'loss'}`}>
+                            ${tradingState.totalProfit.toFixed(2)}
+                        </span>
+                    </div>
+                    <div className="stat-item">
+                        <span className="stat-label">Last Result</span>
+                        <span className="stat-value">{tradingState.lastTradeResult}</span>
+                    </div>
                 </div>
-                <div className="summary-grid">
-                    <div className="summary-row">
-                        <div className="summary-item">
-                            <span className="label">🔧 DIRECT</span>
-                            <span className="value">Trade API</span>
-                            <span className="sublabel">Mode: (Bypassing Wizard)</span>
+            </div>
+
+            {/* Activity Logs */}
+            <div className="logs-section">
+                <h3>📝 Activity Logs</h3>
+                <div className="logs-container">
+                    {logs.map((log, index) => (
+                        <div key={index} className="log-entry">
+                            {log}
                         </div>
-                        <div className="summary-item">
-                            <span className="label">Strategy:</span>
-                            <span className="value">{botConfig.selectedStrategy.toUpperCase()}</span>
-                        </div>
-                        <div className="summary-item">
-                            <span className="label">Total Trades:</span>
-                            <span className="value">{tradingState.totalTrades}</span>
-                        </div>
-                        <div className="summary-item">
-                            <span className="label">Win Rate:</span>
-                            <span className="value">
-                                {tradingState.totalTrades > 0 ? 
-                                    ((tradingState.winTrades / tradingState.totalTrades) * 100).toFixed(0) : 0}%
-                            </span>
-                        </div>
-                    </div>
-                    <div className="summary-row">
-                        <div className="summary-item">
-                            <span className="label">Total P&L:</span>
-                            <span className={`value ${tradingState.profit >= 0 ? 'profit' : 'loss'}`}>
-                                ${tradingState.profit.toFixed(2)}
-                            </span>
-                        </div>
-                        <div className="summary-item">
-                            <span className="label">Current Stake:</span>
-                            <span className="value">${botConfig.initialStake}</span>
-                        </div>
-                        <div className="summary-item">
-                            <span className="label">Martingale State:</span>
-                            <span className="value martingale">
-                                {martingaleState.isActive ? 
-                                    `✅ Reset` : 
-                                    '✅ Reset'}
-                            </span>
-                        </div>
-                        <div className="summary-item">
-                            <span className="label">Stop Loss:</span>
-                            <span className="value">${botConfig.stopLoss}</span>
-                        </div>
-                    </div>
-                    <div className="summary-row">
-                        <div className="summary-item">
-                            <span className="label">Take Profit:</span>
-                            <span className="value">${botConfig.takeProfit}</span>
-                        </div>
-                        <div className="summary-item">
-                            <span className="label">Auto Symbol:</span>
-                            <span className="value">
-                                {tradingState.isAutoOverUnderActive ? '1HZ25V' : 
-                                 tradingState.isAutoDifferActive ? '1HZ50V' : 
-                                 tradingState.isAutoO5U4Active ? '1HZ75V' : '1HZ10V'}
-                            </span>
-                        </div>
-                        <div className="summary-item">
-                            <span className="label">Auto Contract:</span>
-                            <span className="value">
-                                {tradingState.isAutoOverUnderActive ? 'Strategy-Based' : 
-                                 tradingState.isAutoDifferActive ? 'Strategy-Based' : 
-                                 tradingState.isAutoO5U4Active ? 'Strategy-Based' : 'Strategy-Based'}
-                            </span>
-                        </div>
-                        <div className="summary-item">
-                            <span className="label"></span>
-                            <span className="value"></span>
-                        </div>
-                    </div>
+                    ))}
+                    <div ref={logsEndRef} />
                 </div>
             </div>
         </div>

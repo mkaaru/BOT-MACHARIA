@@ -1,254 +1,319 @@
-.trading-hub-wrapper {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding: 16px;
-    max-width: 600px;
+
+.trading-hub-container {
+    max-width: 800px;
     margin: 0 auto;
+    padding: 20px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
+    background: #f8f9fa;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 
-// Common card styles
-.strategy-card,
-.controls-card,
-.summary-card {
-    background: #ffffff;
-    border-radius: 8px;
-    border: 1px solid #e0e7ff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-}
-
-.card-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e0e7ff;
-
-    .icon {
-        font-size: 16px;
-    }
-
-    .title {
+    h3 {
+        margin: 0 0 16px 0;
+        color: #2c3e50;
+        font-size: 18px;
         font-weight: 600;
-        font-size: 14px;
-        color: #374151;
-    }
-}
-
-.card-subtitle {
-    padding: 8px 16px;
-    font-size: 12px;
-    color: #6b7280;
-    background: #f9fafb;
-    border-bottom: 1px solid #f3f4f6;
-}
-
-// Strategy card specific styles
-.strategy-options {
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.strategy-option {
-    padding: 12px 16px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    background: #ffffff;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 14px;
-    color: #374151;
-
-    &:hover {
-        border-color: #a7f3d0;
-        background: #f0fdf4;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
 
-    &.selected {
-        border-color: #10b981;
-        background: #d1fae5;
-        color: #065f46;
-        font-weight: 500;
-    }
+    // Strategy Section
+    .strategy-section {
+        margin-bottom: 24px;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
 
-    &:last-child {
-        border-color: #d1d5db;
-        background: #f9fafb;
+        .strategy-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
 
-        &.selected {
-            border-color: #10b981;
-            background: #d1fae5;
-        }
-    }
-}
+            .strategy-btn {
+                padding: 10px 20px;
+                border: 2px solid #dee2e6;
+                border-radius: 6px;
+                background: white;
+                color: #495057;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.3s ease;
 
-// Controls card specific styles
-.control-buttons {
-    padding: 16px;
-    display: flex;
-    gap: 12px;
-}
+                &:hover {
+                    border-color: #007bff;
+                    color: #007bff;
+                }
 
-.control-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 10px 16px;
-    border: none;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
+                &.active {
+                    border-color: #28a745;
+                    background: #28a745;
+                    color: white;
+                }
 
-    .icon {
-        font-size: 14px;
-    }
-
-    &.start {
-        background: #10b981;
-        color: white;
-
-        &:hover:not(:disabled) {
-            background: #059669;
+                &:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+            }
         }
     }
 
-    &.stop {
-        background: #ef4444;
-        color: white;
+    // Configuration Section
+    .config-section {
+        margin-bottom: 24px;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
 
-        &:hover:not(:disabled) {
-            background: #dc2626;
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+
+            .config-item {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+
+                label {
+                    font-weight: 500;
+                    color: #495057;
+                    font-size: 14px;
+                }
+
+                input {
+                    padding: 10px;
+                    border: 1px solid #ced4da;
+                    border-radius: 4px;
+                    font-size: 14px;
+
+                    &:focus {
+                        outline: none;
+                        border-color: #007bff;
+                        box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+                    }
+
+                    &:disabled {
+                        background: #f8f9fa;
+                        opacity: 0.6;
+                    }
+                }
+            }
         }
     }
 
-    &.manual {
-        background: #3b82f6;
-        color: white;
+    // Controls Section
+    .controls-section {
+        margin-bottom: 24px;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
 
-        &:hover:not(:disabled) {
-            background: #2563eb;
+        .control-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+
+            .control-btn {
+                padding: 12px 24px;
+                border: none;
+                border-radius: 6px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+
+                &.start {
+                    background: #28a745;
+                    color: white;
+
+                    &:hover:not(:disabled) {
+                        background: #218838;
+                    }
+                }
+
+                &.stop {
+                    background: #dc3545;
+                    color: white;
+
+                    &:hover:not(:disabled) {
+                        background: #c82333;
+                    }
+                }
+
+                &.manual {
+                    background: #007bff;
+                    color: white;
+
+                    &:hover:not(:disabled) {
+                        background: #0056b3;
+                    }
+                }
+
+                &.reset {
+                    background: #ffc107;
+                    color: #212529;
+
+                    &:hover:not(:disabled) {
+                        background: #e0a800;
+                    }
+                }
+
+                &:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+            }
         }
     }
 
-    &.reset {
-        background: #f59e0b;
-        color: white;
+    // Statistics Section
+    .stats-section {
+        margin-bottom: 24px;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
 
-        &:hover:not(:disabled) {
-            background: #d97706;
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+
+            .stat-item {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                padding: 16px;
+                background: #f8f9fa;
+                border-radius: 6px;
+
+                .stat-label {
+                    font-size: 12px;
+                    color: #6c757d;
+                    margin-bottom: 8px;
+                    font-weight: 500;
+                }
+
+                .stat-value {
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: #2c3e50;
+
+                    &.profit {
+                        color: #28a745;
+                    }
+
+                    &.loss {
+                        color: #dc3545;
+                    }
+                }
+            }
         }
     }
 
-    &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-}
+    // Logs Section
+    .logs-section {
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
 
-// Summary card specific styles
-.summary-grid {
-    padding: 16px;
-}
+        .logs-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 12px;
 
-.summary-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 12px;
+            .log-entry {
+                font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                font-size: 12px;
+                color: #495057;
+                margin-bottom: 4px;
+                line-height: 1.4;
 
-    &:last-child {
-        margin-bottom: 0;
-    }
-}
+                &:last-child {
+                    margin-bottom: 0;
+                }
+            }
 
-.summary-item {
-    display: flex;
-    flex-direction: column;
-    text-align: center;
+            &::-webkit-scrollbar {
+                width: 6px;
+            }
 
-    .label {
-        font-size: 11px;
-        color: #6b7280;
-        margin-bottom: 4px;
-        font-weight: 500;
-    }
+            &::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 3px;
+            }
 
-    .value {
-        font-size: 13px;
-        color: #374151;
-        font-weight: 600;
+            &::-webkit-scrollbar-thumb {
+                background: #c1c1c1;
+                border-radius: 3px;
 
-        &.profit {
-            color: #059669;
+                &:hover {
+                    background: #a8a8a8;
+                }
+            }
         }
-
-        &.loss {
-            color: #dc2626;
-        }
-
-        &.martingale {
-            font-size: 11px;
-        }
-    }
-
-    .sublabel {
-        font-size: 10px;
-        color: #9ca3af;
-        margin-top: 2px;
     }
 }
 
 // Responsive adjustments
 @media (max-width: 768px) {
-    .trading-hub-wrapper {
-        padding: 12px;
-        max-width: 100%;
-    }
+    .trading-hub-container {
+        padding: 16px;
+        margin: 16px;
 
-    .control-buttons {
-        flex-direction: column;
-        gap: 8px;
-    }
+        .strategy-section,
+        .config-section,
+        .controls-section,
+        .stats-section,
+        .logs-section {
+            padding: 16px;
+        }
 
-    .summary-row {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-    }
+        .control-buttons {
+            flex-direction: column;
 
-    .card-header .title {
-        font-size: 13px;
-    }
+            .control-btn {
+                justify-content: center;
+            }
+        }
 
-    .strategy-option {
-        padding: 10px 12px;
-        font-size: 13px;
+        .config-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
     }
 }
 
 @media (max-width: 480px) {
-    .summary-row {
-        grid-template-columns: 1fr;
-        gap: 6px;
-    }
+    .trading-hub-container {
+        margin: 8px;
+        padding: 12px;
 
-    .summary-item {
-        text-align: left;
-        padding: 8px;
-        background: #f9fafb;
-        border-radius: 4px;
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
 
-        .label, .value {
-            display: inline;
-            margin-right: 8px;
+        .strategy-buttons {
+            flex-direction: column;
+
+            .strategy-btn {
+                text-align: center;
+            }
         }
     }
 }
