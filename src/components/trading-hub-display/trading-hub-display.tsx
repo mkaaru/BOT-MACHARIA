@@ -54,9 +54,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         martingaleMultiplier: 2,
         maxConsecutiveLosses: 5,
         stopLoss: 50,
-        takeProfit: 100,
-        symbol: '1HZ10V',
-        contractType: 'DIGITEVEN'
+        takeProfit: 100
     });
 
     const [marketData, setMarketData] = useState<MarketData[]>([]);
@@ -70,6 +68,33 @@ const TradingHubDisplay: React.FC = observer(() => {
         setLogs(prev => [...prev.slice(-49), logMessage]);
         console.log('🔄', logMessage);
     }, []);
+
+    // Sync bot configuration with bot builder
+    const updateBotBuilder = useCallback((config: typeof botConfig) => {
+        if (window.dbot?.interpreter?.bot) {
+            const botInterface = window.dbot.interpreter.bot.getInterface();
+            
+            // Update bot builder parameters
+            if (botInterface.updateConfig) {
+                botInterface.updateConfig({
+                    strategy: config.selectedStrategy,
+                    initialStake: config.initialStake,
+                    martingaleMultiplier: config.martingaleMultiplier,
+                    maxConsecutiveLosses: config.maxConsecutiveLosses,
+                    stopLoss: config.stopLoss,
+                    takeProfit: config.takeProfit
+                });
+            }
+
+            // Update strategy-specific settings
+            if (config.selectedStrategy === 'martingale') {
+                botInterface.setMartingaleLimits?.(config.martingaleMultiplier, config.maxConsecutiveLosses);
+                botInterface.setMartingaleEnabled?.(true);
+            }
+
+            addLog(`🔧 Bot builder updated with ${config.selectedStrategy} strategy settings`);
+        }
+    }, [addLog]);
 
     const scrollToBottom = useCallback(() => {
         logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -157,18 +182,23 @@ const TradingHubDisplay: React.FC = observer(() => {
             setTradingState(prev => ({ ...prev, isTradeInProgress: true }));
             addLog(`🎯 Executing Auto ${botConfig.selectedStrategy.toUpperCase()} trade: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${botConfig.symbol}`);
 
-            // Determine contract type based on recommendation and config
-            let contractType = botConfig.contractType;
-            if (recommendation.strategy === 'under') {
-                contractType = 'DIGITUNDER';
-            } else if (recommendation.strategy === 'over') {
-                contractType = 'DIGITOVER';
+            // Auto-determine symbol and contract type based on strategy
+            let symbol = recommendation.symbol || '1HZ10V'; // Default to Volatility 10 (1s)
+            let contractType = 'DIGITEVEN'; // Default contract type
+            
+            // Strategy-based contract selection
+            if (tradingState.isAutoOverUnderActive) {
+                contractType = recommendation.strategy === 'under' ? 'DIGITUNDER' : 'DIGITOVER';
+            } else if (tradingState.isAutoDifferActive) {
+                contractType = recommendation.lastDigit % 2 === 0 ? 'DIGITODD' : 'DIGITEVEN';
+            } else if (tradingState.isAutoO5U4Active) {
+                contractType = recommendation.barrier > 5 ? 'DIGITUNDER' : 'DIGITOVER';
             }
 
             // Create enhanced trade parameters with bot configuration
             const tradeParams = {
                 contract_type: contractType,
-                symbol: botConfig.symbol,
+                symbol: symbol,
                 duration: 1,
                 duration_unit: 't',
                 amount: botConfig.initialStake,
@@ -213,7 +243,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     lastTradeTime: Date.now(),
                     tradeHistory: [...prev.tradeHistory.slice(-19), {
                         time: Date.now(),
-                        symbol: botConfig.symbol,
+                        symbol: tradeParams.symbol,
                         type: recommendation.strategy,
                         barrier: recommendation.barrier,
                         amount: botConfig.initialStake,
@@ -419,16 +449,6 @@ const TradingHubDisplay: React.FC = observer(() => {
             </div>
 
             <div className="trading-hub-content">
-                <div className="logs-section">
-                    <h3>📜 Activity Logs</h3>
-                    <div className="logs-container">
-                        {logs.map((log, index) => (
-                            <div key={index} className="log-item">{log}</div>
-                        ))}
-                        <div ref={logsEndRef} />
-                    </div>
-                </div>
-
                 <div className="connection-status">
                     <h3>🔗 System Status</h3>
                     <div className="status-grid">
@@ -466,7 +486,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                             <label>Strategy:</label>
                             <select 
                                 value={botConfig.selectedStrategy} 
-                                onChange={(e) => setBotConfig(prev => ({...prev, selectedStrategy: e.target.value}))}
+                                onChange={(e) => {
+                                    const newConfig = {...botConfig, selectedStrategy: e.target.value};
+                                    setBotConfig(newConfig);
+                                    updateBotBuilder(newConfig);
+                                }}
                                 disabled={tradingState.isContinuousTrading}
                             >
                                 <option value="martingale">Martingale</option>
@@ -476,38 +500,15 @@ const TradingHubDisplay: React.FC = observer(() => {
                             </select>
                         </div>
                         <div className="config-group">
-                            <label>Symbol:</label>
-                            <select 
-                                value={botConfig.symbol} 
-                                onChange={(e) => setBotConfig(prev => ({...prev, symbol: e.target.value}))}
-                                disabled={tradingState.isContinuousTrading}
-                            >
-                                <option value="1HZ10V">Volatility 10 (1s) Index</option>
-                                <option value="1HZ25V">Volatility 25 (1s) Index</option>
-                                <option value="1HZ50V">Volatility 50 (1s) Index</option>
-                                <option value="1HZ75V">Volatility 75 (1s) Index</option>
-                                <option value="1HZ100V">Volatility 100 (1s) Index</option>
-                            </select>
-                        </div>
-                        <div className="config-group">
-                            <label>Contract Type:</label>
-                            <select 
-                                value={botConfig.contractType} 
-                                onChange={(e) => setBotConfig(prev => ({...prev, contractType: e.target.value}))}
-                                disabled={tradingState.isContinuousTrading}
-                            >
-                                <option value="DIGITEVEN">Even</option>
-                                <option value="DIGITODD">Odd</option>
-                                <option value="DIGITOVER">Over</option>
-                                <option value="DIGITUNDER">Under</option>
-                            </select>
-                        </div>
-                        <div className="config-group">
                             <label>Initial Stake ($):</label>
                             <input 
                                 type="number" 
                                 value={botConfig.initialStake} 
-                                onChange={(e) => setBotConfig(prev => ({...prev, initialStake: parseFloat(e.target.value) || 1}))}
+                                onChange={(e) => {
+                                    const newConfig = {...botConfig, initialStake: parseFloat(e.target.value) || 1};
+                                    setBotConfig(newConfig);
+                                    updateBotBuilder(newConfig);
+                                }}
                                 min="0.35" 
                                 step="0.01"
                                 disabled={tradingState.isContinuousTrading}
@@ -520,7 +521,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     <input 
                                         type="number" 
                                         value={botConfig.martingaleMultiplier} 
-                                        onChange={(e) => setBotConfig(prev => ({...prev, martingaleMultiplier: parseFloat(e.target.value) || 2}))}
+                                        onChange={(e) => {
+                                            const newConfig = {...botConfig, martingaleMultiplier: parseFloat(e.target.value) || 2};
+                                            setBotConfig(newConfig);
+                                            updateBotBuilder(newConfig);
+                                        }}
                                         min="1.1" 
                                         step="0.1"
                                         disabled={tradingState.isContinuousTrading}
@@ -531,7 +536,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     <input 
                                         type="number" 
                                         value={botConfig.maxConsecutiveLosses} 
-                                        onChange={(e) => setBotConfig(prev => ({...prev, maxConsecutiveLosses: parseInt(e.target.value) || 5}))}
+                                        onChange={(e) => {
+                                            const newConfig = {...botConfig, maxConsecutiveLosses: parseInt(e.target.value) || 5};
+                                            setBotConfig(newConfig);
+                                            updateBotBuilder(newConfig);
+                                        }}
                                         min="1" 
                                         step="1"
                                         disabled={tradingState.isContinuousTrading}
@@ -544,7 +553,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                             <input 
                                 type="number" 
                                 value={botConfig.stopLoss} 
-                                onChange={(e) => setBotConfig(prev => ({...prev, stopLoss: parseFloat(e.target.value) || 50}))}
+                                onChange={(e) => {
+                                    const newConfig = {...botConfig, stopLoss: parseFloat(e.target.value) || 50};
+                                    setBotConfig(newConfig);
+                                    updateBotBuilder(newConfig);
+                                }}
                                 min="1" 
                                 step="1"
                                 disabled={tradingState.isContinuousTrading}
@@ -555,7 +568,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                             <input 
                                 type="number" 
                                 value={botConfig.takeProfit} 
-                                onChange={(e) => setBotConfig(prev => ({...prev, takeProfit: parseFloat(e.target.value) || 100}))}
+                                onChange={(e) => {
+                                    const newConfig = {...botConfig, takeProfit: parseFloat(e.target.value) || 100};
+                                    setBotConfig(newConfig);
+                                    updateBotBuilder(newConfig);
+                                }}
                                 min="1" 
                                 step="1"
                                 disabled={tradingState.isContinuousTrading}
@@ -682,8 +699,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                             <span className="summary-value">${botConfig.takeProfit}</span>
                         </div>
                         <div className="summary-item">
-                            <span className="summary-label">Symbol:</span>
-                            <span className="summary-value">{botConfig.symbol}</span>
+                            <span className="summary-label">Auto Symbol:</span>
+                            <span className="summary-value">Strategy-Based</span>
                         </div>
                     </div>
                 </div>
