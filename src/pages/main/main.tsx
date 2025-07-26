@@ -82,15 +82,7 @@ const BotIcon = () => (
 // Import actual components
 import VolatilityAnalyzer from '@/components/volatility-analyzer/volatility-analyzer';
 import SpeedBot from '@/components/speed-bot/speed-bot';
-
-// Define a placeholder component for the Trading Hub
-const TradingHubDisplay = () => (
-    <div>
-        <h1>Trading Hub</h1>
-        <p>This is the Trading Hub section.</p>
-        {/* Add your Trading Hub content here */}
-    </div>
-);
+import TradingHubDisplay from '@/components/trading-hub-display/trading-hub-display';
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
