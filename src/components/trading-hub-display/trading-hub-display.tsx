@@ -202,7 +202,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         try {
             addLog(`🚀 Direct trade execution: ${tradeConfig.contract_type} on ${tradeConfig.symbol}`);
-            
+
             // Step 1: Get proposal
             const proposalRequest = {
                 proposal: 1,
@@ -280,12 +280,12 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         // Get current last digit for analysis (mock data if no real tick)
         const lastDigit = currentTick ? currentTick % 10 : Math.floor(Math.random() * 10);
-        
+
         if (strategy === 'overunder') {
             // Over/Under Strategy Logic
             const barrier = 5; // Can be dynamic based on analysis
             const isOver = lastDigit > barrier;
-            
+
             return {
                 ...baseConfig,
                 symbol: '1HZ25V', // Volatility 25 (1s)
@@ -296,7 +296,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         } else if (strategy === 'differ') {
             // Even/Odd Differ Strategy Logic
             const isEven = lastDigit % 2 === 0;
-            
+
             return {
                 ...baseConfig,
                 symbol: '1HZ50V', // Volatility 50 (1s)
@@ -307,7 +307,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             // Over 5 Under 4 Strategy Logic
             const barrier = 5;
             const shouldGoOver = lastDigit <= 4;
-            
+
             return {
                 ...baseConfig,
                 symbol: '1HZ75V', // Volatility 75 (1s)
@@ -334,7 +334,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         try {
             setTradingState(prev => ({ ...prev, isTradeInProgress: true }));
-            
+
             // Determine which strategy is active
             let activeStrategy = '';
             if (tradingState.isAutoOverUnderActive) {
@@ -354,19 +354,19 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             // Get the current tick for strategy analysis
             const currentTick = recommendation?.lastTick || Math.floor(Math.random() * 10000);
-            
+
             // Get trade configuration for the active strategy
             const tradeConfig = getTradeConfigForStrategy(activeStrategy, currentTick);
-            
+
             addLog(`📊 Strategy Analysis: ${tradeConfig.strategyReason}`);
             addLog(`📋 Trade Config: ${tradeConfig.contract_type} on ${tradeConfig.symbol}${tradeConfig.barrier ? ` (Barrier: ${tradeConfig.barrier})` : ''}`);
 
             // Execute trade directly through API, bypassing bot builder
             const result = await executeDirectTrade(tradeConfig);
-            
+
             if (result.success) {
                 addLog(`✅ ${activeStrategy.toUpperCase()} trade executed: ${result.contract_id} (Price: ${result.buy_price})`);
-                
+
                 // Update trading state
                 setTradingState(prev => ({
                     ...prev,
@@ -411,53 +411,22 @@ const TradingHubDisplay: React.FC = observer(() => {
         tradingState.isAutoDifferActive, tradingState.isAutoO5U4Active, executeDirectTrade, 
         getTradeConfigForStrategy, addLog]);
 
-    const executeTrade = async (params: any) => {
-        try {
-            addLog(`🔄 Sending proposal request...`);
-
-            // Get proposal first
-            const proposalResponse = await api_base.api.send(params);
-
-            if (proposalResponse.error) {
-                addLog(`❌ Proposal error: ${proposalResponse.error.message}`);
-                return { success: false, error: proposalResponse.error.message };
-            }
-
-            if (!proposalResponse.proposal) {
-                addLog(`❌ No proposal received`);
-                return { success: false, error: 'No proposal received' };
-            }
-
-            addLog(`✅ Proposal received: ${proposalResponse.proposal.id}, Price: ${proposalResponse.proposal.display_value}`);
-
-            // Buy the contract
-            const buyParams = {
-                buy: proposalResponse.proposal.id,
-                price: params.amount
-            };
-
-            addLog(`🔄 Sending buy request...`);
-            const buyResponse = await api_base.api.send(buyParams);
-
-            if (buyResponse.error) {
-                addLog(`❌ Buy error: ${buyResponse.error.message}`);
-                return { success: false, error: buyResponse.error.message };
-            }
-
-            if (!buyResponse.buy) {
-                addLog(`❌ No buy confirmation received`);
-                return { success: false, error: 'No buy confirmation received' };
-            }
-
-            addLog(`✅ Contract purchased: ${buyResponse.buy.contract_id}`);
-            return { success: true, contract_id: buyResponse.buy.contract_id };
-
-        } catch (error) {
-            addLog(`❌ Trade execution exception: ${error.message}`);
-            return { success: false, error: error.message };
+    const executeManualTrade = useCallback(async () => {
+        if (!tradingState.currentRecommendation) {
+            addLog('❌ No recommendation available for manual trade');
+            return;
         }
-    };
 
+        if (run_panel.is_running) {
+            addLog('⚠️ Main trading engine is running, manual trade not available');
+            return;
+        }
+
+        addLog('🎯 Executing manual trade...');
+        await executeAutoTrade(tradingState.currentRecommendation);
+    }, [tradingState.currentRecommendation, executeAutoTrade, run_panel.is_running]);
+
+    // Strategy-specific trade logic
     const handleStrategyToggle = useCallback((strategy: string) => {
         setTradingState(prev => {
             const newState = { ...prev };
@@ -537,21 +506,6 @@ const TradingHubDisplay: React.FC = observer(() => {
         addLog('Statistics reset');
     }, [addLog]);
 
-    const executeManualTrade = useCallback(async () => {
-        if (!tradingState.currentRecommendation) {
-            addLog('❌ No recommendation available for manual trade');
-            return;
-        }
-
-        if (run_panel.is_running) {
-            addLog('⚠️ Main trading engine is running, manual trade not available');
-            return;
-        }
-
-        addLog('🎯 Executing manual trade...');
-        await executeAutoTrade(tradingState.currentRecommendation);
-    }, [tradingState.currentRecommendation, executeAutoTrade, run_panel.is_running]);
-
     // Sync with Run Panel state
     useEffect(() => {
         if (run_panel.is_running && !tradingState.isContinuousTrading) {
@@ -571,13 +525,13 @@ const TradingHubDisplay: React.FC = observer(() => {
             // Monitor contract updates
             if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract) {
                 const contract = data.proposal_open_contract;
-                
+
                 if (contract.is_sold) {
                     const profit = parseFloat(contract.sell_price) - parseFloat(contract.buy_price);
                     const isWin = profit > 0;
-                    
+
                     addLog(`📊 Contract ${contract.contract_id} closed: P&L ${profit > 0 ? '+' : ''}${profit.toFixed(2)}`);
-                    
+
                     // Update trading statistics
                     setTradingState(prev => ({
                         ...prev,
@@ -641,356 +595,169 @@ const TradingHubDisplay: React.FC = observer(() => {
         botConfig.maxConsecutiveLosses, botConfig.initialStake, martingaleState.currentStake]);
 
     return (
-        <div className="trading-hub-container">
-            <div className="trading-hub-header">
-                <h2>🎯 Deriv Trading Hub</h2>
-                <div className="status-indicator">
-                    <span className={`status-dot ${api_base.api ? 'connected' : 'disconnected'}`}></span>
-                    {api_base.api ? 'Connected' : 'Disconnected'}
+        <div className="trading-hub-wrapper">
+            {/* Independent Trading Strategies Card */}
+            <div className="strategy-card">
+                <div className="card-header">
+                    <span className="icon">⚙️</span>
+                    <span className="title">Independent Trading Strategies</span>
+                </div>
+                <div className="card-subtitle">
+                    Select ONE strategy to activate (bypasses DBot interface):
+                </div>
+                <div className="strategy-options">
+                    <div 
+                        className={`strategy-option ${tradingState.isAutoOverUnderActive ? 'selected' : ''}`}
+                        onClick={() => !tradingState.isContinuousTrading && handleStrategyToggle('overunder')}
+                    >
+                        Auto Over/Under (Vol 25)
+                    </div>
+                    <div 
+                        className={`strategy-option ${tradingState.isAutoDifferActive ? 'selected' : ''}`}
+                        onClick={() => !tradingState.isContinuousTrading && handleStrategyToggle('differ')}
+                    >
+                        Auto Differ (Vol 50)
+                    </div>
+                    <div 
+                        className={`strategy-option ${tradingState.isAutoO5U4Active ? 'selected' : ''}`}
+                        onClick={() => !tradingState.isContinuousTrading && handleStrategyToggle('o5u4')}
+                    >
+                        Auto O5U4 (Vol 75)
+                    </div>
+                    <div 
+                        className={`strategy-option ${!tradingState.isAutoOverUnderActive && !tradingState.isAutoDifferActive && !tradingState.isAutoO5U4Active ? 'selected' : ''}`}
+                        onClick={() => {
+                            if (!tradingState.isContinuousTrading) {
+                                setTradingState(prev => ({
+                                    ...prev,
+                                    isAutoOverUnderActive: false,
+                                    isAutoDifferActive: false,
+                                    isAutoO5U4Active: false
+                                }));
+                                addLog('🚫 All independent strategies deactivated');
+                            }
+                        }}
+                    >
+                        None (Use DBot)
+                    </div>
                 </div>
             </div>
 
-            <div className="trading-hub-content">
-                <div className="connection-status">
-                    <h3>🔗 System Status</h3>
-                    <div className="status-grid">
-                        <div className="status-item">
-                            <span className="status-label">API:</span>
-                            <span className={`status-value ${api_base.api ? 'connected' : 'disconnected'}`}>
-                                {api_base.api ? '✅ Connected' : '❌ Disconnected'}
-                            </span>
-                        </div>
-                        <div className="status-item">
-                            <span className="status-label">Market Analyzer:</span>
-                            <span className={`status-value ${marketAnalyzer.isReadyForTrading() ? 'connected' : 'disconnected'}`}>
-                                {marketAnalyzer.isReadyForTrading() ? '✅ Ready' : '⏳ Loading...'}
-                            </span>
-                        </div>
-                        <div className="status-item">
-                            <span className="status-label">Trade Status:</span>
-                            <span className={`status-value ${(tradingState.isTradeInProgress || run_panel.is_running) ? 'trading' : 'idle'}`}>
-                                {(tradingState.isTradeInProgress || run_panel.is_running) ? '🔄 Trading' : '💤 Idle'}
-                            </span>
-                        </div>
-                        <div className="status-item">
-                            <span className="status-label">Engine State:</span>
-                            <span className={`status-value ${run_panel.is_running ? 'connected' : 'disconnected'}`}>
-                                {run_panel.is_running ? '🟢 Running' : '🔴 Stopped'}
-                            </span>
-                        </div>
-                    </div>
+            {/* Trading Controls Card */}
+            <div className="controls-card">
+                <div className="card-header">
+                    <span className="icon">🎮</span>
+                    <span className="title">Trading Controls</span>
                 </div>
-
-                <div className="bot-configuration-section">
-                    <h3>⚙️ Auto Trading Configuration</h3>
-                    <div className="config-grid">
-                        <div className="config-group">
-                            <label>Strategy:</label>
-                            <select 
-                                value={botConfig.selectedStrategy} 
-                                onChange={(e) => {
-                                    const newConfig = {...botConfig, selectedStrategy: e.target.value};
-                                    setBotConfig(newConfig);
-                                    updateBotBuilder(newConfig);
-                                    addLog(`🔄 Strategy changed to: ${e.target.value.toUpperCase()}`);
-                                }}
-                                disabled={tradingState.isContinuousTrading}
-                            >
-                                <option value="martingale">Martingale</option>
-                                <option value="dalembert">D'Alembert</option>
-                                <option value="oscars_grind">Oscar's Grind</option>
-                                <option value="reverse_martingale">Reverse Martingale</option>
-                            </select>
-                        </div>
-                        <div className="config-group">
-                            <label>Initial Stake ($):</label>
-                            <input 
-                                type="number" 
-                                value={botConfig.initialStake} 
-                                onChange={(e) => {
-                                    const newConfig = {...botConfig, initialStake: parseFloat(e.target.value) || 1};
-                                    setBotConfig(newConfig);
-                                    updateBotBuilder(newConfig);
-                                }}
-                                min="0.35" 
-                                step="0.01"
-                                disabled={tradingState.isContinuousTrading}
-                            />
-                        </div>
-                        <div className="config-group">
-                            <label>Martingale Multiplier:</label>
-                            <input 
-                                type="number" 
-                                value={botConfig.martingaleMultiplier} 
-                                onChange={(e) => {
-                                    const newConfig = {...botConfig, martingaleMultiplier: parseFloat(e.target.value) || 2};
-                                    setBotConfig(newConfig);
-                                    updateBotBuilder(newConfig);
-                                }}
-                                min="1.1" 
-                                step="0.1"
-                                disabled={tradingState.isContinuousTrading}
-                            />
-                        </div>
-                        <div className="config-group">
-                            <label>Max Consecutive Losses:</label>
-                            <input 
-                                type="number" 
-                                value={botConfig.maxConsecutiveLosses} 
-                                onChange={(e) => {
-                                    const newConfig = {...botConfig, maxConsecutiveLosses: parseInt(e.target.value) || 5};
-                                    setBotConfig(newConfig);
-                                    updateBotBuilder(newConfig);
-                                }}
-                                min="1" 
-                                step="1"
-                                disabled={tradingState.isContinuousTrading}
-                            />
-                        </div>
-                        <div className="config-group">
-                            <label>Stop Loss ($):</label>
-                            <input 
-                                type="number" 
-                                value={botConfig.stopLoss} 
-                                onChange={(e) => {
-                                    const newConfig = {...botConfig, stopLoss: parseFloat(e.target.value) || 50};
-                                    setBotConfig(newConfig);
-                                    updateBotBuilder(newConfig);
-                                }}
-                                min="1" 
-                                step="1"
-                                disabled={tradingState.isContinuousTrading}
-                            />
-                        </div>
-                        <div className="config-group">
-                            <label>Take Profit ($):</label>
-                            <input 
-                                type="number" 
-                                value={botConfig.takeProfit} 
-                                onChange={(e) => {
-                                    const newConfig = {...botConfig, takeProfit: parseFloat(e.target.value) || 100};
-                                    setBotConfig(newConfig);
-                                    updateBotBuilder(newConfig);
-                                }}
-                                min="1" 
-                                step="1"
-                                disabled={tradingState.isContinuousTrading}
-                            />
-                        </div>
-                    </div>
-                    <div className="config-info">
-                        <p>📍 Symbol & Contract Type are automatically selected based on active trading strategy</p>
-                    </div>
+                <div className="control-buttons">
+                    <button 
+                        className={`control-btn ${(tradingState.isContinuousTrading || run_panel.is_running) ? 'stop' : 'start'}`}
+                        onClick={toggleContinuousTrading}
+                        disabled={tradingState.isTradeInProgress || run_panel.is_stop_button_disabled}
+                    >
+                        <span className="icon">
+                            {(tradingState.isContinuousTrading || run_panel.is_running) ? '⏹️' : '▶️'}
+                        </span>
+                        {(tradingState.isContinuousTrading || run_panel.is_running) ? 'Start Trading' : 'Start Trading'}
+                    </button>
+                    <button 
+                        className="control-btn manual"
+                        onClick={executeManualTrade}
+                        disabled={tradingState.isTradeInProgress || !tradingState.currentRecommendation || run_panel.is_running}
+                    >
+                        <span className="icon">🎯</span>
+                        Manual Trade
+                    </button>
+                    <button 
+                        className="control-btn reset"
+                        onClick={resetStats}
+                    >
+                        <span className="icon">🔄</span>
+                        Reset Stats
+                    </button>
                 </div>
+            </div>
 
-                <div className="recommendation-section">
-                    <h3>📊 Current Recommendation</h3>
-                    {tradingState.currentRecommendation ? (
-                        <div className="recommendation-card">
-                            <div className="rec-header">
-                                <span className="rec-symbol">{tradingState.currentRecommendation.symbol}</span>
-                                <span className="rec-type">
-                                    {tradingState.currentRecommendation.strategy.toUpperCase()} {tradingState.currentRecommendation.barrier}
-                                </span>
-                            </div>
-                            <div className="rec-reason">{tradingState.currentRecommendation.reason}</div>
-                            <div className="rec-percentages">
-                                Over: {tradingState.currentRecommendation.overPercentage?.toFixed(1)}% | 
-                                Under: {tradingState.currentRecommendation.underPercentage?.toFixed(1)}%
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="no-recommendation">
-                            Waiting for market analysis...
-                        </div>
-                    )}
+            {/* Direct Trading Engine Summary Card */}
+            <div className="summary-card">
+                <div className="card-header">
+                    <span className="icon">📊</span>
+                    <span className="title">Direct Trading Engine Summary</span>
                 </div>
-
-                <div className="strategy-section">
-                    <h3>⚙️ Independent Trading Strategies</h3>
-                    <p className="strategy-note">Select ONE strategy to activate (bypasses DBot interface):</p>
-                    <div className="strategy-toggles">
-                        <label className="strategy-toggle">
-                            <input
-                                type="radio"
-                                name="trading_strategy"
-                                checked={tradingState.isAutoOverUnderActive}
-                                onChange={() => handleStrategyToggle('overunder')}
-                                disabled={tradingState.isContinuousTrading}
-                            />
-                            <span>Auto Over/Under (Vol 25)</span>
-                        </label>
-                        <label className="strategy-toggle">
-                            <input
-                                type="radio"
-                                name="trading_strategy"
-                                checked={tradingState.isAutoDifferActive}
-                                onChange={() => handleStrategyToggle('differ')}
-                                disabled={tradingState.isContinuousTrading}
-                            />
-                            <span>Auto Differ (Vol 50)</span>
-                        </label>
-                        <label className="strategy-toggle">
-                            <input
-                                type="radio"
-                                name="trading_strategy"
-                                checked={tradingState.isAutoO5U4Active}
-                                onChange={() => handleStrategyToggle('o5u4')}
-                                disabled={tradingState.isContinuousTrading}
-                            />
-                            <span>Auto O5U4 (Vol 75)</span>
-                        </label>
-                        <label className="strategy-toggle">
-                            <input
-                                type="radio"
-                                name="trading_strategy"
-                                checked={!tradingState.isAutoOverUnderActive && !tradingState.isAutoDifferActive && !tradingState.isAutoO5U4Active}
-                                onChange={() => {
-                                    setTradingState(prev => ({
-                                        ...prev,
-                                        isAutoOverUnderActive: false,
-                                        isAutoDifferActive: false,
-                                        isAutoO5U4Active: false
-                                    }));
-                                    addLog('🚫 All independent strategies deactivated');
-                                }}
-                                disabled={tradingState.isContinuousTrading}
-                            />
-                            <span>None (Use DBot)</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div className="control-section">
-                    <h3>🎮 Trading Controls</h3>
-                    <div className="control-buttons">
-                        <button
-                            className={`control-btn ${(tradingState.isContinuousTrading || run_panel.is_running) ? 'stop-btn' : 'start-btn'}`}
-                            onClick={toggleContinuousTrading}
-                            disabled={tradingState.isTradeInProgress || run_panel.is_stop_button_disabled}
-                        >
-                            {(tradingState.isContinuousTrading || run_panel.is_running) ? '⏹️ Stop Trading' : '▶️ Start Trading'}
-                        </button>
-
-                        <button
-                            className="control-btn manual-btn"
-                            onClick={executeManualTrade}
-                            disabled={tradingState.isTradeInProgress || !tradingState.currentRecommendation || run_panel.is_running}
-                        >
-                            🎯 Manual Trade
-                        </button>
-
-                        <button
-                            className="control-btn reset-btn"
-                            onClick={resetStats}
-                        >
-                            🔄 Reset Stats
-                        </button>
-                    </div>
-                </div>
-
-                <div className="trading-summary-section">
-                    <h3>📊 Direct Trading Engine Summary</h3>
-                    <div className="summary-grid">
+                <div className="summary-grid">
+                    <div className="summary-row">
                         <div className="summary-item">
-                            <span className="summary-label">Trade Mode:</span>
-                            <span className="summary-value">🚀 DIRECT API (Bypassing Wizard)</span>
+                            <span className="label">🔧 DIRECT</span>
+                            <span className="value">Trade API</span>
+                            <span className="sublabel">Mode: (Bypassing Wizard)</span>
                         </div>
                         <div className="summary-item">
-                            <span className="summary-label">Strategy:</span>
-                            <span className="summary-value">{botConfig.selectedStrategy.toUpperCase()}</span>
+                            <span className="label">Strategy:</span>
+                            <span className="value">{botConfig.selectedStrategy.toUpperCase()}</span>
                         </div>
                         <div className="summary-item">
-                            <span className="summary-label">Total Trades:</span>
-                            <span className="summary-value">{tradingState.totalTrades}</span>
+                            <span className="label">Total Trades:</span>
+                            <span className="value">{tradingState.totalTrades}</span>
                         </div>
                         <div className="summary-item">
-                            <span className="summary-label">Win Rate:</span>
-                            <span className="summary-value">
+                            <span className="label">Win Rate:</span>
+                            <span className="value">
                                 {tradingState.totalTrades > 0 ? 
-                                    ((tradingState.winTrades / tradingState.totalTrades) * 100).toFixed(1) : 0}%
+                                    ((tradingState.winTrades / tradingState.totalTrades) * 100).toFixed(0) : 0}%
                             </span>
                         </div>
+                    </div>
+                    <div className="summary-row">
                         <div className="summary-item">
-                            <span className="summary-label">Total P&L:</span>
-                            <span className={`summary-value ${tradingState.profit >= 0 ? 'profit' : 'loss'}`}>
+                            <span className="label">Total P&L:</span>
+                            <span className={`value ${tradingState.profit >= 0 ? 'profit' : 'loss'}`}>
                                 ${tradingState.profit.toFixed(2)}
                             </span>
                         </div>
                         <div className="summary-item">
-                            <span className="summary-label">Current Stake:</span>
-                            <span className="summary-value">${botConfig.initialStake}</span>
+                            <span className="label">Current Stake:</span>
+                            <span className="value">${botConfig.initialStake}</span>
                         </div>
                         <div className="summary-item">
-                            <span className="summary-label">Martingale State:</span>
-                            <span className="summary-value">
+                            <span className="label">Martingale State:</span>
+                            <span className="value martingale">
                                 {martingaleState.isActive ? 
-                                    `🔄 Active (${martingaleState.consecutiveLosses} losses)` : 
+                                    `✅ Reset` : 
                                     '✅ Reset'}
                             </span>
                         </div>
                         <div className="summary-item">
-                            <span className="summary-label">Stop Loss:</span>
-                            <span className="summary-value">${botConfig.stopLoss}</span>
+                            <span className="label">Stop Loss:</span>
+                            <span className="value">${botConfig.stopLoss}</span>
+                        </div>
+                    </div>
+                    <div className="summary-row">
+                        <div className="summary-item">
+                            <span className="label">Take Profit:</span>
+                            <span className="value">${botConfig.takeProfit}</span>
                         </div>
                         <div className="summary-item">
-                            <span className="summary-label">Take Profit:</span>
-                            <span className="summary-value">${botConfig.takeProfit}</span>
-                        </div>
-                        <div className="summary-item">
-                            <span className="summary-label">Auto Symbol:</span>
-                            <span className="summary-value">
+                            <span className="label">Auto Symbol:</span>
+                            <span className="value">
                                 {tradingState.isAutoOverUnderActive ? '1HZ25V' : 
                                  tradingState.isAutoDifferActive ? '1HZ50V' : 
                                  tradingState.isAutoO5U4Active ? '1HZ75V' : '1HZ10V'}
                             </span>
                         </div>
                         <div className="summary-item">
-                            <span className="summary-label">Auto Contract:</span>
-                            <span className="summary-value">
-                                {tradingState.isAutoOverUnderActive ? 'Over/Under' : 
-                                 tradingState.isAutoDifferActive ? 'Even/Odd' : 
-                                 tradingState.isAutoO5U4Active ? 'O5U4' : 'Strategy-Based'}
+                            <span className="label">Auto Contract:</span>
+                            <span className="value">
+                                {tradingState.isAutoOverUnderActive ? 'Strategy-Based' : 
+                                 tradingState.isAutoDifferActive ? 'Strategy-Based' : 
+                                 tradingState.isAutoO5U4Active ? 'Strategy-Based' : 'Strategy-Based'}
                             </span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="label"></span>
+                            <span className="value"></span>
                         </div>
                     </div>
                 </div>
-
-                <div className="trade-history-section">
-                    <h3>📋 Recent Trades</h3>
-                    <div className="trade-history-container">
-                        {tradingState.tradeHistory.length > 0 ? (
-                            <table className="trade-history-table">
-                                <thead>
-                                    <tr>
-                                        <th>Time</th>
-                                        <th>Symbol</th>
-                                        <th>Type</th>
-                                        <th>Amount</th>
-                                        <th>Strategy</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {tradingState.tradeHistory.slice(-10).reverse().map((trade, index) => (
-                                        <tr key={index}>
-                                            <td>{new Date(trade.time).toLocaleTimeString()}</td>
-                                            <td>{trade.symbol}</td>
-                                            <td>{trade.type}</td>
-                                            <td>${trade.amount}</td>
-                                            <td>{trade.strategy || 'manual'}</td>
-                                            <td className={`status-${trade.status}`}>{trade.status}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        ) : (
-                            <div className="no-trades">No trades executed yet</div>
-                        )}
-                    </div>
-                </div>
-
-
             </div>
         </div>
     );
