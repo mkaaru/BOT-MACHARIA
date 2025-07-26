@@ -428,11 +428,21 @@ const TradingHubDisplay: React.FC = () => {
 
     // WebSocket connection monitoring
     const checkWebSocketConnection = () => {
-        if (api_base && api_base.api && api_base.api.readyState === WebSocket.OPEN) {
+        const isConnected = api_base && api_base.api && api_base.api.readyState === WebSocket.OPEN;
+        
+        if (isConnected) {
             setIsWebSocketConnected(true);
             setConnectionAttempts(0);
+            console.log('WebSocket connection verified - CONNECTED');
         } else {
             setIsWebSocketConnected(false);
+            console.log('WebSocket connection check - DISCONNECTED', {
+                api_base_exists: !!api_base,
+                api_exists: !!api_base?.api,
+                readyState: api_base?.api?.readyState,
+                connection_attempts: connectionAttempts
+            });
+            
             if (connectionAttempts < maxReconnectAttempts) {
                 console.log(`WebSocket disconnected, attempting to reconnect... (${connectionAttempts + 1}/${maxReconnectAttempts})`);
                 setConnectionAttempts(prev => prev + 1);
@@ -440,7 +450,10 @@ const TradingHubDisplay: React.FC = () => {
                 // Attempt to reconnect
                 setTimeout(() => {
                     if (api_base && api_base.init) {
-                        api_base.init();
+                        console.log('Attempting reconnection...');
+                        api_base.init(true).catch((error) => {
+                            console.error('Reconnection failed:', error);
+                        });
                     }
                 }, 3000 * Math.pow(2, connectionAttempts)); // Exponential backoff
             } else {
@@ -463,6 +476,16 @@ const TradingHubDisplay: React.FC = () => {
             if (savedMartingale) {
                 console.log(`Loaded saved martingale from storage: ${savedMartingale}`);
                 setMartingale(savedMartingale);
+            }
+
+            // Initialize API connection if not already connected
+            if (!api_base.api || api_base.api.readyState !== WebSocket.OPEN) {
+                console.log('Initializing API connection...');
+                api_base.init().then(() => {
+                    console.log('API initialization completed');
+                }).catch((error) => {
+                    console.error('API initialization failed:', error);
+                });
             }
 
             // Start WebSocket connection monitoring
