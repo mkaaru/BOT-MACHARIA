@@ -283,7 +283,7 @@ const TradingHubDisplay: React.FC = () => {
         if (!o5u4Analysis.bestSymbol) return false;
         
         const bestAnalysis = o5u4Analysis.symbolsAnalysis[o5u4Analysis.bestSymbol];
-        return bestAnalysis?.ready && bestAnalysis.combined >= 50;
+        return bestAnalysis?.ready && bestAnalysis.combined >= 45;
     };
 
     const executeO5U4Trade = async () => {
@@ -948,7 +948,7 @@ const TradingHubDisplay: React.FC = () => {
                     <button
                         className={`main-trade-btn ${isContinuousTrading ? 'stop' : 'start'} ${!isAnalysisReady || !isWebSocketConnected || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active) ? 'disabled' : ''}`}
                         onClick={isContinuousTrading ? stopContinuousTrading : startContinuousTrading}
-                        disabled={!isAnalysisReady || !isWebSocketConnected || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active)}
+                        disabled={!isAnalysisReady || !isWebSocketConnected || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active) || (isAutoO5U4Active && o5u4Analysis.readySymbols.length === 0)}
                         title={!isWebSocketConnected ? 'WebSocket connection required to start trading' : ''}
                     >
                         <div className="btn-content">
