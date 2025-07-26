@@ -948,7 +948,7 @@ const TradingHubDisplay: React.FC = () => {
                     <button
                         className={`main-trade-btn ${isContinuousTrading ? 'stop' : 'start'} ${!isAnalysisReady || !isWebSocketConnected || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active) ? 'disabled' : ''}`}
                         onClick={isContinuousTrading ? stopContinuousTrading : startContinuousTrading}
-                        disabled={!isAnalysisReady || !isWebSocketConnected || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active) || (isAutoO5U4Active && o5u4Analysis.readySymbols.length === 0)}
+                        disabled={!isAnalysisReady || !isWebSocketConnected || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active)}
                         title={!isWebSocketConnected ? 'WebSocket connection required to start trading' : ''}
                     >
                         <div className="btn-content">
