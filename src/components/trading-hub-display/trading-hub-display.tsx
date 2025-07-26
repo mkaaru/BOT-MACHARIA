@@ -661,6 +661,16 @@ const TradingHubDisplay: React.FC = () => {
             setRecommendation(newRecommendation);
             setMarketStats(allStats);
 
+            console.log('📊 New recommendation received:', newRecommendation);
+            console.log('🔄 Current trading state:', {
+                isContinuousTrading,
+                isAutoOverUnderActive,
+                isAutoDifferActive,
+                isAutoO5U4Active,
+                isTradeInProgress,
+                activeContract: activeContractRef.current
+            });
+
             analyzeO5U4AllSymbols(allStats);
 
             if (isAutoO5U4Active && isContinuousTrading && !isTradeInProgress) {
@@ -677,18 +687,31 @@ const TradingHubDisplay: React.FC = () => {
                 }
             }
 
-            if (isContinuousTrading && (isAutoDifferActive || isAutoOverUnderActive) && newRecommendation) {
+            // Handle Auto Over/Under trading
+            if (isContinuousTrading && isAutoOverUnderActive && newRecommendation) {
                 const now = Date.now();
                 const timeSinceLastTrade = now - lastTradeTime.current;
                 
-                if (timeSinceLastTrade >= minimumTradeCooldown && !activeContractRef.current) {
+                if (timeSinceLastTrade >= minimumTradeCooldown && !activeContractRef.current && !isTradeInProgress) {
+                    console.log(`🎯 Executing Auto Over/Under trade: ${newRecommendation.strategy.toUpperCase()} on ${newRecommendation.symbol}`);
                     lastTradeTime.current = now;
-                    
-                    if (isAutoOverUnderActive) {
-                        setCurrentStrategy(newRecommendation.strategy);
-                        setCurrentSymbol(newRecommendation.symbol);
-                        executeSingleTrade(newRecommendation.strategy, newRecommendation.symbol);
-                    }
+                    setCurrentStrategy(newRecommendation.strategy);
+                    setCurrentSymbol(newRecommendation.symbol);
+                    executeSingleTrade(newRecommendation.strategy, newRecommendation.symbol);
+                }
+            }
+            
+            // Handle AutoDiffer trading (if you want to implement it)
+            if (isContinuousTrading && isAutoDifferActive && newRecommendation) {
+                const now = Date.now();
+                const timeSinceLastTrade = now - lastTradeTime.current;
+                
+                if (timeSinceLastTrade >= minimumTradeCooldown && !activeContractRef.current && !isTradeInProgress) {
+                    console.log(`🎯 Executing AutoDiffer trade: ${newRecommendation.strategy.toUpperCase()} on ${newRecommendation.symbol}`);
+                    lastTradeTime.current = now;
+                    setCurrentStrategy(newRecommendation.strategy);
+                    setCurrentSymbol(newRecommendation.symbol);
+                    executeSingleTrade(newRecommendation.strategy, newRecommendation.symbol);
                 }
             }
         });
