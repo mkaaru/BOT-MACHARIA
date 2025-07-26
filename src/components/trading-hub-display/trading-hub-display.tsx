@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import marketAnalyzer from '@/services/market-analyzer';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
+import { observer as globalObserver } from '@/external/bot-skeleton/utils/observer';
 import './trading-hub-display.scss';
 
 interface TradingState {
@@ -30,7 +31,7 @@ interface MarketData {
 }
 
 const TradingHubDisplay: React.FC = observer(() => {
-    const { run_panel } = useStore();
+    const { run_panel, dashboard } = useStore();
     const [tradingState, setTradingState] = useState<TradingState>({
         isContinuousTrading: false,
         isAutoOverUnderActive: false,
@@ -136,7 +137,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         tradingState.isAutoOverUnderActive, tradingState.isAutoDifferActive, tradingState.isAutoO5U4Active]);
 
     const executeAutoTrade = useCallback(async (recommendation: any) => {
-        if (tradingState.isTradeInProgress) {
+        if (tradingState.isTradeInProgress || run_panel.is_running) {
             addLog('⏳ Trade already in progress, skipping...');
             return;
         }
@@ -153,7 +154,6 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             // Create trade parameters for digits contract
             const tradeParams = {
-                proposal: 1,
                 contract_type: contractType,
                 symbol: recommendation.symbol,
                 duration: 1,
@@ -165,11 +165,19 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             addLog(`📋 Trade params: ${JSON.stringify(tradeParams)}`);
 
-            // Execute trade through Bot's API
-            const result = await executeTrade(tradeParams);
+            // Use the main trade engine through the bot interface
+            if (window.dbot?.interpreter?.bot) {
+                const botInterface = window.dbot.interpreter.bot.getInterface();
+                
+                // Initialize trade engine if needed
+                if (!window.dbot.interpreter.bot.tradeEngine.initArgs) {
+                    await botInterface.init(api_base.token, { symbol: recommendation.symbol });
+                }
 
-            if (result.success) {
-                addLog(`✅ Trade executed successfully: ${result.contract_id}`);
+                // Start trading with the parameters
+                botInterface.start(tradeParams);
+                
+                addLog(`✅ Trade submitted through main engine`);
                 setTradingState(prev => ({
                     ...prev,
                     totalTrades: prev.totalTrades + 1,
@@ -180,12 +188,18 @@ const TradingHubDisplay: React.FC = observer(() => {
                         type: recommendation.strategy,
                         barrier: recommendation.barrier,
                         amount: 1,
-                        status: 'executed',
-                        contractId: result.contract_id
+                        status: 'submitted',
+                        contractId: 'pending'
                     }]
                 }));
             } else {
-                addLog(`❌ Trade execution failed: ${result.error}`);
+                // Fallback to direct API execution
+                const result = await executeTrade(tradeParams);
+                if (result.success) {
+                    addLog(`✅ Trade executed successfully: ${result.contract_id}`);
+                } else {
+                    addLog(`❌ Trade execution failed: ${result.error}`);
+                }
             }
 
         } catch (error) {
@@ -196,11 +210,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                 setTradingState(prev => ({ 
                     ...prev, 
                     isTradeInProgress: false,
-                    currentRecommendation: null // Clear recommendation to prevent repeated trades
+                    currentRecommendation: null
                 }));
-            }, 5000);
+            }, 2000);
         }
-    }, [tradingState.isTradeInProgress]);
+    }, [tradingState.isTradeInProgress, run_panel.is_running]);
 
     const executeTrade = async (params: any) => {
         try {
@@ -277,19 +291,24 @@ const TradingHubDisplay: React.FC = observer(() => {
             const newState = !prev.isContinuousTrading;
             addLog(`Continuous trading ${newState ? 'started' : 'stopped'}`);
 
-            // Debug current state
-            console.log('🔄 Current trading state:', {
-                isContinuousTrading: newState,
-                isAutoOverUnderActive: prev.isAutoOverUnderActive,
-                isAutoDifferActive: prev.isAutoDifferActive,
-                isAutoO5U4Active: prev.isAutoO5U4Active,
-                isTradeInProgress: prev.isTradeInProgress,
-                hasRecommendation: !!prev.currentRecommendation
-            });
+            if (newState) {
+                // Start the main run panel if not already running
+                if (!run_panel.is_running) {
+                    addLog(`🚀 Starting main trading engine...`);
+                    // Trigger the main run button
+                    run_panel.onRunButtonClick();
+                }
+            } else {
+                // Stop the main run panel if running
+                if (run_panel.is_running) {
+                    addLog(`⏹️ Stopping main trading engine...`);
+                    run_panel.onStopButtonClick();
+                }
+            }
 
             return { ...prev, isContinuousTrading: newState };
         });
-    }, [addLog]);
+    }, [addLog, run_panel]);
 
     const resetStats = useCallback(() => {
         setTradingState(prev => ({
@@ -309,14 +328,55 @@ const TradingHubDisplay: React.FC = observer(() => {
             return;
         }
 
+        if (run_panel.is_running) {
+            addLog('⚠️ Main trading engine is running, manual trade not available');
+            return;
+        }
+
         addLog('🎯 Executing manual trade...');
         await executeAutoTrade(tradingState.currentRecommendation);
-    }, [tradingState.currentRecommendation, executeAutoTrade]);
+    }, [tradingState.currentRecommendation, executeAutoTrade, run_panel.is_running]);
 
-    // Debug effect to log state changes
+    // Sync with Run Panel state
     useEffect(() => {
-        console.log('🔄 Current trading state:', tradingState);
-    }, [tradingState]);
+        if (run_panel.is_running && !tradingState.isContinuousTrading) {
+            setTradingState(prev => ({ ...prev, isContinuousTrading: true }));
+            addLog('🔗 Synced with main trading engine - Trading started');
+        } else if (!run_panel.is_running && tradingState.isContinuousTrading) {
+            setTradingState(prev => ({ ...prev, isContinuousTrading: false }));
+            addLog('🔗 Synced with main trading engine - Trading stopped');
+        }
+    }, [run_panel.is_running, tradingState.isContinuousTrading, addLog]);
+
+    // Listen for bot events
+    useEffect(() => {
+        const handleBotContractEvent = (data: any) => {
+            if (data.buy) {
+                addLog(`✅ Contract purchased: ${data.buy.contract_id} at ${data.buy.buy_price}`);
+                setTradingState(prev => ({
+                    ...prev,
+                    totalTrades: prev.totalTrades + 1,
+                    lastTradeTime: Date.now()
+                }));
+            }
+            if (data.is_sold) {
+                const profit = parseFloat(data.sell_price || 0) - parseFloat(data.buy_price || 0);
+                addLog(`📊 Contract closed: P&L ${profit > 0 ? '+' : ''}${profit.toFixed(2)}`);
+                setTradingState(prev => ({
+                    ...prev,
+                    profit: prev.profit + profit,
+                    winTrades: profit > 0 ? prev.winTrades + 1 : prev.winTrades,
+                    lossTrades: profit < 0 ? prev.lossTrades + 1 : prev.lossTrades
+                }));
+            }
+        };
+
+        globalObserver.register('bot.contract', handleBotContractEvent);
+        
+        return () => {
+            globalObserver.unregisterAll('bot.contract');
+        };
+    }, [addLog]);
 
     return (
         <div className="trading-hub-container">
@@ -356,8 +416,14 @@ const TradingHubDisplay: React.FC = observer(() => {
                         </div>
                         <div className="status-item">
                             <span className="status-label">Trade Status:</span>
-                            <span className={`status-value ${tradingState.isTradeInProgress ? 'trading' : 'idle'}`}>
-                                {tradingState.isTradeInProgress ? '🔄 Trading' : '💤 Idle'}
+                            <span className={`status-value ${(tradingState.isTradeInProgress || run_panel.is_running) ? 'trading' : 'idle'}`}>
+                                {(tradingState.isTradeInProgress || run_panel.is_running) ? '🔄 Trading' : '💤 Idle'}
+                            </span>
+                        </div>
+                        <div className="status-item">
+                            <span className="status-label">Engine State:</span>
+                            <span className={`status-value ${run_panel.is_running ? 'connected' : 'disconnected'}`}>
+                                {run_panel.is_running ? '🟢 Running' : '🔴 Stopped'}
                             </span>
                         </div>
                     </div>
@@ -420,17 +486,17 @@ const TradingHubDisplay: React.FC = observer(() => {
                     <h3>🎮 Trading Controls</h3>
                     <div className="control-buttons">
                         <button
-                            className={`control-btn ${tradingState.isContinuousTrading ? 'stop-btn' : 'start-btn'}`}
+                            className={`control-btn ${(tradingState.isContinuousTrading || run_panel.is_running) ? 'stop-btn' : 'start-btn'}`}
                             onClick={toggleContinuousTrading}
-                            disabled={tradingState.isTradeInProgress}
+                            disabled={tradingState.isTradeInProgress || run_panel.is_stop_button_disabled}
                         >
-                            {tradingState.isContinuousTrading ? '⏹️ Stop Trading' : '▶️ Start Trading'}
+                            {(tradingState.isContinuousTrading || run_panel.is_running) ? '⏹️ Stop Trading' : '▶️ Start Trading'}
                         </button>
 
                         <button
                             className="control-btn manual-btn"
                             onClick={executeManualTrade}
-                            disabled={tradingState.isTradeInProgress || !tradingState.currentRecommendation}
+                            disabled={tradingState.isTradeInProgress || !tradingState.currentRecommendation || run_panel.is_running}
                         >
                             🎯 Manual Trade
                         </button>
