@@ -65,6 +65,18 @@ const TradingHubDisplay: React.FC = () => {
 
     // Use bot skeleton connection status
     const isWebSocketConnected = connectionStatus === 'OPENED' && isAuthorized;
+    
+    // Debug connection status
+    useEffect(() => {
+        console.log('Connection Debug:', {
+            connectionStatus,
+            isAuthorized,
+            isWebSocketConnected,
+            authData: authData ? { loginid: authData.loginid, currency: authData.currency } : null,
+            apiBase: !!api_base?.api,
+            apiReadyState: api_base?.api?.connection?.readyState
+        });
+    }, [connectionStatus, isAuthorized, authData]);
 
     const currentStakeRef = useRef(MINIMUM_STAKE);
     const currentConsecutiveLossesRef = useRef(0);
@@ -289,35 +301,57 @@ const TradingHubDisplay: React.FC = () => {
     const executeO5U4Trade = async () => {
         if (!o5u4Analysis.bestSymbol || isTradeInProgress) return;
 
+        // Check API connection first
+        if (!api_base?.api) {
+            console.error('API Base not available for O5U4');
+            return;
+        }
+
+        // Check WebSocket connection
+        if (api_base.api.connection?.readyState !== 1) {
+            console.error('WebSocket not connected for O5U4. ReadyState:', api_base.api.connection?.readyState);
+            return;
+        }
+
+        // Validate client authentication
+        if (!isAuthorized || !authData?.loginid) {
+            console.error('Client not authenticated for O5U4. isAuthorized:', isAuthorized, 'loginid:', authData?.loginid);
+            return;
+        }
+
         setIsTradeInProgress(true);
         
         try {
             const symbol = o5u4Analysis.bestSymbol;
             const currentStake = manageStake('get');
-            const halfStake = parseFloat(currentStake) / 2;
+            const halfStake = (parseFloat(currentStake) / 2).toFixed(2);
+            
+            console.log(`🚀 Executing O5U4 trade on ${symbol} with half stake ${halfStake}`);
             
             // Prepare purchase parameters for both trades
             const over5Params = {
                 contract_type: 'DIGITOVER',
                 symbol: symbol,
-                amount: halfStake,
+                amount: parseFloat(halfStake),
                 duration: 1,
                 duration_unit: 't',
                 barrier: '5',
                 basis: 'stake',
-                currency: 'USD'
+                currency: authData?.currency || 'USD'
             };
 
             const under4Params = {
                 contract_type: 'DIGITUNDER',
                 symbol: symbol,
-                amount: halfStake,
+                amount: parseFloat(halfStake),
                 duration: 1,
                 duration_unit: 't',
                 barrier: '4',
                 basis: 'stake',
-                currency: 'USD'
+                currency: authData?.currency || 'USD'
             };
+
+            console.log('O5U4 Params:', { over5Params, under4Params });
 
             // Get proposals for both trades
             const over5Proposal = await doUntilDone(() => 
@@ -335,12 +369,16 @@ const TradingHubDisplay: React.FC = () => {
             );
 
             if (over5Proposal.error || under4Proposal.error) {
+                console.error('O5U4 Proposal errors:', { 
+                    over5Error: over5Proposal.error, 
+                    under4Error: under4Proposal.error 
+                });
                 throw new Error('Proposal failed for O5U4 trades');
             }
 
-            console.log('O5U4 Proposals received:', {
-                over5: over5Proposal.proposal,
-                under4: under4Proposal.proposal
+            console.log('✅ O5U4 Proposals received:', {
+                over5: over5Proposal.proposal?.id,
+                under4: under4Proposal.proposal?.id
             });
 
             // Execute both purchases
@@ -359,6 +397,10 @@ const TradingHubDisplay: React.FC = () => {
             );
 
             if (over5Purchase.error || under4Purchase.error) {
+                console.error('O5U4 Purchase errors:', { 
+                    over5Error: over5Purchase.error, 
+                    under4Error: under4Purchase.error 
+                });
                 throw new Error('Purchase failed for O5U4 trades');
             }
 
@@ -373,9 +415,11 @@ const TradingHubDisplay: React.FC = () => {
 
                 activeContractRef.current = over5Purchase.buy.contract_id;
                 setTradeCount(prev => prev + 1);
-                console.log(`O5U4 trade executed on ${symbol}:`, {
+                console.log(`✅ O5U4 trade executed on ${symbol}:`, {
                     over5: over5Purchase.buy.contract_id,
-                    under4: under4Purchase.buy.contract_id
+                    under4: under4Purchase.buy.contract_id,
+                    over5Price: over5Purchase.buy.buy_price,
+                    under4Price: under4Purchase.buy.buy_price
                 });
 
                 // Subscribe to contract updates for both contracts
@@ -387,13 +431,29 @@ const TradingHubDisplay: React.FC = () => {
                     contract_id: under4Purchase.buy.contract_id,
                     buy_price: under4Purchase.buy.buy_price
                 });
+
+                // Subscribe to contract status updates
+                try {
+                    await api_base.api.send({
+                        proposal_open_contract: 1,
+                        contract_id: over5Purchase.buy.contract_id
+                    });
+                    await api_base.api.send({
+                        proposal_open_contract: 1,
+                        contract_id: under4Purchase.buy.contract_id
+                    });
+                    console.log('✅ Subscribed to O5U4 contract updates');
+                } catch (subscribeError) {
+                    console.warn('⚠️ Failed to subscribe to O5U4 contract updates:', subscribeError);
+                }
             }
         } catch (error) {
-            console.error('O5U4 trade execution failed:', error);
+            console.error('❌ O5U4 trade execution failed:', error);
+            globalObserver.emit('ui.log.error', `O5U4 Trade failed: ${error.message}`);
         } finally {
             setTimeout(() => {
                 setIsTradeInProgress(false);
-            }, 1000);
+            }, 2000);
         }
     };
 
@@ -403,9 +463,21 @@ const TradingHubDisplay: React.FC = () => {
             return;
         }
 
+        // Check API connection first
+        if (!api_base?.api) {
+            console.error('API Base not available');
+            return;
+        }
+
+        // Check WebSocket connection
+        if (api_base.api.connection?.readyState !== 1) {
+            console.error('WebSocket not connected. ReadyState:', api_base.api.connection?.readyState);
+            return;
+        }
+
         // Validate client authentication
         if (!isAuthorized || !authData?.loginid) {
-            console.error('Client not authenticated');
+            console.error('Client not authenticated. isAuthorized:', isAuthorized, 'loginid:', authData?.loginid);
             return;
         }
 
@@ -430,7 +502,8 @@ const TradingHubDisplay: React.FC = () => {
                     return;
             }
 
-            console.log(`Executing ${strategy.toUpperCase()} trade on ${symbol} with stake ${currentStake}`);
+            console.log(`🚀 Executing ${strategy.toUpperCase()} trade on ${symbol} with stake ${currentStake}`);
+            console.log('Auth data:', { loginid: authData?.loginid, currency: authData?.currency });
 
             // Use the proper purchase parameters structure
             const purchaseParams = {
@@ -441,49 +514,62 @@ const TradingHubDisplay: React.FC = () => {
                 duration_unit: 't',
                 barrier: barrier,
                 basis: 'stake',
-                currency: 'USD'
+                currency: authData?.currency || 'USD'
             };
 
+            console.log('Purchase params:', purchaseParams);
+
             // First get proposal to validate
+            const proposalRequest = {
+                proposal: 1,
+                ...purchaseParams
+            };
+
+            console.log('Sending proposal request:', proposalRequest);
+
             const proposal = await doUntilDone(() => 
-                api_base.api.send({
-                    proposal: 1,
-                    ...purchaseParams
-                })
+                api_base.api.send(proposalRequest)
             ).catch(error => {
-                console.error('Proposal failed:', error);
+                console.error('❌ Proposal failed:', error);
                 throw error;
             });
 
             if (proposal.error) {
+                console.error('❌ Proposal error:', proposal.error);
                 throw new Error(proposal.error.message || 'Proposal failed');
             }
 
-            console.log('Proposal received:', proposal.proposal);
+            console.log('✅ Proposal received:', proposal.proposal);
 
             // Execute the purchase using proposal ID
+            const buyRequest = {
+                buy: proposal.proposal.id,
+                price: proposal.proposal.ask_price
+            };
+
+            console.log('Sending buy request:', buyRequest);
+
             const purchaseResult = await doUntilDone(() =>
-                api_base.api.send({
-                    buy: proposal.proposal.id,
-                    price: proposal.proposal.ask_price
-                })
+                api_base.api.send(buyRequest)
             ).catch(error => {
-                console.error('Purchase failed:', error);
+                console.error('❌ Purchase failed:', error);
                 throw error;
             });
 
             if (purchaseResult.error) {
+                console.error('❌ Purchase error:', purchaseResult.error);
                 throw new Error(purchaseResult.error.message || 'Purchase failed');
             }
 
             if (purchaseResult.buy) {
                 activeContractRef.current = purchaseResult.buy.contract_id;
                 setTradeCount(prev => prev + 1);
-                console.log(`${strategy.toUpperCase()} trade executed successfully:`, {
+                console.log(`✅ ${strategy.toUpperCase()} trade executed successfully:`, {
                     contract_id: purchaseResult.buy.contract_id,
                     symbol: symbol,
                     stake: currentStake,
-                    buy_price: purchaseResult.buy.buy_price
+                    buy_price: purchaseResult.buy.buy_price,
+                    longcode: purchaseResult.buy.longcode
                 });
 
                 // Subscribe to contract updates
@@ -491,15 +577,27 @@ const TradingHubDisplay: React.FC = () => {
                     contract_id: purchaseResult.buy.contract_id,
                     buy_price: purchaseResult.buy.buy_price
                 });
+
+                // Also subscribe to contract status updates
+                try {
+                    await api_base.api.send({
+                        proposal_open_contract: 1,
+                        contract_id: purchaseResult.buy.contract_id
+                    });
+                    console.log('✅ Subscribed to contract updates');
+                } catch (subscribeError) {
+                    console.warn('⚠️ Failed to subscribe to contract updates:', subscribeError);
+                }
             }
         } catch (error) {
-            console.error('Trade execution failed:', error);
-            setIsTradeInProgress(false);
+            console.error('❌ Trade execution failed:', error);
+            // Show error to user
+            globalObserver.emit('ui.log.error', `Trade failed: ${error.message}`);
         } finally {
             // Set timeout to reset trade progress after a short delay
             setTimeout(() => {
                 setIsTradeInProgress(false);
-            }, 1000);
+            }, 2000);
         }
     };
 
