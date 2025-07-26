@@ -48,6 +48,17 @@ const TradingHubDisplay: React.FC = observer(() => {
         tradeHistory: []
     });
 
+    const [botConfig, setBotConfig] = useState({
+        selectedStrategy: 'martingale',
+        initialStake: 1,
+        martingaleMultiplier: 2,
+        maxConsecutiveLosses: 5,
+        stopLoss: 50,
+        takeProfit: 100,
+        symbol: '1HZ10V',
+        contractType: 'DIGITEVEN'
+    });
+
     const [marketData, setMarketData] = useState<MarketData[]>([]);
     const [logs, setLogs] = useState<string[]>([]);
     const logsEndRef = useRef<HTMLDivElement>(null);
@@ -144,23 +155,32 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         try {
             setTradingState(prev => ({ ...prev, isTradeInProgress: true }));
-            addLog(`🎯 Executing Auto Over/Under trade: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol}`);
+            addLog(`🎯 Executing Auto ${botConfig.selectedStrategy.toUpperCase()} trade: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${botConfig.symbol}`);
 
-            // Determine contract type based on recommendation
-            let contractType = 'DIGITOVER';
+            // Determine contract type based on recommendation and config
+            let contractType = botConfig.contractType;
             if (recommendation.strategy === 'under') {
                 contractType = 'DIGITUNDER';
+            } else if (recommendation.strategy === 'over') {
+                contractType = 'DIGITOVER';
             }
 
-            // Create trade parameters for digits contract
+            // Create enhanced trade parameters with bot configuration
             const tradeParams = {
                 contract_type: contractType,
-                symbol: recommendation.symbol,
+                symbol: botConfig.symbol,
                 duration: 1,
                 duration_unit: 't',
-                amount: 1,
+                amount: botConfig.initialStake,
                 basis: 'stake',
-                barrier: recommendation.barrier
+                barrier: recommendation.barrier,
+                // Martingale configuration
+                martingale_enabled: botConfig.selectedStrategy === 'martingale',
+                martingale_multiplier: botConfig.martingaleMultiplier,
+                max_consecutive_losses: botConfig.maxConsecutiveLosses,
+                // Risk management
+                stop_loss: botConfig.stopLoss,
+                take_profit: botConfig.takeProfit
             };
 
             addLog(`📋 Trade params: ${JSON.stringify(tradeParams)}`);
@@ -169,27 +189,37 @@ const TradingHubDisplay: React.FC = observer(() => {
             if (window.dbot?.interpreter?.bot) {
                 const botInterface = window.dbot.interpreter.bot.getInterface();
                 
-                // Initialize trade engine if needed
+                // Initialize trade engine with bot configuration
                 if (!window.dbot.interpreter.bot.tradeEngine.initArgs) {
-                    await botInterface.init(api_base.token, { symbol: recommendation.symbol });
+                    await botInterface.init(api_base.token, { 
+                        symbol: botConfig.symbol,
+                        strategy: botConfig.selectedStrategy
+                    });
+                }
+
+                // Configure martingale settings if enabled
+                if (botConfig.selectedStrategy === 'martingale') {
+                    botInterface.setMartingaleLimits?.(botConfig.martingaleMultiplier, botConfig.maxConsecutiveLosses);
+                    botInterface.setMartingaleEnabled?.(true);
                 }
 
                 // Start trading with the parameters
                 botInterface.start(tradeParams);
                 
-                addLog(`✅ Trade submitted through main engine`);
+                addLog(`✅ Trade submitted through ${botConfig.selectedStrategy} strategy`);
                 setTradingState(prev => ({
                     ...prev,
                     totalTrades: prev.totalTrades + 1,
                     lastTradeTime: Date.now(),
                     tradeHistory: [...prev.tradeHistory.slice(-19), {
                         time: Date.now(),
-                        symbol: recommendation.symbol,
+                        symbol: botConfig.symbol,
                         type: recommendation.strategy,
                         barrier: recommendation.barrier,
-                        amount: 1,
+                        amount: botConfig.initialStake,
                         status: 'submitted',
-                        contractId: 'pending'
+                        contractId: 'pending',
+                        strategy: botConfig.selectedStrategy
                     }]
                 }));
             } else {
@@ -214,7 +244,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 }));
             }, 2000);
         }
-    }, [tradingState.isTradeInProgress, run_panel.is_running]);
+    }, [tradingState.isTradeInProgress, run_panel.is_running, botConfig]);
 
     const executeTrade = async (params: any) => {
         try {
@@ -429,6 +459,111 @@ const TradingHubDisplay: React.FC = observer(() => {
                     </div>
                 </div>
 
+                <div className="bot-configuration-section">
+                    <h3>⚙️ Bot Configuration</h3>
+                    <div className="config-grid">
+                        <div className="config-group">
+                            <label>Strategy:</label>
+                            <select 
+                                value={botConfig.selectedStrategy} 
+                                onChange={(e) => setBotConfig(prev => ({...prev, selectedStrategy: e.target.value}))}
+                                disabled={tradingState.isContinuousTrading}
+                            >
+                                <option value="martingale">Martingale</option>
+                                <option value="dalembert">D'Alembert</option>
+                                <option value="oscars_grind">Oscar's Grind</option>
+                                <option value="reverse_martingale">Reverse Martingale</option>
+                            </select>
+                        </div>
+                        <div className="config-group">
+                            <label>Symbol:</label>
+                            <select 
+                                value={botConfig.symbol} 
+                                onChange={(e) => setBotConfig(prev => ({...prev, symbol: e.target.value}))}
+                                disabled={tradingState.isContinuousTrading}
+                            >
+                                <option value="1HZ10V">Volatility 10 (1s) Index</option>
+                                <option value="1HZ25V">Volatility 25 (1s) Index</option>
+                                <option value="1HZ50V">Volatility 50 (1s) Index</option>
+                                <option value="1HZ75V">Volatility 75 (1s) Index</option>
+                                <option value="1HZ100V">Volatility 100 (1s) Index</option>
+                            </select>
+                        </div>
+                        <div className="config-group">
+                            <label>Contract Type:</label>
+                            <select 
+                                value={botConfig.contractType} 
+                                onChange={(e) => setBotConfig(prev => ({...prev, contractType: e.target.value}))}
+                                disabled={tradingState.isContinuousTrading}
+                            >
+                                <option value="DIGITEVEN">Even</option>
+                                <option value="DIGITODD">Odd</option>
+                                <option value="DIGITOVER">Over</option>
+                                <option value="DIGITUNDER">Under</option>
+                            </select>
+                        </div>
+                        <div className="config-group">
+                            <label>Initial Stake ($):</label>
+                            <input 
+                                type="number" 
+                                value={botConfig.initialStake} 
+                                onChange={(e) => setBotConfig(prev => ({...prev, initialStake: parseFloat(e.target.value) || 1}))}
+                                min="0.35" 
+                                step="0.01"
+                                disabled={tradingState.isContinuousTrading}
+                            />
+                        </div>
+                        {botConfig.selectedStrategy === 'martingale' && (
+                            <>
+                                <div className="config-group">
+                                    <label>Martingale Multiplier:</label>
+                                    <input 
+                                        type="number" 
+                                        value={botConfig.martingaleMultiplier} 
+                                        onChange={(e) => setBotConfig(prev => ({...prev, martingaleMultiplier: parseFloat(e.target.value) || 2}))}
+                                        min="1.1" 
+                                        step="0.1"
+                                        disabled={tradingState.isContinuousTrading}
+                                    />
+                                </div>
+                                <div className="config-group">
+                                    <label>Max Consecutive Losses:</label>
+                                    <input 
+                                        type="number" 
+                                        value={botConfig.maxConsecutiveLosses} 
+                                        onChange={(e) => setBotConfig(prev => ({...prev, maxConsecutiveLosses: parseInt(e.target.value) || 5}))}
+                                        min="1" 
+                                        step="1"
+                                        disabled={tradingState.isContinuousTrading}
+                                    />
+                                </div>
+                            </>
+                        )}
+                        <div className="config-group">
+                            <label>Stop Loss ($):</label>
+                            <input 
+                                type="number" 
+                                value={botConfig.stopLoss} 
+                                onChange={(e) => setBotConfig(prev => ({...prev, stopLoss: parseFloat(e.target.value) || 50}))}
+                                min="1" 
+                                step="1"
+                                disabled={tradingState.isContinuousTrading}
+                            />
+                        </div>
+                        <div className="config-group">
+                            <label>Take Profit ($):</label>
+                            <input 
+                                type="number" 
+                                value={botConfig.takeProfit} 
+                                onChange={(e) => setBotConfig(prev => ({...prev, takeProfit: parseFloat(e.target.value) || 100}))}
+                                min="1" 
+                                step="1"
+                                disabled={tradingState.isContinuousTrading}
+                            />
+                        </div>
+                    </div>
+                </div>
+
                 <div className="recommendation-section">
                     <h3>📊 Current Recommendation</h3>
                     {tradingState.currentRecommendation ? (
@@ -507,6 +642,83 @@ const TradingHubDisplay: React.FC = observer(() => {
                         >
                             🔄 Reset Stats
                         </button>
+                    </div>
+                </div>
+
+                <div className="trading-summary-section">
+                    <h3>📊 Trading Summary</h3>
+                    <div className="summary-grid">
+                        <div className="summary-item">
+                            <span className="summary-label">Strategy:</span>
+                            <span className="summary-value">{botConfig.selectedStrategy.toUpperCase()}</span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">Total Trades:</span>
+                            <span className="summary-value">{tradingState.totalTrades}</span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">Win Rate:</span>
+                            <span className="summary-value">
+                                {tradingState.totalTrades > 0 ? 
+                                    ((tradingState.winTrades / tradingState.totalTrades) * 100).toFixed(1) : 0}%
+                            </span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">Total P&L:</span>
+                            <span className={`summary-value ${tradingState.profit >= 0 ? 'profit' : 'loss'}`}>
+                                ${tradingState.profit.toFixed(2)}
+                            </span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">Current Stake:</span>
+                            <span className="summary-value">${botConfig.initialStake}</span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">Stop Loss:</span>
+                            <span className="summary-value">${botConfig.stopLoss}</span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">Take Profit:</span>
+                            <span className="summary-value">${botConfig.takeProfit}</span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">Symbol:</span>
+                            <span className="summary-value">{botConfig.symbol}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="trade-history-section">
+                    <h3>📋 Recent Trades</h3>
+                    <div className="trade-history-container">
+                        {tradingState.tradeHistory.length > 0 ? (
+                            <table className="trade-history-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Symbol</th>
+                                        <th>Type</th>
+                                        <th>Amount</th>
+                                        <th>Strategy</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tradingState.tradeHistory.slice(-10).reverse().map((trade, index) => (
+                                        <tr key={index}>
+                                            <td>{new Date(trade.time).toLocaleTimeString()}</td>
+                                            <td>{trade.symbol}</td>
+                                            <td>{trade.type}</td>
+                                            <td>${trade.amount}</td>
+                                            <td>{trade.strategy || 'manual'}</td>
+                                            <td className={`status-${trade.status}`}>{trade.status}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <div className="no-trades">No trades executed yet</div>
+                        )}
                     </div>
                 </div>
 

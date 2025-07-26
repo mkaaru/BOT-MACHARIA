@@ -407,3 +407,213 @@
         grid-template-columns: 1fr;
     }
 }
+
+.bot-configuration-section {
+    background: var(--general-section-1);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-normal);
+
+    h3 {
+        margin: 0 0 16px 0;
+        color: var(--text-prominent);
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .config-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+    }
+
+    .config-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+
+        label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-less-prominent);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        select,
+        input {
+            padding: 8px 12px;
+            border: 1px solid var(--border-normal);
+            border-radius: 4px;
+            background: var(--fill-normal);
+            color: var(--text-prominent);
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+
+            &:focus {
+                outline: none;
+                border-color: var(--brand-blue);
+                box-shadow: 0 0 0 2px rgba(46, 125, 252, 0.1);
+            }
+
+            &:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+                background: var(--fill-disabled);
+            }
+        }
+
+        input[type="number"] {
+            appearance: textfield;
+
+            &::-webkit-outer-spin-button,
+            &::-webkit-inner-spin-button {
+                appearance: none;
+                margin: 0;
+            }
+        }
+    }
+}
+
+.trading-summary-section {
+    background: var(--general-section-1);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-normal);
+
+    h3 {
+        margin: 0 0 16px 0;
+        color: var(--text-prominent);
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+    }
+
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        background: var(--fill-normal);
+        border-radius: 4px;
+        border: 1px solid var(--border-normal);
+
+        .summary-label {
+            font-size: 12px;
+            color: var(--text-less-prominent);
+            font-weight: 500;
+        }
+
+        .summary-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-prominent);
+
+            &.profit {
+                color: var(--status-success);
+            }
+
+            &.loss {
+                color: var(--status-danger);
+            }
+        }
+    }
+}
+
+.trade-history-section {
+    background: var(--general-section-1);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-normal);
+
+    h3 {
+        margin: 0 0 16px 0;
+        color: var(--text-prominent);
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .trade-history-container {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .trade-history-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+
+        th {
+            background: var(--fill-normal);
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-less-prominent);
+            border-bottom: 1px solid var(--border-normal);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-normal);
+            color: var(--text-prominent);
+
+            &.status-submitted {
+                color: var(--status-info);
+            }
+
+            &.status-success {
+                color: var(--status-success);
+            }
+
+            &.status-failed {
+                color: var(--status-danger);
+            }
+        }
+
+        tr:hover {
+            background: var(--fill-hover);
+        }
+    }
+
+    .no-trades {
+        text-align: center;
+        color: var(--text-less-prominent);
+        padding: 40px 20px;
+        font-style: italic;
+    }
+}
+
+@media (max-width: 768px) {
+    .bot-configuration-section .config-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .trading-summary-section .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .trade-history-table {
+        font-size: 11px;
+
+        th, td {
+            padding: 6px 8px;
+        }
+    }
+}
+
+@media (max-width: 480px) {
+    .trading-summary-section .summary-grid {
+        grid-template-columns: 1fr;
+    }
+}
