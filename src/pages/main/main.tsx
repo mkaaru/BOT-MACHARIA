@@ -108,7 +108,7 @@ const AppWrapper = observer(() => {
   const [contractType, setContractType] = useState('DIGITEVEN')
   const [predictionModel, setPredictionModel] = useState('neural_network')
   const [stakeAmount, setStakeAmount] = useState('1.00')
-  const [isDigitsConnected, setIsDigitsConnected] = useState(false)
+  const [isConnected, setIsConnected] = useState(false)
   const [isTrading, setIsTrading] = useState(false)
   const [currentTick, setCurrentTick] = useState<number | null>(null)
   const [currentPrice, setCurrentPrice] = useState<string>('---')
@@ -398,13 +398,13 @@ const AppWrapper = observer(() => {
       }
 
       setCurrentPrice('Connecting...')
-      setIsDigitsConnected(false)
+      setIsConnected(false)
 
       const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771')
 
       ws.onopen = () => {
         console.log('WebSocket connected successfully')
-        setIsDigitsConnected(true)
+        setIsConnected(true)
         setWebsocket(ws)
         setCurrentPrice('Connected - Waiting for ticks...')
 
@@ -508,364 +508,848 @@ const AppWrapper = observer(() => {
         }
       }
 
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error)
-        setCurrentPrice('Connection Error')
-        setIsDigitsConnected(false)
+      ws.onclose = (event) => {
+        console.log('WebSocket connection closed:', event.code, event.reason)
+        setIsConnected(false)
+        setWebsocket(null)
+        setCurrentPrice('Disconnected')
+
+        // Auto-reconnect after 3 seconds if not manually closed
+        if (event.code !== 1000) {
+          setTimeout(() => {
+            console.log('Attempting to reconnect...')
+            connectToAPI()
+          }, 3000)
+        }
       }
 
-      ws.onclose = () => {
-        console.log('WebSocket connection closed')
-        setIsDigitsConnected(false)
-        setCurrentPrice('Disconnected')
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error)
+        setIsConnected(false)
         setWebsocket(null)
+        setCurrentPrice('Connection Error')
       }
 
     } catch (error) {
-      console.error('Failed to connect to WebSocket:', error)
-      setCurrentPrice('Connection Failed')
-      setIsDigitsConnected(false)
+      console.error('Connection failed:', error)
+      setIsConnected(false)
+      setCurrentPrice('Failed to connect')
     }
   }
 
-  const disconnectFromAPI = () => {
-    if (websocket) {
-      websocket.close()
-      setWebsocket(null)
-    }
-    setIsDigitsConnected(false)
-    setCurrentPrice('---')
-  }
-
-  const getAlternativeSymbol = (symbol: string) => {
-    const alternatives: { [key: string]: string } = {
+  // Helper function to get alternative symbol formats
+  const getAlternativeSymbol = (symbol) => {
+    const symbolMap = {
+      // Forward mapping
       'R_10': '1HZ10V',
-      'R_25': '1HZ25V',
+      'R_25': '1HZ25V', 
       'R_50': '1HZ50V',
       'R_75': '1HZ75V',
       'R_100': '1HZ100V',
+      'R_150': '1HZ150V',
+      'R_200': '1HZ200V',
+      'R_250': '1HZ250V',
+      'R_300': '1HZ300V',
+      // Reverse mapping
       '1HZ10V': 'R_10',
       '1HZ25V': 'R_25',
       '1HZ50V': 'R_50',
       '1HZ75V': 'R_75',
-      '1HZ100V': 'R_100'
+      '1HZ100V': 'R_100',
+      '1HZ150V': 'R_150',
+      '1HZ200V': 'R_200',
+      '1HZ250V': 'R_250',
+      '1HZ300V': 'R_300',
+      // Boom/Crash indices
+      'BOOM1000': 'BOOM1000',
+      'CRASH1000': 'CRASH1000',
+      'BOOM500': 'BOOM500',
+      'CRASH500': 'CRASH500',
+      'BOOM300': 'BOOM300',
+      'CRASH300': 'CRASH300'
     }
-    return alternatives[symbol] || symbol
+    return symbolMap[symbol] || symbol
   }
 
-  const handleNewTick = (price: number, symbol: string) => {
-    const targetSymbol = getAlternativeSymbol(symbol) === selectedIndex ? symbol : selectedIndex
-    
-    setTickHistory(prev => {
-      const currentHistory = prev[targetSymbol] || []
-      const updatedHistory = [...currentHistory, price].slice(-5000)
-      
-      const newTickHistory = {
-        ...prev,
-        [targetSymbol]: updatedHistory
+  const handleNewTick = (tick: number, symbol: string) => {
+    try {
+      if (typeof tick !== 'number' || isNaN(tick)) {
+        console.warn('Invalid tick received:', tick)
+        return
       }
-      
-      // Update analysis with new tick
-      calculateDigitDistribution(updatedHistory)
-      analyzePatterns(updatedHistory)
-      makePrediction(updatedHistory)
-      calculateContractProbabilities(updatedHistory)
-      
-      return newTickHistory
-    })
+
+      console.log('Processing tick:', tick, 'for symbol:', symbol)
+
+      // Update current tick and price display
+      setCurrentTick(tick)
+      const priceStr = tick.toFixed(5)
+      setCurrentPrice(priceStr)
+
+      // Store in tick history per volatility (keep last 5000 per symbol)
+      setTickHistory(prev => {
+        const currentHistory = prev[symbol] || []
+        const newHistory = [...currentHistory, tick].slice(-5000)
+
+        const updated = {
+          ...prev,
+          [symbol]: newHistory
+        }
+
+        // Only run analysis if we have enough data for current symbol
+        if (newHistory.length >= 10) {
+          // Calculate digit distribution with real-time updates
+          calculateDigitDistribution(newHistory)
+
+          // Perform enhanced pattern analysis
+          analyzePatterns(newHistory)
+
+          // Make AI-powered prediction
+          makePrediction(newHistory)
+
+          // Calculate contract-specific probabilities
+          calculateContractProbabilities(newHistory)
+        }
+
+        return updated
+      })
+
+      // Execute trade if trading is active
+      if (isTrading) {
+        executeTradeDecision(tick)
+      }
+    } catch (error) {
+      console.error('Error handling new tick:', error)
+    }
   }
 
-  const calculateDigitDistribution = (prices: number[]) => {
-    const distribution = new Array(10).fill(0)
-    
-    prices.forEach(price => {
-      const lastDigit = Math.floor((price * 100000) % 10)
-      distribution[lastDigit]++
+  const calculateContractProbabilities = (history: number[]) => {
+    if (history.length < 10) return
+
+    const recentTicks = history.slice(-100) // Use last 100 ticks for probability calculation
+    const lastDigits = recentTicks.map(tick => Math.floor(Math.abs(tick * 100000)) % 10)
+
+    // Calculate probabilities based on contract type
+    let probabilities = {}
+
+    if (contractType === 'DIGITEVEN' || contractType === 'DIGITODD') {
+      const evenCount = lastDigits.filter(d => d % 2 === 0).length
+      const oddCount = lastDigits.length - evenCount
+      const total = lastDigits.length
+
+      probabilities = {
+        even: ((evenCount / total) * 100).toFixed(1),
+        odd: ((oddCount / total) * 100).toFixed(1)
+      }
+    } else if (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') {
+      const underCount = lastDigits.filter(d => d < 5).length // 0,1,2,3,4
+      const overCount = lastDigits.filter(d => d >= 5).length // 5,6,7,8,9
+      const total = lastDigits.length
+
+      probabilities = {
+        under: ((underCount / total) * 100).toFixed(1),
+        over: ((overCount / total) * 100).toFixed(1)
+      }
+    } else if (contractType === 'DIGITMATCH' || contractType === 'DIGITDIFF') {
+      // For match/differs, show probability for each digit
+      const digitCounts = new Array(10).fill(0)
+      lastDigits.forEach(d => digitCounts[d]++)
+      const total = lastDigits.length
+
+      probabilities = {}
+      for (let i = 0; i < 10; i++) {
+        probabilities[`digit_${i}`] = ((digitCounts[i] / total) * 100).toFixed(1)
+      }
+    }
+
+    // You can use these probabilities to update UI or make trading decisions
+    console.log('Contract probabilities:', probabilities)
+  }
+
+  const calculateDigitDistribution = (history: number[]) => {
+    if (history.length === 0) return
+
+    const digitCounts = new Array(10).fill(0)
+
+    // Count occurrences of each last digit
+    history.forEach(tick => {
+      const lastDigit = Math.floor(Math.abs(tick * 100000)) % 10
+      digitCounts[lastDigit]++
     })
-    
-    setDigitDistribution(distribution)
-    
+
+    setDigitDistribution(digitCounts)
+
     // Calculate percentages
-    const total = prices.length
-    const percentages = distribution.map(count => total > 0 ? (count / total) * 100 : 10)
+    const total = history.length
+    const percentages = digitCounts.map(count => total > 0 ? (count / total) * 100 : 10)
     setDigitPercentages(percentages)
   }
 
-  const analyzePatterns = (prices: number[]) => {
-    if (prices.length < 10) return
-    
-    const lastDigits = prices.slice(-10).map(price => Math.floor((price * 100000) % 10))
-    
-    // Even/Odd bias
-    const evenCount = lastDigits.filter(digit => digit % 2 === 0).length
-    const oddCount = lastDigits.length - evenCount
-    
-    if (evenCount > oddCount + 2) {
-      setEvenOddBias('EVEN')
-    } else if (oddCount > evenCount + 2) {
-      setEvenOddBias('ODD')
-    } else {
-      setEvenOddBias('NEUTRAL')
-    }
-    
-    // Over/Under bias
-    const overCount = lastDigits.filter(digit => digit >= 5).length
-    const underCount = lastDigits.length - overCount
-    
-    if (overCount > underCount + 2) {
-      setOverUnderBias('OVER')
-    } else if (underCount > overCount + 2) {
-      setOverUnderBias('UNDER')
-    } else {
-      setOverUnderBias('NEUTRAL')
-    }
-    
-    // Streak pattern
-    const streaks: number[] = []
-    let currentStreak = 1
-    
-    for (let i = 1; i < lastDigits.length; i++) {
-      if (lastDigits[i] === lastDigits[i-1]) {
-        currentStreak++
+  const analyzePatterns = (history: number[]) => {
+    if (history.length < 100) return
+
+    try {
+      const recentTicks = history.slice(-100)
+      const lastDigits = recentTicks.map(tick => Math.floor(Math.abs(tick * 100000)) % 10)
+
+      // Analyze even/odd bias
+      const evenCount = lastDigits.filter(d => d % 2 === 0).length
+      const oddCount = lastDigits.filter(d => d % 2 === 1).length
+
+      if (evenCount > oddCount * 1.2) {
+        setEvenOddBias('EVEN BIAS')
+      } else if (oddCount > evenCount * 1.2) {
+        setEvenOddBias('ODD BIAS')
       } else {
-        streaks.push(currentStreak)
-        currentStreak = 1
+        setEvenOddBias('NEUTRAL')
       }
+
+      // Analyze over/under bias (0-4 vs 5-9)
+      const underCount = lastDigits.filter(d => d < 5).length
+      const overCount = lastDigits.filter(d => d >= 5).length
+
+      if (underCount > overCount * 1.2) {
+        setOverUnderBias('UNDER BIAS')
+      } else if (overCount > underCount * 1.2) {
+        setOverUnderBias('OVER BIAS')
+      } else {
+        setOverUnderBias('NEUTRAL')
+      }
+
+      // Analyze streak patterns
+      const streaks = []
+      if (lastDigits.length > 0) {
+        let currentStreakType = lastDigits[0] % 2
+        let streakLength = 1
+
+        for (let i = 1; i < lastDigits.length; i++) {
+          if (lastDigits[i] % 2 === currentStreakType) {
+            streakLength++
+          } else {
+            streaks.push(streakLength)
+            currentStreakType = lastDigits[i] % 2
+            streakLength = 1
+          }
+        }
+
+        if (streaks.length > 0) {
+          const avgStreak = streaks.reduce((a, b) => a + b, 0) / streaks.length
+          setStreakPattern(`AVG: ${avgStreak.toFixed(1)}`)
+        } else {
+          setStreakPattern('---')
+        }
+      }
+    } catch (error) {
+      console.error('Error in pattern analysis:', error)
     }
-    streaks.push(currentStreak)
-    
-    const maxStreak = Math.max(...streaks)
-    setStreakPattern(`Max: ${maxStreak}`)
   }
 
-  const makePrediction = (prices: number[]) => {
-    if (prices.length < 20) return
-    
-    const recentPrices = prices.slice(-100)
-    const lastDigits = recentPrices.map(price => Math.floor((price * 100000) % 10))
-    
-    // Simple frequency-based prediction
-    const digitCounts = new Array(10).fill(0)
-    lastDigits.forEach(digit => digitCounts[digit]++)
-    
-    const mostFrequent = digitCounts.indexOf(Math.max(...digitCounts))
-    const leastFrequent = digitCounts.indexOf(Math.min(...digitCounts))
-    
-    // Predict the least frequent digit (contrarian approach)
-    setNextPrediction(leastFrequent.toString())
-    
-    // Calculate confidence based on distribution variance
-    const avgCount = lastDigits.length / 10
-    const variance = digitCounts.reduce((acc, count) => acc + Math.pow(count - avgCount, 2), 0) / 10
-    const confidenceScore = Math.min(variance / avgCount * 10, 100)
-    
-    setConfidence(Math.round(confidenceScore))
+  const makePrediction = (history: number[]) => {
+    if (history.length < 50) return
+
+    try {
+      const recentTicks = history.slice(-50)
+      const lastDigits = recentTicks.map(tick => Math.floor(Math.abs(tick * 100000)) % 10)
+
+      // Advanced prediction based on contract type
+      if (contractType === 'DIGITEVEN' || contractType === 'DIGITODD') {
+        const evenCount = lastDigits.filter(d => d % 2 === 0).length
+        const oddCount = lastDigits.length - evenCount
+
+        if (contractType === 'DIGITEVEN') {
+          setNextPrediction(evenCount < oddCount ? 'EVEN' : 'ODD')
+          setConfidence(Math.min(95, 60 + Math.abs(evenCount - oddCount) * 2))
+        } else {
+          setNextPrediction(oddCount < evenCount ? 'ODD' : 'EVEN')
+          setConfidence(Math.min(95, 60 + Math.abs(evenCount - oddCount) * 2))
+        }
+      } else if (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') {
+        const underCount = lastDigits.filter(d => d < 5).length
+        const overCount = lastDigits.length - underCount
+
+        if (contractType === 'DIGITOVER') {
+          setNextPrediction(overCount < underCount ? 'OVER' : 'UNDER')
+          setConfidence(Math.min(95, 60 + Math.abs(overCount - underCount) * 2))
+        } else {
+          setNextPrediction(underCount < overCount ? 'UNDER' : 'OVER')
+          setConfidence(Math.min(95, 60 + Math.abs(overCount - underCount) * 2))
+        }
+      } else {
+        // For match/differs contracts, find least frequent digit
+        const digitCounts = new Array(10).fill(0)
+        lastDigits.forEach(d => digitCounts[d]++)
+        const minCount = Math.min(...digitCounts)
+        const leastFrequentDigit = digitCounts.indexOf(minCount)
+
+        setNextPrediction(leastFrequentDigit.toString())
+        setConfidence(Math.min(95, 50 + (10 - minCount) * 5))
+      }
+    } catch (error) {
+      console.error('Error in prediction:', error)
+    }
   }
 
-  const calculateContractProbabilities = (prices: number[]) => {
-    if (prices.length < 50) return
-    
-    const recentPrices = prices.slice(-100)
-    const lastDigits = recentPrices.map(price => Math.floor((price * 100000) % 10))
-    
-    // Calculate actual probabilities for different contracts
-    const evenCount = lastDigits.filter(digit => digit % 2 === 0).length
-    const overCount = lastDigits.filter(digit => digit >= 5).length
-    
-    console.log(`Even: ${evenCount}/${lastDigits.length} (${(evenCount/lastDigits.length*100).toFixed(1)}%)`)
-    console.log(`Over: ${overCount}/${lastDigits.length} (${(overCount/lastDigits.length*100).toFixed(1)}%)`)
+  const executeTradeDecision = (tick: number) => {
+    const lastDigit = tick % 10
+    const timestamp = new Date().toLocaleTimeString()
+
+    // Simple trading logic based on prediction
+    let shouldTrade = false
+    let tradeType = contractType
+
+    if (contractType === 'DIGITEVEN' && nextPrediction === 'EVEN' && confidence > 70) {
+      shouldTrade = true
+    } else if (contractType === 'DIGITODD' && nextPrediction === 'ODD' && confidence > 70) {
+      shouldTrade = true
+        }
+
+    if (shouldTrade) {
+      // Simulate trade execution
+      const isWin = Math.random() > 0.45 // 55% win rate simulation
+      const pnl = isWin ? parseFloat(stakeAmount) * 0.95 : -parseFloat(stakeAmount)
+
+      setTradingLog(prev => [...prev, {
+        timestamp,
+        action: `${tradeType} @ ${tick}`,
+        result: isWin ? 'WIN' : 'LOSS',
+        pnl: (pnl > 0 ? '+' : '') + pnl.toFixed(2),
+        type: isWin ? 'win' : 'loss'
+      }])
+
+      setTotalTrades(prev => prev + 1)
+      setProfitLoss(prev => prev + pnl)
+      setCurrentStreak(prev => isWin ? (prev > 0 ? prev + 1 : 1) : (prev < 0 ? prev - 1 : -1))
+
+      // Update win rate
+      setWinRate(prev => {
+        const wins = tradingLog.filter(log => log.type === 'win').length + (isWin ? 1 : 0)
+        const total = totalTrades + 1
+        return (wins / total) * 100
+      })
+    }
   }
 
-  return (
-    <div id="main" className={classNames('main', { 'main--is-bot-running': true })}>
-      <div className="main__content">
-        <DesktopWrapper>
-          <Tabs
-            className="main__tabs"
-            onTabItemClick={handleTabChange}
-            active_index={active_tab}
-            header_fit_content={true}
-          >
-            <div label={localize('Dashboard')} icon={<DashboardIcon />}>
-              <Dashboard />
-            </div>
-            
-            <div label={localize('Bot Builder')} icon={<BotBuilderIcon />}>
-              <Suspense fallback={<ChunkLoader message={localize('Loading Bot Builder...')} />}>
-                <div id="scratch_div" />
-              </Suspense>
-            </div>
-            
-            <div label={localize('Charts')} icon={<ChartsIcon />}>
-              <Suspense fallback={<ChunkLoader message={localize('Loading Charts...')} />}>
-                <Chart />
-              </Suspense>
-            </div>
-            
-            <div label={localize('Tutorials')} icon={<TutorialsIcon />}>
-              <Suspense fallback={<ChunkLoader message={localize('Loading Tutorials...')} />}>
-                <Tutorial />
-              </Suspense>
-            </div>
-            
-            <div label={localize('Analysis Tool')} icon={<AnalysisToolIcon />}>
-              <AnalysistoolComponent />
-            </div>
-            
-            <div label={localize('Signals')} icon={<SignalsIcon />}>
-              <PercentageTool />
-            </div>
-            
-            <div label={localize('Trading Hub')} icon={<TradingHubIcon />}>
-              <TradingHubDisplay
-                selectedIndex={selectedIndex}
-                setSelectedIndex={setSelectedIndex}
-                contractType={contractType}
-                setContractType={setContractType}
-                predictionModel={predictionModel}
-                setPredictionModel={setPredictionModel}
-                stakeAmount={stakeAmount}
-                setStakeAmount={setStakeAmount}
-                isConnected={isDigitsConnected}
-                isTrading={isTrading}
-                setIsTrading={setIsTrading}
-                currentTick={currentTick}
-                currentPrice={currentPrice}
-                tickHistory={tickHistory}
-                digitDistribution={digitDistribution}
-                digitPercentages={digitPercentages}
-                nextPrediction={nextPrediction}
-                confidence={confidence}
-                predictionAccuracy={predictionAccuracy}
-                evenOddBias={evenOddBias}
-                overUnderBias={overUnderBias}
-                streakPattern={streakPattern}
-                tradingLog={tradingLog}
-                totalTrades={totalTrades}
-                winRate={winRate}
-                profitLoss={profitLoss}
-                currentStreak={currentStreak}
-                connectToAPI={connectToAPI}
-                disconnectFromAPI={disconnectFromAPI}
-              />
-            </div>
-            
-            <div label={localize('Free Bots')} icon={<FreeBotsIcon />}>
-              <div className="dashboard__container">
-                <div className="dashboard__main">
-                  <div className="bot-list">
-                    <div className="bot-list__header">
-                      <h2>Free Trading Bots</h2>
-                      <p>Click on any bot to load it into the Bot Builder</p>
-                    </div>
-                    
-                    <div className="bot-grid">
-                      {bots.map((bot, index) => (
-                        <div
-                          key={index}
-                          className={`bot-card ${bot.isPlaceholder ? 'bot-card--placeholder' : ''}`}
-                          onClick={() => handleBotClick(bot)}
-                        >
-                          <div className="bot-card__header">
-                            <BotIcon />
-                            <h3>{bot.title}</h3>
-                          </div>
-                          <div className="bot-card__content">
-                            {bot.isPlaceholder ? (
-                              <p className="bot-card__status">Loading...</p>
-                            ) : (
-                              <p className="bot-card__status">Ready to use</p>
-                            )}
-                          </div>
-                          <div className="bot-card__footer">
-                            <span className="bot-card__type">XML Strategy</span>
-                          </div>
+  const startTrading = () => {
+    if (!isConnected) return
+    setIsTrading(true)
+
+    setTradingLog(prev => [...prev, {
+      timestamp: new Date().toLocaleTimeString(),
+      action: 'TRADING STARTED',
+      result: 'SYSTEM',
+      pnl: '---',
+      type: 'system'
+    }])
+  }
+
+  const stopTrading = () => {
+    setIsTrading(false)
+
+    setTradingLog(prev => [...prev, {
+      timestamp: new Date().toLocaleTimeString(),
+      action: 'TRADING STOPPED',
+      result: 'SYSTEM',
+      pnl: '---',
+      type: 'system'
+    }])
+  }
+
+    const executePythonCode = useCallback(async () => {
+        if (!pythonCode.trim()) {
+            addOutput('error', 'No Python code to execute');
+            return;
+        }
+
+        setIsExecuting(true);
+        addOutput('info', 'Starting Python script execution...');
+
+        try {
+            // In a real implementation, this would send the code to a Python backend
+            // For demo purposes, we'll simulate execution
+            const response = await fetch('/api/execute-python', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ code: pythonCode }),
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                addOutput('success', 'Script executed successfully');
+                if (result.output) {
+                    result.output.split('\n').forEach(line => {
+                        if (line.trim()) {
+                            addOutput('output', line);
+                        }
+                    });
+                }
+            } else {
+                throw new Error('Failed to execute Python script');
+            }
+        } catch (error) {
+            // Simulate Python execution for demo
+            addOutput('info', 'Simulating Python script execution...');
+
+            setTimeout(() => {
+                addOutput('output', 'Starting auto trading script...');
+                addOutput('output', 'Market: EUR/USD - Price: 1.0850 - Action: HOLD');
+                addOutput('output', 'Market: EUR/USD - Price: 1.0865 - Action: BUY');
+                addOutput('success', 'Trade executed: {"action": "BUY", "amount": 1.0, "status": "executed"}');
+                addOutput('output', 'Auto trading script completed.');
+                setIsExecuting(false);
+            }, 2000);
+
+            return;
+        }
+
+        setIsExecuting(false);
+    }, [pythonCode]);
+
+    const clearPythonCode = useCallback(() => {
+        setPythonCode('');
+        setPythonOutput([]);
+        addOutput('info', 'Editor cleared');
+    }, []);
+
+    const savePythonScript = useCallback(() => {
+        if (!pythonCode.trim()) {
+            addOutput('error', 'No code to save');
+            return;
+        }
+
+        const scriptName = prompt('Enter script name:');
+        if (scriptName) {
+            const newScript = {
+                name: scriptName,
+                code: pythonCode,
+                created: new Date().toISOString(),
+            };
+
+            const updatedScripts = [...savedScripts, newScript];
+            setSavedScripts(updatedScripts);
+            localStorage.setItem('pythonTradingScripts', JSON.stringify(updatedScripts));
+            addOutput('success', `Script '${scriptName}' saved successfully`);
+        }
+    }, [pythonCode, savedScripts]);
+
+    const loadSavedScript = useCallback((scriptName) => {
+        if (!scriptName) return;
+
+        const script = savedScripts.find(s => s.name === scriptName);
+        if (script) {
+            setPythonCode(script.code);
+            addOutput('info', `Loaded script: ${scriptName}`);
+        }
+    }, [savedScripts]);
+
+    const addOutput = useCallback((type, content) => {
+        const newLine = {
+            type,
+            content,
+            timestamp: new Date().toLocaleTimeString(),
+        };
+        setPythonOutput(prev => [...prev, newLine]);
+    }, []);
+
+    const loadTemplate = useCallback((templateType) => {
+        const templates = {
+            basic_strategy: `# Basic Trading Strategy Template
+import time
+from datetime import datetime
+
+def simple_trading_strategy():
+    """Basic buy/sell strategy based on price movements"""
+    print("Executing basic trading strategy...")
+
+    # Simulate market analysis
+    current_price = 1.0850
+    support_level = 1.0800
+    resistance_level = 1.0900
+
+    if current_price < support_level:
+        print(f"Price {current_price} below support {support_level} - BUY signal")
+        return "BUY"
+    elif current_price > resistance_level:
+        print(f"Price {current_price} above resistance {resistance_level} - SELL signal")
+        return "SELL"
+    else:
+        print(f"Price {current_price} in range - HOLD")
+        return "HOLD"
+
+if __name__ == "__main__":
+    action = simple_trading_strategy()
+    print(f"Trading action: {action}")`,
+
+            moving_average: `# Moving Average Strategy Template
+import numpy as np
+from datetime import datetime
+
+def moving_average_strategy(prices, short_period=5, long_period=20):
+    """Moving average crossover strategy"""
+    print("Calculating moving averages...")
+
+    # Sample price data
+    prices = [1.0800, 1.0820, 1.0850, 1.0840, 1.0860, 1.0880, 1.0870, 1.0890]
+
+    if len(prices) < long_period:
+        print("Not enough data for moving average calculation")
+        return "HOLD"
+
+    short_ma = sum(prices[-short_period:]) / short_period
+    long_ma = sum(prices[-long_period:]) / long_period
+
+    print(f"Short MA ({short_period}): {short_ma:.4f}")
+    print(f"Long MA ({long_period}): {long_ma:.4f}")
+
+    if short_ma > long_ma:
+        print("Short MA above Long MA - BUY signal")
+        return "BUY"
+    elif short_ma < long_ma:
+        print("Short MA below Long MA - SELL signal")
+        return "SELL"
+    else:
+        return "HOLD"
+
+if __name__ == "__main__":
+    action = moving_average_strategy([])
+    print(f"Trading action: {action}")`,
+
+            risk_management: `# Risk Management Template
+def calculate_position_size(account_balance, risk_percent, stop_loss_pips):
+    """Calculate position size based on risk management rules"""
+    risk_amount = account_balance * (risk_percent / 100)
+    position_size = risk_amount / stop_loss_pips
+
+    print(f"Account Balance: ${account_balance}")
+    print(f"Risk Percentage: {risk_percent}%")
+    print(f"Risk Amount: ${risk_amount}")
+    print(f"Stop Loss: {stop_loss_pips} pips")
+    print(f"Calculated Position Size: {position_size}")
+
+    return position_size
+
+def risk_management_check(current_trades, max_trades, daily_loss_limit):
+    """Check risk management parameters"""
+    print("Performing risk management checks...")
+
+    if current_trades >= max_trades:
+        print(f"Maximum trades ({max_trades}) reached for today")
+        return False
+
+    # Simulate daily P&L check
+    daily_pnl = -150  # Example loss
+    if daily_pnl <= -daily_loss_limit:
+        print(f"Daily loss limit (${daily_loss_limit}) reached")
+        return False
+
+    print("Risk management checks passed")
+    return True
+
+if __name__ == "__main__":
+    position_size = calculate_position_size(10000, 2, 50)
+    can_trade = risk_management_check(3, 5, 200)
+    print(f"Can place trade: {can_trade}")`,
+
+            api_integration: `# API Integration Template
+import json
+import time
+from datetime import datetime
+
+class TradingAPI:
+    """Mock trading API integration"""
+
+    def __init__(self, api_key, demo_mode=True):
+        self.api_key = api_key
+        self.demo_mode = demo_mode
+        print(f"Initialized Trading API in {'demo' if demo_mode else 'live'} mode")
+
+    def get_market_data(self, symbol):
+        """Fetch real-time market data"""
+        # Mock API response
+        data = {
+            'symbol': symbol,
+            'bid': 1.0845,
+            'ask': 1.0847,
+            'timestamp': datetime.now().isoformat()
+        }
+        print(f"Market data for {symbol}: {data}")
+        return data
+
+    def place_order(self, symbol, order_type, volume):
+        """Place trading order"""
+        order = {
+            'order_id': f"ORD_{int(time.time())}",
+            'symbol': symbol,
+            'type': order_type,
+            'volume': volume,
+            'status': 'filled' if self.demo_mode else 'pending',
+            'timestamp': datetime.now().isoformat()
+        }
+        print(f"Order placed: {order}")
+        return order
+
+    def get_account_info(self):
+        """Get account information"""
+        account = {
+            'balance': 10000.00,
+            'equity': 10150.00,
+            'margin': 50.00,
+            'free_margin': 10100.00
+        }
+        print(f"Account info: {account}")
+        return account
+
+def automated_trading():
+    """Main automated trading function"""
+    api = TradingAPI("your_api_key_here", demo_mode=True)
+
+    # Get account info
+    account = api.get_account_info()
+
+    # Analyze market
+    market_data = api.get_market_data("EURUSD")
+
+    # Simple trading logic
+    if market_data['bid'] > 1.0850:
+        order = api.place_order("EURUSD", "SELL", 0.1)
+        print(f"Sell order executed: {order['order_id']}")
+    elif market_data['ask'] < 1.0840:
+        order = api.place_order("EURUSD", "BUY", 0.1)
+        print(f"Buy order executed: {order['order_id']}")
+    else:
+        print("No trading signal - waiting...")
+
+if __name__ == "__main__":
+    automated_trading()`
+        };
+
+        if (templates[templateType]) {
+            setPythonCode(templates[templateType]);
+            addOutput('info', `Loaded ${templateType.replace('_', ' ')} template`);
+        }
+    }, [addOutput]);
+
+    // Load saved scripts on component mount
+    useEffect(() => {
+        const saved = localStorage.getItem('pythonTradingScripts');
+        if (saved) {
+            try {
+                setSavedScripts(JSON.parse(saved));
+            } catch (error) {
+                console.error('Error loading saved scripts:', error);
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+      if (active_tab === 'auto-trades') {
+        // Auto trades specific logic can go here
+      }
+
+      // Cleanup WebSocket connection on unmount
+      return () => {
+        if (websocket) {
+          websocket.close()
+          setWebsocket(null)
+          setIsConnected(false)
+        }
+      }
+    }, [active_tab])
+
+    // Reconnect when volatility changes
+    useEffect(() => {
+      if (isConnected && websocket && websocket.readyState === WebSocket.OPEN) {
+        console.log('Volatility changed to:', selectedIndex, 'Getting data...')
+
+        // Unsubscribe from all ticks first
+        websocket.send(JSON.stringify({
+          forget_all: "ticks",
+          req_id: 99
+        }))
+
+        // Get historical data and subscribe to new symbol after a short delay
+        setTimeout(() => {
+          // Check if we already have data for this volatility
+          const currentVolatilityHistory = tickHistory[selectedIndex]
+
+          if (!currentVolatilityHistory || currentVolatilityHistory.length === 0) {
+            // Request historical ticks if we don't have them
+            const historyRequest = {
+              ticks_history: selectedIndex,
+              count: 5000,
+              end: 'latest',
+              style: 'ticks',
+              req_id: Date.now()
+            }
+            console.log('Requesting historical ticks for new volatility:', historyRequest)
+            websocket.send(JSON.stringify(historyRequest))
+          } else {
+            // Use existing data for immediate display
+            calculateDigitDistribution(currentVolatilityHistory)
+            analyzePatterns(currentVolatilityHistory)
+            makePrediction(currentVolatilityHistory)
+            calculateContractProbabilities(currentVolatilityHistory)
+
+            if (currentVolatilityHistory.length > 0) {
+              const latestPrice = currentVolatilityHistory[currentVolatilityHistory.length - 1]
+              setCurrentPrice(latestPrice.toFixed(5))
+            }
+          }
+
+          // Subscribe to real-time ticks
+          const newTickRequest = {
+            ticks: selectedIndex,
+            subscribe: 1,
+            req_id: Date.now() + 1
+          }
+          console.log('Sending new tick subscription:', newTickRequest)
+          websocket.send(JSON.stringify(newTickRequest))
+        }, 500)
+
+        setCurrentPrice('Loading ' + selectedIndex + ' data...')
+        setCurrentTick(null)
+      } else if (!isConnected) {
+        // If not connected, reset display
+        setCurrentPrice('Not connected - Select ' + selectedIndex)
+        setCurrentTick(null)
+      }
+    }, [selectedIndex, isConnected, websocket, tickHistory])
+
+
+    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
+
+    return (
+        <>
+            <div className='main'>
+                <div className='main__container main-content'>
+                    <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
+                        <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
+                            <div className='free-bots'>
+                                <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
+                                <div className='free-bots__content-wrapper'>
+                                    <div className='free-bots__content'>
+                                        {bots.map((bot, index) => (
+                                            <div 
+                                                className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
+                                                key={index} 
+                                                onClick={() => {
+                                                    handleBotClick(bot);
+                                                }}
+                                                style={{
+                                                    cursor: 'pointer',
+                                                    opacity: bot.isPlaceholder ? 0.7 : 1
+                                                }}
+                                            >
+                                                <div className='free-bot-card__icon'>
+                                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="#1976D2">
+                                                        <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
+                                                        <rect x="6" y="10" width="12" height="8" rx="2" fill="#1976D2"/>
+                                                        <circle cx="9" cy="13" r="1.5" fill="white"/>
+                                                        <circle cx="15" cy="13" r="1.5" fill="white"/>
+                                                        <rect x="10" y="15" width="4" height="1" rx="0.5" fill="white"/>
+                                                        <rect x="4" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
+                                                        <rect x="18" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
+                                                    </svg>
+                                                </div>
+                                                <div className='free-bot-card__details'>
+                                                    <h3 className='free-bot-card__title'>{bot.title}</h3>
+                                                    <p className='free-bot-card__description'>{bot.description}</p>
+                                                    <p className='free-bot-card__action'>
+                                                        {bot.isPlaceholder ? 'Loading bot...' : 'Click to load this bot'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
+                        <div label={<><BotIcon /><Localize i18n_default_text='Smart Trading' /></>} id='id-smart-trading'>
+                            <VolatilityAnalyzer />
+                        </div>
+                        <div label={<><BotIcon /><Localize i18n_default_text='Speed Bot' /></>} id='id-speed-bot'>
+                            <SpeedBot />
+                        </div>
+                        <div label={<><SignalsIcon /><Localize i18n_default_text='Signal Scanner' /></>} id='id-signals'>
+                            <div className={classNames('dashboard__chart-wrapper', {
+                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
+                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
+                            })}>
+                                <iframe 
+                                    src="https://tracktool.netlify.app/signals.html"
+                                    width="100%"
+                                    height="100%"
+                                    style={{ 
+                                        border: 'none', 
+                                        display: 'block', 
+                                        minHeight: '600px',
+                                        height: 'calc(100vh - 200px)'
+                                    }}
+                                    scrolling="yes"
+                                    title="Trading Signals"
+                                />
+                            </div>
+                        </div>
+                        <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
+                            <div className={classNames('dashboard__chart-wrapper', {
+                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
+                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
+                            })}>
+                                <Tabs 
+                                    className="analysis-tool-tabs"
+                                    active_tab_icon_color="var(--brand-secondary)"
+                                    background_color="var(--general-main-1)"
+                                    single_tab_has_no_label
+                                    should_update_hash={false}
+                                >
+                                    <div label={<Localize i18n_default_text='Technical Analysis' />} id='technical-analysis'>
+                                        <AnalysistoolComponent />
+                                    </div>
+                                    <div label={<Localize i18n_default_text='Market Analyzer' />} id='market-analyzer'>
+                                        <iframe
+                                            src="https://api.binarytool.site/"
+                                            title="Market Analyzer"
+                                        />
+                                    </div>
+                                </Tabs>
+                            </div>
+                        </div>
+                        <div label={<><ChartsIcon /><Localize i18n_default_text='Charts' /></>} id='id-charts'>
+                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}>
+                                <Chart show_digits_stats={false} />                            </Suspense>
+                        </div>
+                        <div label={<><TutorialsIcon /><Localize i18n_default_text='Tutorials' /></>} id='id-tutorials'>
+                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading tutorials...')} />}>
+                                <Tutorial handleTabChange={handleTabChange} />
+                            </Suspense>
+                        </div>
+                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
+                            <TradingHubDisplay />
+                        </div>
+                        <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
+                            <Dashboard handleTabChange={handleTabChange} />
+                            <button onClick={handleOpen}>Load Bot</button>
+                        </div>
+                    </Tabs>
                 </div>
-              </div>
             </div>
-          </Tabs>
-        </DesktopWrapper>
-        
-        <MobileWrapper>
-          <Tabs
-            className="main__tabs main__tabs--mobile"
-            onTabItemClick={handleTabChange}
-            active_index={active_tab}
-            should_update_hash
-            header_fit_content={false}
-          >
-            <div label={localize('Dashboard')} icon={<DashboardIcon />}>
-              <Dashboard />
-            </div>
-            
-            <div label={localize('Bot Builder')} icon={<BotBuilderIcon />}>
-              <Suspense fallback={<ChunkLoader message={localize('Loading Bot Builder...')} />}>
-                <div id="scratch_div" />
-              </Suspense>
-            </div>
-            
-            <div label={localize('Trading Hub')} icon={<TradingHubIcon />}>
-              <TradingHubDisplay
-                selectedIndex={selectedIndex}
-                setSelectedIndex={setSelectedIndex}
-                contractType={contractType}
-                setContractType={setContractType}
-                predictionModel={predictionModel}
-                setPredictionModel={setPredictionModel}
-                stakeAmount={stakeAmount}
-                setStakeAmount={setStakeAmount}
-                isConnected={isDigitsConnected}
-                isTrading={isTrading}
-                setIsTrading={setIsTrading}
-                currentTick={currentTick}
-                currentPrice={currentPrice}
-                tickHistory={tickHistory}
-                digitDistribution={digitDistribution}
-                digitPercentages={digitPercentages}
-                nextPrediction={nextPrediction}
-                confidence={confidence}
-                predictionAccuracy={predictionAccuracy}
-                evenOddBias={evenOddBias}
-                overUnderBias={overUnderBias}
-                streakPattern={streakPattern}
-                tradingLog={tradingLog}
-                totalTrades={totalTrades}
-                winRate={winRate}
-                profitLoss={profitLoss}
-                currentStreak={currentStreak}
-                connectToAPI={connectToAPI}
-                disconnectFromAPI={disconnectFromAPI}
-              />
-            </div>
-          </Tabs>
-        </MobileWrapper>
-      </div>
-      
-      <Dialog
-        title={title}
-        is_visible={is_dialog_open}
-        confirm_button_text={ok_button_text}
-        onConfirm={onOkButtonClick}
-        cancel_button_text={cancel_button_text}
-        onCancel={onCancelButtonClick}
-        is_mobile_full_width={false}
-        className="dc-dialog__wrapper--fixed"
-        has_close_icon
-        onClose={onCloseDialog}
-      >
-        {message}
-      </Dialog>
-      
-      {is_chart_modal_visible && <ChartModal />}
-      {is_trading_view_modal_visible && <TradingViewModal />}
-      
-      <RunPanel />
-    </div>
-  );
+            <DesktopWrapper>
+                <div className='main__run-strategy-wrapper'>
+                    <RunStrategy />
+                    {showRunPanel && <RunPanel />}
+                </div>
+                <ChartModal />
+                <TradingViewModal />
+            </DesktopWrapper>
+            <MobileWrapper>
+                <RunPanel />
+            </MobileWrapper>
+            <Dialog cancel_button_text={cancel_button_text || localize('Cancel')} confirm_button_text={ok_button_text || localize('Ok')} has_close_icon is_visible={is_dialog_open} onCancel={onCancelButtonClick} onClose={onCloseDialog} onConfirm={onOkButtonClick || onCloseDialog} title={title}>
+                {message}
+            </Dialog>
+        </>
+    );
 });
 
 export default AppWrapper;
