@@ -162,18 +162,8 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         const currentStrategy = strategy || tradingState.selectedStrategy;
 
-        // For OVERUNDER strategy, use market analyzer recommendation
-        if (currentStrategy === 'overunder' && currentRecommendation) {
-            return {
-                ...baseConfig,
-                symbol: currentRecommendation.symbol,
-                contract_type: currentRecommendation.strategy === 'over' ? 'DIGITOVER' : 'DIGITUNDER',
-                barrier: currentRecommendation.barrier
-            };
-        }
-
-        // Use active signal if available and matches strategy
-        if (activeSignal && activeSignal.strategy === currentStrategy) {
+        // Priority 1: Use active signal if available (more recent and specific)
+        if (activeSignal) {
             const symbolMap: Record<string, string> = {
                 'RDBULL': 'R_75',
                 'RBEAR': 'R_75',
@@ -184,8 +174,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                 'R100': 'R_100'
             };
 
-            const tradingSymbol = symbolMap[activeSignal.symbol] || 'R_75';
+            const tradingSymbol = symbolMap[activeSignal.symbol] || activeSignal.symbol;
 
+            addLog(`🎯 Using active signal: ${activeSignal.action} ${activeSignal.barrier || ''} on ${tradingSymbol}`);
+            
             return {
                 ...baseConfig,
                 symbol: tradingSymbol,
@@ -194,8 +186,22 @@ const TradingHubDisplay: React.FC = observer(() => {
             };
         }
 
-        // Fallback to first available recommendation
+        // Priority 2: For OVERUNDER strategy, use market analyzer recommendation
+        if (currentStrategy === 'overunder' && currentRecommendation) {
+            addLog(`📊 Using market analyzer recommendation: ${currentRecommendation.strategy} ${currentRecommendation.barrier} on ${currentRecommendation.symbol}`);
+            
+            return {
+                ...baseConfig,
+                symbol: currentRecommendation.symbol,
+                contract_type: currentRecommendation.strategy === 'over' ? 'DIGITOVER' : 'DIGITUNDER',
+                barrier: currentRecommendation.barrier
+            };
+        }
+
+        // Priority 3: Fallback to any available recommendation
         if (currentRecommendation) {
+            addLog(`📈 Using fallback recommendation: ${currentRecommendation.strategy} ${currentRecommendation.barrier} on ${currentRecommendation.symbol}`);
+            
             return {
                 ...baseConfig,
                 symbol: currentRecommendation.symbol,
@@ -205,8 +211,9 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
 
         // No valid configuration available
+        addLog('❌ No valid trade configuration available - waiting for signals...');
         return null;
-    }, [tradingState.currentStake, tradingState.selectedStrategy, activeSignal, currentRecommendation]);
+    }, [tradingState.currentStake, tradingState.selectedStrategy, activeSignal, currentRecommendation, martingaleConfig, addLog]);
 
     const executeTrade = useCallback(async () => {
         if (tradingState.isTradeInProgress) {
@@ -312,12 +319,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                     // Check if we have a valid trade config before attempting to trade
                     const hasValidConfig = getTradeConfig() !== null;
                     if (hasValidConfig) {
+                        addLog('📈 Auto-trade signal detected, executing trade...');
                         executeTrade();
                     } else {
-                        console.log('⏳ Auto-trading active, waiting for valid signal...');
+                        addLog('⏳ Auto-trading active, waiting for valid signal...');
                     }
                 }
-            }, 8000); // Execute every 8 seconds
+            }, 5000); // Execute every 5 seconds for more responsive trading
         }
 
         return () => {
@@ -371,18 +379,30 @@ const TradingHubDisplay: React.FC = observer(() => {
     useEffect(() => {
         try {
             const signalSubscription = signalIntegrationService.getActiveSignal().subscribe(signal => {
-                if (signal && signal.strategy === tradingState.selectedStrategy) {
-                    setActiveSignal(signal);
-                    addLog(`📊 New active signal: ${signal.action} ${signal.barrier || ''} on ${signal.symbol} (${signal.confidence}%)`);
+                if (signal) {
+                    // Accept signals for the selected strategy or overunder strategy
+                    const isValidSignal = signal.strategy === tradingState.selectedStrategy || 
+                                         (tradingState.selectedStrategy === 'overunder' && signal.strategy === 'overunder');
+                    
+                    if (isValidSignal) {
+                        setActiveSignal(signal);
+                        addLog(`📊 New active signal received: ${signal.action} ${signal.barrier || ''} on ${signal.symbol} (${signal.confidence}%)`);
 
-                    // Execute trade immediately if auto-trading is running and no trade in progress
-                    if (tradingState.isRunning && !tradingState.isTradeInProgress && analyzerReady) {
-                        setTimeout(() => {
-                            if (!tradingState.isTradeInProgress) {
-                                executeTrade();
-                            }
-                        }, 1000); // Small delay to ensure signal is set
+                        // Execute trade immediately if auto-trading is running and no trade in progress
+                        if (tradingState.isRunning && !tradingState.isTradeInProgress && analyzerReady) {
+                            addLog(`🚀 Auto-trading active, executing signal trade...`);
+                            setTimeout(() => {
+                                if (!tradingState.isTradeInProgress && tradingState.isRunning) {
+                                    executeTrade();
+                                }
+                            }, 500); // Reduced delay for faster execution
+                        }
+                    } else {
+                        addLog(`📊 Signal received for ${signal.strategy} but current strategy is ${tradingState.selectedStrategy}`);
                     }
+                } else {
+                    // Clear signal when null
+                    setActiveSignal(null);
                 }
             });
 
@@ -720,27 +740,63 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     return (
         <div className="trading-hub-container">
-            {/* Close button for navigation */}
-            <button 
-                className="trading-hub-close"
-                onClick={() => window.history.back()}
-                style={{
-                    position: 'absolute',
-                    top: '10px',
-                    right: '10px',
-                    background: 'rgba(255,255,255,0.2)',
-                    border: 'none',
-                    color: 'white',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    zIndex: 1001
-                }}
-            >
-                ✕ Close
-            </button>
+            {/* Navigation Header */}
+            <div className="trading-hub-nav" style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '60px',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 20px',
+                zIndex: 1002,
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <button 
+                        onClick={() => window.history.back()}
+                        style={{
+                            background: 'rgba(255,255,255,0.2)',
+                            border: 'none',
+                            color: 'white',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '500'
+                        }}
+                    >
+                        ← Back
+                    </button>
+                    <h2 style={{ color: 'white', margin: 0, fontSize: '18px' }}>🎯 Trading Hub</h2>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <span style={{ color: 'white', fontSize: '14px' }}>
+                        Balance: ${client?.balance ? parseFloat(client.balance).toFixed(2) : '0.00'}
+                    </span>
+                    <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        color: 'white',
+                        fontSize: '14px'
+                    }}>
+                        <span style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            background: isConnected ? '#4ade80' : '#ef4444'
+                        }}></span>
+                        {isConnected ? 'Connected' : 'Disconnected'}
+                    </div>
+                </div>
+            </div>
+            
+            {/* Add top margin to account for fixed header */}
+            <div style={{ marginTop: '60px' }}></div>
             <div className="trading-hub-grid">
                 <div className="main-content">
                     {/* Market Analyzer Status */}
@@ -758,11 +814,48 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 </div>
                             </div>
                         )}
-                        {currentRecommendation && (
-                            <div className="current-signal">
-                                <strong>Active Signal:</strong> {currentRecommendation.strategy} on {currentRecommendation.symbol}
-                                <br />
-                                <small>Barrier: {currentRecommendation.barrier} | {currentRecommendation.reason}</small>
+                        
+                        {/* Fixed-size active signal panel to prevent flickering */}
+                        <div className="current-signal" style={{
+                            minHeight: '60px',
+                            padding: '10px',
+                            border: '1px solid #ddd',
+                            borderRadius: '6px',
+                            marginTop: '10px',
+                            background: currentRecommendation ? '#f0f9ff' : '#f9f9f9'
+                        }}>
+                            {currentRecommendation ? (
+                                <>
+                                    <div style={{ fontWeight: 'bold', color: '#0ea5e9' }}>
+                                        🎯 Active Signal: {currentRecommendation.strategy.toUpperCase()} {currentRecommendation.barrier} on {currentRecommendation.symbol}
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                                        💡 {currentRecommendation.reason}
+                                    </div>
+                                </>
+                            ) : (
+                                <div style={{ color: '#999', fontStyle: 'italic', display: 'flex', alignItems: 'center', height: '40px' }}>
+                                    ⏳ Waiting for market signal...
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* Active Signal from Signal Service */}
+                        {activeSignal && (
+                            <div className="signal-service-signal" style={{
+                                minHeight: '60px',
+                                padding: '10px',
+                                border: '1px solid #22c55e',
+                                borderRadius: '6px',
+                                marginTop: '10px',
+                                background: '#f0fdf4'
+                            }}>
+                                <div style={{ fontWeight: 'bold', color: '#22c55e' }}>
+                                    📊 Signal Service: {activeSignal.action} {activeSignal.barrier || ''} on {activeSignal.symbol}
+                                </div>
+                                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                                    🎯 Confidence: {activeSignal.confidence}% | {activeSignal.details}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -789,7 +882,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         <h3>⚙️ Configuration</h3>
                         <div className="config-grid">
                             <div className="config-item">
-                                <label>Stake ($)</label>
+                                <label>Base Stake ($)</label>
                                 <input
                                     type="number"
                                     value={tradingState.currentStake}
@@ -802,6 +895,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     step="0.1"
                                     disabled={tradingState.isRunning || tradingState.isTradeInProgress}
                                 />
+                                <small style={{ color: '#666', fontSize: '12px' }}>
+                                    Current: ${(martingaleConfig.baseStake * martingaleConfig.currentMultiplier).toFixed(2)}
+                                </small>
                             </div>
                             <div className="config-item">
                                 <label>Stop Loss ($)</label>
@@ -812,6 +908,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     min="1"
                                     disabled={tradingState.isRunning || tradingState.isTradeInProgress}
                                 />
+                                <small style={{ color: '#666', fontSize: '12px' }}>
+                                    Current P&L: ${tradingState.totalProfit.toFixed(2)}
+                                </small>
                             </div>
                             <div className="config-item">
                                 <label>Take Profit ($)</label>
@@ -822,6 +921,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     min="1"
                                     disabled={tradingState.isRunning || tradingState.isTradeInProgress}
                                 />
+                                <small style={{ color: '#666', fontSize: '12px' }}>
+                                    Progress: {((tradingState.totalProfit / tradingState.takeProfit) * 100).toFixed(1)}%
+                                </small>
                             </div>
                             <div className="config-item">
                                 <label>Martingale Multiplier</label>
@@ -834,6 +936,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     step="0.1"
                                     disabled={tradingState.isRunning || tradingState.isTradeInProgress}
                                 />
+                                <small style={{ color: '#666', fontSize: '12px' }}>
+                                    Active: x{martingaleConfig.currentMultiplier.toFixed(1)}
+                                </small>
                             </div>
                             <div className="config-item">
                                 <label>Max Multiplier</label>
@@ -846,6 +951,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     step="1"
                                     disabled={tradingState.isRunning || tradingState.isTradeInProgress}
                                 />
+                                <small style={{ color: '#666', fontSize: '12px' }}>
+                                    Losses: {martingaleConfig.consecutiveLosses}
+                                </small>
                             </div>
                         </div>
                     </div>

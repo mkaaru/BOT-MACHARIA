@@ -829,3 +829,39 @@
         color: var(--text-secondary);
       }
     }
+
+.trading-hub-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    z-index: 1000;
+    overflow: auto;
+    padding: 80px 20px 20px 20px; /* Add top padding for fixed nav */
+}
+
+.trading-hub-nav {
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.config-item small {
+    display: block;
+    margin-top: 4px;
+    font-weight: 500;
+}
+
+.current-signal {
+    transition: background-color 0.3s ease;
+}
+
+.signal-service-signal {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
