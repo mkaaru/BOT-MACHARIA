@@ -865,3 +865,425 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.8; }
 }
+.trading-hub-container {
+  width: 100%;
+  height: 100vh;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  font-family: 'Inter', sans-serif;
+  color: white;
+  overflow: hidden;
+}
+
+.trading-hub-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 60px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    color: white;
+  }
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  
+  &.connected {
+    color: #4ade80;
+  }
+  
+  &.disconnected {
+    color: #ef4444;
+  }
+  
+  &.ready {
+    color: #4ade80;
+  }
+  
+  &.loading {
+    color: #fbbf24;
+  }
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.trading-hub-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  height: calc(100vh - 60px);
+  padding: 20px;
+  overflow: hidden;
+}
+
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.analyzer-status,
+.strategy-section,
+.config-section,
+.controls-section,
+.stats-section,
+.logs-section {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  backdrop-filter: blur(10px);
+  
+  h3 {
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #e2e8f0;
+  }
+}
+
+.current-signal {
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 10px;
+  min-height: 60px;
+  
+  &.active {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+  
+  &.waiting {
+    background: rgba(156, 163, 175, 0.1);
+    border: 1px solid rgba(156, 163, 175, 0.3);
+  }
+}
+
+.strategy-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.strategy-btn {
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+  
+  &.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: #667eea;
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  
+  label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #cbd5e1;
+  }
+  
+  input {
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+    font-size: 14px;
+    
+    &:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+    }
+    
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+  
+  small {
+    font-size: 12px;
+    color: #94a3b8;
+  }
+}
+
+.control-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.control-btn {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  
+  &.start {
+    background: linear-gradient(135deg, #059669 0%, #065f46 100%);
+    color: white;
+    
+    &:hover {
+      background: linear-gradient(135deg, #047857 0%, #064e3b 100%);
+    }
+  }
+  
+  &.stop {
+    background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+    color: white;
+    
+    &:hover {
+      background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%);
+    }
+  }
+  
+  &.manual {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: white;
+    
+    &:hover {
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+    }
+  }
+  
+  &.reset {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  
+  .stat-label {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+  
+  .stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    
+    &.profit {
+      color: #22c55e;
+    }
+    
+    &.loss {
+      color: #ef4444;
+    }
+  }
+}
+
+.logs-container {
+  max-height: 300px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 15px;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.5);
+    }
+  }
+}
+
+.log-entry {
+  font-size: 12px;
+  color: #e2e8f0;
+  margin-bottom: 4px;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.loading-container,
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  padding: 20px;
+  
+  h3 {
+    margin-bottom: 20px;
+    font-size: 24px;
+  }
+  
+  p {
+    font-size: 16px;
+    color: #94a3b8;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  
+  button {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    
+    &:hover {
+      background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+    }
+  }
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.initialization-details {
+  margin-top: 10px;
+  
+  small {
+    color: #94a3b8;
+    font-size: 12px;
+  }
+}
+
+.loading-progress {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 2px;
+  animation: loading 2s ease-in-out infinite;
+}
+
+@keyframes loading {
+  0% {
+    width: 0%;
+  }
+  50% {
+    width: 70%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+// Mobile responsiveness
+@media (max-width: 768px) {
+  .trading-hub-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+    padding: 15px;
+  }
+  
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .control-buttons {
+    flex-direction: column;
+  }
+  
+  .strategy-buttons {
+    flex-direction: column;
+  }
+}

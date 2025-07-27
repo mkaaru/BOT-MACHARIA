@@ -298,7 +298,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             addLog(`❌ Trade execution error: ${error.message}`);
             setTradingState(prev => ({ ...prev, isTradeInProgress: false }));
         }
-    }, [tradingState.isTradeInProgress, getTradeConfig, executeDirectTrade, addLog, activeSignal, signalIntegrationService]);
+    }, [tradingState.isTradeInProgress, getTradeConfig, executeDirectTrade, addLog, activeSignal]);
 
     const toggleTrading = useCallback(() => {
         setTradingState(prev => {
@@ -597,7 +597,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         setTradingState(prev => ({ ...prev, isTradeInProgress: true }));
 
         try {
-            addLog(`📈 Manual trade: ${tradeConfig.contractType} on ${tradeConfig.symbol} with stake $${tradeConfig.amount}`);
+            addLog(`📈 Manual trade: ${tradeConfig.contract_type} on ${tradeConfig.symbol} with stake $${tradeConfig.amount}`);
 
             const result = await executeDirectTrade(tradeConfig);
 
@@ -634,7 +634,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 }, 8000); // 8 second delay to allow for real API result first
 
             } else {
-                addLog(`❌ Manual trade failed: ${result.message}`);
+                addLog(`❌ Manual trade failed: ${result.error}`);
                 setTradingState(prev => ({ ...prev, isTradeInProgress: false }));
             }
         } catch (error) {
@@ -717,21 +717,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                 boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <button 
-                        onClick={() => window.history.back()}
-                        style={{
-                            background: 'rgba(255,255,255,0.2)',
-                            border: 'none',
-                            color: 'white',
-                            padding: '8px 12px',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            fontWeight: '500'
-                        }}
-                    >
-                        ← Back
-                    </button>
                     <h2 style={{ color: 'white', margin: 0, fontSize: '18px' }}>🎯 Trading Hub</h2>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
