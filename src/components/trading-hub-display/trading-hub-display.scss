@@ -1,14 +1,15 @@
 /* eslint-disable */
 .trading-hub-container {
-    max-width: 1200px;
-    margin: 80px auto 0 auto;
-    padding: 20px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    position: fixed;
+    top: 60px; /* Leave space for navigation header */
+    left: 0;
+    right: 0;
+    bottom: 0;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    z-index: 100; /* Lower z-index to allow header to show */
+    overflow: hidden;
 
     h3 {
         margin: 0 0 20px 0;
