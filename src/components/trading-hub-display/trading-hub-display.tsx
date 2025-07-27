@@ -1,5 +1,5 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { signalIntegrationService, TradingSignal } from '../../services/signal-integration';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
@@ -50,6 +50,8 @@ const TradingHubDisplay: React.FC = observer(() => {
     const logsEndRef = useRef<HTMLDivElement>(null);
     const [currentRecommendation, setCurrentRecommendation] = useState<TradeRecommendation | null>(null);
     const [analyzerReady, setAnalyzerReady] = useState(false);
+    const [activeSignal, setActiveSignal] = useState<TradingSignal | null>(null);
+    const [signalHistory, setSignalHistory] = useState<TradingSignal[]>([]);
 
     const addLog = useCallback((message: string) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -130,7 +132,6 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
     }, [addLog]);
 
-    // Enhanced strategy logic that uses market analyzer
     const getTradeConfig = useCallback((strategy: string): TradeConfig => {
         const baseConfig = {
             amount: tradingState.currentStake,
@@ -138,59 +139,35 @@ const TradingHubDisplay: React.FC = observer(() => {
             duration_unit: 't'
         };
 
-        // Use market analyzer recommendation if available
-        if (analyzerReady && currentRecommendation) {
-            addLog(`📊 Using market analyzer signal: ${currentRecommendation.strategy} on ${currentRecommendation.symbol}`);
-            
+        // Use active signal if available and matches strategy
+        if (activeSignal && activeSignal.strategy === strategy) {
+            const symbolMap: Record<string, string> = {
+                'RDBULL': 'R_75', // Map signal symbols to trading symbols
+                'RBEAR': 'R_75',
+                'R10': 'R_10',
+                'R25': 'R_25',
+                'R50': 'R_50',
+                'R75': 'R_75',
+                'R100': 'R_100'
+            };
+
+            const tradingSymbol = symbolMap[activeSignal.symbol] || 'R_75';
+
             return {
                 ...baseConfig,
-                symbol: currentRecommendation.symbol,
-                contract_type: currentRecommendation.strategy === 'DIGITOVER' ? 'DIGITOVER' : 
-                              currentRecommendation.strategy === 'DIGITUNDER' ? 'DIGITUNDER' :
-                              currentRecommendation.strategy === 'DIGITEVEN' ? 'DIGITEVEN' : 'DIGITODD',
-                barrier: currentRecommendation.barrier
+                symbol: tradingSymbol,
+                contract_type: activeSignal.action === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER',
+                barrier: activeSignal.barrier || '5'
             };
+
         }
 
-        // Fallback to original strategy logic
-        const lastDigit = Math.floor(Math.random() * 10);
-
-        switch (strategy) {
-            case 'overunder':
-                const barrier = 5;
-                const isOver = lastDigit > barrier;
-                return {
-                    ...baseConfig,
-                    symbol: '1HZ25V',
-                    contract_type: isOver ? 'DIGITUNDER' : 'DIGITOVER',
-                    barrier: barrier.toString()
-                };
-
-            case 'differ':
-                const isEven = lastDigit % 2 === 0;
-                return {
-                    ...baseConfig,
-                    symbol: '1HZ50V',
-                    contract_type: isEven ? 'DIGITODD' : 'DIGITEVEN'
-                };
-
-            case 'o5u4':
-                const shouldGoOver = lastDigit <= 4;
-                return {
-                    ...baseConfig,
-                    symbol: '1HZ75V',
-                    contract_type: shouldGoOver ? 'DIGITOVER' : 'DIGITUNDER',
-                    barrier: '4'
-                };
-
-            default:
-                return {
-                    ...baseConfig,
-                    symbol: '1HZ10V',
-                    contract_type: 'DIGITEVEN'
-                };
-        }
-    }, [tradingState.currentStake, analyzerReady, currentRecommendation, addLog]);
+        return {
+            ...baseConfig,
+            symbol: 'R_10',
+            contract_type: 'DIGITEVEN'
+        };
+    }, [tradingState.currentStake, activeSignal]);
 
     const executeTrade = useCallback(async () => {
         if (tradingState.isTradeInProgress) {
@@ -198,8 +175,17 @@ const TradingHubDisplay: React.FC = observer(() => {
             return;
         }
 
+        // Check if we have an active signal for the selected strategy
+        if (!activeSignal || activeSignal.strategy !== tradingState.selectedStrategy) {
+            addLog(`❌ No active signal for ${tradingState.selectedStrategy.toUpperCase()} strategy`);
+            addLog('💡 Waiting for signal recommendation...');
+            return;
+        }
+
         const config = getTradeConfig(tradingState.selectedStrategy);
         addLog(`🎯 Strategy: ${tradingState.selectedStrategy.toUpperCase()}`);
+        addLog(`📊 Using signal: ${activeSignal.action} ${activeSignal.barrier || ''} on ${activeSignal.symbol}`);
+        addLog(`💪 Confidence: ${activeSignal.confidence}%`);
 
         const result = await executeDirectTrade(config);
 
@@ -209,8 +195,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                 totalTrades: prev.totalTrades + 1,
                 lastTradeResult: 'Executed'
             }));
+
+            // Mark signal as used
+            setActiveSignal(null);
+            signalIntegrationService.clearActiveSignal();
+            addLog('✅ Signal executed, waiting for next signal');
         }
-    }, [tradingState.selectedStrategy, tradingState.isTradeInProgress, executeDirectTrade, getTradeConfig]);
+    }, [tradingState.selectedStrategy, tradingState.isTradeInProgress, activeSignal, executeDirectTrade, getTradeConfig, addLog]);
 
     const toggleTrading = useCallback(() => {
         setTradingState(prev => {
@@ -232,81 +223,30 @@ const TradingHubDisplay: React.FC = observer(() => {
         addLog('📊 Statistics reset');
     }, [addLog]);
 
-    // Initialize market analyzer
-    const initializeMarketAnalyzer = useCallback(async () => {
-        try {
-            addLog('🔄 Starting market analyzer...');
-
-            // Start market analyzer
-            marketAnalyzer.start();
-
-            // Wait for analyzer to be ready
-            await marketAnalyzer.waitForAnalysisReady();
-            setAnalyzerReady(true);
-            addLog('✅ Market analyzer ready');
-
-            // Subscribe to analysis updates
-            const unsubscribe = marketAnalyzer.onAnalysis((recommendation, allStats) => {
-                if (recommendation) {
-                    setCurrentRecommendation(recommendation);
-                    addLog(`📊 New signal: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol} (${recommendation.reason})`);
-                } else {
-                    setCurrentRecommendation(null);
-                }
-            });
-
-            return () => {
-                unsubscribe();
-                marketAnalyzer.stop();
-            };
-        } catch (error) {
-            console.error('Failed to initialize market analyzer:', error);
-            addLog('❌ Failed to initialize market analyzer');
-        }
-    }, [addLog]);
-
-    // Auto trading effect
+    // Subscribe to signal service
     useEffect(() => {
-        // Initialize market analyzer
-        initializeMarketAnalyzer();
-
-        if (!tradingState.isRunning || tradingState.isTradeInProgress) return;
-
-        const interval = setInterval(() => {
-            executeTrade();
-        }, 5000); // Execute every 5 seconds
-
-        return () => clearInterval(interval);
-    }, [tradingState.isRunning, tradingState.isTradeInProgress, executeTrade, initializeMarketAnalyzer]);
-
-    // Monitor contract results
-    useEffect(() => {
-        if (!api_base.api) return;
-
-        const subscription = api_base.api.onMessage().subscribe(({ data }) => {
-            if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract) {
-                const contract = data.proposal_open_contract;
-
-                if (contract.is_sold) {
-                    const profit = parseFloat(contract.sell_price) - parseFloat(contract.buy_price);
-                    const isWin = profit > 0;
-
-                    addLog(`📊 Contract closed: P&L ${profit > 0 ? '+' : ''}${profit.toFixed(2)}`);
-
-                    setTradingState(prev => ({
-                        ...prev,
-                        totalProfit: prev.totalProfit + profit,
-                        winTrades: isWin ? prev.winTrades + 1 : prev.winTrades,
-                        lossTrades: !isWin ? prev.lossTrades + 1 : prev.lossTrades,
-                        lastTradeResult: isWin ? 'Win' : 'Loss'
-                    }));
-                }
+        const signalSubscription = signalIntegrationService.getActiveSignal().subscribe(signal => {
+            if (signal && signal.strategy === tradingState.selectedStrategy) {
+                setActiveSignal(signal);
+                addLog(`📊 New active signal: ${signal.action} ${signal.barrier || ''} on ${signal.symbol} (${signal.confidence}%)`);
             }
         });
 
-        api_base.pushSubscription(subscription);
-        return () => subscription.unsubscribe();
-    }, [addLog]);
+        const allSignalsSubscription = signalIntegrationService.getSignals().subscribe(signals => {
+            setSignalHistory(signals.filter(s => s.strategy === tradingState.selectedStrategy).slice(-10));
+        });
+
+        return () => {
+            signalSubscription.unsubscribe();
+            allSignalsSubscription.unsubscribe();
+        };
+    }, [tradingState.selectedStrategy, addLog]);
+
+    // Clear active signal when strategy changes
+    useEffect(() => {
+        setActiveSignal(null);
+        signalIntegrationService.clearActiveSignal();
+    }, [tradingState.selectedStrategy]);
 
     return (
         <div className="trading-hub-container">
