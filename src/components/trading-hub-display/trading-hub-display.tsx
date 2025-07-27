@@ -322,10 +322,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                 
                 // Create trade engine instance
                 const engine = new TradeEngine();
-                const interface = getBotInterface(engine);
+                const botInterface = getBotInterface(engine);
                 
                 setTradeEngine(engine);
-                setBotInterface(interface);
+                setBotInterface(botInterface);
                 setBotReady(true);
                 
                 addLog('✅ Bot Engine ready');
