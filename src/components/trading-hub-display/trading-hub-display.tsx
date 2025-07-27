@@ -1,7 +1,4 @@
-This code integrates a market analyzer to improve trading decisions based on market conditions.
-```
 
-```python
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
@@ -133,7 +130,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
     }, [addLog]);
 
-    // Strategy logic
+    // Enhanced strategy logic that uses market analyzer
     const getTradeConfig = useCallback((strategy: string): TradeConfig => {
         const baseConfig = {
             amount: tradingState.currentStake,
@@ -141,7 +138,21 @@ const TradingHubDisplay: React.FC = observer(() => {
             duration_unit: 't'
         };
 
-        // Generate random last digit for strategy analysis
+        // Use market analyzer recommendation if available
+        if (analyzerReady && currentRecommendation) {
+            addLog(`📊 Using market analyzer signal: ${currentRecommendation.strategy} on ${currentRecommendation.symbol}`);
+            
+            return {
+                ...baseConfig,
+                symbol: currentRecommendation.symbol,
+                contract_type: currentRecommendation.strategy === 'DIGITOVER' ? 'DIGITOVER' : 
+                              currentRecommendation.strategy === 'DIGITUNDER' ? 'DIGITUNDER' :
+                              currentRecommendation.strategy === 'DIGITEVEN' ? 'DIGITEVEN' : 'DIGITODD',
+                barrier: currentRecommendation.barrier
+            };
+        }
+
+        // Fallback to original strategy logic
         const lastDigit = Math.floor(Math.random() * 10);
 
         switch (strategy) {
@@ -179,7 +190,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     contract_type: 'DIGITEVEN'
                 };
         }
-    }, [tradingState.currentStake]);
+    }, [tradingState.currentStake, analyzerReady, currentRecommendation, addLog]);
 
     const executeTrade = useCallback(async () => {
         if (tradingState.isTradeInProgress) {
@@ -221,6 +232,39 @@ const TradingHubDisplay: React.FC = observer(() => {
         addLog('📊 Statistics reset');
     }, [addLog]);
 
+    // Initialize market analyzer
+    const initializeMarketAnalyzer = useCallback(async () => {
+        try {
+            addLog('🔄 Starting market analyzer...');
+
+            // Start market analyzer
+            marketAnalyzer.start();
+
+            // Wait for analyzer to be ready
+            await marketAnalyzer.waitForAnalysisReady();
+            setAnalyzerReady(true);
+            addLog('✅ Market analyzer ready');
+
+            // Subscribe to analysis updates
+            const unsubscribe = marketAnalyzer.onAnalysis((recommendation, allStats) => {
+                if (recommendation) {
+                    setCurrentRecommendation(recommendation);
+                    addLog(`📊 New signal: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol} (${recommendation.reason})`);
+                } else {
+                    setCurrentRecommendation(null);
+                }
+            });
+
+            return () => {
+                unsubscribe();
+                marketAnalyzer.stop();
+            };
+        } catch (error) {
+            console.error('Failed to initialize market analyzer:', error);
+            addLog('❌ Failed to initialize market analyzer');
+        }
+    }, [addLog]);
+
     // Auto trading effect
     useEffect(() => {
         // Initialize market analyzer
@@ -233,7 +277,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         }, 5000); // Execute every 5 seconds
 
         return () => clearInterval(interval);
-    }, [tradingState.isRunning, tradingState.isTradeInProgress, executeTrade]);
+    }, [tradingState.isRunning, tradingState.isTradeInProgress, executeTrade, initializeMarketAnalyzer]);
 
     // Monitor contract results
     useEffect(() => {
@@ -264,42 +308,26 @@ const TradingHubDisplay: React.FC = observer(() => {
         return () => subscription.unsubscribe();
     }, [addLog]);
 
-    const initializeMarketAnalyzer = async () => {
-        try {
-            addLog('🔄 Starting market analyzer...');
-
-            // Start market analyzer
-            marketAnalyzer.start();
-
-            // Wait for analyzer to be ready
-            await marketAnalyzer.waitForAnalysisReady();
-            setAnalyzerReady(true);
-            addLog('✅ Market analyzer ready');
-
-            // Subscribe to analysis updates
-            const unsubscribe = marketAnalyzer.onAnalysis((recommendation, allStats) => {
-                if (recommendation) {
-                    setCurrentRecommendation(recommendation);
-                    addLog(`📊 New signal: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol} (${recommendation.reason})`);
-                } else {
-                    setCurrentRecommendation(null);
-                }
-            });
-
-            return () => {
-                unsubscribe();
-                marketAnalyzer.stop();
-            };
-        } catch (error) {
-            console.error('Failed to initialize market analyzer:', error);
-            addLog('❌ Failed to initialize market analyzer');
-        }
-    };
-
     return (
         <div className="trading-hub-container">
             <div className="trading-hub-grid">
                 <div className="main-content">
+                    {/* Market Analyzer Status */}
+                    <div className="analyzer-status">
+                        <h3>🔬 Market Analyzer</h3>
+                        <div className={`status-indicator ${analyzerReady ? 'ready' : 'loading'}`}>
+                            <span className="status-dot"></span>
+                            {analyzerReady ? 'Ready' : 'Initializing...'}
+                        </div>
+                        {currentRecommendation && (
+                            <div className="current-signal">
+                                <strong>Active Signal:</strong> {currentRecommendation.strategy} on {currentRecommendation.symbol}
+                                <br />
+                                <small>Barrier: {currentRecommendation.barrier} | {currentRecommendation.reason}</small>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Strategy Selection */}
                     <div className="strategy-section">
                         <h3>🎯 Trading Strategy</h3>
@@ -431,4 +459,3 @@ const TradingHubDisplay: React.FC = observer(() => {
 });
 
 export default TradingHubDisplay;
-`
