@@ -31,7 +31,8 @@ interface TradeConfig {
 }
 
 const TradingHubDisplay: React.FC = observer(() => {
-    const { run_panel } = useStore();
+    const { run_panel, client } = useStore();
+    const isConnected = client?.is_logged_in || false;
     const [tradingState, setTradingState] = useState<TradingState>({
         isRunning: false,
         selectedStrategy: 'overunder',
@@ -377,7 +378,15 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // Subscribe to signal service
     useEffect(() => {
+        if (!isInitialized) return;
+        
         try {
+            // Check if signal service is available
+            if (!signalIntegrationService || typeof signalIntegrationService.getActiveSignal !== 'function') {
+                addLog('⚠️ Signal integration service not available');
+                return;
+            }
+
             const signalSubscription = signalIntegrationService.getActiveSignal().subscribe(signal => {
                 if (signal) {
                     // Accept signals for the selected strategy or overunder strategy
@@ -418,7 +427,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             console.error('Signal service subscription error:', error);
             addLog('⚠️ Signal service not available');
         }
-    }, [tradingState.selectedStrategy, tradingState.isRunning, tradingState.isTradeInProgress, analyzerReady, executeTrade, addLog]);
+    }, [tradingState.selectedStrategy, tradingState.isRunning, tradingState.isTradeInProgress, analyzerReady, executeTrade, addLog, isInitialized]);
 
     // Clear active signal when strategy changes
     useEffect(() => {
@@ -706,6 +715,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // Error boundary for the component
     const [hasError, setHasError] = useState(false);
+    const [isInitialized, setIsInitialized] = useState(false);
 
     useEffect(() => {
         const handleError = (error: Error) => {
@@ -714,9 +724,29 @@ const TradingHubDisplay: React.FC = observer(() => {
             addLog(`❌ Component Error: ${error.message}`);
         };
 
+        // Initialize component
+        try {
+            setIsInitialized(true);
+            addLog('🎯 Trading Hub initialized successfully');
+        } catch (error) {
+            console.error('Initialization error:', error);
+            setHasError(true);
+        }
+
         window.addEventListener('error', handleError);
         return () => window.removeEventListener('error', handleError);
     }, [addLog]);
+
+    if (!isInitialized) {
+        return (
+            <div className="trading-hub-container">
+                <div className="loading-container" style={{ padding: '20px', textAlign: 'center' }}>
+                    <h3>🎯 Loading Trading Hub...</h3>
+                    <div className="loading-spinner" style={{ margin: '20px auto', width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #3498db', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                </div>
+            </div>
+        );
+    }
 
     if (hasError) {
         return (
@@ -727,11 +757,12 @@ const TradingHubDisplay: React.FC = observer(() => {
                     <button 
                         onClick={() => {
                             setHasError(false);
-                            window.location.reload();
+                            setIsInitialized(false);
+                            setTimeout(() => setIsInitialized(true), 100);
                         }}
                         style={{ padding: '10px 20px', marginTop: '10px' }}
                     >
-                        Refresh Page
+                        Retry
                     </button>
                 </div>
             </div>
@@ -775,7 +806,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                     <span style={{ color: 'white', fontSize: '14px' }}>
-                        Balance: ${client?.balance ? parseFloat(client.balance).toFixed(2) : '0.00'}
+                        Balance: ${client?.balance ? parseFloat(client.balance.toString()).toFixed(2) : '0.00'}
                     </span>
                     <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`} style={{
                         display: 'flex',
