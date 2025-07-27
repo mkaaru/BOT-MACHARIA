@@ -608,4 +608,3 @@ const TradingHubDisplay: React.FC = observer(() => {
 });
 
 export default TradingHubDisplay;
-</replit_final_file>
