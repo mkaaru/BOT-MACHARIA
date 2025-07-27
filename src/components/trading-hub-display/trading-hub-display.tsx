@@ -35,9 +35,9 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [tradingState, setTradingState] = useState<TradingState>({
         isRunning: false,
         selectedStrategy: 'overunder',
-        currentStake: 1,
-        stopLoss: 50,
-        takeProfit: 100,
+        currentStake: 1.0,
+        stopLoss: 50.0,
+        takeProfit: 100.0,
         totalTrades: 0,
         winTrades: 0,
         lossTrades: 0,
@@ -50,8 +50,8 @@ const TradingHubDisplay: React.FC = observer(() => {
         enabled: true,
         multiplier: 2.0,        // Fixed 2x multiplier
         maxMultiplier: 2.0,     // Max is also 2x to prevent escalation
-        baseStake: 1,
-        currentMultiplier: 1,
+        baseStake: 1.0,
+        currentMultiplier: 1.0,
         consecutiveLosses: 0
     });
 
@@ -147,15 +147,19 @@ const TradingHubDisplay: React.FC = observer(() => {
     }, [addLog]);
 
     const getTradeConfig = useCallback((strategy?: string): TradeConfig | null => {
-        // Calculate stake with martingale - only apply 2x multiplier if last closed trade was confirmed loss
+        // Calculate stake with martingale - enforce 2x multiplier on loss
         const calculateStake = () => {
+            const baseStake = tradingState.currentStake;
+            
             if (martingaleConfig.enabled && martingaleConfig.consecutiveLosses > 0) {
-                // Apply fixed 2x multiplier only on confirmed loss (not progressive)
-                const multipliedStake = martingaleConfig.baseStake * 2;
-                const maxStake = martingaleConfig.baseStake * martingaleConfig.maxMultiplier;
-                return Math.min(multipliedStake, maxStake);
+                // Enforce fixed 2x multiplier on confirmed loss
+                const multipliedStake = baseStake * martingaleConfig.multiplier;
+                addLog(`💰 MARTINGALE APPLIED: Base stake $${baseStake} × ${martingaleConfig.multiplier} = $${multipliedStake}`);
+                return multipliedStake;
             }
-            return martingaleConfig.baseStake || tradingState.currentStake;
+            
+            addLog(`💰 Using base stake: $${baseStake}`);
+            return baseStake;
         };
 
         const baseConfig = {
@@ -495,21 +499,23 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 addLog(`${isWin ? '🎉' : '💔'} Trade ${isWin ? 'WON' : 'LOST'}: Buy: $${buyPrice.toFixed(2)}, Sell: $${sellPrice.toFixed(2)}, P&L: ${pnl > 0 ? '+' : ''}$${pnl.toFixed(2)}`);
 
-                // Update martingale state - only track last closed trade result
+                // Update martingale state - enforce strict 2x multiplier on loss
                 setMartingaleConfig(prev => {
                     if (isWin) {
                         addLog('✅ MARTINGALE RESET: Win detected - resetting to base stake');
                         return {
                             ...prev,
                             consecutiveLosses: 0,
-                            currentMultiplier: 1
+                            currentMultiplier: 1.0,
+                            baseStake: tradingState.currentStake
                         };
                     } else {
-                        addLog('❌ MARTINGALE TRIGGER: Confirmed loss - next trade will use 2x multiplier');
+                        addLog('❌ MARTINGALE ENFORCED: Confirmed loss - NEXT TRADE WILL USE 2x MULTIPLIER');
                         return {
                             ...prev,
                             consecutiveLosses: 1, // Always set to 1 for 2x multiplier on next trade
-                            currentMultiplier: 2   // Fixed 2x multiplier
+                            currentMultiplier: 2.0,   // Fixed 2x multiplier
+                            baseStake: tradingState.currentStake
                         };
                     }
                 });
@@ -858,13 +864,23 @@ const TradingHubDisplay: React.FC = observer(() => {
                             </div>
                             <div className="config-item">
                                 <label>Martingale (Fixed 2x on Loss)</label>
-                                <input
-                                    type="checkbox"
-                                    checked={martingaleConfig.enabled}
-                                    onChange={e => setMartingaleConfig(prev => ({ ...prev, enabled: e.target.checked }))}
-                                    disabled={tradingState.isRunning}
-                                />
-                                <small>Apply 2x stake only after confirmed loss</small>
+                                <div className="martingale-controls">
+                                    <input
+                                        type="checkbox"
+                                        checked={martingaleConfig.enabled}
+                                        onChange={e => setMartingaleConfig(prev => ({ ...prev, enabled: e.target.checked }))}
+                                        disabled={tradingState.isRunning}
+                                    />
+                                    <span className="martingale-status">
+                                        {martingaleConfig.enabled ? 'ENABLED' : 'DISABLED'}
+                                    </span>
+                                </div>
+                                <small>
+                                    Apply 2x stake only after confirmed loss
+                                    {martingaleConfig.consecutiveLosses > 0 && (
+                                        <span className="loss-indicator"> - NEXT: 2x STAKE</span>
+                                    )}
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -924,17 +940,32 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 <span className="stat-value">{tradingState.lastTradeResult}</span>
                             </div>
                             <div className="stat-item">
-                                <span className="stat-label">Next Stake</span>
-                                <span className="stat-value">
-                                    ${martingaleConfig.enabled && martingaleConfig.consecutiveLosses > 0 
-                                        ? (martingaleConfig.baseStake * 2).toFixed(2)
-                                        : martingaleConfig.baseStake.toFixed(2)}
+                                <span className="stat-label">Current Stake</span>
+                                <span className="stat-value">${tradingState.currentStake.toFixed(2)}</span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="stat-label">Stop Loss</span>
+                                <span className="stat-value">${tradingState.stopLoss.toFixed(2)}</span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="stat-label">Take Profit</span>
+                                <span className="stat-value">${tradingState.takeProfit.toFixed(2)}</span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="stat-label">Martingale Status</span>
+                                <span className={`stat-value ${martingaleConfig.consecutiveLosses > 0 ? 'loss' : 'neutral'}`}>
+                                    {martingaleConfig.enabled ? 
+                                        (martingaleConfig.consecutiveLosses > 0 ? 'ACTIVE (2x)' : 'READY') : 
+                                        'DISABLED'
+                                    }
                                 </span>
                             </div>
                             <div className="stat-item">
-                                <span className="stat-label">Last Trade Result</span>
-                                <span className={`stat-value ${martingaleConfig.consecutiveLosses > 0 ? 'loss' : 'neutral'}`}>
-                                    {martingaleConfig.consecutiveLosses > 0 ? 'LOSS (2x Next)' : 'WIN/RESET'}
+                                <span className="stat-label">Next Stake</span>
+                                <span className="stat-value">
+                                    ${martingaleConfig.enabled && martingaleConfig.consecutiveLosses > 0 
+                                        ? (tradingState.currentStake * 2).toFixed(2)
+                                        : tradingState.currentStake.toFixed(2)}
                                 </span>
                             </div>
                         </div>
