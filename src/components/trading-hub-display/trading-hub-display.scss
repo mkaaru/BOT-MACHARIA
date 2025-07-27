@@ -981,3 +981,38 @@
       }
     }
   }
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.continuous-trading-status {
+  margin-bottom: 15px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(0, 255, 127, 0.1);
+  border: 1px solid rgba(0, 255, 127, 0.3);
+
+  .status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+
+    &.continuous {
+      background: rgba(0, 255, 127, 0.2);
+      color: #00ff7f;
+    }
+  }
+
+  small {
+    display: block;
+    margin-top: 5px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 11px;
+  }
+}

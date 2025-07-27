@@ -64,6 +64,8 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [marketStats, setMarketStats] = useState({});
     const isAnalysisReady = analyzerReady;
     const [tradeHistory, setTradeHistory] = useState<any[]>([]); // Added trade history state
+    const [lastTradeTime, setLastTradeTime] = useState<number>(0);
+    const [tradeCooldown] = useState<number>(3000); // 3 second cooldown between trades
 
     const addLog = useCallback((message: string) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -306,45 +308,49 @@ const TradingHubDisplay: React.FC = observer(() => {
         });
     }, [addLog]);
 
-    // Auto-trading logic - execute trades at intervals when running
+    // Auto-trading logic - execute trades immediately when recommendations arrive
     useEffect(() => {
-        let tradingInterval: NodeJS.Timeout;
-
         if (tradingState.isRunning && analyzerReady) {
-            addLog('🚀 Auto-trading started - waiting for signals...');
+            addLog('🚀 Auto-trading started - continuous mode enabled');
+        }
+    }, [tradingState.isRunning, analyzerReady, addLog]);
 
-            tradingInterval = setInterval(() => {
-                // Check stop conditions before trading
-                if (tradingState.totalProfit <= -tradingState.stopLoss) {
-                    addLog('🛑 Stop Loss reached - stopping auto-trading');
-                    setTradingState(prev => ({ ...prev, isRunning: false }));
-                    return;
-                }
-
-                if (tradingState.totalProfit >= tradingState.takeProfit) {
-                    addLog('🎯 Take Profit reached - stopping auto-trading');
-                    setTradingState(prev => ({ ...prev, isRunning: false }));
-                    return;
-                }
-
-                 // Check if we have a valid trade config before attempting to trade
-                 const hasValidConfig = getTradeConfig() !== null;
-                 if (hasValidConfig) {
-                     addLog('✅ Valid signal found - executing trade...');
-                     executeTrade();
-                 } else {
-                     addLog('⏳ Auto-trading active, waiting for valid signal...');
-                 }
-            }, 10000); // Execute every 10 seconds
+    // Execute trade immediately when new recommendation arrives
+    useEffect(() => {
+        if (!tradingState.isRunning || !analyzerReady || !currentRecommendation || tradingState.isTradeInProgress) {
+            return;
         }
 
-        return () => {
-            if (tradingInterval) {
-                clearInterval(tradingInterval);
-                addLog('⏹️ Auto-trading interval cleared');
-            }
-        };
-    }, [tradingState.isRunning, analyzerReady, addLog, executeTrade, tradingState.stopLoss, tradingState.takeProfit, getTradeConfig]); // Removed dependencies that cause frequent re-creation
+        // Check stop conditions before trading
+        if (tradingState.totalProfit <= -tradingState.stopLoss) {
+            addLog('🛑 Stop Loss reached - stopping auto-trading');
+            setTradingState(prev => ({ ...prev, isRunning: false }));
+            return;
+        }
+
+        if (tradingState.totalProfit >= tradingState.takeProfit) {
+            addLog('🎯 Take Profit reached - stopping auto-trading');
+            setTradingState(prev => ({ ...prev, isRunning: false }));
+            return;
+        }
+
+        // Check cooldown period to prevent rapid-fire trading
+        const now = Date.now();
+        const timeSinceLastTrade = now - lastTradeTime;
+        
+        if (timeSinceLastTrade < tradeCooldown) {
+            addLog(`⏱️ Trade cooldown active - ${Math.ceil((tradeCooldown - timeSinceLastTrade) / 1000)}s remaining`);
+            return;
+        }
+
+        // Check if we have a valid trade config
+        const hasValidConfig = getTradeConfig() !== null;
+        if (hasValidConfig && !tradingState.isTradeInProgress) {
+            addLog('⚡ New recommendation detected - executing trade immediately...');
+            setLastTradeTime(now);
+            executeTrade();
+        }
+    }, [currentRecommendation, tradingState.isRunning, analyzerReady, tradingState.totalProfit, tradingState.stopLoss, tradingState.takeProfit, tradingState.isTradeInProgress, getTradeConfig, executeTrade, addLog]);
 
     // Monitor contract for completion
     const monitorContract = useCallback(async (contractId: string, tradeId: number, tradeConfig: TradeConfig) => {
@@ -632,6 +638,9 @@ const TradingHubDisplay: React.FC = observer(() => {
             return;
         }
 
+        // Update last trade time for manual trades too
+        setLastTradeTime(Date.now());
+
         const tradeId = Date.now(); // Generate unique ID for the trade
         // Add the trade to history immediately with 'pending' status
         setTradeHistory(prev => [...prev, {
@@ -811,6 +820,12 @@ const TradingHubDisplay: React.FC = observer(() => {
                     {/* Configuration */}
                     <div className="config-section">
                         <h3>⚙️ Configuration</h3>
+                        {tradingState.isRunning && (
+                            <div className="continuous-trading-status">
+                                <span className="status-badge continuous">🔄 Continuous Trading Active</span>
+                                <small>Trades execute immediately on new recommendations</small>
+                            </div>
+                        )}
                         <div className="config-grid">
                             <div className="config-item">
                                 <label>Stake ($)</label>
