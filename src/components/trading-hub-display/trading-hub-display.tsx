@@ -46,6 +46,15 @@ const TradingHubDisplay: React.FC = observer(() => {
         isTradeInProgress: false
     });
 
+    const [martingaleConfig, setMartingaleConfig] = useState({
+        enabled: true,
+        multiplier: 2.0,
+        maxMultiplier: 8.0,
+        baseStake: 1,
+        currentMultiplier: 1,
+        consecutiveLosses: 0
+    });
+
     const [logs, setLogs] = useState<string[]>([]);
     const logsEndRef = useRef<HTMLDivElement>(null);
     const [currentRecommendation, setCurrentRecommendation] = useState<TradeRecommendation | null>(null);
@@ -135,8 +144,18 @@ const TradingHubDisplay: React.FC = observer(() => {
     }, [addLog]);
 
     const getTradeConfig = useCallback((strategy?: string): TradeConfig | null => {
+        // Calculate stake with martingale
+        const calculateStake = () => {
+            if (martingaleConfig.enabled && martingaleConfig.consecutiveLosses > 0) {
+                const multipliedStake = martingaleConfig.baseStake * Math.pow(martingaleConfig.multiplier, martingaleConfig.consecutiveLosses);
+                const maxStake = martingaleConfig.baseStake * martingaleConfig.maxMultiplier;
+                return Math.min(multipliedStake, maxStake);
+            }
+            return tradingState.currentStake;
+        };
+
         const baseConfig = {
-            amount: tradingState.currentStake,
+            amount: calculateStake(),
             duration: 1,
             duration_unit: 't'
         };
@@ -276,7 +295,20 @@ const TradingHubDisplay: React.FC = observer(() => {
             addLog('🚀 Auto-trading started - waiting for signals...');
             
             tradingInterval = setInterval(() => {
-                if (!tradingState.isTradeInProgress) {
+                // Check stop conditions before trading
+                if (tradingState.totalProfit <= -tradingState.stopLoss) {
+                    addLog('🛑 Stop Loss reached - stopping auto-trading');
+                    setTradingState(prev => ({ ...prev, isRunning: false }));
+                    return;
+                }
+                
+                if (tradingState.totalProfit >= tradingState.takeProfit) {
+                    addLog('🎯 Take Profit reached - stopping auto-trading');
+                    setTradingState(prev => ({ ...prev, isRunning: false }));
+                    return;
+                }
+
+                if (!tradingState.isTradeInProgress && tradingState.isRunning) {
                     // Check if we have a valid trade config before attempting to trade
                     const hasValidConfig = getTradeConfig() !== null;
                     if (hasValidConfig) {
@@ -291,12 +323,10 @@ const TradingHubDisplay: React.FC = observer(() => {
         return () => {
             if (tradingInterval) {
                 clearInterval(tradingInterval);
-                if (tradingState.isRunning) {
-                    addLog('⏹️ Auto-trading interval cleared');
-                }
+                addLog('⏹️ Auto-trading interval cleared');
             }
         };
-    }, [tradingState.isRunning, analyzerReady, addLog]); // Removed dependencies that cause restart
+    }, [tradingState.isRunning, tradingState.isTradeInProgress, tradingState.totalProfit, tradingState.stopLoss, tradingState.takeProfit, analyzerReady, getTradeConfig, executeTrade, addLog]);
 
     // Monitor contract for completion
     const monitorContract = useCallback(async (contractId: string) => {
@@ -464,10 +494,55 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 addLog(`${isWin ? '🎉' : '💔'} Trade ${isWin ? 'WON' : 'LOST'}: Buy: $${buyPrice.toFixed(2)}, Sell: $${sellPrice.toFixed(2)}, P&L: ${pnl > 0 ? '+' : ''}$${pnl.toFixed(2)}`);
 
+                // Update martingale state
+                setMartingaleConfig(prev => {
+                    if (isWin) {
+                        return {
+                            ...prev,
+                            consecutiveLosses: 0,
+                            currentMultiplier: 1
+                        };
+                    } else {
+                        const newConsecutiveLosses = prev.consecutiveLosses + 1;
+                        return {
+                            ...prev,
+                            consecutiveLosses: newConsecutiveLosses,
+                            currentMultiplier: Math.min(Math.pow(prev.multiplier, newConsecutiveLosses), prev.maxMultiplier)
+                        };
+                    }
+                });
+
                 setTradingState(prev => {
                     const newWinTrades = isWin ? prev.winTrades + 1 : prev.winTrades;
                     const newLossTrades = isWin ? prev.lossTrades : prev.lossTrades + 1;
                     const newTotalProfit = prev.totalProfit + pnl;
+
+                    // Check stop conditions
+                    if (newTotalProfit <= -prev.stopLoss) {
+                        addLog(`🛑 Stop Loss hit! Stopping trading...`);
+                        return {
+                            ...prev,
+                            totalProfit: newTotalProfit,
+                            winTrades: newWinTrades,
+                            lossTrades: newLossTrades,
+                            lastTradeResult: isWin ? 'Win' : 'Loss',
+                            isTradeInProgress: false,
+                            isRunning: false
+                        };
+                    }
+
+                    if (newTotalProfit >= prev.takeProfit) {
+                        addLog(`🎯 Take Profit hit! Stopping trading...`);
+                        return {
+                            ...prev,
+                            totalProfit: newTotalProfit,
+                            winTrades: newWinTrades,
+                            lossTrades: newLossTrades,
+                            lastTradeResult: isWin ? 'Win' : 'Loss',
+                            isTradeInProgress: false,
+                            isRunning: false
+                        };
+                    }
 
                     return {
                         ...prev,
@@ -701,7 +776,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     key={strategy}
                                     className={`strategy-btn ${tradingState.selectedStrategy === strategy ? 'active' : ''}`}
                                     onClick={() => setTradingState(prev => ({ ...prev, selectedStrategy: strategy }))}
-                                    disabled={tradingState.isRunning}
+                                    disabled={tradingState.isTradeInProgress}
                                 >
                                     {strategy.toUpperCase()}
                                 </button>
@@ -718,10 +793,14 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 <input
                                     type="number"
                                     value={tradingState.currentStake}
-                                    onChange={e => setTradingState(prev => ({ ...prev, currentStake: parseFloat(e.target.value) || 1 }))}
+                                    onChange={e => {
+                                        const newStake = parseFloat(e.target.value) || 1;
+                                        setTradingState(prev => ({ ...prev, currentStake: newStake }));
+                                        setMartingaleConfig(prev => ({ ...prev, baseStake: newStake }));
+                                    }}
                                     min="1"
                                     step="0.1"
-                                    disabled={tradingState.isRunning}
+                                    disabled={tradingState.isTradeInProgress}
                                 />
                             </div>
                             <div className="config-item">
@@ -731,7 +810,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     value={tradingState.stopLoss}
                                     onChange={e => setTradingState(prev => ({ ...prev, stopLoss: parseFloat(e.target.value) || 50 }))}
                                     min="1"
-                                    disabled={tradingState.isRunning}
+                                    disabled={tradingState.isTradeInProgress}
                                 />
                             </div>
                             <div className="config-item">
@@ -741,7 +820,31 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     value={tradingState.takeProfit}
                                     onChange={e => setTradingState(prev => ({ ...prev, takeProfit: parseFloat(e.target.value) || 100 }))}
                                     min="1"
-                                    disabled={tradingState.isRunning}
+                                    disabled={tradingState.isTradeInProgress}
+                                />
+                            </div>
+                            <div className="config-item">
+                                <label>Martingale Multiplier</label>
+                                <input
+                                    type="number"
+                                    value={martingaleConfig.multiplier}
+                                    onChange={e => setMartingaleConfig(prev => ({ ...prev, multiplier: parseFloat(e.target.value) || 2 }))}
+                                    min="1.1"
+                                    max="5"
+                                    step="0.1"
+                                    disabled={tradingState.isTradeInProgress}
+                                />
+                            </div>
+                            <div className="config-item">
+                                <label>Max Multiplier</label>
+                                <input
+                                    type="number"
+                                    value={martingaleConfig.maxMultiplier}
+                                    onChange={e => setMartingaleConfig(prev => ({ ...prev, maxMultiplier: parseFloat(e.target.value) || 8 }))}
+                                    min="2"
+                                    max="32"
+                                    step="1"
+                                    disabled={tradingState.isTradeInProgress}
                                 />
                             </div>
                         </div>
@@ -800,6 +903,16 @@ const TradingHubDisplay: React.FC = observer(() => {
                             <div className="stat-item">
                                 <span className="stat-label">Last Result</span>
                                 <span className="stat-value">{tradingState.lastTradeResult}</span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="stat-label">Current Stake</span>
+                                <span className="stat-value">
+                                    ${(martingaleConfig.baseStake * martingaleConfig.currentMultiplier).toFixed(2)}
+                                </span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="stat-label">Consecutive Losses</span>
+                                <span className="stat-value">{martingaleConfig.consecutiveLosses}</span>
                             </div>
                         </div>
                     </div>
