@@ -243,15 +243,15 @@ const TradingHubDisplay: React.FC = observer(() => {
                 // Start monitoring the contract for results
                 if (result.contract_id) {
                     monitorContract(result.contract_id);
-                    
+
                     // Set up a fallback timeout to simulate result if API doesn't respond
                     setTimeout(() => {
                         // Simulate a trade result if no real result received within 30 seconds
                         const simulatedWin = Math.random() > 0.45; // 55% win rate
                         const simulatedPnl = simulatedWin ? tradingState.currentStake * 0.85 : -tradingState.currentStake;
-                        
+
                         addLog(`⏰ Simulated result: ${simulatedWin ? 'WIN' : 'LOSS'} - P&L: ${simulatedPnl > 0 ? '+' : ''}$${simulatedPnl.toFixed(2)}`);
-                        
+
                         setTradingState(prev => ({
                             ...prev,
                             totalProfit: prev.totalProfit + simulatedPnl,
@@ -293,7 +293,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         if (tradingState.isRunning && analyzerReady) {
             addLog('🚀 Auto-trading started - waiting for signals...');
-            
+
             tradingInterval = setInterval(() => {
                 // Check stop conditions before trading
                 if (tradingState.totalProfit <= -tradingState.stopLoss) {
@@ -301,7 +301,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     setTradingState(prev => ({ ...prev, isRunning: false }));
                     return;
                 }
-                
+
                 if (tradingState.totalProfit >= tradingState.takeProfit) {
                     addLog('🎯 Take Profit reached - stopping auto-trading');
                     setTradingState(prev => ({ ...prev, isRunning: false }));
@@ -334,7 +334,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         try {
             addLog(`👁️ Monitoring contract ${contractId}`);
-            
+
             // Subscribe to contract updates
             const request = {
                 proposal_open_contract: 1,
@@ -343,7 +343,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             };
 
             const response = await api_base.api.send(request);
-            
+
             if (response.error) {
                 addLog(`❌ Contract monitoring error: ${response.error.message}`);
                 return;
@@ -374,7 +374,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 if (signal && signal.strategy === tradingState.selectedStrategy) {
                     setActiveSignal(signal);
                     addLog(`📊 New active signal: ${signal.action} ${signal.barrier || ''} on ${signal.symbol} (${signal.confidence}%)`);
-                    
+
                     // Execute trade immediately if auto-trading is running and no trade in progress
                     if (tradingState.isRunning && !tradingState.isTradeInProgress && analyzerReady) {
                         setTimeout(() => {
@@ -434,7 +434,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     if (recommendation) {
                         addLog(`📊 New recommendation: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol}`);
                         addLog(`💡 Reason: ${recommendation.reason}`);
-                        
+
                         // Execute trade immediately if auto-trading is running and matches overunder strategy
                         if (tradingState.isRunning && !tradingState.isTradeInProgress && tradingState.selectedStrategy === 'overunder' && analyzerReady) {
                             setTimeout(() => {
@@ -572,7 +572,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     handleTradeResult(contract);
                 }
             }
-            
+
             // Also handle buy responses to immediately update trade count
             if (response && response.buy) {
                 addLog(`📈 Trade placed: Contract ${response.buy.contract_id}`);
@@ -776,7 +776,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     key={strategy}
                                     className={`strategy-btn ${tradingState.selectedStrategy === strategy ? 'active' : ''}`}
                                     onClick={() => setTradingState(prev => ({ ...prev, selectedStrategy: strategy }))}
-                                    disabled={tradingState.isTradeInProgress}
+                                    disabled={tradingState.isRunning || tradingState.isTradeInProgress}
                                 >
                                     {strategy.toUpperCase()}
                                 </button>
@@ -800,7 +800,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     }}
                                     min="1"
                                     step="0.1"
-                                    disabled={tradingState.isTradeInProgress}
+                                    disabled={tradingState.isRunning || tradingState.isTradeInProgress}
                                 />
                             </div>
                             <div className="config-item">
@@ -810,7 +810,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     value={tradingState.stopLoss}
                                     onChange={e => setTradingState(prev => ({ ...prev, stopLoss: parseFloat(e.target.value) || 50 }))}
                                     min="1"
-                                    disabled={tradingState.isTradeInProgress}
+                                    disabled={tradingState.isRunning || tradingState.isTradeInProgress}
                                 />
                             </div>
                             <div className="config-item">
@@ -820,7 +820,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     value={tradingState.takeProfit}
                                     onChange={e => setTradingState(prev => ({ ...prev, takeProfit: parseFloat(e.target.value) || 100 }))}
                                     min="1"
-                                    disabled={tradingState.isTradeInProgress}
+                                    disabled={tradingState.isRunning || tradingState.isTradeInProgress}
                                 />
                             </div>
                             <div className="config-item">
@@ -832,7 +832,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     min="1.1"
                                     max="5"
                                     step="0.1"
-                                    disabled={tradingState.isTradeInProgress}
+                                    disabled={tradingState.isRunning || tradingState.isTradeInProgress}
                                 />
                             </div>
                             <div className="config-item">
@@ -844,7 +844,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     min="2"
                                     max="32"
                                     step="1"
-                                    disabled={tradingState.isTradeInProgress}
+                                    disabled={tradingState.isRunning || tradingState.isTradeInProgress}
                                 />
                             </div>
                         </div>
@@ -908,7 +908,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 <span className="stat-label">Current Stake</span>
                                 <span className="stat-value">
                                     ${(martingaleConfig.baseStake * martingaleConfig.currentMultiplier).toFixed(2)}
-                                </span>
+                                </span>```text
+
                             </div>
                             <div className="stat-item">
                                 <span className="stat-label">Consecutive Losses</span>
