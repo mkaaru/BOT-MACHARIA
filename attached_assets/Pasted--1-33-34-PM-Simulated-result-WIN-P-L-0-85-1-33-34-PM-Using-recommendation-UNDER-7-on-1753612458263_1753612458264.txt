@@ -1,0 +1,49 @@
+[1:33:34 PM] ⏰ Simulated result: WIN - P&L: +$0.85
+[1:33:34 PM] 🔍 Using recommendation: UNDER 7 on R_75
+[1:33:34 PM] ⚡ IMMEDIATE EXECUTION: New recommendation detected - executing trade instantly to preserve signal integrity
+[1:33:34 PM] 🔍 Using recommendation: UNDER 7 on R_75
+[1:33:34 PM] 📈 Executing DIGITUNDER trade on R_75 with barrier 7, stake: $1
+[1:33:34 PM] 🚀 Executing DIGITUNDER on R_75
+[1:33:34 PM] 🎉 Contract purchased: 289240351668 for $1
+[1:33:34 PM] ✅ Trade executed successfully - Contract: 289240351668
+[1:33:34 PM] 👁️ Monitoring contract 289240351668
+[1:33:34 PM] 💥 Trade execution failed: undefined
+[1:33:34 PM] ❌ Trade failed: undefined
+[1:33:34 PM] 💥 Trade execution failed: undefined
+[1:33:34 PM] ❌ Trade failed: undefined
+[1:33:34 PM] 💥 Trade execution failed: undefined
+[1:33:34 PM] ❌ Trade failed: undefined
+[1:33:34 PM] ✅ Proposal received: 48a15213-a262-103f-d026-5b5e76b54e1a
+[1:33:34 PM] ✅ Proposal received: 48a15213-a262-103f-d026-5b5e76b54e1a
+[1:33:34 PM] 💥 Trade execution failed: undefined
+[1:33:34 PM] ❌ Trade failed: undefined
+[1:33:35 PM] ✅ Proposal received: 48a15213-a262-103f-d026-5b5e76b54e1a
+[1:33:35 PM] ✅ Subscribed to contract updates
+[1:33:35 PM] 💥 Trade execution failed: undefined
+[1:33:35 PM] ❌ Trade failed: undefined
+[1:33:35 PM] 🎉 Contract purchased: 289240352908 for $1
+[1:33:35 PM] ✅ Trade executed successfully - Contract: 289240352908
+[1:33:35 PM] 👁️ Monitoring contract 289240352908
+[1:33:35 PM] 💥 Trade execution failed: undefined
+[1:33:35 PM] ❌ Trade failed: undefined
+[1:33:35 PM] ✅ Subscribed to contract updates
+[1:33:36 PM] Trading STOPPED
+[1:33:37 PM] 📊 New recommendation: UNDER 7 on R_25
+[1:33:37 PM] 💡 Reason: Most frequent digit 0 (low) with last digit 7 (high)
+[1:33:39 PM] 📊 New recommendation: UNDER 7 on R_25
+[1:33:39 PM] 💡 Reason: Most frequent digit 0 (low) with last digit 9 (high)
+[1:33:40 PM] 📊 New recommendation: UNDER 7 on R_25
+[1:33:40 PM] 💡 Reason: Most frequent digit 0 (low) with last digit 9 (high)
+[1:33:42 PM] 📊 New recommendation: UNDER 7 on R_25
+[1:33:42 PM] 💡 Reason: Most frequent digit 0 (low) with last digit 9 (high)
+[1:33:43 PM] 📊 New recommendation: UNDER 7 on 1HZ75V
+[1:33:43 PM] 💡 Reason: Most frequent digit 2 (low) with last digit 8 (high)
+[1:33:45 PM] 📊 New recommendation: UNDER 7 on R_25
+[1:33:45 PM] 💡 Reason: Most frequent digit 0 (low) with last digit 7 (high)
+[1:33:46 PM] 📊 New recommendation: UNDER 7 on 1HZ75V
+[1:33:46 PM] 💡 Reason: Most frequent digit 2 (low) with last digit 7 (high)
+[1:33:48 PM] 📊 New recommendation: OVER 2 on 1HZ100V
+[1:33:48 PM] 💡 Reason: Most frequent digit 7 (high) with last digit 1 (low)
+[1:33:49 PM] 📊 New recommendation: UNDER 7 on R_75
+[1:33:49 PM] 💡 Reason: Most frequent digit 0 (low) with last digit 8 (high)
+[1:33:51 PM] 📊 New recommendation: UNDER 7 on R_75
