@@ -213,7 +213,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             const result = await executeDirectTrade(tradeConfig);
 
             if (result.success) {
-                addLog(`✅ Trade executed successfully: ${result.message}`);
+                addLog(`✅ Trade executed successfully`);
 
                 // Update statistics immediately for successful trade placement
                 setTradingState(prev => ({
@@ -223,6 +223,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                     isTradeInProgress: false
                 }));
 
+                // Start monitoring the contract for results
+                if (result.contract_id) {
+                    monitorContract(result.contract_id);
+                }
+
                 // Clear the active signal since we used it
                 if (activeSignal) {
                     setActiveSignal(null);
@@ -230,7 +235,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     addLog('🧹 Cleared used signal');
                 }
             } else {
-                addLog(`❌ Trade failed: ${result.message}`);
+                addLog(`❌ Trade failed: ${result.error}`);
                 setTradingState(prev => ({ ...prev, isTradeInProgress: false }));
             }
         } catch (error) {
@@ -265,6 +270,33 @@ const TradingHubDisplay: React.FC = observer(() => {
             }
         };
     }, [tradingState.isRunning, tradingState.isTradeInProgress, analyzerReady, executeTrade]);
+
+    // Monitor contract for completion
+    const monitorContract = useCallback(async (contractId: string) => {
+        if (!api_base.api) return;
+
+        try {
+            addLog(`👁️ Monitoring contract ${contractId}`);
+            
+            // Subscribe to contract updates
+            const request = {
+                proposal_open_contract: 1,
+                contract_id: contractId,
+                subscribe: 1
+            };
+
+            const response = await api_base.api.send(request);
+            
+            if (response.error) {
+                addLog(`❌ Contract monitoring error: ${response.error.message}`);
+                return;
+            }
+
+            addLog(`✅ Subscribed to contract updates`);
+        } catch (error) {
+            addLog(`❌ Failed to monitor contract: ${error.message}`);
+        }
+    }, [addLog]);
 
     const resetStats = useCallback(() => {
         setTradingState(prev => ({
@@ -373,7 +405,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         };
     }, [addLog]);
 
-    // Listen for trade results from the bot engine
+    // Listen for trade results from the bot engine and API responses
     useEffect(() => {
         const handleTradeResult = (data: any) => {
             console.log('📊 Trade result received:', data);
@@ -382,7 +414,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 const profit = parseFloat(data.profit) || 0;
                 const sellPrice = parseFloat(data.sell_price) || 0;
                 const buyPrice = parseFloat(data.buy_price) || 0;
-                const pnl = sellPrice - buyPrice;
+                const pnl = profit || (sellPrice - buyPrice);
                 const isWin = pnl > 0;
 
                 addLog(`${isWin ? '🎉' : '💔'} Trade ${isWin ? 'WON' : 'LOST'}: Buy: $${buyPrice.toFixed(2)}, Sell: $${sellPrice.toFixed(2)}, P&L: ${pnl > 0 ? '+' : ''}$${pnl.toFixed(2)}`);
@@ -406,8 +438,19 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         const handleContractClosed = (data: any) => {
             console.log('📄 Contract closed:', data);
-            if (data && data.is_sold) {
+            if (data && (data.is_sold || data.profit !== undefined)) {
                 handleTradeResult(data);
+            }
+        };
+
+        // Enhanced API response listener
+        const handleApiResponse = (response: any) => {
+            if (response && response.proposal_open_contract) {
+                const contract = response.proposal_open_contract;
+                if (contract.is_sold && contract.profit !== undefined) {
+                    console.log('📊 Contract completed via API:', contract);
+                    handleTradeResult(contract);
+                }
             }
         };
 
@@ -416,13 +459,37 @@ const TradingHubDisplay: React.FC = observer(() => {
             const globalObserver = (window as any).globalObserver;
             globalObserver.register('bot.contract', handleTradeResult);
             globalObserver.register('contract.closed', handleContractClosed);
+            globalObserver.register('api.response', handleApiResponse);
 
             return () => {
                 globalObserver.unregister('bot.contract', handleTradeResult);
                 globalObserver.unregister('contract.closed', handleContractClosed);
+                globalObserver.unregister('api.response', handleApiResponse);
             };
         } else {
             addLog('⚠️ Global observer not available - trade results may not be captured');
+        }
+
+        // Also listen for API base events if available
+        if (api_base.api) {
+            const handleMessage = (response: any) => {
+                if (response.msg_type === 'proposal_open_contract' && response.proposal_open_contract) {
+                    const contract = response.proposal_open_contract;
+                    if (contract.is_sold && contract.profit !== undefined) {
+                        console.log('📊 Contract result from API stream:', contract);
+                        handleTradeResult(contract);
+                    }
+                }
+            };
+
+            // Subscribe to API messages if possible
+            try {
+                if (typeof api_base.api.onMessage === 'function') {
+                    api_base.api.onMessage(handleMessage);
+                }
+            } catch (error) {
+                console.warn('Could not subscribe to API messages:', error);
+            }
         }
     }, [addLog]);
 
