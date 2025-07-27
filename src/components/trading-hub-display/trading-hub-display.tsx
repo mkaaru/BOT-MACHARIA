@@ -312,12 +312,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                     // Check if we have a valid trade config before attempting to trade
                     const hasValidConfig = getTradeConfig() !== null;
                     if (hasValidConfig) {
+                        addLog('✅ Valid signal found - executing trade...');
                         executeTrade();
                     } else {
-                        console.log('⏳ Auto-trading active, waiting for valid signal...');
+                        addLog('⏳ Auto-trading active, waiting for valid signal...');
                     }
                 }
-            }, 8000); // Execute every 8 seconds
+            }, 10000); // Execute every 10 seconds
         }
 
         return () => {
@@ -326,7 +327,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 addLog('⏹️ Auto-trading interval cleared');
             }
         };
-    }, [tradingState.isRunning, tradingState.isTradeInProgress, tradingState.totalProfit, tradingState.stopLoss, tradingState.takeProfit, analyzerReady, getTradeConfig, executeTrade, addLog]);
+    }, [tradingState.isRunning, analyzerReady, addLog]); // Removed dependencies that cause frequent re-creation
 
     // Monitor contract for completion
     const monitorContract = useCallback(async (contractId: string) => {
@@ -374,15 +375,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 if (signal && signal.strategy === tradingState.selectedStrategy) {
                     setActiveSignal(signal);
                     addLog(`📊 New active signal: ${signal.action} ${signal.barrier || ''} on ${signal.symbol} (${signal.confidence}%)`);
-
-                    // Execute trade immediately if auto-trading is running and no trade in progress
-                    if (tradingState.isRunning && !tradingState.isTradeInProgress && analyzerReady) {
-                        setTimeout(() => {
-                            if (!tradingState.isTradeInProgress) {
-                                executeTrade();
-                            }
-                        }, 1000); // Small delay to ensure signal is set
-                    }
+                    // Note: Trade execution will be handled by the main auto-trading interval
                 }
             });
 
@@ -398,7 +391,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             console.error('Signal service subscription error:', error);
             addLog('⚠️ Signal service not available');
         }
-    }, [tradingState.selectedStrategy, tradingState.isRunning, tradingState.isTradeInProgress, analyzerReady, executeTrade, addLog]);
+    }, [tradingState.selectedStrategy, addLog]);
 
     // Clear active signal when strategy changes
     useEffect(() => {
@@ -434,15 +427,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     if (recommendation) {
                         addLog(`📊 New recommendation: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol}`);
                         addLog(`💡 Reason: ${recommendation.reason}`);
-
-                        // Execute trade immediately if auto-trading is running and matches overunder strategy
-                        if (tradingState.isRunning && !tradingState.isTradeInProgress && tradingState.selectedStrategy === 'overunder' && analyzerReady) {
-                            setTimeout(() => {
-                                if (!tradingState.isTradeInProgress) {
-                                    executeTrade();
-                                }
-                            }, 1000); // Small delay to ensure recommendation is set
-                        }
+                        // Note: Trade execution will be handled by the main auto-trading interval
                     }
                 });
 
