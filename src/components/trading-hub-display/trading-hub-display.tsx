@@ -1,8 +1,13 @@
+This code integrates a market analyzer to improve trading decisions based on market conditions.
+```
+
+```python
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import marketAnalyzer from '../../services/market-analyzer';
+import type { TradeRecommendation } from '@/services/market-analyzer';
 import './trading-hub-display.scss';
 
 interface TradingState {
@@ -46,6 +51,8 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     const [logs, setLogs] = useState<string[]>([]);
     const logsEndRef = useRef<HTMLDivElement>(null);
+    const [currentRecommendation, setCurrentRecommendation] = useState<TradeRecommendation | null>(null);
+    const [analyzerReady, setAnalyzerReady] = useState(false);
 
     const addLog = useCallback((message: string) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -216,6 +223,9 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // Auto trading effect
     useEffect(() => {
+        // Initialize market analyzer
+        initializeMarketAnalyzer();
+
         if (!tradingState.isRunning || tradingState.isTradeInProgress) return;
 
         const interval = setInterval(() => {
@@ -253,6 +263,38 @@ const TradingHubDisplay: React.FC = observer(() => {
         api_base.pushSubscription(subscription);
         return () => subscription.unsubscribe();
     }, [addLog]);
+
+    const initializeMarketAnalyzer = async () => {
+        try {
+            addLog('🔄 Starting market analyzer...');
+
+            // Start market analyzer
+            marketAnalyzer.start();
+
+            // Wait for analyzer to be ready
+            await marketAnalyzer.waitForAnalysisReady();
+            setAnalyzerReady(true);
+            addLog('✅ Market analyzer ready');
+
+            // Subscribe to analysis updates
+            const unsubscribe = marketAnalyzer.onAnalysis((recommendation, allStats) => {
+                if (recommendation) {
+                    setCurrentRecommendation(recommendation);
+                    addLog(`📊 New signal: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol} (${recommendation.reason})`);
+                } else {
+                    setCurrentRecommendation(null);
+                }
+            });
+
+            return () => {
+                unsubscribe();
+                marketAnalyzer.stop();
+            };
+        } catch (error) {
+            console.error('Failed to initialize market analyzer:', error);
+            addLog('❌ Failed to initialize market analyzer');
+        }
+    };
 
     return (
         <div className="trading-hub-container">
@@ -389,3 +431,4 @@ const TradingHubDisplay: React.FC = observer(() => {
 });
 
 export default TradingHubDisplay;
+`
