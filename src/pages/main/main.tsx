@@ -108,7 +108,7 @@ const AppWrapper = observer(() => {
   const [contractType, setContractType] = useState('DIGITEVEN')
   const [predictionModel, setPredictionModel] = useState('neural_network')
   const [stakeAmount, setStakeAmount] = useState('1.00')
-  const [isConnected, setIsConnected] = useState(false)
+  const [isDigitsConnected, setIsDigitsConnected] = useState(false)
   const [isTrading, setIsTrading] = useState(false)
   const [currentTick, setCurrentTick] = useState<number | null>(null)
   const [currentPrice, setCurrentPrice] = useState<string>('---')
@@ -398,13 +398,13 @@ const AppWrapper = observer(() => {
       }
 
       setCurrentPrice('Connecting...')
-      setIsConnected(false)
+      setIsDigitsConnected(false)
 
       const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771')
 
       ws.onopen = () => {
         console.log('WebSocket connected successfully')
-        setIsConnected(true)
+        setIsDigitsConnected(true)
         setWebsocket(ws)
         setCurrentPrice('Connected - Waiting for ticks...')
 
@@ -510,7 +510,7 @@ const AppWrapper = observer(() => {
 
       ws.onclose = (event) => {
         console.log('WebSocket connection closed:', event.code, event.reason)
-        setIsConnected(false)
+        setIsDigitsConnected(false)
         setWebsocket(null)
         setCurrentPrice('Disconnected')
 
@@ -525,14 +525,14 @@ const AppWrapper = observer(() => {
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error)
-        setIsConnected(false)
+        setIsDigitsConnected(false)
         setWebsocket(null)
         setCurrentPrice('Connection Error')
       }
 
     } catch (error) {
       console.error('Connection failed:', error)
-      setIsConnected(false)
+      setIsDigitsConnected(false)
       setCurrentPrice('Failed to connect')
     }
   }
@@ -829,7 +829,7 @@ const AppWrapper = observer(() => {
   }
 
   const startTrading = () => {
-    if (!isConnected) return
+    if (!isDigitsConnected) return
     setIsTrading(true)
 
     setTradingLog(prev => [...prev, {
@@ -1151,14 +1151,14 @@ if __name__ == "__main__":
         if (websocket) {
           websocket.close()
           setWebsocket(null)
-          setIsConnected(false)
+          setIsDigitsConnected(false)
         }
       }
     }, [active_tab])
 
     // Reconnect when volatility changes
     useEffect(() => {
-      if (isConnected && websocket && websocket.readyState === WebSocket.OPEN) {
+      if (isDigitsConnected && websocket && websocket.readyState === WebSocket.OPEN) {
         console.log('Volatility changed to:', selectedIndex, 'Getting data...')
 
         // Unsubscribe from all ticks first
@@ -1208,12 +1208,12 @@ if __name__ == "__main__":
 
         setCurrentPrice('Loading ' + selectedIndex + ' data...')
         setCurrentTick(null)
-      } else if (!isConnected) {
+      } else if (!isDigitsConnected) {
         // If not connected, reset display
         setCurrentPrice('Not connected - Select ' + selectedIndex)
         setCurrentTick(null)
       }
-    }, [selectedIndex, isConnected, websocket, tickHistory])
+    }, [selectedIndex, isDigitsConnected, websocket, tickHistory])
 
 
     const { client } = useStore();
