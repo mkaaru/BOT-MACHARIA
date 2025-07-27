@@ -162,12 +162,14 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         const currentStrategy = strategy || tradingState.selectedStrategy;
 
-        // For OVERUNDER strategy, use market analyzer recommendation
-        if (currentStrategy === 'overunder' && currentRecommendation) {
+        // Always prioritize current recommendation for overunder strategy
+        if (currentRecommendation) {
+            addLog(`🔍 Using recommendation: ${currentRecommendation.strategy.toUpperCase()} ${currentRecommendation.barrier} on ${currentRecommendation.symbol}`);
+            
             return {
                 ...baseConfig,
                 symbol: currentRecommendation.symbol,
-                contract_type: currentRecommendation.strategy === 'over' ? 'DIGITOVER' : 'DIGITUNDER',
+                contract_type: currentRecommendation.strategy.toUpperCase() === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER',
                 barrier: currentRecommendation.barrier
             };
         }
@@ -186,6 +188,8 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             const tradingSymbol = symbolMap[activeSignal.symbol] || 'R_75';
 
+            addLog(`🔍 Using active signal: ${activeSignal.action} ${activeSignal.barrier} on ${tradingSymbol}`);
+
             return {
                 ...baseConfig,
                 symbol: tradingSymbol,
@@ -194,19 +198,10 @@ const TradingHubDisplay: React.FC = observer(() => {
             };
         }
 
-        // Fallback to first available recommendation
-        if (currentRecommendation) {
-            return {
-                ...baseConfig,
-                symbol: currentRecommendation.symbol,
-                contract_type: currentRecommendation.strategy === 'over' ? 'DIGITOVER' : 'DIGITUNDER',
-                barrier: currentRecommendation.barrier
-            };
-        }
-
         // No valid configuration available
+        addLog(`❌ No valid trade configuration available. Strategy: ${currentStrategy}, Recommendation: ${currentRecommendation ? 'Yes' : 'No'}, Signal: ${activeSignal ? 'Yes' : 'No'}`);
         return null;
-    }, [tradingState.currentStake, tradingState.selectedStrategy, activeSignal, currentRecommendation]);
+    }, [tradingState.currentStake, tradingState.selectedStrategy, activeSignal, currentRecommendation, addLog, martingaleConfig]);
 
     const executeTrade = useCallback(async () => {
         if (tradingState.isTradeInProgress) {
