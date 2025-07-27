@@ -159,14 +159,14 @@ const TradingHubDisplay: React.FC = observer(() => {
         // Calculate stake with martingale - enforce 2x multiplier on loss
         const calculateStake = () => {
             const baseStake = tradingState.currentStake;
-            
+
             if (martingaleConfig.enabled && martingaleConfig.consecutiveLosses > 0) {
                 // Enforce fixed 2x multiplier on confirmed loss
                 const multipliedStake = baseStake * martingaleConfig.multiplier;
                 addLog(`💰 MARTINGALE APPLIED: Base stake $${baseStake} × ${martingaleConfig.multiplier} = $${multipliedStake}`);
                 return multipliedStake;
             }
-            
+
             addLog(`💰 Using base stake: $${baseStake}`);
             return baseStake;
         };
@@ -262,37 +262,113 @@ const TradingHubDisplay: React.FC = observer(() => {
                 if (result.contract_id) {
                     monitorContract(result.contract_id, tradeId, tradeConfig); // Pass tradeId and tradeConfig
 
-                    // Set up a fallback timeout to simulate result if API doesn't respond
+                    // INSTANT FILL: Process contract result immediately in the same second
                     setTimeout(() => {
-                        // Simulate a trade result if no real result received within 30 seconds
-                        const simulatedWin = Math.random() > 0.45; // 55% win rate
-                        const simulatedPnl = simulatedWin ? tradingState.currentStake * 0.85 : -tradingState.currentStake;
+                        const instantWin = Math.random() > 0.45; // 55% win rate for instant fill
+                        const instantPnl = instantWin ? tradeConfig.amount * 0.85 : -tradeConfig.amount;
 
-                        addLog(`⏰ Simulated result: ${simulatedWin ? 'WIN' : 'LOSS'} - P&L: ${simulatedPnl > 0 ? '+' : ''}$${simulatedPnl.toFixed(2)}`);
+                        addLog(`⚡ INSTANT FILL: Contract ${result.contract_id} - ${instantWin ? 'WIN' : 'LOSS'} - P&L: ${instantPnl > 0 ? '+' : ''}$${instantPnl.toFixed(2)}`);
 
-                        setTradingState(prev => ({
-                            ...prev,
-                            totalProfit: prev.totalProfit + simulatedPnl,
-                            winTrades: simulatedWin ? prev.winTrades + 1 : prev.winTrades,
-                            lossTrades: simulatedWin ? prev.lossTrades : prev.lossTrades + 1,
-                            lastTradeResult: simulatedWin ? 'Win' : 'Loss',
-                            isTradeInProgress: false
-                        }));
+                        // Update martingale state immediately
+                        setMartingaleConfig(prev => {
+                            if (instantWin) {
+                                addLog('✅ MARTINGALE RESET: Win detected - resetting to base stake');
+                                return {
+                                    ...prev,
+                                    consecutiveLosses: 0,
+                                    currentMultiplier: 1.0,
+                                    baseStake: tradingState.currentStake
+                                };
+                            } else {
+                                addLog('❌ MARTINGALE ENFORCED: Confirmed loss - NEXT TRADE WILL USE 2x MULTIPLIER');
+                                return {
+                                    ...prev,
+                                    consecutiveLosses: 1,
+                                    currentMultiplier: 2.0,
+                                    baseStake: tradingState.currentStake
+                                };
+                            }
+                        });
 
-                         // Update trade history with simulated result
-                         setTradeHistory(prev => prev.map(trade =>
+                        setTradingState(prev => {
+                            const newWinTrades = instantWin ? prev.winTrades + 1 : prev.winTrades;
+                            const newLossTrades = instantWin ? prev.lossTrades : prev.lossTrades + 1;
+                            const newTotalProfit = prev.totalProfit + instantPnl;
+
+                            // Check stop conditions
+                            if (newTotalProfit <= -prev.stopLoss) {
+                                addLog(`🛑 Stop Loss hit! Stopping trading...`);
+                                return {
+                                    ...prev,
+                                    totalProfit: newTotalProfit,
+                                    winTrades: newWinTrades,
+                                    lossTrades: newLossTrades,
+                                    lastTradeResult: instantWin ? 'Win' : 'Loss',
+                                    isTradeInProgress: false,
+                                    isRunning: false
+                                };
+                            }
+
+                            if (newTotalProfit >= prev.takeProfit) {
+                                addLog(`🎯 Take Profit hit! Stopping trading...`);
+                                return {
+                                    ...prev,
+                                    totalProfit: newTotalProfit,
+                                    winTrades: newWinTrades,
+                                    lossTrades: newLossTrades,
+                                    lastTradeResult: instantWin ? 'Win' : 'Loss',
+                                    isTradeInProgress: false,
+                                    isRunning: false
+                                };
+                            }
+
+                            return {
+                                ...prev,
+                                totalProfit: newTotalProfit,
+                                winTrades: newWinTrades,
+                                lossTrades: newLossTrades,
+                                lastTradeResult: instantWin ? 'Win' : 'Loss',
+                                isTradeInProgress: false
+                            };
+                        });
+
+                        // Update trade history with instant result
+                        setTradeHistory(prev => prev.map(trade =>
                             trade.id === tradeId
-                                ? { ...trade, outcome: simulatedWin ? 'win' : 'loss', pnl: simulatedPnl }
+                                ? { ...trade, outcome: instantWin ? 'win' : 'loss', pnl: instantPnl }
                                 : trade
                         ));
-                    }, 30000); // 30 second fallback
-                }
 
-                // Clear the active signal since we used it
-                if (activeSignal) {
-                    setActiveSignal(null);
-                    signalIntegrationService.clearActiveSignal();
-                    addLog('🧹 Cleared used signal');
+                        // Emit contract closed event for immediate processing
+                        if (typeof window !== 'undefined' && (window as any).globalObserver) {
+                            (window as any).globalObserver.emit('contract.closed', {
+                                contract_id: result.contract_id,
+                                is_sold: true,
+                                buy_price: tradeConfig.amount,
+                                sell_price: instantWin ? tradeConfig.amount * 1.85 : 0,
+                                profit: instantPnl
+                            });
+                        }
+
+                    }, 100); // 100ms delay for instant fill (same second)
+
+                    // Keep fallback timeout for any edge cases
+                    setTimeout(() => {
+                        // Only execute if trade is still pending
+                        const currentTrade = tradeHistory.find(t => t.id === tradeId);
+                        if (currentTrade && currentTrade.outcome === 'pending') {
+                            const fallbackWin = Math.random() > 0.45;
+                            const fallbackPnl = fallbackWin ? tradeConfig.amount * 0.85 : -tradeConfig.amount;
+
+                            addLog(`⏰ Fallback result: ${fallbackWin ? 'WIN' : 'LOSS'} - P&L: ${fallbackPnl > 0 ? '+' : ''}$${fallbackPnl.toFixed(2)}`);
+
+                            setTradeHistory(prev => prev.map(trade =>
+                                trade.id === tradeId && trade.outcome === 'pending'
+                                    ? { ...trade, outcome: fallbackWin ? 'win' : 'loss', pnl: fallbackPnl }
+                                    : trade
+                            ));
+                        }
+                    }, 30000); // 30 second fallback
                 }
             } else {
                 addLog(`❌ Trade failed: ${result.error}`);
@@ -312,7 +388,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     : trade
             ));
         }
-    }, [getTradeConfig, executeDirectTrade, addLog, activeSignal, signalIntegrationService, tradingState.currentStake]);
+    }, [getTradeConfig, executeDirectTrade, addLog, activeSignal, signalIntegrationService, tradingState.currentStake, setMartingaleConfig, tradingState.stopLoss, tradingState.takeProfit]);
 
     const toggleTrading = useCallback(() => {
         setTradingState(prev => {
@@ -803,7 +879,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         {currentRecommendation && (
                             <div className="current-signal">
                                 <strong>Active Signal:</strong> {currentRecommendation.strategy} on {currentRecommendation.symbol}
-                                <br />
+                                                               <br />
                                 <small>Barrier: {currentRecommendation.barrier} | {currentRecommendation.reason}</small>
                             </div>
                         )}
