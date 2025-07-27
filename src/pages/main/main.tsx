@@ -84,36 +84,6 @@ import VolatilityAnalyzer from '@/components/volatility-analyzer/volatility-anal
 import SpeedBot from '@/components/speed-bot/speed-bot';
 import TradingHubDisplay from '@/components/trading-hub-display/trading-hub-display';
 
-// Simple Error Boundary for Trading Hub
-class TradingHubErrorBoundary extends React.Component {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error: any) {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: any, errorInfo: any) {
-    console.error('Trading Hub Error:', error, errorInfo);
-  }
-
-  render() {
-    if ((this.state as any).hasError) {
-      return (
-        <div className="trading-hub-error">
-          <h3>Trading Hub Unavailable</h3>
-          <p>The Trading Hub component encountered an error. Please refresh the page.</p>
-          <button onClick={() => window.location.reload()}>Refresh Page</button>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
     const { dashboard, load_modal, run_panel, quick_strategy, summary_card } = useStore();
@@ -511,7 +481,8 @@ const AppWrapper = observer(() => {
             setCurrentPrice(`Error: ${data.error.message}`)
 
             // Try alternative symbol formats for common volatility indices
-            if (data.error.code === 'InvalidSymbol') {                console.log('Invalid symbol, trying alternative format...')
+            if (data.error.code === 'InvalidSymbol') {
+              console.log('Invalid symbol, trying alternative format...')
               const altSymbol = getAlternativeSymbol(selectedIndex)
               if (altSymbol && altSymbol !== selectedIndex) {
                 console.log('Trying alternative symbol:', altSymbol)
@@ -722,7 +693,7 @@ const AppWrapper = observer(() => {
 
       // Analyze even/odd bias
       const evenCount = lastDigits.filter(d => d % 2 === 0).length
-      const oddCount = lastDigits.length - evenCount
+      const oddCount = lastDigits.filter(d => d % 2 === 1).length
 
       if (evenCount > oddCount * 1.2) {
         setEvenOddBias('EVEN BIAS')
@@ -1354,9 +1325,7 @@ if __name__ == "__main__":
                             </Suspense>
                         </div>
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
-                            <TradingHubErrorBoundary>
-                                <TradingHubDisplay />
-                            </TradingHubErrorBoundary>
+                            <TradingHubDisplay />
                         </div>
                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
                             <Dashboard handleTabChange={handleTabChange} />

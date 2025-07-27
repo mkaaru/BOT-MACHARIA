@@ -5,9 +5,6 @@ import { useStore } from '@/hooks/useStore';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import marketAnalyzer from '../../services/market-analyzer';
 import type { TradeRecommendation } from '@/services/market-analyzer';
-import getBotInterface from '@/external/bot-skeleton/services/tradeEngine/Interface/BotInterface';
-import TradeEngine from '@/external/bot-skeleton/services/tradeEngine/trade';
-import { globalObserver } from '@/utils/tmp/dummy';
 import './trading-hub-display.scss';
 
 interface TradingState {
@@ -57,11 +54,6 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [signalHistory, setSignalHistory] = useState<TradingSignal[]>([]);
     const [marketStats, setMarketStats] = useState({});
     const isAnalysisReady = analyzerReady;
-    
-    // Bot Engine setup
-    const [tradeEngine, setTradeEngine] = useState<any>(null);
-    const [botInterface, setBotInterface] = useState<any>(null);
-    const [botReady, setBotReady] = useState(false);
 
     const addLog = useCallback((message: string) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -75,64 +67,72 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     useEffect(scrollToBottom, [logs]);
 
-    // Bot Engine trade execution
-    const executeBotTrade = useCallback(async (config: TradeConfig) => {
-        if (!botInterface || !botReady) {
-            addLog('❌ Bot engine not ready');
-            return { success: false, error: 'Bot engine not ready' };
+    // Direct API trade execution
+    const executeDirectTrade = useCallback(async (config: TradeConfig) => {
+        if (!api_base.api) {
+            addLog('❌ API not connected');
+            return { success: false, error: 'API not connected' };
         }
 
         try {
             setTradingState(prev => ({ ...prev, isTradeInProgress: true }));
-            addLog(`🚀 Executing ${config.contract_type} on ${config.symbol} via Bot Engine`);
+            addLog(`🚀 Executing ${config.contract_type} on ${config.symbol}`);
 
-            // Initialize bot with trade options
-            await botInterface.init({
-                symbol: config.symbol,
+            // Get proposal
+            const proposalRequest = {
+                proposal: 1,
+                amount: config.amount,
+                basis: 'stake',
                 contract_type: config.contract_type,
-                amount: config.amount,
-                duration: config.duration,
-                duration_unit: config.duration_unit,
-                ...(config.barrier && { barrier: config.barrier })
-            });
-
-            // Start the trade
-            const result = await botInterface.start({
-                limitations: {},
-                duration: config.duration,
-                duration_unit: config.duration_unit,
                 currency: 'USD',
-                amount: config.amount,
-                basis: 'stake'
-            });
+                duration: config.duration,
+                duration_unit: config.duration_unit,
+                symbol: config.symbol,
+                ...(config.barrier && { barrier: config.barrier })
+            };
 
-            // Purchase the contract
-            const purchaseResult = await botInterface.purchase(config.contract_type);
-            
-            if (purchaseResult) {
-                addLog(`✅ Trade executed via Bot Engine`);
-                addLog(`💰 Ask Price: $${botInterface.getAskPrice(config.contract_type)}`);
-                addLog(`🎯 Payout: $${botInterface.getPayout(config.contract_type)}`);
-                
-                return {
-                    success: true,
-                    contract_id: botInterface.getPurchaseReference(),
-                    buy_price: botInterface.getAskPrice(config.contract_type)
-                };
-            } else {
-                addLog('❌ Trade execution failed');
-                return { success: false, error: 'Purchase failed' };
+            const proposalResponse = await api_base.api.send(proposalRequest);
+
+            if (proposalResponse.error) {
+                addLog(`❌ Proposal error: ${proposalResponse.error.message}`);
+                return { success: false, error: proposalResponse.error.message };
             }
 
+            const proposalId = proposalResponse.proposal.id;
+            addLog(`✅ Proposal received: ${proposalId}`);
+
+            // Purchase contract
+            const buyRequest = {
+                buy: proposalId,
+                price: config.amount
+            };
+
+            const buyResponse = await api_base.api.send(buyRequest);
+
+            if (buyResponse.error) {
+                addLog(`❌ Purchase error: ${buyResponse.error.message}`);
+                return { success: false, error: buyResponse.error.message };
+            }
+
+            const contractId = buyResponse.buy.contract_id;
+            const buyPrice = buyResponse.buy.buy_price;
+            addLog(`🎉 Contract purchased: ${contractId} for $${buyPrice}`);
+
+            return {
+                success: true,
+                contract_id: contractId,
+                buy_price: buyPrice
+            };
+
         } catch (error) {
-            addLog(`💥 Bot trade execution failed: ${error.message}`);
+            addLog(`💥 Trade execution failed: ${error.message}`);
             return { success: false, error: error.message };
         } finally {
             setTimeout(() => {
                 setTradingState(prev => ({ ...prev, isTradeInProgress: false }));
             }, 2000);
         }
-    }, [botInterface, botReady, addLog]);
+    }, [addLog]);
 
     const getTradeConfig = useCallback((strategy: string): TradeConfig => {
         const baseConfig = {
@@ -209,7 +209,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             addLog(`🚀 Executing ${config.contract_type} on ${config.symbol}`);
             addLog(`📊 Recommendation: ${currentRecommendation.reason}`);
 
-            const result = await executeBotTrade(config);
+            const result = await executeDirectTrade(config);
 
             if (result.success) {
                 setTradingState(prev => ({
@@ -234,7 +234,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         addLog(`📊 Using signal: ${activeSignal.action} ${activeSignal.barrier || ''} on ${activeSignal.symbol}`);
         addLog(`💪 Confidence: ${activeSignal.confidence}%`);
 
-        const result = await executeBotTrade(config);
+        const result = await executeDirectTrade(config);
 
         if (result.success) {
             setTradingState(prev => ({
@@ -262,7 +262,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     useEffect(() => {
         let tradingInterval: NodeJS.Timeout;
 
-        if (tradingState.isRunning && analyzerReady && botReady) {
+        if (tradingState.isRunning && analyzerReady) {
             tradingInterval = setInterval(() => {
                 if (!tradingState.isTradeInProgress) {
                     executeTrade();
@@ -275,7 +275,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 clearInterval(tradingInterval);
             }
         };
-    }, [tradingState.isRunning, tradingState.isTradeInProgress, analyzerReady, botReady, executeTrade]);
+    }, [tradingState.isRunning, tradingState.isTradeInProgress, analyzerReady, executeTrade]);
 
     const resetStats = useCallback(() => {
         setTradingState(prev => ({
@@ -313,30 +313,6 @@ const TradingHubDisplay: React.FC = observer(() => {
         setActiveSignal(null);
         signalIntegrationService.clearActiveSignal();
     }, [tradingState.selectedStrategy]);
-
-    // Initialize Bot Engine
-    useEffect(() => {
-        const initializeBotEngine = async () => {
-            try {
-                addLog('🔄 Bot Engine initializing...');
-                
-                // Create trade engine instance
-                const engine = new TradeEngine();
-                const botInterface = getBotInterface(engine);
-                
-                setTradeEngine(engine);
-                setBotInterface(botInterface);
-                setBotReady(true);
-                
-                addLog('✅ Bot Engine ready');
-            } catch (error) {
-                console.error('Bot engine initialization error:', error);
-                addLog(`❌ Bot Engine failed to initialize: ${error.message}`);
-            }
-        };
-
-        initializeBotEngine();
-    }, [addLog]);
 
     // Initialize Market Analyzer - Real integration
     useEffect(() => {
@@ -379,44 +355,6 @@ const TradingHubDisplay: React.FC = observer(() => {
         };
     }, [addLog]);
 
-    // Listen for bot contract events
-    useEffect(() => {
-        const handleTradeComplete = (data: any) => {
-            if (data && data.contract) {
-                const contract = data.contract;
-                const profit = parseFloat(contract.profit || 0);
-                const isWin = profit > 0;
-                
-                setTradingState(prev => ({
-                    ...prev,
-                    winTrades: prev.winTrades + (isWin ? 1 : 0),
-                    lossTrades: prev.lossTrades + (isWin ? 0 : 1),
-                    totalProfit: prev.totalProfit + profit,
-                    lastTradeResult: isWin ? 'Win' : 'Loss'
-                }));
-                
-                addLog(`${isWin ? '🎉' : '💔'} Trade ${isWin ? 'Won' : 'Lost'}: ${profit > 0 ? '+' : ''}$${profit.toFixed(2)}`);
-            }
-        };
-
-        const handleError = (data: any) => {
-            console.error('❌ Bot engine error:', data);
-            if (data && data.error) {
-                addLog(`❌ Bot error: ${data.error.message}`);
-            }
-        };
-
-        if (globalObserver) {
-            globalObserver.register('bot.contract', handleTradeComplete);
-            globalObserver.register('bot.error', handleError);
-
-            return () => {
-                globalObserver.unregister('bot.contract', handleTradeComplete);
-                globalObserver.unregister('bot.error', handleError);
-            };
-        }
-    }, [addLog]);
-
     return (
         <div className="trading-hub-container">
             <div className="trading-hub-grid">
@@ -428,13 +366,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                             <span className="status-dot"></span>
                             {analyzerReady ? 'Ready' : 'Initializing...'}
                         </div>
-                        <div className={`status-indicator ${botReady ? 'ready' : 'loading'}`}>
-                            <span className="status-dot"></span>
-                            Bot Engine: {botReady ? 'Ready' : 'Initializing...'}
-                        </div>
-                        {(!analyzerReady || !botReady) && (
+                        {!analyzerReady && (
                             <div className="initialization-details">
-                                <small>Connecting to market data streams and bot engine...</small>
+                                <small>Connecting to market data streams...</small>
                                 <div className="loading-progress">
                                     <div className="progress-bar"></div>
                                 </div>
