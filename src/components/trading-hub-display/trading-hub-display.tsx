@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
+import marketAnalyzer from '../../services/market-analyzer';
 import './trading-hub-display.scss';
 
 interface TradingState {
