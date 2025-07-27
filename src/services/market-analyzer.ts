@@ -50,9 +50,9 @@ class MarketAnalyzer {
     private currentRecommendation: TradeRecommendation | null = null;
     private marketReadiness: Record<string, boolean> = {};
     private isAnalysisReady = false;
-    private minSampleSize = 30;
+    private minSampleSize = 20;
     private analysisStartTime = 0;
-    private minAnalysisPeriodMs = 5000;
+    private minAnalysisPeriodMs = 3000;
     private historyLoadedCount = 0;
     private initialHistoryLoaded = false;
     private lastAnalysisTime = 0;
@@ -89,7 +89,7 @@ class MarketAnalyzer {
     public start(): void {
         if (this.isRunning) return;
 
-        console.log('Market analyzer starting...');
+        console.log('🚀 Market analyzer starting...');
         this.isRunning = true;
         this.isAnalysisReady = false;
         this.analysisStartTime = Date.now();
@@ -100,11 +100,18 @@ class MarketAnalyzer {
             this.marketReadiness[symbol] = false;
         });
 
-        this.symbols.forEach(symbol => {
-            this.startWebSocket(symbol);
+        console.log(`📊 Connecting to ${this.symbols.length} symbols: ${this.symbols.join(', ')}`);
+        
+        // Start WebSocket connections with slight delays to avoid overwhelming the server
+        this.symbols.forEach((symbol, index) => {
+            setTimeout(() => {
+                if (this.isRunning) {
+                    this.startWebSocket(symbol);
+                }
+            }, index * 200);
         });
 
-        console.log(`Starting analysis with ${this.tickCount} ticks of historical data per symbol`);
+        console.log(`⏳ Starting analysis with ${this.tickCount} ticks of historical data per symbol`);
 
         this.analysisInterval = setInterval(() => {
             if (this.initialHistoryLoaded) {
@@ -112,6 +119,19 @@ class MarketAnalyzer {
             }
             this.checkAnalysisReadiness();
         }, 1000);
+
+        // Force readiness check after 10 seconds if still stuck
+        setTimeout(() => {
+            if (this.isRunning && !this.isAnalysisReady) {
+                console.log('⚠️ Forcing analysis readiness check after 10 seconds');
+                const hasAnyData = Object.values(this.tickHistories).some(history => history.length > 5);
+                if (hasAnyData) {
+                    console.log('📈 Found some data, marking as ready');
+                    this.isAnalysisReady = true;
+                    this.runAnalysis();
+                }
+            }
+        }, 10000);
     }
 
     public stop(): void {
@@ -175,30 +195,36 @@ class MarketAnalyzer {
     private checkAnalysisReadiness(): void {
         if (this.isAnalysisReady) return;
 
-        let allMarketsReady = true;
         let readyCount = 0;
+        let totalDataPoints = 0;
 
         for (const symbol of this.symbols) {
-            const hasMinimumData = this.tickHistories[symbol].length >= this.minSampleSize;
+            const dataLength = this.tickHistories[symbol]?.length || 0;
+            totalDataPoints += dataLength;
+            const hasMinimumData = dataLength >= this.minSampleSize;
             this.marketReadiness[symbol] = hasMinimumData;
 
             if (hasMinimumData) {
                 readyCount++;
-            } else {
-                allMarketsReady = false;
             }
         }
 
         const hasMinAnalysisTime = Date.now() - this.analysisStartTime >= this.minAnalysisPeriodMs;
+        
+        // Be more lenient - require at least 50% of markets ready or minimum time elapsed
+        const isPartiallyReady = readyCount >= Math.floor(this.symbols.length * 0.5);
+        const hasAnyData = totalDataPoints > 0;
 
         if (!this.isAnalysisReady && this.isRunning) {
             console.log(
-                `Analysis readiness check - Markets ready: ${readyCount}/${this.symbols.length}, Time condition: ${hasMinAnalysisTime}`
+                `Analysis readiness check - Markets ready: ${readyCount}/${this.symbols.length}, ` +
+                `Total data points: ${totalDataPoints}, Time elapsed: ${Date.now() - this.analysisStartTime}ms`
             );
         }
 
-        if (allMarketsReady && hasMinAnalysisTime) {
-            console.log('Market analysis ready - all markets have sufficient data');
+        // More flexible readiness condition
+        if ((isPartiallyReady && hasMinAnalysisTime) || (hasAnyData && Date.now() - this.analysisStartTime >= 15000)) {
+            console.log(`Market analysis ready - ${readyCount} markets ready with ${totalDataPoints} total data points`);
             this.isAnalysisReady = true;
             this.runAnalysis();
         }
@@ -211,13 +237,34 @@ class MarketAnalyzer {
             } catch (e) {
                 console.error(`Error closing WebSocket for ${symbol}:`, e);
             }
+            delete this.websockets[symbol];
         }
 
+        console.log(`Starting WebSocket connection for ${symbol}`);
         const ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=70827');
         this.websockets[symbol] = ws;
 
+        // Add connection timeout
+        const connectionTimeout = setTimeout(() => {
+            if (ws.readyState === WebSocket.CONNECTING) {
+                console.warn(`WebSocket connection timeout for ${symbol}`);
+                ws.close();
+                delete this.websockets[symbol];
+                
+                // Try next symbol or retry later
+                if (this.isRunning) {
+                    setTimeout(() => {
+                        if (this.isRunning && !this.websockets[symbol]) {
+                            this.startWebSocket(symbol);
+                        }
+                    }, 5000);
+                }
+            }
+        }, 10000);
+
         ws.onopen = () => {
-            console.log(`WebSocket connected for ${symbol}, requesting ${this.tickCount} historical ticks...`);
+            clearTimeout(connectionTimeout);
+            console.log(`✅ WebSocket connected for ${symbol}, requesting ${this.tickCount} historical ticks...`);
             this.requestTickHistory(symbol, ws);
         };
 
@@ -263,15 +310,31 @@ class MarketAnalyzer {
 
         ws.onerror = error => {
             console.error(`WebSocket error for ${symbol}:`, error);
-        };
-
-        ws.onclose = () => {
-            if (this.isRunning) {
+            // Don't let one failed connection block the entire analysis
+            if (this.isRunning && !this.websockets[symbol]) {
                 setTimeout(() => {
                     if (this.isRunning) {
+                        console.log(`Retrying WebSocket connection for ${symbol}`);
                         this.startWebSocket(symbol);
                     }
-                }, 5000);
+                }, 3000);
+            }
+        };
+
+        ws.onclose = (event) => {
+            console.log(`WebSocket closed for ${symbol}, code: ${event.code}, reason: ${event.reason}`);
+            if (this.isRunning) {
+                // Clear the reference
+                if (this.websockets[symbol] === ws) {
+                    delete this.websockets[symbol];
+                }
+                
+                setTimeout(() => {
+                    if (this.isRunning && !this.websockets[symbol]) {
+                        console.log(`Reconnecting WebSocket for ${symbol}`);
+                        this.startWebSocket(symbol);
+                    }
+                }, 2000);
             }
         };
     }

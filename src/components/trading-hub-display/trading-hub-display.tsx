@@ -259,6 +259,14 @@ const TradingHubDisplay: React.FC = observer(() => {
                             <span className="status-dot"></span>
                             {analyzerReady ? 'Ready' : 'Initializing...'}
                         </div>
+                        {!analyzerReady && (
+                            <div className="initialization-details">
+                                <small>Connecting to market data streams...</small>
+                                <div className="loading-progress">
+                                    <div className="progress-bar"></div>
+                                </div>
+                            </div>
+                        )}
                         {currentRecommendation && (
                             <div className="current-signal">
                                 <strong>Active Signal:</strong> {currentRecommendation.strategy} on {currentRecommendation.symbol}

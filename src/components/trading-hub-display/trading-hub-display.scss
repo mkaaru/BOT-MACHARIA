@@ -408,42 +408,70 @@
         .status-indicator {
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 15px;
+            gap: 8px;
+            font-size: 14px;
 
             .status-dot {
-                width: 12px;
-                height: 12px;
+                width: 8px;
+                height: 8px;
                 border-radius: 50%;
                 background: #ff6b6b;
+            }
 
-                .ready & {
-                    background: #51cf66;
-                    animation: pulse 2s infinite;
-                }
+            &.ready .status-dot {
+                background: #51cf66;
+            }
 
-                .loading & {
-                    background: #ffd43b;
-                    animation: blink 1s infinite;
-                }
+            &.loading .status-dot {
+                background: #ffa726;
+                animation: pulse 1.5s infinite;
             }
         }
 
-        .current-signal {
-            background: rgba(100, 255, 218, 0.1);
-            border: 1px solid rgba(100, 255, 218, 0.3);
-            border-radius: 8px;
-            padding: 12px;
-            font-size: 14px;
-            line-height: 1.4;
+    .initialization-details {
+        margin-top: 8px;
 
-            strong {
-                color: #64ffda;
-            }
+        small {
+            color: #666;
+            font-size: 12px;
+        }
 
-            small {
-                color: rgba(255, 255, 255, 0.7);
+        .loading-progress {
+            width: 200px;
+            height: 4px;
+            background: #e9ecef;
+            border-radius: 2px;
+            margin-top: 4px;
+            overflow: hidden;
+
+            .progress-bar {
+                height: 100%;
+                background: linear-gradient(90deg, #4285f4, #34a853, #fbbc05);
+                animation: loading-progress 2s infinite;
             }
+        }
+    }
+
+    @keyframes loading-progress {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+}
+
+    .current-signal {
+        background: rgba(100, 255, 218, 0.1);
+        border: 1px solid rgba(100, 255, 218, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 14px;
+        line-height: 1.4;
+
+        strong {
+            color: #64ffda;
+        }
+
+        small {
+            color: rgba(255, 255, 255, 0.7);
         }
     }
 
