@@ -1,0 +1,1130 @@
+Compilation failed
+
+File: /home/runner/workspace/src/pages/main/main.tsx:1:1
+  × Module build failed:
+  ╰─▶   ×   × the name `isConnected` is defined multiple times
+        │       ╭─[/home/runner/workspace/src/pages/main/main.tsx:111:1]
+        │   108 │   const [contractType, setContractType] = useState('DIGITEVEN')
+        │   109 │   const [predictionModel, setPredictionModel] = useState('neural_network')
+        │   110 │   const [stakeAmount, setStakeAmount] = useState('1.00')
+        │   111 │   const [isConnected, setIsConnected] = useState(false)
+        │       ·          ─────┬─────
+        │       ·               ╰── previous definition of `isConnected` here
+        │   112 │   const [isTrading, setIsTrading] = useState(false)
+        │   113 │   const [currentTick, setCurrentTick] = useState<number | null>(null)
+        │   114 │   const [currentPrice, setCurrentPrice] = useState<string>('---')
+        │   115 │   const [tickHistory, setTickHistory] = useState<{[key: string]: number[]}>({})
+        │   116 │   const [digitDistribution, setDigitDistribution] = useState<number[]>(new Array(10).fill(0))
+        │   117 │   const [digitPercentages, setDigitPercentages] = useState<number[]>(new Array(10).fill(10))
+        │   118 │   const [nextPrediction, setNextPrediction] = useState<string>('')
+        │   119 │   const [confidence, setConfidence] = useState(0)
+        │   120 │   const [predictionAccuracy, setPredictionAccuracy] = useState(0)
+        │   121 │   const [evenOddBias, setEvenOddBias] = useState('NEUTRAL')
+        │   122 │   const [overUnderBias, setOverUnderBias] = useState('NEUTRAL')
+        │   123 │   const [streakPattern, setStreakPattern] = useState('---')
+        │   124 │   const [tradingLog, setTradingLog] = useState<any[]>([])
+        │   125 │   const [totalTrades, setTotalTrades] = useState(0)
+        │   126 │   const [winRate, setWinRate] = useState(0)
+        │   127 │   const [profitLoss, setProfitLoss] = useState(0)
+        │   128 │   const [currentStreak, setCurrentStreak] = useState(0)
+        │   129 │   const [websocket, setWebsocket] = useState<WebSocket | null>(null)
+        │   130 │     const [pythonCode, setPythonCode] = useState('');
+        │   131 │     const [pythonOutput, setPythonOutput] = useState([]);
+        │   132 │     const [savedScripts, setSavedScripts] = useState([]);
+        │   133 │     const [isExecuting, setIsExecuting] = useState(false);
+        │   134 │     // Add new state for analysis tool URL
+        │   135 │
+        │   136 │
+        │   137 │     // Add function to check if analysis tool is active
+        │   138 │     const isAnalysisToolActive = active_tab === ANALYSIS_TOOL;
+        │   139 │
+        │   140 │     useEffect(() => {
+        │   141 │         if (connectionStatus !== CONNECTION_STATUS.OPENED) {
+        │   142 │             const is_bot_running = document.getElementById('db-animation__stop-button') !== null;
+        │   143 │             if (is_bot_running) {
+        │   144 │                 clear();
+        │   145 │                 stopBot();
+        │   146 │                 api_base.setIsRunning(false);
+        │   147 │             }
+        │   148 │         }
+        │   149 │     }, [clear, connectionStatus, stopBot]);
+        │   150 │
+        │   151 │     useEffect(() => {
+        │   152 │         // Fetch the XML files and parse them
+        │   153 │         const fetchBots = async () => {
+        │   154 │             const botFiles = [
+        │   155 │                 'Upgraded Candlemine.xml',
+        │   156 │                 'Super Elite.xml', // Smart trading as second sub-tab
+        │   157 │                 'Super Speed Bot.xml', // Speed bot as third sub-tab
+        │   158 │                 'Envy-differ.xml',
+        │   159 │                 'H_L auto vault.xml',
+        │   160 │                 'Top-notch 2.xml',
+        │   161 │                 // New bots added
+        │   162 │                 '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1.xml',
+        │   163 │                 '3 2025 Updated Version Of Candle Mine🇬🇧.xml',
+        │   164 │                 'Accumulators Pro Bot.xml',
+        │   165 │                 // Additional new bots
+        │   166 │                 'AUTO C4 PRO (2) Version.xml',
+        │   167 │                 '2025 Killer version Bot🤑.xml',
+        │   168 │                 'Alpha Version 2025.xml',
+        │   169 │                 '1 Original DollarPrinterBot 2025 Version.xml',
+        │   170 │             ];
+        │   171 │
+        │   172 │             const loadedBots = [];
+        │   173 │
+        │   174 │             for (const file of botFiles) {
+        │   175 │                 try {
+        │   176 │                     // Try multiple fetch approaches for better compatibility
+        │   177 │                     let response;
+        │   178 │                     let text = null;
+        │   179 │
+        │   180 │                     // Try public directory with encoded URI
+        │   181 │                     try {
+        │   182 │                         const encodedFile = encodeURIComponent(file);
+        │   183 │                         response = await fetch(`/${encodedFile}`);
+        │   184 │                         if (response.ok) {
+        │   185 │                             text = await response.text();
+        │   186 │                         }
+        │   187 │                     } catch (e) {
+        │   188 │                         console.log(`Failed to fetch encoded: ${file}`);
+        │   189 │                     }
+        │   190 │
+        │   191 │                     // Try normal fetch if encoded didn't work
+        │   192 │                     if (!text) {
+        │   193 │                         try {
+        │   194 │                             response = await fetch(`/${file}`);
+        │   195 │                             if (response.ok) {
+        │   196 │                                 text = await response.text();
+        │   197 │                             }
+        │   198 │                         } catch (e) {
+        │   199 │                             console.log(`Failed to fetch normal: ${file}`);
+        │   200 │                         }
+        │   201 │                     }
+        │   202 │
+        │   203 │                     // Try without leading slash
+        │   204 │                     if (!text) {
+        │   205 │                         try {
+        │   206 │                             response = await fetch(file);
+        │   207 │                             if (response.ok) {
+        │   208 │                                 text = await response.text();
+        │   209 │                             }
+        │   210 │                         } catch (e) {
+        │   211 │                             console.log(`Failed to fetch without slash: ${file}`);
+        │   212 │                         }
+        │   213 │                     }
+        │   214 │
+        │   215 │                     if (!text) {
+        │   216 │                         console.warn(`Could not load bot file: ${file}`);
+        │   217 │                         loadedBots.push({
+        │   218 │                             title: file.replace('.xml', ''),
+        │   219 │                             image: 'default_image_path',
+        │   220 │                             filePath: file,
+        │   221 │                             xmlContent: null,
+        │   222 │                             isPlaceholder: true
+        │   223 │                         });
+        │   224 │                         continue;
+        │   225 │                     }
+        │   226 │
+        │   227 │                     // Validate XML content
+        │   228 │                     if (!text.trim().startsWith('<xml') && !text.trim().startsWith('<?xml')) {
+        │   229 │                         console.warn(`Invalid XML content for ${file}`);
+        │   230 │                         loadedBots.push({
+        │   231 │                             title: file.replace('.xml', ''),
+        │   232 │                             image: 'default_image_path',
+        │   233 │                             filePath: file,
+        │   234 │                             xmlContent: null,
+        │   235 │                             isPlaceholder: true
+        │   236 │                         });
+        │   237 │                         continue;
+        │   238 │                     }
+        │   239 │
+        │   240 │                     const parser = new DOMParser();
+        │   241 │                     const xml = parser.parseFromString(text, 'application/xml');
+        │   242 │
+        │   243 │                     // Check if XML parsing was successful
+        │   244 │                     const parseError = xml.getElementsByTagName('parsererror')[0];
+        │   245 │                     if (parseError) {
+        │   246 │                         console.warn(`XML parsing error for ${file}:`, parseError.textContent);
+        │   247 │                         loadedBots.push({
+        │   248 │                             title: file.replace('.xml', ''),
+        │   249 │                             image: 'default_image_path',
+        │   250 │                             filePath: file,
+        │   251 │                             xmlContent: text, // Still include the content even if parsing failed
+        │   252 │                             isPlaceholder: false
+        │   253 │                         });
+        │   254 │                         continue;
+        │   255 │                     }
+        │   256 │
+        │   257 │                     loadedBots.push({
+        │   258 │                         title: file.replace('.xml', ''),
+        │   259 │                         image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
+        │   260 │                         filePath: file,
+        │   261 │                         xmlContent: text,
+        │   262 │                         isPlaceholder: false
+        │   263 │                     });
+        │   264 │
+        │   265 │                     console.log(`Successfully loaded: ${file}`);
+        │   266 │
+        │   267 │                 } catch (error) {
+        │   268 │                     console.error(`Error loading bot ${file}:`, error);
+        │   269 │                     loadedBots.push({
+        │   270 │                         title: file.replace('.xml', ''),
+        │   271 │                         image: 'default_image_path',
+        │   272 │                         filePath: file,
+        │   273 │                         xmlContent: null,
+        │   274 │                         isPlaceholder: true
+        │   275 │                     });
+        │   276 │                 }
+        │   277 │             }
+        │   278 │
+        │   279 │             setBots(loadedBots);
+        │   280 │             console.log(`Loaded ${loadedBots.length} bots total`);
+        │   281 │             console.log(`Successful: ${loadedBots.filter(b => !b.isPlaceholder).length}`);
+        │   282 │             console.log(`Placeholders: ${loadedBots.filter(b => b.isPlaceholder).length}`);
+        │   283 │         };
+        │   284 │
+        │   285 │         fetchBots();
+        │   286 │     }, []);
+        │   287 │
+        │   288 │     const runBot = (xmlContent: string) => {
+        │   289 │         // Load the strategy into the bot builder
+        │   290 │         updateWorkspaceName(xmlContent);
+        │   291 │         console.log('Running bot with content:', xmlContent);
+        │   292 │     };
+        │   293 │
+        │   294 │     const handleTabChange = React.useCallback(
+        │   295 │         (tab_index: number) => {
+        │   296 │             setActiveTab(tab_index);
+        │   297 │         },
+        │   298 │         [setActiveTab]
+        │   299 │     );
+        │   300 │
+        │   301 │     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
+        │   302 │         setActiveTab(DBOT_TABS.BOT_BUILDER);
+        │   303 │         try {
+        │   304 │             console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
+        │   305 │
+        │   306 │             let xmlContent = bot.xmlContent;
+        │   307 │
+        │   308 │             // If it's a placeholder bot or no content, try to load the content now
+        │   309 │             if (bot.isPlaceholder || !xmlContent) {
+        │   310 │                 console.log("Attempting to load XML content for bot...");
+        │   311 │                 try {
+        │   312 │                     let response;
+        │   313 │                     let success = false;
+        │   314 │
+        │   315 │                     // Try multiple approaches
+        │   316 │                     const attempts = [
+        │   317 │                         `/${encodeURIComponent(bot.filePath)}`,
+        │   318 │                         `/${bot.filePath}`,
+        │   319 │                         bot.filePath
+        │   320 │                     ];
+        │   321 │
+        │   322 │                     for (const url of attempts) {
+        │   323 │                         try {
+        │   324 │                             response = await fetch(url);
+        │   325 │                             if (response.ok) {
+        │   326 │                                 xmlContent = await response.text();
+        │   327 │                                 console.log(`Successfully loaded XML from: ${url}`);
+        │   328 │                                 success = true;
+        │   329 │                                 break;
+        │   330 │                             }
+        │   331 │                         } catch (e) {
+        │   332 │                             console.log(`Failed attempt with URL: ${url}`);
+        │   333 │                         }
+        │   334 │                     }
+        │   335 │
+        │   336 │                     if (!success) {
+        │   337 │                         throw new Error(`Could not fetch ${bot.filePath} from any URL`);
+        │   338 │                     }
+        │   339 │                 } catch (fetchError) {
+        │   340 │                     console.error("Failed to load bot content:", fetchError);
+        │   341 │                     // Removed alert message
+        │   342 │                     return;
+        │   343 │                 }
+        │   344 │             }
+        │   345 │
+        │   346 │             if (!xmlContent || xmlContent.trim().length === 0) {
+        │   347 │                 //Removed alert message
+        │   348 │                 return;
+        │   349 │             }
+        │   350 │
+        │   351 │             console.log("XML Content length:", xmlContent?.length);
+        │   352 │             console.log("XML Content preview:", xmlContent?.substring(0, 200));
+        │   353 │
+        │   354 │             // Validate XML content
+        │   355 │             if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
+        │   356 │                 //Removed alert message
+        │   357 │                 return;
+        │   358 │             }
+        │   359 │
+        │   360 │             if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
+        │   361 │                 try {
+        │   362 │                     await load_modal.loadFileFromContent(xmlContent);
+        │   363 │                     console.log("Bot loaded successfully!");
+        │   364 │
+        │   365 │                     // Also update workspace name
+        │   366 │                     if (typeof updateWorkspaceName === 'function') {
+        │   367 │                         updateWorkspaceName(xmlContent);
+        │   368 │                     }
+        │   369 │                 } catch (loadError) {
+        │   370 │                     console.error("Error in load_modal.loadFileFromContent:", loadError);
+        │   371 │                     //Removed alert message
+        │   372 │                 }
+        │   373 │             } else {
+        │   374 │                 console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
+        │   375 │                 console.log("load_modal object:", load_modal);
+        │   376 │                 //Removed alert message
+        │   377 │             }
+        │   378 │
+        │   379 │         } catch (error) {
+        │   380 │             console.error("Error loading bot:", error);
+        │   381 │              //Removed alert message
+        │   382 │         }
+        │   383 │     }, [setActiveTab, load_modal]);
+        │   384 │
+        │   385 │     const handleOpen = useCallback(async () => {
+        │   386 │         await load_modal.loadFileFromRecent();
+        │   387 │         setActiveTab(DBOT_TABS.BOT_BUILDER);
+        │   388 │         // rudderStackSendDashboardClickEvent({ dashboard_click_name: 'open', subpage_name: 'bot_builder' });
+        │   389 │     }, [load_modal, setActiveTab]);
+        │   390 │
+        │   391 │     // Digits Trading Bot Functions
+        │   392 │   const connectToAPI = async () => {
+        │   393 │     try {
+        │   394 │       // Close existing connection if any
+        │   395 │       if (websocket) {
+        │   396 │         websocket.close()
+        │   397 │         setWebsocket(null)
+        │   398 │       }
+        │   399 │
+        │   400 │       setCurrentPrice('Connecting...')
+        │   401 │       setIsConnected(false)
+        │   402 │
+        │   403 │       const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771')
+        │   404 │
+        │   405 │       ws.onopen = () => {
+        │   406 │         console.log('WebSocket connected successfully')
+        │   407 │         setIsConnected(true)
+        │   408 │         setWebsocket(ws)
+        │   409 │         setCurrentPrice('Connected - Waiting for ticks...')
+        │   410 │
+        │   411 │         // First, get historical ticks for the selected volatility
+        │   412 │         const historyRequest = {
+        │   413 │           ticks_history: selectedIndex,
+        │   414 │           count: 5000,
+        │   415 │           end: 'latest',
+        │   416 │           style: 'ticks',
+        │   417 │           req_id: 2
+        │   418 │         }
+        │   419 │         console.log('Requesting historical ticks:', historyRequest)
+        │   420 │         ws.send(JSON.stringify(historyRequest))
+        │   421 │
+        │   422 │         // Then subscribe to real-time tick stream
+        │   423 │         const tickRequest = {
+        │   424 │           ticks: selectedIndex,
+        │   425 │           subscribe: 1,
+        │   426 │           req_id: 1
+        │   427 │         }
+        │   428 │         console.log('Sending tick subscription request:', tickRequest)
+        │   429 │         ws.send(JSON.stringify(tickRequest))
+        │   430 │       }
+        │   431 │
+        │   432 │       ws.onmessage = (event) => {
+        │   433 │         try {
+        │   434 │           const data = JSON.parse(event.data)
+        │   435 │           console.log('WebSocket message received:', data)
+        │   436 │
+        │   437 │           // Handle historical tick data
+        │   438 │           if (data.history && data.history.prices) {
+        │   439 │             const symbol = data.echo_req.ticks_history
+        │   440 │             const prices = data.history.prices.map(price => parseFloat(price))
+        │   441 │             console.log(`Received ${prices.length} historical ticks for ${symbol}`)
+        │   442 │
+        │   443 │             // Store historical ticks for this volatility
+        │   444 │             setTickHistory(prev => ({
+        │   445 │               ...prev,
+        │   446 │               [symbol]: prices
+        │   447 │             }))
+        │   448 │
+        │   449 │             // Set current price to latest historical tick
+        │   450 │             if (prices.length > 0) {
+        │   451 │               const latestPrice = prices[prices.length - 1]
+        │   452 │               setCurrentPrice(latestPrice.toFixed(5))
+        │   453 │
+        │   454 │               // Calculate distributions for historical data
+        │   455 │               calculateDigitDistribution(prices)
+        │   456 │               analyzePatterns(prices)
+        │   457 │               makePrediction(prices)
+        │   458 │               calculateContractProbabilities(prices)
+        │   459 │             }
+        │   460 │           }
+        │   461 │
+        │   462 │           // Handle real-time tick data
+        │   463 │           if (data.tick && (data.tick.symbol === selectedIndex || getAlternativeSymbol(data.tick.symbol) === selectedIndex)) {
+        │   464 │             console.log('Real-time tick received for', data.tick.symbol, ':', data.tick.quote)
+        │   465 │             const price = parseFloat(data.tick.quote)
+        │   466 │             if (!isNaN(price)) {
+        │   467 │               setCurrentPrice(price.toFixed(5))
+        │   468 │               handleNewTick(price, data.tick.symbol)
+        │   469 │             }
+        │   470 │           }
+        │   471 │
+        │   472 │           // Handle subscription confirmation
+        │   473 │           if (data.msg_type === 'tick' && data.subscription) {
+        │   474 │             console.log('Tick subscription confirmed for:', data.subscription.id)
+        │   475 │             setCurrentPrice('Connected - Receiving ticks for ' + selectedIndex)
+        │   476 │           }
+        │   477 │
+        │   478 │           // Handle errors
+        │   479 │           if (data.error) {
+        │   480 │             console.error('WebSocket API error:', data.error)
+        │   481 │             setCurrentPrice(`Error: ${data.error.message}`)
+        │   482 │
+        │   483 │             // Try alternative symbol formats for common volatility indices
+        │   484 │             if (data.error.code === 'InvalidSymbol') {
+        │   485 │               console.log('Invalid symbol, trying alternative format...')
+        │   486 │               const altSymbol = getAlternativeSymbol(selectedIndex)
+        │   487 │               if (altSymbol && altSymbol !== selectedIndex) {
+        │   488 │                 console.log('Trying alternative symbol:', altSymbol)
+        │   489 │                 const altRequest = {
+        │   490 │                   ticks_history: altSymbol,
+        │   491 │                   count: 5000,
+        │   492 │                   end: 'latest',
+        │   493 │                   style: 'ticks',
+        │   494 │                   req_id: Date.now()
+        │   495 │                 }
+        │   496 │                 ws.send(JSON.stringify(altRequest))
+        │   497 │               }
+        │   498 │             }
+        │   499 │           }
+        │   500 │
+        │   501 │           // Handle forget_all response
+        │   502 │           if (data.msg_type === 'forget_all') {
+        │   503 │             console.log('All subscriptions forgotten successfully')
+        │   504 │           }
+        │   505 │         } catch (parseError) {
+        │   506 │           console.error('Error parsing WebSocket message:', parseError)
+        │   507 │           setCurrentPrice('Parse Error')
+        │   508 │         }
+        │   509 │       }
+        │   510 │
+        │   511 │       ws.onclose = (event) => {
+        │   512 │         console.log('WebSocket connection closed:', event.code, event.reason)
+        │   513 │         setIsConnected(false)
+        │   514 │         setWebsocket(null)
+        │   515 │         setCurrentPrice('Disconnected')
+        │   516 │
+        │   517 │         // Auto-reconnect after 3 seconds if not manually closed
+        │   518 │         if (event.code !== 1000) {
+        │   519 │           setTimeout(() => {
+        │   520 │             console.log('Attempting to reconnect...')
+        │   521 │             connectToAPI()
+        │   522 │           }, 3000)
+        │   523 │         }
+        │   524 │       }
+        │   525 │
+        │   526 │       ws.onerror = (error) => {
+        │   527 │         console.error('WebSocket error:', error)
+        │   528 │         setIsConnected(false)
+        │   529 │         setWebsocket(null)
+        │   530 │         setCurrentPrice('Connection Error')
+        │   531 │       }
+        │   532 │
+        │   533 │     } catch (error) {
+        │   534 │       console.error('Connection failed:', error)
+        │   535 │       setIsConnected(false)
+        │   536 │       setCurrentPrice('Failed to connect')
+        │   537 │     }
+        │   538 │   }
+        │   539 │
+        │   540 │   // Helper function to get alternative symbol formats
+        │   541 │   const getAlternativeSymbol = (symbol) => {
+        │   542 │     const symbolMap = {
+        │   543 │       // Forward mapping
+        │   544 │       'R_10': '1HZ10V',
+        │   545 │       'R_25': '1HZ25V',
+        │   546 │       'R_50': '1HZ50V',
+        │   547 │       'R_75': '1HZ75V',
+        │   548 │       'R_100': '1HZ100V',
+        │   549 │       'R_150': '1HZ150V',
+        │   550 │       'R_200': '1HZ200V',
+        │   551 │       'R_250': '1HZ250V',
+        │   552 │       'R_300': '1HZ300V',
+        │   553 │       // Reverse mapping
+        │   554 │       '1HZ10V': 'R_10',
+        │   555 │       '1HZ25V': 'R_25',
+        │   556 │       '1HZ50V': 'R_50',
+        │   557 │       '1HZ75V': 'R_75',
+        │   558 │       '1HZ100V': 'R_100',
+        │   559 │       '1HZ150V': 'R_150',
+        │   560 │       '1HZ200V': 'R_200',
+        │   561 │       '1HZ250V': 'R_250',
+        │   562 │       '1HZ300V': 'R_300',
+        │   563 │       // Boom/Crash indices
+        │   564 │       'BOOM1000': 'BOOM1000',
+        │   565 │       'CRASH1000': 'CRASH1000',
+        │   566 │       'BOOM500': 'BOOM500',
+        │   567 │       'CRASH500': 'CRASH500',
+        │   568 │       'BOOM300': 'BOOM300',
+        │   569 │       'CRASH300': 'CRASH300'
+        │   570 │     }
+        │   571 │     return symbolMap[symbol] || symbol
+        │   572 │   }
+        │   573 │
+        │   574 │   const handleNewTick = (tick: number, symbol: string) => {
+        │   575 │     try {
+        │   576 │       if (typeof tick !== 'number' || isNaN(tick)) {
+        │   577 │         console.warn('Invalid tick received:', tick)
+        │   578 │         return
+        │   579 │       }
+        │   580 │
+        │   581 │       console.log('Processing tick:', tick, 'for symbol:', symbol)
+        │   582 │
+        │   583 │       // Update current tick and price display
+        │   584 │       setCurrentTick(tick)
+        │   585 │       const priceStr = tick.toFixed(5)
+        │   586 │       setCurrentPrice(priceStr)
+        │   587 │
+        │   588 │       // Store in tick history per volatility (keep last 5000 per symbol)
+        │   589 │       setTickHistory(prev => {
+        │   590 │         const currentHistory = prev[symbol] || []
+        │   591 │         const newHistory = [...currentHistory, tick].slice(-5000)
+        │   592 │
+        │   593 │         const updated = {
+        │   594 │           ...prev,
+        │   595 │           [symbol]: newHistory
+        │   596 │         }
+        │   597 │
+        │   598 │         // Only run analysis if we have enough data for current symbol
+        │   599 │         if (newHistory.length >= 10) {
+        │   600 │           // Calculate digit distribution with real-time updates
+        │   601 │           calculateDigitDistribution(newHistory)
+        │   602 │
+        │   603 │           // Perform enhanced pattern analysis
+        │   604 │           analyzePatterns(newHistory)
+        │   605 │
+        │   606 │           // Make AI-powered prediction
+        │   607 │           makePrediction(newHistory)
+        │   608 │
+        │   609 │           // Calculate contract-specific probabilities
+        │   610 │           calculateContractProbabilities(newHistory)
+        │   611 │         }
+        │   612 │
+        │   613 │         return updated
+        │   614 │       })
+        │   615 │
+        │   616 │       // Execute trade if trading is active
+        │   617 │       if (isTrading) {
+        │   618 │         executeTradeDecision(tick)
+        │   619 │       }
+        │   620 │     } catch (error) {
+        │   621 │       console.error('Error handling new tick:', error)
+        │   622 │     }
+        │   623 │   }
+        │   624 │
+        │   625 │   const calculateContractProbabilities = (history: number[]) => {
+        │   626 │     if (history.length < 10) return
+        │   627 │
+        │   628 │     const recentTicks = history.slice(-100) // Use last 100 ticks for probability calculation
+        │   629 │     const lastDigits = recentTicks.map(tick => Math.floor(Math.abs(tick * 100000)) % 10)
+        │   630 │
+        │   631 │     // Calculate probabilities based on contract type
+        │   632 │     let probabilities = {}
+        │   633 │
+        │   634 │     if (contractType === 'DIGITEVEN' || contractType === 'DIGITODD') {
+        │   635 │       const evenCount = lastDigits.filter(d => d % 2 === 0).length
+        │   636 │       const oddCount = lastDigits.length - evenCount
+        │   637 │       const total = lastDigits.length
+        │   638 │
+        │   639 │       probabilities = {
+        │   640 │         even: ((evenCount / total) * 100).toFixed(1),
+        │   641 │         odd: ((oddCount / total) * 100).toFixed(1)
+        │   642 │       }
+        │   643 │     } else if (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') {
+        │   644 │       const underCount = lastDigits.filter(d => d < 5).length // 0,1,2,3,4
+        │   645 │       const overCount = lastDigits.filter(d => d >= 5).length // 5,6,7,8,9
+        │   646 │       const total = lastDigits.length
+        │   647 │
+        │   648 │       probabilities = {
+        │   649 │         under: ((underCount / total) * 100).toFixed(1),
+        │   650 │         over: ((overCount / total) * 100).toFixed(1)
+        │   651 │       }
+        │   652 │     } else if (contractType === 'DIGITMATCH' || contractType === 'DIGITDIFF') {
+        │   653 │       // For match/differs, show probability for each digit
+        │   654 │       const digitCounts = new Array(10).fill(0)
+        │   655 │       lastDigits.forEach(d => digitCounts[d]++)
+        │   656 │       const total = lastDigits.length
+        │   657 │
+        │   658 │       probabilities = {}
+        │   659 │       for (let i = 0; i < 10; i++) {
+        │   660 │         probabilities[`digit_${i}`] = ((digitCounts[i] / total) * 100).toFixed(1)
+        │   661 │       }
+        │   662 │     }
+        │   663 │
+        │   664 │     // You can use these probabilities to update UI or make trading decisions
+        │   665 │     console.log('Contract probabilities:', probabilities)
+        │   666 │   }
+        │   667 │
+        │   668 │   const calculateDigitDistribution = (history: number[]) => {
+        │   669 │     if (history.length === 0) return
+        │   670 │
+        │   671 │     const digitCounts = new Array(10).fill(0)
+        │   672 │
+        │   673 │     // Count occurrences of each last digit
+        │   674 │     history.forEach(tick => {
+        │   675 │       const lastDigit = Math.floor(Math.abs(tick * 100000)) % 10
+        │   676 │       digitCounts[lastDigit]++
+        │   677 │     })
+        │   678 │
+        │   679 │     setDigitDistribution(digitCounts)
+        │   680 │
+        │   681 │     // Calculate percentages
+        │   682 │     const total = history.length
+        │   683 │     const percentages = digitCounts.map(count => total > 0 ? (count / total) * 100 : 10)
+        │   684 │     setDigitPercentages(percentages)
+        │   685 │   }
+        │   686 │
+        │   687 │   const analyzePatterns = (history: number[]) => {
+        │   688 │     if (history.length < 100) return
+        │   689 │
+        │   690 │     try {
+        │   691 │       const recentTicks = history.slice(-100)
+        │   692 │       const lastDigits = recentTicks.map(tick => Math.floor(Math.abs(tick * 100000)) % 10)
+        │   693 │
+        │   694 │       // Analyze even/odd bias
+        │   695 │       const evenCount = lastDigits.filter(d => d % 2 === 0).length
+        │   696 │       const oddCount = lastDigits.filter(d => d % 2 === 1).length
+        │   697 │
+        │   698 │       if (evenCount > oddCount * 1.2) {
+        │   699 │         setEvenOddBias('EVEN BIAS')
+        │   700 │       } else if (oddCount > evenCount * 1.2) {
+        │   701 │         setEvenOddBias('ODD BIAS')
+        │   702 │       } else {
+        │   703 │         setEvenOddBias('NEUTRAL')
+        │   704 │       }
+        │   705 │
+        │   706 │       // Analyze over/under bias (0-4 vs 5-9)
+        │   707 │       const underCount = lastDigits.filter(d => d < 5).length
+        │   708 │       const overCount = lastDigits.filter(d => d >= 5).length
+        │   709 │
+        │   710 │       if (underCount > overCount * 1.2) {
+        │   711 │         setOverUnderBias('UNDER BIAS')
+        │   712 │       } else if (overCount > underCount * 1.2) {
+        │   713 │         setOverUnderBias('OVER BIAS')
+        │   714 │       } else {
+        │   715 │         setOverUnderBias('NEUTRAL')
+        │   716 │       }
+        │   717 │
+        │   718 │       // Analyze streak patterns
+        │   719 │       const streaks = []
+        │   720 │       if (lastDigits.length > 0) {
+        │   721 │         let currentStreakType = lastDigits[0] % 2
+        │   722 │         let streakLength = 1
+        │   723 │
+        │   724 │         for (let i = 1; i < lastDigits.length; i++) {
+        │   725 │           if (lastDigits[i] % 2 === currentStreakType) {
+        │   726 │             streakLength++
+        │   727 │           } else {
+        │   728 │             streaks.push(streakLength)
+        │   729 │             currentStreakType = lastDigits[i] % 2
+        │   730 │             streakLength = 1
+        │   731 │           }
+        │   732 │         }
+        │   733 │
+        │   734 │         if (streaks.length > 0) {
+        │   735 │           const avgStreak = streaks.reduce((a, b) => a + b, 0) / streaks.length
+        │   736 │           setStreakPattern(`AVG: ${avgStreak.toFixed(1)}`)
+        │   737 │         } else {
+        │   738 │           setStreakPattern('---')
+        │   739 │         }
+        │   740 │       }
+        │   741 │     } catch (error) {
+        │   742 │       console.error('Error in pattern analysis:', error)
+        │   743 │     }
+        │   744 │   }
+        │   745 │
+        │   746 │   const makePrediction = (history: number[]) => {
+        │   747 │     if (history.length < 50) return
+        │   748 │
+        │   749 │     try {
+        │   750 │       const recentTicks = history.slice(-50)
+        │   751 │       const lastDigits = recentTicks.map(tick => Math.floor(Math.abs(tick * 100000)) % 10)
+        │   752 │
+        │   753 │       // Advanced prediction based on contract type
+        │   754 │       if (contractType === 'DIGITEVEN' || contractType === 'DIGITODD') {
+        │   755 │         const evenCount = lastDigits.filter(d => d % 2 === 0).length
+        │   756 │         const oddCount = lastDigits.length - evenCount
+        │   757 │
+        │   758 │         if (contractType === 'DIGITEVEN') {
+        │   759 │           setNextPrediction(evenCount < oddCount ? 'EVEN' : 'ODD')
+        │   760 │           setConfidence(Math.min(95, 60 + Math.abs(evenCount - oddCount) * 2))
+        │   761 │         } else {
+        │   762 │           setNextPrediction(oddCount < evenCount ? 'ODD' : 'EVEN')
+        │   763 │           setConfidence(Math.min(95, 60 + Math.abs(evenCount - oddCount) * 2))
+        │   764 │         }
+        │   765 │       } else if (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') {
+        │   766 │         const underCount = lastDigits.filter(d => d < 5).length
+        │   767 │         const overCount = lastDigits.length - underCount
+        │   768 │
+        │   769 │         if (contractType === 'DIGITOVER') {
+        │   770 │           setNextPrediction(overCount < underCount ? 'OVER' : 'UNDER')
+        │   771 │           setConfidence(Math.min(95, 60 + Math.abs(overCount - underCount) * 2))
+        │   772 │         } else {
+        │   773 │           setNextPrediction(underCount < overCount ? 'UNDER' : 'OVER')
+        │   774 │           setConfidence(Math.min(95, 60 + Math.abs(overCount - underCount) * 2))
+        │   775 │         }
+        │   776 │       } else {
+        │   777 │         // For match/differs contracts, find least frequent digit
+        │   778 │         const digitCounts = new Array(10).fill(0)
+        │   779 │         lastDigits.forEach(d => digitCounts[d]++)
+        │   780 │         const minCount = Math.min(...digitCounts)
+        │   781 │         const leastFrequentDigit = digitCounts.indexOf(minCount)
+        │   782 │
+        │   783 │         setNextPrediction(leastFrequentDigit.toString())
+        │   784 │         setConfidence(Math.min(95, 50 + (10 - minCount) * 5))
+        │   785 │       }
+        │   786 │     } catch (error) {
+        │   787 │       console.error('Error in prediction:', error)
+        │   788 │     }
+        │   789 │   }
+        │   790 │
+        │   791 │   const executeTradeDecision = (tick: number) => {
+        │   792 │     const lastDigit = tick % 10
+        │   793 │     const timestamp = new Date().toLocaleTimeString()
+        │   794 │
+        │   795 │     // Simple trading logic based on prediction
+        │   796 │     let shouldTrade = false
+        │   797 │     let tradeType = contractType
+        │   798 │
+        │   799 │     if (contractType === 'DIGITEVEN' && nextPrediction === 'EVEN' && confidence > 70) {
+        │   800 │       shouldTrade = true
+        │   801 │     } else if (contractType === 'DIGITODD' && nextPrediction === 'ODD' && confidence > 70) {
+        │   802 │       shouldTrade = true
+        │   803 │         }
+        │   804 │
+        │   805 │     if (shouldTrade) {
+        │   806 │       // Simulate trade execution
+        │   807 │       const isWin = Math.random() > 0.45 // 55% win rate simulation
+        │   808 │       const pnl = isWin ? parseFloat(stakeAmount) * 0.95 : -parseFloat(stakeAmount)
+        │   809 │
+        │   810 │       setTradingLog(prev => [...prev, {
+        │   811 │         timestamp,
+        │   812 │         action: `${tradeType} @ ${tick}`,
+        │   813 │         result: isWin ? 'WIN' : 'LOSS',
+        │   814 │         pnl: (pnl > 0 ? '+' : '') + pnl.toFixed(2),
+        │   815 │         type: isWin ? 'win' : 'loss'
+        │   816 │       }])
+        │   817 │
+        │   818 │       setTotalTrades(prev => prev + 1)
+        │   819 │       setProfitLoss(prev => prev + pnl)
+        │   820 │       setCurrentStreak(prev => isWin ? (prev > 0 ? prev + 1 : 1) : (prev < 0 ? prev - 1 : -1))
+        │   821 │
+        │   822 │       // Update win rate
+        │   823 │       setWinRate(prev => {
+        │   824 │         const wins = tradingLog.filter(log => log.type === 'win').length + (isWin ? 1 : 0)
+        │   825 │         const total = totalTrades + 1
+        │   826 │         return (wins / total) * 100
+        │   827 │       })
+        │   828 │     }
+        │   829 │   }
+        │   830 │
+        │   831 │   const startTrading = () => {
+        │   832 │     if (!isConnected) return
+        │   833 │     setIsTrading(true)
+        │   834 │
+        │   835 │     setTradingLog(prev => [...prev, {
+        │   836 │       timestamp: new Date().toLocaleTimeString(),
+        │   837 │       action: 'TRADING STARTED',
+        │   838 │       result: 'SYSTEM',
+        │   839 │       pnl: '---',
+        │   840 │       type: 'system'
+        │   841 │     }])
+        │   842 │   }
+        │   843 │
+        │   844 │   const stopTrading = () => {
+        │   845 │     setIsTrading(false)
+        │   846 │
+        │   847 │     setTradingLog(prev => [...prev, {
+        │   848 │       timestamp: new Date().toLocaleTimeString(),
+        │   849 │       action: 'TRADING STOPPED',
+        │   850 │       result: 'SYSTEM',
+        │   851 │       pnl: '---',
+        │   852 │       type: 'system'
+        │   853 │     }])
+        │   854 │   }
+        │   855 │
+        │   856 │     const executePythonCode = useCallback(async () => {
+        │   857 │         if (!pythonCode.trim()) {
+        │   858 │             addOutput('error', 'No Python code to execute');
+        │   859 │             return;
+        │   860 │         }
+        │   861 │
+        │   862 │         setIsExecuting(true);
+        │   863 │         addOutput('info', 'Starting Python script execution...');
+        │   864 │
+        │   865 │         try {
+        │   866 │             // In a real implementation, this would send the code to a Python backend
+        │   867 │             // For demo purposes, we'll simulate execution
+        │   868 │             const response = await fetch('/api/execute-python', {
+        │   869 │                 method: 'POST',
+        │   870 │                 headers: {
+        │   871 │                     'Content-Type': 'application/json',
+        │   872 │                 },
+        │   873 │                 body: JSON.stringify({ code: pythonCode }),
+        │   874 │             });
+        │   875 │
+        │   876 │             if (response.ok) {
+        │   877 │                 const result = await response.json();
+        │   878 │                 addOutput('success', 'Script executed successfully');
+        │   879 │                 if (result.output) {
+        │   880 │                     result.output.split('\n').forEach(line => {
+        │   881 │                         if (line.trim()) {
+        │   882 │                             addOutput('output', line);
+        │   883 │                         }
+        │   884 │                     });
+        │   885 │                 }
+        │   886 │             } else {
+        │   887 │                 throw new Error('Failed to execute Python script');
+        │   888 │             }
+        │   889 │         } catch (error) {
+        │   890 │             // Simulate Python execution for demo
+        │   891 │             addOutput('info', 'Simulating Python script execution...');
+        │   892 │
+        │   893 │             setTimeout(() => {
+        │   894 │                 addOutput('output', 'Starting auto trading script...');
+        │   895 │                 addOutput('output', 'Market: EUR/USD - Price: 1.0850 - Action: HOLD');
+        │   896 │                 addOutput('output', 'Market: EUR/USD - Price: 1.0865 - Action: BUY');
+        │   897 │                 addOutput('success', 'Trade executed: {"action": "BUY", "amount": 1.0, "status": "executed"}');
+        │   898 │                 addOutput('output', 'Auto trading script completed.');
+        │   899 │                 setIsExecuting(false);
+        │   900 │             }, 2000);
+        │   901 │
+        │   902 │             return;
+        │   903 │         }
+        │   904 │
+        │   905 │         setIsExecuting(false);
+        │   906 │     }, [pythonCode]);
+        │   907 │
+        │   908 │     const clearPythonCode = useCallback(() => {
+        │   909 │         setPythonCode('');
+        │   910 │         setPythonOutput([]);
+        │   911 │         addOutput('info', 'Editor cleared');
+        │   912 │     }, []);
+        │   913 │
+        │   914 │     const savePythonScript = useCallback(() => {
+        │   915 │         if (!pythonCode.trim()) {
+        │   916 │             addOutput('error', 'No code to save');
+        │   917 │             return;
+        │   918 │         }
+        │   919 │
+        │   920 │         const scriptName = prompt('Enter script name:');
+        │   921 │         if (scriptName) {
+        │   922 │             const newScript = {
+        │   923 │                 name: scriptName,
+        │   924 │                 code: pythonCode,
+        │   925 │                 created: new Date().toISOString(),
+        │   926 │             };
+        │   927 │
+        │   928 │             const updatedScripts = [...savedScripts, newScript];
+        │   929 │             setSavedScripts(updatedScripts);
+        │   930 │             localStorage.setItem('pythonTradingScripts', JSON.stringify(updatedScripts));
+        │   931 │             addOutput('success', `Script '${scriptName}' saved successfully`);
+        │   932 │         }
+        │   933 │     }, [pythonCode, savedScripts]);
+        │   934 │
+        │   935 │     const loadSavedScript = useCallback((scriptName) => {
+        │   936 │         if (!scriptName) return;
+        │   937 │
+        │   938 │         const script = savedScripts.find(s => s.name === scriptName);
+        │   939 │         if (script) {
+        │   940 │             setPythonCode(script.code);
+        │   941 │             addOutput('info', `Loaded script: ${scriptName}`);
+        │   942 │         }
+        │   943 │     }, [savedScripts]);
+        │   944 │
+        │   945 │     const addOutput = useCallback((type, content) => {
+        │   946 │         const newLine = {
+        │   947 │             type,
+        │   948 │             content,
+        │   949 │             timestamp: new Date().toLocaleTimeString(),
+        │   950 │         };
+        │   951 │         setPythonOutput(prev => [...prev, newLine]);
+        │   952 │     }, []);
+        │   953 │
+        │   954 │     const loadTemplate = useCallback((templateType) => {
+        │   955 │         const templates = {
+        │   956 │             basic_strategy: `# Basic Trading Strategy Template
+        │   957 │ import time
+        │   958 │ from datetime import datetime
+        │   959 │
+        │   960 │ def simple_trading_strategy():
+        │   961 │     """Basic buy/sell strategy based on price movements"""
+        │   962 │     print("Executing basic trading strategy...")
+        │   963 │
+        │   964 │     # Simulate market analysis
+        │   965 │     current_price = 1.0850
+        │   966 │     support_level = 1.0800
+        │   967 │     resistance_level = 1.0900
+        │   968 │
+        │   969 │     if current_price < support_level:
+        │   970 │         print(f"Price {current_price} below support {support_level} - BUY signal")
+        │   971 │         return "BUY"
+        │   972 │     elif current_price > resistance_level:
+        │   973 │         print(f"Price {current_price} above resistance {resistance_level} - SELL signal")
+        │   974 │         return "SELL"
+        │   975 │     else:
+        │   976 │         print(f"Price {current_price} in range - HOLD")
+        │   977 │         return "HOLD"
+        │   978 │
+        │   979 │ if __name__ == "__main__":
+        │   980 │     action = simple_trading_strategy()
+        │   981 │     print(f"Trading action: {action}")`,
+        │   982 │
+        │   983 │             moving_average: `# Moving Average Strategy Template
+        │   984 │ import numpy as np
+        │   985 │ from datetime import datetime
+        │   986 │
+        │   987 │ def moving_average_strategy(prices, short_period=5, long_period=20):
+        │   988 │     """Moving average crossover strategy"""
+        │   989 │     print("Calculating moving averages...")
+        │   990 │
+        │   991 │     # Sample price data
+        │   992 │     prices = [1.0800, 1.0820, 1.0850, 1.0840, 1.0860, 1.0880, 1.0870, 1.0890]
+        │   993 │
+        │   994 │     if len(prices) < long_period:
+        │   995 │         print("Not enough data for moving average calculation")
+        │   996 │         return "HOLD"
+        │   997 │
+        │   998 │     short_ma = sum(prices[-short_period:]) / short_period
+        │   999 │     long_ma = sum(prices[-long_period:]) / long_period
+        │  1000 │
+        │  1001 │     print(f"Short MA ({short_period}): {short_ma:.4f}")
+        │  1002 │     print(f"Long MA ({long_period}): {long_ma:.4f}")
+        │  1003 │
+        │  1004 │     if short_ma > long_ma:
+        │  1005 │         print("Short MA above Long MA - BUY signal")
+        │  1006 │         return "BUY"
+        │  1007 │     elif short_ma < long_ma:
+        │  1008 │         print("Short MA below Long MA - SELL signal")
+        │  1009 │         return "SELL"
+        │  1010 │     else:
+        │  1011 │         return "HOLD"
+        │  1012 │
+        │  1013 │ if __name__ == "__main__":
+        │  1014 │     action = moving_average_strategy([])
+        │  1015 │     print(f"Trading action: {action}")`,
+        │  1016 │
+        │  1017 │             risk_management: `# Risk Management Template
+        │  1018 │ def calculate_position_size(account_balance, risk_percent, stop_loss_pips):
+        │  1019 │     """Calculate position size based on risk management rules"""
+        │  1020 │     risk_amount = account_balance * (risk_percent / 100)
+        │  1021 │     position_size = risk_amount / stop_loss_pips
+        │  1022 │
+        │  1023 │     print(f"Account Balance: ${account_balance}")
+        │  1024 │     print(f"Risk Percentage: {risk_percent}%")
+        │  1025 │     print(f"Risk Amount: ${risk_amount}")
+        │  1026 │     print(f"Stop Loss: {stop_loss_pips} pips")
+        │  1027 │     print(f"Calculated Position Size: {position_size}")
+        │  1028 │
+        │  1029 │     return position_size
+        │  1030 │
+        │  1031 │ def risk_management_check(current_trades, max_trades, daily_loss_limit):
+        │  1032 │     """Check risk management parameters"""
+        │  1033 │     print("Performing risk management checks...")
+        │  1034 │
+        │  1035 │     if current_trades >= max_trades:
+        │  1036 │         print(f"Maximum trades ({max_trades}) reached for today")
+        │  1037 │         return False
+        │  1038 │
+        │  1039 │     # Simulate daily P&L check
+        │  1040 │     daily_pnl = -150  # Example loss
+        │  1041 │     if daily_pnl <= -daily_loss_limit:
+        │  1042 │         print(f"Daily loss limit (${daily_loss_limit}) reached")
+        │  1043 │         return False
+        │  1044 │
+        │  1045 │     print("Risk management checks passed")
+        │  1046 │     return True
+        │  1047 │
+        │  1048 │ if __name__ == "__main__":
+        │  1049 │     position_size = calculate_position_size(10000, 2, 50)
+        │  1050 │     can_trade = risk_management_check(3, 5, 200)
+        │  1051 │     print(f"Can place trade: {can_trade}")`,
+        │  1052 │
+        │  1053 │             api_integration: `# API Integration Template
+        │  1054 │ import json
+        │  1055 │ import time
+        │  1056 │ from datetime import datetime
+        │  1057 │
+        │  1058 │ class TradingAPI:
+        │  1059 │     """Mock trading API integration"""
+        │  1060 │
+        │  1061 │     def __init__(self, api_key, demo_mode=True):
+        │  1062 │         self.api_key = api_key
+        │  1063 │         self.demo_mode = demo_mode
+        │  1064 │         print(f"Initialized Trading API in {'demo' if demo_mode else 'live'} mode")
+        │  1065 │
+        │  1066 │     def get_market_data(self, symbol):
+        │  1067 │         """Fetch real-time market data"""
+        │  1068 │         # Mock API response
+        │  1069 │         data = {
+        │  1070 │             'symbol': symbol,
+        │  1071 │             'bid': 1.0845,
+        │  1072 │             'ask': 1.0847,
+        │  1073 │             'timestamp': datetime.now().isoformat()
+        │  1074 │         }
+        │  1075 │         print(f"Market data for {symbol}: {data}")
+        │  1076 │         return data
+        │  1077 │
+        │  1078 │     def place_order(self, symbol, order_type, volume):
+        │  1079 │         """Place trading order"""
+        │  1080 │         order = {
+        │  1081 │             'order_id': f"ORD_{int(time.time())}",
+        │  1082 │             'symbol': symbol,
+        │  1083 │             'type': order_type,
+        │  1084 │             'volume': volume,
+        │  1085 │             'status': 'filled' if self.demo_mode else 'pending',
+        │  1086 │             'timestamp': datetime.now().isoformat()
+        │  1087 │         }
+        │  1088 │         print(f"Order placed: {order}")
+        │  1089 │         return order
+        │  1090 │
+        │  1091 │     def get_account_info(self):
+        │  1092 │         """Get account information"""
+        │  1093 │         account = {
+        │  1094 │             'balance': 10000.00,
+        │  1095 │             'equity': 10150.00,
+        │  1096 │             'margin': 50.00,
+        │  1097 │             'free_margin': 10100.00
+        │  1098 │         }
+        │  1099 │         print(f"Account info: {account}")
+        │  1100 │         return account
+        │  1101 │
+        │  1102 │ def automated_trading():
+        │  1103 │     """Main automated trading function"""
+        │  1104 │     api = TradingAPI("your_api_key_here", demo_mode=True)
+        │  1105 │
+        │  1106 │     # Get account info
+        │  1107 │     account = api.get_account_info()
+        │  1108 │
+        │  1109 │     # Analyze market
+        │  1110 │     market_data = api.get_market_data("EURUSD")
+        │  1111 │
+        │  1112 │     # Simple trading logic
+        │  1113 │     if market_data['bid'] > 1.0850:
+        │  1114 │         order = api.place_order("EURUSD", "SELL", 0.1)
+        │  1115 │         print(f"Sell order executed: {order['order_id']}")
+        │  1116 │     elif market_data['ask'] < 1.0840:
+        │  1117 │         order = api.place_order("EURUSD", "BUY", 0.1)
+        │  1118 │         print(f"Buy order executed: {order['order_id']}")
+        │  1119 │     else:
+        │  1120 │         print("No trading signal - waiting...")
+        │  1121 │
+        │  1122 │ if __name__ == "__main__":
+        │  1123 │     automated_trading()`
+        │  1124 │         };
+        │  1125 │
+        │  1126 │         if (templates[templateType]) {
+        │  1127 │             setPythonCode(templates[templateType]);
+        │  1128 │             addOutput('info', `Loaded ${templateType.replace('_', ' ')} template`);
+        │  1129 │         }
+        │  1130 │     }, [addOutput]);
+        │  1131 │
+        │  1132 │     // Load saved scripts on component mount
+        │  1133 │     useEffect(() => {
+        │  1134 │         const saved = localStorage.getItem('pythonTradingScripts');
+        │  1135 │         if (saved) {
+        │  1136 │             try {
+        │  1137 │                 setSavedScripts(JSON.parse(saved));
+        │  1138 │             } catch (error) {
+        │  1139 │                 console.error('Error loading saved scripts:', error);
+        │  1140 │             }
+        │  1141 │         }
+        │  1142 │     }, []);
+        │  1143 │
+        │  1144 │     useEffect(() => {
+        │  1145 │       if (active_tab === 'auto-trades') {
+        │  1146 │         // Auto trades specific logic can go here
+        │  1147 │       }
+        │  1148 │
+        │  1149 │       // Cleanup WebSocket connection on unmount
+        │  1150 │       return () => {
+        │  1151 │         if (websocket) {
+        │  1152 │           websocket.close()
+        │  1153 │           setWebsocket(null)
+        │  1154 │           setIsConnected(false)
+        │  1155 │         }
+        │  1156 │       }
+        │  1157 │     }, [active_tab])
+        │  1158 │
+        │  1159 │     // Reconnect when volatility changes
+        │  1160 │     useEffect(() => {
+        │  1161 │       if (isConnected && websocket && websocket.readyState === WebSocket.OPEN) {
+        │  1162 │         console.log('Volatility changed to:', selectedIndex, 'Getting data...')
+        │  1163 │
+        │  1164 │         // Unsubscribe from all ticks first
+        │  1165 │         websocket.send(JSON.stringify({
+        │  1166 │           forget_all: "ticks",
+        │  1167 │           req_id: 99
+        │  1168 │         }))
+        │  1169 │
+        │  1170 │         // Get historical data and subscribe to new symbol after a short delay
+        │  1171 │         setTimeout(() => {
+        │  1172 │           // Check if we already have data for this volatility
+        │  1173 │           const currentVolatilityHistory = tickHistory[selectedIndex]
+        │  1174 │
+        │  1175 │           if (!currentVolatilityHistory || currentVolatilityHistory.length === 0) {
+        │  1176 │             // Request historical ticks if we don't have them
+        │  1177 │             const historyRequest = {
+        │  1178 │               ticks_history: selectedIndex,
+        │  1179 │               count: 5000,
+        │  1180 │               end: 'latest',
+        │  1181 │               style: 'ticks',
+        │  1182 │               req_id: Date.now()
+        │  1183 │             }
+        │  1184 │             console.log('Requesting historical ticks for new volatility:', historyRequest)
+        │  1185 │             websocket.send(JSON.stringify(historyRequest))
+        │  1186 │           } else {
+        │  1187 │             // Use existing data for immediate display
+        │  1188 │             calculateDigitDistribution(currentVolatilityHistory)
+        │  1189 │             analyzePatterns(currentVolatilityHistory)
+        │  1190 │             makePrediction(currentVolatilityHistory)
+        │  1191 │             calculateContractProbabilities(currentVolatilityHistory)
+        │  1192 │
+        │  1193 │             if (currentVolatilityHistory.length > 0) {
+        │  1194 │               const latestPrice = currentVolatilityHistory[currentVolatilityHistory.length - 1]
+        │  1195 │               setCurrentPrice(latestPrice.toFixed(5))
+        │  1196 │             }
+        │  1197 │           }
+        │  1198 │
+        │  1199 │           // Subscribe to real-time ticks
+        │  1200 │           const newTickRequest = {
+        │  1201 │             ticks: selectedIndex,
+        │  1202 │             subscribe: 1,
+        │  1203 │             req_id: Date.now() + 1
+        │  1204 │           }
+        │  1205 │           console.log('Sending new tick subscription:', newTickRequest)
+        │  1206 │           websocket.send(JSON.stringify(newTickRequest))
+        │  1207 │         }, 500)
+        │  1208 │
+        │  1209 │         setCurrentPrice('Loading ' + selectedIndex + ' data...')
+        │  1210 │         setCurrentTick(null)
+        │  1211 │       } else if (!isConnected) {
+        │  1212 │         // If not connected, reset display
+        │  1213 │         setCurrentPrice('Not connected - Select ' + selectedIndex)
+        │  1214 │         setCurrentTick(null)
+        │  1215 │       }
+        │  1216 │     }, [selectedIndex, isConnected, websocket, tickHistory])
+        │  1217 │
+        │  1218 │
+        │  1219 │     const { client } = useStore();
+        │  1220 │     const isConnected = client?.is_logged_in && websocket?.readyState === WebSocket.OPEN;
+        │       ·           ─────┬─────
+        │       ·                ╰── `isConnected` redefined here
+        │  1221 │
+        │  1222 │     const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
+        │       ╰────
+        │
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
