@@ -670,9 +670,31 @@ const TradingHubDisplay: React.FC = observer(() => {
     if (!isInitialized) {
         return (
             <div className="trading-hub-container">
-                <div className="loading-container" style={{ padding: '20px', textAlign: 'center' }}>
-                    <h3>🎯 Loading Trading Hub...</h3>
-                    <div className="loading-spinner" style={{ margin: '20px auto', width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #3498db', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                <div className="loading-container" style={{ 
+                    padding: '20px', 
+                    textAlign: 'center',
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1001
+                }}>
+                    <h3 style={{ color: 'white', marginBottom: '20px' }}>🎯 Loading Trading Hub...</h3>
+                    <div className="loading-spinner" style={{ 
+                        margin: '20px auto', 
+                        width: '40px', 
+                        height: '40px', 
+                        border: '4px solid rgba(255,255,255,0.3)', 
+                        borderTop: '4px solid white', 
+                        borderRadius: '50%', 
+                        animation: 'spin 1s linear infinite' 
+                    }}></div>
                 </div>
             </div>
         );
