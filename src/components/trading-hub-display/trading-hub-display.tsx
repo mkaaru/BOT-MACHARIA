@@ -278,7 +278,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 }
             }
         };
-    }, [tradingState.isRunning, tradingState.isTradeInProgress, analyzerReady, executeTrade, getTradeConfig, addLog]);
+    }, [tradingState.isRunning, analyzerReady, addLog]); // Removed dependencies that cause restart
 
     // Monitor contract for completion
     const monitorContract = useCallback(async (contractId: string) => {
@@ -326,6 +326,15 @@ const TradingHubDisplay: React.FC = observer(() => {
                 if (signal && signal.strategy === tradingState.selectedStrategy) {
                     setActiveSignal(signal);
                     addLog(`📊 New active signal: ${signal.action} ${signal.barrier || ''} on ${signal.symbol} (${signal.confidence}%)`);
+                    
+                    // Execute trade immediately if auto-trading is running and no trade in progress
+                    if (tradingState.isRunning && !tradingState.isTradeInProgress && analyzerReady) {
+                        setTimeout(() => {
+                            if (!tradingState.isTradeInProgress) {
+                                executeTrade();
+                            }
+                        }, 1000); // Small delay to ensure signal is set
+                    }
                 }
             });
 
@@ -341,7 +350,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             console.error('Signal service subscription error:', error);
             addLog('⚠️ Signal service not available');
         }
-    }, [tradingState.selectedStrategy, addLog]);
+    }, [tradingState.selectedStrategy, tradingState.isRunning, tradingState.isTradeInProgress, analyzerReady, executeTrade, addLog]);
 
     // Clear active signal when strategy changes
     useEffect(() => {
@@ -377,6 +386,15 @@ const TradingHubDisplay: React.FC = observer(() => {
                     if (recommendation) {
                         addLog(`📊 New recommendation: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol}`);
                         addLog(`💡 Reason: ${recommendation.reason}`);
+                        
+                        // Execute trade immediately if auto-trading is running and matches overunder strategy
+                        if (tradingState.isRunning && !tradingState.isTradeInProgress && tradingState.selectedStrategy === 'overunder' && analyzerReady) {
+                            setTimeout(() => {
+                                if (!tradingState.isTradeInProgress) {
+                                    executeTrade();
+                                }
+                            }, 1000); // Small delay to ensure recommendation is set
+                        }
                     }
                 });
 
