@@ -74,7 +74,16 @@ const TradingHubDisplay: React.FC = observer(() => {
     }, []);
 
     const scrollToBottom = useCallback(() => {
-        logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (logsEndRef.current) {
+            const logsContainer = logsEndRef.current.parentElement;
+            if (logsContainer) {
+                // Only auto-scroll if user is near the bottom of the logs container
+                const isNearBottom = logsContainer.scrollTop + logsContainer.clientHeight >= logsContainer.scrollHeight - 50;
+                if (isNearBottom) {
+                    logsEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            }
+        }
     }, []);
 
     useEffect(scrollToBottom, [logs]);
