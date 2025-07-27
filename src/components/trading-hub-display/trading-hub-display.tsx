@@ -141,10 +141,20 @@ const TradingHubDisplay: React.FC = observer(() => {
             duration_unit: 't'
         };
 
+        // For OVERUNDER strategy, use market analyzer recommendation
+        if (strategy === 'overunder' && currentRecommendation) {
+            return {
+                ...baseConfig,
+                symbol: currentRecommendation.symbol,
+                contract_type: currentRecommendation.strategy === 'over' ? 'DIGITOVER' : 'DIGITUNDER',
+                barrier: currentRecommendation.barrier
+            };
+        }
+
         // Use active signal if available and matches strategy
         if (activeSignal && activeSignal.strategy === strategy) {
             const symbolMap: Record<string, string> = {
-                'RDBULL': 'R_75', // Map signal symbols to trading symbols
+                'RDBULL': 'R_75',
                 'RBEAR': 'R_75',
                 'R10': 'R_10',
                 'R25': 'R_25',
@@ -161,15 +171,24 @@ const TradingHubDisplay: React.FC = observer(() => {
                 contract_type: activeSignal.action === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER',
                 barrier: activeSignal.barrier || '5'
             };
+        }
 
+        // Fallback to first available recommendation
+        if (currentRecommendation) {
+            return {
+                ...baseConfig,
+                symbol: currentRecommendation.symbol,
+                contract_type: currentRecommendation.strategy === 'over' ? 'DIGITOVER' : 'DIGITUNDER',
+                barrier: currentRecommendation.barrier
+            };
         }
 
         return {
             ...baseConfig,
-            symbol: 'R_10',
+            symbol: '1HZ25V',
             contract_type: 'DIGITEVEN'
         };
-    }, [tradingState.currentStake, activeSignal]);
+    }, [tradingState.currentStake, activeSignal, currentRecommendation]);
 
     const executeTrade = useCallback(async () => {
         if (tradingState.isTradeInProgress) {
@@ -177,7 +196,33 @@ const TradingHubDisplay: React.FC = observer(() => {
             return;
         }
 
-        // Check if we have an active signal for the selected strategy
+        // For OVERUNDER strategy, check market analyzer recommendation
+        if (tradingState.selectedStrategy === 'overunder') {
+            if (!currentRecommendation) {
+                addLog(`❌ No market recommendation for ${tradingState.selectedStrategy.toUpperCase()} strategy`);
+                addLog('💡 Waiting for market analysis...');
+                return;
+            }
+
+            const config = getTradeConfig(tradingState.selectedStrategy);
+            addLog(`🎯 Strategy: ${tradingState.selectedStrategy.toUpperCase()}`);
+            addLog(`🚀 Executing ${config.contract_type} on ${config.symbol}`);
+            addLog(`📊 Recommendation: ${currentRecommendation.reason}`);
+
+            const result = await executeDirectTrade(config);
+
+            if (result.success) {
+                setTradingState(prev => ({
+                    ...prev,
+                    totalTrades: prev.totalTrades + 1,
+                    lastTradeResult: 'Executed'
+                }));
+                addLog('✅ Trade executed successfully');
+            }
+            return;
+        }
+
+        // For other strategies, check active signal
         if (!activeSignal || activeSignal.strategy !== tradingState.selectedStrategy) {
             addLog(`❌ No active signal for ${tradingState.selectedStrategy.toUpperCase()} strategy`);
             addLog('💡 Waiting for signal recommendation...');
@@ -203,7 +248,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             signalIntegrationService.clearActiveSignal();
             addLog('✅ Signal executed, waiting for next signal');
         }
-    }, [tradingState.selectedStrategy, tradingState.isTradeInProgress, activeSignal, executeDirectTrade, getTradeConfig, addLog]);
+    }, [tradingState.selectedStrategy, tradingState.isTradeInProgress, activeSignal, currentRecommendation, executeDirectTrade, getTradeConfig, addLog]);
 
     const toggleTrading = useCallback(() => {
         setTradingState(prev => {
@@ -212,6 +257,25 @@ const TradingHubDisplay: React.FC = observer(() => {
             return { ...prev, isRunning: newRunning };
         });
     }, [addLog]);
+
+    // Auto-trading logic - execute trades at intervals when running
+    useEffect(() => {
+        let tradingInterval: NodeJS.Timeout;
+
+        if (tradingState.isRunning && analyzerReady) {
+            tradingInterval = setInterval(() => {
+                if (!tradingState.isTradeInProgress) {
+                    executeTrade();
+                }
+            }, 8000); // Execute every 8 seconds like before
+        }
+
+        return () => {
+            if (tradingInterval) {
+                clearInterval(tradingInterval);
+            }
+        };
+    }, [tradingState.isRunning, tradingState.isTradeInProgress, analyzerReady, executeTrade]);
 
     const resetStats = useCallback(() => {
         setTradingState(prev => ({
@@ -250,42 +314,44 @@ const TradingHubDisplay: React.FC = observer(() => {
         signalIntegrationService.clearActiveSignal();
     }, [tradingState.selectedStrategy]);
 
-    // Initialize Market Analyzer - Modified to fetch all symbols
+    // Initialize Market Analyzer - Real integration
     useEffect(() => {
         const initializeAnalyzer = async () => {
             setAnalyzerReady(false);
             addLog('🔄 Market Analyzer initializing...');
+            
             try {
-                // connect to all volatility indices
-                const symbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+                // Start the real market analyzer
+                marketAnalyzer.start();
+                
+                // Subscribe to recommendations
+                const unsubscribe = marketAnalyzer.onAnalysis((recommendation, allStats) => {
+                    setCurrentRecommendation(recommendation);
+                    setMarketStats(allStats);
+                    
+                    if (recommendation) {
+                        addLog(`📊 New recommendation: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol}`);
+                        addLog(`💡 Reason: ${recommendation.reason}`);
+                    }
+                });
 
-                const marketData: { [key: string]: any } = {};
-
-                for (const symbol of symbols) {
-                    marketData[symbol] = {
-                        trend: 'UP',
-                        volatility: 0.01
-                    };
-                }
-
-                setMarketStats(marketData);
-
-                // Simulate analyzer being ready after a short delay
-                setTimeout(() => {
-                    setAnalyzerReady(true);
-                    addLog('✅ Market Analyzer ready');
-                }, 1000);
-
+                // Wait for analyzer to be ready
+                await marketAnalyzer.waitForAnalysisReady();
+                setAnalyzerReady(true);
+                addLog('✅ Market Analyzer ready');
+                
+                return unsubscribe;
             } catch (error) {
                 console.error('Market analyzer initialization error:', error);
                 addLog(`❌ Market Analyzer failed to initialize: ${error.message}`);
             }
         };
 
-        initializeAnalyzer();
+        const cleanup = initializeAnalyzer();
 
         return () => {
-            // Cleanup if needed
+            cleanup?.then(unsubscribe => unsubscribe?.());
+            marketAnalyzer.stop();
         };
     }, [addLog]);
 
