@@ -838,27 +838,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     return (
         <div className="trading-hub-container">
-            {/* Close button for navigation */}
-            <button 
-                className="trading-hub-close"
-                onClick={() => window.history.back()}
-                style={{
-                    position: 'absolute',
-                    top: '10px',
-                    right: '10px',
-                    background: 'rgba(255,255,255,0.2)',
-                    border: 'none',
-                    color: 'white',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    zIndex: 1001
-                }}
-            >
-                ✕ Close
-            </button>
+            
             <div className="trading-hub-grid">
                 <div className="main-content">
                     {/* Market Analyzer Status */}
