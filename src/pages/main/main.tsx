@@ -1219,7 +1219,7 @@ if __name__ == "__main__":
     const { client } = useStore();
     const isConnected = client?.is_logged_in && websocket?.readyState === WebSocket.OPEN;
 
-    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS];NALS].includes(active_tab);
+    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
 
     return (
         <>
