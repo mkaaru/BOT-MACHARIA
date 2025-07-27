@@ -521,7 +521,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             <div className="trading-hub-grid">
                 <div className="main-content">
                     {/* Market Analyzer Status */}
-                    <div className="analyzer-status"></div>
+                    <div className="analyzer-status">
                         <h3>🔬 Market Analyzer</h3>
                         <div className={`status-indicator ${analyzerReady ? 'ready' : 'loading'}`}>
                             <span className="status-dot"></span>
