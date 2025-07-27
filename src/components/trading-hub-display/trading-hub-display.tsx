@@ -319,16 +319,16 @@ const TradingHubDisplay: React.FC = observer(() => {
         const initializeAnalyzer = async () => {
             setAnalyzerReady(false);
             addLog('🔄 Market Analyzer initializing...');
-            
+
             try {
                 // Start the real market analyzer
                 marketAnalyzer.start();
-                
+
                 // Subscribe to recommendations
                 const unsubscribe = marketAnalyzer.onAnalysis((recommendation, allStats) => {
                     setCurrentRecommendation(recommendation);
                     setMarketStats(allStats);
-                    
+
                     if (recommendation) {
                         addLog(`📊 New recommendation: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol}`);
                         addLog(`💡 Reason: ${recommendation.reason}`);
@@ -339,7 +339,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 await marketAnalyzer.waitForAnalysisReady();
                 setAnalyzerReady(true);
                 addLog('✅ Market Analyzer ready');
-                
+
                 return unsubscribe;
             } catch (error) {
                 console.error('Market analyzer initialization error:', error);
