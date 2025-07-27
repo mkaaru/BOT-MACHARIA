@@ -280,27 +280,36 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // Subscribe to signal service
     useEffect(() => {
-        const signalSubscription = signalIntegrationService.getActiveSignal().subscribe(signal => {
-            if (signal && signal.strategy === tradingState.selectedStrategy) {
-                setActiveSignal(signal);
-                addLog(`📊 New active signal: ${signal.action} ${signal.barrier || ''} on ${signal.symbol} (${signal.confidence}%)`);
-            }
-        });
+        try {
+            const signalSubscription = signalIntegrationService.getActiveSignal().subscribe(signal => {
+                if (signal && signal.strategy === tradingState.selectedStrategy) {
+                    setActiveSignal(signal);
+                    addLog(`📊 New active signal: ${signal.action} ${signal.barrier || ''} on ${signal.symbol} (${signal.confidence}%)`);
+                }
+            });
 
-        const allSignalsSubscription = signalIntegrationService.getSignals().subscribe(signals => {
-            setSignalHistory(signals.filter(s => s.strategy === tradingState.selectedStrategy).slice(-10));
-        });
+            const allSignalsSubscription = signalIntegrationService.getSignals().subscribe(signals => {
+                setSignalHistory(signals.filter(s => s.strategy === tradingState.selectedStrategy).slice(-10));
+            });
 
-        return () => {
-            signalSubscription.unsubscribe();
-            allSignalsSubscription.unsubscribe();
-        };
+            return () => {
+                signalSubscription.unsubscribe();
+                allSignalsSubscription.unsubscribe();
+            };
+        } catch (error) {
+            console.error('Signal service subscription error:', error);
+            addLog('⚠️ Signal service not available');
+        }
     }, [tradingState.selectedStrategy, addLog]);
 
     // Clear active signal when strategy changes
     useEffect(() => {
         setActiveSignal(null);
-        signalIntegrationService.clearActiveSignal();
+        try {
+            signalIntegrationService.clearActiveSignal();
+        } catch (error) {
+            console.error('Signal service clear error:', error);
+        }
     }, [tradingState.selectedStrategy]);
 
     // Initialize Market Analyzer - Real integration
@@ -310,6 +319,12 @@ const TradingHubDisplay: React.FC = observer(() => {
             addLog('🔄 Market Analyzer initializing...');
 
             try {
+                // Check if market analyzer is available
+                if (!marketAnalyzer) {
+                    addLog('❌ Market Analyzer service not available');
+                    return;
+                }
+
                 // Start the real market analyzer
                 marketAnalyzer.start();
 
@@ -332,15 +347,29 @@ const TradingHubDisplay: React.FC = observer(() => {
                 return unsubscribe;
             } catch (error) {
                 console.error('Market analyzer initialization error:', error);
-                addLog(`❌ Market Analyzer failed to initialize: ${error.message}`);
+                addLog(`❌ Market Analyzer failed to initialize: ${error?.message || 'Unknown error'}`);
+                // Set as ready even if failed to prevent infinite loading
+                setAnalyzerReady(true);
             }
         };
 
         const cleanup = initializeAnalyzer();
 
         return () => {
-            cleanup?.then(unsubscribe => unsubscribe?.());
-            marketAnalyzer.stop();
+            if (cleanup) {
+                cleanup.then(unsubscribe => {
+                    if (unsubscribe && typeof unsubscribe === 'function') {
+                        unsubscribe();
+                    }
+                }).catch(err => console.error('Cleanup error:', err));
+            }
+            try {
+                if (marketAnalyzer && typeof marketAnalyzer.stop === 'function') {
+                    marketAnalyzer.stop();
+                }
+            } catch (error) {
+                console.error('Market analyzer stop error:', error);
+            }
         };
     }, [addLog]);
 
@@ -382,7 +411,9 @@ const TradingHubDisplay: React.FC = observer(() => {
             }
         };
 
-        if (globalObserver) {
+        // Check if globalObserver is available
+        if (typeof window !== 'undefined' && (window as any).globalObserver) {
+            const globalObserver = (window as any).globalObserver;
             globalObserver.register('bot.contract', handleTradeResult);
             globalObserver.register('contract.closed', handleContractClosed);
 
@@ -390,6 +421,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                 globalObserver.unregister('bot.contract', handleTradeResult);
                 globalObserver.unregister('contract.closed', handleContractClosed);
             };
+        } else {
+            addLog('⚠️ Global observer not available - trade results may not be captured');
         }
     }, [addLog]);
 
@@ -449,9 +482,43 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
     }, [tradingState.isTradeInProgress, getTradeConfig, executeDirectTrade, addLog]);
 
+    // Error boundary for the component
+    const [hasError, setHasError] = useState(false);
+
+    useEffect(() => {
+        const handleError = (error: Error) => {
+            console.error('Trading Hub Error:', error);
+            setHasError(true);
+            addLog(`❌ Component Error: ${error.message}`);
+        };
+
+        window.addEventListener('error', handleError);
+        return () => window.removeEventListener('error', handleError);
+    }, [addLog]);
+
+    if (hasError) {
+        return (
+            <div className="trading-hub-container">
+                <div className="error-container" style={{ padding: '20px', textAlign: 'center' }}>
+                    <h3>❌ Trading Hub Error</h3>
+                    <p>The trading hub encountered an error. Please refresh the page.</p>
+                    <button 
+                        onClick={() => {
+                            setHasError(false);
+                            window.location.reload();
+                        }}
+                        style={{ padding: '10px 20px', marginTop: '10px' }}
+                    >
+                        Refresh Page
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="trading-hub-container">
-            <div className="trading-hub-grid">
+            <div className="trading-hub-grid"></div>
                 <div className="main-content">
                     {/* Market Analyzer Status */}
                     <div className="analyzer-status">
