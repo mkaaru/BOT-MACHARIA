@@ -134,15 +134,17 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
     }, [addLog]);
 
-    const getTradeConfig = useCallback((strategy: string): TradeConfig => {
+    const getTradeConfig = useCallback((strategy?: string): TradeConfig | null => {
         const baseConfig = {
             amount: tradingState.currentStake,
             duration: 1,
             duration_unit: 't'
         };
 
+        const currentStrategy = strategy || tradingState.selectedStrategy;
+
         // For OVERUNDER strategy, use market analyzer recommendation
-        if (strategy === 'overunder' && currentRecommendation) {
+        if (currentStrategy === 'overunder' && currentRecommendation) {
             return {
                 ...baseConfig,
                 symbol: currentRecommendation.symbol,
@@ -152,7 +154,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
 
         // Use active signal if available and matches strategy
-        if (activeSignal && activeSignal.strategy === strategy) {
+        if (activeSignal && activeSignal.strategy === currentStrategy) {
             const symbolMap: Record<string, string> = {
                 'RDBULL': 'R_75',
                 'RBEAR': 'R_75',
@@ -183,12 +185,9 @@ const TradingHubDisplay: React.FC = observer(() => {
             };
         }
 
-        return {
-            ...baseConfig,
-            symbol: '1HZ25V',
-            contract_type: 'DIGITEVEN'
-        };
-    }, [tradingState.currentStake, activeSignal, currentRecommendation]);
+        // No valid configuration available
+        return null;
+    }, [tradingState.currentStake, tradingState.selectedStrategy, activeSignal, currentRecommendation]);
 
     const executeTrade = useCallback(async () => {
         if (tradingState.isTradeInProgress) {
@@ -196,17 +195,16 @@ const TradingHubDisplay: React.FC = observer(() => {
             return;
         }
 
+        // Get trade configuration
+        const tradeConfig = getTradeConfig();
+        if (!tradeConfig) {
+            addLog('❌ No valid trade configuration available. Waiting for signal...');
+            return;
+        }
+
         setTradingState(prev => ({ ...prev, isTradeInProgress: true }));
 
         try {
-            // Get trade configuration
-            const tradeConfig = getTradeConfig();
-            if (!tradeConfig) {
-                addLog('❌ Unable to get trade configuration');
-                setTradingState(prev => ({ ...prev, isTradeInProgress: false }));
-                return;
-            }
-
             addLog(`📈 Executing ${tradeConfig.contract_type} trade on ${tradeConfig.symbol} with barrier ${tradeConfig.barrier}, stake: $${tradeConfig.amount}`);
 
             // Execute the trade
@@ -257,19 +255,30 @@ const TradingHubDisplay: React.FC = observer(() => {
         let tradingInterval: NodeJS.Timeout;
 
         if (tradingState.isRunning && analyzerReady) {
+            addLog('🚀 Auto-trading started - waiting for signals...');
+            
             tradingInterval = setInterval(() => {
                 if (!tradingState.isTradeInProgress) {
-                    executeTrade();
+                    // Check if we have a valid trade config before attempting to trade
+                    const hasValidConfig = getTradeConfig() !== null;
+                    if (hasValidConfig) {
+                        executeTrade();
+                    } else {
+                        console.log('⏳ Auto-trading active, waiting for valid signal...');
+                    }
                 }
-            }, 8000); // Execute every 8 seconds like before
+            }, 8000); // Execute every 8 seconds
         }
 
         return () => {
             if (tradingInterval) {
                 clearInterval(tradingInterval);
+                if (tradingState.isRunning) {
+                    addLog('⏹️ Auto-trading interval cleared');
+                }
             }
         };
-    }, [tradingState.isRunning, tradingState.isTradeInProgress, analyzerReady, executeTrade]);
+    }, [tradingState.isRunning, tradingState.isTradeInProgress, analyzerReady, executeTrade, getTradeConfig, addLog]);
 
     // Monitor contract for completion
     const monitorContract = useCallback(async (contractId: string) => {
