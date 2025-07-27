@@ -507,3 +507,365 @@ const AppWrapper = observer(() => {
           setCurrentPrice('Parse Error')
         }
       }
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error)
+        setCurrentPrice('Connection Error')
+        setIsDigitsConnected(false)
+      }
+
+      ws.onclose = () => {
+        console.log('WebSocket connection closed')
+        setIsDigitsConnected(false)
+        setCurrentPrice('Disconnected')
+        setWebsocket(null)
+      }
+
+    } catch (error) {
+      console.error('Failed to connect to WebSocket:', error)
+      setCurrentPrice('Connection Failed')
+      setIsDigitsConnected(false)
+    }
+  }
+
+  const disconnectFromAPI = () => {
+    if (websocket) {
+      websocket.close()
+      setWebsocket(null)
+    }
+    setIsDigitsConnected(false)
+    setCurrentPrice('---')
+  }
+
+  const getAlternativeSymbol = (symbol: string) => {
+    const alternatives: { [key: string]: string } = {
+      'R_10': '1HZ10V',
+      'R_25': '1HZ25V',
+      'R_50': '1HZ50V',
+      'R_75': '1HZ75V',
+      'R_100': '1HZ100V',
+      '1HZ10V': 'R_10',
+      '1HZ25V': 'R_25',
+      '1HZ50V': 'R_50',
+      '1HZ75V': 'R_75',
+      '1HZ100V': 'R_100'
+    }
+    return alternatives[symbol] || symbol
+  }
+
+  const handleNewTick = (price: number, symbol: string) => {
+    const targetSymbol = getAlternativeSymbol(symbol) === selectedIndex ? symbol : selectedIndex
+    
+    setTickHistory(prev => {
+      const currentHistory = prev[targetSymbol] || []
+      const updatedHistory = [...currentHistory, price].slice(-5000)
+      
+      const newTickHistory = {
+        ...prev,
+        [targetSymbol]: updatedHistory
+      }
+      
+      // Update analysis with new tick
+      calculateDigitDistribution(updatedHistory)
+      analyzePatterns(updatedHistory)
+      makePrediction(updatedHistory)
+      calculateContractProbabilities(updatedHistory)
+      
+      return newTickHistory
+    })
+  }
+
+  const calculateDigitDistribution = (prices: number[]) => {
+    const distribution = new Array(10).fill(0)
+    
+    prices.forEach(price => {
+      const lastDigit = Math.floor((price * 100000) % 10)
+      distribution[lastDigit]++
+    })
+    
+    setDigitDistribution(distribution)
+    
+    // Calculate percentages
+    const total = prices.length
+    const percentages = distribution.map(count => total > 0 ? (count / total) * 100 : 10)
+    setDigitPercentages(percentages)
+  }
+
+  const analyzePatterns = (prices: number[]) => {
+    if (prices.length < 10) return
+    
+    const lastDigits = prices.slice(-10).map(price => Math.floor((price * 100000) % 10))
+    
+    // Even/Odd bias
+    const evenCount = lastDigits.filter(digit => digit % 2 === 0).length
+    const oddCount = lastDigits.length - evenCount
+    
+    if (evenCount > oddCount + 2) {
+      setEvenOddBias('EVEN')
+    } else if (oddCount > evenCount + 2) {
+      setEvenOddBias('ODD')
+    } else {
+      setEvenOddBias('NEUTRAL')
+    }
+    
+    // Over/Under bias
+    const overCount = lastDigits.filter(digit => digit >= 5).length
+    const underCount = lastDigits.length - overCount
+    
+    if (overCount > underCount + 2) {
+      setOverUnderBias('OVER')
+    } else if (underCount > overCount + 2) {
+      setOverUnderBias('UNDER')
+    } else {
+      setOverUnderBias('NEUTRAL')
+    }
+    
+    // Streak pattern
+    const streaks: number[] = []
+    let currentStreak = 1
+    
+    for (let i = 1; i < lastDigits.length; i++) {
+      if (lastDigits[i] === lastDigits[i-1]) {
+        currentStreak++
+      } else {
+        streaks.push(currentStreak)
+        currentStreak = 1
+      }
+    }
+    streaks.push(currentStreak)
+    
+    const maxStreak = Math.max(...streaks)
+    setStreakPattern(`Max: ${maxStreak}`)
+  }
+
+  const makePrediction = (prices: number[]) => {
+    if (prices.length < 20) return
+    
+    const recentPrices = prices.slice(-100)
+    const lastDigits = recentPrices.map(price => Math.floor((price * 100000) % 10))
+    
+    // Simple frequency-based prediction
+    const digitCounts = new Array(10).fill(0)
+    lastDigits.forEach(digit => digitCounts[digit]++)
+    
+    const mostFrequent = digitCounts.indexOf(Math.max(...digitCounts))
+    const leastFrequent = digitCounts.indexOf(Math.min(...digitCounts))
+    
+    // Predict the least frequent digit (contrarian approach)
+    setNextPrediction(leastFrequent.toString())
+    
+    // Calculate confidence based on distribution variance
+    const avgCount = lastDigits.length / 10
+    const variance = digitCounts.reduce((acc, count) => acc + Math.pow(count - avgCount, 2), 0) / 10
+    const confidenceScore = Math.min(variance / avgCount * 10, 100)
+    
+    setConfidence(Math.round(confidenceScore))
+  }
+
+  const calculateContractProbabilities = (prices: number[]) => {
+    if (prices.length < 50) return
+    
+    const recentPrices = prices.slice(-100)
+    const lastDigits = recentPrices.map(price => Math.floor((price * 100000) % 10))
+    
+    // Calculate actual probabilities for different contracts
+    const evenCount = lastDigits.filter(digit => digit % 2 === 0).length
+    const overCount = lastDigits.filter(digit => digit >= 5).length
+    
+    console.log(`Even: ${evenCount}/${lastDigits.length} (${(evenCount/lastDigits.length*100).toFixed(1)}%)`)
+    console.log(`Over: ${overCount}/${lastDigits.length} (${(overCount/lastDigits.length*100).toFixed(1)}%)`)
+  }
+
+  return (
+    <div id="main" className={classNames('main', { 'main--is-bot-running': true })}>
+      <div className="main__content">
+        <DesktopWrapper>
+          <Tabs
+            className="main__tabs"
+            onTabItemClick={handleTabChange}
+            active_index={active_tab}
+            header_fit_content={true}
+          >
+            <div label={localize('Dashboard')} icon={<DashboardIcon />}>
+              <Dashboard />
+            </div>
+            
+            <div label={localize('Bot Builder')} icon={<BotBuilderIcon />}>
+              <Suspense fallback={<ChunkLoader message={localize('Loading Bot Builder...')} />}>
+                <div id="scratch_div" />
+              </Suspense>
+            </div>
+            
+            <div label={localize('Charts')} icon={<ChartsIcon />}>
+              <Suspense fallback={<ChunkLoader message={localize('Loading Charts...')} />}>
+                <Chart />
+              </Suspense>
+            </div>
+            
+            <div label={localize('Tutorials')} icon={<TutorialsIcon />}>
+              <Suspense fallback={<ChunkLoader message={localize('Loading Tutorials...')} />}>
+                <Tutorial />
+              </Suspense>
+            </div>
+            
+            <div label={localize('Analysis Tool')} icon={<AnalysisToolIcon />}>
+              <AnalysistoolComponent />
+            </div>
+            
+            <div label={localize('Signals')} icon={<SignalsIcon />}>
+              <PercentageTool />
+            </div>
+            
+            <div label={localize('Trading Hub')} icon={<TradingHubIcon />}>
+              <TradingHubDisplay
+                selectedIndex={selectedIndex}
+                setSelectedIndex={setSelectedIndex}
+                contractType={contractType}
+                setContractType={setContractType}
+                predictionModel={predictionModel}
+                setPredictionModel={setPredictionModel}
+                stakeAmount={stakeAmount}
+                setStakeAmount={setStakeAmount}
+                isConnected={isDigitsConnected}
+                isTrading={isTrading}
+                setIsTrading={setIsTrading}
+                currentTick={currentTick}
+                currentPrice={currentPrice}
+                tickHistory={tickHistory}
+                digitDistribution={digitDistribution}
+                digitPercentages={digitPercentages}
+                nextPrediction={nextPrediction}
+                confidence={confidence}
+                predictionAccuracy={predictionAccuracy}
+                evenOddBias={evenOddBias}
+                overUnderBias={overUnderBias}
+                streakPattern={streakPattern}
+                tradingLog={tradingLog}
+                totalTrades={totalTrades}
+                winRate={winRate}
+                profitLoss={profitLoss}
+                currentStreak={currentStreak}
+                connectToAPI={connectToAPI}
+                disconnectFromAPI={disconnectFromAPI}
+              />
+            </div>
+            
+            <div label={localize('Free Bots')} icon={<FreeBotsIcon />}>
+              <div className="dashboard__container">
+                <div className="dashboard__main">
+                  <div className="bot-list">
+                    <div className="bot-list__header">
+                      <h2>Free Trading Bots</h2>
+                      <p>Click on any bot to load it into the Bot Builder</p>
+                    </div>
+                    
+                    <div className="bot-grid">
+                      {bots.map((bot, index) => (
+                        <div
+                          key={index}
+                          className={`bot-card ${bot.isPlaceholder ? 'bot-card--placeholder' : ''}`}
+                          onClick={() => handleBotClick(bot)}
+                        >
+                          <div className="bot-card__header">
+                            <BotIcon />
+                            <h3>{bot.title}</h3>
+                          </div>
+                          <div className="bot-card__content">
+                            {bot.isPlaceholder ? (
+                              <p className="bot-card__status">Loading...</p>
+                            ) : (
+                              <p className="bot-card__status">Ready to use</p>
+                            )}
+                          </div>
+                          <div className="bot-card__footer">
+                            <span className="bot-card__type">XML Strategy</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Tabs>
+        </DesktopWrapper>
+        
+        <MobileWrapper>
+          <Tabs
+            className="main__tabs main__tabs--mobile"
+            onTabItemClick={handleTabChange}
+            active_index={active_tab}
+            should_update_hash
+            header_fit_content={false}
+          >
+            <div label={localize('Dashboard')} icon={<DashboardIcon />}>
+              <Dashboard />
+            </div>
+            
+            <div label={localize('Bot Builder')} icon={<BotBuilderIcon />}>
+              <Suspense fallback={<ChunkLoader message={localize('Loading Bot Builder...')} />}>
+                <div id="scratch_div" />
+              </Suspense>
+            </div>
+            
+            <div label={localize('Trading Hub')} icon={<TradingHubIcon />}>
+              <TradingHubDisplay
+                selectedIndex={selectedIndex}
+                setSelectedIndex={setSelectedIndex}
+                contractType={contractType}
+                setContractType={setContractType}
+                predictionModel={predictionModel}
+                setPredictionModel={setPredictionModel}
+                stakeAmount={stakeAmount}
+                setStakeAmount={setStakeAmount}
+                isConnected={isDigitsConnected}
+                isTrading={isTrading}
+                setIsTrading={setIsTrading}
+                currentTick={currentTick}
+                currentPrice={currentPrice}
+                tickHistory={tickHistory}
+                digitDistribution={digitDistribution}
+                digitPercentages={digitPercentages}
+                nextPrediction={nextPrediction}
+                confidence={confidence}
+                predictionAccuracy={predictionAccuracy}
+                evenOddBias={evenOddBias}
+                overUnderBias={overUnderBias}
+                streakPattern={streakPattern}
+                tradingLog={tradingLog}
+                totalTrades={totalTrades}
+                winRate={winRate}
+                profitLoss={profitLoss}
+                currentStreak={currentStreak}
+                connectToAPI={connectToAPI}
+                disconnectFromAPI={disconnectFromAPI}
+              />
+            </div>
+          </Tabs>
+        </MobileWrapper>
+      </div>
+      
+      <Dialog
+        title={title}
+        is_visible={is_dialog_open}
+        confirm_button_text={ok_button_text}
+        onConfirm={onOkButtonClick}
+        cancel_button_text={cancel_button_text}
+        onCancel={onCancelButtonClick}
+        is_mobile_full_width={false}
+        className="dc-dialog__wrapper--fixed"
+        has_close_icon
+        onClose={onCloseDialog}
+      >
+        {message}
+      </Dialog>
+      
+      {is_chart_modal_visible && <ChartModal />}
+      {is_trading_view_modal_visible && <TradingViewModal />}
+      
+      <RunPanel />
+    </div>
+  );
+});
+
+export default AppWrapper;
