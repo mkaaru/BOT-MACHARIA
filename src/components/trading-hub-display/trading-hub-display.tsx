@@ -63,6 +63,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [signalHistory, setSignalHistory] = useState<TradingSignal[]>([]);
     const [marketStats, setMarketStats] = useState({});
     const isAnalysisReady = analyzerReady;
+    const [tradeHistory, setTradeHistory] = useState<any[]>([]); // Added trade history state
 
     const addLog = useCallback((message: string) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -165,7 +166,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         // Always prioritize current recommendation for overunder strategy
         if (currentRecommendation) {
             addLog(`🔍 Using recommendation: ${currentRecommendation.strategy.toUpperCase()} ${currentRecommendation.barrier} on ${currentRecommendation.symbol}`);
-            
+
             return {
                 ...baseConfig,
                 symbol: currentRecommendation.symbol,
@@ -204,11 +205,6 @@ const TradingHubDisplay: React.FC = observer(() => {
     }, [tradingState.currentStake, tradingState.selectedStrategy, activeSignal, currentRecommendation, addLog, martingaleConfig]);
 
     const executeTrade = useCallback(async () => {
-        if (tradingState.isTradeInProgress) {
-            addLog('⚠️ Trade already in progress, skipping');
-            return;
-        }
-
         // Get trade configuration
         const tradeConfig = getTradeConfig();
         if (!tradeConfig) {
@@ -216,7 +212,18 @@ const TradingHubDisplay: React.FC = observer(() => {
             return;
         }
 
-        setTradingState(prev => ({ ...prev, isTradeInProgress: true }));
+        const tradeId = Date.now(); // Generate unique ID for the trade
+
+        // Add the trade to history immediately with 'pending' status
+        setTradeHistory(prev => [...prev, {
+            id: tradeId,
+            timestamp: new Date().toLocaleTimeString(),
+            symbol: tradeConfig.symbol,
+            contract_type: tradeConfig.contract_type,
+            stake: tradeConfig.amount,
+            outcome: 'pending',
+            pnl: 0
+        }]);
 
         try {
             addLog(`📈 Executing ${tradeConfig.contract_type} trade on ${tradeConfig.symbol} with barrier ${tradeConfig.barrier}, stake: $${tradeConfig.amount}`);
@@ -237,7 +244,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 // Start monitoring the contract for results
                 if (result.contract_id) {
-                    monitorContract(result.contract_id);
+                    monitorContract(result.contract_id, tradeId, tradeConfig); // Pass tradeId and tradeConfig
 
                     // Set up a fallback timeout to simulate result if API doesn't respond
                     setTimeout(() => {
@@ -255,6 +262,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                             lastTradeResult: simulatedWin ? 'Win' : 'Loss',
                             isTradeInProgress: false
                         }));
+
+                         // Update trade history with simulated result
+                         setTradeHistory(prev => prev.map(trade =>
+                            trade.id === tradeId
+                                ? { ...trade, outcome: simulatedWin ? 'win' : 'loss', pnl: simulatedPnl }
+                                : trade
+                        ));
                     }, 30000); // 30 second fallback
                 }
 
@@ -266,13 +280,23 @@ const TradingHubDisplay: React.FC = observer(() => {
                 }
             } else {
                 addLog(`❌ Trade failed: ${result.error}`);
-                setTradingState(prev => ({ ...prev, isTradeInProgress: false }));
+                // Update trade history to show failed trade
+                setTradeHistory(prev => prev.map(trade => 
+                    trade.id === tradeId 
+                        ? { ...trade, outcome: 'loss', pnl: -tradeConfig.amount }
+                        : trade
+                ));
             }
         } catch (error) {
             addLog(`❌ Trade execution error: ${error.message}`);
-            setTradingState(prev => ({ ...prev, isTradeInProgress: false }));
+            // Update trade history to show failed trade
+            setTradeHistory(prev => prev.map(trade => 
+                trade.id === tradeId 
+                    ? { ...trade, outcome: 'loss', pnl: -tradeConfig.amount }
+                    : trade
+            ));
         }
-    }, [tradingState.isTradeInProgress, getTradeConfig, executeDirectTrade, addLog, activeSignal, signalIntegrationService]);
+    }, [getTradeConfig, executeDirectTrade, addLog, activeSignal, signalIntegrationService, tradingState.currentStake]);
 
     const toggleTrading = useCallback(() => {
         setTradingState(prev => {
@@ -303,16 +327,14 @@ const TradingHubDisplay: React.FC = observer(() => {
                     return;
                 }
 
-                if (!tradingState.isTradeInProgress && tradingState.isRunning) {
-                    // Check if we have a valid trade config before attempting to trade
-                    const hasValidConfig = getTradeConfig() !== null;
-                    if (hasValidConfig) {
-                        addLog('✅ Valid signal found - executing trade...');
-                        executeTrade();
-                    } else {
-                        addLog('⏳ Auto-trading active, waiting for valid signal...');
-                    }
-                }
+                 // Check if we have a valid trade config before attempting to trade
+                 const hasValidConfig = getTradeConfig() !== null;
+                 if (hasValidConfig) {
+                     addLog('✅ Valid signal found - executing trade...');
+                     executeTrade();
+                 } else {
+                     addLog('⏳ Auto-trading active, waiting for valid signal...');
+                 }
             }, 10000); // Execute every 10 seconds
         }
 
@@ -322,10 +344,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                 addLog('⏹️ Auto-trading interval cleared');
             }
         };
-    }, [tradingState.isRunning, analyzerReady, addLog]); // Removed dependencies that cause frequent re-creation
+    }, [tradingState.isRunning, analyzerReady, addLog, executeTrade, tradingState.stopLoss, tradingState.takeProfit, getTradeConfig]); // Removed dependencies that cause frequent re-creation
 
     // Monitor contract for completion
-    const monitorContract = useCallback(async (contractId: string) => {
+    const monitorContract = useCallback(async (contractId: string, tradeId: number, tradeConfig: TradeConfig) => {
         if (!api_base.api) return;
 
         try {
@@ -604,18 +626,23 @@ const TradingHubDisplay: React.FC = observer(() => {
     }, [addLog]);
 
     const executeManualTrade = useCallback(async () => {
-        if (tradingState.isTradeInProgress) {
-            addLog('⚠️ Trade already in progress');
-            return;
-        }
-
         const tradeConfig = getTradeConfig();
         if (!tradeConfig) {
             addLog('❌ Unable to get trade configuration');
             return;
         }
 
-        setTradingState(prev => ({ ...prev, isTradeInProgress: true }));
+        const tradeId = Date.now(); // Generate unique ID for the trade
+        // Add the trade to history immediately with 'pending' status
+        setTradeHistory(prev => [...prev, {
+            id: tradeId,
+            timestamp: new Date().toLocaleTimeString(),
+            symbol: tradeConfig.symbol,
+            contract_type: tradeConfig.contract_type,
+            stake: tradeConfig.amount,
+            outcome: 'pending',
+            pnl: 0
+        }]);
 
         try {
             addLog(`📈 Manual trade: ${tradeConfig.contractType} on ${tradeConfig.symbol} with stake $${tradeConfig.amount}`);
@@ -634,7 +661,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 // Monitor the contract for real results
                 if (result.contract_id) {
-                    monitorContract(result.contract_id);
+                    monitorContract(result.contract_id, tradeId, tradeConfig);
                 }
 
                 // Simulate trade result after a delay for demo purposes
@@ -652,17 +679,34 @@ const TradingHubDisplay: React.FC = observer(() => {
                         lastTradeResult: isWin ? 'Win' : 'Loss',
                         isTradeInProgress: false
                     }));
+
+                    // Update trade history with simulated result
+                    setTradeHistory(prev => prev.map(trade =>
+                        trade.id === tradeId
+                            ? { ...trade, outcome: isWin ? 'win' : 'loss', pnl: pnl }
+                            : trade
+                    ));
                 }, 8000); // 8 second delay to allow for real API result first
 
             } else {
                 addLog(`❌ Manual trade failed: ${result.message}`);
-                setTradingState(prev => ({ ...prev, isTradeInProgress: false }));
+                // Update trade history to show failed trade
+                setTradeHistory(prev => prev.map(trade => 
+                    trade.id === tradeId 
+                        ? { ...trade, outcome: 'loss', pnl: -tradeConfig.amount }
+                        : trade
+                ));
             }
         } catch (error) {
             addLog(`❌ Manual trade error: ${error.message}`);
-            setTradingState(prev => ({ ...prev, isTradeInProgress: false }));
+            // Update trade history to show failed trade
+            setTradeHistory(prev => prev.map(trade => 
+                trade.id === tradeId 
+                    ? { ...trade, outcome: 'loss', pnl: -tradeConfig.amount }
+                    : trade
+            ));
         }
-    }, [tradingState.isTradeInProgress, getTradeConfig, executeDirectTrade, addLog]);
+    }, [getTradeConfig, executeDirectTrade, addLog]);
 
     // Error boundary for the component
     const [hasError, setHasError] = useState(false);
@@ -780,7 +824,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     }}
                                     min="1"
                                     step="0.1"
-                                    disabled={tradingState.isRunning || tradingState.isTradeInProgress}
+                                    disabled={tradingState.isRunning}
                                 />
                             </div>
                             <div className="config-item">
@@ -790,7 +834,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     value={tradingState.stopLoss}
                                     onChange={e => setTradingState(prev => ({ ...prev, stopLoss: parseFloat(e.target.value) || 50 }))}
                                     min="1"
-                                    disabled={tradingState.isRunning || tradingState.isTradeInProgress}
+                                    disabled={tradingState.isRunning}
                                 />
                             </div>
                             <div className="config-item">
@@ -800,7 +844,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     value={tradingState.takeProfit}
                                     onChange={e => setTradingState(prev => ({ ...prev, takeProfit: parseFloat(e.target.value) || 100 }))}
                                     min="1"
-                                    disabled={tradingState.isRunning || tradingState.isTradeInProgress}
+                                    disabled={tradingState.isRunning}
                                 />
                             </div>
                             <div className="config-item">
@@ -812,7 +856,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     min="1.1"
                                     max="5"
                                     step="0.1"
-                                    disabled={tradingState.isRunning || tradingState.isTradeInProgress}
+                                    disabled={tradingState.isRunning}
                                 />
                             </div>
                             <div className="config-item">
@@ -824,7 +868,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     min="2"
                                     max="32"
                                     step="1"
-                                    disabled={tradingState.isRunning || tradingState.isTradeInProgress}
+                                    disabled={tradingState.isRunning}
                                 />
                             </div>
                         </div>
@@ -888,13 +932,28 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 <span className="stat-label">Current Stake</span>
                                 <span className="stat-value">
                                     ${(martingaleConfig.baseStake * martingaleConfig.currentMultiplier).toFixed(2)}
-                                </span>```text
-
+                                </span>
                             </div>
                             <div className="stat-item">
                                 <span className="stat-label">Consecutive Losses</span>
                                 <span className="stat-value">{martingaleConfig.consecutiveLosses}</span>
                             </div>
+                        </div>
+                    </div>
+                     {/* Trade History */}
+                     <div className="trade-history-section">
+                        <h3>📜 Trade History</h3>
+                        <div className="trade-history-container">
+                            {tradeHistory.map((trade, index) => (
+                                <div key={index} className="trade-entry">
+                                    <span className="trade-timestamp">{trade.timestamp}</span>
+                                    <span className="trade-symbol">{trade.symbol}</span>
+                                    <span className="trade-contract">{trade.contract_type}</span>
+                                    <span className="trade-stake">Stake: ${trade.stake.toFixed(2)}</span>
+                                    <span className={`trade-outcome ${trade.outcome}`}>{trade.outcome}</span>
+                                    <span className="trade-pnl">P&L: {trade.pnl > 0 ? '+' : ''}${trade.pnl.toFixed(2)}</span>
+                                </div>
+                            ))}
                         </div>
                     </div>
 
