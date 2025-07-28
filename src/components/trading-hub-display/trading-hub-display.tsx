@@ -446,25 +446,41 @@ const TradingHubDisplay: React.FC = observer(() => {
                 addLog('⏳ CONTINUOUS MODE: Trade in progress, waiting for completion before next trade');
             }
         } else {
-            // Sequential mode: wait for previous trade to completely finish
+            // Optimized Sequential mode: faster execution with smart timing
             if (!tradingState.isTradeInProgress) {
                 // Check if there are any pending trades in history
                 const pendingTrades = tradeHistory.filter(trade => trade.outcome === 'pending');
                 if (pendingTrades.length === 0) {
                     const hasValidConfig = getTradeConfig() !== null;
                     if (hasValidConfig) {
-                        addLog('🔄 SEQUENTIAL MODE: Previous trade closed - executing new trade');
-                        setLastTradeTime(Date.now());
-                        executeTrade();
+                        // Check optimal entry timing
+                        const currentTime = Date.now();
+                        const timeSinceLastTrade = currentTime - lastTradeTime;
+                        const minimumDelay = 200; // Optimized delay matching Purchase.js
+
+                        if (timeSinceLastTrade >= minimumDelay || lastTradeTime === 0) {
+                            addLog('⚡ OPTIMIZED SEQUENTIAL: Executing trade with optimal timing');
+                            setLastTradeTime(Date.now());
+                            executeTrade();
+                        } else {
+                            const remainingDelay = minimumDelay - timeSinceLastTrade;
+                            setTimeout(() => {
+                                if (!tradingState.isTradeInProgress) {
+                                    addLog('⚡ OPTIMIZED SEQUENTIAL: Executing delayed trade');
+                                    setLastTradeTime(Date.now());
+                                    executeTrade();
+                                }
+                            }, remainingDelay);
+                        }
                     }
                 } else {
-                    addLog('⏳ SEQUENTIAL MODE: Waiting for previous trade to close completely before next trade');
+                    addLog('⏳ OPTIMIZED SEQUENTIAL: Waiting for pending trades to close');
                 }
             } else {
-                addLog('⏳ SEQUENTIAL MODE: Trade in progress, waiting for completion');
+                addLog('⏳ OPTIMIZED SEQUENTIAL: Trade in progress, waiting for completion');
             }
         }
-    }, [currentRecommendation, tradingState.isRunning, analyzerReady, tradingState.totalProfit, tradingState.stopLoss, tradingState.takeProfit, tradingState.isTradeInProgress, continuousTrading, getTradeConfig, executeTrade, addLog, tradeHistory]);
+    }, [currentRecommendation, tradingState.isRunning, analyzerReady, tradingState.totalProfit, tradingState.stopLoss, tradingState.takeProfit, tradingState.isTradeInProgress, continuousTrading, getTradeConfig, executeTrade, addLog, tradeHistory, lastTradeTime]);
 
     // Monitor contract for completion
     const monitorContract = useCallback(async (contractId: string, tradeId: number, tradeConfig: TradeConfig) => {
@@ -610,12 +626,12 @@ const TradingHubDisplay: React.FC = observer(() => {
             if (data && typeof data === 'object') {
                 const buyPrice = parseFloat(data.buy_price) || tradingState.currentStake;
                 const sellPrice = parseFloat(data.sell_price) || 0;
-                
+
                 // Calculate P&L correctly: profit = sell_price - buy_price
                 // For binary options: win = stake * payout_rate, loss = -stake
                 let pnl = 0;
                 let isWin = false;
-                
+
                 if (data.profit !== undefined) {
                     pnl = parseFloat(data.profit);
                     isWin = pnl > 0;
@@ -648,7 +664,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         Math.abs(trade.pnl - tradeRecord.pnl) < 0.01 &&
                         trade.symbol === tradeRecord.symbol
                     );
-                    
+
                     if (isDuplicate) {
                         console.log('Duplicate trade detected, skipping...');
                         return prev;

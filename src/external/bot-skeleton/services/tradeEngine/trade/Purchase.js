@@ -28,22 +28,24 @@ export default Engine =>
             // Track if trade result is confirmed and ready for martingale processing
             this.isTradeConfirmed = false;
 
-            // Trading mode configuration - always sequential with 1s delay
+            // Trading mode configuration - optimized sequential with 200ms delay
             this.waitingForContractClose = false;
             this.isWaitingForContractClose = false;
-            this.lastTradeTime = 0; // Track last trade time for 1s delay
+            this.lastTradeTime = 0; // Track last trade time for optimized delay
+            this.minimumTradeDelay = 200; // Configurable minimum delay between trades
             
-            console.log('🟦 MARTINGALE ENGINE: Initialized with sequential trading mode and 1s delay');
+            console.log('🟦 MARTINGALE ENGINE: Initialized with optimized sequential trading mode (200ms delay)');
         }
 
         purchase(contract_type) {
-            // Check for 1-second delay between trades
+            // Optimized timing check - reduce delay to 200ms for faster execution
             const currentTime = Date.now();
             const timeSinceLastTrade = currentTime - this.lastTradeTime;
+            const minimumDelay = 200; // Reduced from 1000ms to 200ms for faster execution
             
-            if (this.lastTradeTime > 0 && timeSinceLastTrade < 1000) {
-                const remainingDelay = 1000 - timeSinceLastTrade;
-                throw new Error(`Wait ${remainingDelay}ms before next trade (1s volatility requirement)`);
+            if (this.lastTradeTime > 0 && timeSinceLastTrade < minimumDelay) {
+                const remainingDelay = minimumDelay - timeSinceLastTrade;
+                throw new Error(`Wait ${remainingDelay}ms before next trade (optimized timing)`);
             }
 
             // Prevent purchase if waiting for previous contract to close
@@ -253,11 +255,17 @@ export default Engine =>
             // Clear the waiting flag
             this.isWaitingForContractClose = false;
 
+            // Update last trade time to current time for immediate readiness calculation
+            this.lastTradeTime = Date.now();
+
             console.log(`💰 TRADE RESULT CONFIRMED: P&L: ${profit} USD | Total P&L: ${this.martingaleState.totalProfit.toFixed(2)} USD`);
             console.log(`🎯 MARTINGALE READY: Trade result confirmed, next purchase will apply martingale logic`);
             
             // Log current martingale state
             console.log(`📊 MARTINGALE STATE: Multiplier: ${this.martingaleState.multiplier}x, Consecutive losses: ${this.martingaleState.consecutiveLosses}`);
+
+            // Trigger immediate readiness check for next trade
+            this.checkTradeReadiness();
         }
 
         // Enable/disable martingale strategy
@@ -323,18 +331,45 @@ export default Engine =>
             return true;
         }
 
-        // Check if ready to purchase (always sequential with 1s delay)
+        // Check if ready to purchase (optimized sequential mode)
         canPurchase() {
             const currentTime = Date.now();
             const timeSinceLastTrade = currentTime - this.lastTradeTime;
+            const minimumDelay = 200; // Optimized delay
             
-            // Check 1-second delay requirement
-            if (this.lastTradeTime > 0 && timeSinceLastTrade < 1000) {
+            // Check optimized delay requirement
+            if (this.lastTradeTime > 0 && timeSinceLastTrade < minimumDelay) {
                 return false;
             }
             
             // Check if waiting for contract close
             return !this.waitingForContractClose;
+        }
+
+        // New method to check trade readiness and emit signal if ready
+        checkTradeReadiness() {
+            setTimeout(() => {
+                if (this.canPurchase()) {
+                    console.log('⚡ READY FOR NEXT TRADE: Optimized timing allows immediate execution');
+                    // Emit readiness signal for UI or trade engine
+                    if (this.observer) {
+                        this.observer.emit('TRADE_READY');
+                    }
+                }
+            }, 50); // Small buffer to ensure state is fully updated
+        }
+
+        // Enhanced timing for tick-based strategies
+        getOptimalEntryTiming() {
+            const currentTime = Date.now();
+            const timeSinceLastTrade = currentTime - this.lastTradeTime;
+            const minimumDelay = 200;
+            
+            if (timeSinceLastTrade >= minimumDelay) {
+                return 0; // Ready immediately
+            }
+            
+            return minimumDelay - timeSinceLastTrade; // Time to wait
         }
 
         // Mark that we're waiting for contract close
