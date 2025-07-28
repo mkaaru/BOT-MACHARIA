@@ -1,17 +1,8 @@
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './app';
-import './public-path';
+import ReactDOM from 'react-dom/client';
+import { AuthWrapper } from './app/AuthWrapper';
+import { AnalyticsInitializer } from './utils/analytics';
 import './styles/index.scss';
 
-const container = document.getElementById('root');
-if (container) {
-    const root = createRoot(container);
-    root.render(
-        <React.StrictMode>
-            <App />
-        </React.StrictMode>
-    );
-} else {
-    console.error('Root container not found');
-}
+AnalyticsInitializer();
+
+ReactDOM.createRoot(document.getElementById('root')!).render(<AuthWrapper />);
