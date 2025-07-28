@@ -1072,6 +1072,20 @@ const TradingHubDisplay: React.FC = observer(() => {
                             >
                                 🔄 Reset Stats
                             </button>
+                            <button
+                                className="control-btn emergency"
+                                onClick={() => {
+                                    // Emergency reset for stuck bot states
+                                    if (typeof window !== 'undefined' && (window as any).globalObserver) {
+                                        (window as any).globalObserver.emit('bot.emergency_reset');
+                                    }
+                                    addLog('🚨 Emergency reset triggered - clearing stuck states');
+                                    setTradingState(prev => ({ ...prev, isTradeInProgress: false }));
+                                }}
+                                style={{ backgroundColor: '#ff4444', color: 'white' }}
+                            >
+                                🚨 Emergency Reset
+                            </button>
                         </div>
                     </div>
                 </div>
