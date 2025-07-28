@@ -409,16 +409,6 @@ export default Engine =>
         isReadyForNextTrade() {
             return !this.waitingForContractClose;
         }
-            
-            // Set waiting for contract close immediately after purchase
-            this.setWaitingForContractClose(true);
-            console.log('📋 CONTRACT PURCHASED: Now waiting for contract to close before next trade');
-        }
-
-        // Check if contract is ready for next trade (no timing delays)
-        isReadyForNextTrade() {
-            return !this.waitingForContractClose;
-        }
 
         // Mark that we're waiting for contract close
         setWaitingForContractClose(waiting) {
