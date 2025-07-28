@@ -479,16 +479,23 @@
 
     .analyzer-status {
         background: rgba(255, 255, 255, 0.05);
-        border-radius: 15px;
-        padding: 20px;
-        margin-bottom: 20px;
         border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 20px;
 
         h3 {
-            margin: 0 0 15px 0;
-            color: #64ffda;
-            font-size: 18px;
+            margin: 0 0 12px 0;
+            color: #ffffff;
+            font-size: 16px;
             font-weight: 600;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
         }
 
         .status-indicator {
@@ -496,6 +503,7 @@
             align-items: center;
             gap: 8px;
             font-size: 14px;
+            font-weight: 500;
 
             .status-dot {
                 width: 8px;
@@ -504,13 +512,21 @@
                 background: #ff6b6b;
             }
 
-            &.ready .status-dot {
+            &.ready .status-dot,
+            &.connected .status-dot {
                 background: #51cf66;
+                animation: pulse 2s infinite;
             }
 
-            &.loading .status-dot {
-                background: #ffa726;
-                animation: pulse 1.5s infinite;
+            &.loading .status-dot,
+            &.connecting .status-dot {
+                background: #ffd43b;
+                animation: blink 1s infinite;
+            }
+
+            &.disconnected .status-dot {
+                background: #ff6b6b;
+                animation: blink 0.5s infinite;
             }
         }
 
@@ -987,7 +1003,7 @@
         .config-section,
         .controls-section,
         .stats-section,
-        .logs-section {
+        .logs-section{
             padding: 20px;
         }
 

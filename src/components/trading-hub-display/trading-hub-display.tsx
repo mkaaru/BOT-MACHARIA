@@ -419,6 +419,63 @@ const TradingHubDisplay: React.FC = observer(() => {
         });
     }, [addLog]);
 
+    // Emergency reset method to fix stuck states
+    const emergencyReset = useCallback(() => {
+        console.log('🚨 EMERGENCY RESET: Clearing all stuck states');
+
+        // Reset all trading states
+        setTradingState(prev => ({
+            ...prev,
+            isRunning: false,
+            isTradeInProgress: false,
+            lastTradeResult: 'None'
+        }));
+
+        // Reset martingale
+        setMartingaleConfig(prev => ({
+            ...prev,
+            consecutiveLosses: 0,
+            currentMultiplier: 1.0
+        }));
+
+        // Clear recommendations and signals
+        setCurrentRecommendation(null);
+        setActiveSignal(null);
+
+        // Reset analyzer
+        setAnalyzerReady(false);
+
+        addLog('🚨 EMERGENCY RESET: All states cleared, reinitializing...');
+
+        // Reinitialize analyzer after a short delay
+        setTimeout(() => {
+            setAnalyzerReady(true);
+            addLog('✅ System reinitialized and ready');
+        }, 2000);
+
+        // Emit emergency reset event
+        if (typeof window !== 'undefined' && (window as any).globalObserver) {
+            (window as any).globalObserver.emit('bot.emergency_reset');
+        }
+    }, [addLog]);
+
+    // Auto-detect stuck state and recover
+    useEffect(() => {
+        const checkStuckState = () => {
+            // Check if bot has been "running" for too long without activity
+            if (tradingState.isRunning && tradingState.isTradeInProgress) {
+                const timeSinceLastTrade = Date.now() - lastTradeTime;
+                if (timeSinceLastTrade > 60000) { // 1 minute stuck
+                    addLog('🔧 AUTO-RECOVERY: Detected stuck state, triggering automatic reset');
+                    setTradingState(prev => ({ ...prev, isTradeInProgress: false }));
+                }
+            }
+        };
+
+        const interval = setInterval(checkStuckState, 30000); // Check every 30 seconds
+        return () => clearInterval(interval);
+    }, [tradingState.isRunning, tradingState.isTradeInProgress, lastTradeTime, addLog]);
+
     // Auto-trading logic - execute trades immediately when recommendations arrive
     useEffect(() => {
         if (tradingState.isRunning && analyzerReady) {
@@ -804,7 +861,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             timestamp: new Date().toLocaleTimeString(),
             symbol: tradeConfig.symbol,
             contract_type: tradeConfig.contract_type,
-            stake: tradeConfig.amount,
+            stake:tradeConfig.amount,
             outcome: 'pending',
             pnl: 0
         }]);
