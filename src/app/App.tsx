@@ -9,6 +9,8 @@ import Endpoint from '@/pages/endpoint';
 import { TAuthData } from '@/types/api-types';
 import { initializeI18n, localize, TranslationProvider } from '@deriv-com/translations';
 import CoreStoreProvider from './CoreStoreProvider';
+import ErrorBoundary from '@/components/error-component/error-boundary'; // Assuming ErrorBoundary component exists
+import Loading from '@/components/shared_ui/loading'; // Assuming Loading component exists
 import './app-root.scss';
 
 const Layout = lazy(() => import('../components/layout'));
@@ -126,7 +128,23 @@ function App() {
         }
     }, []);
 
-    return <RouterProvider router={router} />;
+    return (
+        <ErrorBoundary>
+            <Suspense fallback={
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    height: '100vh',
+                    background: '#fff'
+                }}>
+                    <Loading />
+                </div>
+            }>
+                <RouterProvider router={router} />
+            </Suspense>
+        </ErrorBoundary>
+    );
 }
 
 export default App;
