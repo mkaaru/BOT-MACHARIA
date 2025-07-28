@@ -269,7 +269,50 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                         addLog(`⚡ INSTANT FILL: Contract ${result.contract_id} - ${instantWin ? 'WIN' : 'LOSS'} - P&L: ${instantPnl > 0 ? '+' : ''}$${instantPnl.toFixed(2)}`);
 
-                        // Update martingale state immediately
+                        // Update trade history with instant result first
+                        setTradeHistory(prev => {
+                            const updatedHistory = prev.map(trade =>
+                                trade.id === tradeId
+                                    ? { ...trade, outcome: instantWin ? 'win' : 'loss', pnl: instantPnl }
+                                    : trade
+                            );
+
+                            // Immediately recalculate statistics from updated history
+                            const totalTrades = updatedHistory.length;
+                            const winTrades = updatedHistory.filter(trade => trade.outcome === 'win').length;
+                            const lossTrades = updatedHistory.filter(trade => trade.outcome === 'loss').length;
+                            const totalProfit = updatedHistory.reduce((sum, trade) => sum + (parseFloat(trade.pnl) || 0), 0);
+
+                            // Update trading state with recalculated statistics
+                            setTradingState(prevState => {
+                                const newState = {
+                                    ...prevState,
+                                    totalTrades: totalTrades,
+                                    winTrades: winTrades,
+                                    lossTrades: lossTrades,
+                                    totalProfit: Math.round(totalProfit * 100) / 100,
+                                    lastTradeResult: instantWin ? 'Win' : 'Loss',
+                                    isTradeInProgress: false
+                                };
+
+                                // Check stop conditions
+                                if (newState.totalProfit <= -prevState.stopLoss) {
+                                    addLog(`🛑 Stop Loss hit! Stopping trading...`);
+                                    newState.isRunning = false;
+                                }
+
+                                if (newState.totalProfit >= prevState.takeProfit) {
+                                    addLog(`🎯 Take Profit hit! Stopping trading...`);
+                                    newState.isRunning = false;
+                                }
+
+                                return newState;
+                            });
+
+                            return updatedHistory;
+                        });
+
+                        // Update martingale state
                         setMartingaleConfig(prev => {
                             if (instantWin) {
                                 addLog('✅ MARTINGALE RESET: Win detected - resetting to base stake');
@@ -290,55 +333,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                             }
                         });
 
-                        setTradingState(prev => {
-                            const newWinTrades = instantWin ? prev.winTrades + 1 : prev.winTrades;
-                            const newLossTrades = instantWin ? prev.lossTrades : prev.lossTrades + 1;
-                            const newTotalProfit = prev.totalProfit + instantPnl;
-
-                            // Check stop conditions
-                            if (newTotalProfit <= -prev.stopLoss) {
-                                addLog(`🛑 Stop Loss hit! Stopping trading...`);
-                                return {
-                                    ...prev,
-                                    totalProfit: newTotalProfit,
-                                    winTrades: newWinTrades,
-                                    lossTrades: newLossTrades,
-                                    lastTradeResult: instantWin ? 'Win' : 'Loss',
-                                    isTradeInProgress: false,
-                                    isRunning: false
-                                };
-                            }
-
-                            if (newTotalProfit >= prev.takeProfit) {
-                                addLog(`🎯 Take Profit hit! Stopping trading...`);
-                                return {
-                                    ...prev,
-                                    totalProfit: newTotalProfit,
-                                    winTrades: newWinTrades,
-                                    lossTrades: newLossTrades,
-                                    lastTradeResult: instantWin ? 'Win' : 'Loss',
-                                    isTradeInProgress: false,
-                                    isRunning: false
-                                };
-                            }
-
-                            return {
-                                ...prev,
-                                totalProfit: newTotalProfit,
-                                winTrades: newWinTrades,
-                                lossTrades: newLossTrades,
-                                lastTradeResult: instantWin ? 'Win' : 'Loss',
-                                isTradeInProgress: false
-                            };
-                        });
-
-                        // Update trade history with instant result
-                        setTradeHistory(prev => prev.map(trade =>
-                            trade.id === tradeId
-                                ? { ...trade, outcome: instantWin ? 'win' : 'loss', pnl: instantPnl }
-                                : trade
-                        ));
-
                         // Emit contract closed event for immediate processing
                         if (typeof window !== 'undefined' && (window as any).globalObserver) {
                             (window as any).globalObserver.emit('contract.closed', {
@@ -346,7 +340,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 is_sold: true,
                                 buy_price: tradeConfig.amount,
                                 sell_price: instantWin ? tradeConfig.amount * 1.85 : 0,
-                                profit: instantPnl
+                                profit: instantPnl,
+                                symbol: tradeConfig.symbol,
+                                contract_type: tradeConfig.contract_type
                             });
                         }
 
@@ -586,6 +582,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 // Add to trade history first
                 const tradeRecord = {
+                    id: Date.now() + Math.random(), // Ensure unique ID
                     timestamp: new Date().toLocaleTimeString(),
                     symbol: data.symbol || 'Unknown',
                     contract_type: data.contract_type || 'DIGIT',
@@ -595,13 +592,37 @@ const TradingHubDisplay: React.FC = observer(() => {
                 };
 
                 setTradeHistory(prev => {
+                    // Check for duplicate trades to prevent double counting
+                    const isDuplicate = prev.some(trade => 
+                        Math.abs(trade.timestamp - tradeRecord.timestamp) < 1000 && 
+                        trade.pnl === tradeRecord.pnl &&
+                        trade.symbol === tradeRecord.symbol
+                    );
+                    
+                    if (isDuplicate) {
+                        console.log('Duplicate trade detected, skipping...');
+                        return prev;
+                    }
+
                     const newHistory = [tradeRecord, ...prev.slice(0, 99)]; // Keep last 100 trades
 
-                    // Recalculate statistics from complete trade history
+                    // Recalculate statistics from complete trade history with validation
                     const totalTrades = newHistory.length;
                     const winTrades = newHistory.filter(trade => trade.outcome === 'win').length;
                     const lossTrades = newHistory.filter(trade => trade.outcome === 'loss').length;
-                    const totalProfit = newHistory.reduce((sum, trade) => sum + trade.pnl, 0);
+                    const totalProfit = newHistory.reduce((sum, trade) => {
+                        const tradePnl = parseFloat(trade.pnl) || 0;
+                        return sum + tradePnl;
+                    }, 0);
+
+                    // Log statistics recalculation for debugging
+                    console.log('📈 Statistics Recalculated:', {
+                        totalTrades,
+                        winTrades,
+                        lossTrades,
+                        totalProfit: totalProfit.toFixed(2),
+                        winRate: totalTrades > 0 ? ((winTrades / totalTrades) * 100).toFixed(1) : 0
+                    });
 
                     // Update trading state with accurate statistics
                     setTradingState(prev => ({
@@ -609,7 +630,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         totalTrades: totalTrades,
                         winTrades: winTrades,
                         lossTrades: lossTrades,
-                        totalProfit: totalProfit,
+                        totalProfit: Math.round(totalProfit * 100) / 100, // Round to 2 decimal places
                         lastTradeResult: isWin ? 'Win' : 'Loss',
                         isTradeInProgress: false
                     }));
