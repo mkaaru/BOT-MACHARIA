@@ -133,3 +133,21 @@ export default Engine =>
             purchase_reference = getUUID();
         };
     };
+
+// Assuming this.observer and this.updateTotals are defined in the Engine class or a parent class
+Engine.prototype.register = function(observerName, callback) {
+    if (observerName === 'bot.contract') {
+        this.observer.register('bot.contract', data => {
+            if (data?.is_sold) {
+                this.updateTotals(data);
+                // Reset waiting flag to allow next trade
+                if (typeof BinaryBotPrivateWaitingForContract !== 'undefined') {
+                    BinaryBotPrivateWaitingForContract = false;
+                }
+                this.observer.emit('bot.trade_again', false);
+            }
+        });
+    } else {
+        this.observer.register(observerName, callback);
+    }
+};

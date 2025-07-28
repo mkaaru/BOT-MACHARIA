@@ -71,14 +71,15 @@ window.Blockly.Blocks.after_purchase = {
     },
 };
 
-window.Blockly.JavaScript.javascriptGenerator.forBlock.after_purchase = block => {
-    const stack = window.Blockly.JavaScript.javascriptGenerator.statementToCode(block, 'AFTERPURCHASE_STACK');
+window.Blockly.JavaScript.javascriptGenerator.forBlock.after_purchase = () => {
     const code = `
         var BinaryBotPrivateAfterPurchase = function BinaryBotPrivateAfterPurchase() {
-            ${stack}
-            // Return true immediately to continue purchasing without waiting
-            return true;
+            ${window.Blockly.JavaScript.javascriptGenerator.statementToCode(this, 'AFTERPURCHASE_STACK')}
+            // Ensure we're ready for the next contract
+            if (typeof BinaryBotPrivateWaitingForContract !== 'undefined') {
+                BinaryBotPrivateWaitingForContract = false;
+            }
         };
-        `;
+    `;
     return code;
 };
