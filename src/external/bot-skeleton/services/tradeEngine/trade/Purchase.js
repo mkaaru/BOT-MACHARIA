@@ -402,10 +402,13 @@ export default Engine =>
                 }
             } else {
                 console.log('⏳ WAITING FOR CONTRACT CLOSURE: Cannot purchase until current contract closes');
-            }Y');
-                    }
-                }
             }
+        }
+
+        // Check if contract is ready for next trade (no timing delays)
+        isReadyForNextTrade() {
+            return !this.waitingForContractClose;
+        }
             
             // Set waiting for contract close immediately after purchase
             this.setWaitingForContractClose(true);
