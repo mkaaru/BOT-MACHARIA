@@ -86,8 +86,6 @@ const SpeedBot: React.FC = observer(() => {
   const [mlConfidenceThreshold, setMlConfidenceThreshold] = useState(0.7);
   const [mlPrediction, setMlPrediction] = useState<any>(null);
 
-  // Single contract mode
-  const [singleContractMode, setSingleContractMode] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
 
   const volatilitySymbols = [
@@ -230,13 +228,6 @@ const SpeedBot: React.FC = observer(() => {
   const executeTrade = useCallback(async () => {
     if (!tradeEngine || !botInterface || !isConnected) {
       setError('Bot not properly initialized or not connected');
-      return;
-    }
-
-    // Check if we already executed one contract
-    if (totalTrades >= 1 && singleContractMode) {
-      console.log('✋ Single contract limit reached. Stopping bot.');
-      setIsTrading(false);
       return;
     }
 
@@ -498,7 +489,7 @@ const SpeedBot: React.FC = observer(() => {
           handleTradeResult(profit);
 
           // Continue trading after delay
-          if (isTrading && (!singleContractMode || totalTrades < 1)) {
+          if (isTrading) {
             setTimeout(() => {
               executeTrade();
             }, 2000);
@@ -525,7 +516,7 @@ const SpeedBot: React.FC = observer(() => {
         globalObserver.unregister('bot.error', handleError);
       };
     }
-  }, [isTrading, isConnected, handleTradeResult, executeTrade, singleContractMode, totalTrades]);
+  }, [isTrading, isConnected, handleTradeResult, executeTrade]);
 
   // Update current stake when base stake changes
   useEffect(() => {
