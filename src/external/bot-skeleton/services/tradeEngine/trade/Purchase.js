@@ -1,61 +1,61 @@
-
 import { localize } from '@deriv-com/translations';
 
-// Create stub functions for missing exports
-const emptyTextValidator = (value, fieldName, callback) => {
-    if (!value || value === '') {
-        if (callback) callback();
-        return false;
-    }
-    return true;
+// Located at: src/external/bot-skeleton/scratch/blocks/Binary/During Purchase/during_purchase.js
+window.Blockly.Blocks.during_purchase = {
+    init() {
+        this.jsonInit(this.definition());
+    },
+    definition() {
+        return {
+            message0: '%1 %2 %3',
+            message1: '%1',
+            message2: '%1',
+            args0: [
+                {
+                    type: 'field_image',
+                    src: 'image/sellContract.png',
+                    width: 25,
+                    height: 25,
+                    alt: 'S',
+                },
+                {
+                    type: 'field_label',
+                    text: localize('3. Sell conditions'),
+                    class: 'blocklyTextRootBlockHeader',
+                },
+                {
+                    type: 'input_dummy',
+                },
+            ],
+            args1: [
+                {
+                    type: 'input_statement',
+                    name: 'DURING_PURCHASE_STACK',
+                    check: 'SellAtMarket',
+                },
+            ],
+            args2: [
+                {
+                    type: 'field_image',
+                    src: ' ',
+                    width: 380,
+                    height: 10,
+                },
+            ],
+            colour: window.Blockly.Colours.RootBlock.colour,
+            colourSecondary: window.Blockly.Colours.RootBlock.colourSecondary,
+            colourTertiary: window.Blockly.Colours.RootBlock.colourTertiary,
+            tooltip: localize('Sell your active contract if needed (optional)'),
+        };
+    },
 };
 
-const saveBeforeUnload = () => {
-    // Stub function for save before unload
-    console.log('Save before unload triggered');
-};
-
-const setBlockTextColor = (block) => {
-    // Stub function for setting block text color
-    if (block && block.setColour) {
-        block.setColour('#4a90e2');
-    }
-};
-
-// Create stub DBotStore
-const DBotStore = {
-    instance: {
-        toolbar: {
-            setHasOpenError: () => console.log('Has open error set')
-        },
-        save_modal: {
-            updateBotName: () => console.log('Bot name updated')
-        },
-        client: {
-            getPurchaseChoices: () => [
-                ['CALL', 'Higher'],
-                ['PUT', 'Lower'],
-                ['DIGITOVER', 'Over'],
-                ['DIGITUNDER', 'Under'],
-                ['DIGITEVEN', 'Even'],
-                ['DIGITODD', 'Odd']
-            ]
-        }
-    }
-};
-
-// Stub functions for common block menu options
-const addCommonBlockMenuOptions = (options, enableOption) => {
-    // Stub implementation
-};
-
-const addHelpMenuOption = (options) => {
-    // Stub implementation
-};
-
+// Located at: src/external/bot-skeleton/scratch/blocks/Binary/Before Purchase/purchase.js
 window.Blockly.Blocks.purchase = {
     init() {
         this.jsonInit(this.definition());
+        // Ensure one of this type per statement-stack
+        this.setNextStatement(false);
     },
     definition() {
         return {
@@ -88,53 +88,19 @@ window.Blockly.Blocks.purchase = {
         if (!this.workspace || window.Blockly.derivWorkspace.isFlyoutVisible || this.workspace.isDragging()) {
             return;
         }
-
-        saveBeforeUnload();
-        setBlockTextColor(this);
-
-        const { toolbar, save_modal } = DBotStore.instance;
-        const eventsToHandle = [
-            window.Blockly.Events.BLOCK_CHANGE,
-            window.Blockly.Events.BLOCK_CREATE,
-            window.Blockly.Events.BLOCK_MOVE,
-        ];
-
-        if (eventsToHandle.includes(event.type)) {
-            const topParent = this.getTopParent();
-            const topParentType = topParent?.type;
-
-            if (topParentType === 'trade_definition') {
-                const purchaseChoices = DBotStore.instance.client.getPurchaseChoices();
-                const dropdown = this.getField('PURCHASE_LIST');
-
-                if (dropdown && purchaseChoices?.length) {
-                    dropdown.updateOptions(purchaseChoices);
-                }
-            }
-        }
-
-        if (
-            (event.type === window.Blockly.Events.BLOCK_CREATE && event.ids.includes(this.id)) ||
-            (event.type === window.Blockly.Events.BLOCK_CHANGE &&
-                event.blockId === this.id &&
-                event.element === 'field')
-        ) {
-            const selectedPurchaseList = this.getFieldValue('PURCHASE_LIST');
-            emptyTextValidator(selectedPurchaseList, localize('Purchase'), () => {
-                toolbar.setHasOpenError();
-                save_modal.updateBotName();
-            });
-        }
-
-        // Ensure one of this type per statement-stack
-        this.setNextStatement(false);
+        // Additional validation logic would go here
     },
-    customContextMenu(options) {
-        const enableOption = [localize('Enable Block'), localize('Disable Block')];
-        addCommonBlockMenuOptions(options, enableOption);
-        addHelpMenuOption(options);
-    },
-    restricted_parents: ['before_purchase'],
+};
+
+// JavaScript generators for the blocks
+window.Blockly.JavaScript.javascriptGenerator.forBlock.during_purchase = block => {
+    const stack = window.Blockly.JavaScript.javascriptGenerator.statementToCode(block, 'DURING_PURCHASE_STACK');
+
+    const code = `BinaryBotPrivateDuringPurchase = function BinaryBotPrivateDuringPurchase() {
+        Bot.highlightBlock('${block.id}');
+        ${stack}
+    };\n`;
+    return code;
 };
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.purchase = block => {
@@ -152,30 +118,12 @@ export default function Purchase(Base) {
     return class extends Base {
         purchase(contractType) {
             console.log(`Purchasing contract: ${contractType}`);
-            // Add martingale logic here
-            const currentStake = this.getStake ? this.getStake() : 1;
-            const lastResult = this.getLastTradeResult ? this.getLastTradeResult() : null;
-            
-            let newStake = currentStake;
-            if (lastResult === 'loss') {
-                // Martingale: double the stake after a loss
-                newStake = currentStake * 2;
-            } else if (lastResult === 'win') {
-                // Reset to initial stake after a win
-                newStake = this.getInitialStake ? this.getInitialStake() : 1;
-            }
-            
-            // Set the new stake
-            if (this.setStake) {
-                this.setStake(newStake);
-            }
-            
+
             // Execute the purchase
             if (this.api && this.api.buy) {
                 return this.api.buy({
                     contract_type: contractType,
-                    amount: newStake,
-                    // Add other purchase parameters here
+                    amount: this.getStake ? this.getStake() : 1,
                 });
             }
         }
