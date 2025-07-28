@@ -337,7 +337,12 @@ class DBot {
                     sleep(1);
                     continue;
                 }
-                // Execute purchase without waiting for contract states
+                // Enhanced sequential purchase execution
+                if (!Bot.canMakeNextPurchase()) {
+                    console.log('⏳ SEQUENTIAL: Waiting for previous trade to complete...');
+                    sleep(1);
+                    continue;
+                }
                 BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
                 
                 // Small delay between purchases to prevent rate limiting

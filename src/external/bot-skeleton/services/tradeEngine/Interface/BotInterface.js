@@ -33,8 +33,11 @@ const getBotInterface = tradeEngine => {
         // Method to update trade results
         updateTradeResult: (profit) => tradeEngine.updateTradeResult?.(profit),
         
-        // Check if waiting for contract to close
+        // Sequential trading methods
         isWaitingForContractClose: () => tradeEngine.isWaitingForContractClose || false,
+        isWaitingForContractClosure: () => tradeEngine.isWaitingForContractClosure || false,
+        canMakeNextPurchase: () => tradeEngine.canMakeNextPurchase?.() || true,
+        forceReleaseContractWait: () => tradeEngine.forceReleaseContractWait?.(),
 
         // Utility methods
         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),

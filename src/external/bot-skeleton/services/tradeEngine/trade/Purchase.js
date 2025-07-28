@@ -12,6 +12,12 @@ export default Engine =>
     class Purchase extends Engine {
         constructor(...args) {
             super(...args);
+            // Add sequential trading state management
+            this.isWaitingForContractClosure = false;
+            this.lastContractId = null;
+            this.contractClosurePromise = null;
+            this.minimumTradeDelay = 1000; // 1 second minimum between trades
+            this.lastTradeTime = 0;
             // Initialize martingale state
             this.martingaleState = {
                 baseAmount: null,
@@ -33,24 +39,33 @@ export default Engine =>
             this.isWaitingForContractClose = false;
             this.lastTradeTime = 0; // Track last trade time for optimized delay
             this.minimumTradeDelay = 200; // Configurable minimum delay between trades
-            
+
             console.log('🟦 MARTINGALE ENGINE: Initialized with optimized sequential trading mode (200ms delay)');
         }
 
         purchase(contract_type) {
-            // Optimized timing check - reduce delay to 200ms for faster execution
-            const currentTime = Date.now();
-            const timeSinceLastTrade = currentTime - this.lastTradeTime;
-            const minimumDelay = 200; // Reduced from 1000ms to 200ms for faster execution
-            
-            if (this.lastTradeTime > 0 && timeSinceLastTrade < minimumDelay) {
-                const remainingDelay = minimumDelay - timeSinceLastTrade;
-                throw new Error(`Wait ${remainingDelay}ms before next trade (optimized timing)`);
+            // Prevent calling purchase twice
+            if (this.store.getState().scope !== BEFORE_PURCHASE) {
+                return Promise.resolve();
             }
 
-            // Prevent purchase if waiting for previous contract to close
-            if (this.isWaitingForContractClose) {
-                throw new Error('Cannot purchase: waiting for previous contract to close');
+            // Check if we're waiting for previous contract to close
+            if (this.isWaitingForContractClosure) {
+                console.log('⏳ SEQUENTIAL TRADING: Waiting for previous contract to close before next purchase');
+                return this.contractClosurePromise || Promise.resolve();
+            }
+
+            // Enforce minimum delay between trades
+            const currentTime = Date.now();
+            const timeSinceLastTrade = currentTime - this.lastTradeTime;
+            if (this.lastTradeTime > 0 && timeSinceLastTrade < this.minimumTradeDelay) {
+                const remainingDelay = this.minimumTradeDelay - timeSinceLastTrade;
+                console.log(`⏱️ TRADE DELAY: Waiting ${remainingDelay}ms before next purchase`);
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        this.purchase(contract_type).then(resolve);
+                    }, remainingDelay);
+                });
             }
 
             const { currency, is_sold } = this.data.contract;
@@ -66,6 +81,7 @@ export default Engine =>
 
             return new Promise((resolve) => {
                 const onSuccess = response => {
+                    // Don't unnecessarily send a forget request for a purchased contract.
                     const { buy } = response;
 
                     contractStatus({
@@ -75,6 +91,13 @@ export default Engine =>
                     });
 
                     this.contractId = buy.contract_id;
+                    this.lastContractId = buy.contract_id;
+                    this.lastTradeTime = Date.now();
+
+                    // Set up contract closure waiting
+                    this.isWaitingForContractClosure = true;
+                    this.setupContractClosureWatcher(buy.contract_id);
+
                     this.store.dispatch(purchaseSuccessful());
 
                     if (this.is_proposal_subscription_required) {
@@ -82,7 +105,11 @@ export default Engine =>
                     }
 
                     delayIndex = 0;
-                    log(LogTypes.PURCHASE, { longcode: buy.longcode, transaction_id: buy.transaction_id });
+                    log(LogTypes.PURCHASE, { 
+                        longcode: buy.longcode, 
+                        transaction_id: buy.transaction_id,
+                        contract_id: buy.contract_id 
+                    });
                     info({
                         accountID: this.accountInfo.loginid,
                         totalRuns: this.updateAndReturnTotalRuns(),
@@ -91,10 +118,8 @@ export default Engine =>
                         buy_price: buy.buy_price,
                     });
 
-                    // Store purchase details for profit calculation
-                    this.martingaleState.currentPurchasePrice = buy.buy_price;
-                    this.lastTradeTime = Date.now(); // Record trade time for 1s delay
-                    console.log(`🔵 PURCHASE: ${buy.buy_price} USD, Contract ID: ${buy.contract_id}, Stake: ${this.tradeOptions.amount}`);
+                    console.log(`📦 CONTRACT PURCHASED: ID ${buy.contract_id}, Price: ${buy.buy_price} USD`);
+                    console.log(`⏳ SEQUENTIAL MODE: Now waiting for contract closure before next trade`);
 
                     resolve();
                 };
@@ -194,13 +219,13 @@ export default Engine =>
                 if (lastTradeProfit < 0) {
                     // Loss: Apply martingale
                     const newConsecutiveLosses = consecutiveLosses + 1;
-                    
+
                     if (newConsecutiveLosses <= maxConsecutiveLosses) {
                         const newMultiplier = Math.min(multiplier * 2, maxMultiplier);
                         this.martingaleState.multiplier = newMultiplier;
                         this.martingaleState.consecutiveLosses = newConsecutiveLosses;
                         this.tradeOptions.amount = Math.round((baseAmount * newMultiplier) * 100) / 100;
-                        
+
                         console.log(`🔴 LOSS DETECTED: Applying martingale strategy`);
                         console.log(`🔴 Stake increased: ${baseAmount} USD → ${this.tradeOptions.amount} USD (${newMultiplier}x multiplier)`);
                         console.log(`🔴 Consecutive losses: ${newConsecutiveLosses}/${maxConsecutiveLosses}`);
@@ -258,13 +283,13 @@ export default Engine =>
             if (profit < 0) {
                 // Loss: Apply martingale immediately
                 const newConsecutiveLosses = this.martingaleState.consecutiveLosses + 1;
-                
+
                 if (newConsecutiveLosses <= maxConsecutiveLosses) {
                     const newMultiplier = Math.min(this.martingaleState.multiplier * 2, maxMultiplier);
                     this.martingaleState.multiplier = newMultiplier;
                     this.martingaleState.consecutiveLosses = newConsecutiveLosses;
                     this.tradeOptions.amount = Math.round((baseAmount * newMultiplier) * 100) / 100;
-                    
+
                     console.log(`🔴 IMMEDIATE LOSS: Martingale applied instantly`);
                     console.log(`🔴 Next stake: ${baseAmount} USD → ${this.tradeOptions.amount} USD (${newMultiplier}x multiplier)`);
                     console.log(`🔴 Consecutive losses: ${newConsecutiveLosses}/${maxConsecutiveLosses}`);
@@ -308,14 +333,14 @@ export default Engine =>
             this.setWaitingForContractClose(false);
 
             // Clear the waiting flag
-            this.isWaitingForContractClose = false;
+            this.isWaitingForContractClosure = false;
 
             // Update last trade time to current time for immediate readiness calculation
             this.lastTradeTime = Date.now();
 
             console.log(`💰 TRADE RESULT CONFIRMED: P&L: ${profit} USD | Total P&L: ${this.martingaleState.totalProfit.toFixed(2)} USD`);
             console.log(`🎯 MARTINGALE APPLIED: Next stake ready immediately`);
-            
+
             // Log current martingale state
             console.log(`📊 MARTINGALE STATE: Multiplier: ${this.martingaleState.multiplier}x, Consecutive losses: ${this.martingaleState.consecutiveLosses}, Next stake: ${this.tradeOptions.amount} USD`);
 
@@ -391,12 +416,12 @@ export default Engine =>
             const currentTime = Date.now();
             const timeSinceLastTrade = currentTime - this.lastTradeTime;
             const minimumDelay = 200; // Optimized delay
-            
+
             // Check optimized delay requirement
             if (this.lastTradeTime > 0 && timeSinceLastTrade < minimumDelay) {
                 return false;
             }
-            
+
             // Check if waiting for contract close
             return !this.waitingForContractClose;
         }
@@ -419,11 +444,11 @@ export default Engine =>
             const currentTime = Date.now();
             const timeSinceLastTrade = currentTime - this.lastTradeTime;
             const minimumDelay = 200;
-            
+
             if (timeSinceLastTrade >= minimumDelay) {
                 return 0; // Ready immediately
             }
-            
+
             return minimumDelay - timeSinceLastTrade; // Time to wait
         }
 
@@ -441,4 +466,53 @@ export default Engine =>
         regeneratePurchaseReference = () => {
             purchase_reference = getUUID();
         };
+
+        // Method to set up a watcher for contract closure
+        setupContractClosureWatcher(contractId) {
+            if (this.contractClosurePromise) {
+                console.warn('⚠️ Overwriting existing contract closure promise');
+            }
+
+            this.contractClosurePromise = new Promise(resolve => {
+                const intervalId = setInterval(() => {
+                    api_base.api.send({ proposal_open_contract: contractId })
+                        .then(response => {
+                            if (response.error) {
+                                console.error('API Error during contract closure check:', response.error);
+                                clearInterval(intervalId);
+                                this.clearContractClosureState();
+                                resolve();
+                                return;
+                            }
+
+                            const contract = response.proposal_open_contract;
+                            if (contract && contract.status === 'closed') {
+                                console.log(`✅ CONTRACT CLOSED: ID ${contractId}, Final profit: ${contract.profit} USD`);
+
+                                // Update trade result with final profit
+                                this.updateTradeResult(contract.profit);
+
+                                clearInterval(intervalId);
+                                this.clearContractClosureState();
+                                resolve();
+                            } else {
+                                console.log(`🔍 Checking contract status: ${contractId} still ${contract ? contract.status : 'not found'}`);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error checking contract closure:', error);
+                            clearInterval(intervalId);
+                            this.clearContractClosureState();
+                            resolve();
+                        });
+                }, 3000); // Poll every 3 seconds - adjust as necessary
+            });
+        }
+
+        // Method to clear contract closure state
+        clearContractClosureState() {
+            this.isWaitingForContractClosure = false;
+            this.contractClosurePromise = null;
+            this.lastContractId = null;
+        }
     };
