@@ -506,8 +506,7 @@ const AppWrapper = observer(() => {
           console.error('Error parsing WebSocket message:', parseError)
           setCurrentPrice('Parse Error')
         }
-      }
-
+      }```text
       ws.onclose = (event) => {
         console.log('WebSocket connection closed:', event.code, event.reason)
         setIsConnected(false)
