@@ -350,6 +350,7 @@ export default Engine =>
                 this.martingaleState.baseAmount = this.tradeOptions.amount;
                 console.log(`🟦 MARTINGALE INIT: Base amount set to ${this.martingaleState.baseAmount} USD`);
                 console.log(`🟦 MARTINGALE LIMITS: Max multiplier: ${maxMultiplier}x, Max consecutive losses: ${maxConsecutiveLosses}`);
+                console.log(`🟦 MARTINGALE FACTOR: ${this.martingaleState.martingaleMultiplier}x per loss`);
                 return;
             }
 
@@ -364,8 +365,8 @@ export default Engine =>
                     const configuredMultiplier = this.martingaleState.martingaleMultiplier;
 
                     if (newConsecutiveLosses <= maxConsecutiveLosses) {
-                        // Use configured multiplier: multiplier^consecutiveLosses
-                        const newMultiplier = Math.min(Math.pow(configuredMultiplier, newConsecutiveLosses), maxMultiplier);
+                        // Continue multiplying: current_multiplier * configured_factor
+                        const newMultiplier = Math.min(multiplier * configuredMultiplier, maxMultiplier);
                         this.martingaleState.multiplier = newMultiplier;
                         this.martingaleState.consecutiveLosses = newConsecutiveLosses;
                         
@@ -381,8 +382,8 @@ export default Engine =>
                         this.tradeOptions.amount = Math.round(newStake * 100) / 100;
 
                         console.log(`🔴 LOSS DETECTED: Applying martingale strategy`);
-                        console.log(`🔴 Using configured multiplier: ${configuredMultiplier}x`);
-                        console.log(`🔴 Stake increased: ${baseAmount} USD → ${this.tradeOptions.amount} USD (${newMultiplier}x from base)`);
+                        console.log(`🔴 Multiplying current stake by factor: ${configuredMultiplier}x`);
+                        console.log(`🔴 Stake progression: ${baseAmount} USD → ${this.tradeOptions.amount} USD (${newMultiplier}x from base)`);
                         console.log(`🔴 Consecutive losses: ${newConsecutiveLosses}/${maxConsecutiveLosses}`);
                     } else {
                         // Reset on max consecutive losses
@@ -424,7 +425,7 @@ export default Engine =>
                 return;
             }
 
-            const { baseAmount, consecutiveLosses, maxConsecutiveLosses } = this.martingaleState;
+            const { baseAmount, consecutiveLosses, maxConsecutiveLosses, multiplier } = this.martingaleState;
 
             // Initialize base amount on first run
             if (!baseAmount) {
@@ -435,16 +436,20 @@ export default Engine =>
 
             console.log(`⚡ IMMEDIATE MARTINGALE: Processing trade result P&L: ${profit} USD`);
             console.log(`⚡ Current stake before adjustment: ${this.tradeOptions.amount} USD`);
+            console.log(`⚡ Current multiplier: ${multiplier}x, Consecutive losses: ${consecutiveLosses}`);
 
             if (profit < 0) {
-                // Loss: Apply martingale immediately - double the stake
+                // Loss: Apply martingale immediately - continue multiplying by the factor
                 const newConsecutiveLosses = consecutiveLosses + 1;
 
                 if (newConsecutiveLosses <= maxConsecutiveLosses) {
-                    // Apply configured multiplier to current stake
+                    // Continue multiplying by the configured factor
                     const previousStake = this.tradeOptions.amount;
                     const configuredMultiplier = this.martingaleState.martingaleMultiplier;
-                    let newStake = previousStake * configuredMultiplier;
+                    
+                    // Calculate new multiplier: current_multiplier * configured_factor
+                    const newTotalMultiplier = multiplier * configuredMultiplier;
+                    let newStake = baseAmount * newTotalMultiplier;
                     
                     // Check max stake limit if configured
                     if (this.martingaleState.maxStake && newStake > this.martingaleState.maxStake) {
@@ -455,11 +460,11 @@ export default Engine =>
                     
                     this.tradeOptions.amount = Math.round(newStake * 100) / 100;
                     this.martingaleState.consecutiveLosses = newConsecutiveLosses;
-                    this.martingaleState.multiplier = configuredMultiplier; // Use configured multiplier
+                    this.martingaleState.multiplier = newTotalMultiplier;
 
                     console.log(`🔴 IMMEDIATE LOSS: Martingale applied instantly`);
-                    console.log(`🔴 Using configured multiplier: ${configuredMultiplier}x`);
-                    console.log(`🔴 Stake increased: ${previousStake} USD → ${this.tradeOptions.amount} USD (${configuredMultiplier}x multiplier)`);
+                    console.log(`🔴 Multiplying by factor: ${multiplier}x * ${configuredMultiplier}x = ${newTotalMultiplier}x`);
+                    console.log(`🔴 Stake progression: ${previousStake} USD → ${this.tradeOptions.amount} USD (${newTotalMultiplier}x from base)`);
                     console.log(`🔴 Consecutive losses: ${newConsecutiveLosses}/${maxConsecutiveLosses}`);
                 } else {
                     // Reset on max consecutive losses
