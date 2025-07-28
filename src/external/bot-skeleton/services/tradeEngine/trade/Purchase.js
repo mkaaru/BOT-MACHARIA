@@ -386,45 +386,35 @@ export default Engine =>
             return true;
         }
 
-        // Check if ready to purchase (optimized sequential mode)
+        // Check if ready to purchase (proper contract closure synchronization)
         canPurchase() {
-            const currentTime = Date.now();
-            const timeSinceLastTrade = currentTime - this.lastTradeTime;
-            const minimumDelay = 200; // Optimized delay
-            
-            // Check optimized delay requirement
-            if (this.lastTradeTime > 0 && timeSinceLastTrade < minimumDelay) {
-                return false;
-            }
-            
-            // Check if waiting for contract close
+            // Only allow purchase if not waiting for contract to close
             return !this.waitingForContractClose;
         }
 
         // New method to check trade readiness and emit signal if ready
         checkTradeReadiness() {
-            setTimeout(() => {
-                if (this.canPurchase()) {
-                    console.log('⚡ READY FOR NEXT TRADE: Optimized timing allows immediate execution');
-                    // Emit readiness signal for UI or trade engine
-                    if (this.observer) {
-                        this.observer.emit('TRADE_READY');
+            if (this.canPurchase()) {
+                console.log('⚡ READY FOR NEXT TRADE: Contract closed, ready for next purchase');
+                // Emit readiness signal for UI or trade engine
+                if (this.observer) {
+                    this.observer.emit('TRADE_READY');
+                }
+            } else {
+                console.log('⏳ WAITING FOR CONTRACT CLOSURE: Cannot purchase until current contract closes');
+            }Y');
                     }
                 }
-            }, 50); // Small buffer to ensure state is fully updated
-        }
-
-        // Enhanced timing for tick-based strategies
-        getOptimalEntryTiming() {
-            const currentTime = Date.now();
-            const timeSinceLastTrade = currentTime - this.lastTradeTime;
-            const minimumDelay = 200;
-            
-            if (timeSinceLastTrade >= minimumDelay) {
-                return 0; // Ready immediately
             }
             
-            return minimumDelay - timeSinceLastTrade; // Time to wait
+            // Set waiting for contract close immediately after purchase
+            this.setWaitingForContractClose(true);
+            console.log('📋 CONTRACT PURCHASED: Now waiting for contract to close before next trade');
+        }
+
+        // Check if contract is ready for next trade (no timing delays)
+        isReadyForNextTrade() {
+            return !this.waitingForContractClose;
         }
 
         // Mark that we're waiting for contract close

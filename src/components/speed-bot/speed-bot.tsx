@@ -277,6 +277,21 @@ const SpeedBot: React.FC = observer(() => {
       const purchaseResult = await botInterface.purchase(tradeOptions);
       console.log('✅ Purchase result:', purchaseResult);
 
+      // Wait for contract closure before allowing next trade
+      if (purchaseResult && botInterface.isWaitingForContractClose && botInterface.isWaitingForContractClose()) {
+        console.log('⏳ SPEED BOT: Waiting for contract to close before next trade...');
+        // The bot interface will handle waiting for contract closure
+        await new Promise((resolve) => {
+          const observer = window.globalObserver;
+          const listener = () => {
+            observer.unregister('contract.closed', listener);
+            console.log('✅ SPEED BOT: Contract closed, ready for next trade');
+            resolve();
+          };
+          observer.register('contract.closed', listener);
+        });
+      }
+
       return purchaseResult;
 
     } catch (error) {
