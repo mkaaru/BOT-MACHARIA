@@ -23,6 +23,7 @@ export default Engine =>
                 baseAmount: null,
                 multiplier: 1,
                 consecutiveLosses: 0,
+                cumulativeLosses: 0, // Track total losses in current martingale sequence
                 lastTradeProfit: null, // Start with null to indicate no previous trade
                 currentPurchasePrice: 0,
                 totalProfit: 0,
@@ -460,23 +461,42 @@ export default Engine =>
                     this.martingaleState.consecutiveLosses = newConsecutiveLosses;
                     this.martingaleState.multiplier = Math.pow(configuredMultiplier, newConsecutiveLosses);
 
+                    // Track cumulative losses for sequence recovery calculation
+                    this.martingaleState.cumulativeLosses = (this.martingaleState.cumulativeLosses || 0) + Math.abs(profit);
+
                     console.log(`🔴 IMMEDIATE LOSS: Continuing martingale progression`);
                     console.log(`🔴 Stake calculation: ${baseAmount} * ${configuredMultiplier}^${newConsecutiveLosses} = ${this.tradeOptions.amount} USD`);
                     console.log(`🔴 Total multiplier from base: ${this.martingaleState.multiplier}x`);
                     console.log(`🔴 Consecutive losses: ${newConsecutiveLosses}/${maxConsecutiveLosses}`);
+                    console.log(`🔴 Cumulative losses in sequence: ${this.martingaleState.cumulativeLosses} USD`);
                 } else {
                     // Reset on max consecutive losses
                     this.resetMartingale();
                     console.log(`⚠️ MAX LOSSES: Reset to base ${this.martingaleState.baseAmount} USD`);
                 }
             } else if (profit > 0) {
-                // Win: Only reset if we had consecutive losses (martingale sequence was active)
+                // Win: Check if this win recovers the losses from the martingale sequence
                 if (consecutiveLosses > 0) {
-                    const previousStake = this.tradeOptions.amount;
-                    this.resetMartingale();
-                    console.log(`🟢 IMMEDIATE WIN: Martingale sequence completed after ${consecutiveLosses} losses!`);
-                    console.log(`🟢 Stake reset: ${previousStake} USD → ${this.martingaleState.baseAmount} USD`);
-                    console.log(`🟢 Consecutive losses reset to 0`);
+                    const cumulativeLosses = this.martingaleState.cumulativeLosses || 0;
+                    const netRecovery = profit - cumulativeLosses;
+
+                    console.log(`🟢 WIN DURING MARTINGALE: Profit ${profit} USD vs Cumulative losses ${cumulativeLosses} USD`);
+                    console.log(`🟢 Net recovery: ${netRecovery} USD`);
+
+                    if (netRecovery >= 0) {
+                        // Full recovery achieved - reset martingale
+                        const previousStake = this.tradeOptions.amount;
+                        this.resetMartingale();
+                        console.log(`🟢 SEQUENCE RECOVERED: Martingale completed after ${consecutiveLosses} losses!`);
+                        console.log(`🟢 Stake reset: ${previousStake} USD → ${this.martingaleState.baseAmount} USD`);
+                        console.log(`🟢 Total recovery: ${netRecovery.toFixed(2)} USD profit`);
+                    } else {
+                        // Partial recovery - continue with current stake until full recovery
+                        this.martingaleState.cumulativeLosses = Math.abs(netRecovery);
+                        console.log(`🟡 PARTIAL RECOVERY: Continue with ${this.tradeOptions.amount} USD stake`);
+                        console.log(`🟡 Remaining to recover: ${this.martingaleState.cumulativeLosses} USD`);
+                        console.log(`🟡 Maintaining consecutive losses at: ${consecutiveLosses}`);
+                    }
                 } else {
                     // Normal win with no active martingale - keep base stake
                     this.tradeOptions.amount = baseAmount;
@@ -486,6 +506,7 @@ export default Engine =>
                 // Break-even: Keep current progression if in martingale sequence
                 if (consecutiveLosses > 0) {
                     console.log(`🟡 BREAK-EVEN: Maintaining martingale progression ${this.tradeOptions.amount} USD (${consecutiveLosses} losses)`);
+                    console.log(`🟡 Still need to recover: ${this.martingaleState.cumulativeLosses || 0} USD`);
                 } else {
                     this.tradeOptions.amount = baseAmount;
                     console.log(`🟡 BREAK-EVEN: Using base stake ${this.tradeOptions.amount} USD`);
@@ -498,6 +519,7 @@ export default Engine =>
         resetMartingale() {
             this.martingaleState.multiplier = 1;
             this.martingaleState.consecutiveLosses = 0;
+            this.martingaleState.cumulativeLosses = 0;
             this.tradeOptions.amount = this.martingaleState.baseAmount;
         }
 
