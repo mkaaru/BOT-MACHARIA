@@ -1,0 +1,102 @@
+// Located at: src/external/bot-skeleton/services/api/contracts-for.js
+import { config } from '../../constants/config';
+import PendingPromise from '../../utils/pending-promise';
+import { api_base } from './api-base';
+
+export default class ContractsFor {
+    constructor({ ws, server_time }) {
+        this.cache_age_in_min = 10;
+        this.contracts_for = {};
+        this.ws = ws;
+        this.server_time = server_time;
+        // Contract filtering rules
+        this.disabled_options = [
+            {
+                submarket: 'forex_basket',
+                trade_type: 'higherlower',
+            },
+            {
+                submarket: 'minor_pairs',
+                trade_type: 'higherlower',
+            },
+            {
+                submarket: 'metals',
+                trade_type: 'callputequal',
+            },
+            {
+                market: 'indices',
+                trade_type: 'callputequal',
+            },
+            {
+                symbol: 'OTC_AS51',
+                trade_type_category: 'inout',
+            },
+            { trade_type_category: 'lookback' },
+            { trade_type_category: 'callputspread' },
+        ];
+        this.retrieving_contracts_for = {};
+    }
+
+    async getContractsFor(symbol) {
+        if (!symbol || symbol === 'na') {
+            return [];
+        }
+
+        const getContractsForFromApi = async () => {
+            if (this.retrieving_contracts_for[symbol]) {
+                await this.retrieving_contracts_for[symbol];
+                return this.contracts_for[symbol].contracts;
+            }
+
+            this.retrieving_contracts_for[symbol] = new PendingPromise();
+            const response = await api_base.api.send({ contracts_for: symbol });
+
+            if (response.error) {
+                return [];
+            }
+
+            const {
+                contracts_for: { available: contracts },
+            } = response;
+
+            // We don't offer forward-starting contracts in bot.
+            const filtered_contracts = contracts.filter(c => c.start_type !== 'forward');
+
+            this.contracts_for[symbol] = {
+                contracts: filtered_contracts,
+                timestamp: this.server_time.unix(),
+            };
+
+            this.retrieving_contracts_for[symbol].resolve();
+            delete this.retrieving_contracts_for[symbol];
+
+            return filtered_contracts;
+        };
+
+        if (this.contracts_for[symbol]) {
+            const { contracts, timestamp } = this.contracts_for[symbol];
+            const is_expired = this.server_time.unix() - timestamp > this.cache_age_in_min * 60;
+
+            if (is_expired) {
+                getContractsForFromApi();
+            }
+
+            return contracts;
+        }
+
+        return getContractsForFromApi();
+    }
+
+    getContractTypes = trade_type => {
+        const { opposites } = config();
+        let trade_type_value = trade_type;
+        if (trade_type_value === 'ACCU') {
+            trade_type_value = 'accumulator';
+        }
+        const categories = opposites[trade_type_value.toUpperCase()].map(opposite => ({
+            value: Object.keys(opposite)[0],
+            text: Object.values(opposite)[0],
+        }));
+        return categories;
+    };
+}
