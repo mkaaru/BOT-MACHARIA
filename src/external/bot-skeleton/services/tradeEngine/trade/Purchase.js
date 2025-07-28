@@ -194,7 +194,14 @@ export default Engine =>
                 });
 
                 if (!this.options.timeMachineEnabled) {
-                    return doUntilDone(action).then(onSuccess);
+                    return doUntilDone(action)
+                        .then(onSuccess)
+                        .catch(error => {
+                            console.error('❌ PURCHASE ERROR: Trade option action failed', error);
+                            this.isWaitingForContractClosure = false;
+                            this.clearContractClosureState();
+                            resolve();
+                        });
                 }
 
                 return recoverFromError(
@@ -213,7 +220,13 @@ export default Engine =>
                     },
                     ['PriceMoved', 'InvalidContractProposal'],
                     delayIndex++
-                ).then(onSuccess);
+                ).then(onSuccess)
+                .catch(error => {
+                    console.error('❌ PURCHASE ERROR: RecoverFromError failed', error);
+                    this.isWaitingForContractClosure = false;
+                    this.clearContractClosureState();
+                    resolve();
+                });
             });
         }
 
@@ -549,13 +562,13 @@ export default Engine =>
                     }
                 });
             }
-            
+
             // Clear proposals from store if available
             if (this.store && this.store.dispatch) {
                 const { clearProposals } = require('./state/actions');
                 this.store.dispatch(clearProposals());
             }
-            
+
             console.log('🗑️ PROPOSALS: Cleared existing proposals');
         }
 
@@ -565,7 +578,7 @@ export default Engine =>
             if (this.data && this.data.proposals) {
                 this.data.proposals = [];
             }
-            
+
             if (this.store && this.store.dispatch) {
                 const { clearProposals } = require('./state/actions');
                 this.store.dispatch(clearProposals());
@@ -575,7 +588,7 @@ export default Engine =>
         // Entry filter system
         shouldEnterTrade(contract_type) {
             const currentTime = Date.now();
-            
+
             // 1. Check minimum time between trades (prevent rapid fire trading)
             const minimumTradeInterval = 3000; // 3 seconds minimum between trades
             if (this.lastTradeTime && (currentTime - this.lastTradeTime) < minimumTradeInterval) {
@@ -692,7 +705,7 @@ export default Engine =>
                     console.log(`🚫 Cooling down after loss streak: ${remainingCooldown}s remaining`);
                     return true;
                 }
-                
+
                 // Reset cooldown
                 this.lastLossStreakTime = null;
             }
