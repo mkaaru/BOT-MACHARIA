@@ -28,15 +28,24 @@ export default Engine =>
             // Track if trade result is confirmed and ready for martingale processing
             this.isTradeConfirmed = false;
 
-            // Trading mode configuration
-            this.continuousMode = false; // Default to sequential mode for proper martingale
+            // Trading mode configuration - always sequential with 1s delay
             this.waitingForContractClose = false;
             this.isWaitingForContractClose = false;
+            this.lastTradeTime = 0; // Track last trade time for 1s delay
             
-            console.log('🟦 MARTINGALE ENGINE: Initialized with sequential trading mode');
+            console.log('🟦 MARTINGALE ENGINE: Initialized with sequential trading mode and 1s delay');
         }
 
         purchase(contract_type) {
+            // Check for 1-second delay between trades
+            const currentTime = Date.now();
+            const timeSinceLastTrade = currentTime - this.lastTradeTime;
+            
+            if (this.lastTradeTime > 0 && timeSinceLastTrade < 1000) {
+                const remainingDelay = 1000 - timeSinceLastTrade;
+                throw new Error(`Wait ${remainingDelay}ms before next trade (1s volatility requirement)`);
+            }
+
             // Prevent purchase if waiting for previous contract to close
             if (this.isWaitingForContractClose) {
                 throw new Error('Cannot purchase: waiting for previous contract to close');
@@ -48,13 +57,6 @@ export default Engine =>
 
             if (should_forget_proposal) {
                 this.forgetProposals();
-            }
-
-            if (!this.options.timeMachine) {
-                // Remove continuous trading check to allow martingale
-                if (false) {
-                    throw new InvalidContractTypeError();
-                }
             }
 
             // Apply martingale logic before purchase
@@ -89,6 +91,7 @@ export default Engine =>
 
                     // Store purchase details for profit calculation
                     this.martingaleState.currentPurchasePrice = buy.buy_price;
+                    this.lastTradeTime = Date.now(); // Record trade time for 1s delay
                     console.log(`🔵 PURCHASE: ${buy.buy_price} USD, Contract ID: ${buy.contract_id}, Stake: ${this.tradeOptions.amount}`);
 
                     resolve();
@@ -244,10 +247,8 @@ export default Engine =>
             this.martingaleState.totalProfit = (this.martingaleState.totalProfit || 0) + profit;
             this.isTradeConfirmed = true; // Mark trade as confirmed for martingale processing
 
-            // In sequential mode, mark that contract has closed
-            if (!this.continuousMode) {
-                this.setWaitingForContractClose(false);
-            }
+            // Mark that contract has closed (always sequential mode)
+            this.setWaitingForContractClose(false);
 
             // Clear the waiting flag
             this.isWaitingForContractClose = false;
@@ -322,28 +323,27 @@ export default Engine =>
             return true;
         }
 
-        // Method to set trading mode
-        setContinuousMode(continuous) {
-            this.continuousMode = continuous;
-            console.log(`🔧 TRADING MODE: ${continuous ? 'Continuous' : 'Sequential'} purchase mode activated`);
-        }
-
-        // Check if ready to purchase
+        // Check if ready to purchase (always sequential with 1s delay)
         canPurchase() {
-            if (this.continuousMode) {
-                return true; // Always ready in continuous mode
-            } else {
-                return !this.waitingForContractClose; // Wait for contract close in sequential mode
+            const currentTime = Date.now();
+            const timeSinceLastTrade = currentTime - this.lastTradeTime;
+            
+            // Check 1-second delay requirement
+            if (this.lastTradeTime > 0 && timeSinceLastTrade < 1000) {
+                return false;
             }
+            
+            // Check if waiting for contract close
+            return !this.waitingForContractClose;
         }
 
         // Mark that we're waiting for contract close
         setWaitingForContractClose(waiting) {
             this.waitingForContractClose = waiting;
             if (waiting) {
-                console.log('⏳ SEQUENTIAL MODE: Waiting for contract to close before next purchase');
+                console.log('⏳ SEQUENTIAL MODE: Waiting for contract to close before next purchase (1s delay enforced)');
             } else {
-                console.log('✅ SEQUENTIAL MODE: Ready for next purchase');
+                console.log('✅ SEQUENTIAL MODE: Ready for next purchase (respecting 1s delay)');
             }
         }
 
