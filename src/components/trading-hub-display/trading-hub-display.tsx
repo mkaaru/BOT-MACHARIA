@@ -582,69 +582,39 @@ const TradingHubDisplay: React.FC = observer(() => {
                 const pnl = profit || (sellPrice - buyPrice);
                 const isWin = pnl > 0;
 
-                addLog(`${isWin ? '🎉' : '💔'} Trade ${isWin ? 'WON' : 'LOST'}: Buy: $${buyPrice.toFixed(2)}, Sell: $${sellPrice.toFixed(2)}, P&L: ${pnl > 0 ? '+' : ''}$${pnl.toFixed(2)}`);
+                addLog(`${isWin ? '🎉' : '💔'} Trade ${isWin ? 'WON' : 'LOST'}: P&L ${pnl > 0 ? '+' : ''}$${pnl.toFixed(2)}`);
 
-                // Update martingale state - enforce strict 2x multiplier on loss
-                setMartingaleConfig(prev => {
-                    if (isWin) {
-                        addLog('✅ MARTINGALE RESET: Win detected - resetting to base stake');
-                        return {
-                            ...prev,
-                            consecutiveLosses: 0,
-                            currentMultiplier: 1.0,
-                            baseStake: tradingState.currentStake
-                        };
-                    } else {
-                        addLog('❌ MARTINGALE ENFORCED: Confirmed loss - NEXT TRADE WILL USE 2x MULTIPLIER');
-                        return {
-                            ...prev,
-                            consecutiveLosses: 1, // Always set to 1 for 2x multiplier on next trade
-                            currentMultiplier: 2.0,   // Fixed 2x multiplier
-                            baseStake: tradingState.currentStake
-                        };
-                    }
-                });
+                // Add to trade history first
+                const tradeRecord = {
+                    timestamp: new Date().toLocaleTimeString(),
+                    symbol: data.symbol || 'Unknown',
+                    contract_type: data.contract_type || 'DIGIT',
+                    stake: parseFloat(data.buy_price) || tradingState.currentStake,
+                    outcome: isWin ? 'win' : 'loss',
+                    pnl: pnl
+                };
 
-                setTradingState(prev => {
-                    const newWinTrades = isWin ? prev.winTrades + 1 : prev.winTrades;
-                    const newLossTrades = isWin ? prev.lossTrades : prev.lossTrades + 1;
-                    const newTotalProfit = prev.totalProfit + pnl;
+                setTradeHistory(prev => {
+                    const newHistory = [tradeRecord, ...prev.slice(0, 99)]; // Keep last 100 trades
 
-                    // Check stop conditions
-                    if (newTotalProfit <= -prev.stopLoss) {
-                        addLog(`🛑 Stop Loss hit! Stopping trading...`);
-                        return {
-                            ...prev,
-                            totalProfit: newTotalProfit,
-                            winTrades: newWinTrades,
-                            lossTrades: newLossTrades,
-                            lastTradeResult: isWin ? 'Win' : 'Loss',
-                            isTradeInProgress: false,
-                            isRunning: false
-                        };
-                    }
+                    // Recalculate statistics from complete trade history
+                    const totalTrades = newHistory.length;
+                    const winTrades = newHistory.filter(trade => trade.outcome === 'win').length;
+                    const lossTrades = newHistory.filter(trade => trade.outcome === 'loss').length;
+                    const totalProfit = newHistory.reduce((sum, trade) => sum + trade.pnl, 0);
 
-                    if (newTotalProfit >= prev.takeProfit) {
-                        addLog(`🎯 Take Profit hit! Stopping trading...`);
-                        return {
-                            ...prev,
-                            totalProfit: newTotalProfit,
-                            winTrades: newWinTrades,
-                            lossTrades: newLossTrades,
-                            lastTradeResult: isWin ? 'Win' : 'Loss',
-                            isTradeInProgress: false,
-                            isRunning: false
-                        };
-                    }
-
-                    return {
+                    // Update trading state with accurate statistics
+                    setTradingState(prev => ({
                         ...prev,
-                        totalProfit: newTotalProfit,
-                        winTrades: newWinTrades,
-                        lossTrades: newLossTrades,
+                        totalTrades: totalTrades,
+                        winTrades: winTrades,
+                        lossTrades: lossTrades,
+                        totalProfit: totalProfit,
                         lastTradeResult: isWin ? 'Win' : 'Loss',
                         isTradeInProgress: false
-                    };
+                    }));
+
+                    return newHistory;
                 });
             }
         };
@@ -714,7 +684,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 console.warn('Could not subscribe to API messages:', error);
             }
         }
-    }, [addLog]);
+    }, [addLog, tradingState.currentStake]);
 
     const executeManualTrade = useCallback(async () => {
         const tradeConfig = getTradeConfig();
@@ -838,7 +808,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     return (
         <div className="trading-hub-container">
-            
+
             <div className="trading-hub-grid">
                 <div className="main-content">
                     {/* Market Analyzer Status */}
@@ -904,7 +874,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     }}
                                     min="1"
                                     step="0.1"
-                                    disabled={tradingState.isRunning}
+                                                                   disabled={tradingState.isRunning}
                                 />
                             </div>
                             <div className="config-item">
