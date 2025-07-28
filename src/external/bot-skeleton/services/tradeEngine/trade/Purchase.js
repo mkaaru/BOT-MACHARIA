@@ -18,7 +18,7 @@ export default Engine =>
             this.contractClosurePromise = null;
             this.minimumTradeDelay = 1000; // 1 second minimum between trades
             this.lastTradeTime = 0;
-            // Initialize martingale state
+            // Initialize martingale state - will be configured from bot builder
             this.martingaleState = {
                 baseAmount: null,
                 multiplier: 1,
@@ -26,9 +26,13 @@ export default Engine =>
                 lastTradeProfit: null, // Start with null to indicate no previous trade
                 currentPurchasePrice: 0,
                 totalProfit: 0,
-                isEnabled: true, // Flag to enable/disable martingale
-                maxMultiplier: 64, // Maximum multiplier limit
-                maxConsecutiveLosses: 10 // Maximum consecutive losses allowed
+                isEnabled: false, // Will be set based on bot configuration
+                maxMultiplier: 64, // Will be overridden by bot config
+                maxConsecutiveLosses: 10, // Will be overridden by bot config
+                martingaleMultiplier: 2, // The multiplier from bot builder (default 2)
+                profitThreshold: null, // From bot builder
+                lossThreshold: null, // From bot builder
+                maxStake: null // From bot builder
             };
 
             // Track if trade result is confirmed and ready for martingale processing
@@ -41,6 +45,144 @@ export default Engine =>
             this.minimumTradeDelay = 200; // Configurable minimum delay between trades
 
             console.log('🟦 MARTINGALE ENGINE: Initialized with optimized sequential trading mode (200ms delay)');
+            
+            // Configure martingale from bot parameters
+            this.configureMartingaleFromBot();
+        }
+
+        // Configure martingale parameters from bot builder settings
+        configureMartingaleFromBot() {
+            try {
+                // Access bot configuration from various possible sources
+                const botConfig = this.getBotConfiguration();
+                
+                if (botConfig) {
+                    // Set martingale parameters from bot configuration
+                    this.martingaleState.isEnabled = botConfig.martingale_enabled || false;
+                    this.martingaleState.martingaleMultiplier = parseFloat(botConfig.size) || parseFloat(botConfig.martingale_size) || 2;
+                    this.martingaleState.profitThreshold = parseFloat(botConfig.profit) || null;
+                    this.martingaleState.lossThreshold = parseFloat(botConfig.loss) || null;
+                    this.martingaleState.maxStake = parseFloat(botConfig.max_stake) || null;
+                    
+                    // Calculate max consecutive losses based on max stake
+                    if (this.martingaleState.maxStake && this.tradeOptions.amount) {
+                        const baseAmount = this.tradeOptions.amount;
+                        let consecutiveLosses = 0;
+                        let currentStake = baseAmount;
+                        
+                        while (currentStake <= this.martingaleState.maxStake) {
+                            consecutiveLosses++;
+                            currentStake = baseAmount * Math.pow(this.martingaleState.martingaleMultiplier, consecutiveLosses);
+                        }
+                        
+                        this.martingaleState.maxConsecutiveLosses = Math.max(1, consecutiveLosses - 1);
+                    }
+                    
+                    console.log('🔧 MARTINGALE CONFIGURED FROM BOT:');
+                    console.log(`   - Enabled: ${this.martingaleState.isEnabled}`);
+                    console.log(`   - Multiplier: ${this.martingaleState.martingaleMultiplier}x`);
+                    console.log(`   - Profit Threshold: ${this.martingaleState.profitThreshold || 'None'}`);
+                    console.log(`   - Loss Threshold: ${this.martingaleState.lossThreshold || 'None'}`);
+                    console.log(`   - Max Stake: ${this.martingaleState.maxStake || 'None'}`);
+                    console.log(`   - Max Consecutive Losses: ${this.martingaleState.maxConsecutiveLosses}`);
+                } else {
+                    console.log('⚠️ MARTINGALE: No bot configuration found, using defaults');
+                }
+            } catch (error) {
+                console.error('❌ MARTINGALE CONFIG ERROR:', error);
+                // Keep defaults if configuration fails
+            }
+        }
+
+        // Get bot configuration from various possible sources
+        getBotConfiguration() {
+            // Try to get configuration from different possible sources
+            
+            // 1. From tradeOptions if it contains bot config
+            if (this.tradeOptions && this.tradeOptions.botConfig) {
+                return this.tradeOptions.botConfig;
+            }
+            
+            // 2. From options if it contains strategy config
+            if (this.options && this.options.strategyConfig) {
+                return this.options.strategyConfig;
+            }
+            
+            // 3. From global bot store/workspace
+            if (typeof window !== 'undefined' && window.Blockly && window.Blockly.derivWorkspace) {
+                try {
+                    const workspace = window.Blockly.derivWorkspace;
+                    const xml = workspace.getXmlDom();
+                    
+                    // Extract martingale parameters from XML
+                    const config = this.extractMartingaleFromXML(xml);
+                    if (config) return config;
+                } catch (e) {
+                    console.warn('Could not extract config from Blockly workspace:', e);
+                }
+            }
+            
+            // 4. From store if available
+            if (this.store && this.store.getState) {
+                const state = this.store.getState();
+                if (state.quickStrategy || state.botBuilder) {
+                    const quickStrategy = state.quickStrategy || state.botBuilder;
+                    return {
+                        martingale_enabled: true, // Assume enabled if using quick strategy
+                        size: quickStrategy.size || quickStrategy.martingale_size,
+                        profit: quickStrategy.profit,
+                        loss: quickStrategy.loss,
+                        max_stake: quickStrategy.max_stake
+                    };
+                }
+            }
+            
+            return null;
+        }
+
+        // Extract martingale parameters from Blockly XML
+        extractMartingaleFromXML(xml) {
+            try {
+                const config = {};
+                
+                // Look for martingale-related blocks in the XML
+                const blocks = xml.querySelectorAll('block');
+                
+                blocks.forEach(block => {
+                    const type = block.getAttribute('type');
+                    
+                    // Look for trade parameters and martingale settings
+                    if (type && type.includes('trade_definition')) {
+                        const fields = block.querySelectorAll('field');
+                        fields.forEach(field => {
+                            const name = field.getAttribute('name');
+                            const value = field.textContent;
+                            
+                            if (name === 'STAKE' || name === 'AMOUNT') {
+                                config.initial_stake = parseFloat(value);
+                            }
+                        });
+                    }
+                    
+                    // Look for martingale multiplier
+                    if (type && (type.includes('martingale') || type.includes('size'))) {
+                        const fields = block.querySelectorAll('field');
+                        fields.forEach(field => {
+                            const name = field.getAttribute('name');
+                            const value = field.textContent;
+                            
+                            if (name === 'SIZE' || name === 'MULTIPLIER') {
+                                config.size = parseFloat(value);
+                            }
+                        });
+                    }
+                });
+                
+                return Object.keys(config).length > 0 ? config : null;
+            } catch (error) {
+                console.warn('Error extracting config from XML:', error);
+                return null;
+            }
         }
 
         purchase(contract_type) {
@@ -217,17 +359,29 @@ export default Engine =>
                 console.log(`📊 Current state - Multiplier: ${multiplier}x, Consecutive losses: ${consecutiveLosses}`);
 
                 if (lastTradeProfit < 0) {
-                    // Loss: Apply martingale - simple 2x progression
+                    // Loss: Apply martingale using configured multiplier
                     const newConsecutiveLosses = consecutiveLosses + 1;
+                    const configuredMultiplier = this.martingaleState.martingaleMultiplier;
 
                     if (newConsecutiveLosses <= maxConsecutiveLosses) {
-                        // Simple 2x multiplier on each loss: 1x → 2x → 4x → 8x...
-                        const newMultiplier = Math.min(Math.pow(2, newConsecutiveLosses), maxMultiplier);
+                        // Use configured multiplier: multiplier^consecutiveLosses
+                        const newMultiplier = Math.min(Math.pow(configuredMultiplier, newConsecutiveLosses), maxMultiplier);
                         this.martingaleState.multiplier = newMultiplier;
                         this.martingaleState.consecutiveLosses = newConsecutiveLosses;
-                        this.tradeOptions.amount = Math.round((baseAmount * newMultiplier) * 100) / 100;
+                        
+                        let newStake = baseAmount * newMultiplier;
+                        
+                        // Check max stake limit if configured
+                        if (this.martingaleState.maxStake && newStake > this.martingaleState.maxStake) {
+                            console.log(`⚠️ STAKE LIMIT: Calculated ${newStake} exceeds max ${this.martingaleState.maxStake}, resetting to base`);
+                            this.resetMartingale();
+                            return;
+                        }
+                        
+                        this.tradeOptions.amount = Math.round(newStake * 100) / 100;
 
                         console.log(`🔴 LOSS DETECTED: Applying martingale strategy`);
+                        console.log(`🔴 Using configured multiplier: ${configuredMultiplier}x`);
                         console.log(`🔴 Stake increased: ${baseAmount} USD → ${this.tradeOptions.amount} USD (${newMultiplier}x from base)`);
                         console.log(`🔴 Consecutive losses: ${newConsecutiveLosses}/${maxConsecutiveLosses}`);
                     } else {
@@ -287,16 +441,26 @@ export default Engine =>
                 const newConsecutiveLosses = consecutiveLosses + 1;
 
                 if (newConsecutiveLosses <= maxConsecutiveLosses) {
-                    // Double the current stake (2x multiplier)
+                    // Apply configured multiplier to current stake
                     const previousStake = this.tradeOptions.amount;
-                    this.tradeOptions.amount = Math.round((previousStake * 2) * 100) / 100;
+                    const configuredMultiplier = this.martingaleState.martingaleMultiplier;
+                    let newStake = previousStake * configuredMultiplier;
+                    
+                    // Check max stake limit if configured
+                    if (this.martingaleState.maxStake && newStake > this.martingaleState.maxStake) {
+                        console.log(`⚠️ IMMEDIATE STAKE LIMIT: Calculated ${newStake} exceeds max ${this.martingaleState.maxStake}, resetting to base`);
+                        this.resetMartingale();
+                        return;
+                    }
+                    
+                    this.tradeOptions.amount = Math.round(newStake * 100) / 100;
                     this.martingaleState.consecutiveLosses = newConsecutiveLosses;
-                    this.martingaleState.multiplier = 2; // Always 2x multiplier on loss
+                    this.martingaleState.multiplier = configuredMultiplier; // Use configured multiplier
 
                     console.log(`🔴 IMMEDIATE LOSS: Martingale applied instantly`);
-                    console.log(`🔴 Stake doubled: ${previousStake} USD → ${this.tradeOptions.amount} USD (2x multiplier)`);
+                    console.log(`🔴 Using configured multiplier: ${configuredMultiplier}x`);
+                    console.log(`🔴 Stake increased: ${previousStake} USD → ${this.tradeOptions.amount} USD (${configuredMultiplier}x multiplier)`);
                     console.log(`🔴 Consecutive losses: ${newConsecutiveLosses}/${maxConsecutiveLosses}`);
-                    console.log(`🔴 Next stake multiplier: 2x`);
                 } else {
                     // Reset on max consecutive losses
                     this.resetMartingale();
@@ -391,23 +555,23 @@ export default Engine =>
 
         shouldContinueTrading() {
             const totalProfit = this.martingaleState.totalProfit;
-            const profitThreshold = 1000; // Example threshold
-            const lossThreshold = -500; // Example threshold
+            const profitThreshold = this.martingaleState.profitThreshold;
+            const lossThreshold = this.martingaleState.lossThreshold;
             const multiplier = this.martingaleState.multiplier;
 
-            // Stop trading conditions
-            if (totalProfit >= profitThreshold) {
-                console.log('🛑 STOPPING: Profit threshold reached');
+            // Stop trading conditions using configured thresholds
+            if (profitThreshold && totalProfit >= profitThreshold) {
+                console.log(`🛑 STOPPING: Profit threshold reached (${totalProfit} >= ${profitThreshold})`);
                 return false;
             }
 
-            if (totalProfit <= lossThreshold) {
-                console.log('🛑 STOPPING: Loss threshold reached');
+            if (lossThreshold && totalProfit <= -Math.abs(lossThreshold)) {
+                console.log(`🛑 STOPPING: Loss threshold reached (${totalProfit} <= ${-Math.abs(lossThreshold)})`);
                 return false;
             }
 
-            if (multiplier >= 64) {
-                console.log('🛑 STOPPING: Maximum martingale multiplier reached');
+            if (multiplier >= this.martingaleState.maxMultiplier) {
+                console.log(`🛑 STOPPING: Maximum martingale multiplier reached (${multiplier})`);
                 return false;
             }
 
