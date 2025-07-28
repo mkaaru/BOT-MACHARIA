@@ -38,6 +38,12 @@ export default Engine =>
         }
 
         purchase(contract_type) {
+            // Check if market symbols are loaded before proceeding
+            if (!this.areMarketSymbolsLoaded()) {
+                console.log('⏳ MARKET SYMBOLS: Loading market data...');
+                throw new Error('Market symbols not loaded. Please wait for market data to load.');
+            }
+
             // Optimized timing check - reduce delay to 200ms for faster execution
             const currentTime = Date.now();
             const timeSinceLastTrade = currentTime - this.lastTradeTime;
@@ -440,18 +446,20 @@ export default Engine =>
 
         // Validate purchase conditions similar to Blockly purchase block
         validatePurchaseConditions(contract_type) {
+            // Ensure market symbols are loaded
+            if (!this.areMarketSymbolsLoaded()) {
+                console.log('❌ VALIDATION FAILED: Market symbols not loaded');
+                throw new Error('Market symbols not loaded. Cannot proceed with purchase.');
+            }
+
             // Check if contract type is available in purchase choices
             const availableContracts = this.getPurchaseChoices();
             const isValidContract = availableContracts.some(choice => choice[1] === contract_type);
             
             if (!isValidContract) {
                 console.warn(`⚠️ INVALID CONTRACT TYPE: ${contract_type} not available for current market conditions`);
+                console.log(`📋 Available contracts: ${availableContracts.map(c => `${c[0]} (${c[1]})`).join(', ')}`);
                 throw new Error(`Contract type ${contract_type} is not available. Available options: ${availableContracts.map(c => c[1]).join(', ')}`);
-            }
-
-            // Validate market conditions
-            if (!this.data.active_symbols || !this.data.active_symbols.length) {
-                throw new Error('Market symbols not loaded. Cannot proceed with purchase.');
             }
 
             // Validate trade options
@@ -464,7 +472,18 @@ export default Engine =>
                 throw new Error(`Insufficient balance. Available: ${this.data.balance.balance}, Required: ${this.tradeOptions.amount}`);
             }
 
-            console.log(`✅ PURCHASE VALIDATION PASSED: Contract ${contract_type} is valid for purchase`);
+            // Validate current symbol is in active symbols
+            if (this.options.symbol) {
+                const symbolExists = this.data.active_symbols.some(s => s.symbol === this.options.symbol) ||
+                                  (api_base.active_symbols && api_base.active_symbols.some(s => s.symbol === this.options.symbol));
+                
+                if (!symbolExists) {
+                    console.warn(`⚠️ SYMBOL NOT FOUND: ${this.options.symbol} not in active symbols`);
+                    throw new Error(`Symbol ${this.options.symbol} is not available for trading.`);
+                }
+            }
+
+            console.log(`✅ PURCHASE VALIDATION PASSED: Contract ${contract_type} is valid for purchase on ${this.options.symbol}`);
         }
 
         // Get available purchase choices (similar to Blockly block)
@@ -492,6 +511,70 @@ export default Engine =>
             }
 
             return defaultChoices;
+        }
+
+        // Check if market symbols are properly loaded
+        areMarketSymbolsLoaded() {
+            // Check multiple sources for market data
+            const hasActiveSymbols = this.data.active_symbols && this.data.active_symbols.length > 0;
+            const hasAPIActiveSymbols = api_base.active_symbols && api_base.active_symbols.length > 0;
+            const hasContractsFor = this.data.contracts_for && this.data.contracts_for.available;
+            
+            console.log(`🔍 MARKET DATA CHECK: Active symbols: ${hasActiveSymbols}, API symbols: ${hasAPIActiveSymbols}, Contracts: ${hasContractsFor}`);
+            
+            return hasActiveSymbols || hasAPIActiveSymbols || hasContractsFor;
+        }
+
+        // Initialize market symbols if not loaded
+        async initializeMarketSymbols() {
+            console.log('🚀 INITIALIZING MARKET SYMBOLS...');
+            
+            try {
+                // Wait for API base to have active symbols
+                if (!api_base.active_symbols || api_base.active_symbols.length === 0) {
+                    console.log('⏳ Waiting for API active symbols...');
+                    await api_base.active_symbols_promise;
+                }
+
+                // Copy active symbols to trade engine data
+                if (api_base.active_symbols && api_base.active_symbols.length > 0) {
+                    this.data.active_symbols = api_base.active_symbols;
+                    console.log(`✅ MARKET SYMBOLS LOADED: ${this.data.active_symbols.length} symbols available`);
+                }
+
+                // Request contracts for current symbol if needed
+                if (!this.data.contracts_for && this.options.symbol) {
+                    console.log(`📡 Requesting contracts for ${this.options.symbol}...`);
+                    const contracts_for = await this.requestContractsFor(this.options.symbol);
+                    if (contracts_for) {
+                        this.data.contracts_for = contracts_for;
+                        console.log(`✅ CONTRACTS LOADED for ${this.options.symbol}`);
+                    }
+                }
+
+                return true;
+            } catch (error) {
+                console.error('❌ MARKET SYMBOLS INITIALIZATION FAILED:', error);
+                return false;
+            }
+        }
+
+        // Request contracts for a specific symbol
+        async requestContractsFor(symbol) {
+            try {
+                const response = await api_base.api.send({
+                    contracts_for: symbol,
+                    currency: this.accountInfo.currency || 'USD'
+                });
+                
+                if (response.contracts_for) {
+                    return response.contracts_for;
+                }
+                return null;
+            } catch (error) {
+                console.error(`❌ Failed to load contracts for ${symbol}:`, error);
+                return null;
+            }
         }
 
         // Enhanced purchase logging with Blockly-style information
