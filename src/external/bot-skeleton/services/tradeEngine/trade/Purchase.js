@@ -87,8 +87,24 @@ export default Engine =>
 
             return new Promise((resolve) => {
                 const onSuccess = response => {
+                    // Check if response and buy property exist
+                    if (!response || !response.buy) {
+                        console.error('❌ PURCHASE ERROR: Invalid response structure', response);
+                        this.isWaitingForContractClosure = false;
+                        resolve();
+                        return;
+                    }
+
                     // Don't unnecessarily send a forget request for a purchased contract.
                     const { buy } = response;
+
+                    // Validate buy object has required properties
+                    if (!buy.contract_id || !buy.transaction_id) {
+                        console.error('❌ PURCHASE ERROR: Missing required buy properties', buy);
+                        this.isWaitingForContractClosure = false;
+                        resolve();
+                        return;
+                    }
 
                     contractStatus({
                         id: 'contract.purchase_received',
@@ -112,19 +128,19 @@ export default Engine =>
 
                     delayIndex = 0;
                     log(LogTypes.PURCHASE, { 
-                        longcode: buy.longcode, 
+                        longcode: buy.longcode || 'N/A', 
                         transaction_id: buy.transaction_id,
                         contract_id: buy.contract_id 
                     });
                     info({
-                        accountID: this.accountInfo.loginid,
+                        accountID: this.accountInfo?.loginid || 'N/A',
                         totalRuns: this.updateAndReturnTotalRuns(),
                         transaction_ids: { buy: buy.transaction_id },
                         contract_type,
-                        buy_price: buy.buy_price,
+                        buy_price: buy.buy_price || 0,
                     });
 
-                    console.log(`📦 CONTRACT PURCHASED: ID ${buy.contract_id}, Price: ${buy.buy_price} USD`);
+                    console.log(`📦 CONTRACT PURCHASED: ID ${buy.contract_id}, Price: ${buy.buy_price || 0} USD`);
                     console.log(`⏳ SEQUENTIAL MODE: Now waiting for contract closure before next trade`);
 
                     resolve();
