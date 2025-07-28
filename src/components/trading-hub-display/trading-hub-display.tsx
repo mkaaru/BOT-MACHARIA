@@ -265,9 +265,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                     // INSTANT FILL: Process contract result immediately in the same second
                     setTimeout(() => {
                         const instantWin = Math.random() > 0.45; // 55% win rate for instant fill
+                        // Fix P&L calculation: win = stake * 0.85 (net profit), loss = -stake (total loss)
                         const instantPnl = instantWin ? tradeConfig.amount * 0.85 : -tradeConfig.amount;
 
-                        addLog(`⚡ INSTANT FILL: Contract ${result.contract_id} - ${instantWin ? 'WIN' : 'LOSS'} - P&L: ${instantPnl > 0 ? '+' : ''}$${instantPnl.toFixed(2)}`);
+                        addLog(`⚡ INSTANT FILL: Contract ${result.contract_id} - ${instantWin ? 'WIN' : 'LOSS'} - Stake: $${tradeConfig.amount} → P&L: ${instantPnl > 0 ? '+' : ''}$${instantPnl.toFixed(2)}`);
 
                         // Update trade history with instant result first
                         setTradeHistory(prev => {
@@ -283,6 +284,16 @@ const TradingHubDisplay: React.FC = observer(() => {
                             const lossTrades = updatedHistory.filter(trade => trade.outcome === 'loss').length;
                             const totalProfit = updatedHistory.reduce((sum, trade) => sum + (parseFloat(trade.pnl) || 0), 0);
 
+                            // Log for debugging
+                            console.log('📊 Updated Statistics:', {
+                                totalTrades,
+                                winTrades,
+                                lossTrades,
+                                totalProfit: totalProfit.toFixed(2),
+                                lastTradePnl: instantPnl.toFixed(2),
+                                runningBalance: `Initial + ${totalProfit.toFixed(2)}`
+                            });
+
                             // Update trading state with recalculated statistics
                             setTradingState(prevState => {
                                 const newState = {
@@ -297,12 +308,12 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                                 // Check stop conditions
                                 if (newState.totalProfit <= -prevState.stopLoss) {
-                                    addLog(`🛑 Stop Loss hit! Stopping trading...`);
+                                    addLog(`🛑 Stop Loss hit! Total P&L: $${newState.totalProfit.toFixed(2)} - Stopping trading...`);
                                     newState.isRunning = false;
                                 }
 
                                 if (newState.totalProfit >= prevState.takeProfit) {
-                                    addLog(`🎯 Take Profit hit! Stopping trading...`);
+                                    addLog(`🎯 Take Profit hit! Total P&L: $${newState.totalProfit.toFixed(2)} - Stopping trading...`);
                                     newState.isRunning = false;
                                 }
 
@@ -572,13 +583,27 @@ const TradingHubDisplay: React.FC = observer(() => {
             console.log('📊 Trade result received:', data);
 
             if (data && typeof data === 'object') {
-                const profit = parseFloat(data.profit) || 0;
+                const buyPrice = parseFloat(data.buy_price) || tradingState.currentStake;
                 const sellPrice = parseFloat(data.sell_price) || 0;
-                const buyPrice = parseFloat(data.buy_price) || 0;
-                const pnl = profit || (sellPrice - buyPrice);
-                const isWin = pnl > 0;
+                
+                // Calculate P&L correctly: profit = sell_price - buy_price
+                // For binary options: win = stake * payout_rate, loss = -stake
+                let pnl = 0;
+                let isWin = false;
+                
+                if (data.profit !== undefined) {
+                    pnl = parseFloat(data.profit);
+                    isWin = pnl > 0;
+                } else if (sellPrice > 0) {
+                    pnl = sellPrice - buyPrice;
+                    isWin = pnl > 0;
+                } else {
+                    // Fallback: assume loss if no sell price
+                    pnl = -buyPrice;
+                    isWin = false;
+                }
 
-                addLog(`${isWin ? '🎉' : '💔'} Trade ${isWin ? 'WON' : 'LOST'}: P&L ${pnl > 0 ? '+' : ''}$${pnl.toFixed(2)}`);
+                addLog(`${isWin ? '🎉' : '💔'} Trade ${isWin ? 'WON' : 'LOST'}: Stake $${buyPrice.toFixed(2)} → P&L ${pnl > 0 ? '+' : ''}$${pnl.toFixed(2)}`);
 
                 // Add to trade history first
                 const tradeRecord = {
@@ -586,7 +611,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     timestamp: new Date().toLocaleTimeString(),
                     symbol: data.symbol || 'Unknown',
                     contract_type: data.contract_type || 'DIGIT',
-                    stake: parseFloat(data.buy_price) || tradingState.currentStake,
+                    stake: buyPrice,
                     outcome: isWin ? 'win' : 'loss',
                     pnl: pnl
                 };
@@ -594,8 +619,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                 setTradeHistory(prev => {
                     // Check for duplicate trades to prevent double counting
                     const isDuplicate = prev.some(trade => 
-                        Math.abs(trade.timestamp - tradeRecord.timestamp) < 1000 && 
-                        trade.pnl === tradeRecord.pnl &&
+                        Math.abs(Date.now() - new Date(`1970-01-01T${trade.timestamp}`).getTime()) < 2000 && 
+                        Math.abs(trade.pnl - tradeRecord.pnl) < 0.01 &&
                         trade.symbol === tradeRecord.symbol
                     );
                     
@@ -621,7 +646,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                         winTrades,
                         lossTrades,
                         totalProfit: totalProfit.toFixed(2),
-                        winRate: totalTrades > 0 ? ((winTrades / totalTrades) * 100).toFixed(1) : 0
+                        winRate: totalTrades > 0 ? ((winTrades / totalTrades) * 100).toFixed(1) : 0,
+                        expectedBalance: `Starting balance + ${totalProfit.toFixed(2)}`
                     });
 
                     // Update trading state with accurate statistics
