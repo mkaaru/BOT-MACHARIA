@@ -237,6 +237,58 @@ export default Engine =>
             }
         }
 
+        // IMMEDIATE martingale application - called directly after trade result
+        applyMartingaleLogicImmediate(profit) {
+            if (!this.martingaleState.isEnabled) {
+                console.log('🔴 MARTINGALE DISABLED: Using fixed stake');
+                return;
+            }
+
+            const { baseAmount, maxMultiplier, maxConsecutiveLosses } = this.martingaleState;
+
+            // Initialize base amount on first run
+            if (!baseAmount) {
+                this.martingaleState.baseAmount = this.tradeOptions.amount;
+                console.log(`🟦 MARTINGALE INIT: Base amount set to ${this.martingaleState.baseAmount} USD`);
+                return;
+            }
+
+            console.log(`⚡ IMMEDIATE MARTINGALE: Processing trade result P&L: ${profit} USD`);
+
+            if (profit < 0) {
+                // Loss: Apply martingale immediately
+                const newConsecutiveLosses = this.martingaleState.consecutiveLosses + 1;
+                
+                if (newConsecutiveLosses <= maxConsecutiveLosses) {
+                    const newMultiplier = Math.min(this.martingaleState.multiplier * 2, maxMultiplier);
+                    this.martingaleState.multiplier = newMultiplier;
+                    this.martingaleState.consecutiveLosses = newConsecutiveLosses;
+                    this.tradeOptions.amount = Math.round((baseAmount * newMultiplier) * 100) / 100;
+                    
+                    console.log(`🔴 IMMEDIATE LOSS: Martingale applied instantly`);
+                    console.log(`🔴 Next stake: ${baseAmount} USD → ${this.tradeOptions.amount} USD (${newMultiplier}x multiplier)`);
+                    console.log(`🔴 Consecutive losses: ${newConsecutiveLosses}/${maxConsecutiveLosses}`);
+                } else {
+                    // Reset on max consecutive losses
+                    this.resetMartingale();
+                    console.log(`⚠️ MAX LOSSES: Reset to base ${this.martingaleState.baseAmount} USD`);
+                }
+            } else if (profit > 0) {
+                // Win: Reset martingale immediately
+                const previousStake = this.tradeOptions.amount;
+                this.resetMartingale();
+                console.log(`🟢 IMMEDIATE WIN: Martingale reset instantly`);
+                console.log(`🟢 Next stake: ${previousStake} USD → ${this.martingaleState.baseAmount} USD`);
+                console.log(`🟢 Consecutive losses reset to 0`);
+            } else {
+                // Break-even: Keep current multiplier
+                this.tradeOptions.amount = Math.round((baseAmount * this.martingaleState.multiplier) * 100) / 100;
+                console.log(`🟡 BREAK-EVEN: Maintaining ${this.tradeOptions.amount} USD`);
+            }
+
+            console.log(`⚡ IMMEDIATE MARTINGALE COMPLETE: Next trade will use ${this.tradeOptions.amount} USD`);
+        }
+
         resetMartingale() {
             this.martingaleState.multiplier = 1;
             this.martingaleState.consecutiveLosses = 0;
@@ -249,6 +301,9 @@ export default Engine =>
             this.martingaleState.totalProfit = (this.martingaleState.totalProfit || 0) + profit;
             this.isTradeConfirmed = true; // Mark trade as confirmed for martingale processing
 
+            // IMMEDIATELY apply martingale logic after trade confirmation
+            this.applyMartingaleLogicImmediate(profit);
+
             // Mark that contract has closed (always sequential mode)
             this.setWaitingForContractClose(false);
 
@@ -259,10 +314,10 @@ export default Engine =>
             this.lastTradeTime = Date.now();
 
             console.log(`💰 TRADE RESULT CONFIRMED: P&L: ${profit} USD | Total P&L: ${this.martingaleState.totalProfit.toFixed(2)} USD`);
-            console.log(`🎯 MARTINGALE READY: Trade result confirmed, next purchase will apply martingale logic`);
+            console.log(`🎯 MARTINGALE APPLIED: Next stake ready immediately`);
             
             // Log current martingale state
-            console.log(`📊 MARTINGALE STATE: Multiplier: ${this.martingaleState.multiplier}x, Consecutive losses: ${this.martingaleState.consecutiveLosses}`);
+            console.log(`📊 MARTINGALE STATE: Multiplier: ${this.martingaleState.multiplier}x, Consecutive losses: ${this.martingaleState.consecutiveLosses}, Next stake: ${this.tradeOptions.amount} USD`);
 
             // Trigger immediate readiness check for next trade
             this.checkTradeReadiness();

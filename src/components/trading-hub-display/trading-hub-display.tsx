@@ -157,17 +157,18 @@ const TradingHubDisplay: React.FC = observer(() => {
     }, [addLog]);
 
     const getTradeConfig = useCallback((strategy?: string): TradeConfig | null => {
-        // Calculate stake with martingale - enforce 2x multiplier on loss
+        // Calculate stake with martingale - apply immediately based on current state
         const calculateStake = () => {
-            const baseStake = tradingState.currentStake;
-
+            // Check if we need to use the multiplied stake from martingale
             if (martingaleConfig.enabled && martingaleConfig.consecutiveLosses > 0) {
-                // Enforce fixed 2x multiplier on confirmed loss
-                const multipliedStake = baseStake * martingaleConfig.multiplier;
-                addLog(`💰 MARTINGALE APPLIED: Base stake $${baseStake} × ${martingaleConfig.multiplier} = $${multipliedStake}`);
+                // Use the current multiplier immediately
+                const multipliedStake = martingaleConfig.baseStake * martingaleConfig.currentMultiplier;
+                addLog(`💰 MARTINGALE ACTIVE: Base $${martingaleConfig.baseStake} × ${martingaleConfig.currentMultiplier} = $${multipliedStake}`);
                 return multipliedStake;
             }
 
+            // Use current stake as base
+            const baseStake = tradingState.currentStake;
             addLog(`💰 Using base stake: $${baseStake}`);
             return baseStake;
         };
@@ -324,25 +325,35 @@ const TradingHubDisplay: React.FC = observer(() => {
                             return updatedHistory;
                         });
 
-                        // Update martingale state
+                        // Update martingale state immediately and sync with engine
                         setMartingaleConfig(prev => {
+                            const newConfig = instantWin ? {
+                                ...prev,
+                                consecutiveLosses: 0,
+                                currentMultiplier: 1.0,
+                                baseStake: tradingState.currentStake
+                            } : {
+                                ...prev,
+                                consecutiveLosses: 1,
+                                currentMultiplier: 2.0,
+                                baseStake: tradingState.currentStake
+                            };
+
+                            // Immediately update trading state with new stake for next trade
+                            setTimeout(() => {
+                                setTradingState(prevState => ({
+                                    ...prevState,
+                                    currentStake: instantWin ? newConfig.baseStake : newConfig.baseStake * 2.0
+                                }));
+                            }, 10);
+
                             if (instantWin) {
-                                addLog('✅ MARTINGALE RESET: Win detected - resetting to base stake');
-                                return {
-                                    ...prev,
-                                    consecutiveLosses: 0,
-                                    currentMultiplier: 1.0,
-                                    baseStake: tradingState.currentStake
-                                };
+                                addLog('✅ MARTINGALE RESET: Win detected - next trade uses base stake');
                             } else {
-                                addLog('❌ MARTINGALE ENFORCED: Confirmed loss - NEXT TRADE WILL USE 2x MULTIPLIER');
-                                return {
-                                    ...prev,
-                                    consecutiveLosses: 1,
-                                    currentMultiplier: 2.0,
-                                    baseStake: tradingState.currentStake
-                                };
+                                addLog('❌ MARTINGALE ACTIVE: Loss detected - NEXT TRADE USES 2x STAKE IMMEDIATELY');
                             }
+
+                            return newConfig;
                         });
 
                         // Emit contract closed event for immediate processing
