@@ -3,12 +3,21 @@ import { createDetails } from '../utils/helpers';
 
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
+    let purchaseCount = 0;
 
     return {
         init: (...args) => tradeEngine.init(...args),
         start: (...args) => tradeEngine.start(...args),
         stop: (...args) => tradeEngine.stop(...args),
-        purchase: contract_type => tradeEngine.purchase(contract_type),
+        purchase: contract_type => {
+            if (purchaseCount >= 1) {
+                console.log('Single purchase limit reached. Stopping bot.');
+                tradeEngine.stop();
+                return Promise.resolve();
+            }
+            purchaseCount++;
+            return tradeEngine.purchase(contract_type);
+        },
         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
         getPurchaseReference: () => tradeEngine.getPurchaseReference(),

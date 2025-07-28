@@ -86,6 +86,10 @@ const SpeedBot: React.FC = observer(() => {
   const [mlConfidenceThreshold, setMlConfidenceThreshold] = useState(0.7);
   const [mlPrediction, setMlPrediction] = useState<any>(null);
 
+  // Single contract mode
+  const [singleContractMode, setSingleContractMode] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+
   const volatilitySymbols = [
     { value: 'R_10', label: 'Volatility 10 Index' },
     { value: 'R_25', label: 'Volatility 25 Index' },
@@ -149,8 +153,6 @@ const SpeedBot: React.FC = observer(() => {
       ];
     }
   };
-
-  // Get auth token</old_str>
 
   // Get auth token
   const getAuthToken = () => {
@@ -227,19 +229,28 @@ const SpeedBot: React.FC = observer(() => {
   // Execute trade
   const executeTrade = useCallback(async () => {
     if (!tradeEngine || !botInterface || !isConnected) {
-      console.error('❌ Bot engine not available for trading');
+      setError('Bot not properly initialized or not connected');
+      return;
+    }
+
+    // Check if we already executed one contract
+    if (totalTrades >= 1 && singleContractMode) {
+      console.log('✋ Single contract limit reached. Stopping bot.');
+      setIsTrading(false);
       return;
     }
 
     try {
-      console.log('🚀 Executing trade...');
+      setError(null);
+      setIsTrading(true);
 
+      // Determine contract type
       let predictedContractType = contractType;
       if (useMlPrediction && mlPrediction && mlPrediction.confidence >= mlConfidenceThreshold) {
         predictedContractType = mlPrediction.prediction === 'even' ? 'DIGITEVEN' : 'DIGITODD';
       }
 
-      // Build trade options
+      // Prepare trade options
       const tradeOptions: any = {
         amount: currentStake,
         basis: 'stake',
@@ -255,7 +266,7 @@ const SpeedBot: React.FC = observer(() => {
         tradeOptions.barrier = barrier.toString();
       }
 
-      console.log('📊 Trade options:', tradeOptions);
+      console.log('🚀 Executing trade with options:', tradeOptions);
 
       // Create pending trade
       const tradeId = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -308,7 +319,7 @@ const SpeedBot: React.FC = observer(() => {
         return updated;
       });
     }
-  }, [tradeEngine, botInterface, isConnected, currentStake, contractType, selectedSymbol, duration, durationType, barrier, client, useMlPrediction, mlPrediction, mlConfidenceThreshold]);
+  }, [tradeEngine, botInterface, isConnected, currentStake, contractType, selectedSymbol, duration, durationType, barrier, client, useMlPrediction, mlPrediction, mlConfidenceThreshold, singleContractMode, totalTrades]);
 
   // Handle trade result
   const handleTradeResult = useCallback((profit: number) => {
@@ -410,8 +421,6 @@ const SpeedBot: React.FC = observer(() => {
         return;
       }
 
-      // Initialize bot engine if not connected</old_str>
-
       // Initialize bot engine if not connected
       if (!isConnected) {
         await initializeBotEngine();
@@ -422,6 +431,7 @@ const SpeedBot: React.FC = observer(() => {
       setConsecutiveLosses(0);
       setTotalProfit(0);
       setIsTrading(true);
+      setIsRunning(true);
 
       console.log('✅ Speed Bot trading started');
 
@@ -460,6 +470,7 @@ const SpeedBot: React.FC = observer(() => {
   // Stop trading
   const stopTrading = () => {
     setIsTrading(false);
+    setIsRunning(false);
     console.log('🛑 Speed Bot trading stopped');
   };
 
@@ -487,10 +498,12 @@ const SpeedBot: React.FC = observer(() => {
           handleTradeResult(profit);
 
           // Continue trading after delay
-          if (isTrading) {
+          if (isTrading && (!singleContractMode || totalTrades < 1)) {
             setTimeout(() => {
               executeTrade();
             }, 2000);
+          } else {
+            stopTrading();
           }
         }
       }
@@ -512,7 +525,7 @@ const SpeedBot: React.FC = observer(() => {
         globalObserver.unregister('bot.error', handleError);
       };
     }
-  }, [isTrading, isConnected, handleTradeResult, executeTrade]);
+  }, [isTrading, isConnected, handleTradeResult, executeTrade, singleContractMode, totalTrades]);
 
   // Update current stake when base stake changes
   useEffect(() => {
@@ -743,7 +756,7 @@ const SpeedBot: React.FC = observer(() => {
                 </div>
                 <div className="stat">
                   <label>Odd:</label>
-                  <span>{(mlPrediction.oddProbability * 100).toFixed(1)}%</span>
+                  <span>Женско{(mlPrediction.oddProbability * 100).toFixed(1)}%</span>
                 </div>
                 <div className="stat">
                   <label>Confidence:</label>
