@@ -53,6 +53,11 @@ export default Engine =>
                 throw new Error('Cannot purchase: waiting for previous contract to close');
             }
 
+            // Validate contract type from Blockly purchase block
+            if (!contract_type || contract_type === '') {
+                throw new Error('Purchase contract type cannot be empty. Please select a valid contract type.');
+            }
+
             const { currency, is_sold } = this.data.contract;
             const is_same_symbol = this.data.contract.underlying === this.options.symbol;
             const should_forget_proposal = is_sold && is_same_symbol;
@@ -63,6 +68,13 @@ export default Engine =>
 
             // Apply martingale logic before purchase
             this.applyMartingaleLogic();
+
+            // Log purchase attempt with martingale details
+            console.log(`🎯 PURCHASE ATTEMPT: Contract Type: ${contract_type}`);
+            console.log(`💰 MARTINGALE STATE: Stake: ${this.tradeOptions.amount} USD, Multiplier: ${this.martingaleState.multiplier}x, Consecutive Losses: ${this.martingaleState.consecutiveLosses}`);
+
+            // Validate purchase conditions similar to Blockly block
+            this.validatePurchaseConditions(contract_type);
 
             return new Promise((resolve) => {
                 const onSuccess = response => {
@@ -93,8 +105,14 @@ export default Engine =>
 
                     // Store purchase details for profit calculation
                     this.martingaleState.currentPurchasePrice = buy.buy_price;
-                    this.lastTradeTime = Date.now(); // Record trade time for 1s delay
-                    console.log(`🔵 PURCHASE: ${buy.buy_price} USD, Contract ID: ${buy.contract_id}, Stake: ${this.tradeOptions.amount}`);
+                    this.lastTradeTime = Date.now(); // Record trade time for optimized delay
+
+                    // Enhanced logging with Blockly-style information
+                    this.logPurchaseDetails(buy, contract_type);
+
+                    // Set waiting for contract close immediately after purchase
+                    this.setWaitingForContractClose(true);
+                    console.log('📋 CONTRACT PURCHASED: Now waiting for contract to close before next trade');
 
                     resolve();
                 };
@@ -418,6 +436,84 @@ export default Engine =>
             } else {
                 console.log('✅ SEQUENTIAL MODE: Ready for next purchase (respecting 1s delay)');
             }
+        }
+
+        // Validate purchase conditions similar to Blockly purchase block
+        validatePurchaseConditions(contract_type) {
+            // Check if contract type is available in purchase choices
+            const availableContracts = this.getPurchaseChoices();
+            const isValidContract = availableContracts.some(choice => choice[1] === contract_type);
+            
+            if (!isValidContract) {
+                console.warn(`⚠️ INVALID CONTRACT TYPE: ${contract_type} not available for current market conditions`);
+                throw new Error(`Contract type ${contract_type} is not available. Available options: ${availableContracts.map(c => c[1]).join(', ')}`);
+            }
+
+            // Validate market conditions
+            if (!this.data.active_symbols || !this.data.active_symbols.length) {
+                throw new Error('Market symbols not loaded. Cannot proceed with purchase.');
+            }
+
+            // Validate trade options
+            if (!this.tradeOptions.amount || this.tradeOptions.amount <= 0) {
+                throw new Error('Invalid stake amount. Stake must be greater than 0.');
+            }
+
+            // Check account balance (if available)
+            if (this.data.balance && this.data.balance.balance < this.tradeOptions.amount) {
+                throw new Error(`Insufficient balance. Available: ${this.data.balance.balance}, Required: ${this.tradeOptions.amount}`);
+            }
+
+            console.log(`✅ PURCHASE VALIDATION PASSED: Contract ${contract_type} is valid for purchase`);
+        }
+
+        // Get available purchase choices (similar to Blockly block)
+        getPurchaseChoices() {
+            // This method should return available contract types based on current market conditions
+            // Default fallback choices if market data is not available
+            const defaultChoices = [
+                ['Call', 'CALL'],
+                ['Put', 'PUT'],
+                ['Higher', 'CALLE'],
+                ['Lower', 'PUTE'],
+                ['Even', 'DIGITEVEN'],
+                ['Odd', 'DIGITODD'],
+                ['Over', 'DIGITOVER'],
+                ['Under', 'DIGITUNDER']
+            ];
+
+            // If we have access to market data, filter based on available contracts
+            if (this.data.contracts_for && this.data.contracts_for.available) {
+                const availableContracts = this.data.contracts_for.available.map(contract => [
+                    contract.contract_display_name || contract.contract_type,
+                    contract.contract_type
+                ]);
+                return availableContracts.length > 0 ? availableContracts : defaultChoices;
+            }
+
+            return defaultChoices;
+        }
+
+        // Enhanced purchase logging with Blockly-style information
+        logPurchaseDetails(buy_info, contract_type) {
+            const martingaleInfo = {
+                baseAmount: this.martingaleState.baseAmount,
+                currentMultiplier: this.martingaleState.multiplier,
+                consecutiveLosses: this.martingaleState.consecutiveLosses,
+                totalProfit: this.martingaleState.totalProfit.toFixed(2)
+            };
+
+            console.log(`📊 PURCHASE COMPLETED - BLOCKLY STYLE:`);
+            console.log(`🎯 Contract Type: ${contract_type}`);
+            console.log(`💵 Purchase Price: ${buy_info.buy_price} ${buy_info.currency || 'USD'}`);
+            console.log(`🔖 Contract ID: ${buy_info.contract_id}`);
+            console.log(`📈 Longcode: ${buy_info.longcode}`);
+            console.log(`🎲 MARTINGALE STATE:`);
+            console.log(`   Base Amount: ${martingaleInfo.baseAmount} USD`);
+            console.log(`   Current Multiplier: ${martingaleInfo.currentMultiplier}x`);
+            console.log(`   Consecutive Losses: ${martingaleInfo.consecutiveLosses}`);
+            console.log(`   Total P&L: ${martingaleInfo.totalProfit} USD`);
+            console.log(`⏱️ Purchase Time: ${new Date().toISOString()}`);
         }
 
         getPurchaseReference = () => purchase_reference;
