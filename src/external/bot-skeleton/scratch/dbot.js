@@ -328,16 +328,19 @@ class DBot {
                 }
             }
             var BinaryBotPrivateLimitations = ${JSON.stringify(limitations)};
+            var BinaryBotPrivateContinuousTrading = true;
+            var BinaryBotPrivateContractCount = 0;
             ${window.Blockly.JavaScript.javascriptGenerator.workspaceToCode(this.workspace)}
             BinaryBotPrivateRun(BinaryBotPrivateInit);
-            while (true) {
+            while (BinaryBotPrivateContinuousTrading) {
                 BinaryBotPrivateTickAnalysis();
                 BinaryBotPrivateRun(BinaryBotPrivateStart);
                 if (!BinaryBotPrivateHasCalledTradeOptions) {
                     sleep(1);
                     continue;
                 }
-                // Execute purchase without waiting for contract states
+                BinaryBotPrivateContractCount++;
+                // Execute purchase and wait for completion before next iteration
                 BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
                 
                 // Small delay between purchases to prevent rate limiting

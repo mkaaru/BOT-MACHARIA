@@ -102,6 +102,9 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.checkLimits(validated_trade_options);
 
         this.makeDirectPurchaseDecision();
+        
+        // Enable continuous trading mode
+        this.continuousTrading = true;
     }
 
     loginAndGetBalance(token) {
