@@ -1323,7 +1323,7 @@ if __name__ == "__main__":
                                 <Tutorial handleTabChange={handleTabChange} />
                             </Suspense>
                         </div>
-                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></div>} id='id-Trading-Hub'>
+                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
                             <TradingHubDisplay />
                         </div>
                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
