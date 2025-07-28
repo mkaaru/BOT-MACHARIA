@@ -55,6 +55,12 @@ export default Engine =>
                 return this.contractClosurePromise || Promise.resolve();
             }
 
+            // Apply entry filters before purchase
+            if (!this.shouldEnterTrade(contract_type)) {
+                console.log('🚫 ENTRY FILTER: Trade conditions not met, skipping purchase');
+                return Promise.resolve();
+            }
+
             // Enforce minimum delay between trades
             const currentTime = Date.now();
             const timeSinceLastTrade = currentTime - this.lastTradeTime;
@@ -548,5 +554,205 @@ export default Engine =>
                 const { clearProposals } = require('./state/actions');
                 this.store.dispatch(clearProposals());
             }
+        }
+
+        // Entry filter system
+        shouldEnterTrade(contract_type) {
+            const currentTime = Date.now();
+            
+            // 1. Check minimum time between trades (prevent rapid fire trading)
+            const minimumTradeInterval = 3000; // 3 seconds minimum between trades
+            if (this.lastTradeTime && (currentTime - this.lastTradeTime) < minimumTradeInterval) {
+                console.log(`🚫 FILTER: Minimum trade interval not met (${minimumTradeInterval}ms required)`);
+                return false;
+            }
+
+            // 2. Check if we have valid market data
+            if (!this.hasValidMarketData()) {
+                console.log('🚫 FILTER: No valid market data available');
+                return false;
+            }
+
+            // 3. Check trade limits
+            if (!this.checkTradeLimits()) {
+                console.log('🚫 FILTER: Trade limits exceeded');
+                return false;
+            }
+
+            // 4. Check martingale safety limits
+            if (!this.checkMartingaleSafety()) {
+                console.log('🚫 FILTER: Martingale safety limits exceeded');
+                return false;
+            }
+
+            // 5. Check for recent consecutive losses
+            if (this.hasExcessiveConsecutiveLosses()) {
+                console.log('🚫 FILTER: Too many consecutive losses, applying cooling period');
+                return false;
+            }
+
+            console.log(`✅ FILTER: All entry conditions met for ${contract_type}`);
+            return true;
+        }
+
+        // Check if we have valid market data
+        hasValidMarketData() {
+            try {
+                // Check if we have tick data
+                if (!this.data || !this.data.ticks) {
+                    return false;
+                }
+
+                // Check if tick data is recent (within last 10 seconds)
+                const lastTick = this.data.ticks[this.data.ticks.length - 1];
+                if (!lastTick || !lastTick.epoch) {
+                    return false;
+                }
+
+                const tickAge = Date.now() / 1000 - lastTick.epoch;
+                if (tickAge > 10) {
+                    console.log(`🚫 Market data is stale (${tickAge.toFixed(1)}s old)`);
+                    return false;
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Error checking market data:', error);
+                return false;
+            }
+        }
+
+        // Check trade limits
+        checkTradeLimits() {
+            // Check maximum number of trades per session
+            const maxTradesPerSession = 100;
+            if (this.tradeCount >= maxTradesPerSession) {
+                console.log(`🚫 Maximum trades per session reached: ${maxTradesPerSession}`);
+                return false;
+            }
+
+            // Check account balance
+            if (this.data && this.data.balance && this.data.balance.balance < this.tradeOptions.amount * 2) {
+                console.log('🚫 Insufficient balance for safe trading');
+                return false;
+            }
+
+            return true;
+        }
+
+        // Check martingale safety limits
+        checkMartingaleSafety() {
+            if (!this.martingaleState.isEnabled) {
+                return true;
+            }
+
+            // Check if we're at dangerous multiplier levels
+            if (this.martingaleState.multiplier >= 32) {
+                console.log(`🚫 Martingale multiplier too high: ${this.martingaleState.multiplier}x`);
+                return false;
+            }
+
+            // Check if stake exceeds safe percentage of balance
+            if (this.data && this.data.balance) {
+                const stakePercentage = (this.tradeOptions.amount / this.data.balance.balance) * 100;
+                if (stakePercentage > 20) { // Max 20% of balance per trade
+                    console.log(`🚫 Stake too high: ${stakePercentage.toFixed(1)}% of balance`);
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // Check for excessive consecutive losses
+        hasExcessiveConsecutiveLosses() {
+            const maxConsecutiveLossesBeforePause = 5;
+            const cooldownPeriod = 30000; // 30 seconds
+
+            if (this.martingaleState.consecutiveLosses >= maxConsecutiveLossesBeforePause) {
+                // Check if we're still in cooldown period
+                if (this.lastLossStreakTime && (Date.now() - this.lastLossStreakTime) < cooldownPeriod) {
+                    const remainingCooldown = Math.ceil((cooldownPeriod - (Date.now() - this.lastLossStreakTime)) / 1000);
+                    console.log(`🚫 Cooling down after loss streak: ${remainingCooldown}s remaining`);
+                    return true;
+                }
+                
+                // Reset cooldown
+                this.lastLossStreakTime = null;
+            }
+
+            return false;
+        }
+
+        // Enhanced trade result update with loss streak tracking
+        updateTradeResult(profit) {
+            this.martingaleState.lastTradeProfit = profit;
+            this.martingaleState.totalProfit = (this.martingaleState.totalProfit || 0) + profit;
+            this.isTradeConfirmed = true;
+
+            // Track consecutive losses for cooling period
+            if (profit < 0) {
+                if (this.martingaleState.consecutiveLosses >= 4) { // Start tracking at 5th loss
+                    this.lastLossStreakTime = Date.now();
+                }
+            } else if (profit > 0) {
+                this.lastLossStreakTime = null; // Reset loss streak timer on win
+            }
+
+            // Initialize trade counter
+            if (!this.tradeCount) {
+                this.tradeCount = 0;
+            }
+            this.tradeCount++;
+
+            // IMMEDIATELY apply martingale logic after trade confirmation
+            this.applyMartingaleLogicImmediate(profit);
+
+            // Mark that contract has closed
+            this.setWaitingForContractClose(false);
+            this.isWaitingForContractClosure = false;
+            this.lastTradeTime = Date.now();
+
+            console.log(`💰 TRADE ${this.tradeCount}: P&L: ${profit} USD | Total P&L: ${this.martingaleState.totalProfit.toFixed(2)} USD`);
+            console.log(`🎯 MARTINGALE: Next stake: ${this.tradeOptions.amount} USD (${this.martingaleState.multiplier}x base)`);
+
+            // Check trade readiness with filters applied
+            this.checkTradeReadiness();
+        }
+
+        // Enhanced readiness check with filtering
+        checkTradeReadiness() {
+            setTimeout(() => {
+                if (this.canPurchase() && this.shouldEnterTrade('NEXT_TRADE_CHECK')) {
+                    console.log('⚡ READY FOR NEXT TRADE: All conditions met');
+                    if (this.observer) {
+                        this.observer.emit('TRADE_READY');
+                    }
+                } else {
+                    console.log('⏳ WAITING: Trade conditions not yet met');
+                }
+            }, 1000); // Give more time for conditions to settle
+        }
+
+        // Reset all trading states
+        resetTradingSession() {
+            this.tradeCount = 0;
+            this.lastLossStreakTime = null;
+            this.resetMartingale();
+            console.log('🔄 TRADING SESSION RESET: All counters and states cleared');
+        }
+
+        // Get current filtering status
+        getFilteringStatus() {
+            return {
+                tradeCount: this.tradeCount || 0,
+                lastTradeTime: this.lastTradeTime,
+                consecutiveLosses: this.martingaleState.consecutiveLosses,
+                currentMultiplier: this.martingaleState.multiplier,
+                isInCooldown: this.hasExcessiveConsecutiveLosses(),
+                hasValidData: this.hasValidMarketData(),
+                tradeLimitsOk: this.checkTradeLimits(),
+                martingaleSafe: this.checkMartingaleSafety()
+            };
         }
     };
