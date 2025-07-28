@@ -1,0 +1,486 @@
+7:59:14 AM
+R_75
+DIGITUNDER
+Stake: $10.00
+win
+P&L: +$8.50
+7:59:15 AM
+R_75
+DIGITUNDER
+Stake: $10.00
+win
+P&L: +$8.50
+7:59:15 AM
+R_75
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:16 AM
+1HZ25V
+DIGITUNDER
+Stake: $10.00
+win
+P&L: +$8.50
+7:59:16 AM
+1HZ25V
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:16 AM
+1HZ25V
+DIGITUNDER
+Stake: $10.00
+win
+P&L: +$8.50
+7:59:16 AM
+1HZ25V
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:17 AM
+1HZ25V
+DIGITUNDER
+Stake: $10.00
+win
+P&L: +$8.50
+7:59:17 AM
+R_75
+DIGITUNDER
+Stake: $10.00
+win
+P&L: +$8.50
+7:59:17 AM
+R_75
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:17 AM
+R_75
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:17 AM
+R_75
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:18 AM
+R_75
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:18 AM
+R_75
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:18 AM
+R_75
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:18 AM
+R_75
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:18 AM
+R_100
+DIGITUNDER
+Stake: $10.00
+win
+P&L: +$8.50
+7:59:18 AM
+R_100
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:18 AM
+R_100
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:18 AM
+R_100
+DIGITUNDER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:19 AM
+R_100
+DIGITUNDER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:19 AM
+R_100
+DIGITUNDER
+Stake: $20.00
+win
+P&L: +$17.00
+7:59:19 AM
+R_100
+DIGITUNDER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:19 AM
+R_100
+DIGITUNDER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:19 AM
+R_100
+DIGITUNDER
+Stake: $10.00
+win
+P&L: +$8.50
+7:59:19 AM
+R_100
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:19 AM
+R_100
+DIGITUNDER
+Stake: $20.00
+win
+P&L: +$17.00
+7:59:19 AM
+R_100
+DIGITUNDER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:20 AM
+R_100
+DIGITUNDER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:20 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+win
+P&L: +$8.50
+7:59:20 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:20 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:20 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:20 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:20 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:20 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+win
+P&L: +$8.50
+7:59:20 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:20 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:20 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:20 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:21 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:21 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:21 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:21 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:21 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:21 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:21 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:21 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+win
+P&L: +$8.50
+7:59:21 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:21 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:22 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:22 AM
+1HZ75V
+DIGITOVER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:22 AM
+1HZ75V
+DIGITOVER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:22 AM
+1HZ75V
+DIGITOVER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:22 AM
+1HZ75V
+DIGITOVER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:22 AM
+1HZ75V
+DIGITOVER
+Stake: $20.00
+win
+P&L: +$17.00
+7:59:22 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+win
+P&L: +$8.50
+7:59:22 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:22 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:23 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:23 AM
+1HZ75V
+DIGITOVER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:23 AM
+1HZ75V
+DIGITOVER
+Stake: $20.00
+win
+P&L: +$17.00
+7:59:23 AM
+1HZ75V
+DIGITOVER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:23 AM
+1HZ75V
+DIGITOVER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:23 AM
+1HZ25V
+DIGITUNDER
+Stake: $20.00
+win
+P&L: +$17.00
+7:59:23 AM
+1HZ25V
+DIGITUNDER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:23 AM
+1HZ25V
+DIGITUNDER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:23 AM
+1HZ25V
+DIGITUNDER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:23 AM
+1HZ25V
+DIGITUNDER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:23 AM
+1HZ25V
+DIGITUNDER
+Stake: $10.00
+win
+P&L: +$8.50
+7:59:23 AM
+1HZ25V
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:23 AM
+1HZ25V
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:24 AM
+1HZ25V
+DIGITUNDER
+Stake: $20.00
+win
+P&L: +$17.00
+7:59:24 AM
+1HZ25V
+DIGITUNDER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:24 AM
+1HZ25V
+DIGITUNDER
+Stake: $20.00
+loss
+P&L: $-20.00
+7:59:24 AM
+1HZ25V
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:24 AM
+1HZ25V
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:24 AM
+1HZ25V
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:24 AM
+1HZ25V
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:24 AM
+1HZ25V
+DIGITUNDER
+Stake: $10.00
+loss
+P&L: $-10.00
+7:59:24 AM
+1HZ25V
+DIGITUNDER
+Stake: $10.00
+win
+P&L: +$8.50
