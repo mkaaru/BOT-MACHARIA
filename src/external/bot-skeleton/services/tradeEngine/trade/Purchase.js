@@ -36,7 +36,7 @@ export default Engine =>
 
             // Trading mode configuration - optimized sequential with 200ms delay
             this.waitingForContractClose = false;
-            this.isWaitingForContractClose = false;
+            this.isWaitingForContractClosure = false;
             this.lastTradeTime = 0; // Track last trade time for optimized delay
             this.minimumTradeDelay = 200; // Configurable minimum delay between trades
 
@@ -221,7 +221,8 @@ export default Engine =>
                     const newConsecutiveLosses = consecutiveLosses + 1;
 
                     if (newConsecutiveLosses <= maxConsecutiveLosses) {
-                        const newMultiplier = Math.min(multiplier * 2, maxMultiplier);
+                        // Use 2^consecutiveLosses to get proper progression: 1x, 2x, 4x, 8x...
+                        const newMultiplier = Math.min(Math.pow(2, newConsecutiveLosses - 1) * 2, maxMultiplier);
                         this.martingaleState.multiplier = newMultiplier;
                         this.martingaleState.consecutiveLosses = newConsecutiveLosses;
                         this.tradeOptions.amount = Math.round((baseAmount * newMultiplier) * 100) / 100;
@@ -269,7 +270,7 @@ export default Engine =>
                 return;
             }
 
-            const { baseAmount, maxMultiplier, maxConsecutiveLosses } = this.martingaleState;
+            const { baseAmount, multiplier, consecutiveLosses, maxMultiplier, maxConsecutiveLosses } = this.martingaleState;
 
             // Initialize base amount on first run
             if (!baseAmount) {
@@ -285,13 +286,14 @@ export default Engine =>
                 const newConsecutiveLosses = this.martingaleState.consecutiveLosses + 1;
 
                 if (newConsecutiveLosses <= maxConsecutiveLosses) {
-                    const newMultiplier = Math.min(this.martingaleState.multiplier * 2, maxMultiplier);
+                    // Simply double the current stake, not the multiplier
+                    const newMultiplier = 2; // Always 2x on loss
                     this.martingaleState.multiplier = newMultiplier;
                     this.martingaleState.consecutiveLosses = newConsecutiveLosses;
-                    this.tradeOptions.amount = Math.round((baseAmount * newMultiplier) * 100) / 100;
+                    this.tradeOptions.amount = Math.round((this.tradeOptions.amount * 2) * 100) / 100;
 
                     console.log(`🔴 IMMEDIATE LOSS: Martingale applied instantly`);
-                    console.log(`🔴 Next stake: ${baseAmount} USD → ${this.tradeOptions.amount} USD (${newMultiplier}x multiplier)`);
+                    console.log(`🔴 Next stake: ${this.tradeOptions.amount / 2} USD → ${this.tradeOptions.amount} USD (2x multiplier)`);
                     console.log(`🔴 Consecutive losses: ${newConsecutiveLosses}/${maxConsecutiveLosses}`);
                 } else {
                     // Reset on max consecutive losses
@@ -527,13 +529,13 @@ export default Engine =>
                     }
                 });
             }
-            
+
             // Clear proposals from store if available
             if (this.store && this.store.dispatch) {
                 const { clearProposals } = require('./state/actions');
                 this.store.dispatch(clearProposals());
             }
-            
+
             console.log('🗑️ PROPOSALS: Cleared existing proposals');
         }
 
@@ -543,7 +545,7 @@ export default Engine =>
             if (this.data && this.data.proposals) {
                 this.data.proposals = [];
             }
-            
+
             if (this.store && this.store.dispatch) {
                 const { clearProposals } = require('./state/actions');
                 this.store.dispatch(clearProposals());
