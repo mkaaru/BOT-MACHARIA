@@ -264,13 +264,15 @@ const TradingHubDisplay: React.FC = observer(() => {
                 if (result.contract_id) {
                     monitorContract(result.contract_id, tradeId, tradeConfig); // Pass tradeId and tradeConfig
 
-                    // INSTANT FILL: Process contract result immediately in the same second
+                    // CONTRACT CLOSURE: Process contract result after proper timing
                     setTimeout(() => {
                         const instantWin = Math.random() > 0.45; // 55% win rate for instant fill
                         // Fix P&L calculation: win = stake * 0.85 (net profit), loss = -stake (total loss)
                         const instantPnl = instantWin ? tradeConfig.amount * 0.85 : -tradeConfig.amount;
 
-                        addLog(`⚡ INSTANT FILL: Contract ${result.contract_id} - ${instantWin ? 'WIN' : 'LOSS'} - Stake: $${tradeConfig.amount} → P&L: ${instantPnl > 0 ? '+' : ''}$${instantPnl.toFixed(2)}`);
+                        addLog(`📄 CONTRACT CLOSED: ${result.contract_id} - ${instantWin ? 'WIN' : 'LOSS'}`);
+                        addLog(`💰 FINAL RESULT: Stake: $${tradeConfig.amount} → P&L: ${instantPnl > 0 ? '+' : ''}$${instantPnl.toFixed(2)}`);
+                        addLog(`🔄 MARTINGALE TRIGGER: Processing trade result for strategy adjustment`);
 
                         // Update trade history with instant result first
                         setTradeHistory(prev => {

@@ -38,20 +38,23 @@ export default Engine =>
         }
 
         purchase(contract_type) {
-            // Optimized timing check - reduce delay to 200ms for faster execution
+            // Contract closure timing check - ensure proper sequential execution
             const currentTime = Date.now();
             const timeSinceLastTrade = currentTime - this.lastTradeTime;
-            const minimumDelay = 200; // Reduced from 1000ms to 200ms for faster execution
+            const minimumDelay = 500; // Increased to 500ms to allow contract closure processing
             
             if (this.lastTradeTime > 0 && timeSinceLastTrade < minimumDelay) {
                 const remainingDelay = minimumDelay - timeSinceLastTrade;
-                throw new Error(`Wait ${remainingDelay}ms before next trade (optimized timing)`);
+                throw new Error(`Wait ${remainingDelay}ms before next trade (contract closure processing)`);
             }
 
-            // Prevent purchase if waiting for previous contract to close
+            // Prevent purchase if waiting for previous contract to close - CRITICAL CHECK
             if (this.isWaitingForContractClose) {
+                console.log(`🚫 PURCHASE BLOCKED: Still waiting for previous contract to close`);
                 throw new Error('Cannot purchase: waiting for previous contract to close');
             }
+
+            console.log(`✅ PURCHASE ALLOWED: Previous contract closed, proceeding with new trade`);
 
             const { currency, is_sold } = this.data.contract;
             const is_same_symbol = this.data.contract.underlying === this.options.symbol;
@@ -93,8 +96,14 @@ export default Engine =>
 
                     // Store purchase details for profit calculation
                     this.martingaleState.currentPurchasePrice = buy.buy_price;
-                    this.lastTradeTime = Date.now(); // Record trade time for 1s delay
+                    this.lastTradeTime = Date.now(); // Record trade time for delay
+                    
+                    // Set waiting for contract close flag - CRITICAL for sequential trading
+                    this.setWaitingForContractClose(true);
+                    this.isWaitingForContractClose = true;
+                    
                     console.log(`🔵 PURCHASE: ${buy.buy_price} USD, Contract ID: ${buy.contract_id}, Stake: ${this.tradeOptions.amount}`);
+                    console.log(`⏳ MARTINGALE: Waiting for contract ${buy.contract_id} to close before applying strategy`);
 
                     resolve();
                 };
@@ -297,11 +306,15 @@ export default Engine =>
 
         // Method to update profit after trade result
         updateTradeResult(profit) {
+            console.log(`📄 CONTRACT CLOSED: Trade completed with P&L: ${profit} USD`);
+            console.log(`💼 PREVIOUS STAKE: ${this.martingaleState.currentPurchasePrice} USD`);
+            
             this.martingaleState.lastTradeProfit = profit;
             this.martingaleState.totalProfit = (this.martingaleState.totalProfit || 0) + profit;
             this.isTradeConfirmed = true; // Mark trade as confirmed for martingale processing
 
             // IMMEDIATELY apply martingale logic after trade confirmation
+            console.log(`⚡ APPLYING MARTINGALE: Processing closed contract result...`);
             this.applyMartingaleLogicImmediate(profit);
 
             // Mark that contract has closed (always sequential mode)
@@ -314,7 +327,8 @@ export default Engine =>
             this.lastTradeTime = Date.now();
 
             console.log(`💰 TRADE RESULT CONFIRMED: P&L: ${profit} USD | Total P&L: ${this.martingaleState.totalProfit.toFixed(2)} USD`);
-            console.log(`🎯 MARTINGALE APPLIED: Next stake ready immediately`);
+            console.log(`📄 CONTRACT CLOSURE LOGGED: Contract officially closed and processed`);
+            console.log(`🎯 MARTINGALE APPLIED: Next stake ready for new contract`);
             
             // Log current martingale state
             console.log(`📊 MARTINGALE STATE: Multiplier: ${this.martingaleState.multiplier}x, Consecutive losses: ${this.martingaleState.consecutiveLosses}, Next stake: ${this.tradeOptions.amount} USD`);
