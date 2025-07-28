@@ -1217,6 +1217,13 @@ if __name__ == "__main__":
 
     const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
 
+    // Ensure a default tab is set if none is active
+    React.useEffect(() => {
+        if (active_tab === undefined || active_tab === null) {
+            setActiveTab(DBOT_TABS.FREE_BOTS || 0);
+        }
+    }, [active_tab, setActiveTab]);
+
     return (
         <>
             <div className='main'>
@@ -1263,7 +1270,13 @@ if __name__ == "__main__":
                                 </div>
                             </div>
                         </div>
-                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
+                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder'>
+                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading bot builder...')} />}>
+                                <div className="bot-builder-content">
+                                    <p>Bot Builder content will be loaded here</p>
+                                </div>
+                            </Suspense>
+                        </div>
                         <div label={<><BotIcon /><Localize i18n_default_text='Smart Trading' /></>} id='id-smart-trading'>
                             <VolatilityAnalyzer />
                         </div>
