@@ -66,6 +66,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [tradeHistory, setTradeHistory] = useState<any[]>([]); // Added trade history state
     const [lastTradeTime, setLastTradeTime] = useState<number>(0);
     const [tradeCooldown] = useState<number>(3000); // 3 second cooldown between trades
+    const [continuousTrading, setContinuousTrading] = useState<boolean>(true); // Allow continuous trading or wait for trade to close
 
     const addLog = useCallback((message: string) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -414,7 +415,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // Execute trade immediately when new recommendation arrives for signal integrity
     useEffect(() => {
-        if (!tradingState.isRunning || !analyzerReady || !currentRecommendation || tradingState.isTradeInProgress) {
+        if (!tradingState.isRunning || !analyzerReady || !currentRecommendation) {
             return;
         }
 
@@ -431,15 +432,39 @@ const TradingHubDisplay: React.FC = observer(() => {
             return;
         }
 
-        // IMMEDIATE EXECUTION for signal integrity - no cooldown delay
-        // Conditions might change quickly, so execute as soon as recommendation is available
-        const hasValidConfig = getTradeConfig() !== null;
-        if (hasValidConfig && !tradingState.isTradeInProgress) {
-            addLog('⚡ IMMEDIATE EXECUTION: New recommendation detected - executing trade instantly to preserve signal integrity');
-            setLastTradeTime(Date.now());
-            executeTrade();
+        // Check trading mode and trade progress status
+        if (continuousTrading) {
+            // Continuous mode: execute immediately if no trade is in progress
+            if (!tradingState.isTradeInProgress) {
+                const hasValidConfig = getTradeConfig() !== null;
+                if (hasValidConfig) {
+                    addLog('⚡ CONTINUOUS MODE: New recommendation detected - executing trade immediately');
+                    setLastTradeTime(Date.now());
+                    executeTrade();
+                }
+            } else {
+                addLog('⏳ CONTINUOUS MODE: Trade in progress, waiting for completion before next trade');
+            }
+        } else {
+            // Sequential mode: wait for previous trade to completely finish
+            if (!tradingState.isTradeInProgress) {
+                // Check if there are any pending trades in history
+                const pendingTrades = tradeHistory.filter(trade => trade.outcome === 'pending');
+                if (pendingTrades.length === 0) {
+                    const hasValidConfig = getTradeConfig() !== null;
+                    if (hasValidConfig) {
+                        addLog('🔄 SEQUENTIAL MODE: Previous trade closed - executing new trade');
+                        setLastTradeTime(Date.now());
+                        executeTrade();
+                    }
+                } else {
+                    addLog('⏳ SEQUENTIAL MODE: Waiting for previous trade to close completely before next trade');
+                }
+            } else {
+                addLog('⏳ SEQUENTIAL MODE: Trade in progress, waiting for completion');
+            }
         }
-    }, [currentRecommendation, tradingState.isRunning, analyzerReady, tradingState.totalProfit, tradingState.stopLoss, tradingState.takeProfit, tradingState.isTradeInProgress, getTradeConfig, executeTrade, addLog]);
+    }, [currentRecommendation, tradingState.isRunning, analyzerReady, tradingState.totalProfit, tradingState.stopLoss, tradingState.takeProfit, tradingState.isTradeInProgress, continuousTrading, getTradeConfig, executeTrade, addLog, tradeHistory]);
 
     // Monitor contract for completion
     const monitorContract = useCallback(async (contractId: string, tradeId: number, tradeConfig: TradeConfig) => {
@@ -904,8 +929,15 @@ const TradingHubDisplay: React.FC = observer(() => {
                         <h3>⚙️ Configuration</h3>
                         {tradingState.isRunning && (
                             <div className="continuous-trading-status">
-                                <span className="status-badge continuous">🔄 Continuous Trading Active</span>
-                                <small>Trades execute immediately on new recommendations</small>
+                                <span className={`status-badge ${continuousTrading ? 'continuous' : 'sequential'}`}>
+                                    {continuousTrading ? '🔄 Continuous Trading Active' : '⏳ Sequential Trading Active'}
+                                </span>
+                                <small>
+                                    {continuousTrading 
+                                        ? 'Trades execute immediately on new recommendations' 
+                                        : 'Next trade waits for previous trade to close'
+                                    }
+                                </small>
                             </div>
                         )}
                         <div className="config-grid">
@@ -962,6 +994,26 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     {martingaleConfig.consecutiveLosses > 0 && (
                                         <span className="loss-indicator"> - NEXT: 2x STAKE</span>
                                     )}
+                                </small>
+                            </div>
+                            <div className="config-item">
+                                <label>Trading Mode</label>
+                                <div className="trading-mode-controls">
+                                    <input
+                                        type="checkbox"
+                                        checked={continuousTrading}
+                                        onChange={e => setContinuousTrading(e.target.checked)}
+                                        disabled={tradingState.isRunning}
+                                    />
+                                    <span className="trading-mode-status">
+                                        {continuousTrading ? 'CONTINUOUS' : 'SEQUENTIAL'}
+                                    </span>
+                                </div>
+                                <small>
+                                    {continuousTrading 
+                                        ? 'Execute new trades immediately on signals'
+                                        : 'Wait for previous trade to close before next trade'
+                                    }
                                 </small>
                             </div>
                         </div>
