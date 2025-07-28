@@ -52,7 +52,7 @@ window.Blockly.Blocks.during_purchase = {
     },
     meta() {
         return {
-            display_name: localize('Sell conditions (optional)'),
+            display_name: localize('Sell conditions'),
             description: localize(
                 'Here is where you can decide to sell your contract before it expires. Only one copy of this block is allowed.'
             ),
@@ -69,8 +69,6 @@ window.Blockly.Blocks.during_purchase = {
         }
     },
     customContextMenu(menu) {
-        const menu_items = [localize('Enable Block'), localize('Disable Block')];
-        excludeOptionFromContextMenu(menu, menu_items);
         modifyContextMenu(menu);
     },
 };

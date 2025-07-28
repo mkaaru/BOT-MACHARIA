@@ -1,20 +1,20 @@
 window.Blockly.JavaScript.javascriptGenerator.forBlock.trade_again = () => [
     `
-    // Continue trading without single contract limits
-    if (BinaryBotPrivateContinuousTrading) {
-        console.log('🔄 TRADE AGAIN: Continuing with next trade (Contract #' + BinaryBotPrivateContractCount + ')');
-
-        // Reset trade options flag for next iteration
-        BinaryBotPrivateHasCalledTradeOptions = false;
-
-        // Brief delay to prevent rapid-fire trading
-        sleep(1);
-
-        // Signal ready for next trade
-        Bot.isTradeAgain(true);
+    // Wait for contract to close before trading again
+    if (Bot.isWaitingForContractClose && Bot.isWaitingForContractClose()) {
+        // Wait for contract to close
+        return new Promise((resolve) => {
+            const observer = Bot.observer || window.globalObserver;
+            const listener = () => {
+                observer.unregister('contract.closed', listener);
+                resolve();
+            };
+            observer.register('contract.closed', listener);
+        }).then(() => {
+            Bot.isTradeAgain(true);
+        });
     } else {
-        console.log('🛑 TRADE AGAIN: Continuous trading disabled, stopping');
-        Bot.isTradeAgain(false);
+        Bot.isTradeAgain(true);
     }
     `,
     window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC,
