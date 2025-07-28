@@ -264,15 +264,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                 if (result.contract_id) {
                     monitorContract(result.contract_id, tradeId, tradeConfig); // Pass tradeId and tradeConfig
 
-                    // CONTRACT CLOSURE: Process contract result after proper timing
+                    // INSTANT FILL: Process contract result immediately in the same second
                     setTimeout(() => {
                         const instantWin = Math.random() > 0.45; // 55% win rate for instant fill
                         // Fix P&L calculation: win = stake * 0.85 (net profit), loss = -stake (total loss)
                         const instantPnl = instantWin ? tradeConfig.amount * 0.85 : -tradeConfig.amount;
 
-                        addLog(`📄 CONTRACT CLOSED: ${result.contract_id} - ${instantWin ? 'WIN' : 'LOSS'}`);
-                        addLog(`💰 FINAL RESULT: Stake: $${tradeConfig.amount} → P&L: ${instantPnl > 0 ? '+' : ''}$${instantPnl.toFixed(2)}`);
-                        addLog(`🔄 MARTINGALE TRIGGER: Processing trade result for strategy adjustment`);
+                        addLog(`⚡ INSTANT FILL: Contract ${result.contract_id} - ${instantWin ? 'WIN' : 'LOSS'} - Stake: $${tradeConfig.amount} → P&L: ${instantPnl > 0 ? '+' : ''}$${instantPnl.toFixed(2)}`);
 
                         // Update trade history with instant result first
                         setTradeHistory(prev => {
@@ -418,63 +416,6 @@ const TradingHubDisplay: React.FC = observer(() => {
             return { ...prev, isRunning: newRunning };
         });
     }, [addLog]);
-
-    // Emergency reset method to fix stuck states
-    const emergencyReset = useCallback(() => {
-        console.log('🚨 EMERGENCY RESET: Clearing all stuck states');
-
-        // Reset all trading states
-        setTradingState(prev => ({
-            ...prev,
-            isRunning: false,
-            isTradeInProgress: false,
-            lastTradeResult: 'None'
-        }));
-
-        // Reset martingale
-        setMartingaleConfig(prev => ({
-            ...prev,
-            consecutiveLosses: 0,
-            currentMultiplier: 1.0
-        }));
-
-        // Clear recommendations and signals
-        setCurrentRecommendation(null);
-        setActiveSignal(null);
-
-        // Reset analyzer
-        setAnalyzerReady(false);
-
-        addLog('🚨 EMERGENCY RESET: All states cleared, reinitializing...');
-
-        // Reinitialize analyzer after a short delay
-        setTimeout(() => {
-            setAnalyzerReady(true);
-            addLog('✅ System reinitialized and ready');
-        }, 2000);
-
-        // Emit emergency reset event
-        if (typeof window !== 'undefined' && (window as any).globalObserver) {
-            (window as any).globalObserver.emit('bot.emergency_reset');
-        }
-    }, [addLog]);
-
-    // Auto-detect stuck state and recover
-    useEffect(() => {
-        const checkStuckState = () => {
-            // Check if bot has been "running" for too long without activity
-            if (tradingState.isRunning && tradingState.isTradeInProgress) {
-                const timeSinceLastTrade = Date.now() - lastTradeTime;
-                if (timeSinceLastTrade > 60000) { // 1 minute stuck
-                    addLog('🔧 AUTO-RECOVERY: Detected stuck state, triggering automatic reset');
-                    setTradingState(prev => ({ ...prev, isTradeInProgress: false }));
-                }
-            }
-        };
-
-        const interval = setInterval(checkStuckState, 30000); // Check every 30 seconds
-        return () => clearInterval(interval);
-    }, [tradingState.isRunning, tradingState.isTradeInProgress, lastTradeTime, addLog]);
 
     // Auto-trading logic - execute trades immediately when recommendations arrive
     useEffect(() => {
@@ -861,7 +802,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             timestamp: new Date().toLocaleTimeString(),
             symbol: tradeConfig.symbol,
             contract_type: tradeConfig.contract_type,
-            stake:tradeConfig.amount,
+            stake: tradeConfig.amount,
             outcome: 'pending',
             pnl: 0
         }]);
@@ -1128,20 +1069,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 onClick={resetStats}
                             >
                                 🔄 Reset Stats
-                            </button>
-                            <button
-                                className="control-btn emergency"
-                                onClick={() => {
-                                    // Emergency reset for stuck bot states
-                                    if (typeof window !== 'undefined' && (window as any).globalObserver) {
-                                        (window as any).globalObserver.emit('bot.emergency_reset');
-                                    }
-                                    addLog('🚨 Emergency reset triggered - clearing stuck states');
-                                    setTradingState(prev => ({ ...prev, isTradeInProgress: false }));
-                                }}
-                                style={{ backgroundColor: '#ff4444', color: 'white' }}
-                            >
-                                🚨 Emergency Reset
                             </button>
                         </div>
                     </div>
