@@ -59,8 +59,16 @@ export default Engine =>
                 
                 if (botConfig) {
                     // Set martingale parameters from bot configuration
-                    this.martingaleState.isEnabled = botConfig.martingale_enabled || true; // Enable by default
-                    this.martingaleState.martingaleMultiplier = parseFloat(botConfig.size) || parseFloat(botConfig.martingale_multiplier) || 2; // User configurable multiplier
+                    this.martingaleState.isEnabled = botConfig.martingale_enabled !== false; // Enable by default unless explicitly disabled
+                    
+                    // Try multiple possible keys for the martingale multiplier from bot builder
+                    const multiplierValue = parseFloat(botConfig.size) || 
+                                          parseFloat(botConfig.martingale_size) || 
+                                          parseFloat(botConfig.martingale_multiplier) || 
+                                          parseFloat(botConfig.multiplier) || 
+                                          2; // Default to 2 if not found
+                    
+                    this.martingaleState.martingaleMultiplier = multiplierValue;
                     this.martingaleState.profitThreshold = parseFloat(botConfig.profit) || null;
                     this.martingaleState.lossThreshold = parseFloat(botConfig.loss) || null;
                     this.martingaleState.maxStake = parseFloat(botConfig.max_stake) || null;
@@ -107,15 +115,50 @@ export default Engine =>
             
             // 1. From tradeOptions if it contains bot config
             if (this.tradeOptions && this.tradeOptions.botConfig) {
+                console.log('🔧 Found bot config in tradeOptions:', this.tradeOptions.botConfig);
                 return this.tradeOptions.botConfig;
             }
             
             // 2. From options if it contains strategy config
             if (this.options && this.options.strategyConfig) {
+                console.log('🔧 Found strategy config in options:', this.options.strategyConfig);
                 return this.options.strategyConfig;
             }
             
-            // 3. From global bot store/workspace
+            // 3. From store if available (most common for bot builder)
+            if (this.store && this.store.getState) {
+                const state = this.store.getState();
+                
+                // Try quick strategy store first
+                if (state.quickStrategy && state.quickStrategy.formValues) {
+                    const formValues = state.quickStrategy.formValues;
+                    console.log('🔧 Found quick strategy form values:', formValues);
+                    return {
+                        martingale_enabled: true,
+                        size: formValues.size || formValues.martingale_size || formValues.multiplier,
+                        profit: formValues.profit,
+                        loss: formValues.loss,
+                        max_stake: formValues.max_stake,
+                        initial_stake: formValues.stake || formValues.amount
+                    };
+                }
+                
+                // Try bot builder store
+                if (state.botBuilder || state.quickStrategy) {
+                    const builderState = state.botBuilder || state.quickStrategy;
+                    console.log('🔧 Found bot builder state:', builderState);
+                    return {
+                        martingale_enabled: true,
+                        size: builderState.size || builderState.martingale_size || builderState.multiplier,
+                        profit: builderState.profit,
+                        loss: builderState.loss,
+                        max_stake: builderState.max_stake,
+                        initial_stake: builderState.stake || builderState.amount
+                    };
+                }
+            }
+            
+            // 4. From global bot store/workspace
             if (typeof window !== 'undefined' && window.Blockly && window.Blockly.derivWorkspace) {
                 try {
                     const workspace = window.Blockly.derivWorkspace;
@@ -123,27 +166,29 @@ export default Engine =>
                     
                     // Extract martingale parameters from XML
                     const config = this.extractMartingaleFromXML(xml);
-                    if (config) return config;
+                    if (config) {
+                        console.log('🔧 Found config from Blockly XML:', config);
+                        return config;
+                    }
                 } catch (e) {
                     console.warn('Could not extract config from Blockly workspace:', e);
                 }
             }
             
-            // 4. From store if available
-            if (this.store && this.store.getState) {
-                const state = this.store.getState();
-                if (state.quickStrategy || state.botBuilder) {
-                    const quickStrategy = state.quickStrategy || state.botBuilder;
-                    return {
-                        martingale_enabled: true, // Assume enabled if using quick strategy
-                        size: quickStrategy.size || quickStrategy.martingale_size,
-                        profit: quickStrategy.profit,
-                        loss: quickStrategy.loss,
-                        max_stake: quickStrategy.max_stake
-                    };
+            // 5. Check global variables that might contain bot configuration
+            if (typeof window !== 'undefined') {
+                if (window.bot_config) {
+                    console.log('🔧 Found global bot_config:', window.bot_config);
+                    return window.bot_config;
+                }
+                
+                if (window.strategy_config) {
+                    console.log('🔧 Found global strategy_config:', window.strategy_config);
+                    return window.strategy_config;
                 }
             }
             
+            console.warn('⚠️ No bot configuration found, using defaults');
             return null;
         }
 
