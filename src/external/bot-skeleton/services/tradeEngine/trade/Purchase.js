@@ -515,4 +515,38 @@ export default Engine =>
             this.contractClosurePromise = null;
             this.lastContractId = null;
         }
+
+        // Method to forget proposals - inherited from Proposal functionality
+        forgetProposals() {
+            if (this.proposal_templates && this.proposal_templates.length > 0) {
+                this.proposal_templates.forEach(template => {
+                    if (template.id) {
+                        api_base.api.send({ forget: template.id }).catch(error => {
+                            console.warn('Failed to forget proposal:', error);
+                        });
+                    }
+                });
+            }
+            
+            // Clear proposals from store if available
+            if (this.store && this.store.dispatch) {
+                const { clearProposals } = require('./state/actions');
+                this.store.dispatch(clearProposals());
+            }
+            
+            console.log('🗑️ PROPOSALS: Cleared existing proposals');
+        }
+
+        // Method to clear proposals data
+        clearProposals() {
+            this.proposal_templates = [];
+            if (this.data && this.data.proposals) {
+                this.data.proposals = [];
+            }
+            
+            if (this.store && this.store.dispatch) {
+                const { clearProposals } = require('./state/actions');
+                this.store.dispatch(clearProposals());
+            }
+        }
     };
