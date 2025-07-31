@@ -270,7 +270,18 @@ const DecyclerBot: React.FC = observer(() => {
             ]);
 
             if (tickResponse?.error) {
-                addLog(`❌ Tick request failed: ${tickResponse.error.message} (Code: ${tickResponse.error.code})`);
+                const errorCode = tickResponse.error.code || 'Unknown';
+                const errorMsg = tickResponse.error.message || 'Unknown API error';
+                addLog(`❌ Tick request failed: ${errorMsg} (Code: ${errorCode})`);
+                
+                // Log specific error details for debugging
+                console.error('API Error Details:', {
+                    code: tickResponse.error.code,
+                    message: tickResponse.error.message,
+                    details: tickResponse.error.details,
+                    full_response: tickResponse
+                });
+                
                 return [];
             }
 
@@ -297,43 +308,109 @@ const DecyclerBot: React.FC = observer(() => {
                 }
             }
 
-            // Strategy 3: Try alternative tick request format
-            const altTickRequest = {
+            // Strategy 3: Try simplified tick request for 1HZ symbols
+            if (is1HZSymbol) {
+                const simpleTickRequest = {
+                    ticks_history: config.symbol,
+                    count: 500, // Smaller count for testing
+                    end: 'latest',
+                    style: 'ticks',
+                    req_id: `simple_${timeframe}_${Date.now()}`
+                };
+
+                addLog(`🔄 Trying simplified tick request for ${timeframe}...`);
+
+                try {
+                    const simpleResponse = await Promise.race([
+                        api_base.api.send(simpleTickRequest),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Simple request timeout')), 8000)
+                        )
+                    ]);
+
+                    if (simpleResponse?.error) {
+                        addLog(`⚠️ Simple request error: ${simpleResponse.error.message}`);
+                    } else if (simpleResponse?.history?.prices) {
+                        const prices = simpleResponse.history.prices.map(p => parseFloat(p)).filter(p => !isNaN(p));
+                        const times = simpleResponse.history.times || Array.from({length: prices.length}, (_, i) => Date.now()/1000 - (prices.length - i));
+
+                        if (prices.length > 0) {
+                            addLog(`📊 Simple request got ${prices.length} tick prices`);
+                            const candles = convertTicksToCandles(prices, times, granularity);
+                            if (candles.length > 0) {
+                                addLog(`✅ Simple request succeeded - Generated ${candles.length} ${timeframe} candles`);
+                                return candles;
+                            }
+                        }
+                    }
+                } catch (simpleError) {
+                    addLog(`❌ Simple request failed: ${simpleError.message}`);
+                }
+            }
+
+            // Strategy 4: Try very basic historical data request
+            const basicRequest = {
                 ticks_history: config.symbol,
-                count: Math.min(500, tickCount),
+                count: 100,
                 end: 'latest',
-                req_id: `alt_ticks_${timeframe}_${Date.now()}`
+                req_id: `basic_${timeframe}_${Date.now()}`
             };
 
-            addLog(`🔄 Trying alternative tick request format for ${timeframe}...`);
+            addLog(`🔄 Trying basic historical request for ${timeframe}...`);
 
-            const altResponse = await Promise.race([
-                api_base.api.send(altTickRequest),
-                new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Alternative request timeout')), 8000)
-                )
-            ]);
+            try {
+                const basicResponse = await Promise.race([
+                    api_base.api.send(basicRequest),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Basic request timeout')), 6000)
+                    )
+                ]);
 
-            if (altResponse?.history?.prices) {
-                const prices = altResponse.history.prices.map(p => parseFloat(p)).filter(p => !isNaN(p));
-                const times = altResponse.history.times || Array.from({length: prices.length}, (_, i) => Date.now()/1000 - (prices.length - i) * 60);
+                if (basicResponse?.history?.prices) {
+                    const prices = basicResponse.history.prices.map(p => parseFloat(p)).filter(p => !isNaN(p));
+                    const times = basicResponse.history.times || Array.from({length: prices.length}, (_, i) => Date.now()/1000 - (prices.length - i) * 60);
 
-                if (prices.length > 0) {
-                    const candles = convertTicksToCandles(prices, times, granularity);
-                    if (candles.length > 0) {
-                        addLog(`✅ Alternative request succeeded - Generated ${candles.length} ${timeframe} candles`);
-                        return candles;
+                    if (prices.length > 0) {
+                        const candles = convertTicksToCandles(prices, times, granularity);
+                        if (candles.length > 0) {
+                            addLog(`✅ Basic request succeeded - Generated ${candles.length} ${timeframe} candles`);
+                            return candles;
+                        }
                     }
                 }
+            } catch (basicError) {
+                addLog(`❌ Basic request failed: ${basicError.message}`);
             }
 
             addLog(`❌ All strategies failed for ${timeframe} - no data available`);
             return [];
 
         } catch (error) {
-            const errorMessage = error?.message || error?.toString() || 'Unknown error';
+            let errorMessage = 'Unknown error';
+            
+            // Better error parsing
+            if (error && typeof error === 'object') {
+                if (error.message) {
+                    errorMessage = error.message;
+                } else if (error.error) {
+                    errorMessage = error.error.message || JSON.stringify(error.error);
+                } else if (error.code) {
+                    errorMessage = `Code ${error.code}: ${error.message || 'API Error'}`;
+                } else {
+                    errorMessage = JSON.stringify(error);
+                }
+            } else if (typeof error === 'string') {
+                errorMessage = error;
+            }
+            
             addLog(`❌ Exception fetching ${timeframe} data: ${errorMessage}`);
             console.error(`Detailed error for ${timeframe}:`, error);
+            
+            // Log the full error object for debugging
+            if (typeof error === 'object' && error !== null) {
+                console.error(`Full error object:`, JSON.stringify(error, null, 2));
+            }
+            
             return [];
         }
     }, [config.symbol, addLog]);
