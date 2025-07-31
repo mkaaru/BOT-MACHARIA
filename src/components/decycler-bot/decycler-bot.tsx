@@ -57,7 +57,7 @@ interface BotStatus {
 const DecyclerBot: React.FC = observer(() => {
     const [config, setConfig] = useState<DecyclerConfig>({
         app_id: 75771,
-        symbol: 'R_100',
+        symbol: '1HZ100V',
         stake: 1.0,
         take_profit: 1.5,
         stop_loss: -1.0,
@@ -151,9 +151,25 @@ const DecyclerBot: React.FC = observer(() => {
 
     // Fetch OHLC data for a specific timeframe
     const fetchOHLCData = useCallback(async (timeframe: string): Promise<any[]> => {
-        if (!api_base.api) return [];
-
         try {
+            // Initialize API connection if not available
+            if (!api_base.api) {
+                addLog('🔄 Initializing API connection...');
+                await api_base.init();
+                
+                // Wait for connection to be established
+                let retries = 0;
+                while (!api_base.api && retries < 10) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    retries++;
+                }
+                
+                if (!api_base.api) {
+                    addLog('❌ Failed to establish API connection');
+                    return [];
+                }
+            }
+
             const granularity = {
                 '1m': 60,
                 '5m': 300,
@@ -176,6 +192,7 @@ const DecyclerBot: React.FC = observer(() => {
                 granularity: granularity
             };
 
+            addLog(`📡 Requesting ${timeframe} data for ${config.symbol}...`);
             const response = await api_base.api.send(request);
 
             if (response.error) {
@@ -183,7 +200,13 @@ const DecyclerBot: React.FC = observer(() => {
                 return [];
             }
 
-            return response.candles || [];
+            if (response.candles && response.candles.length > 0) {
+                addLog(`✅ Received ${response.candles.length} candles for ${timeframe}`);
+                return response.candles;
+            } else {
+                addLog(`⚠️ No candle data received for ${timeframe}`);
+                return [];
+            }
         } catch (error) {
             addLog(`❌ Failed to fetch ${timeframe} data: ${error.message}`);
             return [];
@@ -392,22 +415,51 @@ const DecyclerBot: React.FC = observer(() => {
 
     // Start bot
     const startBot = useCallback(async (): Promise<void> => {
-        if (!api_base.api) {
-            addLog('❌ API not connected. Please connect first.');
-            return;
+        try {
+            addLog('🔄 Starting Decycler Bot...');
+            
+            // Initialize API connection
+            if (!api_base.api) {
+                addLog('🔌 Connecting to Deriv API...');
+                await api_base.init();
+                
+                // Wait for connection
+                let retries = 0;
+                while (!api_base.api && retries < 10) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    retries++;
+                    addLog(`⏳ Waiting for connection... (${retries}/10)`);
+                }
+                
+                if (!api_base.api) {
+                    addLog('❌ Failed to connect to API. Please check your connection.');
+                    return;
+                }
+            }
+
+            // Check connection status
+            const connectionStatus = api_base.getConnectionStatus();
+            addLog(`📡 Connection Status: ${connectionStatus}`);
+
+            if (connectionStatus !== 'open') {
+                addLog('❌ WebSocket connection not ready. Please wait and try again.');
+                return;
+            }
+
+            setBotStatus(prev => ({ ...prev, is_running: true }));
+            addLog('🚀 Decycler Multi-Timeframe Bot Started!');
+            addLog(`📊 Monitoring ${timeframes.join(', ')} timeframes`);
+            addLog(`🎯 Symbol: ${config.symbol} | Stake: $${config.stake}`);
+            addLog(`⚙️ Contract Type: ${config.contract_type.toUpperCase()}`);
+
+            // Start trading loop
+            intervalRef.current = setInterval(tradingLoop, config.monitor_interval * 1000);
+
+            // Run initial analysis
+            await tradingLoop();
+        } catch (error) {
+            addLog(`❌ Error starting bot: ${error.message}`);
         }
-
-        setBotStatus(prev => ({ ...prev, is_running: true }));
-        addLog('🚀 Decycler Multi-Timeframe Bot Started!');
-        addLog(`📊 Monitoring ${timeframes.join(', ')} timeframes`);
-        addLog(`🎯 Symbol: ${config.symbol} | Stake: $${config.stake}`);
-        addLog(`⚙️ Contract Type: ${config.contract_type.toUpperCase()}`);
-
-        // Start trading loop
-        intervalRef.current = setInterval(tradingLoop, config.monitor_interval * 1000);
-
-        // Run initial analysis
-        await tradingLoop();
     }, [config, timeframes, tradingLoop, addLog]);
 
     // Stop bot
@@ -493,6 +545,41 @@ const DecyclerBot: React.FC = observer(() => {
         }
     }, [config, addLog]);
 
+    // Test API connection
+    const testConnection = useCallback(async (): Promise<void> => {
+        try {
+            addLog('🔍 Testing API connection...');
+            
+            if (!api_base.api) {
+                await api_base.init();
+            }
+            
+            if (!api_base.api) {
+                addLog('❌ Failed to initialize API');
+                return;
+            }
+            
+            // Test with a simple time request
+            const response = await api_base.api.send({ time: 1 });
+            
+            if (response.time) {
+                addLog(`✅ API connection test successful. Server time: ${new Date(response.time * 1000).toLocaleString()}`);
+                
+                // Test symbol data availability
+                const testData = await fetchOHLCData('1m');
+                if (testData.length > 0) {
+                    addLog(`✅ Data retrieval test successful. Got ${testData.length} candles for ${config.symbol}`);
+                } else {
+                    addLog(`⚠️ No data available for symbol ${config.symbol}. Try a different symbol.`);
+                }
+            } else {
+                addLog('❌ API connection test failed');
+            }
+        } catch (error) {
+            addLog(`❌ Connection test failed: ${error.message}`);
+        }
+    }, [fetchOHLCData, config.symbol, addLog]);
+
     // Cleanup on unmount
     useEffect(() => {
         return () => {
@@ -541,11 +628,29 @@ const DecyclerBot: React.FC = observer(() => {
                                     onChange={e => setConfig(prev => ({ ...prev, symbol: e.target.value }))}
                                     disabled={botStatus.is_running}
                                 >
+                                    <option value="1HZ10V">Volatility 10 (1s) Index</option>
+                                    <option value="1HZ25V">Volatility 25 (1s) Index</option>
+                                    <option value="1HZ50V">Volatility 50 (1s) Index</option>
+                                    <option value="1HZ75V">Volatility 75 (1s) Index</option>
+                                    <option value="1HZ100V">Volatility 100 (1s) Index</option>
+                                    <option value="1HZ150V">Volatility 150 (1s) Index</option>
+                                    <option value="1HZ250V">Volatility 250 (1s) Index</option>
                                     <option value="R_10">Volatility 10 Index</option>
                                     <option value="R_25">Volatility 25 Index</option>
                                     <option value="R_50">Volatility 50 Index</option>
                                     <option value="R_75">Volatility 75 Index</option>
                                     <option value="R_100">Volatility 100 Index</option>
+                                    <option value="R_200">Volatility 200 Index</option>
+                                    <option value="R_300">Volatility 300 Index</option>
+                                    <option value="R_500">Volatility 500 Index</option>
+                                    <option value="R_1000">Volatility 1000 Index</option>
+                                    <option value="RDBEAR">Bear Market Index</option>
+                                    <option value="RDBULL">Bull Market Index</option>
+                                    <option value="BOOM500">Boom 500 Index</option>
+                                    <option value="BOOM1000">Boom 1000 Index</option>
+                                    <option value="CRASH500">Crash 500 Index</option>
+                                    <option value="CRASH1000">Crash 1000 Index</option>
+                                    <option value="stpRNG">Step Index</option>
                                 </select>
                             </div>
                             <div className="config-item">
@@ -641,18 +746,35 @@ const DecyclerBot: React.FC = observer(() => {
                     {/* Control Panel */}
                     <div className="control-panel">
                         <h3>🎮 Controls</h3>
+                        <div className="api-status">
+                            <span className="status-label">API Status:</span>
+                            <span className={`status-value ${api_base.api ? 'connected' : 'disconnected'}`}>
+                                {api_base.api ? '🟢 Connected' : '🔴 Disconnected'}
+                            </span>
+                            {api_base.api && (
+                                <span className="connection-status">
+                                    ({api_base.getConnectionStatus()})
+                                </span>
+                            )}
+                        </div>
                         <div className="control-buttons">
                             <button
                                 className={`control-btn ${botStatus.is_running ? 'stop' : 'start'}`}
                                 onClick={botStatus.is_running ? stopBot : startBot}
-                                disabled={!api_base.api}
                             >
                                 {botStatus.is_running ? '⏹️ Stop Bot' : '▶️ Start Bot'}
+                            </button>
+                            <button
+                                className="control-btn test"
+                                onClick={testConnection}
+                                disabled={botStatus.is_running}
+                            >
+                                🔍 Test Connection
                             </button>
                         </div>
                         {!api_base.api && (
                             <div className="api-warning">
-                                ⚠️ API not connected. Please connect to Deriv API first.
+                                ⚠️ API not connected. Bot will attempt to connect when started.
                             </div>
                         )}
                     </div>
