@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
@@ -47,7 +46,7 @@ interface BotStatus {
     is_running: boolean;
     last_update: number;
     trends: TrendData[];
-    current_contract: ContractInfo | null;
+    current_contract: null;
     total_trades: number;
     winning_trades: number;
     total_pnl: number;
@@ -118,7 +117,7 @@ const DecyclerBot: React.FC = observer(() => {
         if (prices.length < 3) return [];
 
         const decycler: number[] = [];
-        
+
         // Initialize first values
         decycler[0] = prices[0];
         decycler[1] = prices[1];
@@ -351,7 +350,7 @@ const DecyclerBot: React.FC = observer(() => {
 
         try {
             addLog('🔄 Analyzing market conditions...');
-            
+
             // Analyze all timeframes
             const trends = await analyzeAllTimeframes();
             const alignment = checkAlignment(trends);
@@ -369,7 +368,7 @@ const DecyclerBot: React.FC = observer(() => {
             // Check if we should enter a trade
             if (!botStatus.current_contract && (alignment === 'aligned_bullish' || alignment === 'aligned_bearish')) {
                 const direction = alignment === 'aligned_bullish' ? 'UP' : 'DOWN';
-                
+
                 // Optional 10s confirmation
                 if (config.use_10s_filter) {
                     addLog('⏱️ Applying 10-second confirmation filter...');
@@ -406,7 +405,7 @@ const DecyclerBot: React.FC = observer(() => {
 
         // Start trading loop
         intervalRef.current = setInterval(tradingLoop, config.monitor_interval * 1000);
-        
+
         // Run initial analysis
         await tradingLoop();
     }, [config, timeframes, tradingLoop, addLog]);
@@ -414,7 +413,7 @@ const DecyclerBot: React.FC = observer(() => {
     // Stop bot
     const stopBot = useCallback((): void => {
         setBotStatus(prev => ({ ...prev, is_running: false }));
-        
+
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
@@ -433,7 +432,7 @@ const DecyclerBot: React.FC = observer(() => {
         const handleApiResponse = (response: any) => {
             if (response && response.proposal_open_contract) {
                 const contract = response.proposal_open_contract;
-                
+
                 setBotStatus(prev => {
                     if (!prev.current_contract || prev.current_contract.id !== contract.contract_id) {
                         return prev;
@@ -466,7 +465,7 @@ const DecyclerBot: React.FC = observer(() => {
                     if (contract.is_sold) {
                         const isWin = contract.profit > 0;
                         addLog(`${isWin ? '🎉' : '💔'} Contract closed: ${isWin ? 'WIN' : 'LOSS'} - P&L: ${contract.profit.toFixed(2)}`);
-                        
+
                         return {
                             ...prev,
                             current_contract: null,
