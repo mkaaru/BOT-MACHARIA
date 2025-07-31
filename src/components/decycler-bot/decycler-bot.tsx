@@ -149,23 +149,26 @@ const DecyclerBot: React.FC = observer(() => {
         return 'neutral';
     }, []);
 
-    // Fetch OHLC data for a specific timeframe
+    // Enhanced OHLC data fetching with better error handling
     const fetchOHLCData = useCallback(async (timeframe: string): Promise<any[]> => {
         try {
-            // Ensure API connection is ready
+            // Ensure API connection is ready with multiple attempts
             if (!api_base.api || api_base.api.connection.readyState !== 1) {
-                addLog('🔄 API connection not ready, initializing...');
+                addLog(`🔄 Initializing API connection for ${timeframe} data...`);
                 await api_base.init();
                 
-                // Wait for connection to be established
+                // Wait for connection with extended patience
                 let retries = 0;
-                while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 10) {
+                while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     retries++;
+                    if (retries % 5 === 0) {
+                        addLog(`⏳ Still waiting for API connection... (${retries}/15)`);
+                    }
                 }
                 
                 if (!api_base.api || api_base.api.connection.readyState !== 1) {
-                    addLog('❌ Failed to establish API connection for data fetch');
+                    addLog(`❌ Failed to establish API connection for ${timeframe} data fetch`);
                     return [];
                 }
             }
@@ -179,150 +182,155 @@ const DecyclerBot: React.FC = observer(() => {
                 '4h': 14400
             }[timeframe] || 60;
 
-            // Check if this is a 1HZ symbol (1-second tick symbols)
+            // Enhanced symbol type detection
             const is1HZSymbol = config.symbol.startsWith('1HZ');
+            const isVolatilityIndex = config.symbol.startsWith('R_') || config.symbol.includes('V');
+            const isCrashBoom = config.symbol.includes('CRASH') || config.symbol.includes('BOOM');
             
-            // Calculate appropriate tick count for candle generation
-            const tickCount = is1HZSymbol ? Math.min(granularity * 100, 5000) : 500;
+            addLog(`📊 Fetching ${timeframe} data for ${config.symbol} (Type: ${is1HZSymbol ? '1HZ' : isVolatilityIndex ? 'Volatility' : isCrashBoom ? 'CrashBoom' : 'Standard'})`);
             
-            let request;
-            
-            if (is1HZSymbol) {
-                // For 1HZ symbols, always request tick data and convert to candles
-                addLog(`📍 Detected 1HZ symbol ${config.symbol} - requesting ${tickCount} ticks for ${timeframe} conversion`);
-                request = {
-                    ticks_history: config.symbol,
-                    count: tickCount,
-                    end: 'latest',
-                    style: 'ticks',
-                    req_id: `ticks_${timeframe}_${Date.now()}`
-                };
-            } else {
-                // For regular symbols, try candles first
-                const now = Math.floor(Date.now() / 1000);
-                const startTime = now - (100 * granularity);
-                
-                request = {
-                    ticks_history: config.symbol,
-                    adjust_start_time: 1,
-                    count: 100,
-                    end: 'latest',
-                    start: startTime,
-                    style: 'candles',
-                    granularity: granularity,
-                    req_id: `candles_${timeframe}_${Date.now()}`
-                };
+            // Strategy 1: Try direct candle request first for most symbols
+            if (!is1HZSymbol) {
+                try {
+                    const candleRequest = {
+                        ticks_history: config.symbol,
+                        adjust_start_time: 1,
+                        count: Math.min(100, Math.max(20, Math.floor(granularity / 60) * 10)),
+                        end: 'latest',
+                        style: 'candles',
+                        granularity: granularity,
+                        req_id: `candles_${timeframe}_${Date.now()}`
+                    };
+
+                    addLog(`📡 Requesting ${timeframe} candles: ${candleRequest.count} candles`);
+                    
+                    const candleResponse = await Promise.race([
+                        api_base.api.send(candleRequest),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Candle request timeout')), 10000)
+                        )
+                    ]);
+
+                    if (candleResponse?.candles && Array.isArray(candleResponse.candles) && candleResponse.candles.length > 0) {
+                        const validCandles = candleResponse.candles
+                            .filter(candle => candle && 
+                                typeof candle.close !== 'undefined' && 
+                                !isNaN(parseFloat(candle.close)) &&
+                                typeof candle.open !== 'undefined' &&
+                                typeof candle.high !== 'undefined' &&
+                                typeof candle.low !== 'undefined'
+                            )
+                            .map(candle => ({
+                                open: parseFloat(candle.open),
+                                high: parseFloat(candle.high),
+                                low: parseFloat(candle.low),
+                                close: parseFloat(candle.close),
+                                epoch: candle.epoch || candle.time,
+                                timeframe: timeframe
+                            }));
+
+                        if (validCandles.length > 0) {
+                            const lastCandle = validCandles[validCandles.length - 1];
+                            addLog(`✅ Got ${validCandles.length} ${timeframe} candles - Latest OHLC: ${lastCandle.open}/${lastCandle.high}/${lastCandle.low}/${lastCandle.close}`);
+                            return validCandles;
+                        }
+                    }
+
+                    if (candleResponse?.error) {
+                        addLog(`⚠️ Candle request failed: ${candleResponse.error.message}`);
+                    }
+                } catch (candleError) {
+                    addLog(`⚠️ Candle request exception: ${candleError.message}`);
+                }
             }
 
-            addLog(`📡 Requesting ${timeframe} data: ${JSON.stringify(request)}`);
+            // Strategy 2: Fall back to tick data and convert to candles
+            const tickCount = is1HZSymbol ? 
+                Math.min(granularity * 50, 3000) : // For 1HZ symbols
+                Math.min(granularity * 10, 1000);   // For regular symbols
             
-            const response = await Promise.race([
-                api_base.api.send(request),
+            const tickRequest = {
+                ticks_history: config.symbol,
+                count: tickCount,
+                end: 'latest',
+                style: 'ticks',
+                req_id: `ticks_${timeframe}_${Date.now()}`
+            };
+
+            addLog(`📈 Requesting ${tickCount} ticks for ${timeframe} conversion...`);
+            
+            const tickResponse = await Promise.race([
+                api_base.api.send(tickRequest),
                 new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Request timeout after 15s')), 15000)
+                    setTimeout(() => reject(new Error('Tick request timeout')), 12000)
                 )
             ]);
 
-            if (response?.error) {
-                addLog(`❌ API error for ${timeframe}: ${response.error.message} (Code: ${response.error.code})`);
-                
-                // If candles failed, try ticks as fallback for non-1HZ symbols
-                if (!is1HZSymbol && (response.error.code === 'InputValidationFailed' || response.error.code === 'InvalidSymbol')) {
-                    addLog(`🔄 Candles not supported for ${config.symbol}, trying tick data...`);
-                    
-                    const tickRequest = {
-                        ticks_history: config.symbol,
-                        count: granularity * 100,
-                        end: 'latest',
-                        style: 'ticks',
-                        req_id: `ticks_fallback_${timeframe}_${Date.now()}`
-                    };
-                    
-                    const tickResponse = await api_base.api.send(tickRequest);
-                    
-                    if (tickResponse?.error) {
-                        addLog(`❌ Tick fallback also failed: ${tickResponse.error.message}`);
-                        return [];
-                    }
-                    
-                    // Process tick response
-                    if (tickResponse.history?.prices && tickResponse.history?.times) {
-                        const prices = tickResponse.history.prices.map(p => parseFloat(p));
-                        const times = tickResponse.history.times;
-                        
-                        addLog(`📈 Converting ${prices.length} fallback ticks to ${timeframe} candles...`);
-                        const candles = convertTicksToCandles(prices, times, granularity);
-                        addLog(`✅ Generated ${candles.length} OHLC candles from fallback tick data for ${timeframe}`);
-                        
-                        return candles;
-                    }
-                }
-                
+            if (tickResponse?.error) {
+                addLog(`❌ Tick request failed: ${tickResponse.error.message} (Code: ${tickResponse.error.code})`);
                 return [];
             }
 
-            // Check for direct candle response (non-1HZ symbols)
-            if (response?.candles && Array.isArray(response.candles) && response.candles.length > 0) {
-                addLog(`✅ Received ${response.candles.length} candles for ${timeframe}`);
+            if (tickResponse?.history?.prices && tickResponse?.history?.times) {
+                const prices = tickResponse.history.prices.map(p => parseFloat(p)).filter(p => !isNaN(p));
+                const times = tickResponse.history.times;
                 
-                // Validate and format candle data
-                const validCandles = response.candles.filter(candle => 
-                    candle && 
-                    typeof candle.close !== 'undefined' && 
-                    !isNaN(parseFloat(candle.close)) &&
-                    typeof candle.open !== 'undefined' &&
-                    typeof candle.high !== 'undefined' &&
-                    typeof candle.low !== 'undefined'
-                ).map(candle => ({
-                    open: parseFloat(candle.open),
-                    high: parseFloat(candle.high),
-                    low: parseFloat(candle.low),
-                    close: parseFloat(candle.close),
-                    epoch: candle.epoch || candle.time,
-                    timeframe: timeframe
-                }));
-                
-                if (validCandles.length !== response.candles.length) {
-                    addLog(`⚠️ Filtered ${response.candles.length - validCandles.length} invalid candles for ${timeframe}`);
+                if (prices.length === 0) {
+                    addLog(`❌ No valid price data received for ${timeframe}`);
+                    return [];
                 }
+
+                addLog(`📊 Converting ${prices.length} ticks to ${timeframe} candles...`);
                 
-                addLog(`📊 OHLC Data for ${timeframe}: Open=${validCandles[validCandles.length-1]?.open}, High=${validCandles[validCandles.length-1]?.high}, Low=${validCandles[validCandles.length-1]?.low}, Close=${validCandles[validCandles.length-1]?.close}`);
-                
-                return validCandles;
-            }
-            
-            // Check for tick data response (1HZ symbols and fallbacks)
-            else if (response?.history?.prices && response?.history?.times) {
-                const prices = response.history.prices.map(p => parseFloat(p));
-                const times = response.history.times;
-                
-                addLog(`📈 Converting ${prices.length} ticks to ${timeframe} candles...`);
-                
-                // Convert tick data to candles
                 const candles = convertTicksToCandles(prices, times, granularity);
+                
                 if (candles.length > 0) {
                     const lastCandle = candles[candles.length - 1];
-                    addLog(`📊 Generated ${candles.length} OHLC candles for ${timeframe}`);
-                    addLog(`📊 Latest ${timeframe} OHLC: Open=${lastCandle.open}, High=${lastCandle.high}, Low=${lastCandle.low}, Close=${lastCandle.close}`);
+                    addLog(`✅ Generated ${candles.length} ${timeframe} candles - Latest OHLC: ${lastCandle.open}/${lastCandle.high}/${lastCandle.low}/${lastCandle.close}`);
+                    return candles;
+                } else {
+                    addLog(`❌ Failed to generate candles from tick data for ${timeframe}`);
+                    return [];
                 }
+            }
+
+            // Strategy 3: Try alternative tick request format
+            const altTickRequest = {
+                ticks_history: config.symbol,
+                count: Math.min(500, tickCount),
+                end: 'latest',
+                req_id: `alt_ticks_${timeframe}_${Date.now()}`
+            };
+
+            addLog(`🔄 Trying alternative tick request format for ${timeframe}...`);
+            
+            const altResponse = await Promise.race([
+                api_base.api.send(altTickRequest),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Alternative request timeout')), 8000)
+                )
+            ]);
+
+            if (altResponse?.history?.prices) {
+                const prices = altResponse.history.prices.map(p => parseFloat(p)).filter(p => !isNaN(p));
+                const times = altResponse.history.times || Array.from({length: prices.length}, (_, i) => Date.now()/1000 - (prices.length - i) * 60);
                 
-                return candles;
-            } else {
-                addLog(`⚠️ No candle or tick data in response for ${timeframe}`);
-                if (response) {
-                    addLog(`🔍 Response keys: ${Object.keys(response).join(', ')}`);
-                    if (response.msg_type) {
-                        addLog(`🔍 Message type: ${response.msg_type}`);
+                if (prices.length > 0) {
+                    const candles = convertTicksToCandles(prices, times, granularity);
+                    if (candles.length > 0) {
+                        addLog(`✅ Alternative request succeeded - Generated ${candles.length} ${timeframe} candles`);
+                        return candles;
                     }
                 }
-                return [];
             }
+
+            addLog(`❌ All strategies failed for ${timeframe} - no data available`);
+            return [];
+
         } catch (error) {
             const errorMessage = error?.message || error?.toString() || 'Unknown error';
             addLog(`❌ Exception fetching ${timeframe} data: ${errorMessage}`);
-            if (error?.stack) {
-                console.error('Full error stack:', error.stack);
-            }
+            console.error(`Detailed error for ${timeframe}:`, error);
             return [];
         }
     }, [config.symbol, addLog]);
@@ -807,21 +815,23 @@ const DecyclerBot: React.FC = observer(() => {
         }
     }, [config, addLog]);
 
-    // Test API connection
+    // Comprehensive API connection and data testing
     const testConnection = useCallback(async (): Promise<void> => {
         try {
-            addLog('🔍 Testing API connection...');
+            addLog('🔍 Starting comprehensive API connection test...');
             
+            // Step 1: Test WebSocket connection
             if (!api_base.api || api_base.api.connection.readyState !== 1) {
                 addLog('🔌 Initializing API connection...');
                 await api_base.init();
                 
-                // Wait for connection
                 let retries = 0;
-                while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 10) {
+                while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     retries++;
-                    addLog(`⏳ Waiting for connection... (${retries}/10)`);
+                    if (retries % 3 === 0) {
+                        addLog(`⏳ Waiting for connection... (${retries}/15)`);
+                    }
                 }
             }
             
@@ -832,26 +842,86 @@ const DecyclerBot: React.FC = observer(() => {
             
             addLog(`✅ WebSocket connected (Ready State: ${api_base.api.connection.readyState})`);
             
-            // Test with a simple time request
-            const response = await api_base.api.send({ time: 1 });
+            // Step 2: Test basic API communication
+            const timeResponse = await Promise.race([
+                api_base.api.send({ time: 1 }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Time request timeout')), 5000))
+            ]);
             
-            if (response.time) {
-                addLog(`✅ API communication test successful. Server time: ${new Date(response.time * 1000).toLocaleString()}`);
-                
-                // Test symbol data availability
-                const testData = await fetchOHLCData('1m');
-                if (testData.length > 0) {
-                    addLog(`✅ Data retrieval test successful. Got ${testData.length} candles for ${config.symbol}`);
-                } else {
-                    addLog(`⚠️ No data available for symbol ${config.symbol}. Try a different symbol.`);
-                }
+            if (timeResponse?.time) {
+                addLog(`✅ API communication test successful. Server time: ${new Date(timeResponse.time * 1000).toLocaleString()}`);
             } else {
-                addLog('❌ API communication test failed');
+                addLog('❌ API communication test failed - no server time received');
+                return;
             }
+
+            // Step 3: Test symbol existence
+            addLog(`🔍 Testing symbol availability: ${config.symbol}`);
+            
+            try {
+                const symbolTest = await Promise.race([
+                    api_base.api.send({ 
+                        active_symbols: 'brief',
+                        product_type: 'basic'
+                    }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Symbol test timeout')), 8000))
+                ]);
+
+                if (symbolTest?.active_symbols) {
+                    const symbolExists = symbolTest.active_symbols.some(s => s.symbol === config.symbol);
+                    if (symbolExists) {
+                        addLog(`✅ Symbol ${config.symbol} is available for trading`);
+                    } else {
+                        addLog(`⚠️ Symbol ${config.symbol} not found in active symbols list`);
+                    }
+                }
+            } catch (symbolError) {
+                addLog(`⚠️ Could not verify symbol availability: ${symbolError.message}`);
+            }
+
+            // Step 4: Test data retrieval for each timeframe
+            addLog('📊 Testing data retrieval for all timeframes...');
+            
+            const testResults = {};
+            for (const tf of timeframes) {
+                try {
+                    addLog(`🔄 Testing ${tf} data...`);
+                    const testData = await fetchOHLCData(tf);
+                    testResults[tf] = testData.length;
+                    
+                    if (testData.length > 0) {
+                        addLog(`✅ ${tf}: ${testData.length} data points retrieved`);
+                    } else {
+                        addLog(`❌ ${tf}: No data retrieved`);
+                    }
+                    
+                    // Small delay between requests to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                } catch (tfError) {
+                    addLog(`❌ ${tf}: Error - ${tfError.message}`);
+                    testResults[tf] = 0;
+                }
+            }
+
+            // Step 5: Summary
+            const successfulTimeframes = Object.values(testResults).filter(count => count > 0).length;
+            const totalTimeframes = timeframes.length;
+            
+            addLog(`📋 Test Summary: ${successfulTimeframes}/${totalTimeframes} timeframes working`);
+            
+            if (successfulTimeframes === 0) {
+                addLog('❌ No timeframes working - try a different symbol or check API connection');
+            } else if (successfulTimeframes < totalTimeframes) {
+                addLog(`⚠️ Partial success - ${totalTimeframes - successfulTimeframes} timeframes failed`);
+            } else {
+                addLog('🎉 All timeframes working perfectly!');
+            }
+
         } catch (error) {
             addLog(`❌ Connection test failed: ${error.message}`);
+            console.error('Detailed connection test error:', error);
         }
-    }, [fetchOHLCData, config.symbol, addLog]);
+    }, [fetchOHLCData, config.symbol, addLog, timeframes]);
 
     // Cleanup on unmount
     useEffect(() => {
