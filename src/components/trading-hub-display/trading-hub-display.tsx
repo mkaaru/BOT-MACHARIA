@@ -217,6 +217,40 @@ const TradingHubDisplay: React.FC = observer(() => {
             };
         }
 
+        // Handle different strategy types with proper contract mapping
+        const getContractTypeForStrategy = (strategy: string, direction: 'UP' | 'DOWN') => {
+            switch (strategy) {
+                case 'risefall':
+                    // Rise/Fall (strict) - price must be higher/lower than entry, no equals allowed
+                    return direction === 'UP' ? 'CALL' : 'PUT';
+                case 'higherlower':
+                    // Higher/Lower - price can be equal to entry
+                    return direction === 'UP' ? 'CALLE' : 'PUTE';
+                case 'overunder':
+                default:
+                    // Digits Over/Under
+                    return direction === 'UP' ? 'DIGITOVER' : 'DIGITUNDER';
+            }
+        };
+
+        // Default strategy execution for rise/fall and higher/lower
+        if (['risefall', 'higherlower'].includes(currentStrategy)) {
+            // Use a simple alternating pattern or random selection for demonstration
+            const direction = Math.random() > 0.5 ? 'UP' : 'DOWN';
+            const contractType = getContractTypeForStrategy(currentStrategy, direction);
+            const symbol = 'R_100'; // Default synthetic symbol
+
+            addLog(`🔍 Using ${currentStrategy.toUpperCase()} strategy: ${contractType} on ${symbol}`);
+
+            return {
+                ...baseConfig,
+                symbol: symbol,
+                contract_type: contractType,
+                duration: 5, // 5 ticks for rise/fall and higher/lower
+                duration_unit: 't'
+            };
+        }
+
         // No valid configuration available
         addLog(`❌ No valid trade configuration available. Strategy: ${currentStrategy}, Recommendation: ${currentRecommendation ? 'Yes' : 'No'}, Signal: ${activeSignal ? 'Yes' : 'No'}`);
         return null;
@@ -244,7 +278,10 @@ const TradingHubDisplay: React.FC = observer(() => {
         }]);
 
         try {
-            addLog(`📈 Executing ${tradeConfig.contract_type} trade on ${tradeConfig.symbol} with barrier ${tradeConfig.barrier}, stake: $${tradeConfig.amount}`);
+            const logMessage = tradeConfig.barrier 
+                ? `📈 Executing ${tradeConfig.contract_type} trade on ${tradeConfig.symbol} with barrier ${tradeConfig.barrier}, stake: $${tradeConfig.amount}`
+                : `📈 Executing ${tradeConfig.contract_type} trade on ${tradeConfig.symbol} for ${tradeConfig.duration} ${tradeConfig.duration_unit === 't' ? 'ticks' : 'time units'}, stake: $${tradeConfig.amount}`;
+            addLog(logMessage);
 
             // Execute the trade
             const result = await executeDirectTrade(tradeConfig);
@@ -952,12 +989,17 @@ const TradingHubDisplay: React.FC = observer(() => {
                         </div>
                         {tradingState.selectedStrategy === 'risefall' && (
                             <div className="strategy-description">
-                                <small>📈 Rise: Win if exit price is higher than entry price | 📉 Fall: Win if exit price is lower than entry price</small>
+                                <small>📈 Rise: Win if exit price is strictly higher than entry price | 📉 Fall: Win if exit price is strictly lower than entry price</small>
                             </div>
                         )}
                         {tradingState.selectedStrategy === 'higherlower' && (
                             <div className="strategy-description">
                                 <small>⬆️ Higher: Win if exit price is higher than or equal to entry price | ⬇️ Lower: Win if exit price is lower than or equal to entry price</small>
+                            </div>
+                        )}
+                        {tradingState.selectedStrategy === 'overunder' && (
+                            <div className="strategy-description">
+                                <small>🔢 Over/Under: Win if last digit is over/under the selected barrier number</small>
                             </div>
                         )}
                     </div>
