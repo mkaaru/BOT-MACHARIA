@@ -852,8 +852,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 }, 8000); // 8 second delay to allow for real API result first
 
             } else {
-                addLog(`❌ Manual trade failed: ${result.message}`);
-                // Update trade history to show failed trade
+                addLog(`❌ Manual trade failed: ${result.message}`);// Update trade history to show failed trade
                 setTradeHistory(prev => prev.map(trade => 
                     trade.id === tradeId 
                         ? { ...trade, outcome: 'loss', pnl: -tradeConfig.amount }
@@ -938,17 +937,29 @@ const TradingHubDisplay: React.FC = observer(() => {
                     <div className="strategy-section">
                         <h3>🎯 Trading Strategy</h3>
                         <div className="strategy-buttons">
-                            {['overunder', 'differ', 'o5u4'].map(strategy => (
+                            {['overunder', 'differ', 'o5u4', 'risefall', 'higherlower'].map(strategy => (
                                 <button
                                     key={strategy}
                                     className={`strategy-btn ${tradingState.selectedStrategy === strategy ? 'active' : ''}`}
                                     onClick={() => setTradingState(prev => ({ ...prev, selectedStrategy: strategy }))}
                                     disabled={tradingState.isRunning || tradingState.isTradeInProgress}
                                 >
-                                    {strategy.toUpperCase()}
+                                    {strategy === 'risefall' ? 'RISE/FALL' : 
+                                     strategy === 'higherlower' ? 'HIGHER/LOWER' : 
+                                     strategy.toUpperCase()}
                                 </button>
                             ))}
                         </div>
+                        {tradingState.selectedStrategy === 'risefall' && (
+                            <div className="strategy-description">
+                                <small>📈 Rise: Win if exit price is higher than entry price | 📉 Fall: Win if exit price is lower than entry price</small>
+                            </div>
+                        )}
+                        {tradingState.selectedStrategy === 'higherlower' && (
+                            <div className="strategy-description">
+                                <small>⬆️ Higher: Win if exit price is higher than or equal to entry price | ⬇️ Lower: Win if exit price is lower than or equal to entry price</small>
+                            </div>
+                        )}
                     </div>
 
                     {/* Configuration */}

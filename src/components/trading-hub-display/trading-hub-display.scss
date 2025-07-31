@@ -93,6 +93,20 @@
                 }
             }
         }
+
+        .strategy-description {
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            border-left: 3px solid #4CAF50;
+
+            small {
+                color: rgba(255, 255, 255, 0.9);
+                font-size: 12px;
+                line-height: 1.4;
+            }
+        }
     }
 
     // Configuration Section
@@ -986,7 +1000,8 @@
         .strategy-section,
         .config-section,
         .controls-section,
-        .stats-section,
+        .Add styles for strategy descriptions in the trading hub.
+```stats-section,
         .logs-section {
             padding: 20px;
         }
