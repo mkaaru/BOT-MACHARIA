@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import { decyclerAnalyzer } from '@/services/decycler-analyzer';
-import { signalIntegrationService, TradingSignal } from '../../services/signal-integration';
+import { TradingSignal } from '../../services/signal-integration';
 import { useStore } from '@/hooks/useStore';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import marketAnalyzer from '../../services/market-analyzer';
@@ -268,146 +268,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 // Start monitoring the contract for results
                 if (result.contract_id) {
-                    monitorContract(result.contract_id, tradeId, tradeConfig); // Pass tradeId and tradeConfig
-
-                    // Start Decycler contract monitoring if in decycler mode
-                    const selectedAnalysisMode = 'decycler'; // Replace with your actual selected analysis mode
-                    const decyclerConfig = { enabled: true }; // Replace with your actual decycler config
-                    const decyclerAnalysis = { trends: [{ timeframe: '1m', trend: 'up' }] }; // Replace with your actual decycler analysis
-                    const decyclerAnalyzer = { startContractMonitoring: (contractId: string, buyPrice: number, entryTrends: string[]) => {} }; // Replace with your actual decycler analyzer
-                    if (selectedAnalysisMode === 'decycler' && decyclerConfig.enabled) {
-                        const entryTrends = decyclerAnalysis?.trends.map(t => `${t.timeframe}:${t.trend}`) || [];
-                        decyclerAnalyzer.startContractMonitoring(
-                            result.contract_id,
-                            result.buy_price || tradeConfig.amount,
-                            entryTrends
-                        );
-                    }
-
-                    // INSTANT FILL: Process contract result immediately in the same second
-                    setTimeout(() => {
-                        const instantWin = Math.random() > 0.45; // 55% win rate for instant fill
-                        // Fix P&L calculation: win = stake * 0.85 (net profit), loss = -stake (total loss)
-                        const instantPnl = instantWin ? tradeConfig.amount * 0.85 : -tradeConfig.amount;
-
-                        addLog(`⚡ INSTANT FILL: Contract ${result.contract_id} - ${instantWin ? 'WIN' : 'LOSS'} - Stake: $${tradeConfig.amount} → P&L: ${instantPnl > 0 ? '+' : ''}$${instantPnl.toFixed(2)}`);
-
-                        // Update trade history with instant result first
-                        setTradeHistory(prev => {
-                            const updatedHistory = prev.map(trade =>
-                                trade.id === tradeId
-                                    ? { ...trade, outcome: instantWin ? 'win' : 'loss', pnl: instantPnl }
-                                    : trade
-                            );
-
-                            // Immediately recalculate statistics from updated history
-                            const totalTrades = updatedHistory.length;
-                            const winTrades = updatedHistory.filter(trade => trade.outcome === 'win').length;
-                            const lossTrades = updatedHistory.filter(trade => trade.outcome === 'loss').length;
-                            const totalProfit = updatedHistory.reduce((sum, trade) => sum + (parseFloat(trade.pnl) || 0), 0);
-
-                            // Log for debugging
-                            console.log('📊 Updated Statistics:', {
-                                totalTrades,
-                                winTrades,
-                                lossTrades,
-                                totalProfit: totalProfit.toFixed(2),
-                                lastTradePnl: instantPnl.toFixed(2),
-                                runningBalance: `Initial + ${totalProfit.toFixed(2)}`
-                            });
-
-                            // Update trading state with recalculated statistics
-                            setTradingState(prevState => {
-                                const newState = {
-                                    ...prevState,
-                                    totalTrades: totalTrades,
-                                    winTrades: winTrades,
-                                    lossTrades: lossTrades,
-                                    totalProfit: Math.round(totalProfit * 100) / 100,
-                                    lastTradeResult: instantWin ? 'Win' : 'Loss',
-                                    isTradeInProgress: false
-                                };
-
-                                // Check stop conditions
-                                if (newState.totalProfit <= -prevState.stopLoss) {
-                                    addLog(`🛑 Stop Loss hit! Total P&L: $${newState.totalProfit.toFixed(2)} - Stopping trading...`);
-                                    newState.isRunning = false;
-                                }
-
-                                if (newState.totalProfit >= prevState.takeProfit) {
-                                    addLog(`🎯 Take Profit hit! Total P&L: $${newState.totalProfit.toFixed(2)} - Stopping trading...`);
-                                    newState.isRunning = false;
-                                }
-
-                                return newState;
-                            });
-
-                            return updatedHistory;
-                        });
-
-                        // Update martingale state immediately and sync with engine
-                        setMartingaleConfig(prev => {
-                            const newConfig = instantWin ? {
-                                ...prev,
-                                consecutiveLosses: 0,
-                                currentMultiplier: 1.0,
-                                baseStake: tradingState.currentStake
-                            } : {
-                                ...prev,
-                                consecutiveLosses: 1,
-                                currentMultiplier: 2.0,
-                                baseStake: tradingState.currentStake
-                            };
-
-                            // Immediately update trading state with new stake for next trade
-                            setTimeout(() => {
-                                setTradingState(prevState => ({
-                                    ...prevState,
-                                    currentStake: instantWin ? newConfig.baseStake : newConfig.baseStake * 2.0
-                                }));
-                            }, 10);
-
-                            if (instantWin) {
-                                addLog('✅ MARTINGALE RESET: Win detected - next trade uses base stake');
-                            } else {
-                                addLog('❌ MARTINGALE ACTIVE: Loss detected - NEXT TRADE USES 2x STAKE IMMEDIATELY');
-                            }
-
-                            return newConfig;
-                        });
-
-                        // Emit contract closed event for immediate processing
-                        if (typeof window !== 'undefined' && (window as any).globalObserver) {
-                            (window as any).globalObserver.emit('contract.closed', {
-                                contract_id: result.contract_id,
-                                is_sold: true,
-                                buy_price: tradeConfig.amount,
-                                sell_price: instantWin ? tradeConfig.amount * 1.85 : 0,
-                                profit: instantPnl,
-                                symbol: tradeConfig.symbol,
-                                contract_type: tradeConfig.contract_type
-                            });
-                        }
-
-                    }, 100); // 100ms delay for instant fill (same second)
-
-                    // Keep fallback timeout for any edge cases
-                    setTimeout(() => {
-                        // Only execute if trade is still pending
-                        const currentTrade = tradeHistory.find(t => t.id === tradeId);
-                        if (currentTrade && currentTrade.outcome === 'pending') {
-                            const fallbackWin = Math.random() > 0.45;
-                            const fallbackPnl = fallbackWin ? tradeConfig.amount * 0.85 : -tradeConfig.amount;
-
-                            addLog(`⏰ Fallback result: ${fallbackWin ? 'WIN' : 'LOSS'} - P&L: ${fallbackPnl > 0 ? '+' : ''}$${fallbackPnl.toFixed(2)}`);
-
-                            setTradeHistory(prev => prev.map(trade =>
-                                trade.id === tradeId && trade.outcome === 'pending'
-                                    ? { ...trade, outcome: fallbackWin ? 'win' : 'loss', pnl: fallbackPnl }
-                                    : trade
-                            ));
-                        }
-                    }, 30000); // 30 second fallback
+                    monitorContract(result.contract_id, tradeId, tradeConfig);
                 }
             } else {
                 addLog(`❌ Trade failed: ${result.error}`);
@@ -427,7 +288,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     : trade
             ));
         }
-    }, [getTradeConfig, executeDirectTrade, addLog, activeSignal, signalIntegrationService, tradingState.currentStake, setMartingaleConfig, tradingState.stopLoss, tradingState.takeProfit, monitorContract]);
+    }, [getTradeConfig, executeDirectTrade, addLog, activeSignal, tradingState.currentStake, setMartingaleConfig, tradingState.stopLoss, tradingState.takeProfit, monitorContract]);
 
     const toggleTrading = useCallback(() => {
         setTradingState(prev => {
@@ -555,30 +416,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     // Subscribe to signal service
     useEffect(() => {
         try {
-            if (signalIntegrationService && typeof signalIntegrationService.getActiveSignal === 'function') {
-                const signalSubscription = signalIntegrationService.getActiveSignal().subscribe(signal => {
-                    if (signal && signal.strategy === tradingState.selectedStrategy) {
-                        setActiveSignal(signal);
-                        addLog(`📊 New active signal: ${signal.action} ${signal.barrier || ''} on ${signal.symbol} (${signal.confidence}%)`);
-                        // Note: Trade execution will be handled by the main auto-trading interval
-                    }
-                });
-
-                const allSignalsSubscription = signalIntegrationService.getSignals().subscribe(signals => {
-                    setSignalHistory(signals.filter(s => s.strategy === tradingState.selectedStrategy).slice(-10));
-                });
-
-                return () => {
-                    if (signalSubscription && typeof signalSubscription.unsubscribe === 'function') {
-                        signalSubscription.unsubscribe();
-                    }
-                    if (allSignalsSubscription && typeof allSignalsSubscription.unsubscribe === 'function') {
-                        allSignalsSubscription.unsubscribe();
-                    }
-                };
-            } else {
-                addLog('⚠️ Signal service not available');
-            }
+            
         } catch (error) {
             console.error('Signal service subscription error:', error);
             addLog('⚠️ Signal service not available');
@@ -589,7 +427,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     useEffect(() => {
         setActiveSignal(null);
         try {
-            signalIntegrationService.clearActiveSignal();
+           
         } catch (error) {
             console.error('Signal service clear error:', error);
         }
@@ -934,7 +772,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // Error boundary for the component
     const [hasError, setHasError] = useState(false);
-    
+
     // Trading configuration
     const [tradingConfig] = useState({
         autoTradeEnabled: true,
@@ -1057,8 +895,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                             <div className="volatility-bar">
                                 <div className="volatility-fill" style={{width: '60%'}}></div>
                             </div>
-                        </div>
-                    </div>
+                        </div></div>
                     <div className="prediction-card">
                         <h3>Trend Prediction</h3>
                         <div className="prediction-result">
@@ -1203,15 +1040,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         try {
             // Subscribe to signals safely
-            if (signalIntegrationService && typeof signalIntegrationService.getActiveSignal === 'function') {
-                const subscription = signalIntegrationService.getActiveSignal().subscribe(signal => {
-                    if (signal) {
-                        addLog(`📊 Signal received: ${signal.action} ${signal.barrier || ''} on ${signal.symbol}`);
-                    }
-                });
-            } else {
-                addLog('⚠️ Signal integration service not available');
-            }
+           
 
             // Start market analysis
             if (analysisMode === 'percentage') {
