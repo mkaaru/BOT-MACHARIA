@@ -71,6 +71,8 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [analysisMode, setAnalysisMode] = useState('percentage');
     const [decyclerAnalysis, setDecyclerAnalysis] = useState(null);
     const [contractMonitoring, setContractMonitoring] = useState(null);
+    const [error, setError] = useState<string | null>(null);
+    const [isInitialized, setIsInitialized] = useState(false);
 
     const addLog = useCallback((message: string) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -847,7 +849,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         setLastTradeTime(Date.now());
 
         const tradeId = Date.now(); // Generate unique ID for the trade
-        // Add the trade to history immediately with 'pending' status
+        // Add the trade to history immediately with 'status
         setTradeHistory(prev => [...prev, {
             id: tradeId,
             timestamp: new Date().toLocaleTimeString(),
@@ -924,23 +926,77 @@ const TradingHubDisplay: React.FC = observer(() => {
     // Error boundary for the component
     const [hasError, setHasError] = useState(false);
 
+    // Safe initialization
     useEffect(() => {
-        const handleError = (error: Error) => {
-            console.error('Trading Hub Error:', error);
-            setHasError(true);
-            addLog(`❌ Component Error: ${error.message}`);
+        const initializeComponent = async () => {
+            try {
+                setError(null);
+                addLog('🚀 Initializing Trading Hub...');
+
+                // Initialize services safely
+                if (marketAnalyzer && typeof marketAnalyzer.initialize === 'function') {
+                    try {
+                        await marketAnalyzer.initialize();
+                        addLog('✅ Market Analyzer initialized');
+                    } catch (e) {
+                        console.warn('Market analyzer initialization failed:', e);
+                        addLog('⚠️ Market Analyzer unavailable');
+                    }
+                }
+
+                if (decyclerAnalyzer && typeof decyclerAnalyzer.initialize === 'function') {
+                    try {
+                        await decyclerAnalyzer.initialize();
+                        addLog('✅ Decycler Analyzer initialized');
+                    } catch (e) {
+                        console.warn('Decycler analyzer initialization failed:', e);
+                        addLog('⚠️ Decycler Analyzer unavailable');
+                    }
+                }
+
+                setIsInitialized(true);
+                addLog('✅ Trading Hub initialized successfully');
+
+            } catch (error) {
+                console.error('Trading Hub initialization error:', error);
+                setError(error instanceof Error ? error.message : 'Unknown initialization error');
+                addLog(`❌ Initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+        };
+
+        initializeComponent();
+    }, [addLog]);
+
+    // Error handling
+    useEffect(() => {
+        const handleError = (event: ErrorEvent) => {
+            console.error('Trading Hub Error:', event.error);
+            addLog(`❌ Error: ${event.error?.message || 'Unknown error'}`);
+            setError(event.error?.message || 'Unknown error');
+        };
+
+        const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+            console.error('Trading Hub Promise Rejection:', event.reason);
+            addLog(`❌ Promise Error: ${event.reason?.message || event.reason}`);
+            setError(event.reason?.message || event.reason);
         };
 
         window.addEventListener('error', handleError);
-        return () => window.removeEventListener('error', handleError);
+        window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+        return () => {
+            window.removeEventListener('error', handleError);
+            window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+        };
     }, [addLog]);
 
-    if (hasError) {
+    if (hasError || error) {
         return (
             <div className="trading-hub-container">
                 <div className="error-container" style={{ padding: '20px', textAlign: 'center' }}>
                     <h3>❌ Trading Hub Error</h3>
                     <p>The trading hub encountered an error. Please refresh the page.</p>
+                    {error && <p>Error Details: {error}</p>}
                     <button 
                         onClick={() => {
                             setHasError(false);
@@ -1108,6 +1164,50 @@ const TradingHubDisplay: React.FC = observer(() => {
             </div>
         );
     };
+
+    const startAutoTrading = useCallback(async () => {
+        if (!analyzerReady || !tradingConfig.autoTradeEnabled) {
+            addLog('⚠️ Auto-trading not available - analyzer not ready or auto-trade disabled');
+            return;
+        }
+
+        setTradingState(prev => ({ ...prev, isRunning: true }));
+        addLog('🚀 Auto-trading started - waiting for signals...');
+
+        try {
+            // Subscribe to signals safely
+            if (signalIntegrationService && typeof signalIntegrationService.subscribe === 'function') {
+                signalIntegrationService.subscribe((signal: TradingSignal) => {
+                    handleSignalReceived(signal);
+                });
+            } else {
+                addLog('⚠️ Signal integration service not available');
+            }
+
+            // Start market analysis
+            if (tradingConfig.analysisMode === 'percentage') {
+                addLog('📊 Starting percentage analysis...');
+            } else if (tradingConfig.analysisMode === 'volatility') {
+                addLog('📈 Starting volatility analysis...');
+            } else if (tradingConfig.analysisMode === 'decycler') {
+                addLog('🔄 Starting decycler analysis...');
+                if (decyclerAnalyzer && typeof decyclerAnalyzer.startAnalysis === 'function') {
+                    decyclerAnalyzer.startAnalysis();
+                }
+            }
+
+            if (marketAnalyzer && typeof marketAnalyzer.startAnalysis === 'function') {
+                marketAnalyzer.startAnalysis();
+            } else {
+                addLog('⚠️ Market analyzer not available - running in demo mode');
+            }
+
+        } catch (error) {
+            console.error('Error starting auto-trading:', error);
+            addLog(`❌ Failed to start auto-trading: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            setTradingState(prev => ({ ...prev, isRunning: false }));
+        }
+    }, [analyzerReady, tradingConfig, handleSignalReceived, addLog]);
 
     return (
         <div className="trading-hub-container">
