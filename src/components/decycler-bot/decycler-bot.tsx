@@ -91,6 +91,9 @@ const DecyclerBot: React.FC = observer(() => {
     const logsEndRef = useRef<HTMLDivElement>(null);
 
     const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h'];
+    const wsRef = useRef<WebSocket | null>(null);
+    const tickDataBuffer = useRef<{ [key: string]: { prices: number[]; times: number[]; } }>({});
+    const symbolType = config.symbol.startsWith('1HZ') ? '1HZ' : 'Standard';
 
     const addLog = useCallback((message: string) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -337,70 +340,63 @@ const DecyclerBot: React.FC = observer(() => {
 
     // Helper function to convert tick data to candles
     const convertTicksToCandles = useCallback((prices: number[], times: number[], granularity: number): any[] => {
-        if (!prices || !times || prices.length !== times.length || prices.length === 0) {
-            addLog(`⚠️ Invalid tick data for candle conversion: prices=${prices?.length}, times=${times?.length}`);
+        try {
+            if (!prices || !times || prices.length !== times.length || prices.length === 0) {
+                addLog(`⚠️ Invalid tick data for candle conversion: prices=${prices?.length}, times=${times?.length}`);
+                return [];
+            }
+
+            addLog(`🔄 Converting ${prices.length} ticks to candles with ${granularity}s granularity...`);
+
+            const candles: any[] = [];
+            let currentCandle: any = null;
+
+            for (let i = 0; i < prices.length; i++) {
+                const price = parseFloat(prices[i]);
+                const time = parseInt(times[i]);
+
+                if (isNaN(price) || isNaN(time) || time <= 0) {
+                    continue; // Skip invalid data
+                }
+
+                const candleTime = Math.floor(time / granularity) * granularity;
+
+                if (!currentCandle || currentCandle.epoch !== candleTime) {
+                    // Start new candle
+                    if (currentCandle) {
+                        candles.push(currentCandle);
+                    }
+                    currentCandle = {
+                        epoch: candleTime,
+                        open: price,
+                        high: price,
+                        low: price,
+                        close: price,
+                        tick_count: 1
+                    };
+                } else {
+                    // Update existing candle
+                    currentCandle.high = Math.max(currentCandle.high, price);
+                    currentCandle.low = Math.min(currentCandle.low, price);
+                    currentCandle.close = price;
+                    currentCandle.tick_count++;
+                }
+            }
+
+            // Add the last candle
+            if (currentCandle) {
+                candles.push(currentCandle);
+            }
+
+            const sortedCandles = candles.sort((a, b) => a.epoch - b.epoch);
+            addLog(`✅ Successfully converted ${prices.length} ticks to ${sortedCandles.length} candles`);
+            return sortedCandles;
+
+        } catch (error) {
+            addLog(`❌ Error in convertTicksToCandles: ${error.message}`);
+            console.error('convertTicksToCandles error:', error);
             return [];
         }
-
-        const candles: any[] = [];
-        let currentCandle: any = null;
-        let tickCount = 0;
-
-        for (let i = 0; i < prices.length; i++) {
-            const price = parseFloat(prices[i]);
-            const time = times[i];
-
-            if (isNaN(price) || !time) {
-                continue; // Skip invalid data
-            }
-
-            const candleTime = Math.floor(time / granularity) * granularity;
-
-            if (!currentCandle || currentCandle.epoch !== candleTime) {
-                // Start new candle
-                if (currentCandle && tickCount > 0) {
-                    candles.push({
-                        ...currentCandle,
-                        timeframe: `${granularity}s`,
-                        tickCount: tickCount
-                    });
-                }
-                currentCandle = {
-                    epoch: candleTime,
-                    open: price,
-                    high: price,
-                    low: price,
-                    close: price
-                };
-                tickCount = 1;
-            } else {
-                // Update existing candle with proper OHLC calculation
-                currentCandle.high = Math.max(currentCandle.high, price);
-                currentCandle.low = Math.min(currentCandle.low, price);
-                currentCandle.close = price; // Last price becomes close
-                tickCount++;
-            }
-        }
-
-        // Add the last candle if it has data
-        if (currentCandle && tickCount > 0) {
-            candles.push({
-                ...currentCandle,
-                timeframe: `${granularity}s`,
-                tickCount: tickCount
-            });
-        }
-
-        // Log OHLC summary for debugging
-        if (candles.length > 0) {
-            const firstCandle = candles[0];
-            const lastCandle = candles[candles.length - 1];
-            addLog(`📊 Candle conversion summary: ${candles.length} candles generated`);
-            addLog(`📊 First candle OHLC: O=${firstCandle.open}, H=${firstCandle.high}, L=${firstCandle.low}, C=${firstCandle.close}`);
-            addLog(`📊 Last candle OHLC: O=${lastCandle.open}, H=${lastCandle.high}, L=${lastCandle.low}, C=${lastCandle.close}`);
-        }
-
-        return candles;
     }, [addLog]);
 
     // Analyze all timeframes
@@ -858,7 +854,7 @@ const DecyclerBot: React.FC = observer(() => {
             // Step3: Test symbol existence
             addLog(`🔍 Testing symbol availability: ${config.symbol}`);
 
-            try {
+        try {
                 const symbolTest = await Promise.race([
                     api_base.api.send({ 
                         active_symbols: 'brief',
@@ -1094,7 +1090,7 @@ const DecyclerBot: React.FC = observer(() => {
         });
       };
 
-      
+
 
       const analyzeTrend = (data: any[], timeframe: string) => {
         if (!data || data.length < 10) return 'LOADING';
@@ -1246,6 +1242,154 @@ const DecyclerBot: React.FC = observer(() => {
 
         console.log('📊 Multi-timeframe analysis completed');
       };
+
+        const fetchTimeframeData = async (timeframe: string) => {
+            try {
+                addLog(`📊 Fetching ${timeframe} data for ${config.symbol} (Type: ${symbolType})`);
+
+                const granularityMap: { [key: string]: number } = {
+                    '1m': 60,
+                    '5m': 300,
+                    '15m': 900,
+                    '30m': 1800,
+                    '1h': 3600,
+                    '4h': 14400
+                };
+
+                const granularity = granularityMap[timeframe];
+                if (!granularity) {
+                    addLog(`❌ Invalid timeframe: ${timeframe}`);
+                    return null;
+                }
+
+                // Try to get candle data directly first
+                addLog(`📈 Requesting candle data for ${timeframe}...`);
+
+                return new Promise((resolve, reject) => {
+                    const candleRequest = {
+                        ticks_history: config.symbol,
+                        style: 'candles',
+                        granularity: granularity,
+                        count: 100,
+                        end: 'latest',
+                        adjust_start_time: 1
+                    };
+
+                    addLog(`🔄 Sending candle request: ${JSON.stringify(candleRequest)}`);
+                    wsRef.current?.send(JSON.stringify(candleRequest));
+
+                    const handleCandleResponse = (event: MessageEvent) => {
+                        try {
+                            const data = JSON.parse(event.data);
+
+                            if (data.error) {
+                                addLog(`❌ Candle API Error: ${data.error.message}`);
+                                // Fallback to tick conversion
+                                addLog(`🔄 Falling back to tick conversion for ${timeframe}...`);
+                                wsRef.current?.removeEventListener('message', handleCandleResponse);
+                                fetchTicksForConversion(timeframe, granularity, resolve, reject);
+                                return;
+                            }
+
+                            if (data.msg_type === 'candles' && data.candles) {
+                                addLog(`✅ Received ${data.candles.length} candles for ${timeframe}`);
+                                wsRef.current?.removeEventListener('message', handleCandleResponse);
+                                resolve(data.candles);
+                            } else if (data.msg_type === 'history' && data.history) {
+                                // Convert tick history to candles
+                                const prices = data.history.prices || [];
+                                const times = data.history.times || [];
+
+                                if (prices.length > 0 && times.length > 0) {
+                                    addLog(`📊 Converting ${prices.length} historical ticks to ${timeframe} candles...`);
+                                    const candles = convertTicksToCandles(prices, times, granularity);
+                                    wsRef.current?.removeEventListener('message', handleCandleResponse);
+                                    resolve(candles);
+                                } else {
+                                    addLog(`❌ No historical data available for ${timeframe}`);
+                                    wsRef.current?.removeEventListener('message', handleCandleResponse);
+                                    resolve([]);
+                                }
+                            }
+                        } catch (error) {
+                            addLog(`❌ Exception processing candle data: ${error.message}`);
+                            console.error('Candle processing error:', error);
+                            wsRef.current?.removeEventListener('message', handleCandleResponse);
+                            reject(error);
+                        }
+                    };
+
+                    wsRef.current?.addEventListener('message', handleCandleResponse);
+
+                    // Timeout after 10 seconds
+                    setTimeout(() => {
+                        wsRef.current?.removeEventListener('message', handleCandleResponse);
+                        reject(new Error(`Timeout waiting for ${timeframe} data`));
+                    }, 10000);
+                });
+
+            } catch (error) {
+                addLog(`❌ Exception fetching ${timeframe} data: ${error.message}`);
+                console.error('fetchTimeframeData error:', error);
+                return null;
+            }
+        };
+
+        const fetchTicksForConversion = (timeframe: string, granularity: number, resolve: Function, reject: Function) => {
+            const tickCount = Math.min(1000, 100 * (granularity / 60)); // Adjust tick count based on granularity
+            addLog(`📈 Requesting ${tickCount} ticks for ${timeframe} conversion...`);
+
+            const tickRequest = {
+                ticks: config.symbol,
+                count: tickCount
+            };
+
+            wsRef.current?.send(JSON.stringify(tickRequest));
+
+            const collectedTicks: { prices: number[], times: number[] } = { prices: [], times: [] };
+
+            const handleTickResponse = (event: MessageEvent) => {
+                try {
+                    const data = JSON.parse(event.data);
+
+                    if (data.error) {
+                        addLog(`❌ Tick API Error: ${data.error.message}`);
+                        wsRef.current?.removeEventListener('message', handleTickResponse);
+                        reject(new Error(data.error.message));
+                        return;
+                    }
+
+                    if (data.msg_type === 'tick' && data.tick) {
+                        collectedTicks.prices.push(data.tick.quote);
+                        collectedTicks.times.push(data.tick.epoch);
+
+                        // Process when we have enough data or after reasonable collection time
+                        if (collectedTicks.prices.length >= Math.min(tickCount, 50)) {
+                            const candles = convertTicksToCandles(collectedTicks.prices, collectedTicks.times, granularity);
+                            wsRef.current?.removeEventListener('message', handleTickResponse);
+                            resolve(candles);
+                        }
+                    }
+                } catch (error) {
+                    addLog(`❌ Exception processing tick conversion: ${error.message}`);
+                    wsRef.current?.removeEventListener('message', handleTickResponse);
+                    reject(error);
+                }
+            };
+
+            wsRef.current?.addEventListener('message', handleTickResponse);
+
+            // Timeout after 8 seconds for tick collection
+            setTimeout(() => {
+                wsRef.current?.removeEventListener('message', handleTickResponse);
+                if (collectedTicks.prices.length > 0) {
+                    const candles = convertTicksToCandles(collectedTicks.prices, collectedTicks.times, granularity);
+                    resolve(candles);
+                } else {
+                    reject(new Error(`No tick data collected for ${timeframe}`));
+                }
+            }, 8000);
+        };
 
     return (
         <div className="decycler-bot-container">
