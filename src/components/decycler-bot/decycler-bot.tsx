@@ -182,15 +182,14 @@ const DecyclerBot: React.FC = observer(() => {
             // Check if this is a 1HZ symbol (1-second tick symbols)
             const is1HZSymbol = config.symbol.startsWith('1HZ');
             
-            // For 1HZ symbols, we need more ticks to generate meaningful candles
-            const tickCount = is1HZSymbol ? granularity * 200 : 100; // More ticks for 1HZ symbols
-            const candleCount = is1HZSymbol ? 100 : 100;
+            // Calculate appropriate tick count for candle generation
+            const tickCount = is1HZSymbol ? Math.min(granularity * 100, 5000) : 500;
             
             let request;
             
             if (is1HZSymbol) {
                 // For 1HZ symbols, always request tick data and convert to candles
-                addLog(`📍 Detected 1HZ symbol ${config.symbol} - requesting tick data for conversion`);
+                addLog(`📍 Detected 1HZ symbol ${config.symbol} - requesting ${tickCount} ticks for ${timeframe} conversion`);
                 request = {
                     ticks_history: config.symbol,
                     count: tickCount,
@@ -201,12 +200,12 @@ const DecyclerBot: React.FC = observer(() => {
             } else {
                 // For regular symbols, try candles first
                 const now = Math.floor(Date.now() / 1000);
-                const startTime = now - (candleCount * granularity);
+                const startTime = now - (100 * granularity);
                 
                 request = {
                     ticks_history: config.symbol,
                     adjust_start_time: 1,
-                    count: candleCount,
+                    count: 100,
                     end: 'latest',
                     start: startTime,
                     style: 'candles',
@@ -224,16 +223,16 @@ const DecyclerBot: React.FC = observer(() => {
                 )
             ]);
 
-            if (response.error) {
+            if (response?.error) {
                 addLog(`❌ API error for ${timeframe}: ${response.error.message} (Code: ${response.error.code})`);
                 
                 // If candles failed, try ticks as fallback for non-1HZ symbols
-                if (!is1HZSymbol && response.error.code === 'InputValidationFailed') {
+                if (!is1HZSymbol && (response.error.code === 'InputValidationFailed' || response.error.code === 'InvalidSymbol')) {
                     addLog(`🔄 Candles not supported for ${config.symbol}, trying tick data...`);
                     
                     const tickRequest = {
                         ticks_history: config.symbol,
-                        count: granularity * 150, // More ticks to build candles
+                        count: granularity * 100,
                         end: 'latest',
                         style: 'ticks',
                         req_id: `ticks_fallback_${timeframe}_${Date.now()}`
@@ -241,19 +240,19 @@ const DecyclerBot: React.FC = observer(() => {
                     
                     const tickResponse = await api_base.api.send(tickRequest);
                     
-                    if (tickResponse.error) {
+                    if (tickResponse?.error) {
                         addLog(`❌ Tick fallback also failed: ${tickResponse.error.message}`);
                         return [];
                     }
                     
                     // Process tick response
-                    if (tickResponse.history && tickResponse.history.prices && tickResponse.history.times) {
-                        const prices = tickResponse.history.prices;
+                    if (tickResponse.history?.prices && tickResponse.history?.times) {
+                        const prices = tickResponse.history.prices.map(p => parseFloat(p));
                         const times = tickResponse.history.times;
                         
                         addLog(`📈 Converting ${prices.length} fallback ticks to ${timeframe} candles...`);
                         const candles = convertTicksToCandles(prices, times, granularity);
-                        addLog(`✅ Generated ${candles.length} candles from fallback tick data for ${timeframe}`);
+                        addLog(`✅ Generated ${candles.length} OHLC candles from fallback tick data for ${timeframe}`);
                         
                         return candles;
                     }
@@ -263,7 +262,7 @@ const DecyclerBot: React.FC = observer(() => {
             }
 
             // Check for direct candle response (non-1HZ symbols)
-            if (response.candles && Array.isArray(response.candles) && response.candles.length > 0) {
+            if (response?.candles && Array.isArray(response.candles) && response.candles.length > 0) {
                 addLog(`✅ Received ${response.candles.length} candles for ${timeframe}`);
                 
                 // Validate and format candle data
@@ -279,57 +278,84 @@ const DecyclerBot: React.FC = observer(() => {
                     high: parseFloat(candle.high),
                     low: parseFloat(candle.low),
                     close: parseFloat(candle.close),
-                    epoch: candle.epoch || candle.time
+                    epoch: candle.epoch || candle.time,
+                    timeframe: timeframe
                 }));
                 
                 if (validCandles.length !== response.candles.length) {
                     addLog(`⚠️ Filtered ${response.candles.length - validCandles.length} invalid candles for ${timeframe}`);
                 }
                 
+                addLog(`📊 OHLC Data for ${timeframe}: Open=${validCandles[validCandles.length-1]?.open}, High=${validCandles[validCandles.length-1]?.high}, Low=${validCandles[validCandles.length-1]?.low}, Close=${validCandles[validCandles.length-1]?.close}`);
+                
                 return validCandles;
             }
             
             // Check for tick data response (1HZ symbols and fallbacks)
-            else if (response.history && response.history.prices && response.history.times) {
-                const prices = response.history.prices;
+            else if (response?.history?.prices && response?.history?.times) {
+                const prices = response.history.prices.map(p => parseFloat(p));
                 const times = response.history.times;
                 
                 addLog(`📈 Converting ${prices.length} ticks to ${timeframe} candles...`);
                 
                 // Convert tick data to candles
                 const candles = convertTicksToCandles(prices, times, granularity);
-                addLog(`✅ Generated ${candles.length} candles from tick data for ${timeframe}`);
+                if (candles.length > 0) {
+                    const lastCandle = candles[candles.length - 1];
+                    addLog(`📊 Generated ${candles.length} OHLC candles for ${timeframe}`);
+                    addLog(`📊 Latest ${timeframe} OHLC: Open=${lastCandle.open}, High=${lastCandle.high}, Low=${lastCandle.low}, Close=${lastCandle.close}`);
+                }
                 
                 return candles;
             } else {
                 addLog(`⚠️ No candle or tick data in response for ${timeframe}`);
-                addLog(`🔍 Response keys: ${Object.keys(response).join(', ')}`);
+                if (response) {
+                    addLog(`🔍 Response keys: ${Object.keys(response).join(', ')}`);
+                    if (response.msg_type) {
+                        addLog(`🔍 Message type: ${response.msg_type}`);
+                    }
+                }
                 return [];
             }
         } catch (error) {
-            addLog(`❌ Exception fetching ${timeframe} data: ${error?.message || 'Unknown error'}`);
+            const errorMessage = error?.message || error?.toString() || 'Unknown error';
+            addLog(`❌ Exception fetching ${timeframe} data: ${errorMessage}`);
+            if (error?.stack) {
+                console.error('Full error stack:', error.stack);
+            }
             return [];
         }
     }, [config.symbol, addLog]);
 
     // Helper function to convert tick data to candles
     const convertTicksToCandles = useCallback((prices: number[], times: number[], granularity: number): any[] => {
-        if (!prices || !times || prices.length !== times.length) {
+        if (!prices || !times || prices.length !== times.length || prices.length === 0) {
+            addLog(`⚠️ Invalid tick data for candle conversion: prices=${prices?.length}, times=${times?.length}`);
             return [];
         }
 
         const candles: any[] = [];
         let currentCandle: any = null;
+        let tickCount = 0;
 
         for (let i = 0; i < prices.length; i++) {
-            const price = prices[i];
+            const price = parseFloat(prices[i]);
             const time = times[i];
+            
+            if (isNaN(price) || !time) {
+                continue; // Skip invalid data
+            }
+            
             const candleTime = Math.floor(time / granularity) * granularity;
 
             if (!currentCandle || currentCandle.epoch !== candleTime) {
                 // Start new candle
-                if (currentCandle) {
-                    candles.push(currentCandle);
+                if (currentCandle && tickCount > 0) {
+                    candles.push({
+                        ...currentCandle,
+                        timeframe: `${granularity}s`,
+                        tickCount: tickCount
+                    });
                 }
                 currentCandle = {
                     epoch: candleTime,
@@ -338,21 +364,36 @@ const DecyclerBot: React.FC = observer(() => {
                     low: price,
                     close: price
                 };
+                tickCount = 1;
             } else {
-                // Update existing candle
+                // Update existing candle with proper OHLC calculation
                 currentCandle.high = Math.max(currentCandle.high, price);
                 currentCandle.low = Math.min(currentCandle.low, price);
-                currentCandle.close = price;
+                currentCandle.close = price; // Last price becomes close
+                tickCount++;
             }
         }
 
-        // Add the last candle
-        if (currentCandle) {
-            candles.push(currentCandle);
+        // Add the last candle if it has data
+        if (currentCandle && tickCount > 0) {
+            candles.push({
+                ...currentCandle,
+                timeframe: `${granularity}s`,
+                tickCount: tickCount
+            });
+        }
+
+        // Log OHLC summary for debugging
+        if (candles.length > 0) {
+            const firstCandle = candles[0];
+            const lastCandle = candles[candles.length - 1];
+            addLog(`📊 Candle conversion summary: ${candles.length} candles generated`);
+            addLog(`📊 First candle OHLC: O=${firstCandle.open}, H=${firstCandle.high}, L=${firstCandle.low}, C=${firstCandle.close}`);
+            addLog(`📊 Last candle OHLC: O=${lastCandle.open}, H=${lastCandle.high}, L=${lastCandle.low}, C=${lastCandle.close}`);
         }
 
         return candles;
-    }, []);
+    }, [addLog]);
 
     // Analyze all timeframes
     const analyzeAllTimeframes = useCallback(async (): Promise<TrendData[]> => {
