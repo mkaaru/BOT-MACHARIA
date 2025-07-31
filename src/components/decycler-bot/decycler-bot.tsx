@@ -90,7 +90,13 @@ const DecyclerBot: React.FC = observer(() => {
     const monitorRef = useRef<NodeJS.Timeout | null>(null);
     const logsEndRef = useRef<HTMLDivElement>(null);
 
-    const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h'];
+    const timeframePresets = {
+        scalping: ['1m', '2m', '3m', '4m', '5m'],
+        multi: ['1m', '5m', '15m', '30m', '1h', '4h']
+    };
+
+    const [selectedTimeframePreset, setSelectedTimeframePreset] = useState<'scalping' | 'multi'>('multi');
+    const timeframes = timeframePresets[selectedTimeframePreset];
     const wsRef = useRef<WebSocket | null>(null);
     const tickDataBuffer = useRef<{ [key: string]: { prices: number[]; times: number[]; } }>({});
     const symbolType = config.symbol.startsWith('1HZ') ? '1HZ' : 'Standard';
@@ -178,6 +184,9 @@ const DecyclerBot: React.FC = observer(() => {
 
             const granularity = {
                 '1m': 60,
+                '2m': 120,
+                '3m': 180,
+                '4m': 240,
                 '5m': 300,
                 '15m': 900,
                 '30m': 1800,
@@ -273,7 +282,7 @@ const DecyclerBot: React.FC = observer(() => {
                 const errorCode = tickResponse.error.code || 'Unknown';
                 const errorMsg = tickResponse.error.message || 'Unknown API error';
                 addLog(`❌ Tick request failed: ${errorMsg} (Code: ${errorCode})`);
-                
+
                 // Log specific error details for debugging
                 console.error('API Error Details:', {
                     code: tickResponse.error.code,
@@ -281,7 +290,7 @@ const DecyclerBot: React.FC = observer(() => {
                     details: tickResponse.error.details,
                     full_response: tickResponse
                 });
-                
+
                 return [];
             }
 
@@ -388,7 +397,7 @@ const DecyclerBot: React.FC = observer(() => {
 
         } catch (error) {
             let errorMessage = 'Unknown error';
-            
+
             // Better error parsing
             if (error && typeof error === 'object') {
                 if (error.message) {
@@ -403,15 +412,15 @@ const DecyclerBot: React.FC = observer(() => {
             } else if (typeof error === 'string') {
                 errorMessage = error;
             }
-            
+
             addLog(`❌ Exception fetching ${timeframe} data: ${errorMessage}`);
             console.error(`Detailed error for ${timeframe}:`, error);
-            
+
             // Log the full error object for debugging
             if (typeof error === 'object' && error !== null) {
                 console.error(`Full error object:`, JSON.stringify(error, null, 2));
             }
-            
+
             return [];
         }
     }, [config.symbol, addLog]);
@@ -582,12 +591,12 @@ const DecyclerBot: React.FC = observer(() => {
         }
 
         addLog(`📋 Multi-timeframe analysis complete: ${trends.length}/${timeframes.length} timeframes processed`);
-        
+
         // Update overall analysis
         const analyses = trends.map(t => t.trend);
         const bullishCount = analyses.filter(a => a === 'bullish').length;
         const bearishCount = analyses.filter(a => a === 'bearish').length;
-        
+
         if (bullishCount > bearishCount + 1) {
             setOverallAnalysis('BULLISH');
         } else if (bearishCount > bullishCount + 1) {
@@ -847,7 +856,7 @@ const DecyclerBot: React.FC = observer(() => {
         }
     }, [config, timeframes, tradingLoop, addLog]);
 
-    // Stop bot
+        // Stop bot
     const stopBot = useCallback((): void => {
         setBotStatus(prev => ({ ...prev, is_running: false }));
 
@@ -1030,7 +1039,7 @@ const DecyclerBot: React.FC = observer(() => {
                 addLog(`⚠️ Partial success - ${totalTimeframes - successfulTimeframes} timeframes failed`);
             } else {
                 addLog('🎉 All timeframes working perfectly!');
-                
+
                 // If test was successful, run the analysis to populate the UI
                 if (successfulTimeframes > 0) {
                     addLog('🔄 Running multi-timeframe analysis...');
@@ -1165,6 +1174,9 @@ const DecyclerBot: React.FC = observer(() => {
           // Determine granularity based on timeframe
           const granularityMap: { [key: string]: number } = {
             '1m': 60,
+            '2m': 120,
+            '3m': 180,
+            '4m': 240,
             '5m': 300,
             '15m': 900,
             '30m': 1800,
@@ -1314,7 +1326,6 @@ const DecyclerBot: React.FC = observer(() => {
       const fetchAllTimeframeData = async () => {
         console.log('📊 Fetching multi-timeframe OHLC data...');
 
-        const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h'];
         const newAnalysis: { [key: string]: string } = {};
 
         // Fetch data for each timeframe sequentially to avoid overwhelming the API
@@ -1374,6 +1385,9 @@ const DecyclerBot: React.FC = observer(() => {
 
                 const granularityMap: { [key: string]: number } = {
                     '1m': 60,
+                    '2m': 120,
+                    '3m': 180,
+                    '4m': 240,
                     '5m': 300,
                     '15m': 900,
                     '30m': 1800,
@@ -1531,6 +1545,17 @@ const DecyclerBot: React.FC = observer(() => {
                     {/* Configuration Panel */}
                     <div className="config-panel">
                         <h3>⚙️ Configuration</h3>
+                         <div className="config-item">
+                            <label>Timeframe Preset</label>
+                            <select
+                                value={selectedTimeframePreset}
+                                onChange={e => setSelectedTimeframePreset(e.target.value as 'scalping' | 'multi')}
+                                disabled={botStatus.is_running}
+                            >
+                                <option value="scalping">Scalping (1m-5m)</option>
+                                <option value="multi">Multi-Timeframe (1m-4h)</option>
+                            </select>
+                        </div>
                         <div className="config-grid">
                             <div className="config-item">
                                 <label>Symbol</label>
