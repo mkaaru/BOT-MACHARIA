@@ -1,0 +1,221 @@
+# Comprehensive Prompt: Deriv Multi-Timeframe Trading Bot with Web Dashboard
+
+## Project Overview
+Create a comprehensive automated trading bot for Deriv that uses John Ehlers' Decycler indicator across multiple timeframes, with a real-time web dashboard, live monitoring, and advanced risk management features.
+
+## Core Requirements
+
+### 1. Trading Logic
+- **Indicator**: John Ehlers' Decycler for trend detection
+- **Timeframes**: 6 timeframes (1m, 5m, 15m, 30m, 1h, 4h)
+- **Entry Condition**: All timeframes must align (all bullish or all bearish)
+- **Optional Filter**: 10-second trend confirmation
+- **Contract Types**: Rise/Fall and Higher/Lower tick contracts
+- **Exit Conditions**: 
+  - Any timeframe trend changes
+  - Stop Loss or Take Profit hit
+  - Trailing stop triggered
+  - Breakeven protection activated
+
+### 2. Risk Management Features
+- **Fixed Stop Loss/Take Profit**: User-configurable in USD
+- **Trailing Stop**: Moves stop loss as profit increases
+- **Breakeven Protection**: Moves stop to entry after specified profit
+- **Position Sizing**: Fixed stake amount per trade
+
+### 3. Technical Architecture
+- **Backend**: Python with asyncio for real-time processing
+- **WebSocket**: Deriv API integration (app_id: 75771)
+- **Dashboard**: Streamlit web interface
+- **Data Sync**: JSON file for real-time status sharing
+- **Modular Design**: Separate engine and UI components
+
+## Detailed Implementation Requirements
+
+### File Structure
+```
+deriv_trading_bot/
+├── run_bot.py                 # Main entry point
+├── engine/
+│   ├── __init__.py
+│   ├── config.py              # Configuration settings
+│   ├── bot.py                 # Core trading engine
+│   ├── decycler.py            # Ehlers Decycler implementation
+│   └── status.py              # Status file management
+├── dashboard/
+│   └── app.py                 # Streamlit web dashboard
+├── shared/
+│   └── status.json            # Real-time status data
+└── requirements.txt           # Python dependencies
+```
+
+### Configuration Settings (config.py)
+```python
+CONFIG = {
+    "app_id": 75771,
+    "auth_token": "YOUR_DERIV_API_TOKEN",
+    "symbol": "R_100",
+    "stake": 1.0,
+    "take_profit": 1.5,
+    "stop_loss": -1.0,
+    "tick_count": 5,
+    "use_10s_filter": True,
+    "monitor_interval": 10,
+    "contract_type": "rise_fall",  # Options: "rise_fall", "higher_lower"
+    
+    # Advanced Risk Management
+    "use_trailing_stop": True,
+    "trailing_step": 0.5,
+    "use_breakeven": True,
+    "breakeven_trigger": 2.0
+}
+```
+
+### Core Features to Implement
+
+#### 1. Decycler Indicator (decycler.py)
+- Implement John Ehlers' Decycler formula
+- Calculate trend direction (bullish/bearish/neutral)
+- Use low-pass filter to remove market cycles
+- Alpha parameter for smoothing (default: 0.07)
+
+#### 2. Trading Engine (bot.py)
+**WebSocket Connection:**
+- Connect to Deriv WebSocket API
+- Authenticate using provided token
+- Handle connection errors and reconnection
+
+**Multi-Timeframe Analysis:**
+- Fetch OHLC data for all 6 timeframes
+- Calculate Decycler trend for each timeframe
+- Check for trend alignment across all timeframes
+
+**Optional 10s Confirmation:**
+- Fetch recent tick data
+- Apply Decycler to 10-second price movement
+- Confirm alignment with main trend
+
+**Contract Management:**
+- Generate proposal for Rise/Fall or Higher/Lower
+- Execute buy orders when conditions met
+- Monitor open contracts in real-time
+- Implement auto-sell logic
+
+**Advanced Risk Management:**
+- **Trailing Stop**: Adjust stop loss as profit increases
+- **Breakeven**: Move stop to entry price after trigger profit
+- **Multiple Exit Conditions**: Trend change, SL/TP, trailing stop
+
+#### 3. Status Management (status.py)
+- Write real-time bot status to JSON file
+- Include trends, contract info, PnL, timestamps
+- Handle file I/O errors gracefully
+
+#### 4. Web Dashboard (app.py)
+**Control Panel:**
+- Start/Stop bot buttons
+- Configuration display (symbol, stake, SL/TP)
+- Real-time status indicator
+
+**Trend Display:**
+- Color-coded trend status for all 6 timeframes
+- Visual alignment indicator
+- Last update timestamp
+
+**Trade Monitoring:**
+- Current contract details
+- Real-time PnL display
+- Entry/exit information
+- Risk management status (trailing stop, breakeven)
+
+**Auto-Refresh:**
+- Update display every second
+- Read from shared status file
+- Handle missing/corrupted data
+
+### Deriv API Integration Details
+
+#### Required API Calls:
+1. **authorize**: Authenticate with token
+2. **active_symbols**: Get available instruments
+3. **contracts_for**: Get contract types for symbol
+4. **ticks_history**: Fetch OHLC candle data
+5. **proposal**: Get contract price quote
+6. **buy**: Execute contract purchase
+7. **proposal_open_contract**: Monitor open contract
+8. **sell**: Close contract early
+
+#### Contract Type Mapping:
+- **Rise (Strict)**: "CALL"
+- **Fall (Strict)**: "PUT"  
+- **Rise (Allow Equals)**: "CALLE"
+- **Fall (Allow Equals)**: "PUTE"
+
+### Risk Management Logic
+
+#### Trailing Stop Implementation:
+```python
+# Pseudo-code for trailing stop
+if current_profit > highest_profit:
+    highest_profit = current_profit
+    new_stop = entry_price + (highest_profit - trailing_step)
+    if new_stop > current_stop_loss:
+        stop_loss = new_stop
+```
+
+#### Breakeven Protection:
+```python
+# Move stop to breakeven after trigger profit
+if current_profit >= breakeven_trigger and stop_loss < entry_price:
+    stop_loss = entry_price
+```
+
+### Error Handling Requirements
+- WebSocket connection failures
+- API authentication errors
+- Missing market data
+- JSON file corruption
+- Contract execution failures
+- Network interruptions
+
+### Deployment Requirements for Replit
+1. **Dependencies**: streamlit, websockets, pandas, numpy, asyncio
+2. **Environment**: Python 3.8+
+3. **Public URL**: Streamlit dashboard accessible via web
+4. **Background Processing**: Bot engine running concurrently
+5. **File Permissions**: Read/write access to shared/status.json
+
+### User Experience Features
+- **Real-time Updates**: Dashboard updates every second
+- **Visual Feedback**: Color-coded trend indicators
+- **Trade History**: Log of recent trades and outcomes
+- **Error Messages**: Clear error reporting in dashboard
+- **Mobile Responsive**: Dashboard works on mobile devices
+
+### Security Considerations
+- API token stored in configuration (user must provide)
+- No hardcoded credentials
+- Error messages don't expose sensitive data
+- Safe file handling for status updates
+
+### Testing & Validation
+- Test with paper trading first
+- Validate trend calculations against known data
+- Test all risk management scenarios
+- Verify WebSocket reconnection logic
+- Test dashboard responsiveness
+
+### Performance Requirements
+- Process 6 timeframes within 5 seconds
+- Dashboard updates with <1 second latency
+- Memory efficient data handling
+- Minimal CPU usage during idle periods
+
+## Final Delivery Requirements
+1. Complete, working codebase ready for Replit deployment
+2. Clear setup instructions with dependencies
+3. Configuration guide for API token setup
+4. User manual for dashboard operation
+5. Error handling and troubleshooting guide
+
+This comprehensive implementation should provide a professional-grade automated trading system with real-time monitoring, advanced risk management, and an intuitive web interface.
