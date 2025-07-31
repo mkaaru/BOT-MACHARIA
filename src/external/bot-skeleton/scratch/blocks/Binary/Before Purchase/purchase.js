@@ -5,7 +5,6 @@ import { excludeOptionFromContextMenu, modifyContextMenu } from '../../../utils'
 window.Blockly.Blocks.purchase = {
     init() {
         this.jsonInit(this.definition());
-
         // Ensure one of this type per statement-stack
         this.setNextStatement(false);
     },

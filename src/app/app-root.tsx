@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import ErrorBoundary from '@/components/error-component/error-boundary';
 import ErrorComponent from '@/components/error-component/error-component';
@@ -35,34 +35,16 @@ const ErrorComponentWrapper = observer(() => {
     );
 });
 
-const AppRoot = () => {
-    const store = useStore();
-    const api_base_initialized = useRef(false);
-    const [is_api_initialized, setIsApiInitialized] = useState(false);
-
-    useEffect(() => {
-        const initializeApi = async () => {
-            if (!api_base_initialized.current) {
-                await api_base.init();
-                api_base_initialized.current = true;
-                setIsApiInitialized(true);
-            }
-        };
-
-        initializeApi();
-    }, []);
-
-    if (!store || !is_api_initialized) return <AppRootLoader />;
-
+const AppRoot = observer(() => {
     return (
-        <Suspense fallback={<AppRootLoader />}>
-            <ErrorBoundary root_store={store}>
-                <ErrorComponentWrapper />
-                <AppContent />
-                <TradingAssesmentModal />
-            </ErrorBoundary>
-        </Suspense>
+        <div className="app-root">
+            <BrowserRouter>
+                <Layout>
+                    <AppContent />
+                </Layout>
+            </BrowserRouter>
+        </div>
     );
-};
+});
 
 export default AppRoot;

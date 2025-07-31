@@ -1,0 +1,43 @@
+Compilation failed
+
+File: /home/runner/workspace/src/pages/main/main.tsx:1:1
+  × Module build failed:
+  ├─▶   ×   × Expression expected
+  │     │       ╭─[/home/runner/workspace/src/pages/main/main.tsx:1221:1]
+  │     │  1218 │     const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
+  │     │  1219 │
+  │     │  1220 │     return (
+  │     │  1221 │         <>
+  │     │       ·          ─
+  │     │  1222 │             <div className='main'>
+  │     │  1223 │                 <div className='main__container main-content'>
+  │     │  1224 │                     <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
+  │     │       ╰────
+  │     │   × Expression expected
+  │     │       ╭─[/home/runner/workspace/src/pages/main/main.tsx:1326:1]
+  │     │  1323 │                                 <Tutorial handleTabChange={handleTabChange} />
+  │     │  1324 │                             </Suspense>
+  │     │  1325 │                         </div>
+  │     │  1326 │                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></div>} id='id-Trading-Hub'>
+  │     │       ·                                      ─
+  │     │  1327 │                             <TradingHubDisplay />
+  │     │  1328 │                         </div>
+  │     │  1329 │                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
+  │     │       ╰────
+  │     │   × Expected '}', got 'i18n_default_text'
+  │     │       ╭─[/home/runner/workspace/src/pages/main/main.tsx:1326:1]
+  │     │  1323 │                                 <Tutorial handleTabChange={handleTabChange} />
+  │     │  1324 │                             </Suspense>
+  │     │  1325 │                         </div>
+  │     │  1326 │                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></div>} id='id-Trading-Hub'>
+  │     │       ·                                                                   ─────────────────
+  │     │  1327 │                             <TradingHubDisplay />
+  │     │  1328 │                         </div>
+  │     │  1329 │                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
+  │     │       ╰────
+  │     │
+  │   
+  ╰─▶ Syntax Error
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.

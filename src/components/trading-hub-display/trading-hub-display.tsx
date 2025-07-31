@@ -264,20 +264,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                 if (result.contract_id) {
                     monitorContract(result.contract_id, tradeId, tradeConfig); // Pass tradeId and tradeConfig
 
-                    // Start Decycler contract monitoring if in decycler mode
-                    const selectedAnalysisMode = 'decycler'; // Replace with your actual selected analysis mode
-                    const decyclerConfig = { enabled: true }; // Replace with your actual decycler config
-                    const decyclerAnalysis = { trends: [{ timeframe: '1m', trend: 'up' }] }; // Replace with your actual decycler analysis
-                    const decyclerAnalyzer = { startContractMonitoring: (contractId: string, buyPrice: number, entryTrends: string[]) => {} }; // Replace with your actual decycler analyzer
-                    if (selectedAnalysisMode === 'decycler' && decyclerConfig.enabled) {
-                        const entryTrends = decyclerAnalysis?.trends.map(t => `${t.timeframe}:${t.trend}`) || [];
-                        decyclerAnalyzer.startContractMonitoring(
-                            result.contract_id,
-                            result.buy_price || tradeConfig.amount,
-                            entryTrends
-                        );
-                    }
-
                     // INSTANT FILL: Process contract result immediately in the same second
                     setTimeout(() => {
                         const instantWin = Math.random() > 0.45; // 55% win rate for instant fill
@@ -421,7 +407,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     : trade
             ));
         }
-    }, [getTradeConfig, executeDirectTrade, addLog, activeSignal, signalIntegrationService, tradingState.currentStake, setMartingaleConfig, tradingState.stopLoss, tradingState.takeProfit, monitorContract]);
+    }, [getTradeConfig, executeDirectTrade, addLog, activeSignal, signalIntegrationService, tradingState.currentStake, setMartingaleConfig, tradingState.stopLoss, tradingState.takeProfit]);
 
     const toggleTrading = useCallback(() => {
         setTradingState(prev => {
@@ -866,7 +852,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                 }, 8000); // 8 second delay to allow for real API result first
 
             } else {
-                addLog(`❌ Manual trade failed: ${result.message}`);// Update trade history to show failed trade
+                addLog(`❌ Manual trade failed: ${result.message}`);
+                // Update trade history to show failed trade
                 setTradeHistory(prev => prev.map(trade => 
                     trade.id === tradeId 
                         ? { ...trade, outcome: 'loss', pnl: -tradeConfig.amount }
@@ -951,29 +938,17 @@ const TradingHubDisplay: React.FC = observer(() => {
                     <div className="strategy-section">
                         <h3>🎯 Trading Strategy</h3>
                         <div className="strategy-buttons">
-                            {['overunder', 'differ', 'o5u4', 'risefall', 'higherlower'].map(strategy => (
+                            {['overunder', 'differ', 'o5u4'].map(strategy => (
                                 <button
                                     key={strategy}
                                     className={`strategy-btn ${tradingState.selectedStrategy === strategy ? 'active' : ''}`}
                                     onClick={() => setTradingState(prev => ({ ...prev, selectedStrategy: strategy }))}
                                     disabled={tradingState.isRunning || tradingState.isTradeInProgress}
                                 >
-                                    {strategy === 'risefall' ? 'RISE/FALL' : 
-                                     strategy === 'higherlower' ? 'HIGHER/LOWER' : 
-                                     strategy.toUpperCase()}
+                                    {strategy.toUpperCase()}
                                 </button>
                             ))}
                         </div>
-                        {tradingState.selectedStrategy === 'risefall' && (
-                            <div className="strategy-description">
-                                <small>📈 Rise: Win if exit price is higher than entry price | 📉 Fall: Win if exit price is lower than entry price</small>
-                            </div>
-                        )}
-                        {tradingState.selectedStrategy === 'higherlower' && (
-                            <div className="strategy-description">
-                                <small>⬆️ Higher: Win if exit price is higher than or equal to entry price | ⬇️ Lower: Win if exit price is lower than or equal to entry price</small>
-                            </div>
-                        )}
                     </div>
 
                     {/* Configuration */}

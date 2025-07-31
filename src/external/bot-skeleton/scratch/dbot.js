@@ -328,29 +328,43 @@ class DBot {
                 }
             }
             var BinaryBotPrivateLimitations = ${JSON.stringify(limitations)};
+            var BinaryBotPrivateContinuousTrading = true;
+            var BinaryBotPrivateContractCount = 0;
+            var BinaryBotPrivateWaitingForContract = false;
             ${window.Blockly.JavaScript.javascriptGenerator.workspaceToCode(this.workspace)}
             BinaryBotPrivateRun(BinaryBotPrivateInit);
-            while (true) {
+            while (BinaryBotPrivateContinuousTrading) {
                 BinaryBotPrivateTickAnalysis();
                 BinaryBotPrivateRun(BinaryBotPrivateStart);
                 if (!BinaryBotPrivateHasCalledTradeOptions) {
                     sleep(1);
                     continue;
                 }
-                // Enhanced sequential purchase execution
-                if (!Bot.canMakeNextPurchase()) {
-                    console.log('⏳ SEQUENTIAL: Waiting for previous trade to complete...');
-                    sleep(1);
-                    continue;
+                
+                // Only execute purchase if not already waiting for a contract
+                if (!BinaryBotPrivateWaitingForContract) {
+                    BinaryBotPrivateContractCount++;
+                    BinaryBotPrivateWaitingForContract = true;
+                    
+                    // Execute purchase sequence
+                    BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
+                    BinaryBotPrivateRun(BinaryBotPrivateDuringPurchase);
+                    
+                    // Wait for contract completion
+                    while (BinaryBotPrivateWaitingForContract && BinaryBotPrivateContinuousTrading) {
+                        sleep(0.5);
+                        BinaryBotPrivateTickAnalysis();
+                    }
+                    
+                    // Execute after purchase
+                    BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase);
+                    
+                    // Small delay before next trade
+                    sleep(2);
+                } else {
+                    // Still waiting for current contract to complete
+                    sleep(0.5);
                 }
-                BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
-                
-                // Small delay between purchases to prevent rate limiting
-                sleep(1);
-                
-                // Continue without waiting for contract completion
-                BinaryBotPrivateTickAnalysis();
-                BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase);
             }
             
             `;

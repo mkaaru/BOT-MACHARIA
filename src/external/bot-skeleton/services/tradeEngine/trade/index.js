@@ -102,6 +102,9 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.checkLimits(validated_trade_options);
 
         this.makeDirectPurchaseDecision();
+        
+        // Enable continuous trading mode
+        this.continuousTrading = true;
     }
 
     loginAndGetBalance(token) {
@@ -113,6 +116,9 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.token = api_base.token;
         this.isWaitingForContractClose = false;
         
+        // Initialize market symbols after login
+        this.initializeMarketData();
+        
         return new Promise(resolve => {
             const subscription = api_base.api.onMessage().subscribe(({ data }) => {
                 // Handle contract closure to enable next trade
@@ -123,14 +129,21 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
                         
                         // Calculate profit/loss for martingale
                         const profit = parseFloat(contract.sell_price) - parseFloat(contract.buy_price);
-                        console.log(`📈 CONTRACT CLOSED: Buy: ${contract.buy_price}, Sell: ${contract.sell_price}, P&L: ${profit}`);
+                        console.log(`✅ CONTRACT CLOSED: Buy: ${contract.buy_price}, Sell: ${contract.sell_price}, P&L: ${profit}`);
+                        console.log('🟢 SEQUENTIAL MODE: Ready for next purchase (contract properly closed)');
                         
                         // Update martingale state with trade result
                         if (this.updateTradeResult) {
                             this.updateTradeResult(profit);
                         }
                         
+                        // Clear waiting state in Purchase class if it exists
+                        if (this.setWaitingForContractClose) {
+                            this.setWaitingForContractClose(false);
+                        }
+                        
                         globalObserver.emit('contract.closed', contract);
+                        globalObserver.emit('ready.for.next.trade');
                     }
                 }
                 
@@ -164,6 +177,33 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
             return watchBefore(this.store);
         }
         return watchDuring(this.store);
+    }
+
+    // Initialize market data to prevent "Market symbols not loaded" error
+    async initializeMarketData() {
+        try {
+            console.log('🚀 TRADE ENGINE: Initializing market data...');
+            
+            // Ensure active symbols are loaded
+            if (!api_base.active_symbols || api_base.active_symbols.length === 0) {
+                console.log('⏳ Waiting for API active symbols...');
+                await api_base.active_symbols_promise;
+            }
+
+            // Copy to trade engine data
+            if (api_base.active_symbols) {
+                this.data.active_symbols = api_base.active_symbols;
+                console.log(`✅ MARKET DATA READY: ${this.data.active_symbols.length} symbols loaded`);
+            }
+
+            // Initialize market symbols in Purchase class if available
+            if (this.initializeMarketSymbols) {
+                await this.initializeMarketSymbols();
+            }
+
+        } catch (error) {
+            console.error('❌ MARKET DATA INITIALIZATION FAILED:', error);
+        }
     }
 
     makeDirectPurchaseDecision() {
