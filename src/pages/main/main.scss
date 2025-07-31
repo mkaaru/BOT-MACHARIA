@@ -1,3 +1,4 @@
+
 @use 'components/shared/styles/constants' as *;
 @use 'components/shared/styles/mixins' as *;
 
@@ -47,7 +48,7 @@
   &__placeholder {
     text-align: center;
     padding: 40px 20px;
-
+    
     p {
       margin: 10px 0;
       color: var(--text-general);
@@ -136,8 +137,6 @@
         border: none;
         max-width: 100%;
         width: 100%;
-        height: 100vh;
-        overflow: hidden;
 
         &--active {
             // css for onboard tour overlay
@@ -887,42 +886,42 @@
         padding: 0.5rem;
         width: 100%;
         min-height: min-content;
-
+        
         // Mobile: 1 column
         grid-template-columns: 1fr;
-
+        
         // Small mobile landscape: 2 columns
         @media (min-width: 480px) {
             grid-template-columns: repeat(2, 1fr);
         }
-
+        
         // Tablets: 3 columns
         @media (min-width: 768px) {
             grid-template-columns: repeat(3, 1fr);
             gap: 1.2rem;
             padding: 1rem;
         }
-
+        
         // Large tablets: 4 columns
         @media (min-width: 1024px) {
             grid-template-columns: repeat(4, 1fr);
         }
-
+        
         // Desktop: 5 columns
         @media (min-width: 1200px) {
             grid-template-columns: repeat(5, 1fr);
         }
-
+        
         // Large desktop: 6 columns
         @media (min-width: 1440px) {
             grid-template-columns: repeat(6, 1fr);
         }
-
+        
         // Extra large screens: 7 columns
         @media (min-width: 1920px) {
             grid-template-columns: repeat(7, 1fr);
         }
-
+        
         // Ultra wide screens: 8 columns
         @media (min-width: 2560px) {
             grid-template-columns: repeat(8, 1fr);
@@ -1035,11 +1034,11 @@
     @media (max-width: 480px) {
         aspect-ratio: 1/1;
         min-height: 100px;
-
+        
         &__title {
             -webkit-line-clamp: 2;
         }
-
+        
         &__description {
             -webkit-line-clamp: 1;
         }
@@ -1047,11 +1046,11 @@
 
     @media (min-width: 1024px) {
         aspect-ratio: 4/5;
-
+        
         &__title {
             -webkit-line-clamp: 4;
         }
-
+        
         &__description {
             -webkit-line-clamp: 3;
         }
@@ -2020,7 +2019,7 @@ font-family: 'Courier New', monospace;
       & > div {
         height: 100%;
         width: 100%;
-
+        
         iframe {
           width: 100%;
           height: 100%;
@@ -2036,11 +2035,4 @@ font-family: 'Courier New', monospace;
       flex-shrink: 0;
     }
   }
-}
-
-.trading-hub-wrapper {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    overflow: hidden;
 }
