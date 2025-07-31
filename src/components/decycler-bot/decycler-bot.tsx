@@ -179,11 +179,12 @@ const DecyclerBot: React.FC = observer(() => {
                 '4h': 14400
             }[timeframe] || 60;
 
-            // Calculate start time to get enough historical data
-            const endTime = Math.floor(Date.now() / 1000);
+            // Calculate proper start time for historical data
             const candleCount = 100;
-            const startTime = endTime - (candleCount * granularity);
+            const now = Math.floor(Date.now() / 1000);
+            const startTime = now - (candleCount * granularity);
 
+            // Proper Deriv API request for candle data
             const request = {
                 ticks_history: config.symbol,
                 adjust_start_time: 1,
@@ -191,40 +192,73 @@ const DecyclerBot: React.FC = observer(() => {
                 end: 'latest',
                 start: startTime,
                 style: 'candles',
-                granularity: granularity
+                granularity: granularity,
+                req_id: `candles_${timeframe}_${Date.now()}`
             };
 
-            addLog(`📡 Fetching ${timeframe} data (${granularity}s granularity) for ${config.symbol}...`);
+            addLog(`📡 Requesting ${timeframe} candles: ${JSON.stringify(request)}`);
             
             const response = await Promise.race([
                 api_base.api.send(request),
                 new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Request timeout')), 10000)
+                    setTimeout(() => reject(new Error('Request timeout after 15s')), 15000)
                 )
             ]);
 
+            addLog(`📥 Raw response for ${timeframe}: ${JSON.stringify(response).substring(0, 200)}...`);
+
             if (response.error) {
-                addLog(`❌ API error for ${timeframe}: ${response.error.message}`);
+                addLog(`❌ API error for ${timeframe}: ${response.error.message} (Code: ${response.error.code})`);
                 return [];
             }
 
+            // Check for candles in response
             if (response.candles && Array.isArray(response.candles) && response.candles.length > 0) {
-                addLog(`✅ Successfully received ${response.candles.length} candles for ${timeframe}`);
+                addLog(`✅ Received ${response.candles.length} candles for ${timeframe}`);
                 
-                // Validate candle data structure
+                // Log sample candle structure
+                if (response.candles.length > 0) {
+                    addLog(`📊 Sample candle: ${JSON.stringify(response.candles[0])}`);
+                }
+                
+                // Validate and format candle data
                 const validCandles = response.candles.filter(candle => 
                     candle && 
                     typeof candle.close !== 'undefined' && 
-                    !isNaN(parseFloat(candle.close))
-                );
+                    !isNaN(parseFloat(candle.close)) &&
+                    typeof candle.open !== 'undefined' &&
+                    typeof candle.high !== 'undefined' &&
+                    typeof candle.low !== 'undefined'
+                ).map(candle => ({
+                    open: parseFloat(candle.open),
+                    high: parseFloat(candle.high),
+                    low: parseFloat(candle.low),
+                    close: parseFloat(candle.close),
+                    epoch: candle.epoch || candle.time
+                }));
                 
                 if (validCandles.length !== response.candles.length) {
-                    addLog(`⚠️ Filtered out ${response.candles.length - validCandles.length} invalid candles for ${timeframe}`);
+                    addLog(`⚠️ Filtered ${response.candles.length - validCandles.length} invalid candles for ${timeframe}`);
                 }
                 
                 return validCandles;
+            } 
+            
+            // Check for historical tick data (fallback)
+            else if (response.history && response.history.prices && response.history.times) {
+                const prices = response.history.prices;
+                const times = response.history.times;
+                
+                addLog(`📈 Converting ${prices.length} ticks to ${timeframe} candles...`);
+                
+                // Convert tick data to candles
+                const candles = convertTicksToCandles(prices, times, granularity);
+                addLog(`✅ Generated ${candles.length} candles from tick data for ${timeframe}`);
+                
+                return candles;
             } else {
-                addLog(`⚠️ No valid candle data received for ${timeframe} (response type: ${typeof response.candles})`);
+                addLog(`⚠️ No candle or tick data in response for ${timeframe}`);
+                addLog(`🔍 Response keys: ${Object.keys(response).join(', ')}`);
                 return [];
             }
         } catch (error) {
@@ -232,6 +266,48 @@ const DecyclerBot: React.FC = observer(() => {
             return [];
         }
     }, [config.symbol, addLog]);
+
+    // Helper function to convert tick data to candles
+    const convertTicksToCandles = useCallback((prices: number[], times: number[], granularity: number): any[] => {
+        if (!prices || !times || prices.length !== times.length) {
+            return [];
+        }
+
+        const candles: any[] = [];
+        let currentCandle: any = null;
+
+        for (let i = 0; i < prices.length; i++) {
+            const price = prices[i];
+            const time = times[i];
+            const candleTime = Math.floor(time / granularity) * granularity;
+
+            if (!currentCandle || currentCandle.epoch !== candleTime) {
+                // Start new candle
+                if (currentCandle) {
+                    candles.push(currentCandle);
+                }
+                currentCandle = {
+                    epoch: candleTime,
+                    open: price,
+                    high: price,
+                    low: price,
+                    close: price
+                };
+            } else {
+                // Update existing candle
+                currentCandle.high = Math.max(currentCandle.high, price);
+                currentCandle.low = Math.min(currentCandle.low, price);
+                currentCandle.close = price;
+            }
+        }
+
+        // Add the last candle
+        if (currentCandle) {
+            candles.push(currentCandle);
+        }
+
+        return candles;
+    }, []);
 
     // Analyze all timeframes
     const analyzeAllTimeframes = useCallback(async (): Promise<TrendData[]> => {
