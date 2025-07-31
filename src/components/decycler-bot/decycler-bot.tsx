@@ -202,7 +202,7 @@ const DecyclerBot: React.FC = observer(() => {
                         end: 'latest',
                         style: 'candles',
                         granularity: granularity,
-                        req_id: `candles_${timeframe}_${Date.now()}`
+                        req_id: Math.floor(Math.random() * 1000000)
                     };
 
                     addLog(`📡 Requesting ${timeframe} candles: ${candleRequest.count} candles`);
@@ -257,7 +257,7 @@ const DecyclerBot: React.FC = observer(() => {
                 count: tickCount,
                 end: 'latest',
                 style: 'ticks',
-                req_id: `ticks_${timeframe}_${Date.now()}`
+                req_id: Math.floor(Math.random() * 1000000)
             };
 
             addLog(`📈 Requesting ${tickCount} ticks for ${timeframe} conversion...`);
@@ -315,7 +315,7 @@ const DecyclerBot: React.FC = observer(() => {
                     count: 500, // Smaller count for testing
                     end: 'latest',
                     style: 'ticks',
-                    req_id: `simple_${timeframe}_${Date.now()}`
+                    req_id: Math.floor(Math.random() * 1000000)
                 };
 
                 addLog(`🔄 Trying simplified tick request for ${timeframe}...`);
@@ -353,7 +353,8 @@ const DecyclerBot: React.FC = observer(() => {
                 ticks_history: config.symbol,
                 count: 100,
                 end: 'latest',
-                req_id: `basic_${timeframe}_${Date.now()}`
+                style: 'ticks',
+                req_id: Math.floor(Math.random() * 1000000)
             };
 
             addLog(`🔄 Trying basic historical request for ${timeframe}...`);
