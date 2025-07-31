@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { signalIntegrationService, TradingSignal } from '../../services/signal-integration';
 import { observer } from 'mobx-react-lite';
+import { decyclerAnalyzer } from '@/services/decycler-analyzer';
+import { signalIntegrationService, TradingSignal } from '../../services/signal-integration';
 import { useStore } from '@/hooks/useStore';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import marketAnalyzer from '../../services/market-analyzer';
@@ -67,6 +68,9 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [lastTradeTime, setLastTradeTime] = useState<number>(0);
     const [tradeCooldown] = useState<number>(3000); // 3 second cooldown between trades
     const [continuousTrading, setContinuousTrading] = useState<boolean>(true); // Allow continuous trading or wait for trade to close
+    const [analysisMode, setAnalysisMode] = useState('percentage');
+    const [decyclerAnalysis, setDecyclerAnalysis] = useState(null);
+    const [contractMonitoring, setContractMonitoring] = useState(null);
 
     const addLog = useCallback((message: string) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -643,6 +647,39 @@ const TradingHubDisplay: React.FC = observer(() => {
         };
     }, [addLog]);
 
+    const symbol = 'frxAUDJPY';
+
+    // Decycler Analysis Integration
+    useEffect(() => {
+        const subscription = decyclerAnalyzer.getAnalysis().subscribe(analysis => {
+            setDecyclerAnalysis(analysis);
+        });
+
+        const contractSubscription = decyclerAnalyzer.getContractMonitoring().subscribe(monitoring => {
+            setContractMonitoring(monitoring);
+        });
+
+        // Start analysis if in decycler mode
+        if (analysisMode === 'decycler') {
+            decyclerAnalyzer.start(symbol);
+        }
+
+        return () => {
+            subscription.unsubscribe();
+            contractSubscription.unsubscribe();
+            if (analysisMode === 'decycler') {
+                decyclerAnalyzer.stop();
+            }
+        };
+    }, [analysisMode, symbol]);
+
+    useEffect(() => {
+        const fetchAndAnalyze = () => {
+            // Add your logic here to fetch and analyze data
+        };
+        fetchAndAnalyze();
+    }, []);
+
     // Listen for trade results from the bot engine and API responses
     useEffect(() => {
         const handleTradeResult = (data: any) => {
@@ -918,6 +955,160 @@ const TradingHubDisplay: React.FC = observer(() => {
         );
     }
 
+    const renderPercentageAnalysis = () => {
+        return (
+            <div className="percentage-analysis">
+                <p>Percentage analysis content goes here.</p>
+            </div>
+        );
+    };
+
+    const renderVolatilityAnalysis = () => {
+        return (
+            <div className="volatility-analysis">
+                <div className="volatility-grid">
+                    <div className="volatility-card">
+                        <h3>Market Volatility</h3>
+                        <div className="volatility-indicator">
+                            <span className="volatility-level">Medium</span>
+                            <div className="volatility-bar">
+                                <div className="volatility-fill" style={{width: '60%'}}></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="prediction-card">
+                        <h3>Trend Prediction</h3>
+                        <div className="prediction-result">
+                            <span className="prediction-direction">📈 Bullish</span>
+                            <span className="prediction-confidence">Confidence: 75%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderDecyclerAnalysis = () => {
+        if (!decyclerAnalysis) {
+            return (
+                <div className="decycler-loading">
+                    <div className="loading-spinner"></div>
+                    <p>Loading Decycler analysis...</p>
+                </div>
+            );
+        }
+
+        const getTrendIcon = (trend) => {
+            switch(trend) {
+                case 'bullish': return '🟢';
+                case 'bearish': return '🔴';
+                default: return '⚪';
+            }
+        };
+
+        const getAlignmentColor = (alignment) => {
+            switch(alignment) {
+                case 'all_bullish': return '#00c851';
+                case 'all_bearish': return '#ff4444';
+                case 'mixed': return '#ffbb33';
+                default: return '#888';
+            }
+        };
+
+        return (
+            <div className="decycler-analysis">
+                <div className="decycler-header">
+                    <h3>Multi-Timeframe Decycler Analysis</h3>
+                    <div className="last-scan">
+                        🕒 Last scan: {new Date(decyclerAnalysis.lastScan).toLocaleTimeString()}
+                    </div>
+                </div>
+
+                <div className="trend-alignment" style={{color: getAlignmentColor(decyclerAnalysis.alignment)}}>
+                    <h4>Overall Alignment: {decyclerAnalysis.alignment.replace('_', ' ').toUpperCase()}</h4>
+                    <div className="confidence-bar">
+                        <div className="confidence-fill" style={{
+                            width: `${decyclerAnalysis.confidence * 100}%`,
+                            backgroundColor: getAlignmentColor(decyclerAnalysis.alignment)
+                        }}></div>
+                    </div>
+                    <span>Confidence: {(decyclerAnalysis.confidence * 100).toFixed(1)}%</span>
+                </div>
+
+                <div className="timeframes-grid">
+                    {decyclerAnalysis.trends.map((trend, index) => (
+                        <div key={index} className={`timeframe-card ${trend.trend}`}>
+                            <div className="timeframe-header">
+                                <span className="timeframe-name">{trend.timeframe}</span>
+                                <span className="trend-icon">{getTrendIcon(trend.trend)}</span>
+                            </div>
+                            <div className="trend-strength">
+                                <div className="strength-bar">
+                                    <div 
+                                        className="strength-fill" 
+                                        style={{width: `${trend.strength * 100}%`}}
+                                    ></div>
+                                </div>
+                                <span>{(trend.strength * 100).toFixed(1)}%</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {decyclerAnalysis.recommendation && (
+                    <div className="recommendation-card">
+                        <h4>📋 Trading Recommendation</h4>
+                        <div className="recommendation-content">
+                            <div className="action-badge" data-action={decyclerAnalysis.recommendation.action}>
+                                {decyclerAnalysis.recommendation.action}
+                            </div>
+                            <div className="contract-type">
+                                Contract: {decyclerAnalysis.recommendation.contractType}
+                            </div>
+                            <div className="reason">
+                                {decyclerAnalysis.recommendation.reason}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {contractMonitoring && (
+                    <div className="contract-monitoring">
+                        <h4>📈 Active Contract Monitoring</h4>
+                        <div className="monitoring-grid">
+                            <div className="monitor-item">
+                                <span>Contract ID:</span>
+                                <span>{contractMonitoring.contractId}</span>
+                            </div>
+                            <div className="monitor-item">
+                                <span>Entry Price:</span>
+                                <span>{contractMonitoring.entryPrice}</span>
+                            </div>
+                            <div className="monitor-item">
+                                <span>Current Price:</span>
+                                <span>{contractMonitoring.currentPrice}</span>
+                            </div>
+                            <div className="monitor-item">
+                                <span>P&L:</span>
+                                <span className={contractMonitoring.pnl >= 0 ? 'profit' : 'loss'}>
+                                    ${contractMonitoring.pnl.toFixed(2)}
+                                </span>
+                            </div>
+                            <div className="monitor-item">
+                                <span>Max Profit:</span>
+                                <span>${contractMonitoring.maxProfit.toFixed(2)}</span>
+                            </div>
+                            <div className="monitor-item">
+                                <span>Trailing Stop:</span>
+                                <span>${contractMonitoring.trailingStop.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
         <div className="trading-hub-container">
 
@@ -975,6 +1166,33 @@ const TradingHubDisplay: React.FC = observer(() => {
                             </div>
                         )}
                     </div>
+
+                    {/* Analysis Mode Switcher */}
+                    <div className="analysis-mode-switcher">
+                        <button 
+                            className={`mode-btn ${analysisMode === 'percentage' ? 'active' : ''}`}
+                            onClick={() => setAnalysisMode('percentage')}
+                        >
+                            📊 Percentage Analysis
+                        </button>
+                        <button 
+                            className={`mode-btn ${analysisMode === 'volatility' ? 'active' : ''}`}
+                            onClick={() => setAnalysisMode('volatility')}
+                        >
+                            📈 Volatility Analysis
+                        </button>
+                        <button 
+                            className={`mode-btn ${analysisMode === 'decycler' ? 'active' : ''}`}
+                            onClick={() => setAnalysisMode('decycler')}
+                        >
+                            🔄 Decycler Analysis
+                        </button>
+                    </div>
+
+                    {/* Analysis Content */}
+                    {analysisMode === 'percentage' && renderPercentageAnalysis()}
+                    {analysisMode === 'volatility' && renderVolatilityAnalysis()}
+                    {analysisMode === 'decycler' && renderDecyclerAnalysis()}
 
                     {/* Configuration */}
                     <div className="config-section">
