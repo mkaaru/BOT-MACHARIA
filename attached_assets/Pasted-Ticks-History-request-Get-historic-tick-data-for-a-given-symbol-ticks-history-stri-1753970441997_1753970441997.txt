@@ -1,0 +1,127 @@
+Ticks History (request)
+
+Get historic tick data for a given symbol.
+{}
+{}
+ticks_history
+
+string
+^\w{2,30}$
+Short symbol name (obtained from the active_symbols call).
+{}
+adjust_start_time
+
+constant
+integer
+1
+[Optional] 1 - if the market is closed at the end time, or license limit is before end time, adjust interval backwards to compensate.
+{}
+count
+
+integer
+default:
+5000
+[Optional] An upper limit on ticks to receive.
+{}
+end
+
+string
+^(latest|[0-9]{1,10})$
+Epoch value representing the latest boundary of the returned ticks. If latest is specified, this will be the latest available timestamp.
+{}
+granularity
+
+enum
+integer
+60
+120
+180
+300
+600
+900
+1800
+3600
+7200
+14400
+28800
+86400
+[Optional] Only applicable for style: candles. Candle time-dimension width setting. (default: 60).
+{}
+start
+
+integer
+[Optional] Epoch value representing the earliest boundary of the returned ticks. 
+- For "style": "ticks": this will default to 1 day ago.
+- For "style": "candles": it will default to 1 day ago if count or granularity is undefined.
+{}
+style
+
+enum
+string
+candles
+ticks
+default:
+ticks
+[Optional] The tick-output style.
+{}
+subscribe
+
+constant
+integer
+1
+[Optional] 1 - to send updates whenever a new tick is received.
+{}
+passthrough
+
+object
+[Optional] Used to pass data through the websocket, which may be retrieved via the echo_req output field.
+{}
+req_id
+
+integer
+[Optional] Used to map request to response.
+Ticks History (response)
+
+Historic tick data for a single symbol
+{}
+{}
+candles
+
+array
+candles
+Array of OHLC (open/high/low/close) price values for the given time (only for style=candles)
+{}
+history
+
+history
+Historic tick data for a given symbol. Note: this will always return the latest possible set of ticks with accordance to the parameters specified.
+{}
+pip_size
+
+number
+Indicates the number of decimal points that the returned amounts must be displayed with
+{}
+subscription
+
+subscription
+For subscription requests only.
+{}
+echo_req
+
+object
+Echo of the request made.
+{}
+msg_type
+
+enum
+string
+history
+tick
+candles
+ohlc
+Type of the response according to the style sent in request. Would be history or candles for the first response, and tick or ohlc for the rest when subscribed.
+{}
+req_id
+
+integer
+Optional field sent in request to map to response, present only when request contains req_id.
