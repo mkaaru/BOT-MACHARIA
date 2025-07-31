@@ -555,22 +555,30 @@ const TradingHubDisplay: React.FC = observer(() => {
     // Subscribe to signal service
     useEffect(() => {
         try {
-            const signalSubscription = signalIntegrationService.getActiveSignal().subscribe(signal => {
-                if (signal && signal.strategy === tradingState.selectedStrategy) {
-                    setActiveSignal(signal);
-                    addLog(`📊 New active signal: ${signal.action} ${signal.barrier || ''} on ${signal.symbol} (${signal.confidence}%)`);
-                    // Note: Trade execution will be handled by the main auto-trading interval
-                }
-            });
+            if (signalIntegrationService && typeof signalIntegrationService.getActiveSignal === 'function') {
+                const signalSubscription = signalIntegrationService.getActiveSignal().subscribe(signal => {
+                    if (signal && signal.strategy === tradingState.selectedStrategy) {
+                        setActiveSignal(signal);
+                        addLog(`📊 New active signal: ${signal.action} ${signal.barrier || ''} on ${signal.symbol} (${signal.confidence}%)`);
+                        // Note: Trade execution will be handled by the main auto-trading interval
+                    }
+                });
 
-            const allSignalsSubscription = signalIntegrationService.getSignals().subscribe(signals => {
-                setSignalHistory(signals.filter(s => s.strategy === tradingState.selectedStrategy).slice(-10));
-            });
+                const allSignalsSubscription = signalIntegrationService.getSignals().subscribe(signals => {
+                    setSignalHistory(signals.filter(s => s.strategy === tradingState.selectedStrategy).slice(-10));
+                });
 
-            return () => {
-                signalSubscription.unsubscribe();
-                allSignalsSubscription.unsubscribe();
-            };
+                return () => {
+                    if (signalSubscription && typeof signalSubscription.unsubscribe === 'function') {
+                        signalSubscription.unsubscribe();
+                    }
+                    if (allSignalsSubscription && typeof allSignalsSubscription.unsubscribe === 'function') {
+                        allSignalsSubscription.unsubscribe();
+                    }
+                };
+            } else {
+                addLog('⚠️ Signal service not available');
+            }
         } catch (error) {
             console.error('Signal service subscription error:', error);
             addLog('⚠️ Signal service not available');
@@ -849,7 +857,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         setLastTradeTime(Date.now());
 
         const tradeId = Date.now(); // Generate unique ID for the trade
-        // Add the trade to history immediately with 'status
+        // Add the trade to history immediately with 'pending' status
         setTradeHistory(prev => [...prev, {
             id: tradeId,
             timestamp: new Date().toLocaleTimeString(),
@@ -861,7 +869,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         }]);
 
         try {
-            addLog(`📈 Manual trade: ${tradeConfig.contractType} on ${tradeConfig.symbol} with stake $${tradeConfig.amount}`);
+            addLog(`📈 Manual trade: ${tradeConfig.contract_type} on ${tradeConfig.symbol} with stake $${tradeConfig.amount}`);
 
             const result = await executeDirectTrade(tradeConfig);
 
@@ -905,7 +913,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                 }, 8000); // 8 second delay to allow for real API result first
 
             } else {
-                addLog(`❌ Manual trade failed: ${result.message}`);// Update trade history to show failed trade
+                addLog(`❌ Manual trade failed: ${result.error || 'Unknown error'}`);
+                // Update trade history to show failed trade
                 setTradeHistory(prev => prev.map(trade => 
                     trade.id === tradeId 
                         ? { ...trade, outcome: 'loss', pnl: -tradeConfig.amount }
@@ -913,7 +922,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 ));
             }
         } catch (error) {
-            addLog(`❌ Manual trade error: ${error.message}`);
+            addLog(`❌ Manual trade error: ${error?.message || 'Unknown error'}`);
             // Update trade history to show failed trade
             setTradeHistory(prev => prev.map(trade => 
                 trade.id === tradeId 
@@ -921,7 +930,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     : trade
             ));
         }
-    }, [getTradeConfig, executeDirectTrade, addLog]);
+    }, [getTradeConfig, executeDirectTrade, addLog, monitorContract]);
 
     // Error boundary for the component
     const [hasError, setHasError] = useState(false);
@@ -1498,16 +1507,18 @@ const TradingHubDisplay: React.FC = observer(() => {
                      <div className="trade-history-section">
                         <h3>📜 Trade History</h3>
                         <div className="trade-history-container">
-                            {tradeHistory.map((trade, index) => (
-                                <div key={index} className="trade-entry">
-                                    <span className="trade-timestamp">{trade.timestamp}</span>
-                                    <span className="trade-symbol">{trade.symbol}</span>
-                                    <span className="trade-contract">{trade.contract_type}</span>
-                                    <span className="trade-stake">Stake: ${trade.stake.toFixed(2)}</span>
-                                    <span className={`trade-outcome ${trade.outcome}`}>{trade.outcome}</span>
-                                    <span className="trade-pnl">P&L: {trade.pnl > 0 ? '+' : ''}${trade.pnl.toFixed(2)}</span>
+                            {tradeHistory && tradeHistory.length > 0 ? tradeHistory.map((trade, index) => (
+                                <div key={trade.id || index} className="trade-entry">
+                                    <span className="trade-timestamp">{trade.timestamp || 'N/A'}</span>
+                                    <span className="trade-symbol">{trade.symbol || 'N/A'}</span>
+                                    <span className="trade-contract">{trade.contract_type || 'N/A'}</span>
+                                    <span className="trade-stake">Stake: ${(trade.stake || 0).toFixed(2)}</span>
+                                    <span className={`trade-outcome ${trade.outcome || 'pending'}`}>{trade.outcome || 'pending'}</span>
+                                    <span className="trade-pnl">P&L: {(trade.pnl || 0) > 0 ? '+' : ''}${(trade.pnl || 0).toFixed(2)}</span>
                                 </div>
-                            ))}
+                            )) : (
+                                <div className="no-trades">No trades yet</div>
+                            )}
                         </div>
                     </div>
 
