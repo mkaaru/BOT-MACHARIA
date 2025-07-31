@@ -22,6 +22,7 @@ import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
 import AnalysistoolComponent from '@/components/analysistool/analysis';
 import PercentageTool from '@/components/percentage-tool/percentage-tool';
+import DecyclerBot from '@/components/decycler-bot/decycler-bot';
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
@@ -1326,6 +1327,9 @@ if __name__ == "__main__":
                         </div>
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
                             <TradingHubDisplay />
+                        </div>
+                         <div label={<><BotIcon /><Localize i18n_default_text='Decycler Bot' /></>} id='id-Decycler-Bot'>
+                            <DecyclerBot />
                         </div>
                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
                             <Dashboard handleTabChange={handleTabChange} />

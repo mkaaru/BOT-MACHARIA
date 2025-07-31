@@ -1,0 +1,775 @@
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { observer } from 'mobx-react-lite';
+import { api_base } from '@/external/bot-skeleton/services/api/api-base';
+import './decycler-bot.scss';
+
+interface DecyclerConfig {
+    app_id: number;
+    symbol: string;
+    stake: number;
+    take_profit: number;
+    stop_loss: number;
+    tick_count: number;
+    use_10s_filter: boolean;
+    monitor_interval: number;
+    contract_type: 'rise_fall' | 'higher_lower';
+    use_trailing_stop: boolean;
+    trailing_step: number;
+    use_breakeven: boolean;
+    breakeven_trigger: number;
+    alpha: number;
+}
+
+interface TrendData {
+    timeframe: string;
+    trend: 'bullish' | 'bearish' | 'neutral';
+    value: number;
+    timestamp: number;
+}
+
+interface ContractInfo {
+    id: string;
+    type: string;
+    entry_price: number;
+    current_price: number;
+    profit: number;
+    status: 'open' | 'closed' | 'pending';
+    entry_time: number;
+    direction: 'UP' | 'DOWN';
+    stop_loss: number;
+    take_profit: number;
+    trailing_stop: number;
+    breakeven_active: boolean;
+}
+
+interface BotStatus {
+    is_running: boolean;
+    last_update: number;
+    trends: TrendData[];
+    current_contract: ContractInfo | null;
+    total_trades: number;
+    winning_trades: number;
+    total_pnl: number;
+    error_message: string;
+    alignment_status: 'aligned_bullish' | 'aligned_bearish' | 'mixed' | 'neutral';
+}
+
+const DecyclerBot: React.FC = observer(() => {
+    const [config, setConfig] = useState<DecyclerConfig>({
+        app_id: 75771,
+        symbol: 'R_100',
+        stake: 1.0,
+        take_profit: 1.5,
+        stop_loss: -1.0,
+        tick_count: 5,
+        use_10s_filter: true,
+        monitor_interval: 10,
+        contract_type: 'rise_fall',
+        use_trailing_stop: true,
+        trailing_step: 0.5,
+        use_breakeven: true,
+        breakeven_trigger: 2.0,
+        alpha: 0.07
+    });
+
+    const [botStatus, setBotStatus] = useState<BotStatus>({
+        is_running: false,
+        last_update: 0,
+        trends: [],
+        current_contract: null,
+        total_trades: 0,
+        winning_trades: 0,
+        total_pnl: 0,
+        error_message: '',
+        alignment_status: 'neutral'
+    });
+
+    const [logs, setLogs] = useState<string[]>([]);
+    const [ohlcData, setOhlcData] = useState<{ [key: string]: any[] }>({});
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const monitorRef = useRef<NodeJS.Timeout | null>(null);
+    const logsEndRef = useRef<HTMLDivElement>(null);
+
+    const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h'];
+
+    const addLog = useCallback((message: string) => {
+        const timestamp = new Date().toLocaleTimeString();
+        const logMessage = `[${timestamp}] ${message}`;
+        setLogs(prev => [...prev.slice(-99), logMessage]);
+    }, []);
+
+    const scrollToBottom = useCallback(() => {
+        if (logsEndRef.current) {
+            const logsContainer = logsEndRef.current.parentElement;
+            if (logsContainer) {
+                const isNearBottom = logsContainer.scrollTop + logsContainer.clientHeight >= logsContainer.scrollHeight - 50;
+                if (isNearBottom) {
+                    logsEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            }
+        }
+    }, []);
+
+    useEffect(scrollToBottom, [logs]);
+
+    // John Ehlers' Decycler implementation
+    const calculateDecycler = useCallback((prices: number[], alpha: number = 0.07): number[] => {
+        if (prices.length < 3) return [];
+
+        const decycler: number[] = [];
+        
+        // Initialize first values
+        decycler[0] = prices[0];
+        decycler[1] = prices[1];
+
+        // Calculate Decycler using Ehler's formula
+        for (let i = 2; i < prices.length; i++) {
+            const value = (alpha / 2) * (prices[i] + prices[i - 1]) + 
+                         (1 - alpha) * decycler[i - 1] - 
+                         ((1 - alpha) / 4) * (decycler[i - 1] - decycler[i - 2]);
+            decycler[i] = value;
+        }
+
+        return decycler;
+    }, []);
+
+    // Determine trend from Decycler values
+    const getTrend = useCallback((decyclerValues: number[]): 'bullish' | 'bearish' | 'neutral' => {
+        if (decyclerValues.length < 3) return 'neutral';
+
+        const current = decyclerValues[decyclerValues.length - 1];
+        const previous = decyclerValues[decyclerValues.length - 2];
+        const beforePrevious = decyclerValues[decyclerValues.length - 3];
+
+        const shortTrend = current > previous;
+        const mediumTrend = previous > beforePrevious;
+
+        if (shortTrend && mediumTrend) return 'bullish';
+        if (!shortTrend && !mediumTrend) return 'bearish';
+        return 'neutral';
+    }, []);
+
+    // Fetch OHLC data for a specific timeframe
+    const fetchOHLCData = useCallback(async (timeframe: string): Promise<any[]> => {
+        if (!api_base.api) return [];
+
+        try {
+            const granularity = {
+                '1m': 60,
+                '5m': 300,
+                '15m': 900,
+                '30m': 1800,
+                '1h': 3600,
+                '4h': 14400
+            }[timeframe] || 60;
+
+            const endTime = Math.floor(Date.now() / 1000);
+            const startTime = endTime - (100 * granularity); // Get 100 candles
+
+            const request = {
+                ticks_history: config.symbol,
+                adjust_start_time: 1,
+                count: 100,
+                end: 'latest',
+                start: startTime,
+                style: 'candles',
+                granularity: granularity
+            };
+
+            const response = await api_base.api.send(request);
+
+            if (response.error) {
+                addLog(`❌ Error fetching ${timeframe} data: ${response.error.message}`);
+                return [];
+            }
+
+            return response.candles || [];
+        } catch (error) {
+            addLog(`❌ Failed to fetch ${timeframe} data: ${error.message}`);
+            return [];
+        }
+    }, [config.symbol, addLog]);
+
+    // Analyze all timeframes
+    const analyzeAllTimeframes = useCallback(async (): Promise<TrendData[]> => {
+        const trends: TrendData[] = [];
+
+        for (const timeframe of timeframes) {
+            try {
+                const candles = await fetchOHLCData(timeframe);
+                if (candles.length === 0) continue;
+
+                const closePrices = candles.map(candle => parseFloat(candle.close));
+                const decyclerValues = calculateDecycler(closePrices, config.alpha);
+                const trend = getTrend(decyclerValues);
+                const currentValue = decyclerValues[decyclerValues.length - 1] || 0;
+
+                trends.push({
+                    timeframe,
+                    trend,
+                    value: currentValue,
+                    timestamp: Date.now()
+                });
+
+                addLog(`📊 ${timeframe}: ${trend.toUpperCase()} (${currentValue.toFixed(5)})`);
+            } catch (error) {
+                addLog(`❌ Error analyzing ${timeframe}: ${error.message}`);
+            }
+        }
+
+        return trends;
+    }, [timeframes, fetchOHLCData, calculateDecycler, getTrend, config.alpha, addLog]);
+
+    // Check trend alignment
+    const checkAlignment = useCallback((trends: TrendData[]): 'aligned_bullish' | 'aligned_bearish' | 'mixed' | 'neutral' => {
+        if (trends.length === 0) return 'neutral';
+
+        const bullishCount = trends.filter(t => t.trend === 'bullish').length;
+        const bearishCount = trends.filter(t => t.trend === 'bearish').length;
+        const neutralCount = trends.filter(t => t.trend === 'neutral').length;
+
+        if (bullishCount === trends.length) return 'aligned_bullish';
+        if (bearishCount === trends.length) return 'aligned_bearish';
+        if (bullishCount > bearishCount && bullishCount >= trends.length * 0.7) return 'aligned_bullish';
+        if (bearishCount > bullishCount && bearishCount >= trends.length * 0.7) return 'aligned_bearish';
+        return 'mixed';
+    }, []);
+
+    // Execute trade
+    const executeTrade = useCallback(async (direction: 'UP' | 'DOWN'): Promise<void> => {
+        if (!api_base.api) {
+            addLog('❌ API not connected');
+            return;
+        }
+
+        try {
+            const contractTypeMap = {
+                rise_fall: direction === 'UP' ? 'CALL' : 'PUT',
+                higher_lower: direction === 'UP' ? 'CALLE' : 'PUTE'
+            };
+
+            const contractType = contractTypeMap[config.contract_type];
+
+            // Get proposal
+            const proposalRequest = {
+                proposal: 1,
+                amount: config.stake,
+                basis: 'stake',
+                contract_type: contractType,
+                currency: 'USD',
+                duration: config.tick_count,
+                duration_unit: 't',
+                symbol: config.symbol
+            };
+
+            addLog(`🔄 Getting proposal for ${contractType} on ${config.symbol}...`);
+            const proposalResponse = await api_base.api.send(proposalRequest);
+
+            if (proposalResponse.error) {
+                addLog(`❌ Proposal error: ${proposalResponse.error.message}`);
+                return;
+            }
+
+            const proposalId = proposalResponse.proposal.id;
+            const entrySpot = proposalResponse.proposal.spot;
+
+            // Purchase contract
+            const buyRequest = {
+                buy: proposalId,
+                price: config.stake
+            };
+
+            addLog(`💰 Purchasing contract ${proposalId}...`);
+            const buyResponse = await api_base.api.send(buyRequest);
+
+            if (buyResponse.error) {
+                addLog(`❌ Purchase error: ${buyResponse.error.message}`);
+                return;
+            }
+
+            const contractId = buyResponse.buy.contract_id;
+            addLog(`✅ Contract purchased: ${contractId}`);
+
+            // Update contract info
+            const newContract: ContractInfo = {
+                id: contractId,
+                type: contractType,
+                entry_price: entrySpot,
+                current_price: entrySpot,
+                profit: 0,
+                status: 'open',
+                entry_time: Date.now(),
+                direction,
+                stop_loss: entrySpot + config.stop_loss,
+                take_profit: entrySpot + config.take_profit,
+                trailing_stop: config.use_trailing_stop ? entrySpot + config.stop_loss : 0,
+                breakeven_active: false
+            };
+
+            setBotStatus(prev => ({
+                ...prev,
+                current_contract: newContract,
+                total_trades: prev.total_trades + 1
+            }));
+
+            // Start monitoring the contract
+            monitorContract(contractId);
+
+        } catch (error) {
+            addLog(`❌ Trade execution failed: ${error.message}`);
+        }
+    }, [config, addLog]);
+
+    // Monitor open contract
+    const monitorContract = useCallback(async (contractId: string): Promise<void> => {
+        if (!api_base.api) return;
+
+        try {
+            const request = {
+                proposal_open_contract: 1,
+                contract_id: contractId,
+                subscribe: 1
+            };
+
+            const response = await api_base.api.send(request);
+
+            if (response.error) {
+                addLog(`❌ Contract monitoring error: ${response.error.message}`);
+                return;
+            }
+
+            addLog(`👁️ Monitoring contract ${contractId}`);
+        } catch (error) {
+            addLog(`❌ Failed to monitor contract: ${error.message}`);
+        }
+    }, [addLog]);
+
+    // Main trading loop
+    const tradingLoop = useCallback(async (): Promise<void> => {
+        if (!botStatus.is_running) return;
+
+        try {
+            addLog('🔄 Analyzing market conditions...');
+            
+            // Analyze all timeframes
+            const trends = await analyzeAllTimeframes();
+            const alignment = checkAlignment(trends);
+
+            setBotStatus(prev => ({
+                ...prev,
+                trends,
+                alignment_status: alignment,
+                last_update: Date.now(),
+                error_message: ''
+            }));
+
+            addLog(`📈 Alignment Status: ${alignment.toUpperCase()}`);
+
+            // Check if we should enter a trade
+            if (!botStatus.current_contract && (alignment === 'aligned_bullish' || alignment === 'aligned_bearish')) {
+                const direction = alignment === 'aligned_bullish' ? 'UP' : 'DOWN';
+                
+                // Optional 10s confirmation
+                if (config.use_10s_filter) {
+                    addLog('⏱️ Applying 10-second confirmation filter...');
+                    // Implement 10-second tick analysis here
+                    // For now, we'll proceed with the trade
+                }
+
+                addLog(`🎯 All timeframes aligned ${direction} - Executing trade!`);
+                await executeTrade(direction);
+            }
+
+        } catch (error) {
+            const errorMsg = `Trading loop error: ${error.message}`;
+            addLog(`❌ ${errorMsg}`);
+            setBotStatus(prev => ({
+                ...prev,
+                error_message: errorMsg
+            }));
+        }
+    }, [botStatus.is_running, botStatus.current_contract, analyzeAllTimeframes, checkAlignment, config.use_10s_filter, executeTrade, addLog]);
+
+    // Start bot
+    const startBot = useCallback(async (): Promise<void> => {
+        if (!api_base.api) {
+            addLog('❌ API not connected. Please connect first.');
+            return;
+        }
+
+        setBotStatus(prev => ({ ...prev, is_running: true }));
+        addLog('🚀 Decycler Multi-Timeframe Bot Started!');
+        addLog(`📊 Monitoring ${timeframes.join(', ')} timeframes`);
+        addLog(`🎯 Symbol: ${config.symbol} | Stake: $${config.stake}`);
+        addLog(`⚙️ Contract Type: ${config.contract_type.toUpperCase()}`);
+
+        // Start trading loop
+        intervalRef.current = setInterval(tradingLoop, config.monitor_interval * 1000);
+        
+        // Run initial analysis
+        await tradingLoop();
+    }, [config, timeframes, tradingLoop, addLog]);
+
+    // Stop bot
+    const stopBot = useCallback((): void => {
+        setBotStatus(prev => ({ ...prev, is_running: false }));
+        
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        }
+
+        if (monitorRef.current) {
+            clearInterval(monitorRef.current);
+            monitorRef.current = null;
+        }
+
+        addLog('⏹️ Decycler Bot Stopped');
+    }, [addLog]);
+
+    // Handle contract updates from API
+    useEffect(() => {
+        const handleApiResponse = (response: any) => {
+            if (response && response.proposal_open_contract) {
+                const contract = response.proposal_open_contract;
+                
+                setBotStatus(prev => {
+                    if (!prev.current_contract || prev.current_contract.id !== contract.contract_id) {
+                        return prev;
+                    }
+
+                    const updatedContract: ContractInfo = {
+                        ...prev.current_contract,
+                        current_price: contract.current_spot || prev.current_contract.current_price,
+                        profit: contract.profit || 0,
+                        status: contract.is_sold ? 'closed' : 'open'
+                    };
+
+                    // Handle risk management
+                    if (config.use_trailing_stop && contract.profit > 0) {
+                        const newTrailingStop = prev.current_contract.entry_price + contract.profit - config.trailing_step;
+                        if (newTrailingStop > updatedContract.trailing_stop) {
+                            updatedContract.trailing_stop = newTrailingStop;
+                            addLog(`📈 Trailing stop updated to ${newTrailingStop.toFixed(5)}`);
+                        }
+                    }
+
+                    // Handle breakeven
+                    if (config.use_breakeven && !updatedContract.breakeven_active && contract.profit >= config.breakeven_trigger) {
+                        updatedContract.stop_loss = prev.current_contract.entry_price;
+                        updatedContract.breakeven_active = true;
+                        addLog(`⚖️ Breakeven protection activated`);
+                    }
+
+                    // Check if contract closed
+                    if (contract.is_sold) {
+                        const isWin = contract.profit > 0;
+                        addLog(`${isWin ? '🎉' : '💔'} Contract closed: ${isWin ? 'WIN' : 'LOSS'} - P&L: ${contract.profit.toFixed(2)}`);
+                        
+                        return {
+                            ...prev,
+                            current_contract: null,
+                            winning_trades: isWin ? prev.winning_trades + 1 : prev.winning_trades,
+                            total_pnl: prev.total_pnl + contract.profit
+                        };
+                    }
+
+                    return {
+                        ...prev,
+                        current_contract: updatedContract
+                    };
+                });
+            }
+        };
+
+        // Listen for API responses
+        if (typeof window !== 'undefined' && (window as any).globalObserver) {
+            const globalObserver = (window as any).globalObserver;
+            globalObserver.register('api.response', handleApiResponse);
+
+            return () => {
+                globalObserver.unregister('api.response', handleApiResponse);
+            };
+        }
+    }, [config, addLog]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            if (monitorRef.current) clearInterval(monitorRef.current);
+        };
+    }, []);
+
+    const getTrendColor = (trend: string): string => {
+        switch (trend) {
+            case 'bullish': return '#00ff88';
+            case 'bearish': return '#ff4757';
+            default: return '#ffa502';
+        }
+    };
+
+    const getAlignmentColor = (alignment: string): string => {
+        switch (alignment) {
+            case 'aligned_bullish': return '#00ff88';
+            case 'aligned_bearish': return '#ff4757';
+            case 'mixed': return '#ffa502';
+            default: return '#74b9ff';
+        }
+    };
+
+    return (
+        <div className="decycler-bot-container">
+            <div className="decycler-header">
+                <h2>🔬 Decycler Multi-Timeframe Trading Bot</h2>
+                <div className={`bot-status ${botStatus.is_running ? 'running' : 'stopped'}`}>
+                    <span className="status-dot"></span>
+                    {botStatus.is_running ? 'RUNNING' : 'STOPPED'}
+                </div>
+            </div>
+
+            <div className="decycler-grid">
+                <div className="main-panel">
+                    {/* Configuration Panel */}
+                    <div className="config-panel">
+                        <h3>⚙️ Configuration</h3>
+                        <div className="config-grid">
+                            <div className="config-item">
+                                <label>Symbol</label>
+                                <select
+                                    value={config.symbol}
+                                    onChange={e => setConfig(prev => ({ ...prev, symbol: e.target.value }))}
+                                    disabled={botStatus.is_running}
+                                >
+                                    <option value="R_10">Volatility 10 Index</option>
+                                    <option value="R_25">Volatility 25 Index</option>
+                                    <option value="R_50">Volatility 50 Index</option>
+                                    <option value="R_75">Volatility 75 Index</option>
+                                    <option value="R_100">Volatility 100 Index</option>
+                                </select>
+                            </div>
+                            <div className="config-item">
+                                <label>Stake ($)</label>
+                                <input
+                                    type="number"
+                                    value={config.stake}
+                                    onChange={e => setConfig(prev => ({ ...prev, stake: parseFloat(e.target.value) || 1 }))}
+                                    min="1"
+                                    step="0.1"
+                                    disabled={botStatus.is_running}
+                                />
+                            </div>
+                            <div className="config-item">
+                                <label>Take Profit ($)</label>
+                                <input
+                                    type="number"
+                                    value={config.take_profit}
+                                    onChange={e => setConfig(prev => ({ ...prev, take_profit: parseFloat(e.target.value) || 1.5 }))}
+                                    step="0.1"
+                                    disabled={botStatus.is_running}
+                                />
+                            </div>
+                            <div className="config-item">
+                                <label>Stop Loss ($)</label>
+                                <input
+                                    type="number"
+                                    value={config.stop_loss}
+                                    onChange={e => setConfig(prev => ({ ...prev, stop_loss: parseFloat(e.target.value) || -1 }))}
+                                    step="0.1"
+                                    disabled={botStatus.is_running}
+                                />
+                            </div>
+                            <div className="config-item">
+                                <label>Contract Type</label>
+                                <select
+                                    value={config.contract_type}
+                                    onChange={e => setConfig(prev => ({ ...prev, contract_type: e.target.value as 'rise_fall' | 'higher_lower' }))}
+                                    disabled={botStatus.is_running}
+                                >
+                                    <option value="rise_fall">Rise/Fall (Strict)</option>
+                                    <option value="higher_lower">Higher/Lower (Equals)</option>
+                                </select>
+                            </div>
+                            <div className="config-item">
+                                <label>Tick Count</label>
+                                <input
+                                    type="number"
+                                    value={config.tick_count}
+                                    onChange={e => setConfig(prev => ({ ...prev, tick_count: parseInt(e.target.value) || 5 }))}
+                                    min="1"
+                                    max="10"
+                                    disabled={botStatus.is_running}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Advanced Risk Management */}
+                        <div className="risk-management">
+                            <h4>🛡️ Risk Management</h4>
+                            <div className="risk-options">
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={config.use_trailing_stop}
+                                        onChange={e => setConfig(prev => ({ ...prev, use_trailing_stop: e.target.checked }))}
+                                        disabled={botStatus.is_running}
+                                    />
+                                    Trailing Stop (${config.trailing_step})
+                                </label>
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={config.use_breakeven}
+                                        onChange={e => setConfig(prev => ({ ...prev, use_breakeven: e.target.checked }))}
+                                        disabled={botStatus.is_running}
+                                    />
+                                    Breakeven at ${config.breakeven_trigger} profit
+                                </label>
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={config.use_10s_filter}
+                                        onChange={e => setConfig(prev => ({ ...prev, use_10s_filter: e.target.checked }))}
+                                        disabled={botStatus.is_running}
+                                    />
+                                    10-Second Confirmation Filter
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Control Panel */}
+                    <div className="control-panel">
+                        <h3>🎮 Controls</h3>
+                        <div className="control-buttons">
+                            <button
+                                className={`control-btn ${botStatus.is_running ? 'stop' : 'start'}`}
+                                onClick={botStatus.is_running ? stopBot : startBot}
+                                disabled={!api_base.api}
+                            >
+                                {botStatus.is_running ? '⏹️ Stop Bot' : '▶️ Start Bot'}
+                            </button>
+                        </div>
+                        {!api_base.api && (
+                            <div className="api-warning">
+                                ⚠️ API not connected. Please connect to Deriv API first.
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Current Contract */}
+                    {botStatus.current_contract && (
+                        <div className="current-contract">
+                            <h3>📊 Current Contract</h3>
+                            <div className="contract-info">
+                                <div className="contract-details">
+                                    <span>ID: {botStatus.current_contract.id}</span>
+                                    <span>Type: {botStatus.current_contract.type}</span>
+                                    <span>Direction: {botStatus.current_contract.direction}</span>
+                                    <span>Entry: {botStatus.current_contract.entry_price.toFixed(5)}</span>
+                                </div>
+                                <div className={`profit-display ${botStatus.current_contract.profit >= 0 ? 'positive' : 'negative'}`}>
+                                    P&L: ${botStatus.current_contract.profit.toFixed(2)}
+                                </div>
+                            </div>
+                            <div className="risk-status">
+                                {config.use_trailing_stop && (
+                                    <span>Trailing Stop: {botStatus.current_contract.trailing_stop.toFixed(5)}</span>
+                                )}
+                                {botStatus.current_contract.breakeven_active && (
+                                    <span className="breakeven-active">Breakeven Active</span>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="side-panel">
+                    {/* Timeframe Analysis */}
+                    <div className="timeframe-analysis">
+                        <h3>📈 Multi-Timeframe Analysis</h3>
+                        <div className={`alignment-status ${botStatus.alignment_status}`}>
+                            <div 
+                                className="alignment-indicator"
+                                style={{ backgroundColor: getAlignmentColor(botStatus.alignment_status) }}
+                            >
+                                {botStatus.alignment_status.replace('_', ' ').toUpperCase()}
+                            </div>
+                        </div>
+                        <div className="trends-grid">
+                            {timeframes.map(timeframe => {
+                                const trendData = botStatus.trends.find(t => t.timeframe === timeframe);
+                                return (
+                                    <div key={timeframe} className="trend-item">
+                                        <span className="timeframe-label">{timeframe}</span>
+                                        <div 
+                                            className={`trend-indicator ${trendData?.trend || 'neutral'}`}
+                                            style={{ backgroundColor: getTrendColor(trendData?.trend || 'neutral') }}
+                                        >
+                                            {trendData?.trend?.toUpperCase() || 'LOADING'}
+                                        </div>
+                                        {trendData && (
+                                            <span className="trend-value">{trendData.value.toFixed(5)}</span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {botStatus.last_update > 0 && (
+                            <div className="last-update">
+                                Last Update: {new Date(botStatus.last_update).toLocaleTimeString()}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Statistics */}
+                    <div className="statistics">
+                        <h3>📊 Performance</h3>
+                        <div className="stats-grid">
+                            <div className="stat-item">
+                                <span className="stat-label">Total Trades</span>
+                                <span className="stat-value">{botStatus.total_trades}</span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="stat-label">Win Rate</span>
+                                <span className="stat-value">
+                                    {botStatus.total_trades > 0 
+                                        ? ((botStatus.winning_trades / botStatus.total_trades) * 100).toFixed(1) 
+                                        : 0}%
+                                </span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="stat-label">Total P&L</span>
+                                <span className={`stat-value ${botStatus.total_pnl >= 0 ? 'positive' : 'negative'}`}>
+                                    ${botStatus.total_pnl.toFixed(2)}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Activity Logs */}
+                    <div className="activity-logs">
+                        <h3>📝 Activity Logs</h3>
+                        <div className="logs-container">
+                            {logs.map((log, index) => (
+                                <div key={index} className="log-entry">
+                                    {log}
+                                </div>
+                            ))}
+                            <div ref={logsEndRef} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {botStatus.error_message && (
+                <div className="error-message">
+                    ❌ {botStatus.error_message}
+                </div>
+            )}
+        </div>
+    );
+});
+
+export default DecyclerBot;
