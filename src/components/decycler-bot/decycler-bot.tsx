@@ -419,20 +419,21 @@ const DecyclerBot: React.FC = observer(() => {
             addLog('🔄 Starting Decycler Bot...');
             
             // Initialize API connection
-            if (!api_base.api) {
+            if (!api_base.api || api_base.api.connection.readyState !== 1) {
                 addLog('🔌 Connecting to Deriv API...');
                 await api_base.init();
                 
-                // Wait for connection
+                // Wait for connection to be ready
                 let retries = 0;
-                while (!api_base.api && retries < 10) {
+                while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     retries++;
-                    addLog(`⏳ Waiting for connection... (${retries}/10)`);
+                    const readyState = api_base.api?.connection?.readyState || 'undefined';
+                    addLog(`⏳ Waiting for WebSocket connection... (${retries}/15) - State: ${readyState}`);
                 }
                 
-                if (!api_base.api) {
-                    addLog('❌ Failed to connect to API. Please check your connection.');
+                if (!api_base.api || api_base.api.connection.readyState !== 1) {
+                    addLog('❌ Failed to establish WebSocket connection. Please check your internet connection and try again.');
                     return;
                 }
             }
@@ -441,7 +442,11 @@ const DecyclerBot: React.FC = observer(() => {
             const connectionStatus = api_base.getConnectionStatus();
             addLog(`📡 Connection Status: ${connectionStatus}`);
 
-            if (connectionStatus !== 'open') {
+            // Check if WebSocket is actually ready
+            const isReady = api_base.api?.connection?.readyState === 1;
+            addLog(`🔌 WebSocket Ready State: ${api_base.api?.connection?.readyState} (${isReady ? 'OPEN' : 'NOT READY'})`);
+
+            if (!isReady) {
                 addLog('❌ WebSocket connection not ready. Please wait and try again.');
                 return;
             }
@@ -550,20 +555,31 @@ const DecyclerBot: React.FC = observer(() => {
         try {
             addLog('🔍 Testing API connection...');
             
-            if (!api_base.api) {
+            if (!api_base.api || api_base.api.connection.readyState !== 1) {
+                addLog('🔌 Initializing API connection...');
                 await api_base.init();
+                
+                // Wait for connection
+                let retries = 0;
+                while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 10) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    retries++;
+                    addLog(`⏳ Waiting for connection... (${retries}/10)`);
+                }
             }
             
-            if (!api_base.api) {
-                addLog('❌ Failed to initialize API');
+            if (!api_base.api || api_base.api.connection.readyState !== 1) {
+                addLog('❌ Failed to establish WebSocket connection');
                 return;
             }
+            
+            addLog(`✅ WebSocket connected (Ready State: ${api_base.api.connection.readyState})`);
             
             // Test with a simple time request
             const response = await api_base.api.send({ time: 1 });
             
             if (response.time) {
-                addLog(`✅ API connection test successful. Server time: ${new Date(response.time * 1000).toLocaleString()}`);
+                addLog(`✅ API communication test successful. Server time: ${new Date(response.time * 1000).toLocaleString()}`);
                 
                 // Test symbol data availability
                 const testData = await fetchOHLCData('1m');
@@ -573,7 +589,7 @@ const DecyclerBot: React.FC = observer(() => {
                     addLog(`⚠️ No data available for symbol ${config.symbol}. Try a different symbol.`);
                 }
             } else {
-                addLog('❌ API connection test failed');
+                addLog('❌ API communication test failed');
             }
         } catch (error) {
             addLog(`❌ Connection test failed: ${error.message}`);
