@@ -179,24 +179,43 @@ const DecyclerBot: React.FC = observer(() => {
                 '4h': 14400
             }[timeframe] || 60;
 
-            // Calculate proper start time for historical data
-            const candleCount = 100;
-            const now = Math.floor(Date.now() / 1000);
-            const startTime = now - (candleCount * granularity);
+            // Check if this is a 1HZ symbol (1-second tick symbols)
+            const is1HZSymbol = config.symbol.startsWith('1HZ');
+            
+            // For 1HZ symbols, we need more ticks to generate meaningful candles
+            const tickCount = is1HZSymbol ? granularity * 200 : 100; // More ticks for 1HZ symbols
+            const candleCount = is1HZSymbol ? 100 : 100;
+            
+            let request;
+            
+            if (is1HZSymbol) {
+                // For 1HZ symbols, always request tick data and convert to candles
+                addLog(`📍 Detected 1HZ symbol ${config.symbol} - requesting tick data for conversion`);
+                request = {
+                    ticks_history: config.symbol,
+                    count: tickCount,
+                    end: 'latest',
+                    style: 'ticks',
+                    req_id: `ticks_${timeframe}_${Date.now()}`
+                };
+            } else {
+                // For regular symbols, try candles first
+                const now = Math.floor(Date.now() / 1000);
+                const startTime = now - (candleCount * granularity);
+                
+                request = {
+                    ticks_history: config.symbol,
+                    adjust_start_time: 1,
+                    count: candleCount,
+                    end: 'latest',
+                    start: startTime,
+                    style: 'candles',
+                    granularity: granularity,
+                    req_id: `candles_${timeframe}_${Date.now()}`
+                };
+            }
 
-            // Proper Deriv API request for candle data
-            const request = {
-                ticks_history: config.symbol,
-                adjust_start_time: 1,
-                count: candleCount,
-                end: 'latest',
-                start: startTime,
-                style: 'candles',
-                granularity: granularity,
-                req_id: `candles_${timeframe}_${Date.now()}`
-            };
-
-            addLog(`📡 Requesting ${timeframe} candles: ${JSON.stringify(request)}`);
+            addLog(`📡 Requesting ${timeframe} data: ${JSON.stringify(request)}`);
             
             const response = await Promise.race([
                 api_base.api.send(request),
@@ -205,21 +224,47 @@ const DecyclerBot: React.FC = observer(() => {
                 )
             ]);
 
-            addLog(`📥 Raw response for ${timeframe}: ${JSON.stringify(response).substring(0, 200)}...`);
-
             if (response.error) {
                 addLog(`❌ API error for ${timeframe}: ${response.error.message} (Code: ${response.error.code})`);
+                
+                // If candles failed, try ticks as fallback for non-1HZ symbols
+                if (!is1HZSymbol && response.error.code === 'InputValidationFailed') {
+                    addLog(`🔄 Candles not supported for ${config.symbol}, trying tick data...`);
+                    
+                    const tickRequest = {
+                        ticks_history: config.symbol,
+                        count: granularity * 150, // More ticks to build candles
+                        end: 'latest',
+                        style: 'ticks',
+                        req_id: `ticks_fallback_${timeframe}_${Date.now()}`
+                    };
+                    
+                    const tickResponse = await api_base.api.send(tickRequest);
+                    
+                    if (tickResponse.error) {
+                        addLog(`❌ Tick fallback also failed: ${tickResponse.error.message}`);
+                        return [];
+                    }
+                    
+                    // Process tick response
+                    if (tickResponse.history && tickResponse.history.prices && tickResponse.history.times) {
+                        const prices = tickResponse.history.prices;
+                        const times = tickResponse.history.times;
+                        
+                        addLog(`📈 Converting ${prices.length} fallback ticks to ${timeframe} candles...`);
+                        const candles = convertTicksToCandles(prices, times, granularity);
+                        addLog(`✅ Generated ${candles.length} candles from fallback tick data for ${timeframe}`);
+                        
+                        return candles;
+                    }
+                }
+                
                 return [];
             }
 
-            // Check for candles in response
+            // Check for direct candle response (non-1HZ symbols)
             if (response.candles && Array.isArray(response.candles) && response.candles.length > 0) {
                 addLog(`✅ Received ${response.candles.length} candles for ${timeframe}`);
-                
-                // Log sample candle structure
-                if (response.candles.length > 0) {
-                    addLog(`📊 Sample candle: ${JSON.stringify(response.candles[0])}`);
-                }
                 
                 // Validate and format candle data
                 const validCandles = response.candles.filter(candle => 
@@ -242,9 +287,9 @@ const DecyclerBot: React.FC = observer(() => {
                 }
                 
                 return validCandles;
-            } 
+            }
             
-            // Check for historical tick data (fallback)
+            // Check for tick data response (1HZ symbols and fallbacks)
             else if (response.history && response.history.prices && response.history.times) {
                 const prices = response.history.prices;
                 const times = response.history.times;
@@ -262,7 +307,7 @@ const DecyclerBot: React.FC = observer(() => {
                 return [];
             }
         } catch (error) {
-            addLog(`❌ Exception fetching ${timeframe} data: ${error.message}`);
+            addLog(`❌ Exception fetching ${timeframe} data: ${error?.message || 'Unknown error'}`);
             return [];
         }
     }, [config.symbol, addLog]);
