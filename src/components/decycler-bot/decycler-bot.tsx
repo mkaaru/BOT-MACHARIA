@@ -498,6 +498,11 @@ const DecyclerBot: React.FC = observer(() => {
                         value: 0,
                         timestamp: Date.now()
                     });
+                    // Update UI immediately for this timeframe
+                    setTimeframeAnalysis(prev => ({
+                        ...prev,
+                        [timeframe]: 'NEUTRAL'
+                    }));
                     continue;
                 }
 
@@ -512,6 +517,11 @@ const DecyclerBot: React.FC = observer(() => {
                         value: 0,
                         timestamp: Date.now()
                     });
+                    // Update UI immediately for this timeframe
+                    setTimeframeAnalysis(prev => ({
+                        ...prev,
+                        [timeframe]: 'NEUTRAL'
+                    }));
                     continue;
                 }
 
@@ -524,6 +534,11 @@ const DecyclerBot: React.FC = observer(() => {
                         value: 0,
                         timestamp: Date.now()
                     });
+                    // Update UI immediately for this timeframe
+                    setTimeframeAnalysis(prev => ({
+                        ...prev,
+                        [timeframe]: 'NEUTRAL'
+                    }));
                     continue;
                 }
 
@@ -536,6 +551,13 @@ const DecyclerBot: React.FC = observer(() => {
                     value: currentValue,
                     timestamp: Date.now()
                 });
+
+                // Update UI immediately for this timeframe
+                const trendDisplay = trend === 'bullish' ? 'BULLISH' : trend === 'bearish' ? 'BEARISH' : 'NEUTRAL';
+                setTimeframeAnalysis(prev => ({
+                    ...prev,
+                    [timeframe]: trendDisplay
+                }));
 
                 addLog(`✅ ${timeframe}: ${trend.toUpperCase()} (Value: ${currentValue.toFixed(5)})`);
 
@@ -551,10 +573,29 @@ const DecyclerBot: React.FC = observer(() => {
                     value: 0,
                     timestamp: Date.now()
                 });
+                // Update UI immediately for this timeframe
+                setTimeframeAnalysis(prev => ({
+                    ...prev,
+                    [timeframe]: 'NEUTRAL'
+                }));
             }
         }
 
         addLog(`📋 Multi-timeframe analysis complete: ${trends.length}/${timeframes.length} timeframes processed`);
+        
+        // Update overall analysis
+        const analyses = trends.map(t => t.trend);
+        const bullishCount = analyses.filter(a => a === 'bullish').length;
+        const bearishCount = analyses.filter(a => a === 'bearish').length;
+        
+        if (bullishCount > bearishCount + 1) {
+            setOverallAnalysis('BULLISH');
+        } else if (bearishCount > bullishCount + 1) {
+            setOverallAnalysis('BEARISH');
+        } else {
+            setOverallAnalysis('NEUTRAL');
+        }
+
         return trends;
     }, [timeframes, fetchOHLCData, calculateDecycler, getTrend, config.alpha, addLog]);
 
@@ -989,6 +1030,12 @@ const DecyclerBot: React.FC = observer(() => {
                 addLog(`⚠️ Partial success - ${totalTimeframes - successfulTimeframes} timeframes failed`);
             } else {
                 addLog('🎉 All timeframes working perfectly!');
+                
+                // If test was successful, run the analysis to populate the UI
+                if (successfulTimeframes > 0) {
+                    addLog('🔄 Running multi-timeframe analysis...');
+                    await analyzeAllTimeframes();
+                }
             }
 
         } catch (error) {
@@ -1685,14 +1732,16 @@ const DecyclerBot: React.FC = observer(() => {
                         <div className="trends-grid">
                             {timeframes.map(timeframe => {
                                 const trendData = timeframeAnalysis[timeframe];
+                                const trendForColor = trendData === 'BULLISH' ? 'bullish' : 
+                                                    trendData === 'BEARISH' ? 'bearish' : 'neutral';
                                 return (
                                     <div key={timeframe} className="trend-item">
                                         <span className="timeframe-label">{timeframe}</span>
                                         <div 
-                                            className={`trend-indicator ${trendData || 'neutral'}`}
-                                            style={{ backgroundColor: getTrendColor(trendData || 'neutral') }}
+                                            className={`trend-indicator ${trendForColor}`}
+                                            style={{ backgroundColor: getTrendColor(trendForColor) }}
                                         >
-                                            {trendData?.toUpperCase() || 'LOADING'}
+                                            {trendData || 'LOADING'}
                                         </div>
                                     </div>
                                 );
