@@ -1094,62 +1094,7 @@ const DecyclerBot: React.FC = observer(() => {
         });
       };
 
-      // Helper function to convert tick data to OHLC candles
-      const convertTicksToCandles = (prices: number[], times: number[], timeframe: string) => {
-        if (!prices || !times || prices.length === 0) return [];
-
-        const granularityMap: { [key: string]: number } = {
-          '1m': 60,
-          '5m': 300,
-          '15m': 900,
-          '30m': 1800,
-          '1h': 3600,
-          '4h': 14400
-        };
-
-        const granularity = granularityMap[timeframe] || 60;
-        const candles: any[] = [];
-
-        if (prices.length !== times.length) {
-          console.warn('Prices and times arrays have different lengths');
-          return [];
-        }
-
-        // Group ticks into candles
-        let currentCandle: any = null;
-
-        for (let i = 0; i < prices.length; i++) {
-          const price = prices[i];
-          const time = times[i];
-          const candleStart = Math.floor(time / granularity) * granularity;
-
-          if (!currentCandle || currentCandle.epoch !== candleStart) {
-            // Start new candle
-            if (currentCandle) {
-              candles.push(currentCandle);
-            }
-            currentCandle = {
-              epoch: candleStart,
-              open: price,
-              high: price,
-              low: price,
-              close: price
-            };
-          } else {
-            // Update existing candle
-            currentCandle.high = Math.max(currentCandle.high, price);
-            currentCandle.low = Math.min(currentCandle.low, price);
-            currentCandle.close = price;
-          }
-        }
-
-        // Add the last candle
-        if (currentCandle) {
-          candles.push(currentCandle);
-        }
-
-        return candles;
-      };
+      
 
       const analyzeTrend = (data: any[], timeframe: string) => {
         if (!data || data.length < 10) return 'LOADING';
