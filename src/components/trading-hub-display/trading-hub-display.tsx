@@ -264,6 +264,20 @@ const TradingHubDisplay: React.FC = observer(() => {
                 if (result.contract_id) {
                     monitorContract(result.contract_id, tradeId, tradeConfig); // Pass tradeId and tradeConfig
 
+                    // Start Decycler contract monitoring if in decycler mode
+                    const selectedAnalysisMode = 'decycler'; // Replace with your actual selected analysis mode
+                    const decyclerConfig = { enabled: true }; // Replace with your actual decycler config
+                    const decyclerAnalysis = { trends: [{ timeframe: '1m', trend: 'up' }] }; // Replace with your actual decycler analysis
+                    const decyclerAnalyzer = { startContractMonitoring: (contractId: string, buyPrice: number, entryTrends: string[]) => {} }; // Replace with your actual decycler analyzer
+                    if (selectedAnalysisMode === 'decycler' && decyclerConfig.enabled) {
+                        const entryTrends = decyclerAnalysis?.trends.map(t => `${t.timeframe}:${t.trend}`) || [];
+                        decyclerAnalyzer.startContractMonitoring(
+                            result.contract_id,
+                            result.buy_price || tradeConfig.amount,
+                            entryTrends
+                        );
+                    }
+
                     // INSTANT FILL: Process contract result immediately in the same second
                     setTimeout(() => {
                         const instantWin = Math.random() > 0.45; // 55% win rate for instant fill
@@ -407,7 +421,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     : trade
             ));
         }
-    }, [getTradeConfig, executeDirectTrade, addLog, activeSignal, signalIntegrationService, tradingState.currentStake, setMartingaleConfig, tradingState.stopLoss, tradingState.takeProfit]);
+    }, [getTradeConfig, executeDirectTrade, addLog, activeSignal, signalIntegrationService, tradingState.currentStake, setMartingaleConfig, tradingState.stopLoss, tradingState.takeProfit, monitorContract]);
 
     const toggleTrading = useCallback(() => {
         setTradingState(prev => {

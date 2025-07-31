@@ -40,3 +40,30 @@ externalPort = 3003
 [[ports]]
 localPort = 5005
 externalPort = 3002
+modules = ["nodejs-18"]
+
+[nix]
+channel = "stable-22_11"
+
+[workflows]
+runButton = "npm run start"
+
+[[workflows.workflow]]
+name = "Development Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run start"
+waitForPort = 5001
+
+[deployment]
+run = ["sh", "-c", "npm run start"]
+
+[env]
+REPL_ID = "$REPL_ID"
+REPL_OWNER = "$REPL_OWNER"
+REPL_SLUG = "$REPL_SLUG"
