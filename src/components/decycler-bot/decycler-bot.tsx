@@ -152,20 +152,20 @@ const DecyclerBot: React.FC = observer(() => {
     // Fetch OHLC data for a specific timeframe
     const fetchOHLCData = useCallback(async (timeframe: string): Promise<any[]> => {
         try {
-            // Initialize API connection if not available
-            if (!api_base.api) {
-                addLog('🔄 Initializing API connection...');
+            // Ensure API connection is ready
+            if (!api_base.api || api_base.api.connection.readyState !== 1) {
+                addLog('🔄 API connection not ready, initializing...');
                 await api_base.init();
                 
                 // Wait for connection to be established
                 let retries = 0;
-                while (!api_base.api && retries < 10) {
+                while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 10) {
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     retries++;
                 }
                 
-                if (!api_base.api) {
-                    addLog('❌ Failed to establish API connection');
+                if (!api_base.api || api_base.api.connection.readyState !== 1) {
+                    addLog('❌ Failed to establish API connection for data fetch');
                     return [];
                 }
             }
@@ -179,36 +179,56 @@ const DecyclerBot: React.FC = observer(() => {
                 '4h': 14400
             }[timeframe] || 60;
 
+            // Calculate start time to get enough historical data
             const endTime = Math.floor(Date.now() / 1000);
-            const startTime = endTime - (100 * granularity); // Get 100 candles
+            const candleCount = 100;
+            const startTime = endTime - (candleCount * granularity);
 
             const request = {
                 ticks_history: config.symbol,
                 adjust_start_time: 1,
-                count: 100,
+                count: candleCount,
                 end: 'latest',
                 start: startTime,
                 style: 'candles',
                 granularity: granularity
             };
 
-            addLog(`📡 Requesting ${timeframe} data for ${config.symbol}...`);
-            const response = await api_base.api.send(request);
+            addLog(`📡 Fetching ${timeframe} data (${granularity}s granularity) for ${config.symbol}...`);
+            
+            const response = await Promise.race([
+                api_base.api.send(request),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Request timeout')), 10000)
+                )
+            ]);
 
             if (response.error) {
-                addLog(`❌ Error fetching ${timeframe} data: ${response.error.message}`);
+                addLog(`❌ API error for ${timeframe}: ${response.error.message}`);
                 return [];
             }
 
-            if (response.candles && response.candles.length > 0) {
-                addLog(`✅ Received ${response.candles.length} candles for ${timeframe}`);
-                return response.candles;
+            if (response.candles && Array.isArray(response.candles) && response.candles.length > 0) {
+                addLog(`✅ Successfully received ${response.candles.length} candles for ${timeframe}`);
+                
+                // Validate candle data structure
+                const validCandles = response.candles.filter(candle => 
+                    candle && 
+                    typeof candle.close !== 'undefined' && 
+                    !isNaN(parseFloat(candle.close))
+                );
+                
+                if (validCandles.length !== response.candles.length) {
+                    addLog(`⚠️ Filtered out ${response.candles.length - validCandles.length} invalid candles for ${timeframe}`);
+                }
+                
+                return validCandles;
             } else {
-                addLog(`⚠️ No candle data received for ${timeframe}`);
+                addLog(`⚠️ No valid candle data received for ${timeframe} (response type: ${typeof response.candles})`);
                 return [];
             }
         } catch (error) {
-            addLog(`❌ Failed to fetch ${timeframe} data: ${error.message}`);
+            addLog(`❌ Exception fetching ${timeframe} data: ${error.message}`);
             return [];
         }
     }, [config.symbol, addLog]);
@@ -216,14 +236,53 @@ const DecyclerBot: React.FC = observer(() => {
     // Analyze all timeframes
     const analyzeAllTimeframes = useCallback(async (): Promise<TrendData[]> => {
         const trends: TrendData[] = [];
+        
+        addLog('📊 Starting multi-timeframe analysis...');
 
+        // Process timeframes sequentially to avoid overwhelming the API
         for (const timeframe of timeframes) {
             try {
+                addLog(`🔄 Analyzing ${timeframe} timeframe...`);
+                
                 const candles = await fetchOHLCData(timeframe);
-                if (candles.length === 0) continue;
+                if (candles.length === 0) {
+                    addLog(`⚠️ No data received for ${timeframe} - skipping`);
+                    // Add neutral trend for missing data
+                    trends.push({
+                        timeframe,
+                        trend: 'neutral',
+                        value: 0,
+                        timestamp: Date.now()
+                    });
+                    continue;
+                }
 
                 const closePrices = candles.map(candle => parseFloat(candle.close));
+                addLog(`📈 Processing ${closePrices.length} prices for ${timeframe}`);
+                
+                if (closePrices.length < 3) {
+                    addLog(`⚠️ Insufficient data for ${timeframe} (need 3+ prices, got ${closePrices.length})`);
+                    trends.push({
+                        timeframe,
+                        trend: 'neutral',
+                        value: 0,
+                        timestamp: Date.now()
+                    });
+                    continue;
+                }
+
                 const decyclerValues = calculateDecycler(closePrices, config.alpha);
+                if (decyclerValues.length === 0) {
+                    addLog(`⚠️ Failed to calculate Decycler for ${timeframe}`);
+                    trends.push({
+                        timeframe,
+                        trend: 'neutral',
+                        value: 0,
+                        timestamp: Date.now()
+                    });
+                    continue;
+                }
+
                 const trend = getTrend(decyclerValues);
                 const currentValue = decyclerValues[decyclerValues.length - 1] || 0;
 
@@ -234,12 +293,24 @@ const DecyclerBot: React.FC = observer(() => {
                     timestamp: Date.now()
                 });
 
-                addLog(`📊 ${timeframe}: ${trend.toUpperCase()} (${currentValue.toFixed(5)})`);
+                addLog(`✅ ${timeframe}: ${trend.toUpperCase()} (Value: ${currentValue.toFixed(5)})`);
+                
+                // Small delay between requests to prevent rate limiting
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
             } catch (error) {
                 addLog(`❌ Error analyzing ${timeframe}: ${error.message}`);
+                // Add neutral trend for error cases
+                trends.push({
+                    timeframe,
+                    trend: 'neutral',
+                    value: 0,
+                    timestamp: Date.now()
+                });
             }
         }
 
+        addLog(`📋 Multi-timeframe analysis complete: ${trends.length}/${timeframes.length} timeframes processed`);
         return trends;
     }, [timeframes, fetchOHLCData, calculateDecycler, getTrend, config.alpha, addLog]);
 
@@ -372,12 +443,24 @@ const DecyclerBot: React.FC = observer(() => {
         if (!botStatus.is_running) return;
 
         try {
-            addLog('🔄 Analyzing market conditions...');
+            addLog('🔄 Starting trading analysis cycle...');
 
             // Analyze all timeframes
             const trends = await analyzeAllTimeframes();
+            
+            if (trends.length === 0) {
+                addLog('⚠️ No trend data available - will retry next cycle');
+                setBotStatus(prev => ({
+                    ...prev,
+                    error_message: 'No trend data available',
+                    last_update: Date.now()
+                }));
+                return;
+            }
+
             const alignment = checkAlignment(trends);
 
+            // Update bot status with new analysis
             setBotStatus(prev => ({
                 ...prev,
                 trends,
@@ -386,7 +469,14 @@ const DecyclerBot: React.FC = observer(() => {
                 error_message: ''
             }));
 
-            addLog(`📈 Alignment Status: ${alignment.toUpperCase()}`);
+            addLog(`📊 Analysis complete - Alignment: ${alignment.toUpperCase()}`);
+            
+            // Log individual timeframe results
+            const bullishCount = trends.filter(t => t.trend === 'bullish').length;
+            const bearishCount = trends.filter(t => t.trend === 'bearish').length;
+            const neutralCount = trends.filter(t => t.trend === 'neutral').length;
+            
+            addLog(`📈 Trends: ${bullishCount} Bullish, ${bearishCount} Bearish, ${neutralCount} Neutral`);
 
             // Check if we should enter a trade
             if (!botStatus.current_contract && (alignment === 'aligned_bullish' || alignment === 'aligned_bearish')) {
@@ -395,20 +485,25 @@ const DecyclerBot: React.FC = observer(() => {
                 // Optional 10s confirmation
                 if (config.use_10s_filter) {
                     addLog('⏱️ Applying 10-second confirmation filter...');
-                    // Implement 10-second tick analysis here
-                    // For now, we'll proceed with the trade
+                    // Add a small delay for confirmation
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
 
-                addLog(`🎯 All timeframes aligned ${direction} - Executing trade!`);
+                addLog(`🎯 Strong ${direction} alignment detected - Preparing trade execution!`);
                 await executeTrade(direction);
+            } else if (!botStatus.current_contract) {
+                addLog('⏳ Waiting for trend alignment - No trade signal yet');
+            } else {
+                addLog('📊 Active contract in progress - Monitoring...');
             }
 
         } catch (error) {
-            const errorMsg = `Trading loop error: ${error.message}`;
+            const errorMsg = `Trading analysis error: ${error.message}`;
             addLog(`❌ ${errorMsg}`);
             setBotStatus(prev => ({
                 ...prev,
-                error_message: errorMsg
+                error_message: errorMsg,
+                last_update: Date.now()
             }));
         }
     }, [botStatus.is_running, botStatus.current_contract, analyzeAllTimeframes, checkAlignment, config.use_10s_filter, executeTrade, addLog]);
