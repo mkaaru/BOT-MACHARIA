@@ -508,7 +508,7 @@ const AppWrapper = observer(() => {
         }
       }
 
-      ws.onclose = (event) => {
+      ws.onmessage = (event) => {
         console.log('WebSocket connection closed:', event.code, event.reason)
         setIsConnected(false)
         setWebsocket(null)

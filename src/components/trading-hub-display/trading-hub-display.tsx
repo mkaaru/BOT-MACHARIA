@@ -925,6 +925,12 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // Error boundary for the component
     const [hasError, setHasError] = useState(false);
+    
+    // Trading configuration
+    const [tradingConfig] = useState({
+        autoTradeEnabled: true,
+        analysisMode: 'percentage'
+    });
 
     // Safe initialization
     useEffect(() => {
@@ -1000,12 +1006,24 @@ const TradingHubDisplay: React.FC = observer(() => {
                     <button 
                         onClick={() => {
                             setHasError(false);
+                            setError(null);
                             window.location.reload();
                         }}
                         style={{ padding: '10px 20px', marginTop: '10px' }}
                     >
                         Refresh Page
                     </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (!isInitialized) {
+        return (
+            <div className="trading-hub-container">
+                <div className="loading-container" style={{ padding: '20px', textAlign: 'center' }}>
+                    <h3>🔄 Initializing Trading Hub...</h3>
+                    <p>Please wait while we set up the trading environment.</p>
                 </div>
             </div>
         );
@@ -1166,8 +1184,8 @@ const TradingHubDisplay: React.FC = observer(() => {
     };
 
     const startAutoTrading = useCallback(async () => {
-        if (!analyzerReady || !tradingConfig.autoTradeEnabled) {
-            addLog('⚠️ Auto-trading not available - analyzer not ready or auto-trade disabled');
+        if (!analyzerReady) {
+            addLog('⚠️ Auto-trading not available - analyzer not ready');
             return;
         }
 
@@ -1176,28 +1194,30 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         try {
             // Subscribe to signals safely
-            if (signalIntegrationService && typeof signalIntegrationService.subscribe === 'function') {
-                signalIntegrationService.subscribe((signal: TradingSignal) => {
-                    handleSignalReceived(signal);
+            if (signalIntegrationService && typeof signalIntegrationService.getActiveSignal === 'function') {
+                const subscription = signalIntegrationService.getActiveSignal().subscribe(signal => {
+                    if (signal) {
+                        addLog(`📊 Signal received: ${signal.action} ${signal.barrier || ''} on ${signal.symbol}`);
+                    }
                 });
             } else {
                 addLog('⚠️ Signal integration service not available');
             }
 
             // Start market analysis
-            if (tradingConfig.analysisMode === 'percentage') {
+            if (analysisMode === 'percentage') {
                 addLog('📊 Starting percentage analysis...');
-            } else if (tradingConfig.analysisMode === 'volatility') {
+            } else if (analysisMode === 'volatility') {
                 addLog('📈 Starting volatility analysis...');
-            } else if (tradingConfig.analysisMode === 'decycler') {
+            } else if (analysisMode === 'decycler') {
                 addLog('🔄 Starting decycler analysis...');
-                if (decyclerAnalyzer && typeof decyclerAnalyzer.startAnalysis === 'function') {
-                    decyclerAnalyzer.startAnalysis();
+                if (decyclerAnalyzer && typeof decyclerAnalyzer.start === 'function') {
+                    decyclerAnalyzer.start();
                 }
             }
 
-            if (marketAnalyzer && typeof marketAnalyzer.startAnalysis === 'function') {
-                marketAnalyzer.startAnalysis();
+            if (marketAnalyzer && typeof marketAnalyzer.start === 'function') {
+                marketAnalyzer.start();
             } else {
                 addLog('⚠️ Market analyzer not available - running in demo mode');
             }
@@ -1207,12 +1227,12 @@ const TradingHubDisplay: React.FC = observer(() => {
             addLog(`❌ Failed to start auto-trading: ${error instanceof Error ? error.message : 'Unknown error'}`);
             setTradingState(prev => ({ ...prev, isRunning: false }));
         }
-    }, [analyzerReady, tradingConfig, handleSignalReceived, addLog]);
+    }, [analyzerReady, analysisMode, addLog]);
 
-    return (
-        <div className="trading-hub-container">
-
-            <div className="trading-hub-grid">
+    try {
+        return (
+            <div className="trading-hub-container">
+                <div className="trading-hub-grid">
                 <div className="main-content">
                     {/* Market Analyzer Status */}
                     <div className="analyzer-status">
@@ -1505,8 +1525,25 @@ const TradingHubDisplay: React.FC = observer(() => {
                     </div>
                 </div>
             </div>
-        </div>
-    );
+            </div>
+        );
+    } catch (renderError) {
+        console.error('Trading Hub render error:', renderError);
+        return (
+            <div className="trading-hub-container">
+                <div className="error-container" style={{ padding: '20px', textAlign: 'center' }}>
+                    <h3>❌ Render Error</h3>
+                    <p>Failed to render Trading Hub. Please refresh the page.</p>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        style={{ padding: '10px 20px', marginTop: '10px' }}
+                    >
+                        Refresh Page
+                    </button>
+                </div>
+            </div>
+        );
+    }
 });
 
 export default TradingHubDisplay;
