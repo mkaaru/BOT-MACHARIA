@@ -156,7 +156,7 @@ const DecyclerBot: React.FC = observer(() => {
             if (!api_base.api || api_base.api.connection.readyState !== 1) {
                 addLog(`🔄 Initializing API connection for ${timeframe} data...`);
                 await api_base.init();
-                
+
                 // Wait for connection with extended patience
                 let retries = 0;
                 while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
@@ -166,7 +166,7 @@ const DecyclerBot: React.FC = observer(() => {
                         addLog(`⏳ Still waiting for API connection... (${retries}/15)`);
                     }
                 }
-                
+
                 if (!api_base.api || api_base.api.connection.readyState !== 1) {
                     addLog(`❌ Failed to establish API connection for ${timeframe} data fetch`);
                     return [];
@@ -186,9 +186,9 @@ const DecyclerBot: React.FC = observer(() => {
             const is1HZSymbol = config.symbol.startsWith('1HZ');
             const isVolatilityIndex = config.symbol.startsWith('R_') || config.symbol.includes('V');
             const isCrashBoom = config.symbol.includes('CRASH') || config.symbol.includes('BOOM');
-            
+
             addLog(`📊 Fetching ${timeframe} data for ${config.symbol} (Type: ${is1HZSymbol ? '1HZ' : isVolatilityIndex ? 'Volatility' : isCrashBoom ? 'CrashBoom' : 'Standard'})`);
-            
+
             // Strategy 1: Try direct candle request first for most symbols
             if (!is1HZSymbol) {
                 try {
@@ -203,7 +203,7 @@ const DecyclerBot: React.FC = observer(() => {
                     };
 
                     addLog(`📡 Requesting ${timeframe} candles: ${candleRequest.count} candles`);
-                    
+
                     const candleResponse = await Promise.race([
                         api_base.api.send(candleRequest),
                         new Promise((_, reject) => 
@@ -248,7 +248,7 @@ const DecyclerBot: React.FC = observer(() => {
             const tickCount = is1HZSymbol ? 
                 Math.min(granularity * 50, 3000) : // For 1HZ symbols
                 Math.min(granularity * 10, 1000);   // For regular symbols
-            
+
             const tickRequest = {
                 ticks_history: config.symbol,
                 count: tickCount,
@@ -258,7 +258,7 @@ const DecyclerBot: React.FC = observer(() => {
             };
 
             addLog(`📈 Requesting ${tickCount} ticks for ${timeframe} conversion...`);
-            
+
             const tickResponse = await Promise.race([
                 api_base.api.send(tickRequest),
                 new Promise((_, reject) => 
@@ -274,16 +274,16 @@ const DecyclerBot: React.FC = observer(() => {
             if (tickResponse?.history?.prices && tickResponse?.history?.times) {
                 const prices = tickResponse.history.prices.map(p => parseFloat(p)).filter(p => !isNaN(p));
                 const times = tickResponse.history.times;
-                
+
                 if (prices.length === 0) {
                     addLog(`❌ No valid price data received for ${timeframe}`);
                     return [];
                 }
 
                 addLog(`📊 Converting ${prices.length} ticks to ${timeframe} candles...`);
-                
+
                 const candles = convertTicksToCandles(prices, times, granularity);
-                
+
                 if (candles.length > 0) {
                     const lastCandle = candles[candles.length - 1];
                     addLog(`✅ Generated ${candles.length} ${timeframe} candles - Latest OHLC: ${lastCandle.open}/${lastCandle.high}/${lastCandle.low}/${lastCandle.close}`);
@@ -303,7 +303,7 @@ const DecyclerBot: React.FC = observer(() => {
             };
 
             addLog(`🔄 Trying alternative tick request format for ${timeframe}...`);
-            
+
             const altResponse = await Promise.race([
                 api_base.api.send(altTickRequest),
                 new Promise((_, reject) => 
@@ -314,7 +314,7 @@ const DecyclerBot: React.FC = observer(() => {
             if (altResponse?.history?.prices) {
                 const prices = altResponse.history.prices.map(p => parseFloat(p)).filter(p => !isNaN(p));
                 const times = altResponse.history.times || Array.from({length: prices.length}, (_, i) => Date.now()/1000 - (prices.length - i) * 60);
-                
+
                 if (prices.length > 0) {
                     const candles = convertTicksToCandles(prices, times, granularity);
                     if (candles.length > 0) {
@@ -349,11 +349,11 @@ const DecyclerBot: React.FC = observer(() => {
         for (let i = 0; i < prices.length; i++) {
             const price = parseFloat(prices[i]);
             const time = times[i];
-            
+
             if (isNaN(price) || !time) {
                 continue; // Skip invalid data
             }
-            
+
             const candleTime = Math.floor(time / granularity) * granularity;
 
             if (!currentCandle || currentCandle.epoch !== candleTime) {
@@ -406,14 +406,14 @@ const DecyclerBot: React.FC = observer(() => {
     // Analyze all timeframes
     const analyzeAllTimeframes = useCallback(async (): Promise<TrendData[]> => {
         const trends: TrendData[] = [];
-        
+
         addLog('📊 Starting multi-timeframe analysis...');
 
         // Process timeframes sequentially to avoid overwhelming the API
         for (const timeframe of timeframes) {
             try {
                 addLog(`🔄 Analyzing ${timeframe} timeframe...`);
-                
+
                 const candles = await fetchOHLCData(timeframe);
                 if (candles.length === 0) {
                     addLog(`⚠️ No data received for ${timeframe} - skipping`);
@@ -429,7 +429,7 @@ const DecyclerBot: React.FC = observer(() => {
 
                 const closePrices = candles.map(candle => parseFloat(candle.close));
                 addLog(`📈 Processing ${closePrices.length} prices for ${timeframe}`);
-                
+
                 if (closePrices.length < 3) {
                     addLog(`⚠️ Insufficient data for ${timeframe} (need 3+ prices, got ${closePrices.length})`);
                     trends.push({
@@ -464,10 +464,10 @@ const DecyclerBot: React.FC = observer(() => {
                 });
 
                 addLog(`✅ ${timeframe}: ${trend.toUpperCase()} (Value: ${currentValue.toFixed(5)})`);
-                
+
                 // Small delay between requests to prevent rate limiting
                 await new Promise(resolve => setTimeout(resolve, 200));
-                
+
             } catch (error) {
                 addLog(`❌ Error analyzing ${timeframe}: ${error.message}`);
                 // Add neutral trend for error cases
@@ -617,7 +617,7 @@ const DecyclerBot: React.FC = observer(() => {
 
             // Analyze all timeframes
             const trends = await analyzeAllTimeframes();
-            
+
             if (trends.length === 0) {
                 addLog('⚠️ No trend data available - will retry next cycle');
                 setBotStatus(prev => ({
@@ -640,12 +640,12 @@ const DecyclerBot: React.FC = observer(() => {
             }));
 
             addLog(`📊 Analysis complete - Alignment: ${alignment.toUpperCase()}`);
-            
+
             // Log individual timeframe results
             const bullishCount = trends.filter(t => t.trend === 'bullish').length;
             const bearishCount = trends.filter(t => t.trend === 'bearish').length;
             const neutralCount = trends.filter(t => t.trend === 'neutral').length;
-            
+
             addLog(`📈 Trends: ${bullishCount} Bullish, ${bearishCount} Bearish, ${neutralCount} Neutral`);
 
             // Check if we should enter a trade
@@ -682,12 +682,12 @@ const DecyclerBot: React.FC = observer(() => {
     const startBot = useCallback(async (): Promise<void> => {
         try {
             addLog('🔄 Starting Decycler Bot...');
-            
+
             // Initialize API connection
             if (!api_base.api || api_base.api.connection.readyState !== 1) {
                 addLog('🔌 Connecting to Deriv API...');
                 await api_base.init();
-                
+
                 // Wait for connection to be ready
                 let retries = 0;
                 while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
@@ -696,7 +696,7 @@ const DecyclerBot: React.FC = observer(() => {
                     const readyState = api_base.api?.connection?.readyState || 'undefined';
                     addLog(`⏳ Waiting for WebSocket connection... (${retries}/15) - State: ${readyState}`);
                 }
-                
+
                 if (!api_base.api || api_base.api.connection.readyState !== 1) {
                     addLog('❌ Failed to establish WebSocket connection. Please check your internet connection and try again.');
                     return;
@@ -819,12 +819,12 @@ const DecyclerBot: React.FC = observer(() => {
     const testConnection = useCallback(async (): Promise<void> => {
         try {
             addLog('🔍 Starting comprehensive API connection test...');
-            
+
             // Step 1: Test WebSocket connection
             if (!api_base.api || api_base.api.connection.readyState !== 1) {
                 addLog('🔌 Initializing API connection...');
                 await api_base.init();
-                
+
                 let retries = 0;
                 while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
                     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -834,20 +834,20 @@ const DecyclerBot: React.FC = observer(() => {
                     }
                 }
             }
-            
+
             if (!api_base.api || api_base.api.connection.readyState !== 1) {
                 addLog('❌ Failed to establish WebSocket connection');
                 return;
             }
-            
+
             addLog(`✅ WebSocket connected (Ready State: ${api_base.api.connection.readyState})`);
-            
+
             // Step 2: Test basic API communication
             const timeResponse = await Promise.race([
                 api_base.api.send({ time: 1 }),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Time request timeout')), 5000))
             ]);
-            
+
             if (timeResponse?.time) {
                 addLog(`✅ API communication test successful. Server time: ${new Date(timeResponse.time * 1000).toLocaleString()}`);
             } else {
@@ -855,9 +855,9 @@ const DecyclerBot: React.FC = observer(() => {
                 return;
             }
 
-            // Step 3: Test symbol existence
+            // Step3: Test symbol existence
             addLog(`🔍 Testing symbol availability: ${config.symbol}`);
-            
+
             try {
                 const symbolTest = await Promise.race([
                     api_base.api.send({ 
@@ -881,20 +881,20 @@ const DecyclerBot: React.FC = observer(() => {
 
             // Step 4: Test data retrieval for each timeframe
             addLog('📊 Testing data retrieval for all timeframes...');
-            
+
             const testResults = {};
             for (const tf of timeframes) {
                 try {
                     addLog(`🔄 Testing ${tf} data...`);
                     const testData = await fetchOHLCData(tf);
                     testResults[tf] = testData.length;
-                    
+
                     if (testData.length > 0) {
                         addLog(`✅ ${tf}: ${testData.length} data points retrieved`);
                     } else {
                         addLog(`❌ ${tf}: No data retrieved`);
                     }
-                    
+
                     // Small delay between requests to avoid rate limiting
                     await new Promise(resolve => setTimeout(resolve, 200));
                 } catch (tfError) {
@@ -906,9 +906,9 @@ const DecyclerBot: React.FC = observer(() => {
             // Step 5: Summary
             const successfulTimeframes = Object.values(testResults).filter(count => count > 0).length;
             const totalTimeframes = timeframes.length;
-            
+
             addLog(`📋 Test Summary: ${successfulTimeframes}/${totalTimeframes} timeframes working`);
-            
+
             if (successfulTimeframes === 0) {
                 addLog('❌ No timeframes working - try a different symbol or check API connection');
             } else if (successfulTimeframes < totalTimeframes) {
@@ -947,6 +947,360 @@ const DecyclerBot: React.FC = observer(() => {
             default: return '#74b9ff';
         }
     };
+
+    // Define WebSocket and currentSymbol
+    const [ws, setWs] = useState<WebSocket | null>(null);
+    const [currentSymbol, setCurrentSymbol] = useState(config.symbol);
+    const [timeframeAnalysis, setTimeframeAnalysis] = useState<{ [key: string]: string }>({});
+    const [overallAnalysis, setOverallAnalysis] = useState('NEUTRAL');
+
+    useEffect(() => {
+        setCurrentSymbol(config.symbol); // Update currentSymbol when config.symbol changes
+    }, [config.symbol]);
+
+    // Establish WebSocket connection on component mount
+    useEffect(() => {
+        const connectWebSocket = () => {
+            const newWs = new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=75771");
+
+            newWs.onopen = () => {
+                console.log('✅ WebSocket connected');
+                setWs(newWs);
+            };
+
+            newWs.onclose = () => {
+                console.log('❌ WebSocket disconnected');
+                setWs(null);
+                // Reconnect after 5 seconds
+                setTimeout(connectWebSocket, 5000);
+            };
+
+            newWs.onerror = (error) => {
+                console.log('❌ WebSocket error:', error);
+                setWs(null);
+            };
+        };
+
+        connectWebSocket();
+
+        return () => {
+            if (ws) {
+                ws.close();
+            }
+        };
+    }, []);
+
+    // Fetch market data for all timeframes when component mounts and when symbol changes
+    useEffect(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            fetchAllTimeframeData();
+        } else {
+            console.log('⚠️ WebSocket not ready to fetch data');
+        }
+    }, [ws, currentSymbol]);
+
+    const fetchMarketData = async (symbol: string, timeframe: string) => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          console.log('❌ WebSocket not ready for data fetch');
+          return null;
+        }
+
+        return new Promise((resolve, reject) => {
+          const reqId = `candles_${timeframe}_${Date.now()}`;
+
+          // Handle response
+          const handleMessage = (event: MessageEvent) => {
+            try {
+              const data = JSON.parse(event.data);
+              if (data.req_id === reqId) {
+                ws.removeEventListener('message', handleMessage);
+                if (data.error) {
+                  console.log(`❌ Error fetching ${timeframe} data:`, data.error.message);
+                  reject(data.error);
+                } else if (data.candles) {
+                  console.log(`✅ Received ${data.candles.length} candles for ${timeframe}`);
+                  console.log(`📊 Sample candle:`, data.candles[data.candles.length - 1]);
+                  resolve(data.candles);
+                } else if (data.history && data.history.prices) {
+                  // Convert tick data to candles for 1HZ symbols
+                  console.log(`📈 Converting ${data.history.prices.length} ticks to ${timeframe} candles`);
+                  const candles = convertTicksToCandles(data.history.prices, data.history.times, timeframe);
+                  console.log(`✅ Generated ${candles.length} candles from ticks`);
+                  resolve(candles);
+                } else {
+                  console.log(`⚠️ No candles or tick data in response for ${timeframe}`);
+                  resolve([]);
+                }
+              }
+            } catch (error) {
+              ws.removeEventListener('message', handleMessage);
+              console.log(`❌ Exception processing ${timeframe} data:`, error);
+              reject(error);
+            }
+          };
+
+          ws.addEventListener('message', handleMessage);
+
+          // Determine granularity based on timeframe
+          const granularityMap: { [key: string]: number } = {
+            '1m': 60,
+            '5m': 300,
+            '15m': 900,
+            '30m': 1800,
+            '1h': 3600,
+            '4h': 14400
+          };
+
+          const granularity = granularityMap[timeframe] || 60;
+
+          // Check if symbol is 1HZ type and needs special handling
+          if (symbol.startsWith('1HZ')) {
+            console.log(`📍 Detected 1HZ symbol ${symbol} - requesting tick data for conversion`);
+
+            // For 1HZ symbols, we need to request more ticks to convert to candles
+            const tickCount = Math.max(granularity * 200, 12000); // Ensure enough ticks
+
+            const tickRequest = {
+              ticks_history: symbol,
+              count: tickCount,
+              end: "latest",
+              style: "ticks",
+              req_id: reqId
+            };
+
+            console.log(`📡 Requesting ${timeframe} tick data:`, JSON.stringify(tickRequest));
+            ws.send(JSON.stringify(tickRequest));
+          } else {
+            // For regular symbols, request candles directly
+            const candleRequest = {
+              ticks_history: symbol,
+              style: "candles",
+              adjust_start_time: 1,
+              count: 100,
+              end: "latest",
+              granularity: granularity,
+              req_id: reqId
+            };
+
+            console.log(`📡 Requesting ${timeframe} candles:`, JSON.stringify(candleRequest));
+            ws.send(JSON.stringify(candleRequest));
+          }
+
+          // Timeout after 15 seconds
+          setTimeout(() => {
+            ws.removeEventListener('message', handleMessage);
+            reject(new Error(`Timeout fetching ${timeframe} data`));
+          }, 15000);
+        });
+      };
+
+      // Helper function to convert tick data to OHLC candles
+      const convertTicksToCandles = (prices: number[], times: number[], timeframe: string) => {
+        if (!prices || !times || prices.length === 0) return [];
+
+        const granularityMap: { [key: string]: number } = {
+          '1m': 60,
+          '5m': 300,
+          '15m': 900,
+          '30m': 1800,
+          '1h': 3600,
+          '4h': 14400
+        };
+
+        const granularity = granularityMap[timeframe] || 60;
+        const candles: any[] = [];
+
+        if (prices.length !== times.length) {
+          console.warn('Prices and times arrays have different lengths');
+          return [];
+        }
+
+        // Group ticks into candles
+        let currentCandle: any = null;
+
+        for (let i = 0; i < prices.length; i++) {
+          const price = prices[i];
+          const time = times[i];
+          const candleStart = Math.floor(time / granularity) * granularity;
+
+          if (!currentCandle || currentCandle.epoch !== candleStart) {
+            // Start new candle
+            if (currentCandle) {
+              candles.push(currentCandle);
+            }
+            currentCandle = {
+              epoch: candleStart,
+              open: price,
+              high: price,
+              low: price,
+              close: price
+            };
+          } else {
+            // Update existing candle
+            currentCandle.high = Math.max(currentCandle.high, price);
+            currentCandle.low = Math.min(currentCandle.low, price);
+            currentCandle.close = price;
+          }
+        }
+
+        // Add the last candle
+        if (currentCandle) {
+          candles.push(currentCandle);
+        }
+
+        return candles;
+      };
+
+      const analyzeTrend = (data: any[], timeframe: string) => {
+        if (!data || data.length < 10) return 'LOADING';
+
+        // Enhanced trend analysis using OHLC candle data
+        const recent = data.slice(-10); // Use last 10 candles
+
+        let bullishSignals = 0;
+        let bearishSignals = 0;
+        let totalVolume = 0;
+
+        // Analyze each candle
+        recent.forEach((candle, index) => {
+          const open = candle.open;
+          const high = candle.high;
+          const low = candle.low;
+          const close = candle.close;
+
+          // Basic candle analysis
+          const bodySize = Math.abs(close - open);
+          const upperWick = high - Math.max(open, close);
+          const lowerWick = Math.min(open, close) - low;
+          const totalRange = high - low;
+
+          // Candle type analysis
+          if (close > open) {
+            // Bullish candle
+            bullishSignals += 1;
+
+            // Strong bullish if body is large relative to wicks
+            if (bodySize > (upperWick + lowerWick) * 1.5) {
+              bullishSignals += 0.5;
+            }
+          } else if (close < open) {
+            // Bearish candle
+            bearishSignals += 1;
+
+            // Strong bearish if body is large relative to wicks
+            if (bodySize > (upperWick + lowerWick) * 1.5) {
+              bearishSignals += 0.5;
+            }
+          }
+
+          // Trend continuation analysis
+          if (index > 0) {
+            const prevCandle = recent[index - 1];
+            if (close > prevCandle.close && open > prevCandle.open) {
+              bullishSignals += 0.3; // Trend continuation
+            } else if (close < prevCandle.close && open < prevCandle.open) {
+              bearishSignals += 0.3; // Trend continuation
+            }
+          }
+
+          totalVolume += totalRange; // Use range as volume proxy
+        });
+
+        // Moving average analysis
+        const closePrices = recent.map(c => c.close);
+        const sma5 = closePrices.slice(-5).reduce((a, b) => a + b, 0) / 5;
+        const sma10 = closePrices.reduce((a, b) => a + b, 0) / 10;
+        const currentPrice = closePrices[closePrices.length - 1];
+
+        // SMA signals
+        if (sma5 > sma10 && currentPrice > sma5) {
+          bullishSignals += 1;
+        } else if (sma5 < sma10 && currentPrice < sma5) {
+          bearishSignals += 1;
+        }
+
+        // RSI-like momentum
+        let gains = 0;
+        let losses = 0;
+        for (let i = 1; i < closePrices.length; i++) {
+          const change = closePrices[i] - closePrices[i-1];
+          if (change > 0) gains += change;
+          else losses += Math.abs(change);
+        }
+
+        const rs = gains / (losses || 1);
+        const rsi = 100 - (100 / (1 + rs));
+
+        if (rsi > 60) bullishSignals += 0.5;
+        else if (rsi < 40) bearishSignals += 0.5;
+
+        // Final decision
+        const signalDiff = bullishSignals - bearishSignals;
+        const threshold = 1.5;
+
+        console.log(`📊 ${timeframe} Analysis: Bullish=${bullishSignals.toFixed(1)}, Bearish=${bearishSignals.toFixed(1)}, RSI=${rsi.toFixed(1)}`);
+
+        if (signalDiff > threshold) return 'BULLISH';
+        if (signalDiff < -threshold) return 'BEARISH';
+        return 'NEUTRAL';
+      };
+
+      const fetchAllTimeframeData = async () => {
+        console.log('📊 Fetching multi-timeframe OHLC data...');
+
+        const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h'];
+        const newAnalysis: { [key: string]: string } = {};
+
+        // Fetch data for each timeframe sequentially to avoid overwhelming the API
+        for (const tf of timeframes) {
+          try {
+            console.log(`📡 Fetching ${tf} data for ${currentSymbol}...`);
+            const data = await fetchMarketData(currentSymbol, tf);
+
+            if (data && data.length > 0) {
+              newAnalysis[tf] = analyzeTrend(data, tf);
+              console.log(`✅ ${tf}: ${newAnalysis[tf]} (${data.length} candles)`);
+
+              // Log sample OHLC data
+              const lastCandle = data[data.length - 1];
+              console.log(`📈 ${tf} Last Candle - O:${lastCandle.open} H:${lastCandle.high} L:${lastCandle.low} C:${lastCandle.close}`);
+            } else {
+              newAnalysis[tf] = 'LOADING';
+              console.log(`⚠️ ${tf}: No data available`);
+            }
+
+            // Update UI progressively
+            setTimeframeAnalysis({ ...newAnalysis });
+
+            // Small delay between requests to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+          } catch (error) {
+            console.log(`❌ Failed to fetch ${tf} data:`, error);
+            newAnalysis[tf] = 'LOADING';
+          }
+        }
+
+        // Update overall analysis based on all timeframes
+        const analyses = Object.values(newAnalysis).filter(a => a !== 'LOADING');
+        if (analyses.length > 0) {
+          const bullishCount = analyses.filter(a => a === 'BULLISH').length;
+          const bearishCount = analyses.filter(a => a === 'BEARISH').length;
+          const neutralCount = analyses.filter(a => a === 'NEUTRAL').length;
+
+          console.log(`📊 Overall Summary: Bullish=${bullishCount}, Bearish=${bearishCount}, Neutral=${neutralCount}`);
+
+          if (bullishCount > bearishCount + 1) {
+            setOverallAnalysis('BULLISH');
+          } else if (bearishCount > bullishCount + 1) {
+            setOverallAnalysis('BEARISH');
+          } else {
+            setOverallAnalysis('NEUTRAL');
+          }
+        }
+
+        console.log('📊 Multi-timeframe analysis completed');
+      };
 
     return (
         <div className="decycler-bot-container">
@@ -1163,28 +1517,20 @@ const DecyclerBot: React.FC = observer(() => {
                         </div>
                         <div className="trends-grid">
                             {timeframes.map(timeframe => {
-                                const trendData = botStatus.trends.find(t => t.timeframe === timeframe);
+                                const trendData = timeframeAnalysis[timeframe];
                                 return (
                                     <div key={timeframe} className="trend-item">
                                         <span className="timeframe-label">{timeframe}</span>
                                         <div 
-                                            className={`trend-indicator ${trendData?.trend || 'neutral'}`}
-                                            style={{ backgroundColor: getTrendColor(trendData?.trend || 'neutral') }}
+                                            className={`trend-indicator ${trendData || 'neutral'}`}
+                                            style={{ backgroundColor: getTrendColor(trendData || 'neutral') }}
                                         >
-                                            {trendData?.trend?.toUpperCase() || 'LOADING'}
+                                            {trendData?.toUpperCase() || 'LOADING'}
                                         </div>
-                                        {trendData && (
-                                            <span className="trend-value">{trendData.value.toFixed(5)}</span>
-                                        )}
                                     </div>
                                 );
                             })}
                         </div>
-                        {botStatus.last_update > 0 && (
-                            <div className="last-update">
-                                Last Update: {new Date(botStatus.last_update).toLocaleTimeString()}
-                            </div>
-                        )}
                     </div>
 
                     {/* Statistics */}
