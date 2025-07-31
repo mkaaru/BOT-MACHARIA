@@ -25,23 +25,11 @@ export default Engine =>
                         this.contractId = '';
                         clearTimeout(this.transaction_recovery_timeout);
                         this.updateTotals(contract);
-                        
-                        // Clear waiting state for next purchase
-                        if (this.setWaitingForContractClose) {
-                            this.setWaitingForContractClose(false);
-                        }
-                        
                         contractStatus({
                             id: 'contract.sold',
                             data: contract.transaction_ids.sell,
                             contract,
                         });
-
-                        // Emit contract closure events
-                        globalObserver.emit('contract.closed', contract);
-                        globalObserver.emit('ready.for.next.trade');
-                        
-                        console.log('🔄 CONTRACT SOLD: Ready for next purchase (proper sequential execution)');
 
                         if (this.afterPromise) {
                             this.afterPromise();

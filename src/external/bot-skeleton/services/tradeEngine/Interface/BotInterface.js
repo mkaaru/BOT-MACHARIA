@@ -8,9 +8,7 @@ const getBotInterface = tradeEngine => {
         init: (...args) => tradeEngine.init(...args),
         start: (...args) => tradeEngine.start(...args),
         stop: (...args) => tradeEngine.stop(...args),
-        purchase: contract_type => {
-            return tradeEngine.purchase(contract_type);
-        },
+        purchase: contract_type => tradeEngine.purchase(contract_type),
         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
@@ -35,8 +33,11 @@ const getBotInterface = tradeEngine => {
         // Method to update trade results
         updateTradeResult: (profit) => tradeEngine.updateTradeResult?.(profit),
         
-        // Check if waiting for contract to close
+        // Sequential trading methods
         isWaitingForContractClose: () => tradeEngine.isWaitingForContractClose || false,
+        isWaitingForContractClosure: () => tradeEngine.isWaitingForContractClosure || false,
+        canMakeNextPurchase: () => tradeEngine.canMakeNextPurchase?.() || true,
+        forceReleaseContractWait: () => tradeEngine.forceReleaseContractWait?.(),
 
         // Utility methods
         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
