@@ -677,25 +677,57 @@ const DecyclerBot: React.FC = observer(() => {
 
     // Check trend alignment
     const checkAlignment = useCallback((trends: TrendData[]): 'aligned_bullish' | 'aligned_bearish' | 'mixed' | 'neutral' => {
-        if (trends.length === 0) return 'neutral';
+        addLog(`🔍 DEBUG: checkAlignment called with ${trends.length} trends`);
+        
+        if (trends.length === 0) {
+            addLog(`⚠️ DEBUG: No trends provided, returning 'neutral'`);
+            return 'neutral';
+        }
 
         const bullishCount = trends.filter(t => t.trend === 'bullish').length;
         const bearishCount = trends.filter(t => t.trend === 'bearish').length;
         const neutralCount = trends.filter(t => t.trend === 'neutral').length;
+        
+        const totalTrends = trends.length;
+        const alignmentThreshold = Math.ceil(totalTrends * 0.7); // 70% threshold
+        
+        addLog(`📊 DEBUG: Trend counts - Bullish: ${bullishCount}, Bearish: ${bearishCount}, Neutral: ${neutralCount}`);
+        addLog(`📏 DEBUG: Alignment threshold (70%): ${alignmentThreshold}/${totalTrends}`);
 
-        if (bullishCount === trends.length) return 'aligned_bullish';
-        if (bearishCount === trends.length) return 'aligned_bearish';
-        if (bullishCount > bearishCount && bullishCount >= trends.length * 0.7) return 'aligned_bullish';
-        if (bearishCount > bullishCount && bearishCount >= trends.length * 0.7) return 'aligned_bearish';
+        // Perfect alignment (100%)
+        if (bullishCount === totalTrends) {
+            addLog(`🟢 DEBUG: Perfect bullish alignment (${bullishCount}/${totalTrends})`);
+            return 'aligned_bullish';
+        }
+        if (bearishCount === totalTrends) {
+            addLog(`🔴 DEBUG: Perfect bearish alignment (${bearishCount}/${totalTrends})`);
+            return 'aligned_bearish';
+        }
+        
+        // Strong alignment (70% threshold)
+        if (bullishCount > bearishCount && bullishCount >= alignmentThreshold) {
+            addLog(`🟢 DEBUG: Strong bullish alignment (${bullishCount}/${totalTrends} >= ${alignmentThreshold})`);
+            return 'aligned_bullish';
+        }
+        if (bearishCount > bullishCount && bearishCount >= alignmentThreshold) {
+            addLog(`🔴 DEBUG: Strong bearish alignment (${bearishCount}/${totalTrends} >= ${alignmentThreshold})`);
+            return 'aligned_bearish';
+        }
+        
+        addLog(`🟡 DEBUG: Mixed alignment - no clear direction`);
         return 'mixed';
-    }, []);
+    }, [addLog]);
 
     // Execute trade using direct contract purchase (OAuth authenticated)
     const executeTrade = useCallback(async (direction: 'UP' | 'DOWN'): Promise<void> => {
+        addLog(`🚀 DEBUG: executeTrade called with direction: ${direction}`);
+        
         if (!api_base.api) {
-            addLog('❌ API not connected');
+            addLog('❌ DEBUG: API not connected - api_base.api is null/undefined');
             return;
         }
+
+        addLog(`✅ DEBUG: API connection exists, readyState: ${api_base.api.connection?.readyState}`);
 
         try {
             const contractTypeMap = {
@@ -704,29 +736,72 @@ const DecyclerBot: React.FC = observer(() => {
             };
 
             const contractType = contractTypeMap[config.contract_type];
+            addLog(`🔧 DEBUG: Contract type mapping - ${config.contract_type} + ${direction} = ${contractType}`);
 
             addLog(`🎯 Executing ${direction} trade: ${contractType} on ${config.symbol}`);
             addLog(`💰 Stake: $${config.stake} | Ticks: ${config.tick_count}`);
 
-            // Direct contract purchase using OAuth authenticated WebSocket
-            // No proposal needed - purchase directly with parameters
+            // First, let's try a proposal to validate the parameters
+            addLog(`🔍 DEBUG: Creating proposal first to validate parameters...`);
+            const proposalRequest = {
+                proposal: 1,
+                contract_type: contractType,
+                currency: 'USD',
+                symbol: config.symbol,
+                amount: config.stake,
+                basis: 'stake',
+                duration: config.tick_count,
+                duration_unit: 't',
+                req_id: Math.floor(Math.random() * 1000000)
+            };
+
+            addLog(`📋 DEBUG: Proposal request: ${JSON.stringify(proposalRequest, null, 2)}`);
+
+            const proposalResponse = await Promise.race([
+                api_base.api.send(proposalRequest),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Proposal timeout')), 10000)
+                )
+            ]);
+
+            addLog(`📨 DEBUG: Proposal response: ${JSON.stringify(proposalResponse, null, 2)}`);
+
+            if (proposalResponse.error) {
+                addLog(`❌ DEBUG: Proposal failed: ${proposalResponse.error.message} (Code: ${proposalResponse.error.code})`);
+                
+                // Detailed error analysis
+                if (proposalResponse.error.code === 'AuthorizationRequired') {
+                    addLog(`🔑 DEBUG: Authorization required - user needs to login with trading permissions`);
+                } else if (proposalResponse.error.code === 'InvalidSymbol') {
+                    addLog(`📋 DEBUG: Invalid symbol: ${config.symbol}`);
+                } else if (proposalResponse.error.code === 'InvalidContractType') {
+                    addLog(`📋 DEBUG: Invalid contract type: ${contractType}`);
+                } else if (proposalResponse.error.code === 'InvalidDuration') {
+                    addLog(`📋 DEBUG: Invalid duration: ${config.tick_count} ticks`);
+                } else if (proposalResponse.error.code === 'InvalidAmount') {
+                    addLog(`📋 DEBUG: Invalid amount: $${config.stake}`);
+                }
+                return;
+            }
+
+            if (!proposalResponse.proposal?.id) {
+                addLog(`❌ DEBUG: Proposal response missing ID: ${JSON.stringify(proposalResponse.proposal)}`);
+                return;
+            }
+
+            const proposalId = proposalResponse.proposal.id;
+            const proposalPrice = proposalResponse.proposal.display_value;
+            addLog(`✅ DEBUG: Proposal successful - ID: ${proposalId}, Price: ${proposalPrice}`);
+
+            // Now purchase the contract using the proposal ID
             const buyRequest = {
-                buy: 1, // Direct purchase
-                parameters: {
-                    contract_type: contractType,
-                    currency: 'USD',
-                    symbol: config.symbol,
-                    amount: config.stake,
-                    basis: 'stake',
-                    duration: config.tick_count,
-                    duration_unit: 't'
-                },
+                buy: proposalId,
                 price: config.stake,
                 req_id: Math.floor(Math.random() * 1000000)
             };
 
-            addLog(`🔄 Purchasing ${contractType} contract directly...`);
-            addLog(`📋 Request: ${JSON.stringify(buyRequest, null, 2)}`);
+            addLog(`🔄 DEBUG: Purchasing contract with proposal ID: ${proposalId}`);
+            addLog(`📋 DEBUG: Buy request: ${JSON.stringify(buyRequest, null, 2)}`);
             
             const buyResponse = await Promise.race([
                 api_base.api.send(buyRequest),
@@ -735,58 +810,62 @@ const DecyclerBot: React.FC = observer(() => {
                 )
             ]);
 
-            addLog(`📨 Response received: ${JSON.stringify(buyResponse, null, 2)}`);
+            addLog(`📨 DEBUG: Buy response: ${JSON.stringify(buyResponse, null, 2)}`);
 
             if (buyResponse.error) {
-                addLog(`❌ Purchase error: ${buyResponse.error.message} (Code: ${buyResponse.error.code})`);
+                addLog(`❌ DEBUG: Purchase error: ${buyResponse.error.message} (Code: ${buyResponse.error.code})`);
                 
                 // Log specific error details for debugging
                 if (buyResponse.error.code === 'AuthorizationRequired') {
-                    addLog(`🔑 Authentication required - please ensure you're logged in with trading permissions`);
+                    addLog(`🔑 DEBUG: Authentication required during purchase`);
                 } else if (buyResponse.error.code === 'InsufficientBalance') {
-                    addLog(`💰 Insufficient balance for purchase`);
-                } else if (buyResponse.error.code === 'InvalidContract') {
-                    addLog(`📋 Invalid contract parameters - check symbol and contract type`);
+                    addLog(`💰 DEBUG: Insufficient balance for purchase`);
+                } else if (buyResponse.error.code === 'InvalidProposal') {
+                    addLog(`📋 DEBUG: Invalid or expired proposal ID: ${proposalId}`);
                 } else if (buyResponse.error.code === 'MarketIsClosed') {
-                    addLog(`🏪 Market is closed for ${config.symbol}`);
+                    addLog(`🏪 DEBUG: Market is closed for ${config.symbol}`);
                 }
                 return;
             }
 
-            if (!buyResponse.buy || !buyResponse.buy.contract_id) {
-                addLog(`❌ Invalid buy response structure`);
-                addLog(`📋 Full response: ${JSON.stringify(buyResponse)}`);
+            if (!buyResponse.buy) {
+                addLog(`❌ DEBUG: Buy response missing 'buy' object: ${JSON.stringify(buyResponse)}`);
+                return;
+            }
+
+            if (!buyResponse.buy.contract_id) {
+                addLog(`❌ DEBUG: Buy response missing contract_id: ${JSON.stringify(buyResponse.buy)}`);
                 return;
             }
 
             const contractId = buyResponse.buy.contract_id;
-            const buyPrice = buyResponse.buy.buy_price;
+            const buyPrice = buyResponse.buy.buy_price || proposalPrice;
             const balanceAfter = buyResponse.buy.balance_after;
             const transactionId = buyResponse.buy.transaction_id;
             const payout = buyResponse.buy.payout;
             const startTime = buyResponse.buy.start_time;
             
-            addLog(`✅ Contract purchased successfully!`);
-            addLog(`📊 Contract ID: ${contractId}`);
-            addLog(`🆔 Transaction ID: ${transactionId}`);
-            addLog(`💰 Buy Price: $${buyPrice}`);
-            addLog(`🎯 Expected Payout: $${payout}`);
-            addLog(`💳 Balance After: $${balanceAfter}`);
-            addLog(`⏰ Start Time: ${new Date(startTime * 1000).toLocaleTimeString()}`);
+            addLog(`✅ DEBUG: Contract purchased successfully!`);
+            addLog(`📊 DEBUG: Contract ID: ${contractId}`);
+            addLog(`🆔 DEBUG: Transaction ID: ${transactionId}`);
+            addLog(`💰 DEBUG: Buy Price: $${buyPrice}`);
+            addLog(`🎯 DEBUG: Expected Payout: $${payout}`);
+            addLog(`💳 DEBUG: Balance After: $${balanceAfter}`);
+            addLog(`⏰ DEBUG: Start Time: ${startTime ? new Date(startTime * 1000).toLocaleTimeString() : 'N/A'}`);
 
             // Update contract info
             const newContract: ContractInfo = {
                 id: contractId.toString(),
                 type: contractType,
-                entry_price: buyPrice,
-                current_price: buyPrice,
+                entry_price: buyPrice || config.stake,
+                current_price: buyPrice || config.stake,
                 profit: 0,
                 status: 'open',
-                entry_time: startTime * 1000,
+                entry_time: startTime ? startTime * 1000 : Date.now(),
                 direction,
-                stop_loss: buyPrice + config.stop_loss,
-                take_profit: buyPrice + config.take_profit,
-                trailing_stop: config.use_trailing_stop ? buyPrice + config.stop_loss : 0,
+                stop_loss: (buyPrice || config.stake) + config.stop_loss,
+                take_profit: (buyPrice || config.stake) + config.take_profit,
+                trailing_stop: config.use_trailing_stop ? (buyPrice || config.stake) + config.stop_loss : 0,
                 breakeven_active: false
             };
 
@@ -796,11 +875,15 @@ const DecyclerBot: React.FC = observer(() => {
                 total_trades: prev.total_trades + 1
             }));
 
+            addLog(`📈 DEBUG: Contract info updated in state`);
+
             // Start monitoring the contract
+            addLog(`👁️ DEBUG: Starting contract monitoring for ID: ${contractId}`);
             monitorContract(contractId.toString());
 
         } catch (error) {
-            addLog(`💥 Failed to execute trade: ${error.message}`);
+            addLog(`💥 DEBUG: Trade execution exception: ${error.message}`);
+            addLog(`🔍 DEBUG: Error stack: ${error.stack}`);
             console.error('Trade execution error:', error);
         }
     }, [api_base.api, config, addLog]);
@@ -916,13 +999,19 @@ const DecyclerBot: React.FC = observer(() => {
 
     // Main trading loop
     const tradingLoop = useCallback(async (): Promise<void> => {
-        if (!botStatus.is_running) return;
+        addLog(`🔍 DEBUG: tradingLoop called - bot running: ${botStatus.is_running}`);
+        
+        if (!botStatus.is_running) {
+            addLog(`⏹️ DEBUG: Bot not running, exiting trading loop`);
+            return;
+        }
 
         try {
             addLog('🔄 Starting trading analysis cycle...');
 
             // Analyze all timeframes
             const trends = await analyzeAllTimeframes();
+            addLog(`📊 DEBUG: Analyzed ${trends.length} timeframes`);
 
             if (trends.length === 0) {
                 addLog('⚠️ No trend data available - will retry next cycle');
@@ -935,6 +1024,7 @@ const DecyclerBot: React.FC = observer(() => {
             }
 
             const alignment = checkAlignment(trends);
+            addLog(`🎯 DEBUG: Alignment result: ${alignment}`);
 
             // Update bot status with new analysis
             setBotStatus(prev => ({
@@ -953,29 +1043,55 @@ const DecyclerBot: React.FC = observer(() => {
             const neutralCount = trends.filter(t => t.trend === 'neutral').length;
 
             addLog(`📈 Trends: ${bullishCount} Bullish, ${bearishCount} Bearish, ${neutralCount} Neutral`);
+            
+            // Detailed trend breakdown
+            trends.forEach(trend => {
+                addLog(`📊 DEBUG: ${trend.timeframe}: ${trend.trend.toUpperCase()} (value: ${trend.value.toFixed(5)})`);
+            });
+
+            // Check current contract status
+            addLog(`🔍 DEBUG: Current contract status: ${botStatus.current_contract ? 'ACTIVE' : 'NONE'}`);
+            
+            // Check trading conditions
+            const hasStrongAlignment = alignment === 'aligned_bullish' || alignment === 'aligned_bearish';
+            addLog(`🎯 DEBUG: Strong alignment detected: ${hasStrongAlignment}`);
+            addLog(`📋 DEBUG: No current contract: ${!botStatus.current_contract}`);
 
             // Check if we should enter a trade
-            if (!botStatus.current_contract && (alignment === 'aligned_bullish' || alignment === 'aligned_bearish')) {
+            if (!botStatus.current_contract && hasStrongAlignment) {
                 const direction = alignment === 'aligned_bullish' ? 'UP' : 'DOWN';
+                addLog(`🚀 DEBUG: Trade conditions met - Direction: ${direction}`);
 
                 // Optional 10s confirmation
                 if (config.use_10s_filter) {
-                    addLog('⏱️ Applying 10-second confirmation filter...');
+                    addLog('⏱️ DEBUG: Applying 10-second confirmation filter...');
                     // Add a small delay for confirmation
                     await new Promise(resolve => setTimeout(resolve, 1000));
+                    addLog('✅ DEBUG: Confirmation filter passed');
                 }
 
                 addLog(`🎯 Strong ${direction} alignment detected - Preparing trade execution!`);
+                addLog(`💰 DEBUG: About to call executeTrade with direction: ${direction}`);
+                
                 await executeTrade(direction);
+                
+                addLog(`✅ DEBUG: executeTrade call completed`);
             } else if (!botStatus.current_contract) {
+                addLog(`⏳ DEBUG: No trade conditions met:`);
+                addLog(`   - Current contract: ${botStatus.current_contract ? 'EXISTS' : 'NONE'}`);
+                addLog(`   - Alignment: ${alignment}`);
+                addLog(`   - Strong alignment: ${hasStrongAlignment}`);
                 addLog('⏳ Waiting for trend alignment - No trade signal yet');
             } else {
                 addLog('📊 Active contract in progress - Monitoring...');
+                addLog(`   - Contract ID: ${botStatus.current_contract?.id}`);
+                addLog(`   - Contract Status: ${botStatus.current_contract?.status}`);
             }
 
         } catch (error) {
             const errorMsg = `Trading analysis error: ${error.message}`;
-            addLog(`❌ ${errorMsg}`);
+            addLog(`❌ DEBUG: Trading loop exception: ${errorMsg}`);
+            addLog(`🔍 DEBUG: Error stack: ${error.stack}`);
             setBotStatus(prev => ({
                 ...prev,
                 error_message: errorMsg,
