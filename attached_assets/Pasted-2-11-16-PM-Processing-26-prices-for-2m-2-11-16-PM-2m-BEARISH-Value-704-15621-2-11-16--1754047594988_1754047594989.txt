@@ -1,0 +1,100 @@
+2:11:16 PM] 📈 Processing 26 prices for 2m
+[2:11:16 PM] ✅ 2m: BEARISH (Value: 704.15621)
+[2:11:16 PM] 🔄 Analyzing 3m timeframe...
+[2:11:16 PM] 📊 Fetching 3m data for 1HZ100V (Type: 1HZ)
+[2:11:16 PM] 📈 Requesting 3000 ticks for 3m conversion...
+[2:11:17 PM] 📈 Contract 289734828508: Current spot 697.78, P&L: $0.79
+[2:11:17 PM] 📈 Contract 289734828508: Current spot 697.78, P&L: $0.79
+[2:11:17 PM] 📊 Converting 3000 ticks to 3m candles...
+[2:11:17 PM] 🔄 Converting 3000 ticks to candles with 180s granularity...
+[2:11:17 PM] ✅ Successfully converted 3000 ticks to 17 candles
+[2:11:17 PM] ✅ Generated 17 3m candles - Latest OHLC: 697.02/698.2/697.02/697.78
+[2:11:17 PM] 📈 Processing 17 prices for 3m
+[2:11:17 PM] ✅ 3m: BEARISH (Value: 704.55528)
+[2:11:17 PM] 🔄 Analyzing 4m timeframe...
+[2:11:17 PM] 📊 Fetching 4m data for 1HZ100V (Type: 1HZ)
+[2:11:17 PM] 📈 Requesting 3000 ticks for 4m conversion...
+[2:11:17 PM] 📈 Contract 289734828508: Current spot 697.98, P&L: $0.79
+[2:11:17 PM] 🎉 WIN: Contract 289734828508 closed
+[2:11:17 PM] 💰 Final P&L: $0.79
+[2:11:17 PM] 💵 Sell Price: $1.79
+[2:11:17 PM] 📡 Stopped monitoring contract 289734828508
+[2:11:18 PM] 📊 Converting 3000 ticks to 4m candles...
+[2:11:18 PM] 🔄 Converting 3000 ticks to candles with 240s granularity...
+[2:11:18 PM] ✅ Successfully converted 3000 ticks to 13 candles
+[2:11:18 PM] ✅ Generated 13 4m candles - Latest OHLC: 698.82/698.89/696.55/697.98
+[2:11:18 PM] 📈 Processing 13 prices for 4m
+[2:11:18 PM] ✅ 4m: BEARISH (Value: 705.79855)
+[2:11:18 PM] 🔄 Analyzing 5m timeframe...
+[2:11:18 PM] 📊 Fetching 5m data for 1HZ100V (Type: 1HZ)
+[2:11:18 PM] 📈 Requesting 3000 ticks for 5m conversion...
+[2:11:19 PM] 📊 Converting 3000 ticks to 5m candles...
+[2:11:19 PM] 🔄 Converting 3000 ticks to candles with 300s granularity...
+[2:11:19 PM] ✅ Successfully converted 3000 ticks to 11 candles
+[2:11:19 PM] ✅ Generated 11 5m candles - Latest OHLC: 697.75/698.2/697.15/698.02
+[2:11:19 PM] 📈 Processing 11 prices for 5m
+[2:11:19 PM] ✅ 5m: BEARISH (Value: 705.83671)
+[2:11:19 PM] 📋 Multi-timeframe analysis complete: 5/5 timeframes processed
+[2:11:19 PM] 📊 DEBUG: Analyzed 5 timeframes
+[2:11:19 PM] 🔍 DEBUG: checkAlignment called with 5 trends
+[2:11:19 PM] 📊 DEBUG: Trend counts - Bullish: 0, Bearish: 5, Neutral: 0
+[2:11:19 PM] 📏 DEBUG: Alignment threshold (70%): 4/5
+[2:11:19 PM] 🔴 DEBUG: Perfect bearish alignment (5/5)
+[2:11:19 PM] 🎯 DEBUG: Alignment result: aligned_bearish
+[2:11:19 PM] 📊 Analysis complete - Alignment: ALIGNED_BEARISH
+[2:11:19 PM] 📈 Trends: 0 Bullish, 5 Bearish, 0 Neutral
+[2:11:19 PM] 📊 DEBUG: 1m: BEARISH (value: 702.16318)
+[2:11:19 PM] 📊 DEBUG: 2m: BEARISH (value: 704.15621)
+[2:11:19 PM] 📊 DEBUG: 3m: BEARISH (value: 704.55528)
+[2:11:19 PM] 📊 DEBUG: 4m: BEARISH (value: 705.79855)
+[2:11:19 PM] 📊 DEBUG: 5m: BEARISH (value: 705.83671)
+[2:11:19 PM] 🔍 DEBUG: Current contract status: NONE
+[2:11:19 PM] 🎯 DEBUG: Strong alignment detected: true
+[2:11:19 PM] 📋 DEBUG: No current contract: true
+[2:11:19 PM] 🚀 DEBUG: Trade conditions met - Direction: DOWN
+[2:11:19 PM] ⏱️ DEBUG: Applying 10-second confirmation filter...
+[2:11:20 PM] ✅ DEBUG: Confirmation filter passed
+[2:11:20 PM] 🎯 Strong DOWN alignment detected - Preparing trade execution!
+[2:11:20 PM] 💰 DEBUG: About to call executeTrade with direction: DOWN
+[2:11:20 PM] 🚀 DEBUG: executeTrade called with direction: DOWN
+[2:11:20 PM] ✅ DEBUG: API connection exists, readyState: 1
+[2:11:20 PM] 🔧 DEBUG: Contract type mapping - higher_lower + DOWN = PUTE
+[2:11:20 PM] 🎯 Executing DOWN trade: PUTE on 1HZ100V
+[2:11:20 PM] 💰 Stake: $1 | Ticks: 5
+[2:11:20 PM] 🔍 DEBUG: Creating proposal first to validate parameters...
+[2:11:20 PM] 📋 DEBUG: Proposal request: { "proposal": 1, "contract_type": "PUTE", "currency": "USD", "symbol": "1HZ100V", "amount": 1, "basis": "stake", "duration": 5, "duration_unit": "t", "req_id": 702679 }
+[2:11:20 PM] 📨 DEBUG: Proposal response: { "echo_req": { "amount": 1, "basis": "stake", "contract_type": "PUTE", "currency": "USD", "duration": 5, "duration_unit": "t", "product_type": "basic", "proposal": 1, "req_id": 702679, "symbol": "1HZ100V" }, "msg_type": "proposal", "proposal": { "ask_price": 1, "contract_details": { "app_markup_amount": "0.05", "barrier": "698.01" }, "date_expiry": 1754046685, "date_start": 1754046680, "display_value": "1.00", "id": "94636397-d513-dbae-3703-14c5e781da0c", "longcode": "Win payout if Volatility 100 (1s) Index after 5 ticks is lower than or equal to entry spot.", "payout": 1.79, "spot": 698.01, "spot_time": 1754046680, "validation_params": { "payout": { "max": "50000.00" }, "stake": { "min": "0.35" } } }, "req_id": 702679 }
+[2:11:20 PM] ✅ DEBUG: Proposal successful - ID: 94636397-d513-dbae-3703-14c5e781da0c, Price: 1.00
+[2:11:20 PM] 🔄 DEBUG: Purchasing contract with proposal ID: 94636397-d513-dbae-3703-14c5e781da0c
+[2:11:20 PM] 📋 DEBUG: Buy request: { "buy": "94636397-d513-dbae-3703-14c5e781da0c", "price": 1, "req_id": 95794 }
+[2:11:20 PM] 🔧 DEBUG: Stopping bot...
+[2:11:20 PM] 🔧 DEBUG: Trading interval cleared
+[2:11:20 PM] ⏹️ Decycler Bot Stopped
+[2:11:21 PM] 📨 DEBUG: Buy response: { "buy": { "balance_after": 10819, "buy_price": 1, "contract_id": 289734842428, "longcode": "Win payout if Volatility 100 (1s) Index after 5 ticks is lower than or equal to entry spot.", "payout": 1.79, "purchase_time": 1754046680, "shortcode": "PUTE_1HZ100V_1.79_1754046680_5T_S0P_0", "start_time": 1754046680, "transaction_id": 577299990588 }, "echo_req": { "buy": "94636397-d513-dbae-3703-14c5e781da0c", "price": 1, "req_id": 95794 }, "msg_type": "buy", "req_id": 95794 }
+[2:11:21 PM] ✅ DEBUG: Contract purchased successfully!
+[2:11:21 PM] 📊 DEBUG: Contract ID: 289734842428
+[2:11:21 PM] 🆔 DEBUG: Transaction ID: 577299990588
+[2:11:21 PM] 💰 DEBUG: Buy Price: $1
+[2:11:21 PM] 🎯 DEBUG: Expected Payout: $1.79
+[2:11:21 PM] 💳 DEBUG: Balance After: $10819
+[2:11:21 PM] ⏰ DEBUG: Start Time: 2:11:20 PM
+[2:11:21 PM] 📈 DEBUG: Contract info updated in state
+[2:11:21 PM] 👁️ DEBUG: Starting contract monitoring for ID: 289734842428
+[2:11:21 PM] 👁️ Starting to monitor contract 289734842428...
+[2:11:21 PM] ✅ DEBUG: executeTrade call completed
+[2:11:21 PM] ✅ Contract monitoring established for 289734842428
+[2:11:21 PM] 📈 Contract 289734842428: Current spot 697.79, P&L: $-0.16
+[2:11:21 PM] 📈 Contract 289734842428: Current spot 697.79, P&L: $-0.16
+[2:11:22 PM] 📈 Contract 289734842428: Current spot 697.65, P&L: $0.28
+[2:11:22 PM] 📈 Contract 289734842428: Current spot 697.65, P&L: $0.28
+[2:11:23 PM] 📈 Contract 289734842428: Current spot 697.56, P&L: $0.57
+[2:11:23 PM] 📈 Contract 289734842428: Current spot 697.56, P&L: $0.57
+[2:11:24 PM] 📈 Contract 289734842428: Current spot 697.43, P&L: $0.73
+[2:11:24 PM] 📈 Contract 289734842428: Current spot 697.43, P&L: $0.73
+[2:11:25 PM] 📈 Contract 289734842428: Current spot 697.52, P&L: $0.44
+[2:11:25 PM] 📈 Contract 289734842428: Current spot 697.52, P&L: $0.44
+[2:11:27 PM] 📈 Contract 289734842428: Current spot 697.5, P&L: $0.79
+[2:11:27 PM] 🎉 WIN: Contract 289734842428 closed
+[2:11:27 PM] 💰 Final P&L: $0.79
+[2:11:27 PM] 💵 Sell Price: $1.79
+[2:11:27 PM] 📡 Stopped monitoring contract 289734842428
