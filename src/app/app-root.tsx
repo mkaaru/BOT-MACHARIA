@@ -10,7 +10,11 @@ import { useStore } from '@/hooks/useStore';
 import { localize } from '@deriv-com/translations';
 import './app-root.scss';
 
-const AppContent = lazy(() => import('./app-content'));
+const AppContent = lazy(() => import('./app-content').catch(error => {
+    console.error('Failed to load AppContent:', error);
+    // Return a fallback component for chunk loading errors
+    return { default: () => <MatrixLoading message={localize('Loading failed. Refreshing...')} show={true} /> };
+}));
 
 const AppRootLoader = () => {
     return <MatrixLoading message={localize('Initializing Deriv Bot...')} show={true} />;
