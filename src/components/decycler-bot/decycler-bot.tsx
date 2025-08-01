@@ -847,19 +847,61 @@ const DecyclerBot: React.FC = observer(() => {
             } else if (config.contract_type === 'higher_lower') {
                 // Higher/Lower contracts with barrier
                 if (direction === 'UP') {
-                    contractType = 'CALL'; // Higher
+                    contractType = 'CALLE'; // Higher (Use CALLE for Higher)
                 } else {
-                    contractType = 'PUT'; // Lower
+                    contractType = 'PUTE'; // Lower (Use PUTE for Lower)
                 }
 
-                // For Higher/Lower, we need a barrier relative to current price
-                // Calculate dynamic barrier based on volatility and trend strength
+                // For Higher/Lower, we need a proper barrier calculation
+                // Get current market price for barrier calculation
+                let currentPrice = 0;
+                try {
+                    // Try to get current price from recent tick data
+                    const tickRequest = {
+                        ticks: config.symbol,
+                        subscribe: 0,
+                        req_id: Math.floor(Math.random() * 1000000)
+                    };
+                    
+                    const tickResponse = await Promise.race([
+                        api_base.api.send(tickRequest),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Current price timeout')), 3000)
+                        )
+                    ]);
+                    
+                    if (tickResponse?.tick?.quote) {
+                        currentPrice = parseFloat(tickResponse.tick.quote);
+                        addLog(`📈 Current market price: ${currentPrice}`);
+                    }
+                } catch (error) {
+                    addLog(`⚠️ Could not get current price: ${error.message}`);
+                    // Use a default small offset if we can't get current price
+                    currentPrice = 0;
+                }
+
+                // Calculate barrier based on volatility and trend strength
                 const trendStrength = trends.filter(t => t.trend === (direction === 'UP' ? 'bullish' : 'bearish')).length / trends.length;
-                const baseOffset = 0.10;
-                const dynamicOffset = baseOffset * (0.5 + trendStrength); // Scale 0.5x to 1.5x based on alignment strength
-                const offset = direction === 'UP' ? `+${dynamicOffset.toFixed(2)}` : `-${dynamicOffset.toFixed(2)}`;
-                barrier = offset;
-                addLog(`📊 Using Higher/Lower contract: ${contractType} with barrier: ${barrier}`);
+                
+                if (currentPrice > 0) {
+                    // Calculate percentage-based barrier for better accuracy
+                    const basePercentage = 0.05; // 0.05% base offset
+                    const dynamicPercentage = basePercentage * (0.5 + trendStrength);
+                    const absoluteOffset = currentPrice * (dynamicPercentage / 100);
+                    
+                    if (direction === 'UP') {
+                        barrier = (currentPrice + absoluteOffset).toFixed(2);
+                    } else {
+                        barrier = (currentPrice - absoluteOffset).toFixed(2);
+                    }
+                    addLog(`📊 Using Higher/Lower contract: ${contractType} with absolute barrier: ${barrier} (Current: ${currentPrice})`);
+                } else {
+                    // Fallback to relative barrier
+                    const baseOffset = 0.001;
+                    const dynamicOffset = baseOffset * (0.5 + trendStrength);
+                    barrier = direction === 'UP' ? `+${dynamicOffset.toFixed(3)}` : `-${dynamicOffset.toFixed(3)}`;
+                    addLog(`📊 Using Higher/Lower contract: ${contractType} with relative barrier: ${barrier}`);
+                }
             } else {
                 // "Allow Equals" option
                 if (direction === 'UP') {
@@ -891,8 +933,16 @@ const DecyclerBot: React.FC = observer(() => {
             };
 
             // Add barrier for Higher/Lower contracts
-            if (barrier) {
-                proposalRequest.barrier = barrier;
+            if (barrier && config.contract_type === 'higher_lower') {
+                // For Higher/Lower contracts, use barrier field
+                if (barrier.startsWith('+') || barrier.startsWith('-')) {
+                    // Relative barrier
+                    proposalRequest.barrier = barrier;
+                } else {
+                    // Absolute barrier
+                    proposalRequest.barrier = barrier;
+                }
+                addLog(`🎯 DEBUG: Adding barrier to proposal: ${barrier}`);
             }
 
             addLog(`📋 DEBUG: Proposal request: ${JSON.stringify(proposalRequest, null, 2)}`);
@@ -920,7 +970,35 @@ const DecyclerBot: React.FC = observer(() => {
                     addLog(`📋 DEBUG: Invalid duration: ${config.tick_count} ticks`);
                 } else if (proposalResponse.error.code === 'InvalidAmount') {
                     addLog(`📋 DEBUG: Invalid amount: $${config.stake}`);
-                }                return;
+                } else if (proposalResponse.error.code === 'InvalidBarrier') {
+                    addLog(`📋 DEBUG: Invalid barrier: ${barrier} for contract type: ${contractType}`);
+                    // Try without barrier as fallback for Higher/Lower
+                    if (config.contract_type === 'higher_lower') {
+                        addLog(`🔄 DEBUG: Retrying Higher/Lower without barrier...`);
+                        delete proposalRequest.barrier;
+                        
+                        const retryResponse = await Promise.race([
+                            api_base.api.send(proposalRequest),
+                            new Promise((_, reject) => 
+                                setTimeout(() => reject(new Error('Retry proposal timeout')), 10000)
+                            )
+                        ]);
+                        
+                        if (retryResponse.error) {
+                            addLog(`❌ DEBUG: Retry also failed: ${retryResponse.error.message}`);
+                            return;
+                        } else {
+                            addLog(`✅ DEBUG: Retry successful without barrier`);
+                            // Continue with the retry response
+                            Object.assign(proposalResponse, retryResponse);
+                        }
+                    } else {
+                        return;
+                    }
+                } else {
+                    addLog(`📋 DEBUG: Unknown error: ${proposalResponse.error.message}`);
+                    return;
+                }
             }
 
             if (!proposalResponse.proposal?.id) {
