@@ -1140,7 +1140,7 @@ const DecyclerBot: React.FC = observer(() => {
   };
 
   // Contract Purchase Function
-  const purchaseContract = async (direction: 'CALL' | 'PUT') => {
+  const purchaseContract = async (direction: 'CALL' | 'PUT' | 'CALLE' | 'PUTE') => {
     if (!isAuthorized || !authToken || currentContract) {
       return;
     }
@@ -1208,64 +1208,8 @@ const DecyclerBot: React.FC = observer(() => {
     }
   };
 
-  // Monitor Contract Status
-  const monitorContract = async (contractId: string) => {
-    if (!contractId) return;
-
-    try {
-      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
-
-      ws.onopen = () => {
-        ws.send(JSON.stringify({
-          proposal_open_contract: 1,
-          contract_id: contractId,
-          subscribe: 1,
-          req_id: Date.now()
-        }));
-      };
-
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-
-        if (data.proposal_open_contract) {
-          const contract = data.proposal_open_contract;
-
-          if (contract.is_settled) {
-            const profit = parseFloat(contract.profit || 0);
-            const isWin = profit > 0;
-
-            setTradeHistory(prev => [...prev, {
-              id: contractId,
-              type: currentContract?.type,
-              stake: currentContract?.stake,
-              profit,
-              isWin,
-              timestamp: Date.now()
-            }]);
-
-            setPerformanceData(prev => ({
-              totalTrades: prev.totalTrades + 1,
-              winRate: Math.round(((prev.winRate * prev.totalTrades + (isWin ? 1 : 0)) / (prev.totalTrades + 1)) * 100),
-              totalPnL: prev.totalPnL + profit
-            }));
-
-            setCurrentContract(null);
-            setLastSignal(`Contract settled: ${isWin ? 'WIN' : 'LOSS'} - P&L: $${profit.toFixed(2)}`);
-            ws.close();
-          }
-        }
-      };
-
-      ws.onerror = () => {
-        ws.close();
-      };
-    } catch (error) {
-      console.error('Contract monitoring failed:', error);
-    }
-  };
-
-  // Check for trading opportunities
-  const checkTradingOpportunity = useCallback(() => {
+  // Enhanced trading opportunity check with contract type support
+    const checkTradingOpportunity = useCallback(() => {
         if (!tradingEnabled || !isAuthorized || currentContract) return;
 
         const timeframes = selectedTimeframePreset === 'scalping'
@@ -1278,13 +1222,21 @@ const DecyclerBot: React.FC = observer(() => {
         const alignmentThreshold = Math.ceil(timeframes.length * 0.7); // 70% alignment
 
         if (bullishCount >= alignmentThreshold) {
-            setLastSignal(`${bullishCount}/${timeframes.length} timeframes bullish - Purchasing CALL`);
-            purchaseContract('CALL');
+            const contractType = config.contract_type === 'higher_lower' ? 'CALLE' : 'CALL';
+            const contractName = config.contract_type === 'higher_lower' ? 'Higher' : 'Rise';
+
+            addLog(`🎯 ${bullishCount}/${timeframes.length} timeframes bullish - Purchasing ${contractName}`);
+            setLastSignal(`${bullishCount}/${timeframes.length} timeframes bullish - Purchasing ${contractName}`);
+            purchaseContract(contractType);
         } else if (bearishCount >= alignmentThreshold) {
-            setLastSignal(`${bearishCount}/${timeframes.length} timeframes bearish - Purchasing PUT`);
-            purchaseContract('PUT');
+            const contractType = config.contract_type === 'higher_lower' ? 'PUTE' : 'PUT';
+            const contractName = config.contract_type === 'higher_lower' ? 'Lower' : 'Fall';
+
+            addLog(`🎯 ${bearishCount}/${timeframes.length} timeframes bearish - Purchasing ${contractName}`);
+            setLastSignal(`${bearishCount}/${timeframes.length} timeframes bearish - Purchasing ${contractName}`);
+            purchaseContract(contractType);
         }
-    }, [timeframeAnalysis, tradingEnabled, isAuthorized, currentContract, config, selectedTimeframePreset]);
+    }, [timeframeAnalysis, tradingEnabled, isAuthorized, currentContract, config, selectedTimeframePreset, addLog]);
 
     // Monitor current contract
     useEffect(() => {
