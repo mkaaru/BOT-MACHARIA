@@ -62,7 +62,10 @@ const DecyclerBot: React.FC = observer(() => {
     useEffect(() => {
         const handleError = (error: any) => {
             console.error('DecyclerBot Error:', error);
-            setHasError(true);
+            // Only set error for critical errors, not minor API issues
+            if (error.message && !error.message.includes('API') && !error.message.includes('WebSocket')) {
+                setHasError(true);
+            }
         };
 
         window.addEventListener('error', handleError);
@@ -90,11 +93,10 @@ const DecyclerBot: React.FC = observer(() => {
                         className="control-btn start" 
                         onClick={() => {
                             setHasError(false);
-                            window.location.reload();
                         }}
-                        style={{ marginTop: '10px' }}
+                        style={{ marginTop: '10px', padding: '10px 20px', backgroundColor: '#007cff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                     >
-                        🔄 Reload Component
+                        🔄 Retry
                     </button>
                 </div>
             </div>
