@@ -1678,7 +1678,8 @@ const DecyclerBot: React.FC = observer(() => {
                 }
               }
             } catch (error) {
-              ws.removeEventListener('message', handleMessage);The code has been modified to include barrier and duration settings for the trading bot.              console.log(`❌ Exception processing ${timeframe} data:`, error);
+              ws.removeEventListener('message', handleMessage);
+              console.log(`❌ Exception processing ${timeframe} data:`, error);
               reject(error);
             }
           };
