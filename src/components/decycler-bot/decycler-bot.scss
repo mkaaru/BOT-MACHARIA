@@ -1089,3 +1089,47 @@
       }
     }
   }
+
+.decycler-bot__form-group {
+  margin-bottom: 15px;
+
+  label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: var(--text-prominent);
+  }
+
+  input, select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-normal);
+    border-radius: 4px;
+    background: var(--fill-normal);
+    color: var(--text-general);
+    font-size: 14px;
+
+    &:focus {
+      outline: none;
+      border-color: var(--brand-red-coral);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.decycler-bot__duration-group {
+  display: flex;
+  gap: 10px;
+
+  input {
+    flex: 2;
+  }
+
+  select {
+    flex: 1;
+  }
+}

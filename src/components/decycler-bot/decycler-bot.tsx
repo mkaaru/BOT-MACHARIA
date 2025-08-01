@@ -177,11 +177,11 @@ const DecyclerBot: React.FC = observer(() => {
     const getDayTicks = useCallback(async (symbol: string): Promise<any[]> => {
         try {
             addLog(`📅 Fetching day's worth of ticks for ${symbol} (86400 seconds)...`);
-            
+
             if (!api_base.api || api_base.api.connection.readyState !== 1) {
                 addLog(`🔄 Initializing API connection...`);
                 await api_base.init();
-                
+
                 let retries = 0;
                 while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
                     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -198,7 +198,7 @@ const DecyclerBot: React.FC = observer(() => {
             };
 
             addLog(`📊 Requesting 86400 ticks for full day analysis...`);
-            
+
             const dayTickResponse = await Promise.race([
                 api_base.api.send(dayTickRequest),
                 new Promise((_, reject) => 
@@ -209,7 +209,7 @@ const DecyclerBot: React.FC = observer(() => {
             if (dayTickResponse?.history?.prices && dayTickResponse?.history?.times) {
                 const prices = dayTickResponse.history.prices.map(p => parseFloat(p)).filter(p => !isNaN(p));
                 const times = dayTickResponse.history.times;
-                
+
                 addLog(`✅ Retrieved ${prices.length} ticks for day analysis`);
                 return prices.map((price, index) => ({
                     price,
@@ -679,7 +679,7 @@ const DecyclerBot: React.FC = observer(() => {
     // Check trend alignment
     const checkAlignment = useCallback((trends: TrendData[]): 'aligned_bullish' | 'aligned_bearish' | 'mixed' | 'neutral' => {
         addLog(`🔍 DEBUG: checkAlignment called with ${trends.length} trends`);
-        
+
         if (trends.length === 0) {
             addLog(`⚠️ DEBUG: No trends provided, returning 'neutral'`);
             return 'neutral';
@@ -688,10 +688,10 @@ const DecyclerBot: React.FC = observer(() => {
         const bullishCount = trends.filter(t => t.trend === 'bullish').length;
         const bearishCount = trends.filter(t => t.trend === 'bearish').length;
         const neutralCount = trends.filter(t => t.trend === 'neutral').length;
-        
+
         const totalTrends = trends.length;
         const alignmentThreshold = Math.ceil(totalTrends * 0.7); // 70% threshold
-        
+
         addLog(`📊 DEBUG: Trend counts - Bullish: ${bullishCount}, Bearish: ${bearishCount}, Neutral: ${neutralCount}`);
         addLog(`📏 DEBUG: Alignment threshold (70%): ${alignmentThreshold}/${totalTrends}`);
 
@@ -704,7 +704,7 @@ const DecyclerBot: React.FC = observer(() => {
             addLog(`🔴 DEBUG: Perfect bearish alignment (${bearishCount}/${totalTrends})`);
             return 'aligned_bearish';
         }
-        
+
         // Strong alignment (70% threshold)
         if (bullishCount > bearishCount && bullishCount >= alignmentThreshold) {
             addLog(`🟢 DEBUG: Strong bullish alignment (${bullishCount}/${totalTrends} >= ${alignmentThreshold})`);
@@ -714,7 +714,7 @@ const DecyclerBot: React.FC = observer(() => {
             addLog(`🔴 DEBUG: Strong bearish alignment (${bearishCount}/${totalTrends} >= ${alignmentThreshold})`);
             return 'aligned_bearish';
         }
-        
+
         addLog(`🟡 DEBUG: Mixed alignment - no clear direction`);
         return 'mixed';
     }, [addLog]);
@@ -722,7 +722,7 @@ const DecyclerBot: React.FC = observer(() => {
     // Execute trade using direct contract purchase (OAuth authenticated)
     const executeTrade = useCallback(async (direction: 'UP' | 'DOWN'): Promise<void> => {
         addLog(`🚀 DEBUG: executeTrade called with direction: ${direction}`);
-        
+
         if (!api_base.api) {
             addLog('❌ DEBUG: API not connected - api_base.api is null/undefined');
             return;
@@ -750,7 +750,7 @@ const DecyclerBot: React.FC = observer(() => {
                 } else {
                     contractType = 'PUT'; // Lower
                 }
-                
+
                 // For Higher/Lower, we need a barrier relative to current price
                 // Let's use a small offset from current price
                 const offset = direction === 'UP' ? '+0.10' : '-0.10';
@@ -804,7 +804,7 @@ const DecyclerBot: React.FC = observer(() => {
 
             if (proposalResponse.error) {
                 addLog(`❌ DEBUG: Proposal failed: ${proposalResponse.error.message} (Code: ${proposalResponse.error.code})`);
-                
+
                 // Detailed error analysis
                 if (proposalResponse.error.code === 'AuthorizationRequired') {
                     addLog(`🔑 DEBUG: Authorization required - user needs to login with trading permissions`);
@@ -816,8 +816,7 @@ const DecyclerBot: React.FC = observer(() => {
                     addLog(`📋 DEBUG: Invalid duration: ${config.tick_count} ticks`);
                 } else if (proposalResponse.error.code === 'InvalidAmount') {
                     addLog(`📋 DEBUG: Invalid amount: $${config.stake}`);
-                }
-                return;
+                }                return;
             }
 
             if (!proposalResponse.proposal?.id) {
@@ -838,7 +837,7 @@ const DecyclerBot: React.FC = observer(() => {
 
             addLog(`🔄 DEBUG: Purchasing contract with proposal ID: ${proposalId}`);
             addLog(`📋 DEBUG: Buy request: ${JSON.stringify(buyRequest, null, 2)}`);
-            
+
             const buyResponse = await Promise.race([
                 api_base.api.send(buyRequest),
                 new Promise((_, reject) => 
@@ -850,7 +849,7 @@ const DecyclerBot: React.FC = observer(() => {
 
             if (buyResponse.error) {
                 addLog(`❌ DEBUG: Purchase error: ${buyResponse.error.message} (Code: ${buyResponse.error.code})`);
-                
+
                 // Log specific error details for debugging
                 if (buyResponse.error.code === 'AuthorizationRequired') {
                     addLog(`🔑 DEBUG: Authentication required during purchase`);
@@ -880,7 +879,7 @@ const DecyclerBot: React.FC = observer(() => {
             const transactionId = buyResponse.buy.transaction_id;
             const payout = buyResponse.buy.payout;
             const startTime = buyResponse.buy.start_time;
-            
+
             addLog(`✅ DEBUG: Contract purchased successfully!`);
             addLog(`📊 DEBUG: Contract ID: ${contractId}`);
             addLog(`🆔 DEBUG: Transaction ID: ${transactionId}`);
@@ -1036,7 +1035,7 @@ const DecyclerBot: React.FC = observer(() => {
     // Main trading loop
     const tradingLoop = useCallback(async (): Promise<void> => {
         addLog(`🔍 DEBUG: tradingLoop called - bot running (state): ${botStatus.is_running}, (ref): ${isRunningRef.current}`);
-        
+
         if (!isRunningRef.current) {
             addLog(`⏹️ DEBUG: Bot not running (ref check), exiting trading loop`);
             return;
@@ -1079,7 +1078,7 @@ const DecyclerBot: React.FC = observer(() => {
             const neutralCount = trends.filter(t => t.trend === 'neutral').length;
 
             addLog(`📈 Trends: ${bullishCount} Bullish, ${bearishCount} Bearish, ${neutralCount} Neutral`);
-            
+
             // Detailed trend breakdown
             trends.forEach(trend => {
                 addLog(`📊 DEBUG: ${trend.timeframe}: ${trend.trend.toUpperCase()} (value: ${trend.value.toFixed(5)})`);
@@ -1087,7 +1086,7 @@ const DecyclerBot: React.FC = observer(() => {
 
             // Check current contract status
             addLog(`🔍 DEBUG: Current contract status: ${botStatus.current_contract ? 'ACTIVE' : 'NONE'}`);
-            
+
             // Check trading conditions
             const hasStrongAlignment = alignment === 'aligned_bullish' || alignment === 'aligned_bearish';
             addLog(`🎯 DEBUG: Strong alignment detected: ${hasStrongAlignment}`);
@@ -1108,9 +1107,9 @@ const DecyclerBot: React.FC = observer(() => {
 
                 addLog(`🎯 Strong ${direction} alignment detected - Preparing trade execution!`);
                 addLog(`💰 DEBUG: About to call executeTrade with direction: ${direction}`);
-                
+
                 await executeTrade(direction);
-                
+
                 addLog(`✅ DEBUG: executeTrade call completed`);
             } else if (!botStatus.current_contract) {
                 addLog(`⏳ DEBUG: No trade conditions met:`);
@@ -1177,7 +1176,7 @@ const DecyclerBot: React.FC = observer(() => {
             addLog('🔧 DEBUG: Setting bot status to running...');
             isRunningRef.current = true;
             setBotStatus(prev => ({ ...prev, is_running: true }));
-            
+
             addLog('🚀 Decycler Multi-Timeframe Bot Started!');
             addLog(`📊 Monitoring ${timeframes.join(', ')} timeframes`);
             addLog(`🎯 Symbol: ${config.symbol} | Stake: $${config.stake}`);
@@ -1425,6 +1424,9 @@ const DecyclerBot: React.FC = observer(() => {
     const [currentSymbol, setCurrentSymbol] = useState(config.symbol);
     const [timeframeAnalysis, setTimeframeAnalysis] = useState<{ [key: string]: string }>({});
     const [overallAnalysis, setOverallAnalysis] = useState('NEUTRAL');
+  const [barrier, setBarrier] = useState('');
+  const [duration, setDuration] = useState(1);
+  const [durationType, setDurationType] = useState('t');
 
     useEffect(() => {
         setCurrentSymbol(config.symbol); // Update currentSymbol when config.symbol changes
@@ -1676,8 +1678,7 @@ const DecyclerBot: React.FC = observer(() => {
                 }
               }
             } catch (error) {
-              ws.removeEventListener('message', handleMessage);
-              console.log(`❌ Exception processing ${timeframe} data:`, error);
+              ws.removeEventListener('message', handleMessage);The code has been modified to include barrier and duration settings for the trading bot.              console.log(`❌ Exception processing ${timeframe} data:`, error);
               reject(error);
             }
           };
@@ -2155,6 +2156,40 @@ const DecyclerBot: React.FC = observer(() => {
                                     max="10"
                                     disabled={botStatus.is_running}
                                 />
+                            </div>
+                            <div className="config-item">
+                                <label>Barrier (optional)</label>
+                                <input
+                                    type="text"
+                                    value={barrier}
+                                    onChange={(e) => setBarrier(e.target.value)}
+                                    placeholder="e.g. +0.001, -0.001, or absolute value"
+                                    disabled={botStatus.is_running}
+                                />
+                            </div>
+
+                            <div className="config-item">
+                                <label>Duration</label>
+                                <div className="duration-group">
+                                    <input
+                                        type="number"
+                                        value={duration}
+                                        onChange={(e) => setDuration(Number(e.target.value))}
+                                        min="1"
+                                        disabled={botStatus.is_running}
+                                    />
+                                    <select
+                                        value={durationType}
+                                        onChange={(e) => setDurationType(e.target.value)}
+                                        disabled={botStatus.is_running}
+                                    >
+                                        <option value="t">Ticks</option>
+                                        <option value="s">Seconds</option>
+                                        <option value="m">Minutes</option>
+                                        <option value="h">Hours</option>
+                                        <option value="d">Days</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
