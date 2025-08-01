@@ -690,7 +690,7 @@ const DecyclerBot: React.FC = observer(() => {
         return 'mixed';
     }, []);
 
-    // Execute trade with proper API structure using authenticated app_id 75771
+    // Execute trade using direct contract purchase (OAuth authenticated)
     const executeTrade = useCallback(async (direction: 'UP' | 'DOWN'): Promise<void> => {
         if (!api_base.api) {
             addLog('❌ API not connected');
@@ -705,54 +705,28 @@ const DecyclerBot: React.FC = observer(() => {
 
             const contractType = contractTypeMap[config.contract_type];
 
-            // Get proposal first
-            const proposalRequest = {
-                proposal: 1,
-                amount: config.stake,
-                basis: 'stake',
-                contract_type: contractType,
-                currency: 'USD',
-                duration: config.tick_count,
-                duration_unit: 't',
-                symbol: config.symbol,
-                req_id: Math.floor(Math.random() * 1000000)
-            };
+            addLog(`🎯 Executing ${direction} trade: ${contractType} on ${config.symbol}`);
+            addLog(`💰 Stake: $${config.stake} | Ticks: ${config.tick_count}`);
 
-            addLog(`🔄 Getting proposal for ${contractType} on ${config.symbol}...`);
-            
-            const proposalResponse = await Promise.race([
-                api_base.api.send(proposalRequest),
-                new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Proposal timeout')), 10000)
-                )
-            ]);
-
-            if (proposalResponse.error) {
-                addLog(`❌ Proposal error: ${proposalResponse.error.message} (Code: ${proposalResponse.error.code})`);
-                return;
-            }
-
-            if (!proposalResponse.proposal || !proposalResponse.proposal.id) {
-                addLog(`❌ Invalid proposal response`);
-                return;
-            }
-
-            const proposalId = proposalResponse.proposal.id;
-            const entrySpot = proposalResponse.proposal.spot;
-            const payout = proposalResponse.proposal.payout;
-
-            addLog(`✅ Proposal received: ID ${proposalId}, Entry: ${entrySpot}, Payout: ${payout}`);
-
-            // Purchase contract using authenticated API with app_id 75771
-            // The user is already OAuth authenticated, so we use the proposal ID to buy
+            // Direct contract purchase using OAuth authenticated WebSocket
+            // No proposal needed - purchase directly with parameters
             const buyRequest = {
-                buy: proposalId,
+                buy: 1, // Direct purchase
+                parameters: {
+                    contract_type: contractType,
+                    currency: 'USD',
+                    symbol: config.symbol,
+                    amount: config.stake,
+                    basis: 'stake',
+                    duration: config.tick_count,
+                    duration_unit: 't'
+                },
                 price: config.stake,
                 req_id: Math.floor(Math.random() * 1000000)
             };
 
-            addLog(`💰 Purchasing contract with proposal ID ${proposalId} for $${config.stake}...`);
-            addLog(`🔑 Using OAuth authenticated WebSocket connection`);
+            addLog(`🔄 Purchasing ${contractType} contract directly...`);
+            addLog(`📋 Request: ${JSON.stringify(buyRequest, null, 2)}`);
             
             const buyResponse = await Promise.race([
                 api_base.api.send(buyRequest),
@@ -761,22 +735,27 @@ const DecyclerBot: React.FC = observer(() => {
                 )
             ]);
 
+            addLog(`📨 Response received: ${JSON.stringify(buyResponse, null, 2)}`);
+
             if (buyResponse.error) {
                 addLog(`❌ Purchase error: ${buyResponse.error.message} (Code: ${buyResponse.error.code})`);
                 
                 // Log specific error details for debugging
                 if (buyResponse.error.code === 'AuthorizationRequired') {
-                    addLog(`🔑 Authentication required - user needs to be logged in with trading permissions`);
+                    addLog(`🔑 Authentication required - please ensure you're logged in with trading permissions`);
                 } else if (buyResponse.error.code === 'InsufficientBalance') {
                     addLog(`💰 Insufficient balance for purchase`);
-                } else if (buyResponse.error.code === 'InvalidProposal') {
-                    addLog(`📋 Proposal expired or invalid - will retry on next signal`);
+                } else if (buyResponse.error.code === 'InvalidContract') {
+                    addLog(`📋 Invalid contract parameters - check symbol and contract type`);
+                } else if (buyResponse.error.code === 'MarketIsClosed') {
+                    addLog(`🏪 Market is closed for ${config.symbol}`);
                 }
                 return;
             }
 
             if (!buyResponse.buy || !buyResponse.buy.contract_id) {
                 addLog(`❌ Invalid buy response structure`);
+                addLog(`📋 Full response: ${JSON.stringify(buyResponse)}`);
                 return;
             }
 
@@ -784,6 +763,8 @@ const DecyclerBot: React.FC = observer(() => {
             const buyPrice = buyResponse.buy.buy_price;
             const balanceAfter = buyResponse.buy.balance_after;
             const transactionId = buyResponse.buy.transaction_id;
+            const payout = buyResponse.buy.payout;
+            const startTime = buyResponse.buy.start_time;
             
             addLog(`✅ Contract purchased successfully!`);
             addLog(`📊 Contract ID: ${contractId}`);
@@ -791,20 +772,21 @@ const DecyclerBot: React.FC = observer(() => {
             addLog(`💰 Buy Price: $${buyPrice}`);
             addLog(`🎯 Expected Payout: $${payout}`);
             addLog(`💳 Balance After: $${balanceAfter}`);
+            addLog(`⏰ Start Time: ${new Date(startTime * 1000).toLocaleTimeString()}`);
 
             // Update contract info
             const newContract: ContractInfo = {
                 id: contractId.toString(),
                 type: contractType,
-                entry_price: entrySpot,
-                current_price: entrySpot,
+                entry_price: buyPrice,
+                current_price: buyPrice,
                 profit: 0,
                 status: 'open',
-                entry_time: Date.now(),
+                entry_time: startTime * 1000,
                 direction,
-                stop_loss: entrySpot + config.stop_loss,
-                take_profit: entrySpot + config.take_profit,
-                trailing_stop: config.use_trailing_stop ? entrySpot + config.stop_loss : 0,
+                stop_loss: buyPrice + config.stop_loss,
+                take_profit: buyPrice + config.take_profit,
+                trailing_stop: config.use_trailing_stop ? buyPrice + config.stop_loss : 0,
                 breakeven_active: false
             };
 
