@@ -46,7 +46,7 @@ export default Engine =>
             this.minimumTradeDelay = 200; // Configurable minimum delay between trades
 
             console.log('🟦 MARTINGALE ENGINE: Initialized with optimized sequential trading mode (200ms delay)');
-            
+
             // Configure martingale from bot parameters
             this.configureMartingaleFromBot();
         }
@@ -56,38 +56,38 @@ export default Engine =>
             try {
                 // Access bot configuration from various possible sources
                 const botConfig = this.getBotConfiguration();
-                
+
                 if (botConfig) {
                     // Set martingale parameters from bot configuration
                     this.martingaleState.isEnabled = botConfig.martingale_enabled !== false; // Enable by default unless explicitly disabled
-                    
+
                     // Try multiple possible keys for the martingale multiplier from bot builder
                     const multiplierValue = parseFloat(botConfig.size) || 
                                           parseFloat(botConfig.martingale_size) || 
                                           parseFloat(botConfig.martingale_multiplier) || 
                                           parseFloat(botConfig.multiplier) || 
                                           2; // Default to 2 if not found
-                    
+
                     this.martingaleState.martingaleMultiplier = multiplierValue;
                     this.martingaleState.profitThreshold = parseFloat(botConfig.profit) || null;
                     this.martingaleState.lossThreshold = parseFloat(botConfig.loss) || null;
                     this.martingaleState.maxStake = parseFloat(botConfig.max_stake) || null;
-                    
+
                     // Calculate max consecutive losses based on max stake and user's multiplier
                     if (this.martingaleState.maxStake && this.tradeOptions.amount) {
                         const baseAmount = this.tradeOptions.amount;
                         const userMultiplier = this.martingaleState.martingaleMultiplier;
                         let consecutiveLosses = 0;
                         let currentStake = baseAmount;
-                        
+
                         while (currentStake <= this.martingaleState.maxStake) {
                             consecutiveLosses++;
                             currentStake = baseAmount * Math.pow(userMultiplier, consecutiveLosses);
                         }
-                        
+
                         this.martingaleState.maxConsecutiveLosses = Math.max(1, consecutiveLosses - 1);
                     }
-                    
+
                     console.log('🔧 MARTINGALE CONFIGURED:');
                     console.log(`   - Enabled: ${this.martingaleState.isEnabled}`);
                     console.log(`   - Multiplier: ${this.martingaleState.martingaleMultiplier}x (user configurable)`);
@@ -112,23 +112,23 @@ export default Engine =>
         // Get bot configuration from various possible sources
         getBotConfiguration() {
             // Try to get configuration from different possible sources
-            
+
             // 1. From tradeOptions if it contains bot config
             if (this.tradeOptions && this.tradeOptions.botConfig) {
                 console.log('🔧 Found bot config in tradeOptions:', this.tradeOptions.botConfig);
                 return this.tradeOptions.botConfig;
             }
-            
+
             // 2. From options if it contains strategy config
             if (this.options && this.options.strategyConfig) {
                 console.log('🔧 Found strategy config in options:', this.options.strategyConfig);
                 return this.options.strategyConfig;
             }
-            
+
             // 3. From store if available (most common for bot builder)
             if (this.store && this.store.getState) {
                 const state = this.store.getState();
-                
+
                 // Try quick strategy store first
                 if (state.quickStrategy && state.quickStrategy.formValues) {
                     const formValues = state.quickStrategy.formValues;
@@ -142,7 +142,7 @@ export default Engine =>
                         initial_stake: formValues.stake || formValues.amount
                     };
                 }
-                
+
                 // Try bot builder store
                 if (state.botBuilder || state.quickStrategy) {
                     const builderState = state.botBuilder || state.quickStrategy;
@@ -157,13 +157,13 @@ export default Engine =>
                     };
                 }
             }
-            
+
             // 4. From global bot store/workspace
             if (typeof window !== 'undefined' && window.Blockly && window.Blockly.derivWorkspace) {
                 try {
                     const workspace = window.Blockly.derivWorkspace;
                     const xml = workspace.getXmlDom();
-                    
+
                     // Extract martingale parameters from XML
                     const config = this.extractMartingaleFromXML(xml);
                     if (config) {
@@ -174,20 +174,20 @@ export default Engine =>
                     console.warn('Could not extract config from Blockly workspace:', e);
                 }
             }
-            
+
             // 5. Check global variables that might contain bot configuration
             if (typeof window !== 'undefined') {
                 if (window.bot_config) {
                     console.log('🔧 Found global bot_config:', window.bot_config);
                     return window.bot_config;
                 }
-                
+
                 if (window.strategy_config) {
                     console.log('🔧 Found global strategy_config:', window.strategy_config);
                     return window.strategy_config;
                 }
             }
-            
+
             console.warn('⚠️ No bot configuration found, using defaults');
             return null;
         }
@@ -196,40 +196,40 @@ export default Engine =>
         extractMartingaleFromXML(xml) {
             try {
                 const config = {};
-                
+
                 // Look for martingale-related blocks in the XML
                 const blocks = xml.querySelectorAll('block');
-                
+
                 blocks.forEach(block => {
                     const type = block.getAttribute('type');
-                    
+
                     // Look for trade parameters and martingale settings
                     if (type && type.includes('trade_definition')) {
                         const fields = block.querySelectorAll('field');
                         fields.forEach(field => {
                             const name = field.getAttribute('name');
                             const value = field.textContent;
-                            
+
                             if (name === 'STAKE' || name === 'AMOUNT') {
                                 config.initial_stake = parseFloat(value);
                             }
                         });
                     }
-                    
+
                     // Look for martingale multiplier
                     if (type && (type.includes('martingale') || type.includes('size'))) {
                         const fields = block.querySelectorAll('field');
                         fields.forEach(field => {
                             const name = field.getAttribute('name');
                             const value = field.textContent;
-                            
+
                             if (name === 'SIZE' || name === 'MULTIPLIER') {
                                 config.size = parseFloat(value);
                             }
                         });
                     }
                 });
-                
+
                 return Object.keys(config).length > 0 ? config : null;
             } catch (error) {
                 console.warn('Error extracting config from XML:', error);
@@ -320,7 +320,13 @@ export default Engine =>
 
                 if (this.is_proposal_subscription_required) {
                     const { id, askPrice } = this.selectProposal(contract_type);
-                    const action = () => api_base.api.send({ buy: id, price: askPrice });
+
+                    // OAuth authenticated purchase - no additional token needed
+                    const action = () => {
+                        console.log('🔄 Purchasing contract with proposal via OAuth WebSocket...');
+                        console.log('📋 Proposal ID:', id, 'Price:', askPrice);
+                        return api_base.api.send({ buy: id, price: askPrice });
+                    };
 
                     this.isSold = false;
 
@@ -356,7 +362,14 @@ export default Engine =>
                 }
 
                 const trade_option = tradeOptionToBuy(contract_type, this.tradeOptions);
-                const action = () => api_base.api.send(trade_option);
+
+                // For OAuth users, directly send the purchase request
+                // No additional authorization needed as user already authenticated
+                const action = () => {
+                    console.log('🔄 Purchasing contract via OAuth authenticated WebSocket...');
+                    console.log('📋 Contract options:', trade_option);
+                    return api_base.api.send(trade_option);
+                };
 
                 this.isSold = false;
 
@@ -409,7 +422,7 @@ export default Engine =>
             // Calculate current stake based on consecutive losses using user-defined multiplier
             const userMultiplier = this.martingaleState.martingaleMultiplier;
             const currentStake = baseAmount * Math.pow(userMultiplier, consecutiveLosses);
-            
+
             // Check max stake limit if configured
             if (this.martingaleState.maxStake && currentStake > this.martingaleState.maxStake) {
                 console.log(`⚠️ STAKE LIMIT: Calculated ${currentStake} exceeds max ${this.martingaleState.maxStake}, using base`);
@@ -447,17 +460,17 @@ export default Engine =>
 
                 if (newConsecutiveLosses <= maxConsecutiveLosses) {
                     this.martingaleState.consecutiveLosses = newConsecutiveLosses;
-                    
+
                     // Multiply by user-defined multiplier for each consecutive loss
                     const newStake = baseAmount * Math.pow(userMultiplier, newConsecutiveLosses);
-                    
+
                     // Check max stake limit if configured
                     if (this.martingaleState.maxStake && newStake > this.martingaleState.maxStake) {
                         console.log(`⚠️ STAKE LIMIT: Calculated ${newStake} exceeds max ${this.martingaleState.maxStake}, resetting to base`);
                         this.resetMartingale();
                         return;
                     }
-                    
+
                     this.tradeOptions.amount = Math.round(newStake * 100) / 100;
 
                     console.log(`🔴 LOSS: Multiplying stake by ${userMultiplier}x`);

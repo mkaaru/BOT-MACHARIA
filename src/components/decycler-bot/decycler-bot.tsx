@@ -752,7 +752,7 @@ const DecyclerBot: React.FC = observer(() => {
             };
 
             addLog(`💰 Purchasing contract with proposal ID ${proposalId} for $${config.stake}...`);
-            addLog(`🔑 Using authenticated session with app_id 75771 (OAuth user)`);
+            addLog(`🔑 Using OAuth authenticated WebSocket connection`);
             
             const buyResponse = await Promise.race([
                 api_base.api.send(buyRequest),
