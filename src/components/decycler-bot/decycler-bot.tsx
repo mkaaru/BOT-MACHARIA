@@ -625,20 +625,30 @@ const DecyclerBot: React.FC = observer(() => {
 
     // Execute trade
     const executeTrade = useCallback(async (direction: 'UP' | 'DOWN'): Promise<void> => {
-        if (!api_base.api) {
-            addLog('❌ API not connected');
+        if (!api_base.api || api_base.api.connection.readyState !== 1) {
+            addLog('❌ API not connected or WebSocket not ready');
             return;
         }
 
         try {
+            addLog(`🎯 Executing ${direction} trade on ${config.symbol}...`);
+
+            // Map contract types correctly for Deriv API
             const contractTypeMap = {
                 rise_fall: direction === 'UP' ? 'CALL' : 'PUT',
                 higher_lower: direction === 'UP' ? 'CALLE' : 'PUTE'
             };
 
             const contractType = contractTypeMap[config.contract_type];
+            
+            // Get current server time for proposal
+            const timeResponse = await api_base.api.send({ time: 1 });
+            if (timeResponse.error) {
+                addLog(`❌ Failed to get server time: ${timeResponse.error.message}`);
+                return;
+            }
 
-            // Get proposal
+            // Create proposal request
             const proposalRequest = {
                 proposal: 1,
                 amount: config.stake,
@@ -647,50 +657,100 @@ const DecyclerBot: React.FC = observer(() => {
                 currency: 'USD',
                 duration: config.tick_count,
                 duration_unit: 't',
-                symbol: config.symbol
+                symbol: config.symbol,
+                req_id: `proposal_${Date.now()}`
             };
 
-            addLog(`🔄 Getting proposal for ${contractType} on ${config.symbol}...`);
-            const proposalResponse = await api_base.api.send(proposalRequest);
+            addLog(`📋 Getting proposal: ${contractType} ${config.stake} USD on ${config.symbol} for ${config.tick_count} ticks`);
+            
+            const proposalResponse = await Promise.race([
+                api_base.api.send(proposalRequest),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Proposal timeout')), 10000)
+                )
+            ]);
 
             if (proposalResponse.error) {
-                addLog(`❌ Proposal error: ${proposalResponse.error.message}`);
+                addLog(`❌ Proposal error: ${proposalResponse.error.message} (Code: ${proposalResponse.error.code})`);
+                
+                // Log additional error details for debugging
+                if (proposalResponse.error.details) {
+                    addLog(`📋 Error details: ${JSON.stringify(proposalResponse.error.details)}`);
+                }
+                return;
+            }
+
+            if (!proposalResponse.proposal) {
+                addLog(`❌ No proposal received from API`);
                 return;
             }
 
             const proposalId = proposalResponse.proposal.id;
             const entrySpot = proposalResponse.proposal.spot;
+            const payout = proposalResponse.proposal.payout;
+            const displayValue = proposalResponse.proposal.display_value;
+
+            addLog(`📊 Proposal received: ID ${proposalId}, Entry spot: ${entrySpot}, Payout: ${payout}`);
 
             // Purchase contract
             const buyRequest = {
                 buy: proposalId,
-                price: config.stake
+                price: config.stake,
+                req_id: `buy_${Date.now()}`
             };
 
-            addLog(`💰 Purchasing contract ${proposalId}...`);
-            const buyResponse = await api_base.api.send(buyRequest);
+            addLog(`💰 Purchasing contract with proposal ID: ${proposalId}...`);
+            
+            const buyResponse = await Promise.race([
+                api_base.api.send(buyRequest),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Purchase timeout')), 15000)
+                )
+            ]);
 
             if (buyResponse.error) {
-                addLog(`❌ Purchase error: ${buyResponse.error.message}`);
+                addLog(`❌ Purchase error: ${buyResponse.error.message} (Code: ${buyResponse.error.code})`);
+                
+                // Check for specific error codes
+                if (buyResponse.error.code === 'InsufficientBalance') {
+                    addLog(`💰 Insufficient balance. Please add funds to your account.`);
+                } else if (buyResponse.error.code === 'InvalidProposal') {
+                    addLog(`📋 Proposal expired. Market conditions may have changed.`);
+                } else if (buyResponse.error.code === 'MarketIsClosed') {
+                    addLog(`🕐 Market is closed for ${config.symbol}`);
+                }
+                return;
+            }
+
+            if (!buyResponse.buy) {
+                addLog(`❌ No purchase confirmation received`);
                 return;
             }
 
             const contractId = buyResponse.buy.contract_id;
-            addLog(`✅ Contract purchased: ${contractId}`);
+            const buyPrice = buyResponse.buy.buy_price;
+            const startTime = buyResponse.buy.start_time;
 
-            // Update contract info
+            addLog(`✅ Contract purchased successfully!`);
+            addLog(`📄 Contract ID: ${contractId}`);
+            addLog(`💰 Buy Price: ${buyPrice} USD`);
+            addLog(`📊 Entry Spot: ${entrySpot}`);
+            addLog(`🎯 Direction: ${direction}`);
+            addLog(`⏰ Start Time: ${new Date(startTime * 1000).toLocaleTimeString()}`);
+
+            // Create contract info
             const newContract: ContractInfo = {
                 id: contractId,
                 type: contractType,
-                entry_price: entrySpot,
-                current_price: entrySpot,
+                entry_price: parseFloat(entrySpot),
+                current_price: parseFloat(entrySpot),
                 profit: 0,
                 status: 'open',
-                entry_time: Date.now(),
+                entry_time: startTime * 1000,
                 direction,
-                stop_loss: entrySpot + config.stop_loss,
-                take_profit: entrySpot + config.take_profit,
-                trailing_stop: config.use_trailing_stop ? entrySpot + config.stop_loss : 0,
+                stop_loss: parseFloat(entrySpot) + config.stop_loss,
+                take_profit: parseFloat(entrySpot) + config.take_profit,
+                trailing_stop: config.use_trailing_stop ? parseFloat(entrySpot) + config.stop_loss : 0,
                 breakeven_active: false
             };
 
@@ -701,36 +761,139 @@ const DecyclerBot: React.FC = observer(() => {
             }));
 
             // Start monitoring the contract
-            monitorContract(contractId);
+            await monitorContract(contractId);
+
+            addLog(`👁️ Contract monitoring started for ${contractId}`);
 
         } catch (error) {
-            addLog(`❌ Trade execution failed: ${error.message}`);
+            const errorMessage = error.message || 'Unknown error occurred';
+            addLog(`❌ Trade execution failed: ${errorMessage}`);
+            console.error('Trade execution error:', error);
+            
+            // Reset contract status on error
+            setBotStatus(prev => ({
+                ...prev,
+                current_contract: null,
+                error_message: `Trade execution failed: ${errorMessage}`
+            }));
         }
-    }, [config, addLog]);
+    }, [config, addLog, monitorContract, setBotStatus]);
 
     // Monitor open contract
     const monitorContract = useCallback(async (contractId: string): Promise<void> => {
-        if (!api_base.api) return;
+        if (!api_base.api || api_base.api.connection.readyState !== 1) {
+            addLog('❌ API not available for contract monitoring');
+            return;
+        }
 
         try {
             const request = {
                 proposal_open_contract: 1,
                 contract_id: contractId,
-                subscribe: 1
+                subscribe: 1,
+                req_id: `monitor_${contractId}`
             };
 
-            const response = await api_base.api.send(request);
+            addLog(`👁️ Starting contract monitoring for ${contractId}...`);
+            
+            const response = await Promise.race([
+                api_base.api.send(request),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Monitor subscription timeout')), 10000)
+                )
+            ]);
 
             if (response.error) {
                 addLog(`❌ Contract monitoring error: ${response.error.message}`);
-                return;
+                // Don't return here, we might still want to try monitoring
+            } else if (response.proposal_open_contract) {
+                addLog(`✅ Contract monitoring subscription successful`);
+                
+                // Log initial contract details
+                const contract = response.proposal_open_contract;
+                addLog(`📊 Contract Status: ${contract.status || 'open'}`);
+                if (contract.current_spot) {
+                    addLog(`📈 Current Spot: ${contract.current_spot}`);
+                }
+                if (contract.profit) {
+                    addLog(`💰 Current P&L: ${contract.profit}`);
+                }
             }
 
-            addLog(`👁️ Monitoring contract ${contractId}`);
+            // Set up periodic contract status checking as backup
+            const statusCheckInterval = setInterval(async () => {
+                if (!botStatus.current_contract || botStatus.current_contract.id !== contractId) {
+                    clearInterval(statusCheckInterval);
+                    return;
+                }
+
+                try {
+                    const statusRequest = {
+                        proposal_open_contract: 1,
+                        contract_id: contractId,
+                        req_id: `status_${Date.now()}`
+                    };
+
+                    const statusResponse = await api_base.api.send(statusRequest);
+                    
+                    if (statusResponse.proposal_open_contract) {
+                        const contract = statusResponse.proposal_open_contract;
+                        
+                        // Update contract info in state
+                        setBotStatus(prev => {
+                            if (!prev.current_contract || prev.current_contract.id !== contractId) {
+                                return prev;
+                            }
+
+                            const updatedContract = {
+                                ...prev.current_contract,
+                                current_price: contract.current_spot || prev.current_contract.current_price,
+                                profit: contract.profit || 0,
+                                status: contract.is_sold ? 'closed' : 'open'
+                            };
+
+                            return {
+                                ...prev,
+                                current_contract: updatedContract
+                            };
+                        });
+
+                        // Check if contract is finished
+                        if (contract.is_sold) {
+                            clearInterval(statusCheckInterval);
+                            const isWin = contract.profit > 0;
+                            
+                            addLog(`🏁 Contract ${contractId} finished!`);
+                            addLog(`${isWin ? '🎉 WIN' : '💔 LOSS'} - Final P&L: ${contract.profit.toFixed(2)} USD`);
+                            addLog(`📊 Final spot: ${contract.current_spot}`);
+                            addLog(`⏰ Duration: ${Math.round((Date.now() - botStatus.current_contract?.entry_time) / 1000)}s`);
+
+                            // Update final stats
+                            setBotStatus(prev => ({
+                                ...prev,
+                                current_contract: null,
+                                winning_trades: isWin ? prev.winning_trades + 1 : prev.winning_trades,
+                                total_pnl: prev.total_pnl + contract.profit
+                            }));
+                        }
+                    }
+                } catch (statusError) {
+                    addLog(`⚠️ Status check failed: ${statusError.message}`);
+                }
+            }, 2000); // Check every 2 seconds
+
+            // Clean up interval after 5 minutes maximum
+            setTimeout(() => {
+                clearInterval(statusCheckInterval);
+                addLog(`⏰ Contract monitoring timeout for ${contractId}`);
+            }, 300000);
+
         } catch (error) {
-            addLog(`❌ Failed to monitor contract: ${error.message}`);
+            const errorMessage = error.message || 'Unknown monitoring error';
+            addLog(`❌ Failed to monitor contract: ${errorMessage}`);
+            console.error('Contract monitoring error:', error);
         }
-    }, [addLog]);
+    }, [addLog, botStatus.current_contract, setBotStatus]);
 
     // Main trading loop
     const tradingLoop = useCallback(async (): Promise<void> => {
@@ -776,14 +939,63 @@ const DecyclerBot: React.FC = observer(() => {
             if (!botStatus.current_contract && (alignment === 'aligned_bullish' || alignment === 'aligned_bearish')) {
                 const direction = alignment === 'aligned_bullish' ? 'UP' : 'DOWN';
 
+                // Check if API is properly connected and authenticated
+                if (!api_base.api || api_base.api.connection.readyState !== 1) {
+                    addLog('❌ API connection lost - cannot execute trade');
+                    return;
+                }
+
+                // Check account balance before trading
+                try {
+                    const balanceResponse = await api_base.api.send({ balance: 1, account: 'all' });
+                    
+                    if (balanceResponse.error) {
+                        addLog(`❌ Cannot check balance: ${balanceResponse.error.message}`);
+                        return;
+                    }
+
+                    const currentBalance = balanceResponse.balance?.balance || 0;
+                    addLog(`💰 Current balance: ${currentBalance} USD`);
+
+                    if (currentBalance < config.stake) {
+                        addLog(`❌ Insufficient balance: ${currentBalance} USD < ${config.stake} USD required`);
+                        addLog('💡 Please add funds to your account to continue trading');
+                        return;
+                    }
+
+                    if (currentBalance < config.stake * 3) {
+                        addLog(`⚠️ Low balance warning: Only ${currentBalance} USD remaining`);
+                    }
+
+                } catch (balanceError) {
+                    addLog(`⚠️ Balance check failed: ${balanceError.message} - Proceeding with trade attempt`);
+                }
+
                 // Optional 10s confirmation
                 if (config.use_10s_filter) {
                     addLog('⏱️ Applying 10-second confirmation filter...');
-                    // Add a small delay for confirmation
                     await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Re-check alignment after delay
+                    const reconfirmTrends = await analyzeAllTimeframes();
+                    const reconfirmAlignment = checkAlignment(reconfirmTrends);
+                    
+                    if (reconfirmAlignment !== alignment) {
+                        addLog(`⚠️ Trend alignment changed during confirmation: ${alignment} → ${reconfirmAlignment}`);
+                        addLog('❌ Trade cancelled due to alignment change');
+                        return;
+                    }
+                    
+                    addLog('✅ Trend alignment confirmed after 10s filter');
                 }
 
-                addLog(`🎯 Strong ${direction} alignment detected - Preparing trade execution!`);
+                addLog(`🎯 Strong ${direction} alignment detected - Executing trade!`);
+                addLog(`📊 Alignment: ${alignment.toUpperCase()}`);
+                addLog(`📈 Direction: ${direction}`);
+                addLog(`💰 Stake: ${config.stake} USD`);
+                addLog(`📋 Contract: ${config.contract_type.toUpperCase()}`);
+                addLog(`⏰ Duration: ${config.tick_count} ticks`);
+                
                 await executeTrade(direction);
             } else if (!botStatus.current_contract) {
                 addLog('⏳ Waiting for trend alignment - No trade signal yet');
