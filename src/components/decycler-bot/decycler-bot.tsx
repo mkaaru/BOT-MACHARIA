@@ -1193,77 +1193,63 @@ const DecyclerBot: React.FC = observer(() => {
 
   // Contract Purchase Function
   const purchaseContract = async (direction: 'CALL' | 'PUT' | 'CALLE' | 'PUTE') => {
-    if (!isAuthorized || !authToken || currentContract) {
-      addLog(`❌ Cannot purchase: ${!isAuthorized ? 'Not authorized' : 'Contract already active'}`);
-      return;
-    }
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            addLog('❌ WebSocket not connected');
+            return;
+        }
 
-    try {
-      if (!api_base.api) {
-        addLog(`❌ API not available for contract purchase`);
-        return;
-      }
+        try {
+            // Get proposal first
+            const proposal = await sendProposal(contractType);
+            if (!proposal?.id) {
+                addLog('❌ Failed to get proposal');
+                return;
+            }
 
-      addLog(`🔄 Getting proposal for ${direction} contract...`);
+            // Purchase contract using authenticated connection with app ID 75771
+            const buyRequest = {
+                buy: proposal.id,
+                price: config.stake,
+                app_id: 75771 // Use authenticated app ID
+            };
 
-      // Get proposal first
-      const proposalRequest = {
-        proposal: 1,
-        amount: parseFloat(config.stake),
-        basis: 'stake',
-        contract_type: direction,
-        currency: 'USD',
-        duration: parseInt(config.tick_count),
-        duration_unit: 't',
-        symbol: config.symbol
-      };
+            addLog(`🔄 Purchasing ${contractType} contract for ${config.stake} USD...`);
+            addLog(`📋 Contract ID: ${proposal.id}`);
 
-      const proposalResponse = await api_base.api.send(proposalRequest);
+            const response = await new Promise((resolve, reject) => {
+                const requestId = `buy_${Date.now()}`;
 
-      if (proposalResponse.error) {
-        addLog(`❌ Proposal error: ${proposalResponse.error.message}`);
-        return;
-      }
+                const messageHandler = (event: MessageEvent) => {
+                    const data = JSON.parse(event.data);
+                    if (data.req_id === requestId) {
+                        ws.removeEventListener('message', messageHandler);
+                        if (data.error) {
+                            addLog(`❌ Purchase error: ${data.error.message}`);
+                            reject(new Error(data.error.message));
+                        } else {
+                            const contractId = data.buy?.contract_id;
+                            const buyPrice = data.buy?.buy_price;
+                            addLog(`✅ Contract purchased: ID ${contractId}, Price: ${buyPrice}`);
+                            resolve(data);
+                        }
+                    }
+                };
 
-      const proposalId = proposalResponse.proposal.id;
-      addLog(`✅ Proposal received: ${proposalId}`);
+                ws.addEventListener('message', messageHandler);
+                ws.send(JSON.stringify({ ...buyRequest, req_id: requestId }));
 
-      // Purchase the contract
-      const buyRequest = {
-        buy: proposalId,
-        price: parseFloat(config.stake)
-      };
+                setTimeout(() => {
+                    ws.removeEventListener('message', messageHandler);
+                    reject(new Error('Purchase request timeout'));
+                }, 15000);
+            });
 
-      const buyResponse = await api_base.api.send(buyRequest);
-
-      if (buyResponse.error) {
-        addLog(`❌ Purchase error: ${buyResponse.error.message}`);
-        return;
-      }
-
-      const contractId = buyResponse.buy.contract_id;
-      addLog(`🎉 Contract purchased: ${contractId} for $${buyResponse.buy.buy_price}`);
-
-      // Set current contract
-      setCurrentContract({
-        id: contractId,
-        type: direction,
-        stake: parseFloat(config.stake),
-        startTime: Date.now(),
-        payout: buyResponse.buy.payout || 0
-      });
-
-      // Start monitoring the contract
-      monitorContract(contractId);
-
-      return buyResponse;
-
-    } catch (error) {
-      addLog(`💥 Contract purchase failed: ${error.message}`);
-      console.error('Contract purchase failed:', error);
-      setLastSignal(`Purchase error: ${error.message}`);
-    }
-  };
+            return response;
+        } catch (error) {
+            addLog(`❌ Purchase failed: ${error.message}`);
+            throw error;
+        }
+    };
 
   // Enhanced trading opportunity check with contract type support
     const checkTradingOpportunity = useCallback(async () => {
@@ -1285,10 +1271,10 @@ const DecyclerBot: React.FC = observer(() => {
 
             addLog(`🎯 ${bullishCount}/${timeframes.length} timeframes bullish - Purchasing ${contractName}`);
             setLastSignal(`${bullishCount}/${timeframes.length} timeframes bullish - Purchasing ${contractName}`);
-            
+
             try {
                 await purchaseContract(contractType);
-                
+
                 // Update performance metrics
                 setBotStatus(prev => ({
                     ...prev,
@@ -1305,10 +1291,10 @@ const DecyclerBot: React.FC = observer(() => {
 
             addLog(`🎯 ${bearishCount}/${timeframes.length} timeframes bearish - Purchasing ${contractName}`);
             setLastSignal(`${bearishCount}/${timeframes.length} timeframes bearish - Purchasing ${contractName}`);
-            
+
             try {
                 await purchaseContract(contractType);
-                
+
                 // Update performance metrics
                 setBotStatus(prev => ({
                     ...prev,
