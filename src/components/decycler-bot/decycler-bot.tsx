@@ -976,6 +976,27 @@ const DecyclerBot: React.FC = observer(() => {
             if (!botStatus.current_contract && (alignment === 'aligned_bullish' || alignment === 'aligned_bearish')) {
                 const direction = alignment === 'aligned_bullish' ? 'UP' : 'DOWN';
 
+                // Check if trading is authorized and enabled
+                if (!isAuthorized) {
+                    addLog('🔑 ❌ TRADING BLOCKED: Not authorized with Deriv API token');
+                    addLog('📝 Please add your Deriv API token with trading permissions to enable trading');
+                    setBotStatus(prev => ({
+                        ...prev,
+                        error_message: 'Trading blocked - API authorization required'
+                    }));
+                    return;
+                }
+
+                if (!tradingEnabled) {
+                    addLog('🔄 ❌ TRADING BLOCKED: Auto trading is disabled');
+                    addLog('📝 Please enable "Auto Trading" checkbox to allow trade execution');
+                    setBotStatus(prev => ({
+                        ...prev,
+                        error_message: 'Trading blocked - Auto trading disabled'
+                    }));
+                    return;
+                }
+
                 // Optional 10s confirmation
                 if (config.use_10s_filter) {
                     addLog('⏱️ Applying 10-second confirmation filter...');
@@ -983,10 +1004,16 @@ const DecyclerBot: React.FC = observer(() => {
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 }
 
-                addLog(`🎯 Strong ${direction} alignment detected - Preparing trade execution!`);
+                addLog(`🎯 Strong ${direction} alignment detected - Executing ${direction} trade!`);
+                addLog(`💰 Stake: $${config.stake} | Contract: ${config.contract_type.toUpperCase()}`);
                 await executeTrade(direction);
             } else if (!botStatus.current_contract) {
-                addLog('⏳ Waiting for trend alignment - No trade signal yet');
+                if (!isAuthorized || !tradingEnabled) {
+                    const reason = !isAuthorized ? 'not authorized' : 'auto trading disabled';
+                    addLog(`⏳ Trend analysis complete - Trading disabled (${reason})`);
+                } else {
+                    addLog('⏳ Waiting for trend alignment - No trade signal yet');
+                }
             } else {
                 addLog('📊 Active contract in progress - Monitoring...');
             }
@@ -2065,46 +2092,58 @@ const DecyclerBot: React.FC = observer(() => {
                             )}
                         </div>
 
-          <div className="control-item">
-            <span className="control-label">Trading Status:</span>
-            <span className={`status ${isAuthorized ? 'connected' : 'disconnected'}`}>
-              {isAuthorized ? '🟢 Authorized' : '🔴 Not Authorized'}
-            </span>
-          </div>
+          <div className="trading-authorization">
+            <h4>🔑 Trading Authorization Required</h4>
+            
+            <div className="control-item">
+              <span className="control-label">Trading Status:</span>
+              <span className={`status ${isAuthorized ? 'connected' : 'disconnected'}`}>
+                {isAuthorized ? '🟢 Authorized for Trading' : '🔴 Not Authorized - Trading Disabled'}
+              </span>
+            </div>
 
-          <div className="control-item">
-            <label className="control-label">
-              API Token:
-              <input
-                type="password"
-                value={authToken}
-                onChange={(e) => setAuthToken(e.target.value)}
-                placeholder="Enter your Deriv API token"
-                className="form-input"
-                style={{ marginLeft: '10px', width: '200px' }}
-              />
-            </label>
-            <button
-              onClick={() => authorizeAPI(authToken)}
-              disabled={!authToken || isAuthorized}
-              className="btn btn-primary"
-              style={{ marginLeft: '10px' }}
-            >
-              {isAuthorized ? 'Authorized' : 'Authorize'}
-            </button>
-          </div>
+            {!isAuthorized && (
+              <div className="auth-warning">
+                ⚠️ <strong>Trading is disabled.</strong> You need to authorize with a Deriv API token that has trading permissions.
+                <br />
+                Get your token from: <a href="https://app.deriv.com/account/api-token" target="_blank" rel="noopener noreferrer">Deriv API Token Page</a>
+              </div>
+            )}
 
-          <div className="control-item">
-            <label className="control-label">
-              <input
-                type="checkbox"
-                checked={tradingEnabled}
-                onChange={(e) => setTradingEnabled(e.target.checked)}
-                disabled={!isAuthorized}
-                style={{ marginRight: '10px' }}
-              />
-              Enable Auto Trading
-            </label>
+            <div className="control-item">
+              <label className="control-label">
+                API Token (with Trading Permissions):
+                <input
+                  type="password"
+                  value={authToken}
+                  onChange={(e) => setAuthToken(e.target.value)}
+                  placeholder="Enter your Deriv API token with trading permissions"
+                  className="form-input"
+                  style={{ marginLeft: '10px', width: '300px' }}
+                />
+              </label>
+              <button
+                onClick={() => authorizeAPI(authToken)}
+                disabled={!authToken || isAuthorized}
+                className="btn btn-primary"
+                style={{ marginLeft: '10px' }}
+              >
+                {isAuthorized ? '✅ Authorized' : '🔑 Authorize'}
+              </button>
+            </div>
+
+            <div className="control-item">
+              <label className="control-label">
+                <input
+                  type="checkbox"
+                  checked={tradingEnabled}
+                  onChange={(e) => setTradingEnabled(e.target.checked)}
+                  disabled={!isAuthorized}
+                  style={{ marginRight: '10px' }}
+                />
+                Enable Auto Trading {!isAuthorized && '(Requires Authorization)'}
+              </label>
+            </div>
           </div>
 
           {currentContract && (
