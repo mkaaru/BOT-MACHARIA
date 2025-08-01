@@ -12,7 +12,7 @@ interface DecyclerConfig {
     tick_count: number;
     use_10s_filter: boolean;
     monitor_interval: number;
-    contract_type: 'rise_fall' | 'higher_lower';
+    contract_type: 'rise_fall' | 'higher_lower' | 'allow_equals';
     use_trailing_stop: boolean;
     trailing_step: number;
     use_breakeven: boolean;
@@ -64,7 +64,7 @@ const DecyclerBot: React.FC = observer(() => {
         tick_count: 5,
         use_10s_filter: true,
         monitor_interval: 10,
-        contract_type: 'rise_fall',
+        contract_type: 'allow_equals',
         use_trailing_stop: true,
         trailing_step: 0.5,
         use_breakeven: true,
@@ -731,20 +731,50 @@ const DecyclerBot: React.FC = observer(() => {
         addLog(`✅ DEBUG: API connection exists, readyState: ${api_base.api.connection?.readyState}`);
 
         try {
-            const contractTypeMap = {
-                rise_fall: direction === 'UP' ? 'CALL' : 'PUT',
-                higher_lower: direction === 'UP' ? 'CALLE' : 'PUTE'
-            };
+            // Contract type mapping according to Deriv documentation
+            let contractType: string;
+            let barrier: string | undefined;
 
-            const contractType = contractTypeMap[config.contract_type];
-            addLog(`🔧 DEBUG: Contract type mapping - ${config.contract_type} + ${direction} = ${contractType}`);
+            if (config.contract_type === 'rise_fall') {
+                // Rise/Fall contracts
+                if (direction === 'UP') {
+                    contractType = 'CALL'; // Rise (strict)
+                } else {
+                    contractType = 'PUT'; // Fall (strict)
+                }
+                addLog(`📊 Using Rise/Fall contract: ${contractType} (strict comparison)`);
+            } else if (config.contract_type === 'higher_lower') {
+                // Higher/Lower contracts with barrier
+                if (direction === 'UP') {
+                    contractType = 'CALL'; // Higher
+                } else {
+                    contractType = 'PUT'; // Lower
+                }
+                
+                // For Higher/Lower, we need a barrier relative to current price
+                // Let's use a small offset from current price
+                const offset = direction === 'UP' ? '+0.10' : '-0.10';
+                barrier = offset;
+                addLog(`📊 Using Higher/Lower contract: ${contractType} with barrier: ${barrier}`);
+            } else {
+                // "Allow Equals" option
+                if (direction === 'UP') {
+                    contractType = 'CALLE'; // Rise (allows equals)
+                } else {
+                    contractType = 'PUTE'; // Fall (allows equals)
+                }
+                addLog(`📊 Using Allow Equals contract: ${contractType} (allows equal exit spot)`);
+            }
 
             addLog(`🎯 Executing ${direction} trade: ${contractType} on ${config.symbol}`);
             addLog(`💰 Stake: $${config.stake} | Ticks: ${config.tick_count}`);
+            if (barrier) {
+                addLog(`🎯 Barrier: ${barrier}`);
+            }
 
             // First, let's try a proposal to validate the parameters
             addLog(`🔍 DEBUG: Creating proposal first to validate parameters...`);
-            const proposalRequest = {
+            const proposalRequest: any = {
                 proposal: 1,
                 contract_type: contractType,
                 currency: 'USD',
@@ -755,6 +785,11 @@ const DecyclerBot: React.FC = observer(() => {
                 duration_unit: 't',
                 req_id: Math.floor(Math.random() * 1000000)
             };
+
+            // Add barrier for Higher/Lower contracts
+            if (barrier) {
+                proposalRequest.barrier = barrier;
+            }
 
             addLog(`📋 DEBUG: Proposal request: ${JSON.stringify(proposalRequest, null, 2)}`);
 
@@ -2102,11 +2137,12 @@ const DecyclerBot: React.FC = observer(() => {
                                 <label>Contract Type</label>
                                 <select
                                     value={config.contract_type}
-                                    onChange={e => setConfig(prev => ({ ...prev, contract_type: e.target.value as 'rise_fall' | 'higher_lower' }))}
+                                    onChange={e => setConfig(prev => ({ ...prev, contract_type: e.target.value as 'rise_fall' | 'higher_lower' | 'allow_equals' }))}
                                     disabled={botStatus.is_running}
                                 >
                                     <option value="rise_fall">Rise/Fall (Strict)</option>
-                                    <option value="higher_lower">Higher/Lower (Equals)</option>
+                                    <option value="higher_lower">Higher/Lower (with Barrier)</option>
+                                    <option value="allow_equals">Allow Equals (Rise/Fall + Equals)</option>
                                 </select>
                             </div>
                             <div className="config-item">
