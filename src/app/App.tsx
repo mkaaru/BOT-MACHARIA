@@ -8,7 +8,6 @@ import CallbackPage from '@/pages/callback';
 import Endpoint from '@/pages/endpoint';
 import { TAuthData } from '@/types/api-types';
 import { initializeI18n, localize, TranslationProvider } from '@deriv-com/translations';
-import { initChunkErrorHandling } from '@/utils/chunk-error-handler';
 import CoreStoreProvider from './CoreStoreProvider';
 import './app-root.scss';
 
@@ -47,7 +46,6 @@ const router = createBrowserRouter(
 function App() {
     useEffect(() => {
         initSurvicate();
-        initChunkErrorHandling();
         window?.dataLayer?.push({ event: 'page_load' });
 
         return () => {
