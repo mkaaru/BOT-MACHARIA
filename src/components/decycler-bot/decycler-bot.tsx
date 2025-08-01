@@ -746,7 +746,7 @@ const DecyclerBot: React.FC = observer(() => {
             const subscription = api_base.api.onMessage().subscribe(({ data }) => {
                 if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract) {
                     const contract = data.proposal_open_contract;
-                    
+
                     if (contract.contract_id === contractId) {
                         // Update current contract status
                         setCurrentContract(prev => prev ? {
@@ -758,16 +758,16 @@ const DecyclerBot: React.FC = observer(() => {
                         if (contract.is_sold) {
                             const profit = parseFloat(contract.profit || '0');
                             const isWin = profit > 0;
-                            
+
                             addLog(`${isWin ? '🟢 WIN' : '🔴 LOSS'}: Contract ${contractId} closed with P&L: $${profit}`);
-                            
+
                             // Update performance metrics
                             setBotStatus(prev => {
                                 const newWins = isWin ? prev.wins + 1 : prev.wins;
                                 const newLosses = isWin ? prev.losses : prev.losses + 1;
                                 const newTotalPnL = prev.total_pnl + profit;
                                 const newWinRate = prev.total_trades > 0 ? (newWins / prev.total_trades) * 100 : 0;
-                                
+
                                 return {
                                     ...prev,
                                     wins: newWins,
@@ -779,7 +779,7 @@ const DecyclerBot: React.FC = observer(() => {
 
                             // Clear current contract
                             setCurrentContract(null);
-                            
+
                             // Unsubscribe from this contract
                             subscription.unsubscribe();
                         }
@@ -793,113 +793,10 @@ const DecyclerBot: React.FC = observer(() => {
     }, [addLog]);
 
     // Execute trade
-    const executeTrade = useCallback(async (direction: 'UP' | 'DOWN'): Promise<void> => {
-        if (!api_base.api) {
-            addLog('❌ API not connected');
-            return;
-        }
-
-        try {
-            const contractTypeMap = {
-                rise_fall: direction === 'UP' ? 'CALL' : 'PUT',
-                higher_lower: direction === 'UP' ? 'CALLE' : 'PUTE'
-            };
-
-            const contractType = contractTypeMap[config.contract_type];
-
-            // Get proposal
-            const proposalRequest = {
-                proposal: 1,
-                amount: config.stake,
-                basis: 'stake',
-                contract_type: contractType,
-                currency: 'USD',
-                duration: config.tick_count,
-                duration_unit: 't',
-                symbol: config.symbol
-            };
-
-            addLog(`🔄 Getting proposal for ${contractType} on ${config.symbol}...`);
-            const proposalResponse = await api_base.api.send(proposalRequest);
-
-            if (proposalResponse.error) {
-                addLog(`❌ Proposal error: ${proposalResponse.error.message}`);
-                return;
-            }
-
-            const proposalId = proposalResponse.proposal.id;
-            const entrySpot = proposalResponse.proposal.spot;
-
-            // Purchase contract
-            const buyRequest = {
-                buy: proposalId,
-                price: config.stake
-            };
-
-            addLog(`💰 Purchasing contract ${proposalId}...`);
-            const buyResponse = await api_base.api.send(buyRequest);
-
-            if (buyResponse.error) {
-                addLog(`❌ Purchase error: ${buyResponse.error.message}`);
-                return;
-            }
-
-            const contractId = buyResponse.buy.contract_id;
-            addLog(`✅ Contract purchased: ${contractId}`);
-
-            // Update contract info
-            const newContract: ContractInfo = {
-                id: contractId,
-                type: contractType,
-                entry_price: entrySpot,
-                current_price: entrySpot,
-                profit: 0,
-                status: 'open',
-                entry_time: Date.now(),
-                direction,
-                stop_loss: entrySpot + config.stop_loss,
-                take_profit: entrySpot + config.take_profit,
-                trailing_stop: config.use_trailing_stop ? entrySpot + config.stop_loss : 0,
-                breakeven_active: false
-            };
-
-            setBotStatus(prev => ({
-                ...prev,
-                current_contract: newContract,
-                total_trades: prev.total_trades + 1
-            }));
-
-            // Start monitoring the contract
-            monitorContract(contractId);
-
-        } catch (error) {
-            addLog(`❌ Trade execution failed: ${error.message}`);
-        }
-    }, [config, addLog]);
+    
 
     // Monitor open contract
-    const monitorContract = useCallback(async (contractId: string): Promise<void> => {
-        if (!api_base.api) return;
-
-        try {
-            const request = {
-                proposal_open_contract: 1,
-                contract_id: contractId,
-                subscribe: 1
-            };
-
-            const response = await api_base.api.send(request);
-
-            if (response.error) {
-                addLog(`❌ Contract monitoring error: ${response.error.message}`);
-                return;
-            }
-
-            addLog(`👁️ Monitoring contract ${contractId}`);
-        } catch (error) {
-            addLog(`❌ Failed to monitor contract: ${error.message}`);
-        }
-    }, [addLog]);
+   
 
     // Main trading loop
     const tradingLoop = useCallback(async (): Promise<void> => {
@@ -1365,34 +1262,6 @@ const DecyclerBot: React.FC = observer(() => {
       addLog(`💥 Contract purchase failed: ${error.message}`);
       throw error;
     }
-  } else if (data.buy) {
-            setCurrentContract({
-              id: data.buy.contract_id,
-              type: direction,
-              stake: parseFloat(config.stake),
-              startTime: Date.now(),
-              payout: data.buy.payout
-            });
-
-            setLastSignal(`Contract purchased: ${direction} for $${config.stake}`);
-            ws.close();
-            resolve(data);
-          } else if (data.error) {
-            setLastSignal(`Purchase failed: ${data.error.message}`);
-            ws.close();
-            reject(data.error);
-          }
-        };
-
-        ws.onerror = (error) => {
-          ws.close();
-          reject(error);
-        };
-      });
-    } catch (error) {
-      console.error('Contract purchase failed:', error);
-      setLastSignal(`Purchase error: ${error}`);
-    }
   };
 
   // Enhanced trading opportunity check with contract type support
@@ -1427,13 +1296,13 @@ const DecyclerBot: React.FC = observer(() => {
             try {
                 addLog(`🔄 Executing ${direction} contract for ${config.stake} USD`);
                 await purchaseContract(direction);
-                
+
                 // Update performance metrics
                 setBotStatus(prev => ({
                     ...prev,
                     total_trades: prev.total_trades + 1
                 }));
-                
+
                 addLog(`✅ Contract purchase initiated successfully`);
             } catch (error) {
                 addLog(`❌ Contract purchase failed: ${error.message}`);
@@ -1910,7 +1779,7 @@ const DecyclerBot: React.FC = observer(() => {
             setTimeout(() => {
                 wsRef.current?.removeEventListener('message', handleTickResponse);
                 if (collectedTicks.prices.length > 0) {
-                    constcandles = convertTicksToCandles(collectedTicks.prices, collectedTicks.times, granularity);
+                    const candles = convertTicksToCandles(collectedTicks.prices, collectedTicks.times, granularity);
                     resolve(candles);
                 } else {
                     reject(new Error(`No tick data collected for ${timeframe}`));
