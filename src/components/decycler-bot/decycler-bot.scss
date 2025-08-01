@@ -175,82 +175,98 @@
     }
 
     .control-panel {
-        background: rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
-        padding: 1.5rem;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 25px;
         backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
 
         h3 {
-            margin: 0 0 1rem 0;
-            color: #4dd0e1;
-            font-size: 1.1rem;
+            margin: 0 0 20px 0;
+            font-size: 18px;
             font-weight: 600;
+            color: #00d4ff;
         }
 
-        .trading-authorization {
-            background: rgba(255, 193, 7, 0.1);
-            border: 1px solid rgba(255, 193, 7, 0.3);
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-
-            h4 {
-                margin: 0 0 1rem 0;
-                color: #ffc107;
-                font-size: 1rem;
-                font-weight: 600;
-            }
-
-            .auth-warning {
-                background: rgba(244, 67, 54, 0.1);
-                border: 1px solid rgba(244, 67, 54, 0.3);
-                border-radius: 6px;
-                padding: 0.75rem;
-                margin: 0.5rem 0;
-                color: #ffcdd2;
-                font-size: 0.85rem;
-                line-height: 1.4;
-
-                a {
-                    color: #4dd0e1;
-                    text-decoration: none;
-
-                    &:hover {
-                        text-decoration: underline;
-                    }
-                }
-            }
-        }
-
-        .api-status, .control-item {
+        .api-status {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
+            margin-bottom: 15px;
+            gap: 8px;
+            font-size: 14px;
 
-            .status-label, .control-label {
-                color: #b0bec5;
-                font-weight: 500;
+            .status-label {
+                color: #ccc;
             }
 
-            .status-value, .status {
+            .status-value {
                 font-weight: 600;
-                padding: 0.25rem 0.75rem;
-                border-radius: 6px;
-                font-size: 0.85rem;
 
                 &.connected {
-                    color: #4caf50;
-                    background: rgba(76, 175, 80, 0.1);
+                    color: #00ff88;
                 }
 
                 &.disconnected {
-                    color: #f44336;
-                    background: rgba(244, 67, 54, 0.1);
+                    color: #ff4757;
                 }
             }
+
+            .connection-status {
+                color: #999;
+                font-size: 12px;
+            }
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .control-btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+
+            &.start {
+                background: linear-gradient(45deg, #00ff88, #00d4ff);
+                color: #1e3c72;
+
+                &:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 10px 25px rgba(0, 255, 136, 0.3);
+                }
+            }
+
+            &.stop {
+                background: linear-gradient(45deg, #ff4757, #ff6b7a);
+                color: #ffffff;
+
+                &:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 10px 25px rgba(255, 71, 87, 0.3);
+                }
+            }
+
+            &:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                transform: none !important;
+                box-shadow: none !important;
+            }
+        }
+
+        .api-warning {
+            background: rgba(255, 165, 2, 0.2);
+            border: 1px solid #ffa502;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 14px;
+            color: #ffa502;
         }
     }
 

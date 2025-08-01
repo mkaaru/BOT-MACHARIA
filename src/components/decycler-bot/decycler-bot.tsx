@@ -55,53 +55,6 @@ interface BotStatus {
 }
 
 const DecyclerBot: React.FC = observer(() => {
-    // Error boundary state
-    const [hasError, setHasError] = useState(false);
-
-    // Error boundary effect
-    useEffect(() => {
-        const handleError = (error: any) => {
-            console.error('DecyclerBot Error:', error);
-            // Only set error for critical errors, not minor API issues
-            if (error.message && !error.message.includes('API') && !error.message.includes('WebSocket')) {
-                setHasError(true);
-            }
-        };
-
-        window.addEventListener('error', handleError);
-        window.addEventListener('unhandledrejection', handleError);
-
-        return () => {
-            window.removeEventListener('error', handleError);
-            window.removeEventListener('unhandledrejection', handleError);
-        };
-    }, []);
-
-    if (hasError) {
-        return (
-            <div className="decycler-bot-container">
-                <div className="decycler-header">
-                    <h2>🔬 Decycler Multi-Timeframe Trading Bot</h2>
-                    <div className="bot-status stopped">
-                        <span className="status-dot"></span>
-                        ERROR
-                    </div>
-                </div>
-                <div className="error-message" style={{ padding: '20px', textAlign: 'center' }}>
-                    <p>⚠️ An error occurred while loading the Decycler Bot.</p>
-                    <button 
-                        className="control-btn start" 
-                        onClick={() => {
-                            setHasError(false);
-                        }}
-                        style={{ marginTop: '10px', padding: '10px 20px', backgroundColor: '#007cff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                    >
-                        🔄 Retry
-                    </button>
-                </div>
-            </div>
-        );
-    }
     const [config, setConfig] = useState<DecyclerConfig>({
         app_id: 75771,
         symbol: '1HZ100V',
@@ -145,7 +98,8 @@ const DecyclerBot: React.FC = observer(() => {
         winRate: 0,
         totalPnL: 0
     });
-    
+    const [isAuthorized, setIsAuthorized] = useState(false);
+    const [authToken, setAuthToken] = useState('');
     const [tradingEnabled, setTradingEnabled] = useState(false);
     const [currentContract, setCurrentContract] = useState<any>(null);
     const [tradeHistory, setTradeHistory] = useState<any[]>([]);
@@ -789,7 +743,8 @@ const DecyclerBot: React.FC = observer(() => {
 
             addLog(`✅ Proposal received: ID ${proposalId}, Entry: ${entrySpot}, Payout: ${payout}`);
 
-            // Purchase contract using existing OAuth session
+            // Purchase contract using authenticated API with app_id 75771
+            // The user is already OAuth authenticated, so we use the proposal ID to buy
             const buyRequest = {
                 buy: proposalId,
                 price: config.stake,
@@ -797,7 +752,7 @@ const DecyclerBot: React.FC = observer(() => {
             };
 
             addLog(`💰 Purchasing contract with proposal ID ${proposalId} for $${config.stake}...`);
-            addLog(`🔑 Using OAuth authenticated session`);
+            addLog(`🔑 Using authenticated session with app_id 75771 (OAuth user)`);
             
             const buyResponse = await Promise.race([
                 api_base.api.send(buyRequest),
@@ -1021,17 +976,6 @@ const DecyclerBot: React.FC = observer(() => {
             if (!botStatus.current_contract && (alignment === 'aligned_bullish' || alignment === 'aligned_bearish')) {
                 const direction = alignment === 'aligned_bullish' ? 'UP' : 'DOWN';
 
-                // Check if trading is enabled
-                if (!tradingEnabled) {
-                    addLog('🔄 ❌ TRADING BLOCKED: Auto trading is disabled');
-                    addLog('📝 Please enable "Auto Trading" checkbox to allow trade execution');
-                    setBotStatus(prev => ({
-                        ...prev,
-                        error_message: 'Trading blocked - Auto trading disabled'
-                    }));
-                    return;
-                }
-
                 // Optional 10s confirmation
                 if (config.use_10s_filter) {
                     addLog('⏱️ Applying 10-second confirmation filter...');
@@ -1039,15 +983,10 @@ const DecyclerBot: React.FC = observer(() => {
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 }
 
-                addLog(`🎯 Strong ${direction} alignment detected - Executing ${direction} trade!`);
-                addLog(`💰 Stake: $${config.stake} | Contract: ${config.contract_type.toUpperCase()}`);
+                addLog(`🎯 Strong ${direction} alignment detected - Preparing trade execution!`);
                 await executeTrade(direction);
             } else if (!botStatus.current_contract) {
-                if (!tradingEnabled) {
-                    addLog(`⏳ Trend analysis complete - Trading disabled (auto trading disabled)`);
-                } else {
-                    addLog('⏳ Waiting for trend alignment - No trade signal yet');
-                }
+                addLog('⏳ Waiting for trend alignment - No trade signal yet');
             } else {
                 addLog('📊 Active contract in progress - Monitoring...');
             }
@@ -1068,39 +1007,24 @@ const DecyclerBot: React.FC = observer(() => {
         try {
             addLog('🔄 Starting Decycler Bot...');
 
-            // Initialize API connection with error handling
-            try {
-                if (!api_base.api || api_base.api.connection.readyState !== 1) {
-                    addLog('🔌 Connecting to Deriv API...');
-                    await api_base.init();
+            // Initialize API connection
+            if (!api_base.api || api_base.api.connection.readyState !== 1) {
+                addLog('🔌 Connecting to Deriv API...');
+                await api_base.init();
 
-                    // Wait for connection to be ready with better error handling
-                    let retries = 0;
-                    while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 10) {
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        retries++;
-                        const readyState = api_base.api?.connection?.readyState || 'undefined';
-                        addLog(`⏳ Connection attempt ${retries}/10 - State: ${readyState}`);
-                    }
-
-                    if (!api_base.api || api_base.api.connection.readyState !== 1) {
-                        addLog('❌ API connection failed. Please refresh the page and try again.');
-                        setBotStatus(prev => ({
-                            ...prev,
-                            error_message: 'API connection failed - please refresh page',
-                            is_running: false
-                        }));
-                        return;
-                    }
+                // Wait for connection to be ready
+                let retries = 0;
+                while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    retries++;
+                    const readyState = api_base.api?.connection?.readyState || 'undefined';
+                    addLog(`⏳ Waiting for WebSocket connection... (${retries}/15) - State: ${readyState}`);
                 }
-            } catch (initError) {
-                addLog(`❌ API initialization error: ${initError.message}`);
-                setBotStatus(prev => ({
-                    ...prev,
-                    error_message: `API error: ${initError.message}`,
-                    is_running: false
-                }));
-                return;
+
+                if (!api_base.api || api_base.api.connection.readyState !== 1) {
+                    addLog('❌ Failed to establish WebSocket connection. Please check your internet connection and try again.');
+                    return;
+                }
             }
 
             // Check connection status
@@ -1365,7 +1289,41 @@ const DecyclerBot: React.FC = observer(() => {
     }, [config.symbol]);
 
     // Establish WebSocket connection on component mount
-  
+  const authorizeAPI = async (token: string) => {
+    try {
+      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
+
+      return new Promise((resolve, reject) => {
+        ws.onopen = () => {
+          ws.send(JSON.stringify({
+            authorize: token,
+            req_id: Date.now()
+          }));
+        };
+
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.authorize) {
+            setIsAuthorized(true);
+            setAuthToken(token);
+            ws.close();
+            resolve(data);
+          } else if (data.error) {
+            ws.close();
+            reject(data.error);
+          }
+        };
+
+        ws.onerror = (error) => {
+          ws.close();
+          reject(error);
+        };
+      });
+    } catch (error) {
+      console.error('Authorization failed:', error);
+      throw error;
+    }
+  };
 
   // Contract Purchase Function
   const purchaseContract = async (direction: 'CALL' | 'PUT' | 'CALLE' | 'PUTE') => {
@@ -1429,7 +1387,7 @@ const DecyclerBot: React.FC = observer(() => {
 
   // Enhanced trading opportunity check with contract type support
     const checkTradingOpportunity = useCallback(async () => {
-        if (!tradingEnabled || currentContract) return;
+        if (!tradingEnabled || !isAuthorized || currentContract) return;
 
         const timeframes = selectedTimeframePreset === 'scalping'
             ? ['1m', '2m', '3m', '4m', '5m']
@@ -1498,73 +1456,37 @@ const DecyclerBot: React.FC = observer(() => {
         }
     }, [timeframeAnalysis, isRunning, checkTradingOpportunity]);
 
-    // Establish WebSocket connection on component mount with better error handling
+    // Establish WebSocket connection on component mount
     useEffect(() => {
         const connectWebSocket = () => {
-            try {
-                // Use api_base connection if available, fallback to direct WebSocket
-                if (api_base.api && api_base.api.connection && api_base.api.connection.readyState === 1) {
-                    console.log('✅ Using existing API connection');
-                    setIsConnected(true);
-                    return;
-                }
+            const newWs = new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=75771");
 
-                addLog('🔌 Establishing direct WebSocket connection...');
-                const newWs = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=75771");
+            newWs.onopen = () => {
+                console.log('✅ WebSocket connected');
+                setIsConnected(true);
+                setWs(newWs);
+            };
 
-                const connectionTimeout = setTimeout(() => {
-                    addLog('⏰ WebSocket connection timeout');
-                    newWs.close();
-                    setIsConnected(false);
-                }, 10000);
-
-                newWs.onopen = () => {
-                    clearTimeout(connectionTimeout);
-                    console.log('✅ Direct WebSocket connected');
-                    addLog('✅ WebSocket connection established');
-                    setIsConnected(true);
-                    setWs(newWs);
-                };
-
-                newWs.onclose = (event) => {
-                    clearTimeout(connectionTimeout);
-                    console.log('❌ WebSocket disconnected:', event.code, event.reason);
-                    addLog(`❌ WebSocket disconnected: ${event.reason || 'Unknown reason'}`);
-                    setIsConnected(false);
-                    setWs(null);
-                    
-                    // Only auto-reconnect if not intentional close
-                    if (event.code !== 1000 && event.code !== 1001) {
-                        addLog('🔄 Attempting to reconnect in 5 seconds...');
-                        setTimeout(connectWebSocket, 5000);
-                    }
-                };
-
-                newWs.onerror = (error) => {
-                    clearTimeout(connectionTimeout);
-                    console.log('❌ WebSocket error:', error);
-                    addLog('❌ WebSocket connection error');
-                    setIsConnected(false);
-                    setWs(null);
-                };
-            } catch (error) {
-                console.error('Failed to create WebSocket connection:', error);
-                addLog(`❌ WebSocket initialization failed: ${error.message}`);
+            newWs.onclose = () => {
+                console.log('❌ WebSocket disconnected');
                 setIsConnected(false);
-            }
+                setWs(null);
+                // Reconnect after 5 seconds
+                setTimeout(connectWebSocket, 5000);
+            };
+
+            newWs.onerror = (error) => {
+                console.log('❌ WebSocket error:', error);
+                setIsConnected(false);
+                setWs(null);
+            };
         };
 
-        // Delay initial connection to allow main app to initialize
-        const initTimer = setTimeout(connectWebSocket, 1000);
+        connectWebSocket();
 
         return () => {
-            clearTimeout(initTimer);
-            try {
-                if (ws) {
-                    ws.close(1000, 'Component unmounting');
-                }
-            } catch (error) {
-                console.error('Error closing WebSocket:', error);
+            if (ws) {
+                ws.close();
             }
         };
     }, []);
@@ -2143,25 +2065,46 @@ const DecyclerBot: React.FC = observer(() => {
                             )}
                         </div>
 
-          <div className="trading-controls">
-            <div className="control-item">
-              <span className="control-label">Trading Status:</span>
-              <span className="status connected">
-                🟢 Ready for Trading (OAuth Authenticated)
-              </span>
-            </div>
+          <div className="control-item">
+            <span className="control-label">Trading Status:</span>
+            <span className={`status ${isAuthorized ? 'connected' : 'disconnected'}`}>
+              {isAuthorized ? '🟢 Authorized' : '🔴 Not Authorized'}
+            </span>
+          </div>
 
-            <div className="control-item">
-              <label className="control-label">
-                <input
-                  type="checkbox"
-                  checked={tradingEnabled}
-                  onChange={(e) => setTradingEnabled(e.target.checked)}
-                  style={{ marginRight: '10px' }}
-                />
-                Enable Auto Trading
-              </label>
-            </div>
+          <div className="control-item">
+            <label className="control-label">
+              API Token:
+              <input
+                type="password"
+                value={authToken}
+                onChange={(e) => setAuthToken(e.target.value)}
+                placeholder="Enter your Deriv API token"
+                className="form-input"
+                style={{ marginLeft: '10px', width: '200px' }}
+              />
+            </label>
+            <button
+              onClick={() => authorizeAPI(authToken)}
+              disabled={!authToken || isAuthorized}
+              className="btn btn-primary"
+              style={{ marginLeft: '10px' }}
+            >
+              {isAuthorized ? 'Authorized' : 'Authorize'}
+            </button>
+          </div>
+
+          <div className="control-item">
+            <label className="control-label">
+              <input
+                type="checkbox"
+                checked={tradingEnabled}
+                onChange={(e) => setTradingEnabled(e.target.checked)}
+                disabled={!isAuthorized}
+                style={{ marginRight: '10px' }}
+              />
+              Enable Auto Trading
+            </label>
           </div>
 
           {currentContract && (
