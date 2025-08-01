@@ -789,7 +789,90 @@ const DecyclerBot: React.FC = observer(() => {
 
         } catch (error) {
             addLog(`❌ Failed to monitor contract: ${error.message}`);
-        }tch (error) {
+        }
+    }, [addLog]);
+
+    // Execute trade
+    const executeTrade = useCallback(async (direction: 'UP' | 'DOWN'): Promise<void> => {
+        if (!api_base.api) {
+            addLog('❌ API not connected');
+            return;
+        }
+
+        try {
+            const contractTypeMap = {
+                rise_fall: direction === 'UP' ? 'CALL' : 'PUT',
+                higher_lower: direction === 'UP' ? 'CALLE' : 'PUTE'
+            };
+
+            const contractType = contractTypeMap[config.contract_type];
+
+            // Get proposal
+            const proposalRequest = {
+                proposal: 1,
+                amount: config.stake,
+                basis: 'stake',
+                contract_type: contractType,
+                currency: 'USD',
+                duration: config.tick_count,
+                duration_unit: 't',
+                symbol: config.symbol
+            };
+
+            addLog(`🔄 Getting proposal for ${contractType} on ${config.symbol}...`);
+            const proposalResponse = await api_base.api.send(proposalRequest);
+
+            if (proposalResponse.error) {
+                addLog(`❌ Proposal error: ${proposalResponse.error.message}`);
+                return;
+            }
+
+            const proposalId = proposalResponse.proposal.id;
+            const entrySpot = proposalResponse.proposal.spot;
+
+            // Purchase contract
+            const buyRequest = {
+                buy: proposalId,
+                price: config.stake
+            };
+
+            addLog(`💰 Purchasing contract ${proposalId}...`);
+            const buyResponse = await api_base.api.send(buyRequest);
+
+            if (buyResponse.error) {
+                addLog(`❌ Purchase error: ${buyResponse.error.message}`);
+                return;
+            }
+
+            const contractId = buyResponse.buy.contract_id;
+            addLog(`✅ Contract purchased: ${contractId}`);
+
+            // Update contract info
+            const newContract: ContractInfo = {
+                id: contractId,
+                type: contractType,
+                entry_price: entrySpot,
+                current_price: entrySpot,
+                profit: 0,
+                status: 'open',
+                entry_time: Date.now(),
+                direction,
+                stop_loss: entrySpot + config.stop_loss,
+                take_profit: entrySpot + config.take_profit,
+                trailing_stop: config.use_trailing_stop ? entrySpot + config.stop_loss : 0,
+                breakeven_active: false
+            };
+
+            setBotStatus(prev => ({
+                ...prev,
+                current_contract: newContract,
+                total_trades: prev.total_trades + 1
+            }));
+
+            // Start monitoring the contract
+            monitorContract(contractId);
+
+        } catch (error) {
             addLog(`❌ Trade execution failed: ${error.message}`);
         }
     }, [config, addLog]);
