@@ -98,8 +98,7 @@ const DecyclerBot: React.FC = observer(() => {
         winRate: 0,
         totalPnL: 0
     });
-    const [isAuthorized, setIsAuthorized] = useState(false);
-    const [authToken, setAuthToken] = useState('');
+    
     const [tradingEnabled, setTradingEnabled] = useState(false);
     const [currentContract, setCurrentContract] = useState<any>(null);
     const [tradeHistory, setTradeHistory] = useState<any[]>([]);
@@ -743,8 +742,7 @@ const DecyclerBot: React.FC = observer(() => {
 
             addLog(`✅ Proposal received: ID ${proposalId}, Entry: ${entrySpot}, Payout: ${payout}`);
 
-            // Purchase contract using authenticated API with app_id 75771
-            // The user is already OAuth authenticated, so we use the proposal ID to buy
+            // Purchase contract using existing OAuth session
             const buyRequest = {
                 buy: proposalId,
                 price: config.stake,
@@ -752,7 +750,7 @@ const DecyclerBot: React.FC = observer(() => {
             };
 
             addLog(`💰 Purchasing contract with proposal ID ${proposalId} for $${config.stake}...`);
-            addLog(`🔑 Using authenticated session with app_id 75771 (OAuth user)`);
+            addLog(`🔑 Using OAuth authenticated session`);
             
             const buyResponse = await Promise.race([
                 api_base.api.send(buyRequest),
@@ -976,17 +974,7 @@ const DecyclerBot: React.FC = observer(() => {
             if (!botStatus.current_contract && (alignment === 'aligned_bullish' || alignment === 'aligned_bearish')) {
                 const direction = alignment === 'aligned_bullish' ? 'UP' : 'DOWN';
 
-                // Check if trading is authorized and enabled
-                if (!isAuthorized) {
-                    addLog('🔑 ❌ TRADING BLOCKED: Not authorized with Deriv API token');
-                    addLog('📝 Please add your Deriv API token with trading permissions to enable trading');
-                    setBotStatus(prev => ({
-                        ...prev,
-                        error_message: 'Trading blocked - API authorization required'
-                    }));
-                    return;
-                }
-
+                // Check if trading is enabled
                 if (!tradingEnabled) {
                     addLog('🔄 ❌ TRADING BLOCKED: Auto trading is disabled');
                     addLog('📝 Please enable "Auto Trading" checkbox to allow trade execution');
@@ -1008,9 +996,8 @@ const DecyclerBot: React.FC = observer(() => {
                 addLog(`💰 Stake: $${config.stake} | Contract: ${config.contract_type.toUpperCase()}`);
                 await executeTrade(direction);
             } else if (!botStatus.current_contract) {
-                if (!isAuthorized || !tradingEnabled) {
-                    const reason = !isAuthorized ? 'not authorized' : 'auto trading disabled';
-                    addLog(`⏳ Trend analysis complete - Trading disabled (${reason})`);
+                if (!tradingEnabled) {
+                    addLog(`⏳ Trend analysis complete - Trading disabled (auto trading disabled)`);
                 } else {
                     addLog('⏳ Waiting for trend alignment - No trade signal yet');
                 }
@@ -1316,41 +1303,7 @@ const DecyclerBot: React.FC = observer(() => {
     }, [config.symbol]);
 
     // Establish WebSocket connection on component mount
-  const authorizeAPI = async (token: string) => {
-    try {
-      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
-
-      return new Promise((resolve, reject) => {
-        ws.onopen = () => {
-          ws.send(JSON.stringify({
-            authorize: token,
-            req_id: Date.now()
-          }));
-        };
-
-        ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          if (data.authorize) {
-            setIsAuthorized(true);
-            setAuthToken(token);
-            ws.close();
-            resolve(data);
-          } else if (data.error) {
-            ws.close();
-            reject(data.error);
-          }
-        };
-
-        ws.onerror = (error) => {
-          ws.close();
-          reject(error);
-        };
-      });
-    } catch (error) {
-      console.error('Authorization failed:', error);
-      throw error;
-    }
-  };
+  
 
   // Contract Purchase Function
   const purchaseContract = async (direction: 'CALL' | 'PUT' | 'CALLE' | 'PUTE') => {
@@ -1414,7 +1367,7 @@ const DecyclerBot: React.FC = observer(() => {
 
   // Enhanced trading opportunity check with contract type support
     const checkTradingOpportunity = useCallback(async () => {
-        if (!tradingEnabled || !isAuthorized || currentContract) return;
+        if (!tradingEnabled || currentContract) return;
 
         const timeframes = selectedTimeframePreset === 'scalping'
             ? ['1m', '2m', '3m', '4m', '5m']
@@ -2092,44 +2045,12 @@ const DecyclerBot: React.FC = observer(() => {
                             )}
                         </div>
 
-          <div className="trading-authorization">
-            <h4>🔑 Trading Authorization Required</h4>
-            
+          <div className="trading-controls">
             <div className="control-item">
               <span className="control-label">Trading Status:</span>
-              <span className={`status ${isAuthorized ? 'connected' : 'disconnected'}`}>
-                {isAuthorized ? '🟢 Authorized for Trading' : '🔴 Not Authorized - Trading Disabled'}
+              <span className="status connected">
+                🟢 Ready for Trading (OAuth Authenticated)
               </span>
-            </div>
-
-            {!isAuthorized && (
-              <div className="auth-warning">
-                ⚠️ <strong>Trading is disabled.</strong> You need to authorize with a Deriv API token that has trading permissions.
-                <br />
-                Get your token from: <a href="https://app.deriv.com/account/api-token" target="_blank" rel="noopener noreferrer">Deriv API Token Page</a>
-              </div>
-            )}
-
-            <div className="control-item">
-              <label className="control-label">
-                API Token (with Trading Permissions):
-                <input
-                  type="password"
-                  value={authToken}
-                  onChange={(e) => setAuthToken(e.target.value)}
-                  placeholder="Enter your Deriv API token with trading permissions"
-                  className="form-input"
-                  style={{ marginLeft: '10px', width: '300px' }}
-                />
-              </label>
-              <button
-                onClick={() => authorizeAPI(authToken)}
-                disabled={!authToken || isAuthorized}
-                className="btn btn-primary"
-                style={{ marginLeft: '10px' }}
-              >
-                {isAuthorized ? '✅ Authorized' : '🔑 Authorize'}
-              </button>
             </div>
 
             <div className="control-item">
@@ -2138,10 +2059,9 @@ const DecyclerBot: React.FC = observer(() => {
                   type="checkbox"
                   checked={tradingEnabled}
                   onChange={(e) => setTradingEnabled(e.target.checked)}
-                  disabled={!isAuthorized}
                   style={{ marginRight: '10px' }}
                 />
-                Enable Auto Trading {!isAuthorized && '(Requires Authorization)'}
+                Enable Auto Trading
               </label>
             </div>
           </div>
