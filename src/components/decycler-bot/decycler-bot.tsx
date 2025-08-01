@@ -718,6 +718,78 @@ const DecyclerBot: React.FC = observer(() => {
             monitorContract(contractId);
 
         } catch (error) {
+            addLog(`💥 Failed to create contract: ${error.message}`);
+        }
+    }, [api_base.api, config, addLog]);
+
+    // Monitor contract status
+    const monitorContract = useCallback(async (contractId: string): Promise<void> => {
+        if (!api_base.api) return;
+
+        try {
+            const request = {
+                proposal_open_contract: 1,
+                contract_id: contractId,
+                subscribe: 1
+            };
+
+            const response = await api_base.api.send(request);
+
+            if (response.error) {
+                addLog(`❌ Contract monitoring error: ${response.error.message}`);
+                return;
+            }
+
+            addLog(`👁️ Monitoring contract ${contractId}`);
+
+            // Set up subscription for contract updates
+            const subscription = api_base.api.onMessage().subscribe(({ data }) => {
+                if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract) {
+                    const contract = data.proposal_open_contract;
+                    
+                    if (contract.contract_id === contractId) {
+                        // Update current contract status
+                        setCurrentContract(prev => prev ? {
+                            ...prev,
+                            profit: contract.profit || 0,
+                            is_sold: contract.is_sold
+                        } : null);
+
+                        if (contract.is_sold) {
+                            const profit = parseFloat(contract.profit || '0');
+                            const isWin = profit > 0;
+                            
+                            addLog(`${isWin ? '🟢 WIN' : '🔴 LOSS'}: Contract ${contractId} closed with P&L: $${profit}`);
+                            
+                            // Update performance metrics
+                            setBotStatus(prev => {
+                                const newWins = isWin ? prev.wins + 1 : prev.wins;
+                                const newLosses = isWin ? prev.losses : prev.losses + 1;
+                                const newTotalPnL = prev.total_pnl + profit;
+                                const newWinRate = prev.total_trades > 0 ? (newWins / prev.total_trades) * 100 : 0;
+                                
+                                return {
+                                    ...prev,
+                                    wins: newWins,
+                                    losses: newLosses,
+                                    total_pnl: newTotalPnL,
+                                    win_rate: newWinRate
+                                };
+                            });
+
+                            // Clear current contract
+                            setCurrentContract(null);
+                            
+                            // Unsubscribe from this contract
+                            subscription.unsubscribe();
+                        }
+                    }
+                }
+            });
+
+        } catch (error) {
+            addLog(`❌ Failed to monitor contract: ${error.message}`);
+        }tch (error) {
             addLog(`❌ Trade execution failed: ${error.message}`);
         }
     }, [config, addLog]);
@@ -1142,43 +1214,75 @@ const DecyclerBot: React.FC = observer(() => {
   // Contract Purchase Function
   const purchaseContract = async (direction: 'CALL' | 'PUT' | 'CALLE' | 'PUTE') => {
     if (!isAuthorized || !authToken || currentContract) {
+      addLog(`❌ Cannot purchase: ${!isAuthorized ? 'Not authorized' : 'Contract already active'}`);
       return;
     }
 
     try {
-      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
+      if (!api_base.api) {
+        addLog(`❌ API not available for contract purchase`);
+        return;
+      }
 
-      return new Promise((resolve, reject) => {
-        ws.onopen = () => {
-          // First get proposal
-          const proposalRequest = {
-            proposal: 1,
-            amount: parseFloat(config.stake),
-            basis: 'stake',
-            contract_type: direction,
-            currency: 'USD',
-            duration: parseInt(config.tick_count),
-            duration_unit: 't',
-            symbol: config.symbol,
-            req_id: Date.now()
-          };
+      addLog(`🔄 Getting proposal for ${direction} contract...`);
 
-          ws.send(JSON.stringify(proposalRequest));
-        };
+      // Get proposal first
+      const proposalRequest = {
+        proposal: 1,
+        amount: parseFloat(config.stake),
+        basis: 'stake',
+        contract_type: direction,
+        currency: 'USD',
+        duration: parseInt(config.tick_count),
+        duration_unit: 't',
+        symbol: config.symbol
+      };
 
-        ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
+      const proposalResponse = await api_base.api.send(proposalRequest);
 
-          if (data.proposal) {
-            // Purchase the contract
-            const buyRequest = {
-              buy: data.proposal.id,
-              price: parseFloat(config.stake),
-              req_id: Date.now() + 1
-            };
+      if (proposalResponse.error) {
+        addLog(`❌ Proposal error: ${proposalResponse.error.message}`);
+        return;
+      }
 
-            ws.send(JSON.stringify(buyRequest));
-          } else if (data.buy) {
+      const proposalId = proposalResponse.proposal.id;
+      addLog(`✅ Proposal received: ${proposalId}`);
+
+      // Purchase the contract
+      const buyRequest = {
+        buy: proposalId,
+        price: parseFloat(config.stake)
+      };
+
+      const buyResponse = await api_base.api.send(buyRequest);
+
+      if (buyResponse.error) {
+        addLog(`❌ Purchase error: ${buyResponse.error.message}`);
+        return;
+      }
+
+      const contractId = buyResponse.buy.contract_id;
+      addLog(`🎉 Contract purchased: ${contractId} for $${buyResponse.buy.buy_price}`);
+
+      // Set current contract
+      setCurrentContract({
+        id: contractId,
+        type: direction,
+        stake: parseFloat(config.stake),
+        startTime: Date.now(),
+        payout: buyResponse.buy.payout || 0
+      });
+
+      // Start monitoring the contract
+      monitorContract(contractId);
+
+      return buyResponse;
+
+    } catch (error) {
+      addLog(`💥 Contract purchase failed: ${error.message}`);
+      throw error;
+    }
+  };lse if (data.buy) {
             setCurrentContract({
               id: data.buy.contract_id,
               type: direction,
@@ -1209,7 +1313,7 @@ const DecyclerBot: React.FC = observer(() => {
   };
 
   // Enhanced trading opportunity check with contract type support
-    const checkTradingOpportunity = useCallback(() => {
+    const checkTradingOpportunity = useCallback(async () => {
         if (!tradingEnabled || !isAuthorized || currentContract) return;
 
         const timeframes = selectedTimeframePreset === 'scalping'
@@ -1218,6 +1322,40 @@ const DecyclerBot: React.FC = observer(() => {
 
         const bullishCount = Object.keys(timeframeAnalysis).filter(tf => timeframeAnalysis[tf] === 'BULLISH').length;
         const bearishCount = Object.keys(timeframeAnalysis).filter(tf => timeframeAnalysis[tf] === 'BEARISH').length;
+
+        const alignmentThreshold = Math.ceil(timeframes.length * 0.6); // 60% alignment required
+
+        let shouldTrade = false;
+        let direction: 'CALL' | 'PUT' = 'CALL';
+
+        // Determine trading direction based on timeframe analysis
+        if (bullishCount >= alignmentThreshold) {
+            shouldTrade = true;
+            direction = 'CALL';
+            addLog(`📈 BULLISH SIGNAL: ${bullishCount}/${timeframes.length} timeframes bullish - Placing CALL`);
+        } else if (bearishCount >= alignmentThreshold) {
+            shouldTrade = true;
+            direction = 'PUT';
+            addLog(`📉 BEARISH SIGNAL: ${bearishCount}/${timeframes.length} timeframes bearish - Placing PUT`);
+        }
+
+        // Execute trade if conditions are met
+        if (shouldTrade) {
+            try {
+                addLog(`🔄 Executing ${direction} contract for ${config.stake} USD`);
+                await purchaseContract(direction);
+                
+                // Update performance metrics
+                setBotStatus(prev => ({
+                    ...prev,
+                    total_trades: prev.total_trades + 1
+                }));
+                
+                addLog(`✅ Contract purchase initiated successfully`);
+            } catch (error) {
+                addLog(`❌ Contract purchase failed: ${error.message}`);
+            }
+        }
 
         const alignmentThreshold = Math.ceil(timeframes.length * 0.7); // 70% alignment
 
