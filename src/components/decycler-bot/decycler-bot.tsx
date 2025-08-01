@@ -676,7 +676,7 @@ const DecyclerBot: React.FC = observer(() => {
         return trends;
     }, [timeframes, fetchOHLCData, calculateDecycler, getTrend, config.alpha, addLog]);
 
-    // Check trend alignment
+    // Check trend alignment with momentum and reversal detection
     const checkAlignment = useCallback((trends: TrendData[]): 'aligned_bullish' | 'aligned_bearish' | 'mixed' | 'neutral' => {
         addLog(`🔍 DEBUG: checkAlignment called with ${trends.length} trends`);
 
@@ -690,10 +690,26 @@ const DecyclerBot: React.FC = observer(() => {
         const neutralCount = trends.filter(t => t.trend === 'neutral').length;
 
         const totalTrends = trends.length;
-        const alignmentThreshold = Math.ceil(totalTrends * 0.7); // 70% threshold
+        const alignmentThreshold = Math.ceil(totalTrends * 0.8); // Increased to 80% for better quality
 
         addLog(`📊 DEBUG: Trend counts - Bullish: ${bullishCount}, Bearish: ${bearishCount}, Neutral: ${neutralCount}`);
-        addLog(`📏 DEBUG: Alignment threshold (70%): ${alignmentThreshold}/${totalTrends}`);
+        addLog(`📏 DEBUG: Alignment threshold (80%): ${alignmentThreshold}/${totalTrends}`);
+
+        // Check for trend momentum by comparing shorter vs longer timeframe trends
+        const shortTermTrends = trends.slice(0, Math.ceil(trends.length / 2));
+        const longTermTrends = trends.slice(Math.ceil(trends.length / 2));
+        
+        const shortBullish = shortTermTrends.filter(t => t.trend === 'bullish').length;
+        const longBullish = longTermTrends.filter(t => t.trend === 'bullish').length;
+        
+        // Detect potential reversal - if short term contradicts long term, be cautious
+        const possibleReversal = (shortBullish / shortTermTrends.length) < 0.3 && (longBullish / longTermTrends.length) > 0.7 ||
+                                (shortBullish / shortTermTrends.length) > 0.7 && (longBullish / longTermTrends.length) < 0.3;
+
+        if (possibleReversal) {
+            addLog(`⚠️ DEBUG: Potential trend reversal detected - avoiding trade`);
+            return 'mixed';
+        }
 
         // Perfect alignment (100%)
         if (bullishCount === totalTrends) {
@@ -705,7 +721,7 @@ const DecyclerBot: React.FC = observer(() => {
             return 'aligned_bearish';
         }
 
-        // Strong alignment (70% threshold)
+        // Strong alignment (80% threshold)
         if (bullishCount > bearishCount && bullishCount >= alignmentThreshold) {
             addLog(`🟢 DEBUG: Strong bullish alignment (${bullishCount}/${totalTrends} >= ${alignmentThreshold})`);
             return 'aligned_bullish';
@@ -752,8 +768,11 @@ const DecyclerBot: React.FC = observer(() => {
                 }
 
                 // For Higher/Lower, we need a barrier relative to current price
-                // Let's use a small offset from current price
-                const offset = direction === 'UP' ? '+0.10' : '-0.10';
+                // Calculate dynamic barrier based on volatility and trend strength
+                const trendStrength = trends.filter(t => t.trend === (direction === 'UP' ? 'bullish' : 'bearish')).length / trends.length;
+                const baseOffset = 0.10;
+                const dynamicOffset = baseOffset * (0.5 + trendStrength); // Scale 0.5x to 1.5x based on alignment strength
+                const offset = direction === 'UP' ? `+${dynamicOffset.toFixed(2)}` : `-${dynamicOffset.toFixed(2)}`;
                 barrier = offset;
                 addLog(`📊 Using Higher/Lower contract: ${contractType} with barrier: ${barrier}`);
             } else {
@@ -969,6 +988,22 @@ const DecyclerBot: React.FC = observer(() => {
                                 status: isSold ? 'closed' : 'open'
                             };
 
+                            // Adaptive stake sizing for next trade based on recent performance
+                            if (isSold) {
+                                const recentTrades = tradeHistory.slice(-5); // Last 5 trades
+                                const recentWinRate = recentTrades.filter(t => t.isWin).length / Math.max(recentTrades.length, 1);
+                                
+                                if (recentWinRate < 0.3) {
+                                    // Reduce stake if recent performance is poor
+                                    const newStake = Math.max(config.stake * 0.7, 0.35);
+                                    addLog(`📉 Poor recent performance (${(recentWinRate * 100).toFixed(1)}%) - Reducing stake to $${newStake.toFixed(2)}`);
+                                } else if (recentWinRate > 0.7) {
+                                    // Can increase stake if performing well
+                                    const newStake = Math.min(config.stake * 1.2, config.stake * 2);
+                                    addLog(`📈 Good recent performance (${(recentWinRate * 100).toFixed(1)}%) - Could increase stake to $${newStake.toFixed(2)}`);
+                                }
+                            }
+
                             return {
                                 ...prev,
                                 current_contract: updatedContract
@@ -1092,16 +1127,40 @@ const DecyclerBot: React.FC = observer(() => {
             addLog(`🎯 DEBUG: Strong alignment detected: ${hasStrongAlignment}`);
             addLog(`📋 DEBUG: No current contract: ${!botStatus.current_contract}`);
 
+            // Additional market condition checks
+            const currentTime = new Date();
+            const hour = currentTime.getHours();
+            const minute = currentTime.getMinutes();
+            
+            // Avoid trading during low liquidity periods (adjust based on your market)
+            const isHighVolatilityTime = (hour >= 8 && hour <= 18); // Trading hours
+            
+            // Check recent trend consistency
+            const recentTrends = trends.slice(-3); // Last 3 timeframes
+            const trendConsistency = recentTrends.every(t => 
+                (alignment === 'aligned_bullish' && t.trend === 'bullish') ||
+                (alignment === 'aligned_bearish' && t.trend === 'bearish')
+            );
+
             // Check if we should enter a trade
-            if (!botStatus.current_contract && hasStrongAlignment) {
+            if (!botStatus.current_contract && hasStrongAlignment && isHighVolatilityTime && trendConsistency) {
                 const direction = alignment === 'aligned_bullish' ? 'UP' : 'DOWN';
                 addLog(`🚀 DEBUG: Trade conditions met - Direction: ${direction}`);
+                addLog(`⏰ DEBUG: High volatility time: ${isHighVolatilityTime}, Trend consistency: ${trendConsistency}`);
 
-                // Optional 10s confirmation
+                // Optional 10s confirmation with re-analysis
                 if (config.use_10s_filter) {
                     addLog('⏱️ DEBUG: Applying 10-second confirmation filter...');
-                    // Add a small delay for confirmation
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    // Re-analyze shorter timeframes for confirmation
+                    const quickAnalysis = await analyzeAllTimeframes();
+                    const quickAlignment = checkAlignment(quickAnalysis);
+                    
+                    if (quickAlignment !== alignment) {
+                        addLog('❌ DEBUG: Confirmation failed - trend changed during filter');
+                        return;
+                    }
                     addLog('✅ DEBUG: Confirmation filter passed');
                 }
 
@@ -1112,6 +1171,15 @@ const DecyclerBot: React.FC = observer(() => {
 
                 addLog(`✅ DEBUG: executeTrade call completed`);
             } else if (!botStatus.current_contract) {
+                if (!hasStrongAlignment) {
+                    addLog(`⏳ DEBUG: No strong alignment - Current: ${alignment}`);
+                }
+                if (!isHighVolatilityTime) {
+                    addLog(`⏳ DEBUG: Low volatility time period (${hour}:${minute})`);
+                }
+                if (!trendConsistency) {
+                    addLog(`⏳ DEBUG: Trend inconsistency detected in recent timeframes`);
+                }
                 addLog(`⏳ DEBUG: No trade conditions met:`);
                 addLog(`   - Current contract: ${botStatus.current_contract ? 'EXISTS' : 'NONE'}`);
                 addLog(`   - Alignment: ${alignment}`);
