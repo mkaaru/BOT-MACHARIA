@@ -1,0 +1,105 @@
+NKNOWN
+$5
+LOSS
+$-5.00
+5:34:52 PM
+📝 Activity Logs
+[5:36:31 PM] ✅ Generated 14 4m candles - Latest OHLC: 4299.57/4301.66/4299.57/4301.52
+[5:36:31 PM] 📈 Processing 14 prices for 4m
+[5:36:31 PM] ✅ 4m: BULLISH (Value: 4275.29354)
+[5:36:31 PM] 🔄 Analyzing 5m timeframe...
+[5:36:31 PM] 📊 Fetching 5m data for 1HZ75V (Type: 1HZ)
+[5:36:31 PM] 📈 Requesting 3000 ticks for 5m conversion...
+[5:36:32 PM] 📊 Converting 3000 ticks to 5m candles...
+[5:36:32 PM] 🔄 Converting 3000 ticks to candles with 300s granularity...
+[5:36:32 PM] ✅ Successfully converted 3000 ticks to 11 candles
+[5:36:32 PM] ✅ Generated 11 5m candles - Latest OHLC: 4297.89/4303.39/4297.89/4300.4
+[5:36:32 PM] 📈 Processing 11 prices for 5m
+[5:36:32 PM] ✅ 5m: BULLISH (Value: 4276.68439)
+[5:36:32 PM] 📋 Multi-timeframe analysis complete: 5/5 timeframes processed
+[5:36:32 PM] 📊 DEBUG: Analyzed 5 timeframes
+[5:36:32 PM] 🔍 DEBUG: checkAlignment called with 5 trends
+[5:36:32 PM] 📊 DEBUG: Trend counts - Bullish: 5, Bearish: 0, Neutral: 0
+[5:36:32 PM] 📏 DEBUG: Alignment threshold (80%): 4/5
+[5:36:32 PM] 🟢 DEBUG: Perfect bullish alignment (5/5)
+[5:36:32 PM] 🎯 DEBUG: Alignment result: aligned_bullish
+[5:36:32 PM] 📊 Analysis complete - Alignment: ALIGNED_BULLISH
+[5:36:32 PM] 📈 Trends: 5 Bullish, 0 Bearish, 0 Neutral
+[5:36:32 PM] 📊 DEBUG: 1m: BULLISH (value: 4289.62946)
+[5:36:32 PM] 📊 DEBUG: 2m: BULLISH (value: 4281.41707)
+[5:36:32 PM] 📊 DEBUG: 3m: BULLISH (value: 4276.73808)
+[5:36:32 PM] 📊 DEBUG: 4m: BULLISH (value: 4275.29354)
+[5:36:32 PM] 📊 DEBUG: 5m: BULLISH (value: 4276.68439)
+[5:36:32 PM] 🔍 DEBUG: Current contract status: ACTIVE
+[5:36:32 PM] 🎯 DEBUG: Strong alignment detected: true
+[5:36:32 PM] 📋 DEBUG: No current contract: false
+[5:36:32 PM] 📊 Active contract in progress - Monitoring...
+[5:36:32 PM] - Contract ID: 289751610888
+[5:36:32 PM] - Contract Status: open
+[5:36:37 PM] 🔍 DEBUG: tradingLoop called - bot running (state): false, (ref): true
+[5:36:37 PM] 🔄 Starting trading analysis cycle...
+[5:36:37 PM] 📊 Starting multi-timeframe analysis...
+[5:36:37 PM] 🔄 Analyzing 1m timeframe...
+[5:36:37 PM] 📊 Fetching 1m data for 1HZ75V (Type: 1HZ)
+[5:36:37 PM] 📈 Requesting 3000 ticks for 1m conversion...
+[5:36:38 PM] 📊 Converting 3000 ticks to 1m candles...
+[5:36:38 PM] 🔄 Converting 3000 ticks to candles with 60s granularity...
+[5:36:38 PM] ✅ Successfully converted 3000 ticks to 51 candles
+[5:36:38 PM] ✅ Generated 51 1m candles - Latest OHLC: 4299.57/4301.66/4299.52/4300.25
+[5:36:38 PM] 📈 Processing 51 prices for 1m
+[5:36:38 PM] ✅ 1m: BULLISH (Value: 4289.60566)
+[5:36:38 PM] 🔄 Analyzing 2m timeframe...
+[5:36:38 PM] 📊 Fetching 2m data for 1HZ75V (Type: 1HZ)
+[5:36:38 PM] 📈 Requesting 3000 ticks for 2m conversion...
+[5:36:39 PM] 📊 Converting 3000 ticks to 2m candles...
+[5:36:39 PM] 🔄 Converting 3000 ticks to candles with 120s granularity...
+[5:36:39 PM] ✅ Successfully converted 3000 ticks to 26 candles
+[5:36:39 PM] ✅ Generated 26 2m candles - Latest OHLC: 4299.57/4301.66/4299.52/4300.07
+[5:36:39 PM] 📈 Processing 26 prices for 2m
+[5:36:39 PM] ✅ 2m: BULLISH (Value: 4281.38487)
+[5:36:39 PM] 🔄 Analyzing 3m timeframe...
+[5:36:39 PM] 📊 Fetching 3m data for 1HZ75V (Type: 1HZ)
+[5:36:39 PM] 📈 Requesting 3000 ticks for 3m conversion...
+[5:36:40 PM] 📊 Converting 3000 ticks to 3m candles...
+[5:36:40 PM] 🔄 Converting 3000 ticks to candles with 180s granularity...
+[5:36:40 PM] ✅ Successfully converted 3000 ticks to 18 candles
+[5:36:40 PM] ✅ Generated 18 3m candles - Latest OHLC: 4299.57/4301.66/4299.52/4300.48
+[5:36:40 PM] 📈 Processing 18 prices for 3m
+[5:36:40 PM] ✅ 3m: BULLISH (Value: 4276.71813)
+[5:36:40 PM] 🔄 Analyzing 4m timeframe...
+[5:36:40 PM] 📊 Fetching 4m data for 1HZ75V (Type: 1HZ)
+[5:36:40 PM] 📈 Requesting 3000 ticks for 4m conversion...
+[5:36:41 PM] 📊 Converting 3000 ticks to 4m candles...
+[5:36:41 PM] 🔄 Converting 3000 ticks to candles with 240s granularity...
+[5:36:41 PM] ✅ Successfully converted 3000 ticks to 14 candles
+[5:36:41 PM] ✅ Generated 14 4m candles - Latest OHLC: 4299.57/4301.66/4299.52/4300.96
+[5:36:41 PM] 📈 Processing 14 prices for 4m
+[5:36:41 PM] ✅ 4m: BULLISH (Value: 4275.27394)
+[5:36:41 PM] 🔄 Analyzing 5m timeframe...
+[5:36:41 PM] 📊 Fetching 5m data for 1HZ75V (Type: 1HZ)
+[5:36:41 PM] 📈 Requesting 3000 ticks for 5m conversion...
+[5:36:42 PM] 📊 Converting 3000 ticks to 5m candles...
+[5:36:42 PM] 🔄 Converting 3000 ticks to candles with 300s granularity...
+[5:36:42 PM] ✅ Successfully converted 3000 ticks to 11 candles
+[5:36:42 PM] ✅ Generated 11 5m candles - Latest OHLC: 4297.89/4303.39/4297.89/4301.4
+[5:36:42 PM] 📈 Processing 11 prices for 5m
+[5:36:42 PM] ✅ 5m: BULLISH (Value: 4276.71939)
+[5:36:42 PM] 📋 Multi-timeframe analysis complete: 5/5 timeframes processed
+[5:36:42 PM] 📊 DEBUG: Analyzed 5 timeframes
+[5:36:42 PM] 🔍 DEBUG: checkAlignment called with 5 trends
+[5:36:42 PM] 📊 DEBUG: Trend counts - Bullish: 5, Bearish: 0, Neutral: 0
+[5:36:42 PM] 📏 DEBUG: Alignment threshold (80%): 4/5
+[5:36:42 PM] 🟢 DEBUG: Perfect bullish alignment (5/5)
+[5:36:42 PM] 🎯 DEBUG: Alignment result: aligned_bullish
+[5:36:42 PM] 📊 Analysis complete - Alignment: ALIGNED_BULLISH
+[5:36:42 PM] 📈 Trends: 5 Bullish, 0 Bearish, 0 Neutral
+[5:36:42 PM] 📊 DEBUG: 1m: BULLISH (value: 4289.60566)
+[5:36:42 PM] 📊 DEBUG: 2m: BULLISH (value: 4281.38487)
+[5:36:42 PM] 📊 DEBUG: 3m: BULLISH (value: 4276.71813)
+[5:36:42 PM] 📊 DEBUG: 4m: BULLISH (value: 4275.27394)
+[5:36:42 PM] 📊 DEBUG: 5m: BULLISH (value: 4276.71939)
+[5:36:42 PM] 🔍 DEBUG: Current contract status: ACTIVE
+[5:36:42 PM] 🎯 DEBUG: Strong alignment detected: true
+[5:36:42 PM] 📋 DEBUG: No current contract: false
+[5:36:42 PM] 📊 Active contract in progress - Monitoring...
+[5:36:42 PM] - Contract ID: 289751610888
