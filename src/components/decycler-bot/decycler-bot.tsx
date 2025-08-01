@@ -1027,7 +1027,7 @@ const DecyclerBot: React.FC = observer(() => {
         }
     }, [api_base.api, config, addLog]);
 
-    // Monitor contract status using proper API structure
+    // Monitor contract status with proper take profit/stop loss enforcement
     const monitorContract = useCallback(async (contractId: string): Promise<void> => {
         if (!api_base.api) return;
 
@@ -1039,7 +1039,7 @@ const DecyclerBot: React.FC = observer(() => {
                 req_id: Math.floor(Math.random() * 1000000)
             };
 
-            addLog(`👁️ Starting to monitor contract ${contractId}...`);
+            addLog(`👁️ Starting to monitor contract ${contractId} with TP: $${config.take_profit}, SL: $${config.stop_loss}...`);
 
             const response = await api_base.api.send(request);
 
@@ -1059,6 +1059,48 @@ const DecyclerBot: React.FC = observer(() => {
                         const currentProfit = parseFloat(contract.profit || '0');
                         const currentSpot = contract.current_spot;
                         const isSold = contract.is_sold === 1;
+                        const canSell = contract.is_sellable === 1;
+
+                        // Check if we should manually close the contract based on our TP/SL levels
+                        let shouldSell = false;
+                        let sellReason = '';
+
+                        if (!isSold && canSell) {
+                            // Check take profit
+                            if (currentProfit >= config.take_profit) {
+                                shouldSell = true;
+                                sellReason = `Take Profit reached: $${currentProfit.toFixed(2)} >= $${config.take_profit}`;
+                            }
+                            // Check stop loss
+                            else if (currentProfit <= config.stop_loss) {
+                                shouldSell = true;
+                                sellReason = `Stop Loss reached: $${currentProfit.toFixed(2)} <= $${config.stop_loss}`;
+                            }
+
+                            // Execute manual sell if needed
+                            if (shouldSell) {
+                                addLog(`🛑 ${sellReason} - Selling contract manually...`);
+                                
+                                // Send sell request
+                                const sellRequest = {
+                                    sell: parseInt(contractId),
+                                    price: contract.bid_price || contract.payout,
+                                    req_id: Math.floor(Math.random() * 1000000)
+                                };
+
+                                api_base.api.send(sellRequest).then(sellResponse => {
+                                    if (sellResponse.error) {
+                                        addLog(`❌ Manual sell failed: ${sellResponse.error.message}`);
+                                    } else {
+                                        addLog(`✅ Contract sold manually at $${currentProfit.toFixed(2)} profit`);
+                                    }
+                                }).catch(error => {
+                                    addLog(`❌ Manual sell error: ${error.message}`);
+                                });
+
+                                return; // Exit early, let the sell response handle the rest
+                            }
+                        }
 
                         // Update current contract status
                         setBotStatus(prev => {
@@ -1073,41 +1115,35 @@ const DecyclerBot: React.FC = observer(() => {
                                 status: isSold ? 'closed' : 'open'
                             };
 
-                            // Adaptive stake sizing for next trade based on recent performance
-                            if (isSold) {
-                                const recentTrades = tradeHistory.slice(-5); // Last 5 trades
-                                const recentWinRate = recentTrades.filter(t => t.isWin).length / Math.max(recentTrades.length, 1);
-
-                                if (recentWinRate < 0.3) {
-                                    // Reduce stake if recent performance is poor
-                                    const newStake = Math.max(config.stake * 0.7, 0.35);
-                                    addLog(`📉 Poor recent performance (${(recentWinRate * 100).toFixed(1)}%) - Reducing stake to $${newStake.toFixed(2)}`);
-                                } else if (recentWinRate > 0.7) {
-                                    // Can increase stake if performing well
-                                    const newStake = Math.min(config.stake * 1.2, config.stake * 2);
-                                    addLog(`📈 Good recent performance (${(recentWinRate * 100).toFixed(1)}%) - Could increase stake to $${newStake.toFixed(2)}`);
-                                }
-                            }
-
                             return {
                                 ...prev,
                                 current_contract: updatedContract
                             };
                         });
 
-                        // Log current status
-                        if (currentSpot) {
-                            addLog(`📈 Contract ${contractId}: Current spot ${currentSpot}, P&L: $${currentProfit.toFixed(2)}`);
+                        // Log current status with TP/SL monitoring
+                        if (currentSpot && !isSold) {
+                            const tpDistance = config.take_profit - currentProfit;
+                            const slDistance = currentProfit - config.stop_loss;
+                            addLog(`📈 Contract ${contractId}: P&L $${currentProfit.toFixed(2)} | TP: ${tpDistance > 0 ? '+' : ''}${tpDistance.toFixed(2)} | SL: ${slDistance > 0 ? '+' : ''}${slDistance.toFixed(2)}`);
                         }
 
-                        // Handle contract closure
+                        // Handle contract closure (natural expiry or manual sell)
                         if (isSold) {
                             const isWin = currentProfit > 0;
                             const sellPrice = contract.sell_price || 0;
+                            const closingReason = contract.sell_time ? 'Manual Sell' : 'Natural Expiry';
 
-                            addLog(`${isWin ? '🎉 WIN' : '💔 LOSS'}: Contract ${contractId} closed`);
+                            addLog(`${isWin ? '🎉 WIN' : '💔 LOSS'}: Contract ${contractId} closed (${closingReason})`);
                             addLog(`💰 Final P&L: $${currentProfit.toFixed(2)}`);
                             addLog(`💵 Sell Price: $${sellPrice}`);
+
+                            // Check if our TP/SL system worked
+                            if (currentProfit >= config.take_profit) {
+                                addLog(`✅ Take profit target achieved: $${config.take_profit}`);
+                            } else if (currentProfit <= config.stop_loss) {
+                                addLog(`🛑 Stop loss triggered: $${config.stop_loss}`);
+                            }
 
                             // Update performance metrics
                             setBotStatus(prev => {
@@ -1125,13 +1161,27 @@ const DecyclerBot: React.FC = observer(() => {
                             // Add to trade history
                             setTradeHistory(prev => [{
                                 id: contractId,
-                                type: prev.current_contract?.type || 'UNKNOWN',
-                                direction: prev.current_contract?.direction || 'UP',
+                                type: botStatus.current_contract?.type || 'UNKNOWN',
+                                direction: botStatus.current_contract?.direction || 'UP',
                                 stake: config.stake,
                                 profit: currentProfit,
                                 isWin,
                                 timestamp: Date.now()
                             }, ...prev.slice(0, 19)]); // Keep last 20 trades
+
+                            // Adaptive stake sizing for next trade based on recent performance
+                            const recentTrades = tradeHistory.slice(-5); // Last 5 trades
+                            if (recentTrades.length > 0) {
+                                const recentWinRate = recentTrades.filter(t => t.isWin).length / recentTrades.length;
+
+                                if (recentWinRate < 0.3) {
+                                    const newStake = Math.max(config.stake * 0.7, 0.35);
+                                    addLog(`📉 Poor recent performance (${(recentWinRate * 100).toFixed(1)}%) - Consider reducing stake to $${newStake.toFixed(2)}`);
+                                } else if (recentWinRate > 0.7) {
+                                    const newStake = Math.min(config.stake * 1.2, config.stake * 2);
+                                    addLog(`📈 Good recent performance (${(recentWinRate * 100).toFixed(1)}%) - Could increase stake to $${newStake.toFixed(2)}`);
+                                }
+                            }
 
                             // Unsubscribe from this contract
                             subscription.unsubscribe();
@@ -1144,7 +1194,7 @@ const DecyclerBot: React.FC = observer(() => {
         } catch (error) {
             addLog(`❌ Failed to monitor contract: ${error.message}`);
         }
-    }, [config.stake, addLog]);
+    }, [config.stake, config.take_profit, config.stop_loss, addLog, botStatus.current_contract, tradeHistory]);
 
     // Execute trade
 
