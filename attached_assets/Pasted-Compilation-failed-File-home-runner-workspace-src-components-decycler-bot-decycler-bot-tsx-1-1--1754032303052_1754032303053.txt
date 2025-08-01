@@ -1,0 +1,56 @@
+Compilation failed
+
+File: /home/runner/workspace/src/components/decycler-bot/decycler-bot.tsx:1:1
+  × Module build failed:
+  ╰─▶   ×   × the name `alignmentThreshold` is defined multiple times
+        │       ╭─[/home/runner/workspace/src/components/decycler-bot/decycler-bot.tsx:1279:1]
+        │  1276 │         const bullishCount = Object.keys(timeframeAnalysis).filter(tf => timeframeAnalysis[tf] === 'BULLISH').length;
+        │  1277 │         const bearishCount = Object.keys(timeframeAnalysis).filter(tf => timeframeAnalysis[tf] === 'BEARISH').length;
+        │  1278 │
+        │  1279 │         const alignmentThreshold = Math.ceil(timeframes.length * 0.6); // 60% alignment required
+        │       ·               ─────────┬────────
+        │       ·                        ╰── previous definition of `alignmentThreshold` here
+        │  1280 │
+        │  1281 │         let shouldTrade = false;
+        │  1282 │         let direction: 'CALL' | 'PUT' = 'CALL';
+        │  1283 │
+        │  1284 │         // Determine trading direction based on timeframe analysis
+        │  1285 │         if (bullishCount >= alignmentThreshold) {
+        │  1286 │             shouldTrade = true;
+        │  1287 │             direction = 'CALL';
+        │  1288 │             addLog(`📈 BULLISH SIGNAL: ${bullishCount}/${timeframes.length} timeframes bullish - Placing CALL`);
+        │  1289 │         } else if (bearishCount >= alignmentThreshold) {
+        │  1290 │             shouldTrade = true;
+        │  1291 │             direction = 'PUT';
+        │  1292 │             addLog(`📉 BEARISH SIGNAL: ${bearishCount}/${timeframes.length} timeframes bearish - Placing PUT`);
+        │  1293 │         }
+        │  1294 │
+        │  1295 │         // Execute trade if conditions are met
+        │  1296 │         if (shouldTrade) {
+        │  1297 │             try {
+        │  1298 │                 addLog(`🔄 Executing ${direction} contract for ${config.stake} USD`);
+        │  1299 │                 await purchaseContract(direction);
+        │  1300 │
+        │  1301 │                 // Update performance metrics
+        │  1302 │                 setBotStatus(prev => ({
+        │  1303 │                     ...prev,
+        │  1304 │                     total_trades: prev.total_trades + 1
+        │  1305 │                 }));
+        │  1306 │
+        │  1307 │                 addLog(`✅ Contract purchase initiated successfully`);
+        │  1308 │             } catch (error) {
+        │  1309 │                 addLog(`❌ Contract purchase failed: ${error.message}`);
+        │  1310 │             }
+        │  1311 │         }
+        │  1312 │
+        │  1313 │         const alignmentThreshold = Math.ceil(timeframes.length * 0.7); // 70% alignment
+        │       ·               ─────────┬────────
+        │       ·                        ╰── `alignmentThreshold` redefined here
+        │  1314 │
+        │  1315 │         if (bullishCount >= alignmentThreshold) {
+        │  1316 │             const contractType = config.contract_type === 'higher_lower' ? 'CALLE' : 'CALL';
+        │       ╰────
+        │
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
