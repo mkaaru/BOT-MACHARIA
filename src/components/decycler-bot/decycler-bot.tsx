@@ -89,6 +89,7 @@ const DecyclerBot: React.FC = observer(() => {
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const monitorRef = useRef<NodeJS.Timeout | null>(null);
     const logsEndRef = useRef<HTMLDivElement>(null);
+    const isRunningRef = useRef<boolean>(false);
     const [isConnected, setIsConnected] = useState(false);
     const [currentPrice, setCurrentPrice] = useState<number | null>(null);
     const [isRunning, setIsRunning] = useState(false);
@@ -999,10 +1000,10 @@ const DecyclerBot: React.FC = observer(() => {
 
     // Main trading loop
     const tradingLoop = useCallback(async (): Promise<void> => {
-        addLog(`🔍 DEBUG: tradingLoop called - bot running: ${botStatus.is_running}`);
+        addLog(`🔍 DEBUG: tradingLoop called - bot running (state): ${botStatus.is_running}, (ref): ${isRunningRef.current}`);
         
-        if (!botStatus.is_running) {
-            addLog(`⏹️ DEBUG: Bot not running, exiting trading loop`);
+        if (!isRunningRef.current) {
+            addLog(`⏹️ DEBUG: Bot not running (ref check), exiting trading loop`);
             return;
         }
 
@@ -1138,11 +1139,15 @@ const DecyclerBot: React.FC = observer(() => {
                 return;
             }
 
+            addLog('🔧 DEBUG: Setting bot status to running...');
+            isRunningRef.current = true;
             setBotStatus(prev => ({ ...prev, is_running: true }));
+            
             addLog('🚀 Decycler Multi-Timeframe Bot Started!');
             addLog(`📊 Monitoring ${timeframes.join(', ')} timeframes`);
             addLog(`🎯 Symbol: ${config.symbol} | Stake: $${config.stake}`);
             addLog(`⚙️ Contract Type: ${config.contract_type.toUpperCase()}`);
+            addLog(`🔧 DEBUG: isRunningRef.current set to: ${isRunningRef.current}`);
 
             // Start trading loop
             intervalRef.current = setInterval(tradingLoop, config.monitor_interval * 1000);
@@ -1152,20 +1157,24 @@ const DecyclerBot: React.FC = observer(() => {
         } catch (error) {
             addLog(`❌ Error starting bot: ${error.message}`);
         }
-    }, [config, timeframes, tradingLoop, addLog]);
+    }, [config, timeframes, tradingLoop, addLog, botStatus.is_running]);
 
         // Stop bot
     const stopBot = useCallback((): void => {
+        addLog('🔧 DEBUG: Stopping bot...');
+        isRunningRef.current = false;
         setBotStatus(prev => ({ ...prev, is_running: false }));
 
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
+            addLog('🔧 DEBUG: Trading interval cleared');
         }
 
         if (monitorRef.current) {
             clearInterval(monitorRef.current);
             monitorRef.current = null;
+            addLog('🔧 DEBUG: Monitor interval cleared');
         }
 
         addLog('⏹️ Decycler Bot Stopped');
