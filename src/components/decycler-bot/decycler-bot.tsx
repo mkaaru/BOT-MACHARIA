@@ -1276,28 +1276,19 @@ const DecyclerBot: React.FC = observer(() => {
         const bullishCount = Object.keys(timeframeAnalysis).filter(tf => timeframeAnalysis[tf] === 'BULLISH').length;
         const bearishCount = Object.keys(timeframeAnalysis).filter(tf => timeframeAnalysis[tf] === 'BEARISH').length;
 
-        const alignmentThreshold = Math.ceil(timeframes.length * 0.6); // 60% alignment required
-
-        let shouldTrade = false;
-        let direction: 'CALL' | 'PUT' = 'CALL';
+        const alignmentThreshold = Math.ceil(timeframes.length * 0.7); // 70% alignment required
 
         // Determine trading direction based on timeframe analysis
         if (bullishCount >= alignmentThreshold) {
-            shouldTrade = true;
-            direction = 'CALL';
-            addLog(`📈 BULLISH SIGNAL: ${bullishCount}/${timeframes.length} timeframes bullish - Placing CALL`);
-        } else if (bearishCount >= alignmentThreshold) {
-            shouldTrade = true;
-            direction = 'PUT';
-            addLog(`📉 BEARISH SIGNAL: ${bearishCount}/${timeframes.length} timeframes bearish - Placing PUT`);
-        }
+            const contractType = config.contract_type === 'higher_lower' ? 'CALLE' : 'CALL';
+            const contractName = config.contract_type === 'higher_lower' ? 'Higher' : 'Rise';
 
-        // Execute trade if conditions are met
-        if (shouldTrade) {
+            addLog(`🎯 ${bullishCount}/${timeframes.length} timeframes bullish - Purchasing ${contractName}`);
+            setLastSignal(`${bullishCount}/${timeframes.length} timeframes bullish - Purchasing ${contractName}`);
+            
             try {
-                addLog(`🔄 Executing ${direction} contract for ${config.stake} USD`);
-                await purchaseContract(direction);
-
+                await purchaseContract(contractType);
+                
                 // Update performance metrics
                 setBotStatus(prev => ({
                     ...prev,
@@ -1308,24 +1299,26 @@ const DecyclerBot: React.FC = observer(() => {
             } catch (error) {
                 addLog(`❌ Contract purchase failed: ${error.message}`);
             }
-        }
-
-        const alignmentThreshold = Math.ceil(timeframes.length * 0.7); // 70% alignment
-
-        if (bullishCount >= alignmentThreshold) {
-            const contractType = config.contract_type === 'higher_lower' ? 'CALLE' : 'CALL';
-            const contractName = config.contract_type === 'higher_lower' ? 'Higher' : 'Rise';
-
-            addLog(`🎯 ${bullishCount}/${timeframes.length} timeframes bullish - Purchasing ${contractName}`);
-            setLastSignal(`${bullishCount}/${timeframes.length} timeframes bullish - Purchasing ${contractName}`);
-            purchaseContract(contractType);
         } else if (bearishCount >= alignmentThreshold) {
             const contractType = config.contract_type === 'higher_lower' ? 'PUTE' : 'PUT';
             const contractName = config.contract_type === 'higher_lower' ? 'Lower' : 'Fall';
 
             addLog(`🎯 ${bearishCount}/${timeframes.length} timeframes bearish - Purchasing ${contractName}`);
             setLastSignal(`${bearishCount}/${timeframes.length} timeframes bearish - Purchasing ${contractName}`);
-            purchaseContract(contractType);
+            
+            try {
+                await purchaseContract(contractType);
+                
+                // Update performance metrics
+                setBotStatus(prev => ({
+                    ...prev,
+                    total_trades: prev.total_trades + 1
+                }));
+
+                addLog(`✅ Contract purchase initiated successfully`);
+            } catch (error) {
+                addLog(`❌ Contract purchase failed: ${error.message}`);
+            }
         }
     }, [timeframeAnalysis, tradingEnabled, isAuthorized, currentContract, config, selectedTimeframePreset, addLog]);
 
