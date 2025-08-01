@@ -503,7 +503,7 @@ const AppWrapper = observer(() => {
           if (data.msg_type === 'forget_all') {
             console.log('All subscriptions forgotten successfully')
           }
-        } catch (parseError) {
+        } catch (parseError){
           console.error('Error parsing WebSocket message:', parseError)
           setCurrentPrice('Parse Error')
         }
