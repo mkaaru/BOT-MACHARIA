@@ -172,6 +172,59 @@ const DecyclerBot: React.FC = observer(() => {
         return 'neutral';
     }, []);
 
+    // Get a day's worth of ticks (86400 seconds)
+    const getDayTicks = useCallback(async (symbol: string): Promise<any[]> => {
+        try {
+            addLog(`📅 Fetching day's worth of ticks for ${symbol} (86400 seconds)...`);
+            
+            if (!api_base.api || api_base.api.connection.readyState !== 1) {
+                addLog(`🔄 Initializing API connection...`);
+                await api_base.init();
+                
+                let retries = 0;
+                while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    retries++;
+                }
+            }
+
+            const dayTickRequest = {
+                ticks_history: symbol,
+                count: 86400, // One day's worth of ticks
+                end: 'latest',
+                style: 'ticks',
+                req_id: Math.floor(Math.random() * 1000000)
+            };
+
+            addLog(`📊 Requesting 86400 ticks for full day analysis...`);
+            
+            const dayTickResponse = await Promise.race([
+                api_base.api.send(dayTickRequest),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Day tick request timeout')), 30000)
+                )
+            ]);
+
+            if (dayTickResponse?.history?.prices && dayTickResponse?.history?.times) {
+                const prices = dayTickResponse.history.prices.map(p => parseFloat(p)).filter(p => !isNaN(p));
+                const times = dayTickResponse.history.times;
+                
+                addLog(`✅ Retrieved ${prices.length} ticks for day analysis`);
+                return prices.map((price, index) => ({
+                    price,
+                    time: times[index],
+                    timestamp: times[index] * 1000
+                }));
+            } else {
+                addLog(`❌ Failed to get day ticks: ${dayTickResponse?.error?.message || 'Unknown error'}`);
+                return [];
+            }
+        } catch (error) {
+            addLog(`❌ Error fetching day ticks: ${error.message}`);
+            return [];
+        }
+    }, [addLog]);
+
     // Enhanced OHLC data fetching with better error handling
     const fetchOHLCData = useCallback(async (timeframe: string): Promise<any[]> => {
         try {
@@ -637,7 +690,7 @@ const DecyclerBot: React.FC = observer(() => {
         return 'mixed';
     }, []);
 
-    // Execute trade
+    // Execute trade with proper API structure
     const executeTrade = useCallback(async (direction: 'UP' | 'DOWN'): Promise<void> => {
         if (!api_base.api) {
             addLog('❌ API not connected');
@@ -652,7 +705,7 @@ const DecyclerBot: React.FC = observer(() => {
 
             const contractType = contractTypeMap[config.contract_type];
 
-            // Get proposal
+            // Get proposal first
             const proposalRequest = {
                 proposal: 1,
                 amount: config.stake,
@@ -661,36 +714,71 @@ const DecyclerBot: React.FC = observer(() => {
                 currency: 'USD',
                 duration: config.tick_count,
                 duration_unit: 't',
-                symbol: config.symbol
+                symbol: config.symbol,
+                req_id: Math.floor(Math.random() * 1000000)
             };
 
             addLog(`🔄 Getting proposal for ${contractType} on ${config.symbol}...`);
-            const proposalResponse = await api_base.api.send(proposalRequest);
+            addLog(`📋 Proposal request: ${JSON.stringify(proposalRequest)}`);
+            
+            const proposalResponse = await Promise.race([
+                api_base.api.send(proposalRequest),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Proposal timeout')), 10000)
+                )
+            ]);
 
             if (proposalResponse.error) {
-                addLog(`❌ Proposal error: ${proposalResponse.error.message}`);
+                addLog(`❌ Proposal error: ${proposalResponse.error.message} (Code: ${proposalResponse.error.code})`);
+                return;
+            }
+
+            if (!proposalResponse.proposal || !proposalResponse.proposal.id) {
+                addLog(`❌ Invalid proposal response: ${JSON.stringify(proposalResponse)}`);
                 return;
             }
 
             const proposalId = proposalResponse.proposal.id;
             const entrySpot = proposalResponse.proposal.spot;
+            const payout = proposalResponse.proposal.payout;
 
-            // Purchase contract
+            addLog(`✅ Proposal received: ID ${proposalId}, Entry: ${entrySpot}, Payout: ${payout}`);
+
+            // Purchase contract with authenticated API using app_id 75771
             const buyRequest = {
                 buy: proposalId,
-                price: config.stake
+                price: config.stake,
+                req_id: Math.floor(Math.random() * 1000000)
             };
 
-            addLog(`💰 Purchasing contract ${proposalId}...`);
-            const buyResponse = await api_base.api.send(buyRequest);
+            addLog(`💰 Purchasing contract ${proposalId} for $${config.stake}...`);
+            addLog(`📋 Buy request: ${JSON.stringify(buyRequest)}`);
+            
+            const buyResponse = await Promise.race([
+                api_base.api.send(buyRequest),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Purchase timeout')), 15000)
+                )
+            ]);
 
             if (buyResponse.error) {
-                addLog(`❌ Purchase error: ${buyResponse.error.message}`);
+                addLog(`❌ Purchase error: ${buyResponse.error.message} (Code: ${buyResponse.error.code})`);
+                addLog(`📋 Full error response: ${JSON.stringify(buyResponse.error)}`);
+                return;
+            }
+
+            if (!buyResponse.buy || !buyResponse.buy.contract_id) {
+                addLog(`❌ Invalid buy response: ${JSON.stringify(buyResponse)}`);
                 return;
             }
 
             const contractId = buyResponse.buy.contract_id;
-            addLog(`✅ Contract purchased: ${contractId}`);
+            const buyPrice = buyResponse.buy.buy_price;
+            
+            addLog(`✅ Contract purchased successfully!`);
+            addLog(`📊 Contract ID: ${contractId}`);
+            addLog(`💰 Buy Price: $${buyPrice}`);
+            addLog(`🎯 Expected Payout: $${payout}`);
 
             // Update contract info
             const newContract: ContractInfo = {
@@ -718,7 +806,8 @@ const DecyclerBot: React.FC = observer(() => {
             monitorContract(contractId);
 
         } catch (error) {
-            addLog(`💥 Failed to create contract: ${error.message}`);
+            addLog(`💥 Failed to execute trade: ${error.message}`);
+            console.error('Trade execution error:', error);
         }
     }, [api_base.api, config, addLog]);
 
@@ -1994,6 +2083,13 @@ const DecyclerBot: React.FC = observer(() => {
                                 disabled={botStatus.is_running}
                             >
                                 🔍 Test Connection
+                            </button>
+                            <button
+                                className="control-btn day-ticks"
+                                onClick={() => getDayTicks(config.symbol)}
+                                disabled={botStatus.is_running}
+                            >
+                                📅 Get Day Ticks (86400)
                             </button>
                         </div>
                         {!api_base.api && (
