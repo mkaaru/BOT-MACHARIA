@@ -793,10 +793,10 @@ const DecyclerBot: React.FC = observer(() => {
     }, [addLog]);
 
     // Execute trade
-    
+
 
     // Monitor open contract
-   
+
 
     // Main trading loop
     const tradingLoop = useCallback(async (): Promise<void> => {
@@ -1260,7 +1260,8 @@ const DecyclerBot: React.FC = observer(() => {
 
     } catch (error) {
       addLog(`💥 Contract purchase failed: ${error.message}`);
-      throw error;
+      console.error('Contract purchase failed:', error);
+      setLastSignal(`Purchase error: ${error.message}`);
     }
   };
 
