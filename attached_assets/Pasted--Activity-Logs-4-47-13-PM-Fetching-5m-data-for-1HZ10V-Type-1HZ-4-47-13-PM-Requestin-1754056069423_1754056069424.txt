@@ -1,0 +1,100 @@
+📝 Activity Logs
+[4:47:13 PM] 📊 Fetching 5m data for 1HZ10V (Type: 1HZ)
+[4:47:13 PM] 📈 Requesting 3000 ticks for 5m conversion...
+[4:47:14 PM] 📊 Converting 3000 ticks to 5m candles...
+[4:47:14 PM] 🔄 Converting 3000 ticks to candles with 300s granularity...
+[4:47:14 PM] ✅ Successfully converted 3000 ticks to 11 candles
+[4:47:14 PM] ✅ Generated 11 5m candles - Latest OHLC: 8684.32/8685.53/8683.63/8684.62
+[4:47:14 PM] 📈 Processing 11 prices for 5m
+[4:47:14 PM] ✅ 5m: BEARISH (Value: 8688.28811)
+[4:47:14 PM] 📋 Multi-timeframe analysis complete: 5/5 timeframes processed
+[4:47:14 PM] 📊 DEBUG: Analyzed 5 timeframes
+[4:47:14 PM] 🔍 DEBUG: checkAlignment called with 5 trends
+[4:47:14 PM] 📊 DEBUG: Trend counts - Bullish: 0, Bearish: 5, Neutral: 0
+[4:47:14 PM] 📏 DEBUG: Alignment threshold (80%): 4/5
+[4:47:14 PM] 🔴 DEBUG: Perfect bearish alignment (5/5)
+[4:47:14 PM] 🎯 DEBUG: Alignment result: aligned_bearish
+[4:47:14 PM] 📊 Analysis complete - Alignment: ALIGNED_BEARISH
+[4:47:14 PM] 📈 Trends: 0 Bullish, 5 Bearish, 0 Neutral
+[4:47:14 PM] 📊 DEBUG: 1m: BEARISH (value: 8687.13902)
+[4:47:14 PM] 📊 DEBUG: 2m: BEARISH (value: 8688.60355)
+[4:47:14 PM] 📊 DEBUG: 3m: BEARISH (value: 8688.09340)
+[4:47:14 PM] 📊 DEBUG: 4m: BEARISH (value: 8688.24185)
+[4:47:14 PM] 📊 DEBUG: 5m: BEARISH (value: 8688.28811)
+[4:47:14 PM] 🔍 DEBUG: Current contract status: NONE
+[4:47:14 PM] 🎯 DEBUG: Strong alignment detected: true
+[4:47:14 PM] 📋 DEBUG: No current contract: true
+[4:47:14 PM] 🎯 Strong DOWN alignment detected - Running enhanced risk checks...
+[4:47:14 PM] 🔍 Running risk management checks...
+[4:47:14 PM] ✅ Risk checks passed
+[4:47:14 PM] 📊 Validating risk/reward ratio: 1.50 (Min: 2)
+[4:47:14 PM] ❌ Risk/Reward ratio below minimum threshold of 2:1 - skipping trade
+[4:47:20 PM] 🔍 DEBUG: tradingLoop called - bot running (state): false, (ref): true
+[4:47:20 PM] 🔄 Starting trading analysis cycle...
+[4:47:20 PM] 📊 Starting multi-timeframe analysis...
+[4:47:20 PM] 🔄 Analyzing 1m timeframe...
+[4:47:20 PM] 📊 Fetching 1m data for 1HZ10V (Type: 1HZ)
+[4:47:20 PM] 📈 Requesting 3000 ticks for 1m conversion...
+[4:47:20 PM] 📊 Converting 3000 ticks to 1m candles...
+[4:47:20 PM] 🔄 Converting 3000 ticks to candles with 60s granularity...
+[4:47:20 PM] ✅ Successfully converted 3000 ticks to 51 candles
+[4:47:20 PM] ✅ Generated 51 1m candles - Latest OHLC: 8685.28/8685.28/8684.19/8684.19
+[4:47:20 PM] 📈 Processing 51 prices for 1m
+[4:47:20 PM] ✅ 1m: BEARISH (Value: 8687.12817)
+[4:47:21 PM] 🔄 Analyzing 2m timeframe...
+[4:47:21 PM] 📊 Fetching 2m data for 1HZ10V (Type: 1HZ)
+[4:47:21 PM] 📈 Requesting 3000 ticks for 2m conversion...
+[4:47:21 PM] 📊 Converting 3000 ticks to 2m candles...
+[4:47:21 PM] 🔄 Converting 3000 ticks to candles with 120s granularity...
+[4:47:21 PM] ✅ Successfully converted 3000 ticks to 26 candles
+[4:47:21 PM] ✅ Generated 26 2m candles - Latest OHLC: 8685.31/8685.53/8684.19/8684.29
+[4:47:21 PM] 📈 Processing 26 prices for 2m
+[4:47:21 PM] ✅ 2m: BEARISH (Value: 8688.58745)
+[4:47:21 PM] 🔄 Analyzing 3m timeframe...
+[4:47:21 PM] 📊 Fetching 3m data for 1HZ10V (Type: 1HZ)
+[4:47:21 PM] 📈 Requesting 3000 ticks for 3m conversion...
+[4:47:22 PM] 📊 Converting 3000 ticks to 3m candles...
+[4:47:22 PM] 🔄 Converting 3000 ticks to candles with 180s granularity...
+[4:47:22 PM] ✅ Successfully converted 3000 ticks to 17 candles
+[4:47:22 PM] ✅ Generated 17 3m candles - Latest OHLC: 8684.32/8685.53/8683.63/8684.27
+[4:47:22 PM] 📈 Processing 17 prices for 3m
+[4:47:22 PM] ✅ 3m: BEARISH (Value: 8688.07485)
+[4:47:22 PM] 🔄 Analyzing 4m timeframe...
+[4:47:22 PM] 📊 Fetching 4m data for 1HZ10V (Type: 1HZ)
+[4:47:22 PM] 📈 Requesting 3000 ticks for 4m conversion...
+[4:47:23 PM] 📊 Converting 3000 ticks to 4m candles...
+[4:47:23 PM] 🔄 Converting 3000 ticks to candles with 240s granularity...
+[4:47:23 PM] ✅ Successfully converted 3000 ticks to 13 candles
+[4:47:23 PM] ✅ Generated 13 4m candles - Latest OHLC: 8687.51/8687.51/8683.63/8684.16
+[4:47:23 PM] 📈 Processing 13 prices for 4m
+[4:47:23 PM] ✅ 4m: BEARISH (Value: 8688.22260)
+[4:47:23 PM] 🔄 Analyzing 5m timeframe...
+[4:47:23 PM] 📊 Fetching 5m data for 1HZ10V (Type: 1HZ)
+[4:47:23 PM] 📈 Requesting 3000 ticks for 5m conversion...
+[4:47:24 PM] 📊 Converting 3000 ticks to 5m candles...
+[4:47:24 PM] 🔄 Converting 3000 ticks to candles with 300s granularity...
+[4:47:24 PM] ✅ Successfully converted 3000 ticks to 11 candles
+[4:47:24 PM] ✅ Generated 11 5m candles - Latest OHLC: 8684.32/8685.53/8683.63/8684.17
+[4:47:24 PM] 📈 Processing 11 prices for 5m
+[4:47:24 PM] ✅ 5m: BEARISH (Value: 8688.27236)
+[4:47:24 PM] 📋 Multi-timeframe analysis complete: 5/5 timeframes processed
+[4:47:24 PM] 📊 DEBUG: Analyzed 5 timeframes
+[4:47:24 PM] 🔍 DEBUG: checkAlignment called with 5 trends
+[4:47:24 PM] 📊 DEBUG: Trend counts - Bullish: 0, Bearish: 5, Neutral: 0
+[4:47:24 PM] 📏 DEBUG: Alignment threshold (80%): 4/5
+[4:47:24 PM] 🔴 DEBUG: Perfect bearish alignment (5/5)
+[4:47:24 PM] 🎯 DEBUG: Alignment result: aligned_bearish
+[4:47:24 PM] 📊 Analysis complete - Alignment: ALIGNED_BEARISH
+[4:47:24 PM] 📈 Trends: 0 Bullish, 5 Bearish, 0 Neutral
+[4:47:24 PM] 📊 DEBUG: 1m: BEARISH (value: 8687.12817)
+[4:47:24 PM] 📊 DEBUG: 2m: BEARISH (value: 8688.58745)
+[4:47:24 PM] 📊 DEBUG: 3m: BEARISH (value: 8688.07485)
+[4:47:24 PM] 📊 DEBUG: 4m: BEARISH (value: 8688.22260)
+[4:47:24 PM] 📊 DEBUG: 5m: BEARISH (value: 8688.27236)
+[4:47:24 PM] 🔍 DEBUG: Current contract status: NONE
+[4:47:24 PM] 🎯 DEBUG: Strong alignment detected: true
+[4:47:24 PM] 📋 DEBUG: No current contract: true
+[4:47:24 PM] 🎯 Strong DOWN alignment detected - Running enhanced risk checks...
+[4:47:24 PM] 🔍 Running risk management checks...
+[4:47:24 PM] ✅ Risk checks passed
+[4:47:24 PM] 📊 Validating risk/reward ratio: 1.50 (Min: 2)
