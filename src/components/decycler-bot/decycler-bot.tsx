@@ -690,7 +690,7 @@ const DecyclerBot: React.FC = observer(() => {
         return 'mixed';
     }, []);
 
-    // Execute trade with proper API structure
+    // Execute trade with proper API structure using authenticated app_id 75771
     const executeTrade = useCallback(async (direction: 'UP' | 'DOWN'): Promise<void> => {
         if (!api_base.api) {
             addLog('❌ API not connected');
@@ -719,7 +719,6 @@ const DecyclerBot: React.FC = observer(() => {
             };
 
             addLog(`🔄 Getting proposal for ${contractType} on ${config.symbol}...`);
-            addLog(`📋 Proposal request: ${JSON.stringify(proposalRequest)}`);
             
             const proposalResponse = await Promise.race([
                 api_base.api.send(proposalRequest),
@@ -734,7 +733,7 @@ const DecyclerBot: React.FC = observer(() => {
             }
 
             if (!proposalResponse.proposal || !proposalResponse.proposal.id) {
-                addLog(`❌ Invalid proposal response: ${JSON.stringify(proposalResponse)}`);
+                addLog(`❌ Invalid proposal response`);
                 return;
             }
 
@@ -744,15 +743,16 @@ const DecyclerBot: React.FC = observer(() => {
 
             addLog(`✅ Proposal received: ID ${proposalId}, Entry: ${entrySpot}, Payout: ${payout}`);
 
-            // Purchase contract with authenticated API using app_id 75771
+            // Purchase contract using authenticated API with app_id 75771
+            // The user is already OAuth authenticated, so we use the proposal ID to buy
             const buyRequest = {
                 buy: proposalId,
                 price: config.stake,
                 req_id: Math.floor(Math.random() * 1000000)
             };
 
-            addLog(`💰 Purchasing contract ${proposalId} for $${config.stake}...`);
-            addLog(`📋 Buy request: ${JSON.stringify(buyRequest)}`);
+            addLog(`💰 Purchasing contract with proposal ID ${proposalId} for $${config.stake}...`);
+            addLog(`🔑 Using authenticated session with app_id 75771 (OAuth user)`);
             
             const buyResponse = await Promise.race([
                 api_base.api.send(buyRequest),
@@ -763,26 +763,38 @@ const DecyclerBot: React.FC = observer(() => {
 
             if (buyResponse.error) {
                 addLog(`❌ Purchase error: ${buyResponse.error.message} (Code: ${buyResponse.error.code})`);
-                addLog(`📋 Full error response: ${JSON.stringify(buyResponse.error)}`);
+                
+                // Log specific error details for debugging
+                if (buyResponse.error.code === 'AuthorizationRequired') {
+                    addLog(`🔑 Authentication required - user needs to be logged in with trading permissions`);
+                } else if (buyResponse.error.code === 'InsufficientBalance') {
+                    addLog(`💰 Insufficient balance for purchase`);
+                } else if (buyResponse.error.code === 'InvalidProposal') {
+                    addLog(`📋 Proposal expired or invalid - will retry on next signal`);
+                }
                 return;
             }
 
             if (!buyResponse.buy || !buyResponse.buy.contract_id) {
-                addLog(`❌ Invalid buy response: ${JSON.stringify(buyResponse)}`);
+                addLog(`❌ Invalid buy response structure`);
                 return;
             }
 
             const contractId = buyResponse.buy.contract_id;
             const buyPrice = buyResponse.buy.buy_price;
+            const balanceAfter = buyResponse.buy.balance_after;
+            const transactionId = buyResponse.buy.transaction_id;
             
             addLog(`✅ Contract purchased successfully!`);
             addLog(`📊 Contract ID: ${contractId}`);
+            addLog(`🆔 Transaction ID: ${transactionId}`);
             addLog(`💰 Buy Price: $${buyPrice}`);
             addLog(`🎯 Expected Payout: $${payout}`);
+            addLog(`💳 Balance After: $${balanceAfter}`);
 
             // Update contract info
             const newContract: ContractInfo = {
-                id: contractId,
+                id: contractId.toString(),
                 type: contractType,
                 entry_price: entrySpot,
                 current_price: entrySpot,
@@ -803,7 +815,7 @@ const DecyclerBot: React.FC = observer(() => {
             }));
 
             // Start monitoring the contract
-            monitorContract(contractId);
+            monitorContract(contractId.toString());
 
         } catch (error) {
             addLog(`💥 Failed to execute trade: ${error.message}`);
@@ -811,16 +823,19 @@ const DecyclerBot: React.FC = observer(() => {
         }
     }, [api_base.api, config, addLog]);
 
-    // Monitor contract status
+    // Monitor contract status using proper API structure
     const monitorContract = useCallback(async (contractId: string): Promise<void> => {
         if (!api_base.api) return;
 
         try {
             const request = {
                 proposal_open_contract: 1,
-                contract_id: contractId,
-                subscribe: 1
+                contract_id: parseInt(contractId),
+                subscribe: 1,
+                req_id: Math.floor(Math.random() * 1000000)
             };
+
+            addLog(`👁️ Starting to monitor contract ${contractId}...`);
 
             const response = await api_base.api.send(request);
 
@@ -829,48 +844,78 @@ const DecyclerBot: React.FC = observer(() => {
                 return;
             }
 
-            addLog(`👁️ Monitoring contract ${contractId}`);
+            addLog(`✅ Contract monitoring established for ${contractId}`);
 
             // Set up subscription for contract updates
             const subscription = api_base.api.onMessage().subscribe(({ data }) => {
                 if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract) {
                     const contract = data.proposal_open_contract;
 
-                    if (contract.contract_id === contractId) {
+                    if (contract.contract_id.toString() === contractId) {
+                        const currentProfit = parseFloat(contract.profit || '0');
+                        const currentSpot = contract.current_spot;
+                        const isSold = contract.is_sold === 1;
+
                         // Update current contract status
-                        setCurrentContract(prev => prev ? {
-                            ...prev,
-                            profit: contract.profit || 0,
-                            is_sold: contract.is_sold
-                        } : null);
+                        setBotStatus(prev => {
+                            if (!prev.current_contract || prev.current_contract.id !== contractId) {
+                                return prev;
+                            }
 
-                        if (contract.is_sold) {
-                            const profit = parseFloat(contract.profit || '0');
-                            const isWin = profit > 0;
+                            const updatedContract: ContractInfo = {
+                                ...prev.current_contract,
+                                current_price: currentSpot || prev.current_contract.current_price,
+                                profit: currentProfit,
+                                status: isSold ? 'closed' : 'open'
+                            };
 
-                            addLog(`${isWin ? '🟢 WIN' : '🔴 LOSS'}: Contract ${contractId} closed with P&L: $${profit}`);
+                            return {
+                                ...prev,
+                                current_contract: updatedContract
+                            };
+                        });
+
+                        // Log current status
+                        if (currentSpot) {
+                            addLog(`📈 Contract ${contractId}: Current spot ${currentSpot}, P&L: $${currentProfit.toFixed(2)}`);
+                        }
+
+                        // Handle contract closure
+                        if (isSold) {
+                            const isWin = currentProfit > 0;
+                            const sellPrice = contract.sell_price || 0;
+
+                            addLog(`${isWin ? '🎉 WIN' : '💔 LOSS'}: Contract ${contractId} closed`);
+                            addLog(`💰 Final P&L: $${currentProfit.toFixed(2)}`);
+                            addLog(`💵 Sell Price: $${sellPrice}`);
 
                             // Update performance metrics
                             setBotStatus(prev => {
-                                const newWins = isWin ? prev.wins + 1 : prev.wins;
-                                const newLosses = isWin ? prev.losses : prev.losses + 1;
-                                const newTotalPnL = prev.total_pnl + profit;
-                                const newWinRate = prev.total_trades > 0 ? (newWins / prev.total_trades) * 100 : 0;
+                                const newWinningTrades = isWin ? prev.winning_trades + 1 : prev.winning_trades;
+                                const newTotalPnL = prev.total_pnl + currentProfit;
 
                                 return {
                                     ...prev,
-                                    wins: newWins,
-                                    losses: newLosses,
-                                    total_pnl: newTotalPnL,
-                                    win_rate: newWinRate
+                                    current_contract: null,
+                                    winning_trades: newWinningTrades,
+                                    total_pnl: newTotalPnL
                                 };
                             });
 
-                            // Clear current contract
-                            setCurrentContract(null);
+                            // Add to trade history
+                            setTradeHistory(prev => [{
+                                id: contractId,
+                                type: prev.current_contract?.type || 'UNKNOWN',
+                                direction: prev.current_contract?.direction || 'UP',
+                                stake: config.stake,
+                                profit: currentProfit,
+                                isWin,
+                                timestamp: Date.now()
+                            }, ...prev.slice(0, 19)]); // Keep last 20 trades
 
                             // Unsubscribe from this contract
                             subscription.unsubscribe();
+                            addLog(`📡 Stopped monitoring contract ${contractId}`);
                         }
                     }
                 }
@@ -879,7 +924,7 @@ const DecyclerBot: React.FC = observer(() => {
         } catch (error) {
             addLog(`❌ Failed to monitor contract: ${error.message}`);
         }
-    }, [addLog]);
+    }, [config.stake, addLog]);
 
     // Execute trade
 
