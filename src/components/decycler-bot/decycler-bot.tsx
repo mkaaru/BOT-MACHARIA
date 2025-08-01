@@ -1345,8 +1345,8 @@ const DecyclerBot: React.FC = observer(() => {
             const hour = currentTime.getHours();
             const minute = currentTime.getMinutes();
 
-            // Avoid trading during low liquidity periods (adjust based on your market)
-            const isHighVolatilityTime = (hour >= 8 && hour <= 18); // Trading hours
+            // Allow 24/7 trading for synthetic indices
+            const isHighVolatilityTime = true; // Always allow trading for synthetic indices
 
             // Check recent trend consistency
             const recentTrends = trends.slice(-3); // Last 3 timeframes
