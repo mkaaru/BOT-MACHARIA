@@ -89,6 +89,20 @@ const DecyclerBot: React.FC = observer(() => {
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const monitorRef = useRef<NodeJS.Timeout | null>(null);
     const logsEndRef = useRef<HTMLDivElement>(null);
+    const [isConnected, setIsConnected] = useState(false);
+    const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+    const [isRunning, setIsRunning] = useState(false);
+    const [lastSignal, setLastSignal] = useState<string>('');
+    const [performanceData, setPerformanceData] = useState({
+        totalTrades: 0,
+        winRate: 0,
+        totalPnL: 0
+    });
+    const [isAuthorized, setIsAuthorized] = useState(false);
+    const [authToken, setAuthToken] = useState('');
+    const [tradingEnabled, setTradingEnabled] = useState(false);
+    const [currentContract, setCurrentContract] = useState<any>(null);
+    const [tradeHistory, setTradeHistory] = useState<any[]>([]);
 
     const timeframePresets = {
         scalping: ['1m', '2m', '3m', '4m', '5m'],
@@ -1089,17 +1103,217 @@ const DecyclerBot: React.FC = observer(() => {
     }, [config.symbol]);
 
     // Establish WebSocket connection on component mount
+  const authorizeAPI = async (token: string) => {
+    try {
+      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
+
+      return new Promise((resolve, reject) => {
+        ws.onopen = () => {
+          ws.send(JSON.stringify({
+            authorize: token,
+            req_id: Date.now()
+          }));
+        };
+
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.authorize) {
+            setIsAuthorized(true);
+            setAuthToken(token);
+            ws.close();
+            resolve(data);
+          } else if (data.error) {
+            ws.close();
+            reject(data.error);
+          }
+        };
+
+        ws.onerror = (error) => {
+          ws.close();
+          reject(error);
+        };
+      });
+    } catch (error) {
+      console.error('Authorization failed:', error);
+      throw error;
+    }
+  };
+
+  // Contract Purchase Function
+  const purchaseContract = async (direction: 'CALL' | 'PUT') => {
+    if (!isAuthorized || !authToken || currentContract) {
+      return;
+    }
+
+    try {
+      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
+
+      return new Promise((resolve, reject) => {
+        ws.onopen = () => {
+          // First get proposal
+          const proposalRequest = {
+            proposal: 1,
+            amount: parseFloat(config.stake),
+            basis: 'stake',
+            contract_type: direction,
+            currency: 'USD',
+            duration: parseInt(config.tick_count),
+            duration_unit: 't',
+            symbol: config.symbol,
+            req_id: Date.now()
+          };
+
+          ws.send(JSON.stringify(proposalRequest));
+        };
+
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+
+          if (data.proposal) {
+            // Purchase the contract
+            const buyRequest = {
+              buy: data.proposal.id,
+              price: parseFloat(config.stake),
+              req_id: Date.now() + 1
+            };
+
+            ws.send(JSON.stringify(buyRequest));
+          } else if (data.buy) {
+            setCurrentContract({
+              id: data.buy.contract_id,
+              type: direction,
+              stake: parseFloat(config.stake),
+              startTime: Date.now(),
+              payout: data.buy.payout
+            });
+
+            setLastSignal(`Contract purchased: ${direction} for $${config.stake}`);
+            ws.close();
+            resolve(data);
+          } else if (data.error) {
+            setLastSignal(`Purchase failed: ${data.error.message}`);
+            ws.close();
+            reject(data.error);
+          }
+        };
+
+        ws.onerror = (error) => {
+          ws.close();
+          reject(error);
+        };
+      });
+    } catch (error) {
+      console.error('Contract purchase failed:', error);
+      setLastSignal(`Purchase error: ${error}`);
+    }
+  };
+
+  // Monitor Contract Status
+  const monitorContract = async (contractId: string) => {
+    if (!contractId) return;
+
+    try {
+      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({
+          proposal_open_contract: 1,
+          contract_id: contractId,
+          subscribe: 1,
+          req_id: Date.now()
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.proposal_open_contract) {
+          const contract = data.proposal_open_contract;
+
+          if (contract.is_settled) {
+            const profit = parseFloat(contract.profit || 0);
+            const isWin = profit > 0;
+
+            setTradeHistory(prev => [...prev, {
+              id: contractId,
+              type: currentContract?.type,
+              stake: currentContract?.stake,
+              profit,
+              isWin,
+              timestamp: Date.now()
+            }]);
+
+            setPerformanceData(prev => ({
+              totalTrades: prev.totalTrades + 1,
+              winRate: Math.round(((prev.winRate * prev.totalTrades + (isWin ? 1 : 0)) / (prev.totalTrades + 1)) * 100),
+              totalPnL: prev.totalPnL + profit
+            }));
+
+            setCurrentContract(null);
+            setLastSignal(`Contract settled: ${isWin ? 'WIN' : 'LOSS'} - P&L: $${profit.toFixed(2)}`);
+            ws.close();
+          }
+        }
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+    } catch (error) {
+      console.error('Contract monitoring failed:', error);
+    }
+  };
+
+  // Check for trading opportunities
+  const checkTradingOpportunity = useCallback(() => {
+        if (!tradingEnabled || !isAuthorized || currentContract) return;
+
+        const timeframes = selectedTimeframePreset === 'scalping'
+            ? ['1m', '2m', '3m', '4m', '5m']
+            : ['1m', '5m', '15m', '30m', '1h', '4h'];
+
+        const bullishCount = Object.keys(timeframeAnalysis).filter(tf => timeframeAnalysis[tf] === 'BULLISH').length;
+        const bearishCount = Object.keys(timeframeAnalysis).filter(tf => timeframeAnalysis[tf] === 'BEARISH').length;
+
+        const alignmentThreshold = Math.ceil(timeframes.length * 0.7); // 70% alignment
+
+        if (bullishCount >= alignmentThreshold) {
+            setLastSignal(`${bullishCount}/${timeframes.length} timeframes bullish - Purchasing CALL`);
+            purchaseContract('CALL');
+        } else if (bearishCount >= alignmentThreshold) {
+            setLastSignal(`${bearishCount}/${timeframes.length} timeframes bearish - Purchasing PUT`);
+            purchaseContract('PUT');
+        }
+    }, [timeframeAnalysis, tradingEnabled, isAuthorized, currentContract, config, selectedTimeframePreset]);
+
+    // Monitor current contract
+    useEffect(() => {
+        if (currentContract?.id) {
+            monitorContract(currentContract.id);
+        }
+    }, [currentContract]);
+
+    // Check for trading opportunities when trends change
+    useEffect(() => {
+        if (isRunning) {
+            checkTradingOpportunity();
+        }
+    }, [timeframeAnalysis, isRunning, checkTradingOpportunity]);
+
+    // Establish WebSocket connection on component mount
     useEffect(() => {
         const connectWebSocket = () => {
             const newWs = new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=75771");
 
             newWs.onopen = () => {
                 console.log('✅ WebSocket connected');
+                setIsConnected(true);
                 setWs(newWs);
             };
 
             newWs.onclose = () => {
                 console.log('❌ WebSocket disconnected');
+                setIsConnected(false);
                 setWs(null);
                 // Reconnect after 5 seconds
                 setTimeout(connectWebSocket, 5000);
@@ -1107,6 +1321,7 @@ const DecyclerBot: React.FC = observer(() => {
 
             newWs.onerror = (error) => {
                 console.log('❌ WebSocket error:', error);
+                setIsConnected(false);
                 setWs(null);
             };
         };
@@ -1522,7 +1737,7 @@ const DecyclerBot: React.FC = observer(() => {
             setTimeout(() => {
                 wsRef.current?.removeEventListener('message', handleTickResponse);
                 if (collectedTicks.prices.length > 0) {
-                    const candles = convertTicksToCandles(collectedTicks.prices, collectedTicks.times, granularity);
+                    constcandles = convertTicksToCandles(collectedTicks.prices, collectedTicks.times, granularity);
                     resolve(candles);
                 } else {
                     reject(new Error(`No tick data collected for ${timeframe}`));
@@ -1693,6 +1908,57 @@ const DecyclerBot: React.FC = observer(() => {
                                 </span>
                             )}
                         </div>
+
+          <div className="control-item">
+            <span className="control-label">Trading Status:</span>
+            <span className={`status ${isAuthorized ? 'connected' : 'disconnected'}`}>
+              {isAuthorized ? '🟢 Authorized' : '🔴 Not Authorized'}
+            </span>
+          </div>
+
+          <div className="control-item">
+            <label className="control-label">
+              API Token:
+              <input
+                type="password"
+                value={authToken}
+                onChange={(e) => setAuthToken(e.target.value)}
+                placeholder="Enter your Deriv API token"
+                className="form-input"
+                style={{ marginLeft: '10px', width: '200px' }}
+              />
+            </label>
+            <button
+              onClick={() => authorizeAPI(authToken)}
+              disabled={!authToken || isAuthorized}
+              className="btn btn-primary"
+              style={{ marginLeft: '10px' }}
+            >
+              {isAuthorized ? 'Authorized' : 'Authorize'}
+            </button>
+          </div>
+
+          <div className="control-item">
+            <label className="control-label">
+              <input
+                type="checkbox"
+                checked={tradingEnabled}
+                onChange={(e) => setTradingEnabled(e.target.checked)}
+                disabled={!isAuthorized}
+                style={{ marginRight: '10px' }}
+              />
+              Enable Auto Trading
+            </label>
+          </div>
+
+          {currentContract && (
+            <div className="control-item">
+              <span className="control-label">Active Contract:</span>
+              <span className="status connected">
+                {currentContract.type} - ${currentContract.stake} (ID: {currentContract.id.slice(-8)})
+              </span>
+            </div>
+          )}
                         <div className="control-buttons">
                             <button
                                 className={`control-btn ${botStatus.is_running ? 'stop' : 'start'}`}
@@ -1790,13 +2056,36 @@ const DecyclerBot: React.FC = observer(() => {
                                         : 0}%
                                 </span>
                             </div>
-                            <div className="stat-item">
-                                <span className="stat-label">Total P&L</span>
+                            <div className="performance-item">
+            <span className="stat-label">Total P&L</span>
                                 <span className={`stat-value ${botStatus.total_pnl >= 0 ? 'positive' : 'negative'}`}>
                                     ${botStatus.total_pnl.toFixed(2)}
                                 </span>
                             </div>
                         </div>
+
+        {tradeHistory.length > 0 && (
+          <div className="trade-history-section">
+            <h3>📊 Recent Trades</h3>
+            <div className="trade-history">
+              {tradeHistory.slice(-5).reverse().map((trade, index) => (
+                <div key={index} className="trade-item">
+                  <span className="trade-type">{trade.type}</span>
+                  <span className="trade-stake">${trade.stake}</span>
+                  <span className={`trade-result ${trade.isWin ? 'win' : 'loss'}`}>
+                    {trade.isWin ? 'WIN' : 'LOSS'}
+                  </span>
+                  <span className={`trade-profit ${trade.profit >= 0 ? 'positive' : 'negative'}`}>
+                    ${trade.profit.toFixed(2)}
+                  </span>
+                  <span className="trade-time">
+                    {new Date(trade.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
                     </div>
 
                     {/* Activity Logs */}
