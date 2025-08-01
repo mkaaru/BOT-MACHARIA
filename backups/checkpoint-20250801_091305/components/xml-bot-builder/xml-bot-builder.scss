@@ -1,0 +1,10 @@
+
+@import '@/components/shared/styles/mixins';
+
+.xml-bot-builder {
+    // Add your XML bot builder styles here
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+}

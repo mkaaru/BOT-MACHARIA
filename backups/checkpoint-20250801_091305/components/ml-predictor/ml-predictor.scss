@@ -1,0 +1,270 @@
+
+.ml-predictor {
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  max-width: 1200px;
+  margin: 0 auto;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    h2 {
+      margin: 0;
+      color: #333;
+    }
+  }
+
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+
+    .status {
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+
+      &.training {
+        background: #fff3cd;
+        color: #856404;
+      }
+
+      &.ready {
+        background: #d4edda;
+        color: #155724;
+      }
+    }
+
+    .accuracy {
+      font-weight: 600;
+      color: #2c5aa0;
+    }
+  }
+
+  &__content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .prediction-card {
+    grid-column: 1 / -1;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-align: center;
+
+    h3 {
+      margin: 0 0 15px 0;
+      color: #333;
+    }
+
+    .prediction-result {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+
+      .prediction-badge {
+        padding: 15px 25px;
+        border-radius: 8px;
+        font-size: 24px;
+        font-weight: bold;
+        color: white;
+
+        &.even {
+          background: #28a745;
+        }
+
+        &.odd {
+          background: #dc3545;
+        }
+      }
+
+      .probabilities {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+
+        .prob-item {
+          display: flex;
+          justify-content: space-between;
+          min-width: 120px;
+
+          label {
+            font-weight: 500;
+          }
+
+          span {
+            font-weight: 600;
+          }
+        }
+      }
+
+      .confidence {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+
+        label {
+          font-weight: 500;
+          color: #666;
+        }
+
+        span {
+          font-size: 18px;
+          font-weight: 600;
+          color: #2c5aa0;
+        }
+      }
+    }
+
+    .no-prediction {
+      color: #666;
+      font-style: italic;
+      padding: 20px;
+    }
+  }
+
+  .model-stats {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    h3 {
+      margin: 0 0 15px 0;
+      color: #333;
+    }
+
+    .stats-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+
+      .stat-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        background: #f8f9fa;
+        border-radius: 4px;
+
+        label {
+          font-weight: 500;
+          color: #333;
+        }
+
+        span {
+          font-size: 14px;
+          color: #666;
+        }
+      }
+    }
+  }
+
+  .markov-chain {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    h3 {
+      margin: 0 0 15px 0;
+      color: #333;
+    }
+
+    .transition-matrix {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-family: monospace;
+      font-size: 12px;
+
+      .matrix-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        .row-label {
+          width: 20px;
+          font-weight: 600;
+          color: #333;
+        }
+
+        .matrix-cell {
+          width: 30px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 3px;
+          color: white;
+          font-weight: 500;
+
+          &.even {
+            background: #28a745;
+          }
+
+          &.odd {
+            background: #dc3545;
+          }
+        }
+      }
+    }
+  }
+
+  .recent-ticks {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    h3 {
+      margin: 0 0 15px 0;
+      color: #333;
+    }
+
+    .tick-sequence {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+
+      .tick-digit {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-weight: 600;
+        color: white;
+        font-size: 14px;
+
+        &.even {
+          background: #28a745;
+        }
+
+        &.odd {
+          background: #dc3545;
+        }
+      }
+    }
+  }
+}
