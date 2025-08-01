@@ -18,6 +18,13 @@ interface DecyclerConfig {
     use_breakeven: boolean;
     breakeven_trigger: number;
     alpha: number;
+    min_risk_reward_ratio: number;
+    max_daily_loss: number;
+    max_consecutive_losses: number;
+    position_sizing_method: 'fixed' | 'percentage' | 'kelly' | 'adaptive';
+    account_balance: number;
+    risk_per_trade: number;
+    trend_strength_threshold: number;
 }
 
 interface TrendData {
@@ -69,7 +76,14 @@ const DecyclerBot: React.FC = observer(() => {
         trailing_step: 0.5,
         use_breakeven: true,
         breakeven_trigger: 2.0,
-        alpha: 0.07
+        alpha: 0.07,
+        min_risk_reward_ratio: 2.0,
+        max_daily_loss: 50,
+        max_consecutive_losses: 3,
+        position_sizing_method: 'fixed',
+        account_balance: 1000,
+        risk_per_trade: 2,
+        trend_strength_threshold: 0.75
     });
 
     const [botStatus, setBotStatus] = useState<BotStatus>({
@@ -104,6 +118,7 @@ const DecyclerBot: React.FC = observer(() => {
     const [tradingEnabled, setTradingEnabled] = useState(false);
     const [currentContract, setCurrentContract] = useState<any>(null);
     const [tradeHistory, setTradeHistory] = useState<any[]>([]);
+    const [dailyTradeCount, setDailyTradeCount] = useState(0);
 
     const timeframePresets = {
         scalping: ['1m', '2m', '3m', '4m', '5m'],
@@ -698,10 +713,10 @@ const DecyclerBot: React.FC = observer(() => {
         // Check for trend momentum by comparing shorter vs longer timeframe trends
         const shortTermTrends = trends.slice(0, Math.ceil(trends.length / 2));
         const longTermTrends = trends.slice(Math.ceil(trends.length / 2));
-        
+
         const shortBullish = shortTermTrends.filter(t => t.trend === 'bullish').length;
         const longBullish = longTermTrends.filter(t => t.trend === 'bullish').length;
-        
+
         // Detect potential reversal - if short term contradicts long term, be cautious
         const possibleReversal = (shortBullish / shortTermTrends.length) < 0.3 && (longBullish / longTermTrends.length) > 0.7 ||
                                 (shortBullish / shortTermTrends.length) > 0.7 && (longBullish / longTermTrends.length) < 0.3;
@@ -734,6 +749,76 @@ const DecyclerBot: React.FC = observer(() => {
         addLog(`🟡 DEBUG: Mixed alignment - no clear direction`);
         return 'mixed';
     }, [addLog]);
+
+        // Enhanced risk management checks
+    const checkRiskManagement = useCallback((): boolean => {
+        addLog(`🔍 Running risk management checks...`);
+
+        // Check max daily loss
+        const dailyLoss = tradeHistory
+            .filter(trade => new Date(trade.timestamp).toDateString() === new Date().toDateString())
+            .reduce((acc, trade) => acc + trade.profit, 0);
+
+        if (dailyLoss < -config.max_daily_loss) {
+            addLog(`❌ Max daily loss exceeded: ${dailyLoss.toFixed(2)} / ${config.max_daily_loss} - Stopping trade`);
+            return false;
+        }
+
+        // Check max consecutive losses
+        const lastTrades = tradeHistory.slice(0, config.max_consecutive_losses);
+        const consecutiveLosses = lastTrades.every(trade => !trade.isWin);
+
+        if (consecutiveLosses && lastTrades.length === config.max_consecutive_losses) {
+            addLog(`❌ Max consecutive losses reached - Stopping trade`);
+            return false;
+        }
+
+        addLog(`✅ Risk checks passed`);
+        return true;
+    }, [tradeHistory, config, addLog]);
+
+    // Validate risk-to-reward ratio
+    const validateRiskReward = useCallback((currentPrice: number, direction: 'UP' | 'DOWN'): boolean => {
+        const potentialReward = config.take_profit;
+        const potentialRisk = Math.abs(config.stop_loss);
+
+        const riskRewardRatio = potentialReward / potentialRisk;
+        addLog(`📊 Validating risk/reward ratio: ${riskRewardRatio.toFixed(2)} (Min: ${config.min_risk_reward_ratio})`);
+
+        return riskRewardRatio >= config.min_risk_reward_ratio;
+    }, [config.take_profit, config.stop_loss, config.min_risk_reward_ratio, addLog]);
+
+    // Dynamic position sizing
+    const calculatePositionSize = useCallback((direction: 'UP' | 'DOWN', trendStrengthScore: number): number => {
+        let optimalStake = config.stake;
+
+        switch (config.position_sizing_method) {
+            case 'percentage': {
+                const calculatedStake = (config.account_balance * (config.risk_per_trade / 100));
+                optimalStake = Math.min(calculatedStake, config.stake * 2);
+                break;
+            }
+            case 'kelly': {
+                const winProbability = 0.6; // Example: can be based on backtesting
+                const payoutRatio = config.take_profit / Math.abs(config.stop_loss);
+                const edge = winProbability - (1 / payoutRatio);
+                optimalStake = config.account_balance * edge;
+                optimalStake = Math.max(config.stake * 0.5, Math.min(optimalStake, config.stake * 2)); // Cap stake
+                break;
+            }
+            case 'adaptive': {
+                // Scale stake based on trend strength (example)
+                const trendFactor = Math.max(1, trendStrengthScore / config.trend_strength_threshold);
+                optimalStake = config.stake * trendFactor;
+                break;
+            }
+            case 'fixed':
+            default:
+                break;
+        }
+
+        return optimalStake;
+    }, [config, addLog]);
 
     // Execute trade using direct contract purchase (OAuth authenticated)
     const executeTrade = useCallback(async (direction: 'UP' | 'DOWN'): Promise<void> => {
@@ -992,7 +1077,7 @@ const DecyclerBot: React.FC = observer(() => {
                             if (isSold) {
                                 const recentTrades = tradeHistory.slice(-5); // Last 5 trades
                                 const recentWinRate = recentTrades.filter(t => t.isWin).length / Math.max(recentTrades.length, 1);
-                                
+
                                 if (recentWinRate < 0.3) {
                                     // Reduce stake if recent performance is poor
                                     const newStake = Math.max(config.stake * 0.7, 0.35);
@@ -1131,10 +1216,10 @@ const DecyclerBot: React.FC = observer(() => {
             const currentTime = new Date();
             const hour = currentTime.getHours();
             const minute = currentTime.getMinutes();
-            
+
             // Avoid trading during low liquidity periods (adjust based on your market)
             const isHighVolatilityTime = (hour >= 8 && hour <= 18); // Trading hours
-            
+
             // Check recent trend consistency
             const recentTrends = trends.slice(-3); // Last 3 timeframes
             const trendConsistency = recentTrends.every(t => 
@@ -1145,6 +1230,46 @@ const DecyclerBot: React.FC = observer(() => {
             // Check if we should enter a trade
             if (!botStatus.current_contract && hasStrongAlignment && isHighVolatilityTime && trendConsistency) {
                 const direction = alignment === 'aligned_bullish' ? 'UP' : 'DOWN';
+
+                // Calculate trend strength score
+                const trendStrengthScore = trends.filter(t => t.trend === (direction === 'UP' ? 'bullish' : 'bearish')).length / trends.length;
+
+                // Enhanced pre-trade validation
+                addLog(`🎯 Strong ${direction} alignment detected - Running enhanced risk checks...`);
+
+                // Check risk management rules
+                if (!checkRiskManagement()) {
+                    addLog(`❌ Risk management check failed - skipping trade`);
+                    return;
+                }
+
+                // Validate risk-to-reward ratio
+                if (!validateRiskReward(currentPrice || 0, direction)) {
+                    addLog(`❌ Risk/Reward ratio below minimum threshold of ${config.min_risk_reward_ratio}:1 - skipping trade`);
+                    return;
+                }
+
+                // Calculate optimal position size
+                const optimalStake = calculatePositionSize(direction, trendStrengthScore);
+                addLog(`💰 Calculated optimal position size: $${optimalStake.toFixed(2)} (Base: $${config.stake})`);
+
+                // Temporarily update stake for this trade
+                const originalStake = config.stake;
+                setConfig(prev => ({ ...prev, stake: optimalStake }));
+
+                addLog(`🚀 All risk checks passed - Executing ${direction} trade with $${optimalStake.toFixed(2)} stake`);
+
+                try {
+                    await executeTrade(direction);
+
+                    // Update daily trade count
+                    setDailyTradeCount(prev => prev + 1);
+
+                } finally {
+                    // Restore original stake
+                    setConfig(prev => ({ ...prev, stake: originalStake }));
+                }
+
                 addLog(`🚀 DEBUG: Trade conditions met - Direction: ${direction}`);
                 addLog(`⏰ DEBUG: High volatility time: ${isHighVolatilityTime}, Trend consistency: ${trendConsistency}`);
 
@@ -1152,11 +1277,11 @@ const DecyclerBot: React.FC = observer(() => {
                 if (config.use_10s_filter) {
                     addLog('⏱️ DEBUG: Applying 10-second confirmation filter...');
                     await new Promise(resolve => setTimeout(resolve, 2000));
-                    
+
                     // Re-analyze shorter timeframes for confirmation
                     const quickAnalysis = await analyzeAllTimeframes();
                     const quickAlignment = checkAlignment(quickAnalysis);
-                    
+
                     if (quickAlignment !== alignment) {
                         addLog('❌ DEBUG: Confirmation failed - trend changed during filter');
                         return;
@@ -2332,8 +2457,7 @@ const DecyclerBot: React.FC = observer(() => {
               />
             </label>
             <button
-              onClick={() => authorizeAPI(authToken)}
-              disabled={!authToken || isAuthorized}
+              onClick={() => authorizeAPI(authToken)}disabled={!authToken || isAuthorized}
               className="btn btn-primary"
               style={{ marginLeft: '10px' }}
             >
