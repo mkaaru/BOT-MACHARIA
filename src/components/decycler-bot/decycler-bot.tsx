@@ -55,6 +55,51 @@ interface BotStatus {
 }
 
 const DecyclerBot: React.FC = observer(() => {
+    // Error boundary state
+    const [hasError, setHasError] = useState(false);
+
+    // Error boundary effect
+    useEffect(() => {
+        const handleError = (error: any) => {
+            console.error('DecyclerBot Error:', error);
+            setHasError(true);
+        };
+
+        window.addEventListener('error', handleError);
+        window.addEventListener('unhandledrejection', handleError);
+
+        return () => {
+            window.removeEventListener('error', handleError);
+            window.removeEventListener('unhandledrejection', handleError);
+        };
+    }, []);
+
+    if (hasError) {
+        return (
+            <div className="decycler-bot-container">
+                <div className="decycler-header">
+                    <h2>🔬 Decycler Multi-Timeframe Trading Bot</h2>
+                    <div className="bot-status stopped">
+                        <span className="status-dot"></span>
+                        ERROR
+                    </div>
+                </div>
+                <div className="error-message" style={{ padding: '20px', textAlign: 'center' }}>
+                    <p>⚠️ An error occurred while loading the Decycler Bot.</p>
+                    <button 
+                        className="control-btn start" 
+                        onClick={() => {
+                            setHasError(false);
+                            window.location.reload();
+                        }}
+                        style={{ marginTop: '10px' }}
+                    >
+                        🔄 Reload Component
+                    </button>
+                </div>
+            </div>
+        );
+    }
     const [config, setConfig] = useState<DecyclerConfig>({
         app_id: 75771,
         symbol: '1HZ100V',
@@ -1439,34 +1484,44 @@ const DecyclerBot: React.FC = observer(() => {
     // Establish WebSocket connection on component mount
     useEffect(() => {
         const connectWebSocket = () => {
-            const newWs = new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=75771");
+            try {
+                const newWs = new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=75771");
 
-            newWs.onopen = () => {
-                console.log('✅ WebSocket connected');
-                setIsConnected(true);
-                setWs(newWs);
-            };
+                newWs.onopen = () => {
+                    console.log('✅ WebSocket connected');
+                    setIsConnected(true);
+                    setWs(newWs);
+                };
 
-            newWs.onclose = () => {
-                console.log('❌ WebSocket disconnected');
+                newWs.onclose = () => {
+                    console.log('❌ WebSocket disconnected');
+                    setIsConnected(false);
+                    setWs(null);
+                    // Reconnect after 5 seconds
+                    setTimeout(connectWebSocket, 5000);
+                };
+
+                newWs.onerror = (error) => {
+                    console.log('❌ WebSocket error:', error);
+                    setIsConnected(false);
+                    setWs(null);
+                };
+            } catch (error) {
+                console.error('Failed to create WebSocket connection:', error);
+                addLog(`❌ WebSocket initialization failed: ${error.message}`);
                 setIsConnected(false);
-                setWs(null);
-                // Reconnect after 5 seconds
-                setTimeout(connectWebSocket, 5000);
-            };
-
-            newWs.onerror = (error) => {
-                console.log('❌ WebSocket error:', error);
-                setIsConnected(false);
-                setWs(null);
-            };
+            }
         };
 
         connectWebSocket();
 
         return () => {
-            if (ws) {
-                ws.close();
+            try {
+                if (ws) {
+                    ws.close();
+                }
+            } catch (error) {
+                console.error('Error closing WebSocket:', error);
             }
         };
     }, []);
