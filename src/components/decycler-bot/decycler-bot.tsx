@@ -65,9 +65,9 @@ const DecyclerBot: React.FC = observer(() => {
     const [config, setConfig] = useState<DecyclerConfig>({
         app_id: 75771,
         symbol: '1HZ100V',
-        stake: 1.0,
-        take_profit: 2.0,
-        stop_loss: -1.0,
+        stake: 0.35,
+        take_profit: 0.85,
+        stop_loss: -0.35,
         tick_count: 5,
         use_10s_filter: true,
         monitor_interval: 10,
