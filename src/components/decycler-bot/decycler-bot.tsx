@@ -1365,7 +1365,7 @@ const DecyclerBot: React.FC = observer(() => {
       addLog(`💥 Contract purchase failed: ${error.message}`);
       throw error;
     }
-  };lse if (data.buy) {
+  } else if (data.buy) {
             setCurrentContract({
               id: data.buy.contract_id,
               type: direction,
