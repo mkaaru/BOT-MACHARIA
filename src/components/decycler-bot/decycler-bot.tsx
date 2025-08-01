@@ -1066,24 +1066,39 @@ const DecyclerBot: React.FC = observer(() => {
         try {
             addLog('🔄 Starting Decycler Bot...');
 
-            // Initialize API connection
-            if (!api_base.api || api_base.api.connection.readyState !== 1) {
-                addLog('🔌 Connecting to Deriv API...');
-                await api_base.init();
-
-                // Wait for connection to be ready
-                let retries = 0;
-                while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    retries++;
-                    const readyState = api_base.api?.connection?.readyState || 'undefined';
-                    addLog(`⏳ Waiting for WebSocket connection... (${retries}/15) - State: ${readyState}`);
-                }
-
+            // Initialize API connection with error handling
+            try {
                 if (!api_base.api || api_base.api.connection.readyState !== 1) {
-                    addLog('❌ Failed to establish WebSocket connection. Please check your internet connection and try again.');
-                    return;
+                    addLog('🔌 Connecting to Deriv API...');
+                    await api_base.init();
+
+                    // Wait for connection to be ready with better error handling
+                    let retries = 0;
+                    while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 10) {
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        retries++;
+                        const readyState = api_base.api?.connection?.readyState || 'undefined';
+                        addLog(`⏳ Connection attempt ${retries}/10 - State: ${readyState}`);
+                    }
+
+                    if (!api_base.api || api_base.api.connection.readyState !== 1) {
+                        addLog('❌ API connection failed. Please refresh the page and try again.');
+                        setBotStatus(prev => ({
+                            ...prev,
+                            error_message: 'API connection failed - please refresh page',
+                            is_running: false
+                        }));
+                        return;
+                    }
                 }
+            } catch (initError) {
+                addLog(`❌ API initialization error: ${initError.message}`);
+                setBotStatus(prev => ({
+                    ...prev,
+                    error_message: `API error: ${initError.message}`,
+                    is_running: false
+                }));
+                return;
             }
 
             // Check connection status
@@ -1481,28 +1496,52 @@ const DecyclerBot: React.FC = observer(() => {
         }
     }, [timeframeAnalysis, isRunning, checkTradingOpportunity]);
 
-    // Establish WebSocket connection on component mount
+    // Establish WebSocket connection on component mount with better error handling
     useEffect(() => {
         const connectWebSocket = () => {
             try {
-                const newWs = new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=75771");
+                // Use api_base connection if available, fallback to direct WebSocket
+                if (api_base.api && api_base.api.connection && api_base.api.connection.readyState === 1) {
+                    console.log('✅ Using existing API connection');
+                    setIsConnected(true);
+                    return;
+                }
+
+                addLog('🔌 Establishing direct WebSocket connection...');
+                const newWs = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=75771");
+
+                const connectionTimeout = setTimeout(() => {
+                    addLog('⏰ WebSocket connection timeout');
+                    newWs.close();
+                    setIsConnected(false);
+                }, 10000);
 
                 newWs.onopen = () => {
-                    console.log('✅ WebSocket connected');
+                    clearTimeout(connectionTimeout);
+                    console.log('✅ Direct WebSocket connected');
+                    addLog('✅ WebSocket connection established');
                     setIsConnected(true);
                     setWs(newWs);
                 };
 
-                newWs.onclose = () => {
-                    console.log('❌ WebSocket disconnected');
+                newWs.onclose = (event) => {
+                    clearTimeout(connectionTimeout);
+                    console.log('❌ WebSocket disconnected:', event.code, event.reason);
+                    addLog(`❌ WebSocket disconnected: ${event.reason || 'Unknown reason'}`);
                     setIsConnected(false);
                     setWs(null);
-                    // Reconnect after 5 seconds
-                    setTimeout(connectWebSocket, 5000);
+                    
+                    // Only auto-reconnect if not intentional close
+                    if (event.code !== 1000 && event.code !== 1001) {
+                        addLog('🔄 Attempting to reconnect in 5 seconds...');
+                        setTimeout(connectWebSocket, 5000);
+                    }
                 };
 
                 newWs.onerror = (error) => {
+                    clearTimeout(connectionTimeout);
                     console.log('❌ WebSocket error:', error);
+                    addLog('❌ WebSocket connection error');
                     setIsConnected(false);
                     setWs(null);
                 };
@@ -1513,12 +1552,14 @@ const DecyclerBot: React.FC = observer(() => {
             }
         };
 
-        connectWebSocket();
+        // Delay initial connection to allow main app to initialize
+        const initTimer = setTimeout(connectWebSocket, 1000);
 
         return () => {
+            clearTimeout(initTimer);
             try {
                 if (ws) {
-                    ws.close();
+                    ws.close(1000, 'Component unmounting');
                 }
             } catch (error) {
                 console.error('Error closing WebSocket:', error);
