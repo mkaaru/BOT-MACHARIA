@@ -153,22 +153,28 @@ const AppWrapper = observer(() => {
         // Fetch the XML files and parse them
         const fetchBots = async () => {
             const botFiles = [
-                'Upgraded Candlemine.xml',
-                'Super Elite.xml', // Smart trading as second sub-tab
-                'Super Speed Bot.xml', // Speed bot as third sub-tab
-                'Envy-differ.xml',
-                'H_L auto vault.xml',
-                'Top-notch 2.xml',
-                // New bots added
-                '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1.xml',
-                '3 2025 Updated Version Of Candle Mine🇬🇧.xml',
-                'Accumulators Pro Bot.xml',
-                // Additional new bots
-                'AUTO C4 PRO (2) Version.xml',
-                '2025 Killer version Bot🤑.xml',
-                'Alpha Version 2025.xml',
-                '1 Original DollarPrinterBot 2025 Version.xml',
-            ];
+        '2025 Killer version Bot🤑.xml',
+        'Gold Miner S7_1754129184000.xml',
+        '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1.xml',
+        '3 2025 Updated Version Of Candle Mine🇬🇧.xml',
+        'AI with Entry Point.xml',
+        'AUTO C4 PRO (2) Version.xml',
+        'Accumulators Pro Bot.xml',
+        'Alpha Version 2025.xml',
+        'BINARY FLIPPER AI ROBOT PLUS +.xml',
+        'BINARYTOOL WIZARD  AI BOT.xml',
+        'BINARYTOOL@ DIFFER V2.0 (1) (1).xml',
+        'BINARYTOOL@EVEN ODD THUNDER AI PRO BOT.xml',
+        'BINARYTOOL@EVEN&ODD AI BOT (2).xml',
+        'Entry Point Scanner.xml',
+        'Even_Odd_Auto_DBot V1.01 (1).xml',
+        'Expert Wager V3 (Over Under Bot).xml',
+        'Expert Wager V4 (Even Odd).xml',
+        'Expert_Speed_Bot_By_CHOSEN_DOLLAR_PRINTER_FX📉📉📉📈📈📈.xml',
+        'Expert_Speed_Bot_By_CHOSEN_DOLLAR_PRINTER_FX📉📉📉📈📈📈_1.xml',
+        'MKOREAN SV5 SPEED BOT.xml',
+        'Martingale_Striker.xml'
+    ];
 
             const loadedBots = [];
 
