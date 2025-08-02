@@ -837,6 +837,16 @@ const DecyclerBot: React.FC = observer(() => {
             return;
         }
 
+        if (!isAuthorized) {
+            addLog('❌ DEBUG: Not authorized for trading - please enter API token and authorize');
+            return;
+        }
+
+        if (!tradingEnabled) {
+            addLog('❌ DEBUG: Auto trading not enabled - please enable auto trading');
+            return;
+        }
+
         addLog(`✅ DEBUG: API connection exists, readyState: ${api_base.api.connection?.readyState}`);
 
         try {
@@ -1410,6 +1420,18 @@ const DecyclerBot: React.FC = observer(() => {
 
             // Check if we should enter a trade
             if (!botStatus.current_contract && hasStrongAlignment && isHighVolatilityTime && trendConsistency) {
+                
+                // Check authorization before attempting trade
+                if (!isAuthorized) {
+                    addLog(`❌ Trading signal detected but not authorized - please enter API token and authorize`);
+                    return;
+                }
+
+                if (!tradingEnabled) {
+                    addLog(`❌ Trading signal detected but auto trading disabled - please enable auto trading`);
+                    return;
+                }
+
                 const direction = alignment === 'aligned_bullish' ? 'UP' : 'DOWN';
 
                 // Calculate trend strength score
