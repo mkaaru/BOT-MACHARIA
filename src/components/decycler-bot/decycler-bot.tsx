@@ -12,7 +12,7 @@ interface DecyclerConfig {
     tick_count: number;
     use_10s_filter: boolean;
     monitor_interval: number;
-    contract_type: 'rise_fall' | 'higher_lower' | 'allow_equals';
+    contract_type: 'rise_fall' | 'higher_lower' | 'allow_equals' | 'multipliers';
     use_trailing_stop: boolean;
     trailing_step: number;
     use_breakeven: boolean;
@@ -25,6 +25,10 @@ interface DecyclerConfig {
     account_balance: number;
     risk_per_trade: number;
     trend_strength_threshold: number;
+    // Multipliers specific
+    multiplier: number;
+    deal_cancellation?: '5m' | '10m' | '15m' | '30m' | '60m';
+    use_deal_cancellation: boolean;
 }
 
 interface TrendData {
@@ -83,7 +87,11 @@ const DecyclerBot: React.FC = observer(() => {
         position_sizing_method: 'fixed',
         account_balance: 1000,
         risk_per_trade: 2,
-        trend_strength_threshold: 0.75
+        trend_strength_threshold: 0.75,
+        // Multipliers specific
+        multiplier: 100,
+        deal_cancellation: '60m',
+        use_deal_cancellation: false
     });
 
     const [botStatus, setBotStatus] = useState<BotStatus>({
@@ -836,7 +844,15 @@ const DecyclerBot: React.FC = observer(() => {
             let contractType: string;
             let barrier: string | undefined;
 
-            if (config.contract_type === 'rise_fall') {
+            if (config.contract_type === 'multipliers') {
+                // Multipliers contracts
+                if (direction === 'UP') {
+                    contractType = 'MULTUP'; // Multiplier Up
+                } else {
+                    contractType = 'MULTDOWN'; // Multiplier Down
+                }
+                addLog(`📊 Using Multipliers contract: ${contractType} with ${config.multiplier}x multiplier`);
+            } else if (config.contract_type === 'rise_fall') {
                 // Rise/Fall contracts
                 if (direction === 'UP') {
                     contractType = 'CALL'; // Rise (strict)
@@ -927,22 +943,51 @@ const DecyclerBot: React.FC = observer(() => {
                 symbol: config.symbol,
                 amount: config.stake,
                 basis: 'stake',
-                duration: config.tick_count,
-                duration_unit: 't',
                 req_id: Math.floor(Math.random() * 1000000)
             };
 
-            // Add barrier for Higher/Lower contracts
-            if (barrier && config.contract_type === 'higher_lower') {
-                // For Higher/Lower contracts, use barrier field
-                if (barrier.startsWith('+') || barrier.startsWith('-')) {
-                    // Relative barrier
-                    proposalRequest.barrier = barrier;
-                } else {
-                    // Absolute barrier
-                    proposalRequest.barrier = barrier;
+            // Configure contract parameters based on type
+            if (config.contract_type === 'multipliers') {
+                // Multipliers contracts
+                proposalRequest.multiplier = config.multiplier;
+                
+                // Add limit orders (take profit/stop loss)
+                const limitOrder: any = {};
+                if (config.take_profit > 0) {
+                    limitOrder.take_profit = config.take_profit;
                 }
-                addLog(`🎯 DEBUG: Adding barrier to proposal: ${barrier}`);
+                if (config.stop_loss < 0) {
+                    limitOrder.stop_loss = Math.abs(config.stop_loss);
+                }
+                if (Object.keys(limitOrder).length > 0) {
+                    proposalRequest.limit_order = limitOrder;
+                    addLog(`🎯 DEBUG: Adding limit orders: ${JSON.stringify(limitOrder)}`);
+                }
+                
+                // Add deal cancellation if enabled
+                if (config.use_deal_cancellation && config.deal_cancellation) {
+                    proposalRequest.cancellation = config.deal_cancellation;
+                    addLog(`🎯 DEBUG: Adding deal cancellation: ${config.deal_cancellation}`);
+                }
+                
+                addLog(`🎯 DEBUG: Multipliers proposal with ${config.multiplier}x multiplier`);
+            } else {
+                // Binary options contracts - use duration
+                proposalRequest.duration = config.tick_count;
+                proposalRequest.duration_unit = 't';
+                
+                // Add barrier for Higher/Lower contracts
+                if (barrier && config.contract_type === 'higher_lower') {
+                    // For Higher/Lower contracts, use barrier field
+                    if (barrier.startsWith('+') || barrier.startsWith('-')) {
+                        // Relative barrier
+                        proposalRequest.barrier = barrier;
+                    } else {
+                        // Absolute barrier
+                        proposalRequest.barrier = barrier;
+                    }
+                    addLog(`🎯 DEBUG: Adding barrier to proposal: ${barrier}`);
+                }
             }
 
             addLog(`📋 DEBUG: Proposal request: ${JSON.stringify(proposalRequest, null, 2)}`);
@@ -1501,7 +1546,14 @@ const DecyclerBot: React.FC = observer(() => {
             addLog('🚀 Decycler Multi-Timeframe Bot Started!');
             addLog(`📊 Monitoring ${timeframes.join(', ')} timeframes`);
             addLog(`🎯 Symbol: ${config.symbol} | Stake: $${config.stake}`);
-            addLog(`⚙️ Contract Type: ${config.contract_type.toUpperCase()}`);
+            if (config.contract_type === 'multipliers') {
+                addLog(`⚙️ Contract Type: MULTIPLIERS (${config.multiplier}x)`);
+                if (config.use_deal_cancellation) {
+                    addLog(`🛡️ Deal Cancellation: ${config.deal_cancellation}`);
+                }
+            } else {
+                addLog(`⚙️ Contract Type: ${config.contract_type.toUpperCase()}`);
+            }
             addLog(`🔧 DEBUG: isRunningRef.current set to: ${isRunningRef.current}`);
 
             // Start trading loop
@@ -2400,29 +2452,49 @@ const DecyclerBot: React.FC = observer(() => {
                                     onChange={e => setConfig(prev => ({ ...prev, symbol: e.target.value }))}
                                     disabled={botStatus.is_running}
                                 >
-                                    <option value="1HZ10V">Volatility 10 (1s) Index</option>
-                                    <option value="1HZ25V">Volatility 25 (1s) Index</option>
-                                    <option value="1HZ50V">Volatility 50 (1s) Index</option>
-                                    <option value="1HZ75V">Volatility 75 (1s) Index</option>
-                                    <option value="1HZ100V">Volatility 100 (1s) Index</option>
-                                    <option value="1HZ150V">Volatility 150 (1s) Index</option>
-                                    <option value="1HZ250V">Volatility 250 (1s) Index</option>
-                                    <option value="R_10">Volatility 10 Index</option>
-                                    <option value="R_25">Volatility 25 Index</option>
-                                    <option value="R_50">Volatility 50 Index</option>
-                                    <option value="R_75">Volatility 75 Index</option>
-                                    <option value="R_100">Volatility 100 Index</option>
-                                    <option value="R_200">Volatility 200 Index</option>
-                                    <option value="R_300">Volatility 300 Index</option>
-                                    <option value="R_500">Volatility 500 Index</option>
-                                    <option value="R_1000">Volatility 1000 Index</option>
-                                    <option value="RDBEAR">Bear Market Index</option>
-                                    <option value="RDBULL">Bull Market Index</option>
-                                    <option value="BOOM500">Boom 500 Index</option>
-                                    <option value="BOOM1000">Boom 1000 Index</option>
-                                    <option value="CRASH500">Crash 500 Index</option>
-                                    <option value="CRASH1000">Crash 1000 Index</option>
-                                    <option value="stpRNG">Step Index</option>
+                                    <optgroup label="Volatility Indices (1s)">
+                                        <option value="1HZ10V">Volatility 10 (1s) Index</option>
+                                        <option value="1HZ25V">Volatility 25 (1s) Index</option>
+                                        <option value="1HZ50V">Volatility 50 (1s) Index</option>
+                                        <option value="1HZ75V">Volatility 75 (1s) Index</option>
+                                        <option value="1HZ100V">Volatility 100 (1s) Index</option>
+                                        <option value="1HZ150V">Volatility 150 (1s) Index</option>
+                                        <option value="1HZ250V">Volatility 250 (1s) Index</option>
+                                    </optgroup>
+                                    <optgroup label="Volatility Indices">
+                                        <option value="R_10">Volatility 10 Index</option>
+                                        <option value="R_25">Volatility 25 Index</option>
+                                        <option value="R_50">Volatility 50 Index</option>
+                                        <option value="R_75">Volatility 75 Index</option>
+                                        <option value="R_100">Volatility 100 Index</option>
+                                        <option value="R_200">Volatility 200 Index</option>
+                                        <option value="R_300">Volatility 300 Index</option>
+                                        <option value="R_500">Volatility 500 Index</option>
+                                        <option value="R_1000">Volatility 1000 Index</option>
+                                    </optgroup>
+                                    <optgroup label="Market Indices">
+                                        <option value="RDBEAR">Bear Market Index</option>
+                                        <option value="RDBULL">Bull Market Index</option>
+                                    </optgroup>
+                                    <optgroup label="Jump Indices">
+                                        <option value="BOOM500">Boom 500 Index</option>
+                                        <option value="BOOM1000">Boom 1000 Index</option>
+                                        <option value="CRASH500">Crash 500 Index</option>
+                                        <option value="CRASH1000">Crash 1000 Index</option>
+                                    </optgroup>
+                                    <optgroup label="Step Index">
+                                        <option value="stpRNG">Step Index</option>
+                                    </optgroup>
+                                    {config.contract_type === 'multipliers' && (
+                                        <optgroup label="Forex (Multipliers Compatible)">
+                                            <option value="frxEURUSD">EUR/USD</option>
+                                            <option value="frxGBPUSD">GBP/USD</option>
+                                            <option value="frxUSDJPY">USD/JPY</option>
+                                            <option value="frxAUDUSD">AUD/USD</option>
+                                            <option value="frxUSDCAD">USD/CAD</option>
+                                            <option value="frxUSDCHF">USD/CHF</option>
+                                        </optgroup>
+                                    )}
                                 </select>
                             </div>
                             <div className="config-item">
@@ -2460,12 +2532,13 @@ const DecyclerBot: React.FC = observer(() => {
                                 <label>Contract Type</label>
                                 <select
                                     value={config.contract_type}
-                                    onChange={e => setConfig(prev => ({ ...prev, contract_type: e.target.value as 'rise_fall' | 'higher_lower' | 'allow_equals' }))}
+                                    onChange={e => setConfig(prev => ({ ...prev, contract_type: e.target.value as 'rise_fall' | 'higher_lower' | 'allow_equals' | 'multipliers' }))}
                                     disabled={botStatus.is_running}
                                 >
                                     <option value="rise_fall">Rise/Fall (Strict)</option>
                                     <option value="higher_lower">Higher/Lower (with Barrier)</option>
                                     <option value="allow_equals">Allow Equals (Rise/Fall + Equals)</option>
+                                    <option value="multipliers">Multipliers (Up to 2000x)</option>
                                 </select>
                             </div>
                             <div className="config-item">
@@ -2490,29 +2563,69 @@ const DecyclerBot: React.FC = observer(() => {
                                 />
                             </div>
 
-                            <div className="config-item">
-                                <label>Duration</label>
-                                <div className="duration-group">
-                                    <input
-                                        type="number"
-                                        value={duration}
-                                        onChange={(e) => setDuration(Number(e.target.value))}
-                                        min="1"
-                                        disabled={botStatus.is_running}
-                                    />
-                                    <select
-                                        value={durationType}
-                                        onChange={(e) => setDurationType(e.target.value)}
-                                        disabled={botStatus.is_running}
-                                    >
-                                        <option value="t">Ticks</option>
-                                        <option value="s">Seconds</option>
-                                        <option value="m">Minutes</option>
-                                        <option value="h">Hours</option>
-                                        <option value="d">Days</option>
-                                    </select>
+                            {config.contract_type === 'multipliers' ? (
+                                <>
+                                    <div className="config-item">
+                                        <label>Multiplier (x)</label>
+                                        <input
+                                            type="number"
+                                            value={config.multiplier}
+                                            onChange={e => setConfig(prev => ({ ...prev, multiplier: parseInt(e.target.value) || 100 }))}
+                                            min="1"
+                                            max="2000"
+                                            disabled={botStatus.is_running}
+                                        />
+                                    </div>
+                                    <div className="config-item">
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                checked={config.use_deal_cancellation}
+                                                onChange={e => setConfig(prev => ({ ...prev, use_deal_cancellation: e.target.checked }))}
+                                                disabled={botStatus.is_running}
+                                            />
+                                            Deal Cancellation
+                                        </label>
+                                        {config.use_deal_cancellation && (
+                                            <select
+                                                value={config.deal_cancellation}
+                                                onChange={e => setConfig(prev => ({ ...prev, deal_cancellation: e.target.value as '5m' | '10m' | '15m' | '30m' | '60m' }))}
+                                                disabled={botStatus.is_running}
+                                            >
+                                                <option value="5m">5 minutes</option>
+                                                <option value="10m">10 minutes</option>
+                                                <option value="15m">15 minutes</option>
+                                                <option value="30m">30 minutes</option>
+                                                <option value="60m">60 minutes</option>
+                                            </select>
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="config-item">
+                                    <label>Duration</label>
+                                    <div className="duration-group">
+                                        <input
+                                            type="number"
+                                            value={duration}
+                                            onChange={(e) => setDuration(Number(e.target.value))}
+                                            min="1"
+                                            disabled={botStatus.is_running}
+                                        />
+                                        <select
+                                            value={durationType}
+                                            onChange={(e) => setDurationType(e.target.value)}
+                                            disabled={botStatus.is_running}
+                                        >
+                                            <option value="t">Ticks</option>
+                                            <option value="s">Seconds</option>
+                                            <option value="m">Minutes</option>
+                                            <option value="h">Hours</option>
+                                            <option value="d">Days</option>
+                                        </select>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
 
                         {/* Advanced Risk Management */}
