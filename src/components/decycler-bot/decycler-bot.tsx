@@ -1474,7 +1474,7 @@ const DecyclerBot: React.FC = observer(() => {
                     setDailyTradeCount(prev => prev + 1);
 
                 } finally {
-                    // Restore original stake
+                    // Restore originalStake
                     setConfig(prev => ({ ...prev, stake: originalStake }));
                 }
 
@@ -2644,529 +2644,533 @@ ws.onopen = () => {
     };
 
     return (
-        
-            
-                
+
+
+
                     <h2>🔬 Decycler Multi-Timeframe Trading Bot</h2>
-                    
-                        
-                            
-                            {isRunning ? 'RUNNING' : 'STOPPED'}
-                        
-                    
-                
-                
-                    
+
+
+
+                            {isRunning ? (
+                                'RUNNING'
+                            ) : (
+                                'STOPPED'
+                            )}
+
+
+
+
+
                         {/* Configuration Panel */}
-                        
+
                             <h3>⚙️ Configuration</h3>
-                             
+
                                 <label>Timeframe Preset</label>
-                                
-                                    
+
+
                                         Scalping (1m-5m)
-                                    
-                                    
+
+
                                         Multi-Timeframe (1m-4h)
-                                    
-                                
-                            
-                            
-                                
-                                    
+
+
+
+
+
+
                                         Symbol
-                                    
-                                    
-                                        
-                                            
+
+
+
+
                                                 Volatility 10 (1s) Index
-                                            
-                                            
+
+
                                                 Volatility 25 (1s) Index
-                                            
-                                            
+
+
                                                 Volatility 50 (1s) Index
-                                            
-                                            
+
+
                                                 Volatility 75 (1s) Index
-                                            
-                                            
+
+
                                                 Volatility 100 (1s) Index
-                                            
-                                            
+
+
                                                 Volatility 150 (1s) Index
-                                            
-                                            
+
+
                                                 Volatility 250 (1s) Index
-                                            
-                                        
-                                        
-                                            
+
+
+
+
                                                 Volatility 10 Index
-                                            
-                                            
+
+
                                                 Volatility 25 Index
-                                            
-                                            
+
+
                                                 Volatility 50 Index
-                                            
-                                            
+
+
                                                 Volatility 75 Index
-                                            
-                                            
+
+
                                                 Volatility 100 Index
-                                            
-                                        
-                                        
-                                            
+
+
+
+
                                                 Bear Market Index
-                                            
-                                            
+
+
                                                 Bull Market Index
-                                            
-                                        
-                                        
-                                            
+
+
+
+
                                                 Boom 500 Index
-                                            
-                                            
+
+
                                                 Boom 1000 Index
-                                            
-                                            
+
+
                                                 Crash 500 Index
-                                            
-                                            
+
+
                                                 Crash 1000 Index
-                                            
-                                        
-                                        
-                                            
+
+
+
+
                                                 Step Index
-                                            
-                                        
+
+
                                         {config.contract_type === 'multipliers' && (
-                                            
-                                                
+
+
                                                     EUR/USD
-                                                
-                                                
+
+
                                                     GBP/USD
-                                                
-                                                
+
+
                                                     USD/JPY
-                                                
-                                                
+
+
                                                     AUD/USD
-                                                
-                                                
+
+
                                                     USD/CAD
-                                                
-                                                
+
+
                                                     USD/CHF
-                                                
-                                            
+
+
                                         )}
-                                    
-                                
-                            
-                            
-                                
-                                    
+
+
+
+
+
+
                                         Stake ($)
-                                    
-                                    
-                                        
-                                    
-                                
-                            
-                            
-                                
-                                    
+
+
+
+
+
+
+
+
+
                                         Take Profit ($)
-                                    
-                                    
-                                        
-                                    
-                                
-                            
-                            
-                                
-                                    
+
+
+
+
+
+
+
+
+
                                         Stop Loss ($)
-                                    
-                                    
-                                        
-                                    
-                                
-                            
-                            
-                                
-                                    
+
+
+
+
+
+
+
+
+
                                         Contract Type
-                                    
-                                    
-                                        
-                                            
+
+
+
+
                                                 Rise/Fall (Strict)
-                                            
-                                            
+
+
                                                 Higher/Lower (with Barrier)
-                                            
-                                            
+
+
                                                 Allow Equals (Rise/Fall + Equals)
-                                            
-                                            
+
+
                                                 Multipliers (Up to 2000x)
-                                            
-                                        
-                                    
-                                
-                            
-                            
-                                
-                                    
+
+
+
+
+
+
+
+
                                         Tick Count
-                                    
-                                    
-                                        
-                                    
-                                
-                            
-                            
-                                
-                                    
+
+
+
+
+
+
+
+
+
                                         Barrier (optional)
-                                    
-                                    
-                                        
-                                    
-                                
-                            
+
+
+
+
+
+
 
                             {config.contract_type === 'multipliers' ? (
                                 <>
-                                    
-                                        
+
+
                                             Multiplier (x)
-                                        
-                                        
-                                            
-                                        
-                                    
-                                    
-                                        
-                                            
-                                                
+
+
+
+
+
+
+
+
+
                                                 Deal Cancellation
-                                            
+
                                             {config.use_deal_cancellation && (
-                                                
-                                                    
+
+
                                                         5 minutes
-                                                    
-                                                    
+
+
                                                         10 minutes
-                                                    
-                                                    
+
+
                                                         15 minutes
-                                                    
-                                                    
+
+
                                                         30 minutes
-                                                    
-                                                    
+
+
                                                         60 minutes
-                                                    
-                                                
+
+
                                             )}
-                                        
-                                    
+
+
                                 </>
                             ) : (
-                                
-                                    
+
+
                                         Duration
-                                    
-                                    
-                                        
-                                            
-                                            
-                                            
-                                            
-                                                
+
+
+
+
+
+
+
+
                                                     Ticks
-                                                
-                                                
+
+
                                                     Seconds
-                                                
-                                                
+
+
                                                     Minutes
-                                                
-                                                
+
+
                                                     Hours
-                                                
-                                                
+
+
                                                     Days
-                                                
-                                            
-                                        
-                                    
-                                
+
+
+
+
+
                             )}
-                        
+
 
                         {isOAuthEnabled && (
-                            
-                                
+
+
                                     Authentication:
-                                
-                                
+
+
                                     ✅ OAuth Authenticated - Ready for Trading
-                                
-                            
+
+
                         )}
 
                         {/* Advanced Risk Management */}
-                        
-                            
+
+
                                 <h4>🛡️ Risk Management</h4>
-                                
-                                    
-                                        
-                                            
-                                                
+
+
+
+
+
                                                 Trailing Stop (${config.trailing_step})
-                                            
-                                        
-                                        
-                                            
-                                                
+
+
+
+
+
                                                 Breakeven at ${config.breakeven_trigger} profit
-                                            
-                                        
-                                        
-                                            
-                                                
+
+
+
+
+
                                                 10-Second Confirmation Filter
-                                            
-                                        
-                                    
-                                
-                            
-                        
-                    
+
+
+
+
+
+
+
 
                     {/* Control Panel */}
-                    
-                        
-                            <h3>🎮 Controls</h3>
-                            
-                                
-                                    API Status:
-                                
-                                
-                                    {api_base.api ? '🟢 Connected' : '🔴 Disconnected'}
-                                
-                                {api_base.api && (
-                                    
-                                        ({api_base.getConnectionStatus()})
-                                    
-                                )}
-                            
-                             
-                                  
-                                      API Status:
-                                  
-                                  
-                                    🟢 Ready for Trading (OAuth Authenticated)
-                                  
-                                
-                              
 
-                              
-                                
-                                  
-                                    
+
+                            <h3>🎮 Controls</h3>
+
+
+                                    API Status:
+
+
+                                    {api_base.api ? '🟢 Connected' : '🔴 Disconnected'}
+
+                                {api_base.api && (
+
+                                        ({api_base.getConnectionStatus()})
+
+                                )}
+
+
+
+                                      API Status:
+
+
+                                    🟢 Ready for Trading (OAuth Authenticated)
+
+
+
+
+
+
+
+
                                     Enable Auto Trading
-                                  
-                                
-                              
+
+
+
 
                               {currentContract && (
-                                
-                                  
+
+
                                       Active Contract:
-                                  
-                                  
+
+
                                     {currentContract.type} - ${currentContract.stake} (ID: {currentContract.id.slice(-8)})
-                                  
-                                
+
+
                               )}
-                            
-                            
-                                
-                                    
+
+
+
+
                                         {isRunning ? '⏹️ Stop Bot' : '▶️ Start Bot'}
-                                    
-                                    
+
+
                                         🔍 Test Connection
-                                    
-                                    
+
+
                                         📅 Get Day Ticks (86400)
-                                    
-                                
-                            
+
+
+
                             {!api_base.api && (
-                                
+
                                     ⚠️ API not connected. Bot will attempt to connect when started.
-                                
+
                             )}
-                        
-                    
+
+
 
                     {/* Current Contract */}
                     {currentContract && (
-                        
-                            
+
+
                                 <h3>📊 Current Contract</h3>
-                                
-                                    
-                                        
+
+
+
                                             ID: {currentContract.id}
                                             Type: {currentContract.type}
                                             Direction: {currentContract.direction}
                                             Entry: {currentContract.entry_price.toFixed(5)}
-                                        
-                                        
+
+
                                             P&L: ${currentContract.profit.toFixed(2)}
-                                        
-                                    
-                                    
+
+
+
                                         {config.use_trailing_stop && (
-                                            
+
                                                 Trailing Stop: {currentContract.trailing_stop.toFixed(5)}
-                                            
+
                                         )}
                                         {currentContract.breakeven_active && (
-                                            
-                                                Breakeven Active
-                                            
-                                        )}
-                                    
-                                
-                            
-                        
-                    )}
-                
 
-                
+                                                Breakeven Active
+
+                                        )}
+
+
+
+
+                    )}
+
+
+
                     {/* Timeframe Analysis */}
-                    
-                        
+
+
                             <h3>📈 Multi-Timeframe Analysis</h3>
-                            
-                                
-                                    
+
+
+
                                         {overallAnalysis.replace('_', ' ').toUpperCase()}
-                                    
-                                
-                            
-                            
+
+
+
+
                                 {timeframes.map(timeframe => {
                                     const trendData = timeframeAnalysis[timeframe];
                                     const trendForColor = trendData === 'BULLISH' ? 'bullish' : 
                                                         trendData === 'BEARISH' ? 'bearish' : 'neutral';
                                     return (
-                                        
-                                            
+
+
                                                 {timeframe}
-                                            
-                                            
+
+
                                                 {trendData || 'LOADING'}
-                                            
-                                        
+
+
                                     );
                                 })}
-                            
-                        
-                    
+
+
+
 
                     {/* Statistics */}
-                    
-                        
+
+
                             <h3>📊 Performance</h3>
-                            
-                                
-                                    
+
+
+
                                         Total Trades
                                         {performanceData.totalTrades}
-                                    
-                                    
+
+
                                         Win Rate
-                                        
+
                                             {tradeHistory.length > 0 
                                                 ? ((tradeHistory.filter(trade => trade.profit > 0).length / tradeHistory.length) * 100).toFixed(1) 
                                                 : 0}%
-                                        
-                                    
-                                    
-            
+
+
+
+
                                       Total P&L
                                         ${tradeHistory.reduce((acc, trade) => acc + trade.profit, 0).toFixed(2)}
-                                    
-                                
-                            
+
+
+
 
         {tradeHistory.length > 0 && (
-          
-            
+
+
               <h3>📊 Recent Trades</h3>
-              
+
                 {tradeHistory.slice(-5).reverse().map((trade, index) => (
-                  
-                    
+
+
                       {trade.type}
                       ${config.stake}
-                      
+
                         {trade.profit > 0 ? 'WIN' : 'LOSS'}
-                      
-                      
+
+
                         ${trade.profit.toFixed(2)}
-                      
-                      
+
+
                         {new Date(trade.timestamp).toLocaleTimeString()}
-                      
-                    
-                  
+
+
+
                 ))}
-              
-            
-          
+
+
+
         )}
-                    
+
 
                     {/* Activity Logs */}
-                    
-                        
+
+
                             <h3>📝 Activity Logs</h3>
-                            
+
                                 {logs.map((log, index) => (
-                                    
+
                                         {log}
-                                    
+
                                 ))}
-                                
-                            
-                        
-                    
-                
-            
+
+
+
+
+
+
 
             {botStatus.error_message && (
-                
+
                     ❌ {botStatus.error_message}
-                
+
             )}
-        
+
     );
 });
 
