@@ -2454,9 +2454,9 @@ const DecyclerBot: React.FC = observer(() => {
         };
 
     const handleStartBot = async () => {
-        // For OAuth authenticated users, no API token is required
+        // Skip API token requirement for OAuth authenticated users
         if (!isOAuthEnabled && !config.api_token) {
-            addLog('❌ API token is required for non-OAuth authenticated users');
+            addLog('❌ API token is required when not using OAuth authentication');
             return;
         }
 
@@ -2476,9 +2476,10 @@ ws.onopen = () => {
                 addLog('✅ Connected to Deriv API');
 
                 if (isOAuthEnabled) {
-                    // For OAuth authenticated users, no separate authorization needed
-                    addLog('🔐 Using OAuth authentication - ready for trading');
+                    // OAuth users are automatically authenticated
+                    addLog('🔐 OAuth authentication active - ready for trading');
                     setIsAuthorized(true);
+                    setTradingEnabled(true);
                 } else if (config.api_token) {
                     // Authorize with API token for non-OAuth users
                     const authMessage = {
@@ -2675,18 +2676,6 @@ ws.onopen = () => {
                             </select>
                         </div>
                         <div className="config-grid">
-                            {!isOAuthEnabled && (
-                                <div className="config-item">
-                                    <label>API Token</label>
-                                    <input
-                                        type="password"
-                                        value={config.api_token}
-                                        onChange={e => setConfig(prev => ({ ...prev, api_token: e.target.value }))}
-                                        placeholder="Enter your API token"
-                                        disabled={isRunning}
-                                    />
-                                </div>
-                            )}
                             <div className="config-item">
                                 <label>Symbol</label>
                                 <select
@@ -2870,26 +2859,14 @@ ws.onopen = () => {
                             )}
                         </div>
 
-                        {!isOAuthEnabled && (
-                        <div className="config-group">
-                            <label>API Token:</label>
-                            <input
-                                type="password"
-                                value={config.api_token}
-                                onChange={(e) => setConfig(prev => ({ ...prev, api_token: e.target.value }))}
-                                placeholder="Enter your Deriv API token"
-                            />
-                        </div>
-                    )}
-
-                    {isOAuthEnabled && (
-                        <div className="config-group">
-                            <label>Authentication:</label>
+                        {isOAuthEnabled && (
                             <div className="oauth-status">
-                                ✅ Authenticated via OAuth - No API token required
+                                <span className="status-label">Authentication:</span>
+                                <span className="status-value connected">
+                                    ✅ OAuth Authenticated - Ready for Trading
+                                </span>
                             </div>
-                        </div>
-                    )}
+                        )}
 
                         {/* Advanced Risk Management */}
                         <div className="risk-management">
