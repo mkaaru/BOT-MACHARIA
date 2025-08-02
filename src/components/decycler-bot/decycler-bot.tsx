@@ -2454,9 +2454,9 @@ const DecyclerBot: React.FC = observer(() => {
         };
 
     const handleStartBot = async () => {
-        // For authenticated users, API token is not required for multiplier trades
+        // For OAuth authenticated users, no API token is required
         if (!isOAuthEnabled && !config.api_token) {
-            addLog('❌ API token is required for non-authenticated users');
+            addLog('❌ API token is required for non-OAuth authenticated users');
             return;
         }
 
@@ -2477,8 +2477,8 @@ ws.onopen = () => {
 
                 if (isOAuthEnabled) {
                     // For OAuth authenticated users, no separate authorization needed
-                    addLog('🔐 Using OAuth authentication');
-                    // The WebSocket connection will use the existing OAuth session
+                    addLog('🔐 Using OAuth authentication - ready for trading');
+                    setIsAuthorized(true);
                 } else if (config.api_token) {
                     // Authorize with API token for non-OAuth users
                     const authMessage = {
@@ -2675,6 +2675,18 @@ ws.onopen = () => {
                             </select>
                         </div>
                         <div className="config-grid">
+                            {!isOAuthEnabled && (
+                                <div className="config-item">
+                                    <label>API Token</label>
+                                    <input
+                                        type="password"
+                                        value={config.api_token}
+                                        onChange={e => setConfig(prev => ({ ...prev, api_token: e.target.value }))}
+                                        placeholder="Enter your API token"
+                                        disabled={isRunning}
+                                    />
+                                </div>
+                            )}
                             <div className="config-item">
                                 <label>Symbol</label>
                                 <select
