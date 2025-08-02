@@ -1600,7 +1600,7 @@ const DecyclerBot: React.FC = observer(() => {
 
             addLog('🚀 Decycler Multi-Timeframe Bot Started!');
             addLog(`📊 Monitoring ${timeframes.join(', ')} timeframes`);
-            addLog(`🎯 Symbol: ${config.symbol} | Stake: ${config.stake}`);
+            addLog(`🎯 Symbol: ${config.symbol} | Stake: $${config.stake}`);
             if (config.contract_type === 'multipliers') {
                 addLog(`⚙️ Contract Type: MULTIPLIERS (${config.multiplier}x)`);
                 if (config.use_deal_cancellation) {
@@ -2466,7 +2466,10 @@ const DecyclerBot: React.FC = observer(() => {
                 if (collectedTicks.prices.length > 0) {
                     const candles = convertTicksToCandles(collectedTicks.prices, collectedTicks.times, granularity);
                     resolve(candles);
-                } else {                    reject(new Error(`No tick data collected for ${timeframe}`));
+                }```text
+
+else {
+                    reject(new Error(`No tick data collected for ${timeframe}`));
                 }
             }, 8000);
         };
