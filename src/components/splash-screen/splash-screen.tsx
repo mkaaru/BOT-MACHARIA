@@ -41,10 +41,20 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
 
     return (
         <div className="splash-screen">
+            <div className="splash-background">
+                <div className="gradient-orb orb-1"></div>
+                <div className="gradient-orb orb-2"></div>
+                <div className="gradient-orb orb-3"></div>
+            </div>
+            
             <div className="splash-content">
                 <div className="logo-container">
-                    <div className="logo-avatar">
-                        <img src="/deriv-logo.png" alt="Trade Cortex" className="logo-image" />
+                    <div className="logo-wrapper">
+                        <div className="logo-glow"></div>
+                        <div className="logo-avatar">
+                            <img src="/deriv-logo.png" alt="Trade Cortex" className="logo-image" />
+                        </div>
+                        <div className="logo-pulse"></div>
                     </div>
                 </div>
                 
@@ -53,43 +63,77 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
                         Trade<span className="brand-highlight">Cortex</span>
                     </h1>
                     <p className="brand-subtitle">by The Binary Blueprint</p>
+                    <div className="brand-tagline">Advanced Trading Intelligence</div>
                 </div>
 
                 <div className="progress-section">
-                    <div className="progress-bar">
-                        <div 
-                            className="progress-fill" 
-                            style={{ width: `${progress}%` }}
-                        />
+                    <div className="progress-container">
+                        <div className="progress-track">
+                            <div 
+                                className="progress-fill" 
+                                style={{ width: `${progress}%` }}
+                            >
+                                <div className="progress-glow"></div>
+                            </div>
+                        </div>
+                        <div className="progress-percentage">{Math.round(progress)}%</div>
                     </div>
-                    <div className="progress-percentage">{Math.round(progress)}%</div>
                 </div>
 
                 <div className="status-section">
-                    <div className="status-message">{currentMessage}</div>
-                    <div className="loading-dots">
-                        <span></span>
-                        <span></span>
-                        <span></span>
+                    <div className="status-message">
+                        <span className="status-icon">⚡</span>
+                        {currentMessage}
+                    </div>
+                    <div className="loading-animation">
+                        <div className="loading-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
                     </div>
                 </div>
 
                 <div className="features-grid">
                     <div className="feature-card">
-                        <div className="feature-icon">⚡</div>
+                        <div className="feature-icon-wrapper">
+                            <div className="feature-icon">⚡</div>
+                            <div className="feature-icon-glow"></div>
+                        </div>
                         <div className="feature-text">Lightning Fast</div>
+                        <div className="feature-description">Real-time execution</div>
                     </div>
                     <div className="feature-card">
-                        <div className="feature-icon">🎯</div>
+                        <div className="feature-icon-wrapper">
+                            <div className="feature-icon">🎯</div>
+                            <div className="feature-icon-glow"></div>
+                        </div>
                         <div className="feature-text">Precise Trading</div>
+                        <div className="feature-description">AI-powered accuracy</div>
                     </div>
                     <div className="feature-card">
-                        <div className="feature-icon">🚀</div>
+                        <div className="feature-icon-wrapper">
+                            <div className="feature-icon">🚀</div>
+                            <div className="feature-icon-glow"></div>
+                        </div>
                         <div className="feature-text">Advanced Strategies</div>
+                        <div className="feature-description">Professional tools</div>
                     </div>
                     <div className="feature-card">
-                        <div className="feature-icon">📊</div>
+                        <div className="feature-icon-wrapper">
+                            <div className="feature-icon">📊</div>
+                            <div className="feature-icon-glow"></div>
+                        </div>
                         <div className="feature-text">Real-time Analytics</div>
+                        <div className="feature-description">Live market data</div>
+                    </div>
+                </div>
+
+                <div className="splash-footer">
+                    <div className="version-info">v2.1.0</div>
+                    <div className="security-badge">
+                        <span className="security-icon">🔐</span>
+                        Secure & Encrypted
                     </div>
                 </div>
             </div>
