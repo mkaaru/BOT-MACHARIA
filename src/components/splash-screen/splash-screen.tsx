@@ -8,133 +8,150 @@ interface SplashScreenProps {
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
     const [progress, setProgress] = useState(0);
-    const [currentMessage, setCurrentMessage] = useState('Initializing your account...');
+    const [currentMessage, setCurrentMessage] = useState('');
+    const [displayedText, setDisplayedText] = useState('');
+    const [matrixChars, setMatrixChars] = useState<string[]>([]);
 
     const messages = [
-        'Initializing your account...',
-        'Loading trading strategies...',
-        'Connecting to markets...',
-        'Optimizing performance for the best trading experience'
+        '> Connecting to servers...',
+        '> Loading trading algorithms...',
+        '> Initializing AI modules...',
+        '> Establishing secure connection...',
+        '> Calibrating market sensors...',
+        '> System Status: ACTIVE - Scanning Markets...'
     ];
 
+    // Generate random matrix characters
     useEffect(() => {
+        const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
+        const matrix: string[] = [];
+        for (let i = 0; i < 2000; i++) {
+            matrix.push(chars.charAt(Math.floor(Math.random() * chars.length)));
+        }
+        setMatrixChars(matrix);
+    }, []);
+
+    useEffect(() => {
+        let messageIndex = 0;
+        let charIndex = 0;
+        
+        const typeMessage = () => {
+            if (messageIndex < messages.length) {
+                const currentMsg = messages[messageIndex];
+                if (charIndex < currentMsg.length) {
+                    setDisplayedText(currentMsg.substring(0, charIndex + 1));
+                    charIndex++;
+                    setTimeout(typeMessage, 50);
+                } else {
+                    setTimeout(() => {
+                        messageIndex++;
+                        charIndex = 0;
+                        if (messageIndex < messages.length) {
+                            setCurrentMessage(messages[messageIndex]);
+                            typeMessage();
+                        }
+                    }, 1000);
+                }
+            }
+        };
+
+        setTimeout(() => {
+            setCurrentMessage(messages[0]);
+            typeMessage();
+        }, 500);
+
         const progressInterval = setInterval(() => {
             setProgress(prev => {
                 if (prev >= 100) {
                     clearInterval(progressInterval);
-                    setTimeout(() => onComplete?.(), 500);
+                    setTimeout(() => onComplete?.(), 1000);
                     return 100;
                 }
-                return prev + 2;
+                return prev + 1.5;
             });
-        }, 50);
-
-        const messageInterval = setInterval(() => {
-            setCurrentMessage(messages[Math.floor(Math.random() * messages.length)]);
-        }, 1500);
+        }, 80);
 
         return () => {
             clearInterval(progressInterval);
-            clearInterval(messageInterval);
         };
     }, [onComplete]);
 
     return (
-        <div className="splash-screen">
-            <div className="splash-background">
-                <div className="gradient-orb orb-1"></div>
-                <div className="gradient-orb orb-2"></div>
-                <div className="gradient-orb orb-3"></div>
+        <div className="splash-screen terminal-style">
+            <div className="matrix-background">
+                {matrixChars.map((char, index) => (
+                    <span 
+                        key={index} 
+                        className="matrix-char" 
+                        style={{
+                            left: `${(index % 40) * 2.5}%`,
+                            top: `${Math.floor(index / 40) * 20}px`,
+                            animationDelay: `${Math.random() * 3}s`
+                        }}
+                    >
+                        {char}
+                    </span>
+                ))}
             </div>
             
-            <div className="splash-content">
-                <div className="logo-container">
-                    <div className="logo-wrapper">
-                        <div className="logo-glow"></div>
-                        <div className="logo-avatar">
-                            <img src="/deriv-logo.png" alt="Trade Cortex" className="logo-image" />
+            <div className="terminal-container">
+                <div className="terminal-header">
+                    <div className="terminal-title">TradeCortex AI</div>
+                    <div className="terminal-subtitle">Advanced Trading Intelligence System</div>
+                </div>
+                
+                <div className="terminal-content">
+                    <div className="boot-sequence">
+                        <div className="boot-line">
+                            <span className="prompt">$</span> 
+                            <span className="command">initialize_trading_system.sh</span>
                         </div>
-                        <div className="logo-pulse"></div>
+                        <div className="boot-line">
+                            <span className="status-text">System initialization started...</span>
+                        </div>
+                        <div className="boot-line">
+                            <span className="status-text">Loading core modules: [OK]</span>
+                        </div>
+                        <div className="boot-line">
+                            <span className="status-text">Establishing market connection: [OK]</span>
+                        </div>
+                    </div>
+                    
+                    <div className="current-status">
+                        <div className="status-line">
+                            <span className="status-indicator">►</span>
+                            <span className="typing-text">{displayedText}</span>
+                            <span className="cursor">_</span>
+                        </div>
+                    </div>
+                    
+                    <div className="progress-section">
+                        <div className="progress-bar">
+                            <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+                        </div>
+                        <div className="progress-text">
+                            Loading... {Math.round(progress)}%
+                        </div>
+                    </div>
+                    
+                    <div className="system-info">
+                        <div className="info-line">
+                            <span className="label">Version:</span>
+                            <span className="value">2.1.0-BETA</span>
+                        </div>
+                        <div className="info-line">
+                            <span className="label">Build:</span>
+                            <span className="value">TC-{new Date().getFullYear()}.{String(new Date().getMonth() + 1).padStart(2, '0')}</span>
+                        </div>
+                        <div className="info-line">
+                            <span className="label">Status:</span>
+                            <span className="value success">ONLINE</span>
+                        </div>
                     </div>
                 </div>
                 
-                <div className="brand-section">
-                    <h1 className="brand-title">
-                        Trade<span className="brand-highlight">Cortex</span>
-                    </h1>
-                    <p className="brand-subtitle">by The Binary Blueprint</p>
-                    <div className="brand-tagline">Advanced Trading Intelligence</div>
-                </div>
-
-                <div className="progress-section">
-                    <div className="progress-container">
-                        <div className="progress-track">
-                            <div 
-                                className="progress-fill" 
-                                style={{ width: `${progress}%` }}
-                            >
-                                <div className="progress-glow"></div>
-                            </div>
-                        </div>
-                        <div className="progress-percentage">{Math.round(progress)}%</div>
-                    </div>
-                </div>
-
-                <div className="status-section">
-                    <div className="status-message">
-                        <span className="status-icon">⚡</span>
-                        {currentMessage}
-                    </div>
-                    <div className="loading-animation">
-                        <div className="loading-dots">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="features-grid">
-                    <div className="feature-card">
-                        <div className="feature-icon-wrapper">
-                            <div className="feature-icon">⚡</div>
-                            <div className="feature-icon-glow"></div>
-                        </div>
-                        <div className="feature-text">Lightning Fast</div>
-                        <div className="feature-description">Real-time execution</div>
-                    </div>
-                    <div className="feature-card">
-                        <div className="feature-icon-wrapper">
-                            <div className="feature-icon">🎯</div>
-                            <div className="feature-icon-glow"></div>
-                        </div>
-                        <div className="feature-text">Precise Trading</div>
-                        <div className="feature-description">AI-powered accuracy</div>
-                    </div>
-                    <div className="feature-card">
-                        <div className="feature-icon-wrapper">
-                            <div className="feature-icon">🚀</div>
-                            <div className="feature-icon-glow"></div>
-                        </div>
-                        <div className="feature-text">Advanced Strategies</div>
-                        <div className="feature-description">Professional tools</div>
-                    </div>
-                    <div className="feature-card">
-                        <div className="feature-icon-wrapper">
-                            <div className="feature-icon">📊</div>
-                            <div className="feature-icon-glow"></div>
-                        </div>
-                        <div className="feature-text">Real-time Analytics</div>
-                        <div className="feature-description">Live market data</div>
-                    </div>
-                </div>
-
-                <div className="splash-footer">
-                    <div className="version-info">v2.1.0</div>
-                    <div className="security-badge">
-                        <span className="security-icon">🔐</span>
-                        Secure & Encrypted
-                    </div>
+                <div className="terminal-footer">
+                    <div className="copyright">© 2025 TradeCortex - Secure Trading Platform</div>
                 </div>
             </div>
         </div>
