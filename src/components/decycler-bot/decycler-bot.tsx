@@ -801,7 +801,7 @@ const DecyclerBot: React.FC = observer(() => {
         return riskRewardRatio >= config.min_risk_reward_ratio;
     }, [config.take_profit, config.stop_loss, config.min_risk_reward_ratio, addLog]);
 
-    // Dynamic positionsizing
+    // Dynamic position sizing
     const calculatePositionSize = useCallback((direction: 'UP' | 'DOWN', trendStrengthScore: number): number => {
         let optimalStake = config.stake;
 
@@ -1474,7 +1474,7 @@ const DecyclerBot: React.FC = observer(() => {
                     setDailyTradeCount(prev => prev + 1);
 
                 } finally {
-                    // Restore originalStake
+                    // Restore original stake
                     setConfig(prev => ({ ...prev, stake: originalStake }));
                 }
 
@@ -1599,7 +1599,7 @@ const DecyclerBot: React.FC = observer(() => {
         } catch (error) {
             addLog(`❌ Error starting bot: ${error.message}`);
         }
-    }, [config,timeframes, tradingLoop, addLog, botStatus.is_running]);
+    }, [config, timeframes, tradingLoop, addLog, botStatus.is_running]);
 
         // Stop bot
     const stopBot = useCallback((): void => {
@@ -1690,9 +1690,9 @@ const DecyclerBot: React.FC = observer(() => {
 
     // Comprehensive API connection and data testing
     const testConnection = useCallback(async (): Promise<void> => {
-        addLog('🔍 Starting comprehensive API connection test...');
-
         try {
+            addLog('🔍 Starting comprehensive API connection test...');
+
             // Step 1: Test WebSocket connection
             if (!api_base.api || api_base.api.connection.readyState !== 1) {
                 addLog('🔌 Initializing API connection...');
@@ -1731,7 +1731,7 @@ const DecyclerBot: React.FC = observer(() => {
             // Step3: Test symbol existence
             addLog(`🔍 Testing symbol availability: ${config.symbol}`);
 
-            try {
+        try {
                 const symbolTest = await Promise.race([
                     api_base.api.send({ 
                         active_symbols: 'brief',
@@ -1797,10 +1797,10 @@ const DecyclerBot: React.FC = observer(() => {
             }
 
         } catch (error) {
-        addLog(`❌ Connection test failed: ${error.message}`);
-        console.error('Detailed connection test error:', error);
-    }
-}, [fetchOHLCData, config.symbol, addLog, timeframes]);
+            addLog(`❌ Connection test failed: ${error.message}`);
+            console.error('Detailed connection test error:', error);
+        }
+    }, [fetchOHLCData, config.symbol, addLog, timeframes]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -2455,8 +2455,8 @@ const DecyclerBot: React.FC = observer(() => {
 
     const handleStartBot = async () => {
         // Skip API token requirement for OAuth authenticated users
-        if (!isOAuthEnabled) {
-            addLog('❌ OAuth authentication is required');
+        if (!isOAuthEnabled && !config.api_token) {
+            addLog('❌ API token is required when not using OAuth authentication');
             return;
         }
 
@@ -2480,8 +2480,14 @@ ws.onopen = () => {
                     addLog('🔐 OAuth authentication active - ready for trading');
                     setIsAuthorized(true);
                     setTradingEnabled(true);
+                } else if (config.api_token) {
+                    // Authorize with API token for non-OAuth users
+                    const authMessage = {
+                        authorize: config.api_token
+                    };
+                    ws.send(JSON.stringify(authMessage));
                 } else {
-                    addLog('❌ OAuth Authentication Required');
+                    addLog('❌ No authentication method available');
                     return;
                 }
             };
@@ -2644,512 +2650,480 @@ ws.onopen = () => {
     };
 
     return (
-
-
-
-                    <h2>🔬 Decycler Multi-Timeframe Trading Bot</h2>
-
-
-
-                            
-                            {isRunning ? 'RUNNING' : 'STOPPED'}
-                        
-
-
-
-                        {/* Configuration Panel */}
-
-                            <h3>⚙️ Configuration</h3>
-
-
-                                    Timeframe Preset
-
-
-
-                                        Scalping (1m-5m)
-
-
-
-                                        Multi-Timeframe (1m-4h)
-
-
-
-
-
-
-                                        Symbol
-
-
-
-                                                Volatility 10 (1s) Index
-
-
-
-                                                Volatility 25 (1s) Index
-
-
-
-                                                Volatility 50 (1s) Index
-
-
-
-                                                Volatility 75 (1s) Index
-
-
-
-                                                Volatility 100 (1s) Index
-
-
-
-                                                Volatility 150 (1s) Index
-
-
-
-                                                Volatility 250 (1s) Index
-
-
-
-
-
-                                                Volatility 10 Index
-
-
-
-                                                Volatility 25 Index
-
-
-
-                                                Volatility 50 Index
-
-
-
-                                                Volatility 75 Index
-
-
-
-                                                Volatility 100 Index
-
-
-
-
-
-                                                Bear Market Index
-
-
-
-                                                Bull Market Index
-
-
-
-
-
-                                                Boom 500 Index
-
-
-
-                                                Boom 1000 Index
-
-
-
-                                                Crash 500 Index
-
-
-
-                                                Crash 1000 Index
-
-
-
-
-
-                                                Step Index
-
-
-                                {config.contract_type === 'multipliers' && (
-
-
-
-                                                    EUR/USD
-
-
-
-                                                    GBP/USD
-
-
-
-                                                    USD/JPY
-
-
-
-                                                    AUD/USD
-
-
-
-                                                    USD/CAD
-
-
-
-                                                    USD/CHF
-
-
-
-                                )}
-
-
-
-
-
-                                        Stake ($)
-
-
-
-
-
-
-
-
-                                        Take Profit ($)
-
-
-
-
-
-
-
-
-                                        Stop Loss ($)
-
-
-
-
-
-
-
-
-                                        Contract Type
-
-
-
-                                                Rise/Fall (Strict)
-
-
-
-                                                Higher/Lower (with Barrier)
-
-
-
-                                                Allow Equals (Rise/Fall + Equals)
-
-
-
-                                                Multipliers (Up to 2000x)
-
-
-
-
-
-
-                                        Tick Count
-
-
-
-
-
-
-
-
-                                        Barrier (optional)
-
-
-
-
-
+        <div className="decycler-bot-container">
+            <div className="decycler-header">
+                <h2>🔬 Decycler Multi-Timeframe Trading Bot</h2>
+                <div className={`bot-status ${isRunning ? 'running' : 'stopped'}`}>
+                    <span className="status-dot"></span>
+                    {isRunning ? 'RUNNING' : 'STOPPED'}
+                </div>
+            </div>
+
+            <div className="decycler-grid">
+                <div className="main-panel">
+                    {/* Configuration Panel */}
+                    <div className="config-panel">
+                        <h3>⚙️ Configuration</h3>
+                         <div className="config-item">
+                            <label>Timeframe Preset</label>
+                            <select
+                                value={selectedTimeframePreset}
+                                onChange={e => setSelectedTimeframePreset(e.target.value as 'scalping' | 'multi')}
+                                disabled={isRunning}
+                            >
+                                <option value="scalping">Scalping (1m-5m)</option>
+                                <option value="multi">Multi-Timeframe (1m-4h)</option>
+                            </select>
+                        </div>
+                        <div className="config-grid">
+                            <div className="config-item">
+                                <label>Symbol</label>
+                                <select
+                                    value={config.symbol}
+                                    onChange={e => setConfig(prev => ({ ...prev, symbol: e.target.value }))}
+                                    disabled={isRunning}
+                                >
+                                    <optgroup label="Volatility Indices (1s)">
+                                        <option value="1HZ10V">Volatility 10 (1s) Index</option>
+                                        <option value="1HZ25V">Volatility 25 (1s) Index</option>
+                                        <option value="1HZ50V">Volatility 50 (1s) Index</option>
+                                        <option value="1HZ75V">Volatility 75 (1s) Index</option>
+                                        <option value="1HZ100V">Volatility 100 (1s) Index</option>
+                                        <option value="1HZ150V">Volatility 150 (1s) Index</option>
+                                        <option value="1HZ250V">Volatility 250 (1s) Index</option>
+                                    </optgroup>
+                                    <optgroup label="Volatility Indices">
+                                        <option value="R_10">Volatility 10 Index</option>
+                                        <option value="R_25">Volatility 25 Index</option>
+                                        <option value="R_50">Volatility 50 Index</option>
+                                        <option value="R_75">Volatility 75 Index</option>
+                                        <option value="R_100">Volatility 100 Index</option>
+                                        <option value="R_200">Volatility 200 Index</option>
+                                        <option value="R_300">Volatility 300 Index</option>
+                                        <option value="R_500">Volatility 500 Index</option>
+                                        <option value="R_1000">Volatility 1000 Index</option>
+                                    </optgroup>
+                                    <optgroup label="Market Indices">
+                                        <option value="RDBEAR">Bear Market Index</option>
+                                        <option value="RDBULL">Bull Market Index</option>
+                                    </optgroup>
+                                    <optgroup label="Jump Indices">
+                                        <option value="BOOM500">Boom 500 Index</option>
+                                        <option value="BOOM1000">Boom 1000 Index</option>
+                                        <option value="CRASH500">Crash 500 Index</option>
+                                        <option value="CRASH1000">Crash 1000 Index</option>
+                                    </optgroup>
+                                    <optgroup label="Step Index">
+                                        <option value="stpRNG">Step Index</option>
+                                    </optgroup>
+                                    {config.contract_type === 'multipliers' && (
+                                        <optgroup label="Forex (Multipliers Compatible)">
+                                            <option value="frxEURUSD">EUR/USD</option>
+                                            <option value="frxGBPUSD">GBP/USD</option>
+                                            <option value="frxUSDJPY">USD/JPY</option>
+                                            <option value="frxAUDUSD">AUD/USD</option>
+                                            <option value="frxUSDCAD">USD/CAD</option>
+                                            <option value="frxUSDCHF">USD/CHF</option>
+                                        </optgroup>
+                                    )}
+                                </select>
+                            </div>
+                            <div className="config-item">
+                                <label>Stake ($)</label>
+                                <input
+                                    type="number"
+                                    value={config.stake}
+                                    onChange={e => setConfig(prev => ({ ...prev, stake: parseFloat(e.target.value) || 1 }))}
+                                    min="1"
+                                    step="0.1"
+                                    disabled={isRunning}
+                                />
+                            </div>
+                            <div className="config-item">
+                                <label>Take Profit ($)</label>
+                                <input
+                                    type="number"
+                                    value={config.take_profit}
+                                    onChange={e => setConfig(prev => ({ ...prev, take_profit: parseFloat(e.target.value) || 1.5 }))}
+                                    step="0.1"
+                                    disabled={isRunning}
+                                />
+                            </div>
+                            <div className="config-item">
+                                <label>Stop Loss ($)</label>
+                                <input
+                                    type="number"
+                                    value={config.stop_loss}
+                                    onChange={e => setConfig(prev => ({ ...prev, stop_loss: parseFloat(e.target.value) || -1 }))}
+                                    step="0.1"
+                                    disabled={isRunning}
+                                />
+                            </div>
+                            <div className="config-item">
+                                <label>Contract Type</label>
+                                <select
+                                    value={config.contract_type}
+                                    onChange={e => setConfig(prev => ({ ...prev, contract_type: e.target.value as 'rise_fall' | 'higher_lower' | 'allow_equals' | 'multipliers' }))}
+                                    disabled={isRunning}
+                                >
+                                    <option value="rise_fall">Rise/Fall (Strict)</option>
+                                    <option value="higher_lower">Higher/Lower (with Barrier)</option>
+                                    <option value="allow_equals">Allow Equals (Rise/Fall + Equals)</option>
+                                    <option value="multipliers">Multipliers (Up to 2000x)</option>
+                                </select>
+                            </div>
+                            <div className="config-item">
+                                <label>Tick Count</label>
+                                <input
+                                    type="number"
+                                    value={config.tick_count}
+                                    onChange={e => setConfig(prev => ({ ...prev, tick_count: parseInt(e.target.value) || 5 }))}
+                                    min="1"
+                                    max="10"
+                                    disabled={isRunning}
+                                />
+                            </div>
+                            <div className="config-item">
+                                <label>Barrier (optional)</label>
+                                <input
+                                    type="text"
+                                    value={barrier}
+                                    onChange={(e) => setBarrier(e.target.value)}
+                                    placeholder="e.g. +0.001, -0.001, or absolute value"
+                                    disabled={isRunning}
+                                />
+                            </div>
 
                             {config.contract_type === 'multipliers' ? (
                                 <>
-
-
-
-                                                Multiplier (x)
-
-
-
-
-
-
-
-
-                                    Deal Cancellation
-
-                                {config.use_deal_cancellation && (
-
-
-
-                                                        5 minutes
-
-
-
-                                                        10 minutes
-
-
-
-                                                        15 minutes
-
-
-
-                                                        30 minutes
-
-
-
-                                                        60 minutes
-
-
-                                )}
-
+                                    <div className="config-item">
+                                        <label>Multiplier (x)</label>
+                                        <input
+                                            type="number"
+                                            value={config.multiplier}
+                                            onChange={e => setConfig(prev => ({ ...prev, multiplier: parseInt(e.target.value) || 100 }))}
+                                            min="1"
+                                            max="2000"
+                                            disabled={isRunning}
+                                        />
+                                    </div>
+                                    <div className="config-item">
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                checked={config.use_deal_cancellation}
+                                                onChange={e => setConfig(prev => ({ ...prev, use_deal_cancellation: e.target.checked }))}
+                                                disabled={isRunning}
+                                            />
+                                            Deal Cancellation
+                                        </label>
+                                        {config.use_deal_cancellation && (
+                                            <select
+                                                value={config.deal_cancellation}
+                                                onChange={e => setConfig(prev => ({ ...prev, deal_cancellation: e.target.value as '5m' | '10m' | '15m' | '30m' | '60m' }))}
+                                                disabled={isRunning}
+                                            >
+                                                <option value="5m">5 minutes</option>
+                                                <option value="10m">10 minutes</option>
+                                                <option value="15m">15 minutes</option>
+                                                <option value="30m">30 minutes</option>
+                                                <option value="60m">60 minutes</option>
+                                            </select>
+                                        )}
+                                    </div>
                                 </>
                             ) : (
-
-
-
-                                            Duration
-
-
-
-
-
-
-
-                                                    Ticks
-
-
-
-                                                    Seconds
-
-
-
-                                                    Minutes
-
-
-
-                                                    Hours
-
-
-
-                                                    Days
-
-
-
+                                <div className="config-item">
+                                    <label>Duration</label>
+                                    <div className="duration-group">
+                                        <input
+                                            type="number"
+                                            value={duration}
+                                            onChange={(e) => setDuration(Number(e.target.value))}
+                                            min="1"
+                                            disabled={isRunning}
+                                        />
+                                        <select
+                                            value={durationType}
+                                            onChange={(e) => setDurationType(e.target.value)}
+                                            disabled={isRunning}
+                                        >
+                                            <option value="t">Ticks</option>
+                                            <option value="s">Seconds</option>
+                                            <option value="m">Minutes</option>
+                                            <option value="h">Hours</option>
+                                            <option value="d">Days</option>
+                                        </select>
+                                    </div>
+                                </div>
                             )}
+                        </div>
 
                         {isOAuthEnabled && (
-
-
-                                    Authentication:
+                            <div className="oauth-status">
+                                <span className="status-label">Authentication:</span>
+                                <span className="status-value connected">
                                     ✅ OAuth Authenticated - Ready for Trading
-
+                                </span>
+                            </div>
                         )}
 
                         {/* Advanced Risk Management */}
-
-
-                                <h4>🛡️ Risk Management</h4>
-
-
-
-
-
-                                            Trailing Stop (${config.trailing_step})
-
-
-
-
-
-                                            Breakeven at ${config.breakeven_trigger} profit
-
-
-
-
-
-                                            10-Second Confirmation Filter
-
-
-
-
-
+                        <div className="risk-management">
+                            <h4>🛡️ Risk Management</h4>
+                            <div className="risk-options">
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={config.use_trailing_stop}
+                                        onChange={e => setConfig(prev => ({ ...prev, use_trailing_stop: e.target.checked }))}
+                                        disabled={isRunning}
+                                    />
+                                    Trailing Stop (${config.trailing_step})
+                                </label>
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={config.use_breakeven}
+                                        onChange={e => setConfig(prev => ({ ...prev, use_breakeven: e.target.checked }))}
+                                        disabled={isRunning}
+                                    />
+                                    Breakeven at ${config.breakeven_trigger} profit
+                                </label>
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={config.use_10s_filter}
+                                        onChange={e => setConfig(prev => ({ ...prev, use_10s_filter: e.target.checked }))}
+                                        disabled={isRunning}
+                                    />
+                                    10-Second Confirmation Filter
+                                </label>
+                            </div>
+                        </div>
+                    </div>
 
                     {/* Control Panel */}
-
-
-                            <h3>🎮 Controls</h3>
-
-
-                                    API Status:
-                                    {api_base.api ? '🟢 Connected' : '🔴 Disconnected'}
-                                {api_base.api && (
-
-                                        ({api_base.getConnectionStatus()})
-
-                                )}
-
-
-
-                                      API Status:
-                                    🟢 Ready for Trading (OAuth Authenticated)
-
-
-
-
-                                    Enable Auto Trading
-
-
-                              {currentContract && (
-
-
-                                      Active Contract:
-                                    {currentContract.type} - ${currentContract.stake} (ID: {currentContract.id.slice(-8)})
-
-                              )}
-
-
-
-                                        {isRunning ? '⏹️ Stop Bot' : '▶️ Start Bot'}
-                                        🔍 Test Connection
-                                        📅 Get Day Ticks (86400)
-
-
-                            {!api_base.api && (
-
-                                    ⚠️ API not connected. Bot will attempt to connect when started.
-
+                    <div className="control-panel">
+                        <h3>🎮 Controls</h3>
+                        <div className="api-status">
+                            <span className="status-label">API Status:</span>
+                            <span className={`status-value ${api_base.api ? 'connected' : 'disconnected'}`}>
+                                {api_base.api ? '🟢 Connected' : '🔴 Disconnected'}
+                            </span>
+                            {api_base.api && (
+                                <span className="connection-status">
+                                    ({api_base.getConnectionStatus()})
+                                </span>
                             )}
+                        </div>
 
+          <div className="control-item">
+            <span className="control-label">Trading Status:</span>
+            <span className={`status ${isAuthorized ? 'connected' : 'disconnected'}`}>
+              {isAuthorized ? '🟢 Authorized' : '🔴 Not Authorized'}
+            </span>
+          </div>
 
+          <div className="control-item">
+            <label className="control-label">
+              API Token:
+              <input
+                type="password"
+                value={authToken}
+                onChange={(e) => setAuthToken(e.target.value)}
+                placeholder="Enter your Deriv API token"
+                className="form-input"
+                style={{ marginLeft: '10px', width: '200px' }}
+              />
+            </label>
+            <button
+              onClick={() => authorizeAPI(authToken)}disabled={!authToken || isAuthorized}
+              className="btn btn-primary"
+              style={{ marginLeft: '10px' }}
+            >
+              {isAuthorized ? 'Authorized' : 'Authorize'}
+            </button>
+          </div>
+
+          <div className="control-item">
+            <label className="control-label">
+              <input
+                type="checkbox"
+                checked={tradingEnabled}
+                onChange={(e) => setTradingEnabled(e.target.checked)}
+                disabled={!isAuthorized}
+                style={{ marginRight: '10px' }}
+              />
+              Enable Auto Trading
+            </label>
+          </div>
+
+          {currentContract && (
+            <div className="control-item">
+              <span className="control-label">Active Contract:</span>
+              <span className="status connected">
+                {currentContract.type} - ${currentContract.stake} (ID: {currentContract.id.slice(-8)})
+              </span>
+            </div>
+          )}
+                        <div className="control-buttons">
+                            <button
+                                className={`control-btn ${isRunning ? 'stop' : 'start'}`}
+                                onClick={isRunning ? handleStopBot : handleStartBot}
+                            >
+                                {isRunning ? '⏹️ Stop Bot' : '▶️ Start Bot'}
+                            </button>
+                            <button
+                                className="control-btn test"
+                                onClick={testConnection}
+                                disabled={isRunning}
+                            >
+                                🔍 Test Connection
+                            </button>
+                            <button
+                                className="control-btn day-ticks"
+                                onClick={() => getDayTicks(config.symbol)}
+                                disabled={isRunning}
+                            >
+                                📅 Get Day Ticks (86400)
+                            </button>
+                        </div>
+                        {!api_base.api && (
+                            <div className="api-warning">
+                                ⚠️ API not connected. Bot will attempt to connect when started.
+                            </div>
+                        )}
+                    </div>
 
                     {/* Current Contract */}
                     {currentContract && (
-
-
-                                <h3>📊 Current Contract</h3>
-
-
-                                        ID: {currentContract.id}
-                                        Type: {currentContract.type}
-                                        Direction: {currentContract.direction}
-                                        Entry: {currentContract.entry_price.toFixed(5)}
-
-
-
-                                            P&L: ${currentContract.profit.toFixed(2)}
-
-
-                                        {config.use_trailing_stop && (
-
-                                                Trailing Stop: {currentContract.trailing_stop.toFixed(5)}
-
-                                        )}
-                                        {currentContract.breakeven_active && (
-
-                                                Breakeven Active
-
-                                        )}
-
-
-
+                        <div className="current-contract">
+                            <h3>📊 Current Contract</h3>
+                            <div className="contract-info">
+                                <div className="contract-details">
+                                    <span>ID: {currentContract.id}</span>
+                                    <span>Type: {currentContract.type}</span>
+                                    <span>Direction: {currentContract.direction}</span>
+                                    <span>Entry: {currentContract.entry_price.toFixed(5)}</span>
+                                </div>
+                                <div className={`profit-display ${currentContract.profit >= 0 ? 'positive' : 'negative'}`}>
+                                    P&L: ${currentContract.profit.toFixed(2)}
+                                </div>
+                            </div>
+                            <div className="risk-status">
+                                {config.use_trailing_stop && (
+                                    <span>Trailing Stop: {currentContract.trailing_stop.toFixed(5)}</span>
+                                )}
+                                {currentContract.breakeven_active && (
+                                    <span className="breakeven-active">Breakeven Active</span>
+                                )}
+                            </div>
+                        </div>
                     )}
+                </div>
 
-
-
-                            <h3>📈 Multi-Timeframe Analysis</h3>
-
-
-                                        {overallAnalysis.replace('_', ' ').toUpperCase()}
-
-
-                                {timeframes.map(timeframe => {
-                                    const trendData = timeframeAnalysis[timeframe];
-                                    const trendForColor = trendData === 'BULLISH' ? 'bullish' : 
-                                                        trendData === 'BEARISH' ? 'bearish' : 'neutral';
-                                    return (
-
-
-                                                {timeframe}
-
-
-                                                {trendData || 'LOADING'}
-
-
-
-                                    );
-                                })}
-
-
+                <div className="side-panel">
+                    {/* Timeframe Analysis */}
+                    <div className="timeframe-analysis">
+                        <h3>📈 Multi-Timeframe Analysis</h3>
+                        <div className={`alignment-status ${overallAnalysis}`}>
+                            <div 
+                                className="alignment-indicator"
+                                style={{ backgroundColor: getAlignmentColor(overallAnalysis) }}
+                            >
+                                {overallAnalysis.replace('_', ' ').toUpperCase()}
+                            </div>
+                        </div>
+                        <div className="trends-grid">
+                            {timeframes.map(timeframe => {
+                                const trendData = timeframeAnalysis[timeframe];
+                                const trendForColor = trendData === 'BULLISH' ? 'bullish' : 
+                                                    trendData === 'BEARISH' ? 'bearish' : 'neutral';
+                                return (
+                                    <div key={timeframe} className="trend-item">
+                                        <span className="timeframe-label">{timeframe}</span>
+                                        <div 
+                                            className={`trend-indicator ${trendForColor}`}
+                                            style={{ backgroundColor: getTrendColor(trendForColor) }}
+                                        >
+                                            {trendData || 'LOADING'}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
 
                     {/* Statistics */}
-
-
-                            <h3>📊 Performance</h3>
-
-
-                                        Total Trades
-                                        {performanceData.totalTrades}
-
-
-
-                                            Win Rate
-
-                                            {tradeHistory.length > 0 
-                                                ? ((tradeHistory.filter(trade => trade.profit > 0).length / tradeHistory.length) * 100).toFixed(1) 
-                                                : 0}%
-
-
-
-                                        Total P&L
-                                        ${tradeHistory.reduce((acc, trade) => acc + trade.profit, 0).toFixed(2)}
-
-
-
+                    <div className="statistics">
+                        <h3>📊 Performance</h3>
+                        <div className="stats-grid">
+                            <div className="stat-item">
+                                <span className="stat-label">Total Trades</span>
+                                <span className="stat-value">{performanceData.totalTrades}</span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="stat-label">Win Rate</span>
+                                <span className="stat-value">
+                                    {tradeHistory.length > 0 
+                                        ? ((tradeHistory.filter(trade => trade.profit > 0).length / tradeHistory.length) * 100).toFixed(1) 
+                                        : 0}%
+                                </span>
+                            </div>
+                            <div className="performance-item">
+            <span className="stat-label">Total P&L</span>
+                                <span className={`stat-value ${tradeHistory.reduce((acc, trade) => acc + trade.profit, 0) >= 0 ? 'positive' : 'negative'}`}>
+                                    ${tradeHistory.reduce((acc, trade) => acc + trade.profit, 0).toFixed(2)}
+                                </span>
+                            </div>
+                        </div>
 
         {tradeHistory.length > 0 && (
-
-
-              <h3>📊 Recent Trades</h3>
-
-                {tradeHistory.slice(-5).reverse().map((trade, index) => (
-
-
-                      {trade.type}
-                      ${config.stake}
-
-                        {trade.profit > 0 ? 'WIN' : 'LOSS'}
-
-                        ${trade.profit.toFixed(2)}
-
-                        {new Date(trade.timestamp).toLocaleTimeString()}
-
-                ))}
-
-
+          <div className="trade-history-section">
+            <h3>📊 Recent Trades</h3>
+            <div className="trade-history">
+              {tradeHistory.slice(-5).reverse().map((trade, index) => (
+                <div key={index} className="trade-item">
+                  <span className="trade-type">{trade.type}</span>
+                  <span className="trade-stake">${config.stake}</span>
+                  <span className={`trade-result ${trade.profit > 0 ? 'win' : 'loss'}`}>
+                    {trade.profit > 0 ? 'WIN' : 'LOSS'}
+                  </span>
+                  <span className={`trade-profit ${trade.profit >= 0 ? 'positive' : 'negative'}`}>
+                    ${trade.profit.toFixed(2)}
+                  </span>
+                  <span className="trade-time">
+                    {new Date(trade.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
+                    </div>
 
                     {/* Activity Logs */}
-
-
-                            <h3>📝 Activity Logs</h3>
-
-                                {logs.map((log, index) => (
-
-                                        {log}
-
-                                ))}
-
-
-
+                    <div className="activity-logs">
+                        <h3>📝 Activity Logs</h3>
+                        <div className="logs-container">
+                            {logs.map((log, index) => (
+                                <div key={index} className="log-entry">
+                                    {log}
+                                </div>
+                            ))}
+                            <div ref={logsEndRef} />
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             {botStatus.error_message && (
-
+                <div className="error-message">
                     ❌ {botStatus.error_message}
-
+                </div>
             )}
-
+        </div>
     );
 });
 
