@@ -2466,9 +2466,7 @@ const DecyclerBot: React.FC = observer(() => {
                 if (collectedTicks.prices.length > 0) {
                     const candles = convertTicksToCandles(collectedTicks.prices, collectedTicks.times, granularity);
                     resolve(candles);
-                }```text
-
-else {
+                } else {
                     reject(new Error(`No tick data collected for ${timeframe}`));
                 }
             }, 8000);
