@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import './decycler-bot.scss';
-
+import { useApiBase } from '@/hooks/useApiBase';
+import { useStore } from '@/hooks/useStore';
 interface DecyclerConfig {
     app_id: number;
     symbol: string;
@@ -122,7 +123,24 @@ const DecyclerBot: React.FC = observer(() => {
         totalPnL: 0
     });
     const [isAuthorized, setIsAuthorized] = useState(false);
-    const [authToken, setAuthToken] = useState('');
+    const { client } = useStore();
+
+    // Check authorization status based on OAuth login
+    useEffect(() => {
+        const checkAuthStatus = () => {
+            if (client?.is_logged_in && api_base.api) {
+                setIsAuthorized(true);
+                addLog('✅ Using OAuth authentication - Ready to trade');
+                addLog(`   - Account: ${client.loginid}`);
+                addLog(`   - Currency: ${client.currency}`);
+                addLog(`   - Balance: ${client.balance}`);
+            } else {
+                setIsAuthorized(false);
+            }
+        };
+
+        checkAuthStatus();
+    }, [client?.is_logged_in, client?.loginid, addLog]);
     const [tradingEnabled, setTradingEnabled] = useState(false);
     const [currentContract, setCurrentContract] = useState<any>(null);
     const [tradeHistory, setTradeHistory] = useState<any[]>([]);
@@ -837,8 +855,8 @@ const DecyclerBot: React.FC = observer(() => {
             return;
         }
 
-        if (!isAuthorized) {
-            addLog('❌ DEBUG: Not authorized for trading - please enter API token and authorize');
+        if (!client?.is_logged_in) {
+            addLog('❌ DEBUG: Not authorized for trading - please log in');
             return;
         }
 
@@ -888,14 +906,14 @@ const DecyclerBot: React.FC = observer(() => {
                         subscribe: 0,
                         req_id: Math.floor(Math.random() * 1000000)
                     };
-                    
+
                     const tickResponse = await Promise.race([
                         api_base.api.send(tickRequest),
                         new Promise((_, reject) => 
                             setTimeout(() => reject(new Error('Current price timeout')), 3000)
                         )
                     ]);
-                    
+
                     if (tickResponse?.tick?.quote) {
                         currentPrice = parseFloat(tickResponse.tick.quote);
                         addLog(`📈 Current market price: ${currentPrice}`);
@@ -908,13 +926,13 @@ const DecyclerBot: React.FC = observer(() => {
 
                 // Calculate barrier based on volatility and trend strength
                 const trendStrength = trends.filter(t => t.trend === (direction === 'UP' ? 'bullish' : 'bearish')).length / trends.length;
-                
+
                 if (currentPrice > 0) {
                     // Calculate percentage-based barrier for better accuracy
                     const basePercentage = 0.05; // 0.05% base offset
                     const dynamicPercentage = basePercentage * (0.5 + trendStrength);
                     const absoluteOffset = currentPrice * (dynamicPercentage / 100);
-                    
+
                     if (direction === 'UP') {
                         barrier = (currentPrice + absoluteOffset).toFixed(2);
                     } else {
@@ -960,7 +978,7 @@ const DecyclerBot: React.FC = observer(() => {
             if (config.contract_type === 'multipliers') {
                 // Multipliers contracts
                 proposalRequest.multiplier = config.multiplier;
-                
+
                 // Add limit orders (take profit/stop loss)
                 const limitOrder: any = {};
                 if (config.take_profit > 0) {
@@ -973,19 +991,19 @@ const DecyclerBot: React.FC = observer(() => {
                     proposalRequest.limit_order = limitOrder;
                     addLog(`🎯 DEBUG: Adding limit orders: ${JSON.stringify(limitOrder)}`);
                 }
-                
+
                 // Add deal cancellation if enabled
                 if (config.use_deal_cancellation && config.deal_cancellation) {
                     proposalRequest.cancellation = config.deal_cancellation;
                     addLog(`🎯 DEBUG: Adding deal cancellation: ${config.deal_cancellation}`);
                 }
-                
+
                 addLog(`🎯 DEBUG: Multipliers proposal with ${config.multiplier}x multiplier`);
             } else {
                 // Binary options contracts - use duration
                 proposalRequest.duration = config.tick_count;
                 proposalRequest.duration_unit = 't';
-                
+
                 // Add barrier for Higher/Lower contracts
                 if (barrier && config.contract_type === 'higher_lower') {
                     // For Higher/Lower contracts, use barrier field
@@ -1034,14 +1052,14 @@ const DecyclerBot: React.FC = observer(() => {
                     if (config.contract_type === 'higher_lower') {
                         addLog(`🔄 DEBUG: Retrying Higher/Lower without barrier...`);
                         delete proposalRequest.barrier;
-                        
+
                         const retryResponse = await Promise.race([
                             api_base.api.send(proposalRequest),
                             new Promise((_, reject) => 
                                 setTimeout(() => reject(new Error('Retry proposal timeout')), 10000)
                             )
                         ]);
-                        
+
                         if (retryResponse?.error) {
                             addLog(`❌ DEBUG: Retry also failed: ${retryResponse.error.message}`);
                             return;
@@ -1166,7 +1184,7 @@ const DecyclerBot: React.FC = observer(() => {
             addLog(`🔍 DEBUG: Error stack: ${error.stack}`);
             console.error('Trade execution error:', error);
         }
-    }, [api_base.api, config, addLog]);
+    }, [api_base.api, config, addLog, client?.is_logged_in]);
 
     // Monitor contract status with proper take profit/stop loss enforcement
     const monitorContract = useCallback(async (contractId: string): Promise<void> => {
@@ -1221,7 +1239,7 @@ const DecyclerBot: React.FC = observer(() => {
                             // Execute manual sell if needed
                             if (shouldSell) {
                                 addLog(`🛑 ${sellReason} - Selling contract manually...`);
-                                
+
                                 // Send sell request
                                 const sellRequest = {
                                     sell: parseInt(contractId),
@@ -1420,10 +1438,10 @@ const DecyclerBot: React.FC = observer(() => {
 
             // Check if we should enter a trade
             if (!botStatus.current_contract && hasStrongAlignment && isHighVolatilityTime && trendConsistency) {
-                
+
                 // Check authorization before attempting trade
-                if (!isAuthorized) {
-                    addLog(`❌ Trading signal detected but not authorized - please enter API token and authorize`);
+                if (!client?.is_logged_in) {
+                    addLog(`❌ Trading signal detected but not authorized - please log in`);
                     return;
                 }
 
@@ -1529,7 +1547,7 @@ const DecyclerBot: React.FC = observer(() => {
                 last_update: Date.now()
             }));
         }
-    }, [botStatus.is_running, botStatus.current_contract, analyzeAllTimeframes, checkAlignment, config.use_10s_filter, executeTrade, addLog]);
+    }, [botStatus.is_running, botStatus.current_contract, analyzeAllTimeframes, checkAlignment, config.use_10s_filter, executeTrade, addLog, client?.is_logged_in]);
 
     // Start bot
     const startBot = useCallback(async (): Promise<void> => {
@@ -1569,6 +1587,13 @@ const DecyclerBot: React.FC = observer(() => {
                 return;
             }
 
+            // Check user authentication
+            if (!client?.is_logged_in) {
+                addLog('❌ Bot requires Deriv login before starting');
+                addLog('   Please log in to your Deriv account');
+                return;
+            }
+
             addLog('🔧 DEBUG: Setting bot status to running...');
             isRunningRef.current = true;
             setBotStatus(prev => ({ ...prev, is_running: true }));
@@ -1594,7 +1619,7 @@ const DecyclerBot: React.FC = observer(() => {
         } catch (error) {
             addLog(`❌ Error starting bot: ${error.message}`);
         }
-    }, [config, timeframes, tradingLoop, addLog, botStatus.is_running]);
+    }, [config, timeframes, tradingLoop, addLog, botStatus.is_running, client?.is_logged_in]);
 
         // Stop bot
     const stopBot = useCallback((): void => {
@@ -1852,7 +1877,6 @@ const DecyclerBot: React.FC = observer(() => {
           const data = JSON.parse(event.data);
           if (data.authorize) {
             setIsAuthorized(true);
-            setAuthToken(token);
             ws.close();
             resolve(data);
           } else if (data.error) {
@@ -2442,7 +2466,9 @@ const DecyclerBot: React.FC = observer(() => {
                 if (collectedTicks.prices.length > 0) {
                     const candles = convertTicksToCandles(collectedTicks.prices, collectedTicks.times, granularity);
                     resolve(candles);
-                } else {
+                }```text
+
+else {
                     reject(new Error(`No tick data collected for ${timeframe}`));
                 }
             }, 8000);
@@ -2715,26 +2741,13 @@ const DecyclerBot: React.FC = observer(() => {
             </span>
           </div>
 
-          <div className="control-item">
-            <label className="control-label">
-              API Token:
-              <input
-                type="password"
-                value={authToken}
-                onChange={(e) => setAuthToken(e.target.value)}
-                placeholder="Enter your Deriv API token"
-                className="form-input"
-                style={{ marginLeft: '10px', width: '200px' }}
-              />
-            </label>
-            <button
-              onClick={() => authorizeAPI(authToken)}disabled={!authToken || isAuthorized}
-              className="btn btn-primary"
-              style={{ marginLeft: '10px' }}
-            >
-              {isAuthorized ? 'Authorized' : 'Authorize'}
-            </button>
-          </div>
+          {!client?.is_logged_in && (
+            <div className="control-item">
+              <span className="auth-warning" style={{ color: '#ff6b6b', fontWeight: 'bold' }}>
+                ⚠️ Please log in to Deriv to enable trading
+              </span>
+            </div>
+          )}
 
           <div className="control-item">
             <label className="control-label">
@@ -2742,7 +2755,7 @@ const DecyclerBot: React.FC = observer(() => {
                 type="checkbox"
                 checked={tradingEnabled}
                 onChange={(e) => setTradingEnabled(e.target.checked)}
-                disabled={!isAuthorized}
+                disabled={!client?.is_logged_in}
                 style={{ marginRight: '10px' }}
               />
               Enable Auto Trading
