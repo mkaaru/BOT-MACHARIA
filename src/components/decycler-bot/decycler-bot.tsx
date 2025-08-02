@@ -801,7 +801,7 @@ const DecyclerBot: React.FC = observer(() => {
         return riskRewardRatio >= config.min_risk_reward_ratio;
     }, [config.take_profit, config.stop_loss, config.min_risk_reward_ratio, addLog]);
 
-    // Dynamic position sizing
+    // Dynamic positionsizing
     const calculatePositionSize = useCallback((direction: 'UP' | 'DOWN', trendStrengthScore: number): number => {
         let optimalStake = config.stake;
 
@@ -1690,117 +1690,116 @@ const DecyclerBot: React.FC = observer(() => {
 
     // Comprehensive API connection and data testing
     const testConnection = useCallback(async (): Promise<void> => {
-        try {
-            addLog('🔍 Starting comprehensive API connection test...');
+        addLog('🔍 Starting comprehensive API connection test...');
 
-            // Step 1: Test WebSocket connection
-            if (!api_base.api || api_base.api.connection.readyState !== 1) {
-                addLog('🔌 Initializing API connection...');
-                await api_base.init();
+        // Step 1: Test WebSocket connection
+        if (!api_base.api || api_base.api.connection.readyState !== 1) {
+            addLog('🔌 Initializing API connection...');
+            await api_base.init();
 
-                let retries = 0;
-                while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    retries++;
-                    if (retries % 3 === 0) {
-                        addLog(`⏳ Waiting for connection... (${retries}/15)`);
-                    }
+            let retries = 0;
+            while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                retries++;
+                if (retries % 3 === 0) {
+                    addLog(`⏳ Waiting for connection... (${retries}/15)`);
                 }
             }
+        }
 
-            if (!api_base.api || api_base.api.connection.readyState !== 1) {
-                addLog('❌ Failed to establish WebSocket connection');
-                return;
-            }
+        if (!api_base.api || api_base.api.connection.readyState !== 1) {
+            addLog('❌ Failed to establish WebSocket connection');
+            return;
+        }
 
-            addLog(`✅ WebSocket connected (Ready State: ${api_base.api.connection.readyState})`);
+        addLog(`✅ WebSocket connected (Ready State: ${api_base.api.connection.readyState})`);
 
-            // Step 2: Test basic API communication
-            const timeResponse = await Promise.race([
-                api_base.api.send({ time: 1 }),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Time request timeout')), 5000))
+        // Step 2: Test basic API communication
+        const timeResponse = await Promise.race([
+            api_base.api.send({ time: 1 }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Time request timeout')), 5000))
+        ]);
+
+        if (timeResponse?.time) {
+            addLog(`✅ API communication test successful. Server time: ${new Date(timeResponse.time * 1000).toLocaleString()}`);
+        } else {
+            addLog('❌ API communication test failed - no server time received');
+            return;
+        }
+
+        // Step3: Test symbol existence
+        addLog(`🔍 Testing symbol availability: ${config.symbol}`);
+
+        try {
+            const symbolTest = await Promise.race([
+                api_base.api.send({ 
+                    active_symbols: 'brief',
+                    product_type: 'basic'
+                }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Symbol test timeout')), 8000))
             ]);
 
-            if (timeResponse?.time) {
-                addLog(`✅ API communication test successful. Server time: ${new Date(timeResponse.time * 1000).toLocaleString()}`);
-            } else {
-                addLog('❌ API communication test failed - no server time received');
-                return;
-            }
-
-            // Step3: Test symbol existence
-            addLog(`🔍 Testing symbol availability: ${config.symbol}`);
-
-        try {
-                const symbolTest = await Promise.race([
-                    api_base.api.send({ 
-                        active_symbols: 'brief',
-                        product_type: 'basic'
-                    }),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Symbol test timeout')), 8000))
-                ]);
-
-                if (symbolTest?.active_symbols) {
-                    const symbolExists = symbolTest.active_symbols.some(s => s.symbol === config.symbol);
-                    if (symbolExists) {
-                        addLog(`✅ Symbol ${config.symbol} is available for trading`);
-                    } else {
-                        addLog(`⚠️ Symbol ${config.symbol} not found in active symbols list`);
-                    }
-                }
-            } catch (symbolError) {
-                addLog(`⚠️ Could not verify symbol availability: ${symbolError.message}`);
-            }
-
-            // Step 4: Test data retrieval for each timeframe
-            addLog('📊 Testing data retrieval for all timeframes...');
-
-            const testResults = {};
-            for (const tf of timeframes) {
-                try {
-                    addLog(`🔄 Testing ${tf} data...`);
-                    const testData = await fetchOHLCData(tf);
-                    testResults[tf] = testData.length;
-
-                    if (testData.length > 0) {
-                        addLog(`✅ ${tf}: ${testData.length} data points retrieved`);
-                    } else {
-                        addLog(`❌ ${tf}: No data retrieved`);
-                    }
-
-                    // Small delay between requests to avoid rate limiting
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                } catch (tfError) {
-                    addLog(`❌ ${tf}: Error - ${tfError.message}`);
-                    testResults[tf] = 0;
+            if (symbolTest?.active_symbols) {
+                const symbolExists = symbolTest.active_symbols.some(s => s.symbol === config.symbol);
+                if (symbolExists) {
+                    addLog(`✅ Symbol ${config.symbol} is available for trading`);
+                } else {
+                    addLog(`⚠️ Symbol ${config.symbol} not found in active symbols list`);
                 }
             }
-
-            // Step 5: Summary
-            const successfulTimeframes = Object.values(testResults).filter(count => count > 0).length;
-            const totalTimeframes = timeframes.length;
-
-            addLog(`📋 Test Summary: ${successfulTimeframes}/${totalTimeframes} timeframes working`);
-
-            if (successfulTimeframes === 0) {
-                addLog('❌ No timeframes working - try a different symbol or check API connection');
-            } else if (successfulTimeframes < totalTimeframes) {
-                addLog(`⚠️ Partial success - ${totalTimeframes - successfulTimeframes} timeframes failed`);
-            } else {
-                addLog('🎉 All timeframes working perfectly!');
-
-                // If test was successful, run the analysis to populate the UI
-                if (successfulTimeframes > 0) {
-                    addLog('🔄 Running multi-timeframe analysis...');
-                    await analyzeAllTimeframes();
-                }
-            }
-
-        } catch (error) {
-            addLog(`❌ Connection test failed: ${error.message}`);
-            console.error('Detailed connection test error:', error);
+        } catch (symbolError) {
+            addLog(`⚠️ Could not verify symbol availability: ${symbolError.message}`);
         }
-    }, [fetchOHLCData, config.symbol, addLog, timeframes]);
+
+        // Step 4: Test data retrieval for each timeframe
+        addLog('📊 Testing data retrieval for all timeframes...');
+
+        const testResults = {};
+        for (const tf of timeframes) {
+            try {
+                addLog(`🔄 Testing ${tf} data...`);
+                const testData = await fetchOHLCData(tf);
+                testResults[tf] = testData.length;
+
+                if (testData.length > 0) {
+                    addLog(`✅ ${tf}: ${testData.length} data points retrieved`);
+                } else {
+                    addLog(`❌ ${tf}: No data retrieved`);
+                }
+
+                // Small delay between requests to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (tfError) {
+                addLog(`❌ ${tf}: Error - ${tfError.message}`);
+                testResults[tf] = 0;
+            }
+        }
+
+        // Step 5: Summary
+        const successfulTimeframes = Object.values(testResults).filter(count => count > 0).length;
+        const totalTimeframes = timeframes.length;
+
+        addLog(`📋 Test Summary: ${successfulTimeframes}/${totalTimeframes} timeframes working`);
+
+        if (successfulTimeframes === 0) {
+            addLog('❌ No timeframes working - try a different symbol or check API connection');
+        } else if (successfulTimeframes < totalTimeframes) {
+            addLog(`⚠️ Partial success - ${totalTimeframes - successfulTimeframes} timeframes failed`);
+        } else {
+            addLog('🎉 All timeframes working perfectly!');
+
+            // If test was successful, run the analysis to populate the UI
+            if (successfulTimeframes > 0) {
+                addLog('🔄 Running multi-timeframe analysis...');
+                await analyzeAllTimeframes();
+            }
+        }
+
+    } catch (error) {
+        addLog(`❌ Connection test failed: ${error.message}`);
+        console.error('Detailed connection test error:', error);
+    }
+}, [fetchOHLCData, config.symbol, addLog, timeframes]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -2455,8 +2454,8 @@ const DecyclerBot: React.FC = observer(() => {
 
     const handleStartBot = async () => {
         // Skip API token requirement for OAuth authenticated users
-        if (!isOAuthEnabled && !config.api_token) {
-            addLog('❌ API token is required when not using OAuth authentication');
+        if (!isOAuthEnabled) {
+            addLog('❌ OAuth authentication is required');
             return;
         }
 
@@ -2480,14 +2479,8 @@ ws.onopen = () => {
                     addLog('🔐 OAuth authentication active - ready for trading');
                     setIsAuthorized(true);
                     setTradingEnabled(true);
-                } else if (config.api_token) {
-                    // Authorize with API token for non-OAuth users
-                    const authMessage = {
-                        authorize: config.api_token
-                    };
-                    ws.send(JSON.stringify(authMessage));
                 } else {
-                    addLog('❌ No authentication method available');
+                    addLog('❌ OAuth Authentication Required');
                     return;
                 }
             };
@@ -2919,32 +2912,13 @@ ws.onopen = () => {
                         </div>
 
           <div className="control-item">
-            <span className="control-label">Trading Status:</span>
-            <span className={`status ${isAuthorized ? 'connected' : 'disconnected'}`}>
-              {isAuthorized ? '🟢 Authorized' : '🔴 Not Authorized'}
-            </span>
-          </div>
+              <span className="control-label">API Status:</span>
+              <span className="status connected">
+                🟢 Ready for Trading (OAuth Authenticated)
+              </span>
+            </div>
 
-          <div className="control-item">
-            <label className="control-label">
-              API Token:
-              <input
-                type="password"
-                value={authToken}
-                onChange={(e) => setAuthToken(e.target.value)}
-                placeholder="Enter your Deriv API token"
-                className="form-input"
-                style={{ marginLeft: '10px', width: '200px' }}
-              />
-            </label>
-            <button
-              onClick={() => authorizeAPI(authToken)}disabled={!authToken || isAuthorized}
-              className="btn btn-primary"
-              style={{ marginLeft: '10px' }}
-            >
-              {isAuthorized ? 'Authorized' : 'Authorize'}
-            </button>
-          </div>
+          
 
           <div className="control-item">
             <label className="control-label">
