@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useOauth2 } from '@/hooks/auth/useOauth2';
 import { observer } from 'mobx-react-lite';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import './decycler-bot.scss';
@@ -66,7 +67,8 @@ interface BotStatus {
 }
 
 const DecyclerBot: React.FC = observer(() => {
-    const [config, setConfig] = useState<DecyclerConfig>({
+    const [config, setConfig] = useState({
+        api_token: '',
         app_id: 75771,
         symbol: '1HZ100V',
         stake: 0.35,
@@ -93,6 +95,9 @@ const DecyclerBot: React.FC = observer(() => {
         deal_cancellation: '60m',
         use_deal_cancellation: false
     });
+
+    // Check if user is OAuth authenticated
+    const isOAuthEnabled = useOauth2().isOAuth2Enabled;
 
     const [botStatus, setBotStatus] = useState<BotStatus>({
         is_running: false,
@@ -888,14 +893,14 @@ const DecyclerBot: React.FC = observer(() => {
                         subscribe: 0,
                         req_id: Math.floor(Math.random() * 1000000)
                     };
-                    
+
                     const tickResponse = await Promise.race([
                         api_base.api.send(tickRequest),
                         new Promise((_, reject) => 
                             setTimeout(() => reject(new Error('Current price timeout')), 3000)
                         )
                     ]);
-                    
+
                     if (tickResponse?.tick?.quote) {
                         currentPrice = parseFloat(tickResponse.tick.quote);
                         addLog(`📈 Current market price: ${currentPrice}`);
@@ -908,13 +913,13 @@ const DecyclerBot: React.FC = observer(() => {
 
                 // Calculate barrier based on volatility and trend strength
                 const trendStrength = trends.filter(t => t.trend === (direction === 'UP' ? 'bullish' : 'bearish')).length / trends.length;
-                
+
                 if (currentPrice > 0) {
                     // Calculate percentage-based barrier for better accuracy
                     const basePercentage = 0.05; // 0.05% base offset
                     const dynamicPercentage = basePercentage * (0.5 + trendStrength);
                     const absoluteOffset = currentPrice * (dynamicPercentage / 100);
-                    
+
                     if (direction === 'UP') {
                         barrier = (currentPrice + absoluteOffset).toFixed(2);
                     } else {
@@ -960,7 +965,7 @@ const DecyclerBot: React.FC = observer(() => {
             if (config.contract_type === 'multipliers') {
                 // Multipliers contracts
                 proposalRequest.multiplier = config.multiplier;
-                
+
                 // Add limit orders (take profit/stop loss)
                 const limitOrder: any = {};
                 if (config.take_profit > 0) {
@@ -973,19 +978,19 @@ const DecyclerBot: React.FC = observer(() => {
                     proposalRequest.limit_order = limitOrder;
                     addLog(`🎯 DEBUG: Adding limit orders: ${JSON.stringify(limitOrder)}`);
                 }
-                
+
                 // Add deal cancellation if enabled
                 if (config.use_deal_cancellation && config.deal_cancellation) {
                     proposalRequest.cancellation = config.deal_cancellation;
                     addLog(`🎯 DEBUG: Adding deal cancellation: ${config.deal_cancellation}`);
                 }
-                
+
                 addLog(`🎯 DEBUG: Multipliers proposal with ${config.multiplier}x multiplier`);
             } else {
                 // Binary options contracts - use duration
                 proposalRequest.duration = config.tick_count;
                 proposalRequest.duration_unit = 't';
-                
+
                 // Add barrier for Higher/Lower contracts
                 if (barrier && config.contract_type === 'higher_lower') {
                     // For Higher/Lower contracts, use barrier field
@@ -1034,14 +1039,14 @@ const DecyclerBot: React.FC = observer(() => {
                     if (config.contract_type === 'higher_lower') {
                         addLog(`🔄 DEBUG: Retrying Higher/Lower without barrier...`);
                         delete proposalRequest.barrier;
-                        
+
                         const retryResponse = await Promise.race([
                             api_base.api.send(proposalRequest),
                             new Promise((_, reject) => 
                                 setTimeout(() => reject(new Error('Retry proposal timeout')), 10000)
                             )
                         ]);
-                        
+
                         if (retryResponse?.error) {
                             addLog(`❌ DEBUG: Retry also failed: ${retryResponse.error.message}`);
                             return;
@@ -1221,7 +1226,7 @@ const DecyclerBot: React.FC = observer(() => {
                             // Execute manual sell if needed
                             if (shouldSell) {
                                 addLog(`🛑 ${sellReason} - Selling contract manually...`);
-                                
+
                                 // Send sell request
                                 const sellRequest = {
                                     sell: parseInt(contractId),
@@ -1420,7 +1425,7 @@ const DecyclerBot: React.FC = observer(() => {
 
             // Check if we should enter a trade
             if (!botStatus.current_contract && hasStrongAlignment && isHighVolatilityTime && trendConsistency) {
-                
+
                 // Check authorization before attempting trade
                 if (!isAuthorized) {
                     addLog(`❌ Trading signal detected but not authorized - please enter API token and authorize`);
@@ -2448,13 +2453,208 @@ const DecyclerBot: React.FC = observer(() => {
             }, 8000);
         };
 
+    const handleStartBot = async () => {
+        // For authenticated users, API token is not required for multiplier trades
+        if (!isOAuthEnabled && !config.api_token) {
+            addLog('❌ API token is required for non-authenticated users');
+            return;
+        }
+
+        if (!config.symbol || !config.stake || !config.contract_type) {
+            addLog('❌ Please configure all required settings');
+            return;
+        }
+
+        try {
+            addLog('🔗 Connecting to Deriv API...');
+
+            // Initialize WebSocket connection
+            const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${config.app_id}`;
+            const ws = new WebSocket(wsUrl);
+
+ws.onopen = () => {
+                addLog('✅ Connected to Deriv API');
+
+                if (isOAuthEnabled) {
+                    // For OAuth authenticated users, no separate authorization needed
+                    addLog('🔐 Using OAuth authentication');
+                    // The WebSocket connection will use the existing OAuth session
+                } else if (config.api_token) {
+                    // Authorize with API token for non-OAuth users
+                    const authMessage = {
+                        authorize: config.api_token
+                    };
+                    ws.send(JSON.stringify(authMessage));
+                } else {
+                    addLog('❌ No authentication method available');
+                    return;
+                }
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.error) {
+                    addLog(`❌ API Error: ${data.error.message}`);
+                    return;
+                }
+
+                if (data.msg_type === 'authorize') {
+                    addLog('✅ API Authorized');
+                    setIsAuthorized(true);
+                }
+
+                // Handle other API messages
+            };
+
+            ws.onclose = () => {
+                addLog('❌ Disconnected from Deriv API');
+                setIsAuthorized(false);
+            };
+
+            ws.onerror = (error) => {
+                addLog(`❌ WebSocket Error: ${error}`);
+                setIsAuthorized(false);
+            };
+
+            wsRef.current = ws;
+
+            // Start trading loop
+            setIsRunning(true);
+            intervalRef.current = setInterval(tradingLoop, config.monitor_interval * 1000);
+
+            // Initial analysis
+            tradingLoop();
+
+        } catch (error) {
+            addLog(`❌ Error starting bot: ${error}`);
+        }
+    };
+
+    const handleStopBot = () => {
+        setIsRunning(false);
+        clearInterval(intervalRef.current);
+        wsRef.current?.close();
+    };
+
+  const sendProposal = (contractType: string) => {
+    return new Promise((resolve, reject) => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        addLog('❌ WebSocket not connected');
+        reject(new Error('WebSocket not connected'));
+        return;
+      }
+
+      const proposalRequest = {
+        proposal: 1,
+        amount: config.stake,
+        symbol: config.symbol,
+        duration: duration,
+        duration_unit: durationType,
+        contract_type: contractType,
+        currency: 'USD',
+        barrier: barrier || undefined,
+        app_id: 75771 // Use authenticated app ID
+
+      };
+
+      const reqId = `proposal_${Date.now()}`;
+      const messageHandler = (event: MessageEvent) => {
+        const data = JSON.parse(event.data);
+        if (data.req_id === reqId) {
+          ws.removeEventListener('message', messageHandler);
+          if (data.error) {
+            addLog(`❌ Proposal error: ${data.error.message}`);
+            reject(data.error);
+          } else {
+            addLog(`✅ Proposal received for ${contractType}`);
+            resolve(data.proposal);
+          }
+        }
+      };
+
+      ws.addEventListener('message', messageHandler);
+      ws.send(JSON.stringify({ ...proposalRequest, req_id: reqId }));
+
+      setTimeout(() => {
+        ws.removeEventListener('message', messageHandler);
+        reject(new Error('Proposal request timeout'));
+      }, 10000);
+    });
+  };
+
+  const handleTrade = async (tradeType: string) => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            addLog('❌ WebSocket not connected');
+            return;
+        }
+
+        try {
+            // Construct trade request
+            const tradeRequest = {
+                            buy: 1,
+                            parameters: {
+                                contract_type: tradeType,
+                                symbol: config.symbol,
+                                amount: config.stake,
+                                duration: 1,
+                                duration_unit: 't',
+                                basis: 'stake'
+                            }
+                        };
+
+                        // For multiplier trades, add multiplier-specific parameters
+                        if (config.contract_type === 'multipliers') {
+                            tradeRequest.parameters.multiplier = config.multiplier || 10;
+                            if (config.use_deal_cancellation) {
+                                tradeRequest.parameters.cancellation = config.deal_cancellation_minutes * 60;
+                            }
+                        }
+            // Send trade request
+            ws.send(JSON.stringify(tradeRequest));
+
+            // Handle trade response
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.error) {
+                    addLog(`❌ Trade Error: ${data.error.message}`);
+                    return;
+                }
+
+                if (data.buy) {
+                    addLog(`✅ Trade successful - Contract ID: ${data.buy.contract_id}`);
+                    // Update performance data
+                    setPerformanceData((prevData) => ({
+                        ...prevData,
+                        totalTrades: prevData.totalTrades + 1
+                    }));
+
+                    // Update trade history
+                    setTradeHistory((prevHistory) => [
+                        ...prevHistory,
+                        {
+                            contractId: data.buy.contract_id,
+                            type: tradeType,
+                            profit: data.buy.payout - config.stake,
+                            timestamp: new Date().toLocaleString(),
+                        }
+                    ]);
+                }
+            };
+
+        } catch (error) {
+            addLog(`❌ Trade failed: ${error}`);
+        }
+    };
+
     return (
         <div className="decycler-bot-container">
             <div className="decycler-header">
                 <h2>🔬 Decycler Multi-Timeframe Trading Bot</h2>
-                <div className={`bot-status ${botStatus.is_running ? 'running' : 'stopped'}`}>
+                <div className={`bot-status ${isRunning ? 'running' : 'stopped'}`}>
                     <span className="status-dot"></span>
-                    {botStatus.is_running ? 'RUNNING' : 'STOPPED'}
+                    {isRunning ? 'RUNNING' : 'STOPPED'}
                 </div>
             </div>
 
@@ -2468,7 +2668,7 @@ const DecyclerBot: React.FC = observer(() => {
                             <select
                                 value={selectedTimeframePreset}
                                 onChange={e => setSelectedTimeframePreset(e.target.value as 'scalping' | 'multi')}
-                                disabled={botStatus.is_running}
+                                disabled={isRunning}
                             >
                                 <option value="scalping">Scalping (1m-5m)</option>
                                 <option value="multi">Multi-Timeframe (1m-4h)</option>
@@ -2480,7 +2680,7 @@ const DecyclerBot: React.FC = observer(() => {
                                 <select
                                     value={config.symbol}
                                     onChange={e => setConfig(prev => ({ ...prev, symbol: e.target.value }))}
-                                    disabled={botStatus.is_running}
+                                    disabled={isRunning}
                                 >
                                     <optgroup label="Volatility Indices (1s)">
                                         <option value="1HZ10V">Volatility 10 (1s) Index</option>
@@ -2535,7 +2735,7 @@ const DecyclerBot: React.FC = observer(() => {
                                     onChange={e => setConfig(prev => ({ ...prev, stake: parseFloat(e.target.value) || 1 }))}
                                     min="1"
                                     step="0.1"
-                                    disabled={botStatus.is_running}
+                                    disabled={isRunning}
                                 />
                             </div>
                             <div className="config-item">
@@ -2545,7 +2745,7 @@ const DecyclerBot: React.FC = observer(() => {
                                     value={config.take_profit}
                                     onChange={e => setConfig(prev => ({ ...prev, take_profit: parseFloat(e.target.value) || 1.5 }))}
                                     step="0.1"
-                                    disabled={botStatus.is_running}
+                                    disabled={isRunning}
                                 />
                             </div>
                             <div className="config-item">
@@ -2555,7 +2755,7 @@ const DecyclerBot: React.FC = observer(() => {
                                     value={config.stop_loss}
                                     onChange={e => setConfig(prev => ({ ...prev, stop_loss: parseFloat(e.target.value) || -1 }))}
                                     step="0.1"
-                                    disabled={botStatus.is_running}
+                                    disabled={isRunning}
                                 />
                             </div>
                             <div className="config-item">
@@ -2563,7 +2763,7 @@ const DecyclerBot: React.FC = observer(() => {
                                 <select
                                     value={config.contract_type}
                                     onChange={e => setConfig(prev => ({ ...prev, contract_type: e.target.value as 'rise_fall' | 'higher_lower' | 'allow_equals' | 'multipliers' }))}
-                                    disabled={botStatus.is_running}
+                                    disabled={isRunning}
                                 >
                                     <option value="rise_fall">Rise/Fall (Strict)</option>
                                     <option value="higher_lower">Higher/Lower (with Barrier)</option>
@@ -2579,7 +2779,7 @@ const DecyclerBot: React.FC = observer(() => {
                                     onChange={e => setConfig(prev => ({ ...prev, tick_count: parseInt(e.target.value) || 5 }))}
                                     min="1"
                                     max="10"
-                                    disabled={botStatus.is_running}
+                                    disabled={isRunning}
                                 />
                             </div>
                             <div className="config-item">
@@ -2589,7 +2789,7 @@ const DecyclerBot: React.FC = observer(() => {
                                     value={barrier}
                                     onChange={(e) => setBarrier(e.target.value)}
                                     placeholder="e.g. +0.001, -0.001, or absolute value"
-                                    disabled={botStatus.is_running}
+                                    disabled={isRunning}
                                 />
                             </div>
 
@@ -2603,7 +2803,7 @@ const DecyclerBot: React.FC = observer(() => {
                                             onChange={e => setConfig(prev => ({ ...prev, multiplier: parseInt(e.target.value) || 100 }))}
                                             min="1"
                                             max="2000"
-                                            disabled={botStatus.is_running}
+                                            disabled={isRunning}
                                         />
                                     </div>
                                     <div className="config-item">
@@ -2612,7 +2812,7 @@ const DecyclerBot: React.FC = observer(() => {
                                                 type="checkbox"
                                                 checked={config.use_deal_cancellation}
                                                 onChange={e => setConfig(prev => ({ ...prev, use_deal_cancellation: e.target.checked }))}
-                                                disabled={botStatus.is_running}
+                                                disabled={isRunning}
                                             />
                                             Deal Cancellation
                                         </label>
@@ -2620,7 +2820,7 @@ const DecyclerBot: React.FC = observer(() => {
                                             <select
                                                 value={config.deal_cancellation}
                                                 onChange={e => setConfig(prev => ({ ...prev, deal_cancellation: e.target.value as '5m' | '10m' | '15m' | '30m' | '60m' }))}
-                                                disabled={botStatus.is_running}
+                                                disabled={isRunning}
                                             >
                                                 <option value="5m">5 minutes</option>
                                                 <option value="10m">10 minutes</option>
@@ -2640,12 +2840,12 @@ const DecyclerBot: React.FC = observer(() => {
                                             value={duration}
                                             onChange={(e) => setDuration(Number(e.target.value))}
                                             min="1"
-                                            disabled={botStatus.is_running}
+                                            disabled={isRunning}
                                         />
                                         <select
                                             value={durationType}
                                             onChange={(e) => setDurationType(e.target.value)}
-                                            disabled={botStatus.is_running}
+                                            disabled={isRunning}
                                         >
                                             <option value="t">Ticks</option>
                                             <option value="s">Seconds</option>
@@ -2658,6 +2858,27 @@ const DecyclerBot: React.FC = observer(() => {
                             )}
                         </div>
 
+                        {!isOAuthEnabled && (
+                        <div className="config-group">
+                            <label>API Token:</label>
+                            <input
+                                type="password"
+                                value={config.api_token}
+                                onChange={(e) => setConfig(prev => ({ ...prev, api_token: e.target.value }))}
+                                placeholder="Enter your Deriv API token"
+                            />
+                        </div>
+                    )}
+
+                    {isOAuthEnabled && (
+                        <div className="config-group">
+                            <label>Authentication:</label>
+                            <div className="oauth-status">
+                                ✅ Authenticated via OAuth - No API token required
+                            </div>
+                        </div>
+                    )}
+
                         {/* Advanced Risk Management */}
                         <div className="risk-management">
                             <h4>🛡️ Risk Management</h4>
@@ -2667,7 +2888,7 @@ const DecyclerBot: React.FC = observer(() => {
                                         type="checkbox"
                                         checked={config.use_trailing_stop}
                                         onChange={e => setConfig(prev => ({ ...prev, use_trailing_stop: e.target.checked }))}
-                                        disabled={botStatus.is_running}
+                                        disabled={isRunning}
                                     />
                                     Trailing Stop (${config.trailing_step})
                                 </label>
@@ -2676,7 +2897,7 @@ const DecyclerBot: React.FC = observer(() => {
                                         type="checkbox"
                                         checked={config.use_breakeven}
                                         onChange={e => setConfig(prev => ({ ...prev, use_breakeven: e.target.checked }))}
-                                        disabled={botStatus.is_running}
+                                        disabled={isRunning}
                                     />
                                     Breakeven at ${config.breakeven_trigger} profit
                                 </label>
@@ -2685,7 +2906,7 @@ const DecyclerBot: React.FC = observer(() => {
                                         type="checkbox"
                                         checked={config.use_10s_filter}
                                         onChange={e => setConfig(prev => ({ ...prev, use_10s_filter: e.target.checked }))}
-                                        disabled={botStatus.is_running}
+                                        disabled={isRunning}
                                     />
                                     10-Second Confirmation Filter
                                 </label>
@@ -2759,22 +2980,22 @@ const DecyclerBot: React.FC = observer(() => {
           )}
                         <div className="control-buttons">
                             <button
-                                className={`control-btn ${botStatus.is_running ? 'stop' : 'start'}`}
-                                onClick={botStatus.is_running ? stopBot : startBot}
+                                className={`control-btn ${isRunning ? 'stop' : 'start'}`}
+                                onClick={isRunning ? handleStopBot : handleStartBot}
                             >
-                                {botStatus.is_running ? '⏹️ Stop Bot' : '▶️ Start Bot'}
+                                {isRunning ? '⏹️ Stop Bot' : '▶️ Start Bot'}
                             </button>
                             <button
                                 className="control-btn test"
                                 onClick={testConnection}
-                                disabled={botStatus.is_running}
+                                disabled={isRunning}
                             >
                                 🔍 Test Connection
                             </button>
                             <button
                                 className="control-btn day-ticks"
                                 onClick={() => getDayTicks(config.symbol)}
-                                disabled={botStatus.is_running}
+                                disabled={isRunning}
                             >
                                 📅 Get Day Ticks (86400)
                             </button>
@@ -2787,25 +3008,25 @@ const DecyclerBot: React.FC = observer(() => {
                     </div>
 
                     {/* Current Contract */}
-                    {botStatus.current_contract && (
+                    {currentContract && (
                         <div className="current-contract">
                             <h3>📊 Current Contract</h3>
                             <div className="contract-info">
                                 <div className="contract-details">
-                                    <span>ID: {botStatus.current_contract.id}</span>
-                                    <span>Type: {botStatus.current_contract.type}</span>
-                                    <span>Direction: {botStatus.current_contract.direction}</span>
-                                    <span>Entry: {botStatus.current_contract.entry_price.toFixed(5)}</span>
+                                    <span>ID: {currentContract.id}</span>
+                                    <span>Type: {currentContract.type}</span>
+                                    <span>Direction: {currentContract.direction}</span>
+                                    <span>Entry: {currentContract.entry_price.toFixed(5)}</span>
                                 </div>
-                                <div className={`profit-display ${botStatus.current_contract.profit >= 0 ? 'positive' : 'negative'}`}>
-                                    P&L: ${botStatus.current_contract.profit.toFixed(2)}
+                                <div className={`profit-display ${currentContract.profit >= 0 ? 'positive' : 'negative'}`}>
+                                    P&L: ${currentContract.profit.toFixed(2)}
                                 </div>
                             </div>
                             <div className="risk-status">
                                 {config.use_trailing_stop && (
-                                    <span>Trailing Stop: {botStatus.current_contract.trailing_stop.toFixed(5)}</span>
+                                    <span>Trailing Stop: {currentContract.trailing_stop.toFixed(5)}</span>
                                 )}
-                                {botStatus.current_contract.breakeven_active && (
+                                {currentContract.breakeven_active && (
                                     <span className="breakeven-active">Breakeven Active</span>
                                 )}
                             </div>
@@ -2817,12 +3038,12 @@ const DecyclerBot: React.FC = observer(() => {
                     {/* Timeframe Analysis */}
                     <div className="timeframe-analysis">
                         <h3>📈 Multi-Timeframe Analysis</h3>
-                        <div className={`alignment-status ${botStatus.alignment_status}`}>
+                        <div className={`alignment-status ${overallAnalysis}`}>
                             <div 
                                 className="alignment-indicator"
-                                style={{ backgroundColor: getAlignmentColor(botStatus.alignment_status) }}
+                                style={{ backgroundColor: getAlignmentColor(overallAnalysis) }}
                             >
-                                {botStatus.alignment_status.replace('_', ' ').toUpperCase()}
+                                {overallAnalysis.replace('_', ' ').toUpperCase()}
                             </div>
                         </div>
                         <div className="trends-grid">
@@ -2851,20 +3072,20 @@ const DecyclerBot: React.FC = observer(() => {
                         <div className="stats-grid">
                             <div className="stat-item">
                                 <span className="stat-label">Total Trades</span>
-                                <span className="stat-value">{botStatus.total_trades}</span>
+                                <span className="stat-value">{performanceData.totalTrades}</span>
                             </div>
                             <div className="stat-item">
                                 <span className="stat-label">Win Rate</span>
                                 <span className="stat-value">
-                                    {botStatus.total_trades > 0 
-                                        ? ((botStatus.winning_trades / botStatus.total_trades) * 100).toFixed(1) 
+                                    {tradeHistory.length > 0 
+                                        ? ((tradeHistory.filter(trade => trade.profit > 0).length / tradeHistory.length) * 100).toFixed(1) 
                                         : 0}%
                                 </span>
                             </div>
                             <div className="performance-item">
             <span className="stat-label">Total P&L</span>
-                                <span className={`stat-value ${botStatus.total_pnl >= 0 ? 'positive' : 'negative'}`}>
-                                    ${botStatus.total_pnl.toFixed(2)}
+                                <span className={`stat-value ${tradeHistory.reduce((acc, trade) => acc + trade.profit, 0) >= 0 ? 'positive' : 'negative'}`}>
+                                    ${tradeHistory.reduce((acc, trade) => acc + trade.profit, 0).toFixed(2)}
                                 </span>
                             </div>
                         </div>
@@ -2876,9 +3097,9 @@ const DecyclerBot: React.FC = observer(() => {
               {tradeHistory.slice(-5).reverse().map((trade, index) => (
                 <div key={index} className="trade-item">
                   <span className="trade-type">{trade.type}</span>
-                  <span className="trade-stake">${trade.stake}</span>
-                  <span className={`trade-result ${trade.isWin ? 'win' : 'loss'}`}>
-                    {trade.isWin ? 'WIN' : 'LOSS'}
+                  <span className="trade-stake">${config.stake}</span>
+                  <span className={`trade-result ${trade.profit > 0 ? 'win' : 'loss'}`}>
+                    {trade.profit > 0 ? 'WIN' : 'LOSS'}
                   </span>
                   <span className={`trade-profit ${trade.profit >= 0 ? 'positive' : 'negative'}`}>
                     ${trade.profit.toFixed(2)}
