@@ -1692,110 +1692,111 @@ const DecyclerBot: React.FC = observer(() => {
     const testConnection = useCallback(async (): Promise<void> => {
         addLog('🔍 Starting comprehensive API connection test...');
 
-        // Step 1: Test WebSocket connection
-        if (!api_base.api || api_base.api.connection.readyState !== 1) {
-            addLog('🔌 Initializing API connection...');
-            await api_base.init();
+        try {
+            // Step 1: Test WebSocket connection
+            if (!api_base.api || api_base.api.connection.readyState !== 1) {
+                addLog('🔌 Initializing API connection...');
+                await api_base.init();
 
-            let retries = 0;
-            while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                retries++;
-                if (retries % 3 === 0) {
-                    addLog(`⏳ Waiting for connection... (${retries}/15)`);
+                let retries = 0;
+                while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    retries++;
+                    if (retries % 3 === 0) {
+                        addLog(`⏳ Waiting for connection... (${retries}/15)`);
+                    }
                 }
             }
-        }
 
-        if (!api_base.api || api_base.api.connection.readyState !== 1) {
-            addLog('❌ Failed to establish WebSocket connection');
-            return;
-        }
+            if (!api_base.api || api_base.api.connection.readyState !== 1) {
+                addLog('❌ Failed to establish WebSocket connection');
+                return;
+            }
 
-        addLog(`✅ WebSocket connected (Ready State: ${api_base.api.connection.readyState})`);
+            addLog(`✅ WebSocket connected (Ready State: ${api_base.api.connection.readyState})`);
 
-        // Step 2: Test basic API communication
-        const timeResponse = await Promise.race([
-            api_base.api.send({ time: 1 }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Time request timeout')), 5000))
-        ]);
-
-        if (timeResponse?.time) {
-            addLog(`✅ API communication test successful. Server time: ${new Date(timeResponse.time * 1000).toLocaleString()}`);
-        } else {
-            addLog('❌ API communication test failed - no server time received');
-            return;
-        }
-
-        // Step3: Test symbol existence
-        addLog(`🔍 Testing symbol availability: ${config.symbol}`);
-
-        try {
-            const symbolTest = await Promise.race([
-                api_base.api.send({ 
-                    active_symbols: 'brief',
-                    product_type: 'basic'
-                }),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Symbol test timeout')), 8000))
+            // Step 2: Test basic API communication
+            const timeResponse = await Promise.race([
+                api_base.api.send({ time: 1 }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Time request timeout')), 5000))
             ]);
 
-            if (symbolTest?.active_symbols) {
-                const symbolExists = symbolTest.active_symbols.some(s => s.symbol === config.symbol);
-                if (symbolExists) {
-                    addLog(`✅ Symbol ${config.symbol} is available for trading`);
-                } else {
-                    addLog(`⚠️ Symbol ${config.symbol} not found in active symbols list`);
-                }
+            if (timeResponse?.time) {
+                addLog(`✅ API communication test successful. Server time: ${new Date(timeResponse.time * 1000).toLocaleString()}`);
+            } else {
+                addLog('❌ API communication test failed - no server time received');
+                return;
             }
-        } catch (symbolError) {
-            addLog(`⚠️ Could not verify symbol availability: ${symbolError.message}`);
-        }
 
-        // Step 4: Test data retrieval for each timeframe
-        addLog('📊 Testing data retrieval for all timeframes...');
+            // Step3: Test symbol existence
+            addLog(`🔍 Testing symbol availability: ${config.symbol}`);
 
-        const testResults = {};
-        for (const tf of timeframes) {
             try {
-                addLog(`🔄 Testing ${tf} data...`);
-                const testData = await fetchOHLCData(tf);
-                testResults[tf] = testData.length;
+                const symbolTest = await Promise.race([
+                    api_base.api.send({ 
+                        active_symbols: 'brief',
+                        product_type: 'basic'
+                    }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Symbol test timeout')), 8000))
+                ]);
 
-                if (testData.length > 0) {
-                    addLog(`✅ ${tf}: ${testData.length} data points retrieved`);
-                } else {
-                    addLog(`❌ ${tf}: No data retrieved`);
+                if (symbolTest?.active_symbols) {
+                    const symbolExists = symbolTest.active_symbols.some(s => s.symbol === config.symbol);
+                    if (symbolExists) {
+                        addLog(`✅ Symbol ${config.symbol} is available for trading`);
+                    } else {
+                        addLog(`⚠️ Symbol ${config.symbol} not found in active symbols list`);
+                    }
                 }
-
-                // Small delay between requests to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 200));
-            } catch (tfError) {
-                addLog(`❌ ${tf}: Error - ${tfError.message}`);
-                testResults[tf] = 0;
+            } catch (symbolError) {
+                addLog(`⚠️ Could not verify symbol availability: ${symbolError.message}`);
             }
-        }
 
-        // Step 5: Summary
-        const successfulTimeframes = Object.values(testResults).filter(count => count > 0).length;
-        const totalTimeframes = timeframes.length;
+            // Step 4: Test data retrieval for each timeframe
+            addLog('📊 Testing data retrieval for all timeframes...');
 
-        addLog(`📋 Test Summary: ${successfulTimeframes}/${totalTimeframes} timeframes working`);
+            const testResults = {};
+            for (const tf of timeframes) {
+                try {
+                    addLog(`🔄 Testing ${tf} data...`);
+                    const testData = await fetchOHLCData(tf);
+                    testResults[tf] = testData.length;
 
-        if (successfulTimeframes === 0) {
-            addLog('❌ No timeframes working - try a different symbol or check API connection');
-        } else if (successfulTimeframes < totalTimeframes) {
-            addLog(`⚠️ Partial success - ${totalTimeframes - successfulTimeframes} timeframes failed`);
-        } else {
-            addLog('🎉 All timeframes working perfectly!');
+                    if (testData.length > 0) {
+                        addLog(`✅ ${tf}: ${testData.length} data points retrieved`);
+                    } else {
+                        addLog(`❌ ${tf}: No data retrieved`);
+                    }
 
-            // If test was successful, run the analysis to populate the UI
-            if (successfulTimeframes > 0) {
-                addLog('🔄 Running multi-timeframe analysis...');
-                await analyzeAllTimeframes();
+                    // Small delay between requests to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                } catch (tfError) {
+                    addLog(`❌ ${tf}: Error - ${tfError.message}`);
+                    testResults[tf] = 0;
+                }
             }
-        }
 
-    } catch (error) {
+            // Step 5: Summary
+            const successfulTimeframes = Object.values(testResults).filter(count => count > 0).length;
+            const totalTimeframes = timeframes.length;
+
+            addLog(`📋 Test Summary: ${successfulTimeframes}/${totalTimeframes} timeframes working`);
+
+            if (successfulTimeframes === 0) {
+                addLog('❌ No timeframes working - try a different symbol or check API connection');
+            } else if (successfulTimeframes < totalTimeframes) {
+                addLog(`⚠️ Partial success - ${totalTimeframes - successfulTimeframes} timeframes failed`);
+            } else {
+                addLog('🎉 All timeframes working perfectly!');
+
+                // If test was successful, run the analysis to populate the UI
+                if (successfulTimeframes > 0) {
+                    addLog('🔄 Running multi-timeframe analysis...');
+                    await analyzeAllTimeframes();
+                }
+            }
+
+        } catch (error) {
         addLog(`❌ Connection test failed: ${error.message}`);
         console.error('Detailed connection test error:', error);
     }
