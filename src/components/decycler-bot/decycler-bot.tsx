@@ -997,11 +997,14 @@ const DecyclerBot: React.FC = observer(() => {
                 new Promise((_, reject) => 
                     setTimeout(() => reject(new Error('Proposal timeout')), 10000)
                 )
-            ]);
+            ]).catch(error => {
+                addLog(`❌ DEBUG: Proposal request failed: ${error.message}`);
+                return { error: { message: error.message, code: 'RequestFailed' } };
+            });
 
             addLog(`📨 DEBUG: Proposal response: ${JSON.stringify(proposalResponse, null, 2)}`);
 
-            if (proposalResponse.error) {
+            if (proposalResponse?.error) {
                 addLog(`❌ DEBUG: Proposal failed: ${proposalResponse.error.message} (Code: ${proposalResponse.error.code})`);
 
                 // Detailed error analysis
@@ -1029,7 +1032,7 @@ const DecyclerBot: React.FC = observer(() => {
                             )
                         ]);
                         
-                        if (retryResponse.error) {
+                        if (retryResponse?.error) {
                             addLog(`❌ DEBUG: Retry also failed: ${retryResponse.error.message}`);
                             return;
                         } else {
@@ -1041,13 +1044,13 @@ const DecyclerBot: React.FC = observer(() => {
                         return;
                     }
                 } else {
-                    addLog(`📋 DEBUG: Unknown error: ${proposalResponse.error.message}`);
+                    addLog(`📋 DEBUG: Unknown error: ${proposalResponse.error.message || 'Unknown proposal error'}`);
                     return;
                 }
             }
 
-            if (!proposalResponse.proposal?.id) {
-                addLog(`❌ DEBUG: Proposal response missing ID: ${JSON.stringify(proposalResponse.proposal)}`);
+            if (!proposalResponse?.proposal?.id) {
+                addLog(`❌ DEBUG: Proposal response missing or invalid: ${JSON.stringify(proposalResponse)}`);
                 return;
             }
 
@@ -1070,11 +1073,14 @@ const DecyclerBot: React.FC = observer(() => {
                 new Promise((_, reject) => 
                     setTimeout(() => reject(new Error('Purchase timeout')), 15000)
                 )
-            ]);
+            ]).catch(error => {
+                addLog(`❌ DEBUG: Buy request failed: ${error.message}`);
+                return { error: { message: error.message, code: 'RequestFailed' } };
+            });
 
             addLog(`📨 DEBUG: Buy response: ${JSON.stringify(buyResponse, null, 2)}`);
 
-            if (buyResponse.error) {
+            if (buyResponse?.error) {
                 addLog(`❌ DEBUG: Purchase error: ${buyResponse.error.message} (Code: ${buyResponse.error.code})`);
 
                 // Log specific error details for debugging
@@ -1086,11 +1092,13 @@ const DecyclerBot: React.FC = observer(() => {
                     addLog(`📋 DEBUG: Invalid or expired proposal ID: ${proposalId}`);
                 } else if (buyResponse.error.code === 'MarketIsClosed') {
                     addLog(`🏪 DEBUG: Market is closed for ${config.symbol}`);
+                } else {
+                    addLog(`📋 DEBUG: Purchase error details: ${JSON.stringify(buyResponse.error)}`);
                 }
                 return;
             }
 
-            if (!buyResponse.buy) {
+            if (!buyResponse?.buy) {
                 addLog(`❌ DEBUG: Buy response missing 'buy' object: ${JSON.stringify(buyResponse)}`);
                 return;
             }
