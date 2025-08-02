@@ -1,0 +1,153 @@
+Active Symbols (request)
+
+Retrieve a list of all currently active symbols (underlying markets upon which contracts are available for trading).
+{}
+"root":{
+"$schema":"http://json-schema.org/draft-04/schema#"
+"title":"Active Symbols (request)"
+"description":"Retrieve a list of all currently active symbols (u…"
+"type":"object"
+"auth_required":0
+"additionalProperties":false
+"required":[
+"active_symbols"
+]
+"properties":{
+"active_symbols":{
+"description":"If you use `brief`, only a subset of fields will b…"
+"type":"string"
+"enum":[
+"brief"
+"full"
+]
+}
+"barrier_category":{
+"description":"[Optional] Category of barrier."
+"type":"array"
+"items":{
+"description":""
+"type":"string"
+"enum":[
+"american"
+"asian"
+"euro_atm"
+"euro_non_atm"
+"non_financial"
+"lookback"
+"reset"
+]
+}
+}
+"contract_type":{
+"description":"[Optional] The proposed contract type"
+"type":"array"
+"items":{
+"description":""
+"type":"string"
+"enum":[
+"MULTUP"
+"MULTDOWN"
+"UPORDOWN"
+"EXPIRYRANGE"
+"ONETOUCH"
+"CALLE"
+"LBHIGHLOW"
+"ASIAND"
+"EXPIRYRANGEE"
+"DIGITDIFF"
+"DIGITMATCH"
+"DIGITOVER"
+"PUTE"
+"DIGITUNDER"
+"NOTOUCH"
+"CALL"
+"RANGE"
+"LBFLOATPUT"
+"DIGITODD"
+"PUT"
+"ASIANU"
+"LBFLOATCALL"
+"EXPIRYMISSE"
+"EXPIRYMISS"
+"DIGITEVEN"
+"TICKHIGH"
+"TICKLOW"
+"RESETCALL"
+"RESETPUT"
+"CALLSPREAD"
+]
+}
+}
+"landing_company":{
+"description":"Deprecated - replaced by landing_company_short."
+"type":"string"
+"enum":[
+"iom"
+"malta"
+"maltainvest"
+"svg"
+"virtual"
+"vanuatu"
+]
+}
+"landing_company_short":{
+"description":"[Optional] If you specify this field, only symbols…"
+"type":"string"
+"enum":[
+"iom"
+"malta"
+"maltainvest"
+"svg"
+"virtual"
+"vanuatu"
+]
+}
+"product_type":{
+"description":"[Optional] If you specify this field, only symbols…"
+"type":"string"
+"enum":[
+"basic"
+]
+}
+"loginid":{
+"description":"[Optional] The login id of the user. Mandatory whe…"
+"type":"string"
+"pattern":"^[A-Za-z]+[0-9]+$"
+}
+"passthrough":{
+"description":"[Optional] Used to pass data through the websocket…"
+"type":"object"
+}
+"req_id":{
+"description":"[Optional] Used to map request to response."
+"type":"integer"
+}
+}
+}
+Active Symbols (response)
+
+A message containing the list of active symbols.
+{}
+{}
+active_symbols
+
+array
+active_symbols
+List of active symbols.
+{}
+echo_req
+
+object
+Echo of the request made.
+{}
+msg_type
+
+constant
+string
+active_symbols
+Action name of the request made.
+{}
+req_id
+
+integer
+Optional field sent in request to map to response, present only when request contains req_id.

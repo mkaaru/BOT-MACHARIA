@@ -1,0 +1,161 @@
+Authorize (request)
+
+Authorize current WebSocket session to act on behalf of the owner of a given token. Must precede requests that need to access client account, for example purchasing and selling contracts or viewing portfolio.
+{}
+"root":{
+"$schema":"http://json-schema.org/draft-04/schema#"
+"title":"Authorize (request)"
+"description":"Authorize current WebSocket session to act on beha…"
+"type":"object"
+"auth_required":0
+"additionalProperties":false
+"required":[
+"authorize"
+]
+"properties":{
+"authorize":{
+"description":"Authentication token. May be retrieved from https:…"
+"type":"string"
+"pattern":"^[\w\-]{1,128}$"
+"sensitive":1
+}
+"add_to_login_history":{
+"description":"[Optional] Send this when you use api tokens for a…"
+"type":"integer"
+"default":0
+"enum":[
+1
+0
+]
+}
+"tokens":{
+"description":"Additional Authentication tokens of authorized use…"
+"type":"array"
+"items":{
+"type":"string"
+"pattern":"^[\w\-]{1,128}$"
+}
+"maxItems":25
+"sensitive":1
+}
+"passthrough":{
+"description":"[Optional] Used to pass data through the websocket…"
+"type":"object"
+}
+"req_id":{
+"description":"[Optional] Used to map request to response."
+"type":"integer"
+}
+}
+}
+Authorize (response)
+
+A message containing account information for the holder of that token.
+{}
+"root":{
+"$schema":"http://json-schema.org/draft-04/schema#"
+"title":"Authorize (response)"
+"description":"A message containing account information for the h…"
+"type":"object"
+"required":[
+"echo_req"
+"msg_type"
+]
+"properties":{
+"authorize":{
+"title":"authorize"
+"description":"Account information for the holder of the token."
+"type":"object"
+"additionalProperties":false
+"properties":{
+"account_list":{
+"description":"List of accounts for current user. This is also av…"
+"type":"array"
+"items":{}
+}
+"balance":{
+"description":"Cash balance of the account."
+"type":"number"
+}
+"country":{
+"description":"2-letter country code (ISO standard)."
+"type":"string"
+"pattern":"^[a-z]{0,2}$"
+}
+"currency":{
+"description":"Currency of the account."
+"type":"string"
+}
+"email":{
+"description":"User email."
+"type":"string"
+}
+"fullname":{
+"description":"User's full name. Will be empty for virtual accoun…"
+"type":"string"
+}
+"is_virtual":{
+"description":"Boolean value: 1 or 0, indicating whether the acco…"
+"type":"integer"
+"enum":[]
+}
+"landing_company_fullname":{
+"description":"Landing company name the account belongs to."
+"type":"string"
+}
+"landing_company_name":{
+"description":"Landing company shortcode the account belongs to."
+"type":"string"
+}
+"linked_to":{
+"description":"Details of the list of Trading accounts linked to …"
+"type":"array"
+"items":{}
+}
+"local_currencies":{
+"description":"Currencies in client's residence country"
+"type":"object"
+"minProperties":0
+"patternProperties":{}
+}
+"loginid":{
+"description":"The account ID that the token was issued for."
+"type":"string"
+}
+"preferred_language":{
+"description":"User's preferred language, ISO standard code of la…"
+"type":[]
+"pattern":"^[A-Z]{0,2}$|^[A-Z]{2}_[A-Z]{2}$"
+}
+"scopes":{
+"description":"Scopes available to the token."
+"type":"array"
+"items":{}
+}
+"upgradeable_landing_companies":{
+"description":"List of landing company shortcodes the account can…"
+"type":"array"
+}
+"user_id":{
+"description":"The internal user ID for this account."
+"type":"integer"
+}
+}
+}
+"echo_req":{
+"description":"Echo of the request made."
+"type":"object"
+}
+"msg_type":{
+"description":"Action name of the request made."
+"type":"string"
+"enum":[
+"authorize"
+]
+}
+"req_id":{
+"description":"Optional field sent in request to map to response,…"
+"type":"integer"
+}
+}
+}
