@@ -1599,7 +1599,7 @@ const DecyclerBot: React.FC = observer(() => {
         } catch (error) {
             addLog(`❌ Error starting bot: ${error.message}`);
         }
-    }, [config, timeframes, tradingLoop, addLog, botStatus.is_running]);
+    }, [config,timeframes, tradingLoop, addLog, botStatus.is_running]);
 
         // Stop bot
     const stopBot = useCallback((): void => {
@@ -2651,18 +2651,9 @@ ws.onopen = () => {
 
 
 
-                            {isRunning ? (
-                                
-                                    RUNNING
-                                
-                            ) : (
-                                
-                                    STOPPED
-                                
-                            )}
-                        </div>
-
-
+                            
+                            {isRunning ? 'RUNNING' : 'STOPPED'}
+                        
 
 
 
