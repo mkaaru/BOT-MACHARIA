@@ -802,8 +802,7 @@ const DecyclerBot: React.FC = observer(() => {
     }, [config.take_profit, config.stop_loss, config.min_risk_reward_ratio, addLog]);
 
     // Dynamic position sizing
-    const calculatePositionSize = useCallback((direction: 'UP' | 'DOWN', trendStrengthScore: number): Removed the API token input field from the user interface and adjusted the logic to not require it.
-number => {
+    const calculatePositionSize = useCallback((direction: 'UP' | 'DOWN', trendStrengthScore: number): number => {
         let optimalStake = config.stake;
 
         switch (config.position_sizing_method) {
