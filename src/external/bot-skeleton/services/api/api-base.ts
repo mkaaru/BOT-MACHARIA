@@ -161,7 +161,7 @@ class APIBase {
         if (!this.api) return;
 
         try {
-            // Skip authorization if no token but proceed with connection for authenticated users
+            // Only authorize if we have a token, otherwise proceed for authenticated users
             if (token) {
                 const { authorize, error } = await this.api.authorize(this.token);
                 if (error) return error;
@@ -177,10 +177,15 @@ class APIBase {
                 this.active_symbols_promise = this.getActiveSymbols();
             }
             
+            // Set as authorized regardless of token presence since user is already authenticated
             setIsAuthorized(true);
             this.is_authorized = true;
             this.subscribe();
-            this.getSelfExclusion();
+            
+            // Only call getSelfExclusion if we have a token
+            if (token) {
+                this.getSelfExclusion();
+            }
         } catch (e) {
             this.is_authorized = false;
             setIsAuthorized(false);
@@ -191,7 +196,7 @@ class APIBase {
     }
 
     async getSelfExclusion() {
-        if (!this.api || !this.is_authorized) return;
+        if (!this.api || !this.is_authorized || !this.token) return;
         await this.api.getSelfExclusion();
         // TODO: fix self exclusion
     }
