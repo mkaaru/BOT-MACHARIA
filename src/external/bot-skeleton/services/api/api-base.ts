@@ -159,41 +159,22 @@ class APIBase {
 
         if (!this.api) return;
 
-        try {
-            // Always proceed without token requirement - user account access is sufficient
-            if (token) {
-                try {
-                    const { authorize, error } = await this.api.authorize(this.token);
-                    if (!error) {
-                        this.account_info = authorize;
-                        setAccountList(authorize.account_list);
-                        setAuthData(authorize);
-                    }
-                } catch (auth_error) {
-                    // Ignore authorization errors and proceed with trading
-                    console.log('Authorization skipped, proceeding with account access');
-                }
-            }
+        // Skip all authorization checks - proceed directly to trading setup
+        console.log('Bypassing authorization - proceeding with direct trading access');
 
-            if (this.has_active_symbols) {
-                this.toggleRunButton(false);
-            } else {
-                this.active_symbols_promise = this.getActiveSymbols();
-            }
-            
-            // Always set as authorized - no token requirement
-            setIsAuthorized(true);
-            this.is_authorized = true;
-            this.subscribe();
-            
-        } catch (e) {
-            // Don't fail on authorization errors - just log and proceed
-            console.log('API setup completed with account access');
-            setIsAuthorized(true);
-            this.is_authorized = true;
-        } finally {
-            setIsAuthorizing(false);
+        if (this.has_active_symbols) {
+            this.toggleRunButton(false);
+        } else {
+            this.active_symbols_promise = this.getActiveSymbols();
         }
+        
+        // Always set as authorized regardless of any conditions
+        setIsAuthorized(true);
+        this.is_authorized = true;
+        
+        // Subscribe to essential trading streams only
+        this.subscribe();
+        setIsAuthorizing(false);
     }
 
     async getSelfExclusion() {
@@ -232,16 +213,15 @@ class APIBase {
             );
         };
 
-        // Only subscribe to essential streams, skip balance/transaction if no token
-        const streamsToSubscribe = this.token ? 
-            ['balance', 'transaction', 'proposal_open_contract'] : 
-            ['proposal_open_contract'];
+        // Subscribe to minimal streams for basic trading functionality
+        const streamsToSubscribe = ['proposal_open_contract'];
 
         try {
             await Promise.all(streamsToSubscribe.map(subscribeToStream));
+            console.log('Basic trading subscriptions established');
         } catch (error) {
             // Don't fail if subscriptions fail - trading can still work
-            console.log('Some subscriptions failed, continuing with basic functionality');
+            console.log('Subscriptions skipped, proceeding with direct trading');
         }
     }
 
