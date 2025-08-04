@@ -155,7 +155,7 @@ const AppWrapper = observer(() => {
             const botFiles = [
                 'Upgraded Candlemine.xml',
                 'Super Elite.xml',
-                'Gold Miner S7_1754129184000.xml',
+                'Gold Miner_S7.xml',
                 'Super Speed Bot.xml',
                 'Envy-differ.xml',
                 'H_L auto vault.xml',
@@ -503,8 +503,7 @@ const AppWrapper = observer(() => {
           }
         } catch (parseError) {
           console.error('Error parsing WebSocket message:', parseError)
-          setCurrentPrice('Parse Error')
-        }
+          setCurrentPrice('Parse Error')        }
       }
 
       ws.onclose = (event) => {
