@@ -155,35 +155,38 @@ class APIBase {
 
     async authorizeAndSubscribe() {
         const token = V2GetActiveToken();
-        if (token) {
-            this.token = token;
-            this.account_id = V2GetActiveClientId() ?? '';
+        this.token = token || '';
+        this.account_id = V2GetActiveClientId() ?? '';
 
-            if (!this.api) return;
+        if (!this.api) return;
 
-            try {
+        try {
+            // Skip authorization if no token but proceed with connection for authenticated users
+            if (token) {
                 const { authorize, error } = await this.api.authorize(this.token);
                 if (error) return error;
-
-                if (this.has_active_symbols) {
-                    this.toggleRunButton(false);
-                } else {
-                    this.active_symbols_promise = this.getActiveSymbols();
-                }
+                
                 this.account_info = authorize;
                 setAccountList(authorize.account_list);
                 setAuthData(authorize);
-                setIsAuthorized(true);
-                this.is_authorized = true;
-                this.subscribe();
-                this.getSelfExclusion();
-            } catch (e) {
-                this.is_authorized = false;
-                setIsAuthorized(false);
-                globalObserver.emit('Error', e);
-            } finally {
-                setIsAuthorizing(false);
             }
+
+            if (this.has_active_symbols) {
+                this.toggleRunButton(false);
+            } else {
+                this.active_symbols_promise = this.getActiveSymbols();
+            }
+            
+            setIsAuthorized(true);
+            this.is_authorized = true;
+            this.subscribe();
+            this.getSelfExclusion();
+        } catch (e) {
+            this.is_authorized = false;
+            setIsAuthorized(false);
+            globalObserver.emit('Error', e);
+        } finally {
+            setIsAuthorizing(false);
         }
     }
 
