@@ -2473,16 +2473,15 @@ const DecyclerBot: React.FC = observer(() => {
             const ws = new WebSocket(wsUrl);
 
 ws.onopen = () => {
-                ```javascript
-                addLog('✅ Connected to Deriv API');
+                addLog('Connected to Deriv API');
 
                 if (isOAuthEnabled) {
                     // OAuth users are automatically authenticated
-                    addLog('🔐 OAuth authentication active - ready for trading');
+                    addLog('OAuth authentication active - ready for trading');
                     setIsAuthorized(true);
                     setTradingEnabled(true);
                 }  else {
-                    addLog('❌ No authentication method available');
+                    addLog('No authentication method available');
                     return;
                 }
             };
@@ -2491,12 +2490,12 @@ ws.onopen = () => {
                 const data = JSON.parse(event.data);
 
                 if (data.error) {
-                    addLog(`❌ API Error: ${data.error.message}`);
+                    addLog(`API Error: ${data.error.message}`);
                     return;
                 }
 
                 if (data.msg_type === 'authorize') {
-                    addLog('✅ API Authorized');
+                    addLog('API Authorized');
                     setIsAuthorized(true);
                 }
 
@@ -2504,12 +2503,12 @@ ws.onopen = () => {
             };
 
             ws.onclose = () => {
-                addLog('❌ Disconnected from Deriv API');
+                addLog('Disconnected from Deriv API');
                 setIsAuthorized(false);
             };
 
             ws.onerror = (error) => {
-                addLog(`❌ WebSocket Error: ${error}`);
+                addLog(`WebSocket Error: ${error}`);
                 setIsAuthorized(false);
             };
 
@@ -2523,7 +2522,7 @@ ws.onopen = () => {
             tradingLoop();
 
         } catch (error) {
-            addLog(`❌ Error starting bot: ${error}`);
+            addLog(`Error starting bot: ${error}`);
         }
     };
 
