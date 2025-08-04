@@ -112,7 +112,7 @@ const DecyclerBot: React.FC = observer(() => {
     });
 
     const [logs, setLogs] = useState<string[]>([]);
-    const [ohlcData, setOhlcData = useState<{ [key: string]: any[] }>({});
+    const [ohlcData, setOhlcData] = useState<{ [key: string]: any[] }>({});
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const monitorRef = useRef<NodeJS.Timeout | null>(null);
     const logsEndRef = useRef<HTMLDivElement>(null);
