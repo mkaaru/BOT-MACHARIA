@@ -112,7 +112,7 @@ const DecyclerBot: React.FC = observer(() => {
     });
 
     const [logs, setLogs] = useState<string[]>([]);
-    const [ohlcData, setOhlcData] = useState<{ [key: string]: any[] }>({});
+    const [ohlcData, setOhlcData = useState<{ [key: string]: any[] }>({});
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const monitorRef = useRef<NodeJS.Timeout | null>(null);
     const logsEndRef = useRef<HTMLDivElement>(null);
@@ -802,7 +802,8 @@ const DecyclerBot: React.FC = observer(() => {
     }, [config.take_profit, config.stop_loss, config.min_risk_reward_ratio, addLog]);
 
     // Dynamic position sizing
-    const calculatePositionSize = useCallback((direction: 'UP' | 'DOWN', trendStrengthScore: number): number => {
+    const calculatePositionSize = useCallback((direction: 'UP' | 'DOWN', trendStrengthScore: number): Removed the API token input field from the user interface and adjusted the logic to not require it.
+number => {
         let optimalStake = config.stake;
 
         switch (config.position_sizing_method) {
@@ -2455,8 +2456,8 @@ const DecyclerBot: React.FC = observer(() => {
 
     const handleStartBot = async () => {
         // Skip API token requirement for OAuth authenticated users
-        if (!isOAuthEnabled && !config.api_token) {
-            addLog('❌ API token is required when not using OAuth authentication');
+        if (!isOAuthEnabled) {
+            addLog('❌ OAuth authentication is required');
             return;
         }
 
@@ -2473,6 +2474,7 @@ const DecyclerBot: React.FC = observer(() => {
             const ws = new WebSocket(wsUrl);
 
 ws.onopen = () => {
+                ```javascript
                 addLog('✅ Connected to Deriv API');
 
                 if (isOAuthEnabled) {
@@ -2480,13 +2482,7 @@ ws.onopen = () => {
                     addLog('🔐 OAuth authentication active - ready for trading');
                     setIsAuthorized(true);
                     setTradingEnabled(true);
-                } else if (config.api_token) {
-                    // Authorize with API token for non-OAuth users
-                    const authMessage = {
-                        authorize: config.api_token
-                    };
-                    ws.send(JSON.stringify(authMessage));
-                } else {
+                }  else {
                     addLog('❌ No authentication method available');
                     return;
                 }
@@ -2925,26 +2921,7 @@ ws.onopen = () => {
             </span>
           </div>
 
-          <div className="control-item">
-            <label className="control-label">
-              API Token:
-              <input
-                type="password"
-                value={authToken}
-                onChange={(e) => setAuthToken(e.target.value)}
-                placeholder="Enter your Deriv API token"
-                className="form-input"
-                style={{ marginLeft: '10px', width: '200px' }}
-              />
-            </label>
-            <button
-              onClick={() => authorizeAPI(authToken)}disabled={!authToken || isAuthorized}
-              className="btn btn-primary"
-              style={{ marginLeft: '10px' }}
-            >
-              {isAuthorized ? 'Authorized' : 'Authorize'}
-            </button>
-          </div>
+
 
           <div className="control-item">
             <label className="control-label">

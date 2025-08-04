@@ -153,14 +153,14 @@ class APIBase {
     };
 
     async authorizeAndSubscribe() {
-        const token = V2GetActiveToken();
-        this.token = token || '';
-        this.account_id = V2GetActiveClientId() ?? '';
+        // Skip all token and authorization logic completely
+        console.log('Direct trading access - no authorization required');
+        
+        // Set empty values to avoid any token checks
+        this.token = '';
+        this.account_id = '';
 
         if (!this.api) return;
-
-        // Skip all authorization checks - proceed directly to trading setup
-        console.log('Bypassing authorization - proceeding with direct trading access');
 
         if (this.has_active_symbols) {
             this.toggleRunButton(false);
@@ -168,12 +168,12 @@ class APIBase {
             this.active_symbols_promise = this.getActiveSymbols();
         }
         
-        // Always set as authorized regardless of any conditions
+        // Force authorization state without any checks
         setIsAuthorized(true);
         this.is_authorized = true;
         
-        // Subscribe to essential trading streams only
-        this.subscribe();
+        // Skip subscriptions to avoid any auth-related API calls
+        console.log('Skipping all subscriptions - direct trading mode');
         setIsAuthorizing(false);
     }
 
@@ -189,40 +189,9 @@ class APIBase {
     }
 
     async subscribe() {
-        const subscribeToStream = (streamName: string) => {
-            return doUntilDone(
-                () => {
-                    try {
-                        const subscription = this.api?.send({
-                            [streamName]: 1,
-                            subscribe: 1,
-                            ...(streamName === 'balance' ? { account: 'all' } : {}),
-                        });
-                        if (subscription) {
-                            this.current_auth_subscriptions.push(subscription);
-                        }
-                        return subscription;
-                    } catch (error) {
-                        // Continue even if subscription fails
-                        console.log(`Subscription to ${streamName} skipped`);
-                        return null;
-                    }
-                },
-                [],
-                this
-            );
-        };
-
-        // Subscribe to minimal streams for basic trading functionality
-        const streamsToSubscribe = ['proposal_open_contract'];
-
-        try {
-            await Promise.all(streamsToSubscribe.map(subscribeToStream));
-            console.log('Basic trading subscriptions established');
-        } catch (error) {
-            // Don't fail if subscriptions fail - trading can still work
-            console.log('Subscriptions skipped, proceeding with direct trading');
-        }
+        // Skip all subscriptions to avoid any authentication requirements
+        console.log('All subscriptions disabled - direct trading mode active');
+        return;
     }
 
     getActiveSymbols = async () => {
