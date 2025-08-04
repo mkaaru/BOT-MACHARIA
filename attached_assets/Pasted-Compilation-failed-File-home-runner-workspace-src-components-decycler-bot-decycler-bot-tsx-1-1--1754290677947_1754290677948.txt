@@ -1,0 +1,49 @@
+Compilation failed
+
+File: /home/runner/workspace/src/components/decycler-bot/decycler-bot.tsx:1:1
+  × Module build failed:
+  ├─▶   ×   × Unexpected character '❌'
+  │     │       ╭─[/home/runner/workspace/src/components/decycler-bot/decycler-bot.tsx:2494:1]
+  │     │  2491 │                 const data = JSON.parse(event.data);
+  │     │  2492 │
+  │     │  2493 │                 if (data.error) {
+  │     │  2494 │                     addLog(`❌ API Error: ${data.error.message}`);
+  │     │       ·                             ▲
+  │     │  2495 │                     return;
+  │     │  2496 │                 }
+  │     │       ╰────
+  │     │   × Expected ';', '}' or <eof>
+  │     │       ╭─[/home/runner/workspace/src/components/decycler-bot/decycler-bot.tsx:2476:1]
+  │     │  2473 │                 const ws = new WebSocket(wsUrl);
+  │     │  2474 │
+  │     │  2475 │     ws.onopen = () => {
+  │     │  2476 │ ╭─▶                 ```javascript
+  │     │  2477 │ │                   addLog('✅ Connected to Deriv API');
+  │     │  2478 │ │
+  │     │  2479 │ │                   if (isOAuthEnabled) {
+  │     │  2480 │ │                       // OAuth users are automatically authenticated
+  │     │  2481 │ │                       addLog('🔐 OAuth authentication active - ready for trading');
+  │     │  2482 │ │                       setIsAuthorized(true);
+  │     │  2483 │ │                       setTradingEnabled(true);
+  │     │  2484 │ │                   }  else {
+  │     │  2485 │ │                       addLog('❌ No authentication method available');
+  │     │  2486 │ │                       return;
+  │     │  2487 │ │                   }
+  │     │  2488 │ │               };
+  │     │  2489 │ │
+  │     │  2490 │ │               ws.onmessage = (event) => {
+  │     │  2491 │ │                   const data = JSON.parse(event.data);
+  │     │  2492 │ │
+  │     │  2493 │ │                   if (data.error) {
+  │     │  2494 │ ├─▶                     addLog(`❌ API Error: ${data.error.message}`);
+  │     │       · ╰───                            ──
+  │     │       · ╰──── This is the expression part of an expression statement
+  │     │  2495 │                         return;
+  │     │  2496 │                     }
+  │     │       ╰────
+  │     │
+  │   
+  ╰─▶ Syntax Error
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
