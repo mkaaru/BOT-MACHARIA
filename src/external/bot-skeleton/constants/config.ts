@@ -334,9 +334,3 @@ export const config = () => ({
         },
     },
 });
-export default {
-    app_id: process.env.REACT_APP_DERIV_APP_ID || '16929',
-    websocket_url: process.env.REACT_APP_WEBSOCKET_URL || 'wss://ws.derivws.com/websockets/v3',
-    oauth_url: process.env.REACT_APP_OAUTH_URL || 'https://oauth.deriv.com/oauth2/authorize',
-    // Add other configuration options as needed
-};

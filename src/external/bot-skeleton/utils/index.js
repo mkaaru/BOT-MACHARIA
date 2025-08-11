@@ -10,9 +10,6 @@ export {
     removeExistingWorkspace,
     saveWorkspaceToRecent,
 } from './local-storage';
-export { default as observer } from './observer';
+export { observer } from './observer';
 export { compareXml, extractBlocksFromXml, pipe, sortBlockChild } from './strategy-helper';
 export { onWorkspaceResize } from './workspace';
-export { default as workspace } from './workspace';
-export { default as local_storage } from './local-storage';
-export { default as contract } from './contract';

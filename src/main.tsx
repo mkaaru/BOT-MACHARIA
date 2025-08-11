@@ -1,55 +1,24 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import App from './app';
-import './public-path';
+import { AuthWrapper } from './app/AuthWrapper';
+import { AnalyticsInitializer } from './utils/analytics';
 import './styles/index.scss';
+import { initializeAudioDisabling } from './utils/audio-utils';
 
-// Add error boundary for debugging
-class ErrorBoundary extends React.Component {
-    constructor(props: any) {
-        super(props);
-        this.state = { hasError: false };
-    }
-
-    static getDerivedStateFromError(error: any) {
-        return { hasError: true };
-    }
-
-    componentDidCatch(error: any, errorInfo: any) {
-        console.error('App Error:', error, errorInfo);
-    }
-
-    render() {
-        if ((this.state as any).hasError) {
-            return <div style={{ padding: '20px', textAlign: 'center' }}>
-                <h2>Something went wrong.</h2>
-                <p>Check the console for more details.</p>
-            </div>;
-        }
-
-        return (this.props as any).children;
-    }
-}
+AnalyticsInitializer();
 
 const container = document.getElementById('root');
 if (!container) {
-    console.error('Failed to find the root element');
-    throw new Error('Failed to find the root element');
+    throw new Error('Root element not found');
 }
 
 const root = createRoot(container);
 
-console.log('Initializing React app...');
+// Disable all audio globally
+initializeAudioDisabling();
 
-root.render(
-    <React.StrictMode>
-        <ErrorBoundary>
-            <BrowserRouter>
-                <App />
-            </BrowserRouter>
-        </ErrorBoundary>
-    </React.StrictMode>
-);
+// Also disable bot-specific sounds
+import { disableBotSounds } from './utils/audio-utils';
+disableBotSounds();
 
-console.log('React app rendered');
+root.render(<AuthWrapper />);

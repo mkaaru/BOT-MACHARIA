@@ -1,7 +1,7 @@
 import { List, Map } from 'immutable';
 /**
 Below are the list of events we can register to listen to :
-
+ 
 -bot.running : Emitted in trade/index.js, in old Binary Bot this is only used
 to set the label to is running.
 
@@ -39,10 +39,9 @@ latest values for contract, not required atm by DerivBot
 
  */
 
-class Observer {
+export default class Observer {
     constructor() {
         this.eam = new Map(); // event action map
-        this.state = {};
     }
 
     register(event, _action, once, unregisterIfError, unregisterAllBefore) {
@@ -101,28 +100,12 @@ class Observer {
             this.eam.get(event).forEach(action => action.action(data));
         }
     }
-
     setState(state = {}) {
         this.state = { ...this.state, ...state };
     }
-
     getState(key) {
         return this.state?.[key];
     }
-
-    runGroupedEvents(fn, key) {
-        if (typeof fn === 'function') {
-            fn();
-        }
-    }
 }
 
-const observer = new Observer();
-
-export default observer;
-export const runGroupedEvents = (shouldGroup, fn, key) => {
-    if (typeof fn === 'function') {
-        fn();
-    }
-};
-export { observer };
+export const observer = new Observer();
