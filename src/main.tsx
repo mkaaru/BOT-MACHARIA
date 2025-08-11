@@ -17,4 +17,8 @@ const root = createRoot(container);
 // Disable all audio globally
 initializeAudioDisabling();
 
+// Also disable bot-specific sounds
+import { disableBotSounds } from './utils/audio-utils';
+disableBotSounds();
+
 root.render(<AuthWrapper />);

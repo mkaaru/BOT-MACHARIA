@@ -197,6 +197,25 @@ const Interpreter = () => {
                 reject(e);
             }
         });
+
+        // Disable any audio functions that might be called during bot execution
+        if (typeof window !== 'undefined') {
+            const audioFunctions = ['playSound', 'playAudio', 'playNotification', 'playAlertSound'];
+            audioFunctions.forEach(funcName => {
+                if (window[funcName]) {
+                    window[funcName] = () => {};
+                }
+            });
+
+            // Also disable any document.getElementById calls for audio elements
+            const audioElements = document.querySelectorAll('audio');
+            audioElements.forEach(audio => {
+                audio.muted = true;
+                audio.volume = 0;
+                audio.play = () => Promise.resolve();
+                audio.pause = () => {};
+            });
+        }
     }
 
     async function terminateSession() {
