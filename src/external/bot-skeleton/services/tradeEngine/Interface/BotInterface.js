@@ -1,5 +1,17 @@
-import { observer as globalObserver } from '../../../utils/observer';
-import { createDetails } from '../utils/helpers';
+
+import { createDetails } from '../utils/details';
+
+const getProposal = (contract_type, tradeEngine) => {
+    return tradeEngine.data.proposals.find(
+        proposal =>
+            proposal.contract_type === contract_type &&
+            proposal.purchase_reference === tradeEngine.getPurchaseReference()
+    );
+};
+
+const getSellPrice = tradeEngine => {
+    return tradeEngine.getSellPrice();
+};
 
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
@@ -16,47 +28,82 @@ const getBotInterface = tradeEngine => {
         sellAtMarket: () => tradeEngine.sellAtMarket(),
         getSellPrice: () => getSellPrice(tradeEngine),
         isResult: result => getDetail(10) === result,
-
-        // Simplified martingale interface - delegates to tradeEngine
-        getMartingaleMultiplier: () => tradeEngine.getMartingaleMultiplier?.() || 1,
-        getConsecutiveLosses: () => tradeEngine.getConsecutiveLosses?.() || 0,
-        getBaseAmount: () => tradeEngine.getBaseAmount?.() || null,
-        getLastTradeProfit: () => tradeEngine.getLastTradeProfit?.() || 0,
-        getCurrentPurchasePrice: () => tradeEngine.getCurrentPurchasePrice?.() || 0,
-        getTotalProfit: () => tradeEngine.getTotalProfit?.() || 0,
         
-        // Martingale control methods
-        setMartingaleEnabled: (enabled) => tradeEngine.setMartingaleEnabled?.(enabled),
-        setMartingaleLimits: (maxMultiplier, maxConsecutiveLosses) => tradeEngine.setMartingaleLimits?.(maxMultiplier, maxConsecutiveLosses),
-        updateTradeResult: (profit) => tradeEngine.updateTradeResult?.(profit),
-
-        // Method to update trade results
-        updateTradeResult: (profit) => tradeEngine.updateTradeResult?.(profit),
+        // Enhanced bot interface methods for better martingale control
+        canMakeNextPurchase: () => {
+            // Check if bot can make next purchase based on current state
+            const isProcessing = tradeEngine.isProcessingTrade || false;
+            const hasActiveContract = tradeEngine.getOpenContract && tradeEngine.getOpenContract() && !tradeEngine.getOpenContract().is_sold;
+            const contractData = tradeEngine.data?.contract;
+            const hasUnfinishedContract = contractData && !contractData.is_sold && contractData.contract_id;
+            
+            const canPurchase = !isProcessing && !hasActiveContract && !hasUnfinishedContract;
+            
+            if (!canPurchase) {
+                console.log('🔒 PURCHASE CHECK: Cannot make next purchase', {
+                    processing: isProcessing,
+                    activeContract: hasActiveContract,
+                    unfinishedContract: hasUnfinishedContract
+                });
+            }
+            
+            return canPurchase;
+        },
         
-        // Sequential trading methods
-        isWaitingForContractClose: () => tradeEngine.isWaitingForContractClose || false,
-        isWaitingForContractClosure: () => tradeEngine.isWaitingForContractClosure || false,
-        canMakeNextPurchase: () => tradeEngine.canMakeNextPurchase?.() || true,
-        forceReleaseContractWait: () => tradeEngine.forceReleaseContractWait?.(),
-
-        // Utility methods
-        isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
-        readDetails: i => getDetail(i - 1),
-        getTotalRuns: () => tradeEngine.totalRuns,
-        shouldContinueTrading: () => tradeEngine.shouldContinueTrading?.() || true,
+        // Enhanced martingale methods
+        configureMartingale: (config) => {
+            if (tradeEngine.configureMartingaleFromBot) {
+                tradeEngine.martingaleState = {
+                    ...tradeEngine.martingaleState,
+                    ...config,
+                    isEnabled: config.enabled !== undefined ? config.enabled : true
+                };
+                console.log('🔧 MARTINGALE: Configuration updated via interface', tradeEngine.martingaleState);
+            }
+        },
+        
+        applyMartingaleLogic: (profit) => {
+            if (tradeEngine.applyMartingaleLogicImmediate) {
+                tradeEngine.applyMartingaleLogicImmediate(profit);
+            }
+        },
+        
+        resetMartingale: () => {
+            if (tradeEngine.resetMartingale) {
+                tradeEngine.resetMartingale();
+            }
+        },
+        
+        getMartingaleState: () => {
+            return tradeEngine.martingaleState || {};
+        },
+        
+        // Enhanced contract waiting
+        waitForContractCompletion: (callback) => {
+            if (tradeEngine.waitForContractCompletion) {
+                tradeEngine.waitForContractCompletion(callback);
+            } else if (callback) {
+                callback();
+            }
+        },
+        
+        // Force release contract wait state
+        forceContractRelease: () => {
+            if (tradeEngine.forceContractRelease) {
+                tradeEngine.forceContractRelease();
+            }
+        },
+        
+        // Get current trade timing information
+        getTradeTimingInfo: () => {
+            return {
+                lastPurchaseTime: tradeEngine.lastPurchaseTime || 0,
+                minimumDelay: tradeEngine.minimumTradeDelay || 1000,
+                isProcessing: tradeEngine.isProcessingTrade || false,
+                canPurchaseNow: tradeEngine.canMakeNextPurchase ? tradeEngine.canMakeNextPurchase() : true
+            };
+        }
     };
-};
-
-const getProposal = (contract_type, tradeEngine) => {
-    return tradeEngine.data.proposals.find(
-        proposal =>
-            proposal.contract_type === contract_type &&
-            proposal.purchase_reference === tradeEngine.getPurchaseReference()
-    );
-};
-
-const getSellPrice = tradeEngine => {
-    return tradeEngine.getSellPrice();
 };
 
 export default getBotInterface;
