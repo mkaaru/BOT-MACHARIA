@@ -197,6 +197,7 @@ export default Engine =>
             this.contractClosurePromise = new Promise(resolve => {
                 let checkCount = 0;
                 const maxChecks = 60; // Maximum 3 minutes of checking
+                let soundPlayed = false; // Ensure sound only plays once per contract
                 
                 const intervalId = setInterval(() => {
                     checkCount++;
@@ -220,14 +221,15 @@ export default Engine =>
                             }
 
                             const contract = response.proposal_open_contract;
-                            if (contract && contract.status === 'closed') {
+                            if (contract && contract.status === 'closed' && !soundPlayed) {
                                 console.log(`✅ CONTRACT CLOSED: ID ${contractId}, Final profit: ${contract.profit} USD`);
 
                                 // Update trade result with final profit
                                 this.updateTradeResult(contract.profit);
 
-                                // Play sound notification ONLY on contract closure
+                                // Play sound notification ONLY once on contract closure
                                 this.playTradeExecutionSound();
+                                soundPlayed = true;
 
                                 clearInterval(intervalId);
                                 this.clearContractClosureState();
@@ -306,13 +308,17 @@ export default Engine =>
             this.lastProcessedProfit = profit; // Track to prevent duplicates
 
             if (profit < 0) {
-                // Loss - increase stake by multiplying by 2 (fixed multiplier)
+                // Loss - increase consecutive losses first
                 this.martingaleState.consecutiveLosses++;
                 this.martingaleState.cumulativeLosses += Math.abs(profit);
 
+                console.log(`🔴 LOSS DETECTED: Consecutive losses now: ${this.martingaleState.consecutiveLosses}`);
+
                 if (this.martingaleState.consecutiveLosses <= this.martingaleState.maxConsecutiveLosses) {
-                    // Calculate new stake from base amount, not current amount
+                    // Calculate new stake: base amount × 2^(consecutive losses)
                     const newStake = this.martingaleState.baseAmount * Math.pow(2, this.martingaleState.consecutiveLosses);
+                    
+                    console.log(`📊 CALCULATING NEW STAKE: ${this.martingaleState.baseAmount} × 2^${this.martingaleState.consecutiveLosses} = ${newStake}`);
                     
                     // Check max stake limit
                     if (this.martingaleState.maxStake && newStake > this.martingaleState.maxStake) {
@@ -322,10 +328,10 @@ export default Engine =>
                         this.martingaleState.cumulativeLosses = 0;
                     } else {
                         this.tradeOptions.amount = Math.round(newStake * 100) / 100; // Round to 2 decimal places
-                        console.log(`📈 MARTINGALE: Set stake to ${this.tradeOptions.amount} (base: ${this.martingaleState.baseAmount} x 2^${this.martingaleState.consecutiveLosses})`);
+                        console.log(`📈 MARTINGALE APPLIED: Stake set to ${this.tradeOptions.amount} (${this.martingaleState.consecutiveLosses} consecutive losses)`);
                     }
                 } else {
-                    console.log(`⚠️ MARTINGALE: Max consecutive losses reached, resetting to base stake`);
+                    console.log(`⚠️ MARTINGALE: Max consecutive losses (${this.martingaleState.maxConsecutiveLosses}) reached, resetting to base stake`);
                     this.tradeOptions.amount = this.martingaleState.baseAmount;
                     this.martingaleState.consecutiveLosses = 0;
                     this.martingaleState.cumulativeLosses = 0;
@@ -333,10 +339,13 @@ export default Engine =>
             } else if (profit > 0) {
                 // Win - reset to original stake
                 const previousStake = this.tradeOptions.amount;
+                const previousLosses = this.martingaleState.consecutiveLosses;
+                
                 this.tradeOptions.amount = this.martingaleState.baseAmount;
                 this.martingaleState.consecutiveLosses = 0;
                 this.martingaleState.cumulativeLosses = 0;
-                console.log(`🎉 MARTINGALE: Win! Reset stake from ${previousStake} to ${this.tradeOptions.amount} (base amount)`);
+                
+                console.log(`🎉 MARTINGALE WIN: Reset from ${previousStake} (${previousLosses} losses) to base ${this.tradeOptions.amount}`);
             }
 
             // Mark trade as confirmed for next purchase decision
