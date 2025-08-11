@@ -13,12 +13,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
     const [matrixChars, setMatrixChars] = useState<string[]>([]);
 
     const messages = [
-        '> Connecting to servers...',
-        '> Loading trading algorithms...',
-        '> Initializing AI modules...',
-        '> Establishing secure connection...',
-        '> Calibrating market sensors...',
-        '> System Status: ACTIVE - Scanning Markets...'
+        '> Analyzing market conditions...',
+        '> Processing real-time data streams...',
+        '> Calculating volatility patterns...',
+        '> Scanning price movements...',
+        '> Identifying trading opportunities...',
+        '> Market analysis complete - Ready to trade!'
     ];
 
     // Generate random matrix characters
