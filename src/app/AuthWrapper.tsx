@@ -8,12 +8,8 @@ import App from './App';
 const setLocalStorageToken = async (loginInfo: URLUtils.LoginInfo[], paramsToDelete: string[]) => {
     if (loginInfo.length) {
         try {
-            console.log('🔐 AuthWrapper: Setting up login info for', loginInfo.length, 'accounts');
             const defaultActiveAccount = URLUtils.getDefaultActiveAccount(loginInfo);
-            if (!defaultActiveAccount) {
-                console.warn('⚠️ No default active account found');
-                return;
-            }
+            if (!defaultActiveAccount) return;
 
             const accountsList: Record<string, string> = {};
             const clientAccounts: Record<string, { loginid: string; token: string; currency: string }> = {};
@@ -27,39 +23,27 @@ const setLocalStorageToken = async (loginInfo: URLUtils.LoginInfo[], paramsToDel
             localStorage.setItem('clientAccounts', JSON.stringify(clientAccounts));
 
             URLUtils.filterSearchParams(paramsToDelete);
+            const api = await generateDerivApiInstance();
 
-            try {
-                const api = await generateDerivApiInstance();
-                if (api && loginInfo[0].token) {
-                    console.log('🔍 AuthWrapper: Testing API authorization...');
-                    const { authorize, error } = await api.authorize(loginInfo[0].token);
-                    api.disconnect();
-                    if (!error && authorize) {
-                        const firstId = authorize?.account_list[0]?.loginid;
-                        const filteredTokens = loginInfo.filter(token => token.loginid === firstId);
-                        if (filteredTokens.length) {
-                            localStorage.setItem('authToken', filteredTokens[0].token);
-                            localStorage.setItem('active_loginid', filteredTokens[0].loginid);
-                            console.log('✅ AuthWrapper: Set primary token for', firstId);
-                            return;
-                        }
-                    } else {
-                        console.warn('⚠️ AuthWrapper: API authorization failed:', error);
+            if (api) {
+                const { authorize, error } = await api.authorize(loginInfo[0].token);
+                api.disconnect();
+                if (!error) {
+                    const firstId = authorize?.account_list[0]?.loginid;
+                    const filteredTokens = loginInfo.filter(token => token.loginid === firstId);
+                    if (filteredTokens.length) {
+                        localStorage.setItem('authToken', filteredTokens[0].token);
+                        localStorage.setItem('active_loginid', filteredTokens[0].loginid);
+                        return;
                     }
                 }
-            } catch (apiError) {
-                console.error('❌ AuthWrapper: API error:', apiError);
             }
 
-            // Fallback
             localStorage.setItem('authToken', loginInfo[0].token);
             localStorage.setItem('active_loginid', loginInfo[0].loginid);
-            console.log('🔧 AuthWrapper: Set fallback token for', loginInfo[0].loginid);
         } catch (error) {
-            console.error('❌ AuthWrapper: Error setting up login info:', error);
+            console.error('Error setting up login info:', error);
         }
-    } else {
-        console.log('🔍 AuthWrapper: No login info to process');
     }
 };
 

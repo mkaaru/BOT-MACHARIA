@@ -3,19 +3,17 @@ import { observer } from 'mobx-react-lite';
 import ErrorBoundary from '@/components/error-component/error-boundary';
 import ErrorComponent from '@/components/error-component/error-component';
 import ChunkLoader from '@/components/loader/chunk-loader';
-import { SplashScreen } from '@/components/splash-screen';
+import MatrixLoading from '@/components/matrix-loading';
 import TradingAssesmentModal from '@/components/trading-assesment-modal';
 import { api_base } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
 import { localize } from '@deriv-com/translations';
 import './app-root.scss';
-import { BrowserRouter } from 'react-router-dom';
-import { AuthWrapper } from './auth-wrapper';
 
 const AppContent = lazy(() => import('./app-content'));
 
 const AppRootLoader = () => {
-    return null;
+    return <MatrixLoading message={localize('Initializing Deriv Bot...')} show={true} />;
 };
 
 const ErrorComponentWrapper = observer(() => {
@@ -37,49 +35,36 @@ const ErrorComponentWrapper = observer(() => {
     );
 });
 
-const AppRoot = observer(() => {
-    const [showSplash, setShowSplash] = useState(true);
+const AppRoot = () => {
     const store = useStore();
-    const { ui, client } = store || {};
-    const { is_api_initialized } = store?.common || {};
     const api_base_initialized = useRef(false);
+    const [is_api_initialized, setIsApiInitialized] = useState(false);
+    const [showSplash, setShowSplash] = useState(true);
 
     useEffect(() => {
         const initializeApi = async () => {
             if (!api_base_initialized.current) {
                 await api_base.init();
                 api_base_initialized.current = true;
-                // setIsApiInitialized(true); // This line seems to be missing the setIsApiInitialized function definition
+                setIsApiInitialized(true);
             }
         };
 
-        // Clear any inconsistent auth config on app load
-        const currentAppId = localStorage.getItem('config.app_id');
-        if (currentAppId && currentAppId !== '75771') {
-            console.log('🧹 Clearing inconsistent app config');
-            localStorage.removeItem('config.app_id');
-            localStorage.removeItem('config.server_url');
-        }
-
-         initializeApi();
+        initializeApi();
 
          // Show splash screen for minimum 3 seconds
         const timer = setTimeout(() => {
-            console.log("🚀 Hiding splash screen, showing main app");
             setShowSplash(false);
         }, 3000);
 
         return () => clearTimeout(timer);
     }, []);
 
-    // Show splash screen immediately on app load
-    if (showSplash) {
-        return <SplashScreen onComplete={() => setShowSplash(false)} />;
-    }
-
-    console.log("🎯 Rendering main app content");
-
     if (!store || !is_api_initialized) return <AppRootLoader />;
+
+    if (showSplash) {
+        return <MatrixLoading message={localize('Initializing Trade Cortex...')} show={true} />;
+    }
 
     return (
         <Suspense fallback={<AppRootLoader />}>
@@ -90,6 +75,6 @@ const AppRoot = observer(() => {
             </ErrorBoundary>
         </Suspense>
     );
-});
+};
 
 export default AppRoot;

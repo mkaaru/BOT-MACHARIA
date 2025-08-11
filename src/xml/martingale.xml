@@ -207,27 +207,19 @@
   <!-- After purchase - Update profit, apply martingale logic, and continue trading -->
   <block type="after_purchase" id="after_purchase_block" x="800" y="400">
     <statement name="AFTERPURCHASE_STACK">
-      <!-- Wait for contract completion before processing -->
-      <block type="text_print">
-        <value name="TEXT">
-          <shadow type="text">
-            <field name="TEXT">⏳ Contract completed, processing Martingale logic...</field>
-          </shadow>
-        </value>
-        <next>
-          <block type="variables_set">
-            <field name="VAR">last_profit</field>
-            <value name="VALUE">
-              <block type="math_arithmetic">
-                <field name="OP">MINUS</field>
-                <value name="A">
-                  <block type="sell_price"></block>
-                </value>
-                <value name="B">
-                  <block type="ask_price"></block>
-                </value>
-              </block>
+      <block type="variables_set">
+        <field name="VAR">last_profit</field>
+        <value name="VALUE">
+          <block type="math_arithmetic">
+            <field name="OP">MINUS</field>
+            <value name="A">
+              <block type="sell_price"></block>
             </value>
+            <value name="B">
+              <block type="ask_price"></block>
+            </value>
+          </block>
+        </value>
         <next>
           <block type="variables_set">
             <field name="VAR">trade_count</field>
@@ -577,26 +569,7 @@
                       </block>
                     </statement>
                     <next>
-                      <!-- Add delay before next trade to ensure proper timing -->
-                      <block type="text_print">
-                        <value name="TEXT">
-                          <shadow type="text">
-                            <field name="TEXT">⏳ Waiting 3 seconds before next trade...</field>
-                          </shadow>
-                        </value>
-                        <next>
-                          <block type="controls_wait">
-                            <value name="SECONDS">
-                              <shadow type="math_number">
-                                <field name="NUM">3</field>
-                              </shadow>
-                            </value>
-                            <next>
-                              <block type="trade_again"></block>
-                            </next>
-                          </block>
-                        </next>
-                      </block>
+                      <block type="trade_again"></block>
                     </next>
                   </block>
                 </next>

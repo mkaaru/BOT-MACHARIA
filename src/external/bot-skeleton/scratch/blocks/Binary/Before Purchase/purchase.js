@@ -1,3 +1,4 @@
+
 import { localize } from '@deriv-com/translations';
 import { getContractTypeOptions } from '../../../shared';
 import { excludeOptionFromContextMenu, modifyContextMenu } from '../../../utils';
@@ -86,21 +87,6 @@ window.Blockly.Blocks.purchase = {
 window.Blockly.JavaScript.javascriptGenerator.forBlock.purchase = block => {
     const purchaseList = block.getFieldValue('PURCHASE_LIST');
 
-    // Ensure we're not executing on every tick - use contract completion logic
-    const code = `
-        // Check if we can execute a new trade (not waiting for completion)
-        if (typeof contractCompletionTracker !== 'undefined' && !contractCompletionTracker.canExecuteNewTrade()) {
-            console.log('⏳ PURCHASE: Waiting for current contract to complete before new purchase');
-            return;
-        }
-
-        Bot.purchase('${purchaseList}');
-
-        // Set waiting state for contract completion
-        if (typeof contractCompletionTracker !== 'undefined') {
-            contractCompletionTracker.setWaiting(Date.now());
-        }
-    `;
-
+    const code = `Bot.purchase('${purchaseList}');\n`;
     return code;
 };

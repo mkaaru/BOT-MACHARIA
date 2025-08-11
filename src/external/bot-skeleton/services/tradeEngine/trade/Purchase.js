@@ -12,26 +12,13 @@ export default Engine =>
     class Purchase extends Engine {
         constructor(...args) {
             super(...args);
-
+            
             console.log('🟦 PURCHASE ENGINE: Initialized - Using XML-based martingale strategies');
         }
 
         purchase(contract_type) {
         // Prevent calling purchase twice
         if (this.store.getState().scope !== BEFORE_PURCHASE) {
-            return Promise.resolve();
-        }
-
-        // CRITICAL: Prevent per-tick execution - ensure previous contract is completed
-        if (this.isProcessingTrade) {
-            console.log('⏸️ PURCHASE BLOCKED: Previous trade still processing');
-            return Promise.resolve();
-        }
-
-        // Check if we have an active contract that's not yet sold
-        const openContract = this.getOpenContract();
-        if (openContract && !openContract.is_sold) {
-            console.log('⏸️ PURCHASE BLOCKED: Contract still active, waiting for completion');
             return Promise.resolve();
         }
 
@@ -61,10 +48,10 @@ export default Engine =>
                 }
 
                 delayIndex = 0;
-                log(LogTypes.PURCHASE, {
-                    longcode: buy.longcode,
+                log(LogTypes.PURCHASE, { 
+                    longcode: buy.longcode, 
                     transaction_id: buy.transaction_id,
-                    contract_id: buy.contract_id
+                    contract_id: buy.contract_id 
                 });
                 info({
                     accountID: this.accountInfo.loginid,
@@ -163,137 +150,11 @@ export default Engine =>
             purchase_reference = getUUID();
         };
 
-        // Configure martingale from bot parameters - ensure proper contract completion
+        // Configure martingale from bot parameters - placeholder for XML-based strategies
         configureMartingaleFromBot() {
             console.log('🔧 MARTINGALE: Configuration handled by XML strategy files');
             console.log('📁 Available XML strategies: martingale.xml, martingale-pro.xml, martingale_max-stake.xml');
-
-            // Ensure we wait for contract completion before next trade
-            this.contractCompletionRequired = true;
-            this.isProcessingTrade = false;
-
-            // Remove any per-tick listeners that might cause rapid execution
-            this.removePerTickListeners();
-        }
-
-        // Remove per-tick execution listeners
-        removePerTickListeners() {
-            if (this.tickListener) {
-                this.tickListener.unsubscribe();
-                this.tickListener = null;
-            }
-            console.log('🔧 MARTINGALE: Removed per-tick listeners to prevent rapid execution');
-        }
-
-        // Ensure contract completion before next trade
-        waitForContractCompletion(callback) {
-            if (this.isProcessingTrade) {
-                console.log('⏳ MARTINGALE: Waiting for current contract to complete...');
-                return;
-            }
-
-            this.isProcessingTrade = true;
-
-            // Set a timeout to ensure we don't wait indefinitely
-            const completionTimeout = setTimeout(() => {
-                console.log('⚠️ MARTINGALE: Contract completion timeout, proceeding with next trade');
-                this.isProcessingTrade = false;
-                if (callback) callback();
-            }, 30000); // 30 second timeout
-
-            // Wait for actual contract completion
-            const checkCompletion = setInterval(() => {
-                const openContract = this.getOpenContract();
-                if (!openContract || openContract.is_sold) {
-                    clearInterval(checkCompletion);
-                    clearTimeout(completionTimeout);
-                    this.isProcessingTrade = false;
-                    console.log('✅ MARTINGALE: Contract completed, ready for next trade');
-                    if (callback) callback();
-                }
-            }, 1000);
-        }
-
-        // Get current open contract
-        getOpenContract() {
-            try {
-                return window.Blockly.derivWorkspace.getAllBlocks()
-                    .find(block => block.type === 'open_contract')?.contract;
-            } catch (error) {
-                return null;
-            }
-        }
-
-        // IMMEDIATE martingale application - called directly after trade result
-        applyMartingaleLogicImmediate(profit) {
-            if (!this.martingaleState.isEnabled) {
-                console.log('🔴 MARTINGALE DISABLED: Using fixed stake');
-                return;
-            }
-
-            const { baseAmount, consecutiveLosses, maxConsecutiveLosses } = this.martingaleState;
-            const userMultiplier = this.martingaleState.martingaleMultiplier || 2;
-
-            // Initialize base amount on first run
-            if (!baseAmount) {
-                this.martingaleState.baseAmount = this.tradeOptions.amount;
-                console.log(`🟦 MARTINGALE INIT: Base amount set to ${this.martingaleState.baseAmount} USD`);
-                return;
-            }
-
-            console.log(`⚡ IMMEDIATE MARTINGALE: Processing trade result P&L: ${profit} USD`);
-            console.log(`⚡ Current consecutive losses: ${consecutiveLosses}`);
-            console.log(`⚡ Current stake: ${this.tradeOptions.amount} USD, Base amount: ${baseAmount} USD`);
-            console.log(`⚡ Multiplier: ${userMultiplier}x`);
-
-            if (profit < 0) {
-                // Loss: Increment consecutive losses and calculate new stake
-                const newConsecutiveLosses = consecutiveLosses + 1;
-
-                if (newConsecutiveLosses <= maxConsecutiveLosses) {
-                    this.martingaleState.consecutiveLosses = newConsecutiveLosses;
-
-                    // FIXED: Calculate new stake based on consecutive losses, not current stake
-                    const newStake = baseAmount * Math.pow(userMultiplier, newConsecutiveLosses);
-
-                    // Apply max stake limit if configured
-                    if (this.martingaleState.maxStake && newStake > this.martingaleState.maxStake) {
-                        this.resetMartingale();
-                        console.log(`⚠️ MAX STAKE EXCEEDED: Reset to base ${this.martingaleState.baseAmount} USD`);
-                        return;
-                    }
-
-                    // Round to 2 decimal places and ensure minimum stake
-                    this.tradeOptions.amount = Math.max(0.35, Math.round(newStake * 100) / 100);
-
-                    console.log(`🔴 LOSS ${newConsecutiveLosses}: Stake calculation: ${baseAmount} * ${userMultiplier}^${newConsecutiveLosses} = ${this.tradeOptions.amount} USD`);
-                } else {
-                    // Reset on max consecutive losses exceeded
-                    this.resetMartingale();
-                    console.log(`⚠️ MAX LOSSES REACHED: Reset to base ${this.martingaleState.baseAmount} USD`);
-                }
-            } else if (profit > 0) {
-                // Win: Reset martingale sequence to base amount
-                const previousStake = this.tradeOptions.amount;
-                this.martingaleState.consecutiveLosses = 0;
-                this.tradeOptions.amount = this.martingaleState.baseAmount;
-                console.log(`🟢 WIN: Martingale sequence reset!`);
-                console.log(`🟢 Stake reset: ${previousStake} USD → ${this.martingaleState.baseAmount} USD`);
-            } else {
-                // Break-even: Keep current state but reset if no consecutive losses
-                if (consecutiveLosses > 0) {
-                    console.log(`🟡 BREAK-EVEN: Maintaining current martingale state (losses: ${consecutiveLosses})`);
-                } else {
-                    this.tradeOptions.amount = baseAmount;
-                    console.log(`🟡 BREAK-EVEN: Using base stake ${this.tradeOptions.amount} USD`);
-                }
-            }
-        }
-
-        // Reset martingale state to base amount and zero consecutive losses
-        resetMartingale() {
-            this.martingaleState.consecutiveLosses = 0;
-            this.tradeOptions.amount = this.martingaleState.baseAmount;
-            console.log(`🔄 MARTINGALE RESET: Stake reset to ${this.tradeOptions.amount} USD`);
+            // XML-based strategies handle their own martingale logic through Blockly blocks
+            // No custom JavaScript implementation needed here
         }
     };

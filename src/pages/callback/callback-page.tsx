@@ -6,14 +6,6 @@ const CallbackPage = () => {
     return (
         <Callback
             onSignInSuccess={async (tokens: Record<string, string>) => {
-                console.log('🔑 OAuth callback received tokens:', Object.keys(tokens));
-                
-                // Clear any existing auth data
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('active_loginid');
-                localStorage.removeItem('accountsList');
-                localStorage.removeItem('clientAccounts');
-
                 const accountsList: Record<string, string> = {};
                 const clientAccounts: Record<string, { loginid: string; token: string; currency: string }> = {};
 
@@ -40,48 +32,29 @@ const CallbackPage = () => {
                 localStorage.setItem('clientAccounts', JSON.stringify(clientAccounts));
 
                 let is_token_set = false;
-                try {
-                    const api = await generateDerivApiInstance();
-                    if (api && tokens.token1) {
-                        console.log('🔍 Testing token authorization...');
-                        const { authorize, error } = await api.authorize(tokens.token1);
-                        api.disconnect();
-                        
-                        if (!error && authorize) {
-                            console.log('✅ Token authorization successful');
-                            const clientAccountsArray = Object.values(clientAccounts);
-                            const firstId = authorize?.account_list[0]?.loginid;
-                            const filteredTokens = clientAccountsArray.filter(account => account.loginid === firstId);
-                            if (filteredTokens.length) {
-                                localStorage.setItem('authToken', filteredTokens[0].token);
-                                localStorage.setItem('active_loginid', filteredTokens[0].loginid);
-                                is_token_set = true;
-                                console.log('🎯 Set primary token for account:', firstId);
-                            }
-                        } else {
-                            console.warn('⚠️ Token authorization failed:', error);
+                const api = await generateDerivApiInstance();
+                if (api) {
+                    const { authorize, error } = await api.authorize(tokens.token1);
+                    localStorage.setItem('callback_token', authorize.toString());
+                    api.disconnect();
+                    if (!error) {
+                        const clientAccountsArray = Object.values(clientAccounts);
+                        const firstId = authorize?.account_list[0]?.loginid;
+                        const filteredTokens = clientAccountsArray.filter(account => account.loginid === firstId);
+                        if (filteredTokens.length) {
+                            localStorage.setItem('authToken', filteredTokens[0].token);
+                            localStorage.setItem('active_loginid', filteredTokens[0].loginid);
+                            is_token_set = true;
                         }
                     }
-                } catch (authError) {
-                    console.error('❌ Auth API error:', authError);
                 }
-                
-                if (!is_token_set && tokens.token1 && tokens.acct1) {
+                if (!is_token_set) {
                     localStorage.setItem('authToken', tokens.token1);
                     localStorage.setItem('active_loginid', tokens.acct1);
-                    is_token_set = true;
-                    console.log('🔧 Set fallback token for account:', tokens.acct1);
                 }
 
-                if (is_token_set) {
-                    const query_param_currency = sessionStorage.getItem('query_param_currency');
-                    const redirectUrl = query_param_currency ? `/?account=${query_param_currency}` : '/';
-                    console.log('🚀 Redirecting to:', redirectUrl);
-                    window.location.assign(redirectUrl);
-                } else {
-                    console.error('❌ Failed to set auth token, redirecting to home');
-                    window.location.assign('/');
-                }
+                const query_param_currency = sessionStorage.getItem('query_param_currency');
+                window.location.assign(query_param_currency ? `/?account=${query_param_currency}` : '/');
             }}
             renderReturnButton={() => {
                 return (

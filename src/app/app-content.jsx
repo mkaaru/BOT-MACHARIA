@@ -28,7 +28,6 @@ import Main from '../pages/main';
 import './app.scss';
 import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
-import { SplashScreen } from '../components/splash-screen';
 
 const AppContent = observer(() => {
     const [is_api_initialized, setIsApiInitialized] = React.useState(false);
@@ -161,36 +160,20 @@ const AppContent = observer(() => {
             initHotjar(client);
         }
     }, []);
-
+    
      React.useEffect(() => {
         const timeout = setTimeout(() => {
             setForceShowApp(true);
-        }, 10000); // Show app after 10 seconds regardless
+        }, 5000); // Show app after 5 seconds regardless
 
         return () => clearTimeout(timeout);
     }, []);
 
     if (common?.error) return null;
 
-    // Placeholder for authData and isLoading, assuming they exist in the actual scope
-    // For the purpose of this example, we'll define them here.
-    // In a real scenario, these would come from a context or store.
-    const authData = { isLoggedIn: client.is_logged_in }; // Mocking authData
-    const isLoading = is_loading; // Using existing is_loading state
-
-
-    console.log('App-content render check:', { forceShowApp, is_loading, 'client.is_logged_in': client.is_logged_in });
-
-    // The splash screen is now unconditionally rendered if forceShowApp is false.
-    // If the intention is to remove it entirely, the condition below needs to be removed or modified.
-    if (!forceShowApp) {
-        console.log('Showing splash screen');
-        return (
-            <SplashScreen onComplete={() => setForceShowApp(true)} />
-        );
-    }
-
-    return (
+    return is_loading && !forceShowApp ? (
+        <MatrixLoading message={localize('Initializing your account...')} show={true} />
+    ) : (
         <>
             <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
                 <BlocklyLoading />
