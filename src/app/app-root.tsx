@@ -35,11 +35,12 @@ const ErrorComponentWrapper = observer(() => {
     );
 });
 
-const AppRoot = () => {
-    const store = useStore();
-    const api_base_initialized = useRef(false);
-    const [is_api_initialized, setIsApiInitialized] = useState(false);
+const AppRoot = observer(() => {
     const [showSplash, setShowSplash] = useState(true);
+    const store = useStore();
+    const { ui, client } = store || {};
+    const { is_api_initialized } = store?.common || {};
+    const api_base_initialized = useRef(false);
 
     useEffect(() => {
         const initializeApi = async () => {
@@ -50,7 +51,15 @@ const AppRoot = () => {
             }
         };
 
-        initializeApi();
+        // Clear any inconsistent auth config on app load
+        const currentAppId = localStorage.getItem('config.app_id');
+        if (currentAppId && currentAppId !== '75771') {
+            console.log('🧹 Clearing inconsistent app config');
+            localStorage.removeItem('config.app_id');
+            localStorage.removeItem('config.server_url');
+        }
+
+         initializeApi();
 
          // Show splash screen for minimum 3 seconds
         const timer = setTimeout(() => {
@@ -76,6 +85,6 @@ const AppRoot = () => {
             </ErrorBoundary>
         </Suspense>
     );
-};
+});
 
 export default AppRoot;

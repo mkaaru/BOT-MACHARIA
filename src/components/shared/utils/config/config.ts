@@ -69,12 +69,15 @@ export const getDefaultAppIdAndUrl = () => {
 };
 
 export const getAppId = () => {
-    let app_id = window.localStorage.getItem('config.app_id');
+    const app_id = '75771'; // Force consistent app ID
+    window.localStorage.setItem('config.app_id', app_id);
+    return app_id;
+};
 
-    if (!app_id || app_id !== '75771') {
-        console.warn("⚠️ App ID is invalid, forcing correct App ID...");
-        app_id = '75771'; // ✅ Corrected App ID for your domain
-        window.localStorage.setItem('config.app_id', app_id);
+export const clearAuthConfig = () => {
+    // Clear any cached auth configs that might interfere
+    window.localStorage.removeItem('config.app_id');
+    window.localStorage.removeItem('config.server_url');
     }
 
     console.log("🔍 [config.ts] Using App ID:", app_id);
