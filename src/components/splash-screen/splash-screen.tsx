@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import './splash-screen.scss';
 
-interface SplashScreenProps {
+export interface SplashScreenProps {
     onComplete?: () => void;
 }
 

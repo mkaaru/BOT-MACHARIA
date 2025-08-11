@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import ErrorBoundary from '@/components/error-component/error-boundary';
 import ErrorComponent from '@/components/error-component/error-component';
 import ChunkLoader from '@/components/loader/chunk-loader';
+import { SplashScreen } from '@/components/splash-screen';
 import TradingAssesmentModal from '@/components/trading-assesment-modal';
 import { api_base } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
@@ -59,11 +60,12 @@ const AppRoot = () => {
         return () => clearTimeout(timer);
     }, []);
 
-    if (!store || !is_api_initialized) return <AppRootLoader />;
-
+    // Show splash screen immediately on app load
     if (showSplash) {
-        return null;
+        return <SplashScreen onComplete={() => setShowSplash(false)} />;
     }
+
+    if (!store || !is_api_initialized) return <AppRootLoader />;
 
     return (
         <Suspense fallback={<AppRootLoader />}>
