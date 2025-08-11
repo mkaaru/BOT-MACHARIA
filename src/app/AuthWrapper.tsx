@@ -27,7 +27,7 @@ const setLocalStorageToken = async (loginInfo: URLUtils.LoginInfo[], paramsToDel
             localStorage.setItem('clientAccounts', JSON.stringify(clientAccounts));
 
             URLUtils.filterSearchParams(paramsToDelete);
-            
+
             try {
                 const api = await generateDerivApiInstance();
                 if (api && loginInfo[0].token) {

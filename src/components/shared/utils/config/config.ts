@@ -1,3 +1,4 @@
+
 import { LocalStorageConstants, LocalStorageUtils, URLUtils } from '@deriv-com/utils';
 import { isStaging } from '../url/helpers';
 
@@ -24,7 +25,7 @@ export const domain_app_ids = {
     'dbot.deriv.com': APP_IDS.PRODUCTION,
     'dbot.deriv.be': APP_IDS.PRODUCTION_BE,
     'dbot.deriv.me': APP_IDS.PRODUCTION_ME,
-    'bot.derivlite.com': APP_IDS.LIVE, // ✅ Added support for your domain
+    'bot.derivlite.com': APP_IDS.LIVE,
 };
 
 export const getCurrentProductionDomain = () =>

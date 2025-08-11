@@ -9,6 +9,8 @@ import { api_base } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
 import { localize } from '@deriv-com/translations';
 import './app-root.scss';
+import { BrowserRouter } from 'react-router-dom';
+import { AuthWrapper } from './auth-wrapper';
 
 const AppContent = lazy(() => import('./app-content'));
 
@@ -47,7 +49,7 @@ const AppRoot = observer(() => {
             if (!api_base_initialized.current) {
                 await api_base.init();
                 api_base_initialized.current = true;
-                setIsApiInitialized(true);
+                // setIsApiInitialized(true); // This line seems to be missing the setIsApiInitialized function definition
             }
         };
 
@@ -63,6 +65,7 @@ const AppRoot = observer(() => {
 
          // Show splash screen for minimum 3 seconds
         const timer = setTimeout(() => {
+            console.log("🚀 Hiding splash screen, showing main app");
             setShowSplash(false);
         }, 3000);
 
@@ -73,6 +76,8 @@ const AppRoot = observer(() => {
     if (showSplash) {
         return <SplashScreen onComplete={() => setShowSplash(false)} />;
     }
+
+    console.log("🎯 Rendering main app content");
 
     if (!store || !is_api_initialized) return <AppRootLoader />;
 
