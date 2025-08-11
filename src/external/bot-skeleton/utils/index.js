@@ -15,5 +15,4 @@ export { compareXml, extractBlocksFromXml, pipe, sortBlockChild } from './strate
 export { onWorkspaceResize } from './workspace';
 export { default as workspace } from './workspace';
 export { default as local_storage } from './local-storage';
-export { getContractTypeName } from './contract';
 export { default as contract } from './contract';
