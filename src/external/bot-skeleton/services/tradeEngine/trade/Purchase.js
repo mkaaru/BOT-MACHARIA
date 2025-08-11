@@ -207,6 +207,7 @@ export default Engine =>
                 return window.Blockly.derivWorkspace.getAllBlocks()
                     .find(block => block.type === 'open_contract')?.contract;
             } catch (error) {
-                return null; here
+                return null;
+            }
         }
     };
