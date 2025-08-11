@@ -26,6 +26,7 @@ import DecyclerBot from '@/components/decycler-bot/decycler-bot';
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
+const BotBuilder = lazy(() => import('../bot-builder'));
 
 const DashboardIcon = () => (
     <svg width="20" height="20" fill="var(--text-general)" viewBox="0 0 24 24">
@@ -300,7 +301,6 @@ const AppWrapper = observer(() => {
     );
 
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
-        setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
             console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
 
@@ -339,13 +339,12 @@ const AppWrapper = observer(() => {
                     }
                 } catch (fetchError) {
                     console.error("Failed to load bot content:", fetchError);
-                    // Removed alert message
                     return;
                 }
             }
 
             if (!xmlContent || xmlContent.trim().length === 0) {
-                //Removed alert message
+                console.error("No XML content available for bot:", bot.title);
                 return;
             }
 
@@ -354,32 +353,40 @@ const AppWrapper = observer(() => {
 
             // Validate XML content
             if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
-                //Removed alert message
+                console.error("Invalid XML format for bot:", bot.title);
                 return;
             }
 
-            if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
-                try {
-                    await load_modal.loadFileFromContent(xmlContent);
-                    console.log("Bot loaded successfully!");
+            // First switch to Bot Builder tab
+            setActiveTab(DBOT_TABS.BOT_BUILDER);
+            
+            // Wait a short moment for the tab to render
+            setTimeout(async () => {
+                if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
+                    try {
+                        await load_modal.loadFileFromContent(xmlContent);
+                        console.log("Bot loaded successfully!");
 
-                    // Also update workspace name
-                    if (typeof updateWorkspaceName === 'function') {
-                        updateWorkspaceName(xmlContent);
+                        // Also update workspace name
+                        if (typeof updateWorkspaceName === 'function') {
+                            updateWorkspaceName(xmlContent);
+                        }
+                        
+                        // Close any open modals
+                        if (load_modal.toggleLoadModal) {
+                            load_modal.toggleLoadModal();
+                        }
+                    } catch (loadError) {
+                        console.error("Error in load_modal.loadFileFromContent:", loadError);
                     }
-                } catch (loadError) {
-                    console.error("Error in load_modal.loadFileFromContent:", loadError);
-                    //Removed alert message
+                } else {
+                    console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
+                    console.log("load_modal object:", load_modal);
                 }
-            } else {
-                console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
-                console.log("load_modal object:", load_modal);
-                //Removed alert message
-            }
+            }, 100);
 
         } catch (error) {
             console.error("Error loading bot:", error);
-             //Removed alert message
         }
     }, [setActiveTab, load_modal]);
 
@@ -1265,7 +1272,11 @@ if __name__ == "__main__":
                                 </div>
                             </div>
                         </div>
-                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
+                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder'>
+                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading bot builder...')} />}>
+                                <BotBuilder />
+                            </Suspense>
+                        </div>
                         <div label={<><BotIcon /><Localize i18n_default_text='Smart Trading' /></>} id='id-smart-trading'>
                             <VolatilityAnalyzer />
                         </div>
