@@ -38,6 +38,7 @@ export default Engine =>
 
             // Track if trade result is confirmed and ready for martingale processing
             this.isTradeConfirmed = false;
+            this.lastProcessedProfit = null; // Track last processed profit to prevent duplicates
 
             // Trading mode configuration - optimized sequential with 200ms delay
             this.waitingForContractClose = false;
@@ -222,8 +223,11 @@ export default Engine =>
                             if (contract && contract.status === 'closed') {
                                 console.log(`✅ CONTRACT CLOSED: ID ${contractId}, Final profit: ${contract.profit} USD`);
 
-                                // Update trade result with final profit (sound will be played here)
+                                // Update trade result with final profit
                                 this.updateTradeResult(contract.profit);
+
+                                // Play sound notification ONLY on contract closure
+                                this.playTradeExecutionSound();
 
                                 clearInterval(intervalId);
                                 this.clearContractClosureState();
@@ -288,20 +292,27 @@ export default Engine =>
         updateTradeResult(profit) {
             if (!this.martingaleState.isEnabled) return;
 
+            // Prevent duplicate processing of the same trade result
+            if (this.martingaleState.lastTradeProfit === profit && this.lastProcessedProfit === profit) {
+                console.log(`🔄 SKIPPING DUPLICATE TRADE RESULT: Profit = ${profit}`);
+                return;
+            }
+
             console.log(`🔄 UPDATING TRADE RESULT: Profit = ${profit}`);
 
             this.martingaleState.lastTradeProfit = profit;
             this.martingaleState.totalProfit += profit;
             this.martingaleState.currentPurchasePrice = 0; // Reset for next trade
+            this.lastProcessedProfit = profit; // Track to prevent duplicates
 
             if (profit < 0) {
                 // Loss - increase stake by multiplying by 2 (fixed multiplier)
                 this.martingaleState.consecutiveLosses++;
                 this.martingaleState.cumulativeLosses += Math.abs(profit);
 
-                if (this.martingaleState.consecutiveLosses < this.martingaleState.maxConsecutiveLosses) {
-                    // Always multiply by 2 for consistency across all markets
-                    const newStake = this.tradeOptions.amount * 2;
+                if (this.martingaleState.consecutiveLosses <= this.martingaleState.maxConsecutiveLosses) {
+                    // Calculate new stake from base amount, not current amount
+                    const newStake = this.martingaleState.baseAmount * Math.pow(2, this.martingaleState.consecutiveLosses);
                     
                     // Check max stake limit
                     if (this.martingaleState.maxStake && newStake > this.martingaleState.maxStake) {
@@ -311,7 +322,7 @@ export default Engine =>
                         this.martingaleState.cumulativeLosses = 0;
                     } else {
                         this.tradeOptions.amount = Math.round(newStake * 100) / 100; // Round to 2 decimal places
-                        console.log(`📈 MARTINGALE: Doubled stake to ${this.tradeOptions.amount} after loss (consecutive losses: ${this.martingaleState.consecutiveLosses})`);
+                        console.log(`📈 MARTINGALE: Set stake to ${this.tradeOptions.amount} (base: ${this.martingaleState.baseAmount} x 2^${this.martingaleState.consecutiveLosses})`);
                     }
                 } else {
                     console.log(`⚠️ MARTINGALE: Max consecutive losses reached, resetting to base stake`);
@@ -332,9 +343,6 @@ export default Engine =>
             this.isTradeConfirmed = true;
 
             console.log(`📊 MARTINGALE STATE: Current stake: ${this.tradeOptions.amount}, Base: ${this.martingaleState.baseAmount}, Consecutive Losses: ${this.martingaleState.consecutiveLosses}, Total Profit: ${this.martingaleState.totalProfit}`);
-
-            // Play sound notification for actual trade execution (not every tick)
-            this.playTradeExecutionSound();
 
             // Trigger readiness check for next trade
             this.checkTradeReadiness();
