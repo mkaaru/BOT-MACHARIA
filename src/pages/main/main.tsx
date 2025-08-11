@@ -68,7 +68,7 @@ const SignalsIcon = () => (
 );
 
 const TradingHubIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="var(--text-general)" width="24px" height="24px" viewBox="0 0 24 24"><path d="M21.49 13.926l-3.273 2.48c.054-.663.116-1.435.143-2.275.04-.89.023-1.854-.043-2.835-.043-.487-.097-.98-.184-1.467-.077-.485-.196-.982-.31-1.39-.238-.862-.535-1.68-.9-2.35-.352-.673-.786-1.173-1.12-1.462-.172-.144-.31-.248-.414-.306l-.153-.093c-.083-.05-.187-.056-.275-.003-.13.08-.175.252-.1.388l.01.02s.11.198.258.54c.07.176.155.38.223.63.08.24.14.528.206.838.063.313.114.66.17 1.03l.15 1.188c.055.44.106.826.13 1.246.03.416.033.85.026 1.285.004.872-.063 1.76-.115 2.602-.062.853-.12 1.65-.172 2.335 0 .04-.004.073-.005.11l-.115-.118-2.996-3.028-1.6.454 5.566 6.66 6.394-5.803-1.503-.677z"/><path d="M2.503 9.48L5.775 7c-.054.664-.116 1.435-.143 2.276-.04.89-.023 1.855.043 2.835.043.49.097.98.184 1.47.076.484.195.98.31 1.388.237.862.534 1.68.9 2.35.35.674.785 1.174 1.12 1.463.17.145.31.25.413.307.1.06.152.093.152.093.083.05.187.055.275.003.13-.08.175-.252.1-.388l-.01-.02s-.11-.2-.258-.54c-.07-.177-.155-.38-.223-.63-.082-.242-.14-.528-.207-.84-.064-.312-.115-.658-.172-1.027-.046-.378-.096-.777-.15-1.19-.053-.44-.104-.825-.128-1.246-.03-.415-.033-.85-.026-1.285-.004-.872.063-1.76.115-2.603.064-.853.122-1.65.174-2.334 0-.04.004-.074.005-.11l.114.118 2.996 3.027 1.6-.454L7.394 3 1 8.804l1.503.678z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="var(--text-general)" width="24px" height="24px" viewBox="0 0 24 24"><path d="M21.49 13.926l-3.273 2.48c.054-.663.116-1.435.143-2.275.04-.89.023-1.854-.043-2.835-.043-.487-.097-.98-.184-1.467-.077-.485-.196-.982-.31-1.39-.238-.862-.535-1.68-.9-2.35-.352-.673-.786-1.173-1.12-1.462-.172-.144-.31-.248-.414-.306l-.153-.093c-.083-.05-.187-.056-.275-.003-.13.08-.175.252-.1.388l.01.02s.11.198.258.54c.07.176.155.38.223.63.08.24.14.528.206.838.063.313.114.66.17 1.03l.15 1.188c.055.44.106.826.13 1.246.03.416.033.85.026 1.285.004.872-.063 1.76-.115 2.602-.062.853-.12 1.65-.172 2.335 0 .04-.004.073-.005.11l-.115-.118-2.996-3.028-1.6.454 5.566 6.66 6.394-5.803-1.503-.677z"/><path d="M2.503 9.48L5.775 7c-.054.664-.116 1.435-.143 2.276-.04.89-.023 1.855.043 2.835.043.49.097.98.184 1.47.076.484.195.98.31 1.388.237.862.534 1.68.9 2.35.35.674.785 1.174 1.12 1.463.17.145.31.25.413.307.1.06.152.093.152.093.083.05.187.055.275.003.13-.08.175-.252.1-.388l-.01-.02s-.11-.2-.258-.54c-.07-.177-.155-.38-.223-.63-.082-.242-.14-.528-.207-.84-.064-.312-.115-.658-.15-1.19-.053-.44-.104-.825-.128-1.246-.03-.415-.033-.85-.026-1.285-.004-.872.063-1.76.115-2.603.064-.853.122-1.65.174-2.334 0-.04.004-.074.005-.11l.114.118 2.996 3.027 1.6-.454L7.394 3 1 8.804l1.503.678z"/></svg>
 );
 
 const FreeBotsIcon = () => (
@@ -287,7 +287,7 @@ const AppWrapper = observer(() => {
                                           <block type="variables_set" id="i-+y35ET%iNI#gfE=j}f">
                                             <field name="VAR" id="$+Q3~hzlFiI[$SMrBNB?">Prediction</field>
                                             <value name="VALUE">
-                                              <block type="variables_get" id="lz5.rXO5Nim{3$+J{lQc">
+                                              <block type="variables_get" id="lz.rXO5Nim{3$+J{lQc">
                                                 <field name="VAR" id="sF6($OTq!BVWswgj}4|S">Prediction before loss</field>
                                               </block>
                                             </value>
@@ -768,12 +768,12 @@ const AppWrapper = observer(() => {
       </block>
     </statement>
   </block>
-  <block type="before_purchase" id="MEfW!,-IYA)Nw|N9:]Q]" deletable="false" x="0" y="1168">
+  <block type="before_purchase" id=":Nx^]Pu__xj[_w$h8*VZ" x="352" y="1062">
     <statement name="BEFOREPURCHASE_STACK">
-      <block type="controls_if" id="R0vsH,PsJ=PiWfihffVt">
+      <block type="controls_if" id="aZ/eJwRn+2B?g?#!Rb%#">
         <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
         <value name="IF0">
-          <block type="logic_compare" id="^HM6~adG*H,NCT{Wbjh:">
+          <block type="logic_compare" id="=CPoUAxWy4D?!*TdX_:Q">
             <field name="OP">EQ</field>
             <value name="A">
               <block type="variables_get" id="H7PW59RD?,Kp?xpJN!c.">
@@ -805,7 +805,7 @@ const AppWrapper = observer(() => {
               </block>
             </value>
             <statement name="DO0">
-              <block type="apollo_purchase" id=":Nx^]Pu__xj[_w$h8*VZ">
+              <block type="purchase" id=":Nx^]Pu__xj[_w$h8*VZ">
                 <field name="PURCHASE_LIST">DIGITUNDER</field>
               </block>
             </statement>
@@ -827,7 +827,7 @@ const AppWrapper = observer(() => {
           </block>
         </value>
         <statement name="DO1">
-          <block type="apollo_purchase" id="zOCam5W}Z-j~)}t9XOPF">
+          <block type="purchase" id="zOCam5W}Z-j~)}t9XOPF">
             <field name="PURCHASE_LIST">DIGITUNDER</field>
           </block>
         </statement>
@@ -851,7 +851,7 @@ const AppWrapper = observer(() => {
             <statement name="DO0">
               <block type="timeout" id="6;XYzu@SIXmr7.^#Y)xR">
                 <statement name="TIMEOUTSTACK">
-                  <block type="apollo_purchase" id="BvzdHe]!O+GD=E;c7NS6">
+                  <block type="purchase" id="BvzdHe]!O+GD=E;c7NS6">
                     <field name="PURCHASE_LIST">DIGITUNDER</field>
                   </block>
                 </statement>
@@ -1396,7 +1396,7 @@ const AppWrapper = observer(() => {
       </block>
     </statement>
   </block>
-  <block type="before_purchase" id="#)2V%ZJXxDhH5(.~I)Kw" collapsed="true" deletable="false" x="0" y="934">
+  <block type="before_purchase" id="qLBMt/VnTfMu*^Y(|OWl" x="352" y="1162">
     <statement name="BEFOREPURCHASE_STACK">
       <block type="controls_if" id="F7RrU0xU@vkc^^IgCTxp">
         <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
@@ -1416,12 +1416,12 @@ const AppWrapper = observer(() => {
           </block>
         </value>
         <statement name="DO0">
-          <block type="apollo_purchase" id="qLBMt/VnTfMu*^Y(|OWl">
+          <block type="purchase" id="qLBMt/VnTfMu*^Y(|OWl">
             <field name="PURCHASE_LIST">DIGITODD</field>
           </block>
         </statement>
         <statement name="ELSE">
-          <block type="apollo_purchase" id="U:F.)w|u{oPi5[K:}{j4">
+          <block type="purchase" id="U:F.)w|u{oPi5[K:}{j4">
             <field name="PURCHASE_LIST">DIGITEVEN</field>
           </block>
         </statement>
@@ -1662,22 +1662,22 @@ const AppWrapper = observer(() => {
             setTimeout(async () => {
                 try {
                     console.log("Attempting to access workspace...");
-                    
+
                     // Try multiple ways to get the workspace
                     let workspace = null;
-                    
+
                     // Method 1: Try derivWorkspace
                     if (window.Blockly?.derivWorkspace) {
                         workspace = window.Blockly.derivWorkspace;
                         console.log("Found derivWorkspace");
                     }
-                    
+
                     // Method 2: Try getMainWorkspace
                     if (!workspace && window.Blockly?.getMainWorkspace) {
                         workspace = window.Blockly.getMainWorkspace();
                         console.log("Found workspace via getMainWorkspace");
                     }
-                    
+
                     // Method 3: Try accessing workspace from global
                     if (!workspace && window.Blockly?.Workspace) {
                         workspace = window.Blockly.Workspace.getAll()?.[0];
@@ -1690,15 +1690,15 @@ const AppWrapper = observer(() => {
                         // COMPLETE WORKSPACE RESET
                         try {
                             console.log("Step 1: Clearing workspace completely...");
-                            
+
                             // Disable events during clearing to prevent issues
                             const eventsEnabled = workspace.recordUndo;
                             workspace.recordUndo = false;
-                            
+
                             // Force clear all blocks manually first
                             const allBlocks = workspace.getAllBlocks?.(false) || [];
                             console.log(`Found ${allBlocks.length} blocks to clear`);
-                            
+
                             allBlocks.forEach((block, index) => {
                                 try {
                                     console.log(`Disposing block ${index + 1}/${allBlocks.length}: ${block.type}`);
@@ -1744,7 +1744,7 @@ const AppWrapper = observer(() => {
                             if (workspace.render) {
                                 workspace.render();
                             }
-                            
+
                             await new Promise(resolve => setTimeout(resolve, 300));
 
                             // Verify workspace is actually empty
@@ -1763,7 +1763,7 @@ const AppWrapper = observer(() => {
                         }
 
                         console.log("Step 2: Parsing XML content for", bot.title);
-                        
+
                         // Parse and validate XML with specific content for this bot
                         const parser = new DOMParser();
                         const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
@@ -1790,7 +1790,7 @@ const AppWrapper = observer(() => {
                         try {
                             // Disable events during loading
                             workspace.recordUndo = false;
-                            
+
                             // Try the most comprehensive loading method first
                             if (window.Blockly?.Xml?.domToWorkspace) {
                                 console.log("Using domToWorkspace method for", bot.title);
@@ -1809,7 +1809,7 @@ const AppWrapper = observer(() => {
 
                             // Post-load cleanup and setup
                             console.log("Step 4: Post-load setup for", bot.title);
-                            
+
                             // Set new unique strategy ID for this specific bot
                             const newStrategyId = `${bot.title}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                             workspace.current_strategy_id = newStrategyId;
@@ -1842,7 +1842,7 @@ const AppWrapper = observer(() => {
                             // Final verification
                             const loadedBlocks = workspace.getAllBlocks?.(false) || [];
                             console.log(`=== SUCCESS: ${bot.title} loaded with ${loadedBlocks.length} blocks ===`);
-                            
+
                             // Log some block types for verification
                             if (loadedBlocks.length > 0) {
                                 console.log("Loaded blocks:");
