@@ -722,17 +722,7 @@ export default class RunPanelStore {
     };
 
     preloadAudio = () => {
-        const strategy_sounds = this.dbot.getStrategySounds() as string[];
-
-        strategy_sounds.forEach((sound: string) => {
-            const audioElement = document.getElementById(sound) as HTMLAudioElement | null;
-            if (!audioElement) return;
-            audioElement.muted = true;
-            audioElement.play().catch(() => {
-                // suppressing abort error, thrown on immediate .pause()
-            });
-            audioElement.pause();
-            audioElement.muted = false;
-        });
+        // Audio completely disabled - no sound preloading or playback
+        return;
     };
 }

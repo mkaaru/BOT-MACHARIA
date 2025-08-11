@@ -12,7 +12,7 @@ export default Engine =>
     class Purchase extends Engine {
         constructor(...args) {
             super(...args);
-            
+
             console.log('🟦 PURCHASE ENGINE: Initialized - Using XML-based martingale strategies');
         }
 
