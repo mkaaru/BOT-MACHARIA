@@ -1,7 +1,7 @@
 import { List, Map } from 'immutable';
 /**
 Below are the list of events we can register to listen to :
- 
+
 -bot.running : Emitted in trade/index.js, in old Binary Bot this is only used
 to set the label to is running.
 
@@ -39,9 +39,10 @@ latest values for contract, not required atm by DerivBot
 
  */
 
-export default class Observer {
+class Observer {
     constructor() {
         this.eam = new Map(); // event action map
+        this.state = {};
     }
 
     register(event, _action, once, unregisterIfError, unregisterAllBefore) {
@@ -100,48 +101,28 @@ export default class Observer {
             this.eam.get(event).forEach(action => action.action(data));
         }
     }
+
     setState(state = {}) {
         this.state = { ...this.state, ...state };
     }
+
     getState(key) {
         return this.state?.[key];
     }
-}
 
-export const observer = new Observer();
-// Observer utility for handling events
-class Observer {
-    constructor() {
-        this.events = {};
-    }
-
-    on(event, callback) {
-        if (!this.events[event]) {
-            this.events[event] = [];
+    runGroupedEvents(fn, key) {
+        if (typeof fn === 'function') {
+            fn();
         }
-        this.events[event].push(callback);
-    }
-
-    off(event, callback) {
-        if (this.events[event]) {
-            this.events[event] = this.events[event].filter(cb => cb !== callback);
-        }
-    }
-
-    emit(event, data) {
-        if (this.events[event]) {
-            this.events[event].forEach(callback => callback(data));
-        }
-    }
-
-    runGroupedEvents(events) {
-        events.forEach(({ event, data }) => {
-            this.emit(event, data);
-        });
     }
 }
 
 const observer = new Observer();
 
 export default observer;
-export const runGroupedEvents = observer.runGroupedEvents.bind(observer);
+export const runGroupedEvents = (shouldGroup, fn, key) => {
+    if (typeof fn === 'function') {
+        fn();
+    }
+};
+export { observer };

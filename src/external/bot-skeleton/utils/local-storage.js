@@ -124,4 +124,3 @@ const localStorageUtils = {
 };
 
 export default localStorageUtils;
-export const getSavedWorkspaces = localStorageUtils.getSavedWorkspaces;
