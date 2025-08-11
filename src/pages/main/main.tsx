@@ -160,7 +160,7 @@ const AppWrapper = observer(() => {
                 } else {
                     console.warn("⚠️ Trading engine workspace not yet available");
                 }
-                
+
                 // Check if bot interpreter is available
                 if (window.dbot?.interpreter) {
                     console.log("🎯 Bot interpreter ready for trade execution");
@@ -340,18 +340,21 @@ const AppWrapper = observer(() => {
         return true; // Allow attempt to load even if validation is uncertain
     };
 
+    const fixCommonXmlIssues = (xmlContent: string): string => {
+        // Example fix: Add missing xmlns attribute if root is <xml>
+        let modifiedXml = xmlContent;
+        if (modifiedXml.trim().startsWith('<xml') && !modifiedXml.includes('xmlns=')) {
+            modifiedXml = modifiedXml.replace('<xml', '<xml xmlns="https://developers.google.com/blockly/xml"');
+        }
+        // Add more common fixes as needed
+        return modifiedXml;
+    };
+
     const runBot = (xmlContent: string) => {
         // Load the strategy into the bot builder
         updateWorkspaceName(xmlContent);
         console.log('Running bot with content:', xmlContent);
     };
-
-    const handleTabChange = React.useCallback(
-        (tab_index: number) => {
-            setActiveTab(tab_index);
-        },
-        [setActiveTab]
-    );
 
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
         try {
@@ -404,77 +407,145 @@ const AppWrapper = observer(() => {
             console.log("XML Content length:", xmlContent?.length);
             console.log("XML Content preview:", xmlContent?.substring(0, 200));
 
-            // Basic XML validation - more lenient for better compatibility
+            // Validate and clean XML content
             if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
                 console.error("Invalid XML format: File must start with <xml or <?xml");
                 return;
             }
 
+            // Clean and validate XML content
+            let cleanedXmlContent = xmlContent.trim();
+
+            // Remove any BOM or invalid characters at the beginning
+            cleanedXmlContent = cleanedXmlContent.replace(/^\uFEFF/, ''); // Remove BOM
+            cleanedXmlContent = cleanedXmlContent.replace(/^[^\<]*/, ''); // Remove any non-XML content before first tag
+
+            // Ensure XML is well-formed
+            try {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(cleanedXmlContent, 'application/xml');
+                const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
+
+                if (parseError) {
+                    console.error("XML parsing error:", parseError.textContent);
+                    // Try to fix common XML issues
+                    cleanedXmlContent = fixCommonXmlIssues(cleanedXmlContent);
+
+                    // Re-validate after fixes
+                    const retestDoc = parser.parseFromString(cleanedXmlContent, 'application/xml');
+                    const retestError = retestDoc.getElementsByTagName('parsererror')[0];
+                    if (retestError) {
+                        console.error("Unable to fix XML errors. File may be corrupted.");
+                        return;
+                    }
+                }
+
+                // Ensure the root element is 'xml' and has required attributes
+                const rootElement = xmlDoc.documentElement;
+                if (rootElement.tagName !== 'xml') {
+                    console.error("Invalid XML: Root element must be 'xml'");
+                    return;
+                }
+
+                // Add missing attributes if necessary
+                if (!rootElement.hasAttribute('xmlns')) {
+                    rootElement.setAttribute('xmlns', 'https://developers.google.com/blockly/xml');
+                }
+                if (!rootElement.hasAttribute('is_dbot')) {
+                    rootElement.setAttribute('is_dbot', 'true');
+                }
+
+                // Serialize the cleaned XML
+                const serializer = new XMLSerializer();
+                cleanedXmlContent = serializer.serializeToString(xmlDoc);
+
+            } catch (parseError) {
+                console.error("Failed to parse or clean XML:", parseError);
+                return;
+            }
+
             // Use the load function from bot-skeleton which properly handles XML loading
             const { load, save_types } = await import('@/external/bot-skeleton');
-            
+
             try {
                 console.log(`🚀 Loading bot: ${bot.title || bot.filePath}`);
-                
+
+                // Ensure workspace is available
+                if (!window.Blockly?.derivWorkspace) {
+                    console.warn("Blockly workspace not available, waiting...");
+                    // Wait a bit for workspace to initialize
+                    await new Promise(resolve => setTimeout(resolve, 500));
+
+                    if (!window.Blockly?.derivWorkspace) {
+                        console.error("Blockly workspace still not available");
+                        return;
+                    }
+                }
+
                 // Load the XML content into the workspace using the built-in trading engine
                 await load({
-                    block_string: xmlContent,
+                    block_string: cleanedXmlContent,
                     file_name: bot.title || bot.filePath.replace('.xml', ''),
-                    workspace: window.Blockly?.derivWorkspace,
+                    workspace: window.Blockly.derivWorkspace,
                     from: save_types.LOCAL,
                     drop_event: null,
                     strategy_id: null,
                     showIncompatibleStrategyDialog: false,
                 });
-                
+
                 console.log("✅ Bot loaded successfully into trading engine!");
-                
+
                 // Switch to bot builder tab after successful load
                 setActiveTab(DBOT_TABS.BOT_BUILDER);
-                
+
                 // Update workspace name for the trading engine
                 if (typeof updateWorkspaceName === 'function') {
-                    updateWorkspaceName(xmlContent);
+                    updateWorkspaceName(cleanedXmlContent);
                 }
-                
+
                 // Initialize trading engine components if available
-                if (window.Blockly?.derivWorkspace) {
-                    const workspace = window.Blockly.derivWorkspace;
-                    
-                    // Check if the loaded strategy has trading blocks
-                    const tradeBlocks = workspace.getBlocksByType('trade_definition');
-                    if (tradeBlocks.length > 0) {
-                        console.log("🎯 Trading strategy detected - ready for execution");
-                        
-                        // Optional: Auto-configure trading engine parameters
-                        try {
-                            const tradeBlock = tradeBlocks[0];
-                            console.log("📋 Trade configuration loaded from XML blocks");
-                        } catch (configError) {
-                            console.warn("⚠️ Could not auto-configure trading parameters:", configError);
+                const workspace = window.Blockly.derivWorkspace;
+
+                // Check if the loaded strategy has trading blocks
+                setTimeout(() => {
+                    try {
+                        const tradeBlocks = workspace.getBlocksByType('trade_definition');
+                        if (tradeBlocks.length > 0) {
+                            console.log("🎯 Trading strategy detected - ready for execution");
+                            console.log(`📋 Found ${tradeBlocks.length} trade definition blocks`);
+                        } else {
+                            console.log("📋 No trade definition blocks found, checking for other block types...");
+                            const allBlocks = workspace.getAllBlocks();
+                            console.log(`📋 Total blocks loaded: ${allBlocks.length}`);
                         }
+
+                        // Ensure the trading engine is ready
+                        if (window.dbot && window.dbot.interpreter) {
+                            console.log("🔧 Trading engine interpreter ready");
+                        }
+                    } catch (blockError) {
+                        console.warn("⚠️ Could not analyze loaded blocks:", blockError);
                     }
-                    
-                    // Ensure the trading engine is ready
-                    if (window.dbot && window.dbot.interpreter) {
-                        console.log("🔧 Trading engine interpreter ready");
-                    }
-                }
-                
+                }, 1000);
+
             } catch (loadError) {
                 console.error("❌ Error loading bot into trading engine:", loadError);
-                
-                // More detailed error handling
-                if (loadError.message && loadError.message.includes('Invalid XML')) {
-                    console.error("XML parsing failed - file may be corrupted or incomplete");
+
+                // Provide user-friendly error messages
+                if (loadError.message && loadError.message.includes('XML file contains unsupported elements')) {
+                    console.error("❌ XML contains unsupported elements - the bot may use blocks not supported in this version");
+                    alert("This bot uses features not supported in the current version. Please try a different bot or update to the latest version.");
+                } else if (loadError.message && loadError.message.includes('Invalid XML')) {
+                    console.error("❌ XML parsing failed - file may be corrupted or incomplete");
+                    alert("The bot file appears to be corrupted or incomplete. Please try re-uploading the file.");
                 } else if (loadError.message && loadError.message.includes('workspace')) {
-                    console.error("Workspace not ready - retrying...");
-                    
+                    console.error("❌ Workspace not ready - retrying...");
+
                     // Retry after workspace initialization
                     setTimeout(async () => {
                         try {
                             await load({
-                                block_string: xmlContent,
+                                block_string: cleanedXmlContent,
                                 file_name: bot.title || bot.filePath.replace('.xml', ''),
                                 workspace: window.Blockly?.derivWorkspace,
                                 from: save_types.LOCAL,
@@ -486,10 +557,12 @@ const AppWrapper = observer(() => {
                             setActiveTab(DBOT_TABS.BOT_BUILDER);
                         } catch (retryError) {
                             console.error("❌ Failed to load bot on retry:", retryError);
+                            alert("Failed to load the bot. Please try again or contact support.");
                         }
-                    }, 1000);
+                    }, 2000);
                 } else {
-                    console.error("Unknown loading error:", loadError);
+                    console.error("❌ Unknown loading error:", loadError);
+                    alert("An unknown error occurred while loading the bot. Please try again.");
                 }
             }
 
