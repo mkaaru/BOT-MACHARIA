@@ -71,6 +71,7 @@ export const getDefaultAppIdAndUrl = () => {
 export const getAppId = () => {
     const app_id = '75771'; // Force consistent app ID
     window.localStorage.setItem('config.app_id', app_id);
+    console.log("🔍 [config.ts] Using App ID:", app_id);
     return app_id;
 };
 
@@ -78,10 +79,6 @@ export const clearAuthConfig = () => {
     // Clear any cached auth configs that might interfere
     window.localStorage.removeItem('config.app_id');
     window.localStorage.removeItem('config.server_url');
-    }
-
-    console.log("🔍 [config.ts] Using App ID:", app_id);
-    return app_id;
 };
 
 export const getSocketURL = () => window.localStorage.getItem('config.server_url') ?? getDefaultServerURL();
