@@ -543,7 +543,7 @@ const AppWrapper = observer(() => {
     const symbolMap = {
       // Forward mapping
       'R_10': '1HZ10V',
-      'R_25': '1HZ25V',
+      'R_25': '1HZ25V', 
       'R_50': '1HZ50V',
       'R_75': '1HZ75V',
       'R_100': '1HZ100V',
@@ -1216,65 +1216,6 @@ if __name__ == "__main__":
       }
     }, [selectedIndex, isConnected, websocket, tickHistory])
 
-    const botMetadata = {
-                        'Upgraded Candlemine.xml': {
-                            title: 'Upgraded CandleMine',
-                            description: 'Advanced candle analysis bot with improved accuracy'
-                        },
-                        'Super Elite.xml': {
-                            title: 'Super Elite',
-                            description: 'Smart trading bot with advanced volatility analysis'
-                        },
-                        'Super Speed Bot.xml': {
-                            title: 'Super Speed Bot',
-                            description: 'High-frequency trading bot optimized for speed'
-                        },
-                        'Envy-differ.xml': {
-                            title: 'Envy Differ',
-                            description: 'Difference-based trading strategy bot'
-                        },
-                        'H_L auto vault.xml': {
-                            title: 'H_L Auto Vault',
-                            description: 'High-Low automated trading vault system'
-                        },
-                        'Top-notch 2.xml': {
-                            title: 'Top-notch 2',
-                            description: 'Premium trading bot with enhanced features'
-                        },
-                        '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1.xml': {
-                            title: '2025 Expert Speed Bot',
-                            description: 'Latest expert speed trading bot for 2025'
-                        },
-                        '3 2025 Updated Version Of Candle Mine🇬🇧.xml': {
-                            title: '2025 CandleMine UK',
-                            description: '2025 updated version of CandleMine for UK markets'
-                        },
-                        'Accumulators Pro Bot.xml': {
-                            title: 'Accumulators Pro Bot',
-                            description: 'Professional accumulator trading strategy'
-                        },
-                        'AUTO C4 PRO (2) Version.xml': {
-                            title: 'AUTO C4 PRO v2',
-                            description: 'Advanced C4 automated trading system'
-                        },
-                        '2025 Killer version Bot🤑.xml': {
-                            title: '2025 Killer Bot',
-                            description: 'High-profit potential trading bot for 2025'
-                        },
-                        'Alpha Version 2025.xml': {
-                            title: 'Alpha Version 2025',
-                            description: 'Alpha release trading bot with cutting-edge features'
-                        },
-                        '1 Original DollarPrinterBot 2025 Version.xml': {
-                            title: 'DollarPrinter Bot 2025',
-                            description: 'Original dollar printing bot updated for 2025'
-                        }
-                    };
-
-    const getBotInfo = (filePath) => {
-        return botMetadata[filePath] || { title: filePath.replace('.xml', ''), description: '' };
-    };
-
 
     const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
 
@@ -1288,41 +1229,38 @@ if __name__ == "__main__":
                                 <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
                                 <div className='free-bots__content-wrapper'>
                                     <div className='free-bots__content'>
-                                        {bots.map((bot, index) => {
-                                            const botInfo = getBotInfo(bot.filePath);
-                                            return (
-                                                <div
-                                                    className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
-                                                    key={index}
-                                                    onClick={() => {
-                                                        handleBotClick(bot);
-                                                    }}
-                                                    style={{
-                                                        cursor: 'pointer',
-                                                        opacity: bot.isPlaceholder ? 0.7 : 1
-                                                    }}
-                                                >
-                                                    <div className='free-bot-card__icon'>
-                                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="#1976D2">
-                                                            <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
-                                                            <rect x="6" y="10" width="12" height="8" rx="2" fill="#1976D2"/>
-                                                            <circle cx="9" cy="13" r="1.5" fill="white"/>
-                                                            <circle cx="15" cy="13" r="1.5" fill="white"/>
-                                                            <rect x="10" y="15" width="4" height="1" rx="0.5" fill="white"/>
-                                                            <rect x="4" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
-                                                            <rect x="18" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
-                                                        </svg>
-                                                    </div>
-                                                    <div className='free-bot-card__details'>
-                                                        <h3 className='free-bot-card__title'>{botInfo.title}</h3>
-                                                        <p className='free-bot-card__description'>{botInfo.description}</p>
-                                                        <p className='free-bot-card__action'>
-                                                            {bot.isPlaceholder ? 'Loading bot...' : 'Click to load this bot'}
-                                                        </p>
-                                                    </div>
+                                        {bots.map((bot, index) => (
+                                            <div 
+                                                className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
+                                                key={index} 
+                                                onClick={() => {
+                                                    handleBotClick(bot);
+                                                }}
+                                                style={{
+                                                    cursor: 'pointer',
+                                                    opacity: bot.isPlaceholder ? 0.7 : 1
+                                                }}
+                                            >
+                                                <div className='free-bot-card__icon'>
+                                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="#1976D2">
+                                                        <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
+                                                        <rect x="6" y="10" width="12" height="8" rx="2" fill="#1976D2"/>
+                                                        <circle cx="9" cy="13" r="1.5" fill="white"/>
+                                                        <circle cx="15" cy="13" r="1.5" fill="white"/>
+                                                        <rect x="10" y="15" width="4" height="1" rx="0.5" fill="white"/>
+                                                        <rect x="4" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
+                                                        <rect x="18" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
+                                                    </svg>
                                                 </div>
-                                            );
-                                        })}
+                                                <div className='free-bot-card__details'>
+                                                    <h3 className='free-bot-card__title'>{bot.title}</h3>
+                                                    <p className='free-bot-card__description'>{bot.description}</p>
+                                                    <p className='free-bot-card__action'>
+                                                        {bot.isPlaceholder ? 'Loading bot...' : 'Click to load this bot'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
@@ -1339,13 +1277,13 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <iframe
+                                <iframe 
                                     src="https://tracktool.netlify.app/signals.html"
                                     width="100%"
                                     height="100%"
-                                    style={{
-                                        border: 'none',
-                                        display: 'block',
+                                    style={{ 
+                                        border: 'none', 
+                                        display: 'block', 
                                         minHeight: '600px',
                                         height: 'calc(100vh - 200px)'
                                     }}
@@ -1359,7 +1297,7 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <Tabs
+                                <Tabs 
                                     className="analysis-tool-tabs"
                                     active_tab_icon_color="var(--brand-secondary)"
                                     background_color="var(--general-main-1)"
