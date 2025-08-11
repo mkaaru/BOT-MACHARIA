@@ -24,7 +24,7 @@ export const domain_app_ids = {
     'dbot.deriv.com': APP_IDS.PRODUCTION,
     'dbot.deriv.be': APP_IDS.PRODUCTION_BE,
     'dbot.deriv.me': APP_IDS.PRODUCTION_ME,
-    'bot.derivlite.com': APP_IDS.LIVE, // ✅ Added support for your domain
+    'www.tradecortex.site': APP_IDS.LIVE,
 };
 
 export const getCurrentProductionDomain = () =>
@@ -71,9 +71,9 @@ export const getDefaultAppIdAndUrl = () => {
 export const getAppId = () => {
     let app_id = window.localStorage.getItem('config.app_id');
 
-    if (!app_id || app_id === '69811' || app_id === '75771') {
+    if (!app_id || app_id !== '75771') {
         console.warn("⚠️ App ID is invalid, forcing correct App ID...");
-        app_id = '75771'; // ✅ Corrected App ID for your domain
+        app_id = '75771'; // ✅ Only allow App ID 75771
         window.localStorage.setItem('config.app_id', app_id);
     }
 
