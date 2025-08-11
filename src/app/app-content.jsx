@@ -180,7 +180,9 @@ const AppContent = observer(() => {
 
 
     console.log('App-content render check:', { forceShowApp, is_loading, 'client.is_logged_in': client.is_logged_in });
-    
+
+    // The splash screen is now unconditionally rendered if forceShowApp is false.
+    // If the intention is to remove it entirely, the condition below needs to be removed or modified.
     if (!forceShowApp) {
         console.log('Showing splash screen');
         return (
