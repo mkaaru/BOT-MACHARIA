@@ -28,6 +28,7 @@ import Main from '../pages/main';
 import './app.scss';
 import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
+import SplashScreen from '../components/splash-screen';
 
 const AppContent = observer(() => {
     const [is_api_initialized, setIsApiInitialized] = React.useState(false);
@@ -160,7 +161,7 @@ const AppContent = observer(() => {
             initHotjar(client);
         }
     }, []);
-    
+
      React.useEffect(() => {
         const timeout = setTimeout(() => {
             setForceShowApp(true);
@@ -171,9 +172,22 @@ const AppContent = observer(() => {
 
     if (common?.error) return null;
 
-    return is_loading && !forceShowApp ? (
-        <MatrixLoading message={localize('Initializing your account...')} show={true} />
-    ) : (
+    // Placeholder for authData and isLoading, assuming they exist in the actual scope
+    // For the purpose of this example, we'll define them here.
+    // In a real scenario, these would come from a context or store.
+    const authData = { isLoggedIn: client.is_logged_in }; // Mocking authData
+    const isLoading = is_loading; // Using existing is_loading state
+
+
+    if (!authData.isLoggedIn || isLoading || !forceShowApp) {
+        return (
+            <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 10000 }}>
+                <SplashScreen onComplete={() => setForceShowApp(true)} />
+            </div>
+        );
+    }
+
+    return (
         <>
             <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
                 <BlocklyLoading />

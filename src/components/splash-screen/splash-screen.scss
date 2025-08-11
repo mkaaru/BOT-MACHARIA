@@ -466,19 +466,19 @@
 }
 
 .splash-screen.terminal-style {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: #000000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
-    overflow: hidden;
-    color: #00ff00;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: #000000 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 10000 !important;
+    font-family: 'Courier New', 'Monaco', 'Menlo', monospace !important;
+    overflow: hidden !important;
+    color: #00ff00 !important;
 }
 
 .matrix-background {

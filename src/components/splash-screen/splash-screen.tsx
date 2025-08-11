@@ -13,12 +13,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
     const [matrixChars, setMatrixChars] = useState<string[]>([]);
 
     const messages = [
+        '> Connecting to trading servers...',
+        '> Loading market data streams...',
+        '> Initializing trading algorithms...',
         '> Analyzing market conditions...',
-        '> Processing real-time data streams...',
-        '> Calculating volatility patterns...',
-        '> Scanning price movements...',
-        '> Identifying trading opportunities...',
-        '> Market analysis complete - Ready to trade!'
+        '> Preparing trading interface...',
+        '> System ready - Welcome to TradeCortex!'
     ];
 
     // Generate random matrix characters
@@ -77,7 +77,15 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
     }, [onComplete]);
 
     return (
-        <div className="splash-screen terminal-style">
+        <div className="splash-screen terminal-style" style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            width: '100vw', 
+            height: '100vh', 
+            zIndex: 10000,
+            background: '#000000'
+        }}>
             <div className="matrix-background">
                 {matrixChars.map((char, index) => (
                     <span 
