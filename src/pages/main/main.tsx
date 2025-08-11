@@ -302,7 +302,6 @@ const AppWrapper = observer(() => {
     );
 
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
-        setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
             console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
 
@@ -341,13 +340,11 @@ const AppWrapper = observer(() => {
                     }
                 } catch (fetchError) {
                     console.error("Failed to load bot content:", fetchError);
-                    // Removed alert message
                     return;
                 }
             }
 
             if (!xmlContent || xmlContent.trim().length === 0) {
-                //Removed alert message
                 return;
             }
 
@@ -356,34 +353,41 @@ const AppWrapper = observer(() => {
 
             // Validate XML content
             if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
-                //Removed alert message
                 return;
             }
 
-            if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
-                try {
-                    await load_modal.loadFileFromContent(xmlContent);
-                    console.log("Bot loaded successfully!");
-
-                    // Also update workspace name
-                    if (typeof updateWorkspaceName === 'function') {
-                        updateWorkspaceName(xmlContent);
-                    }
-                } catch (loadError) {
-                    console.error("Error in load_modal.loadFileFromContent:", loadError);
-                    //Removed alert message
+            // Use the load function from bot-skeleton which properly handles XML loading
+            const { load, save_types } = await import('@/external/bot-skeleton');
+            
+            try {
+                await load({
+                    block_string: xmlContent,
+                    file_name: bot.title || bot.filePath.replace('.xml', ''),
+                    workspace: window.Blockly?.derivWorkspace,
+                    from: save_types.LOCAL,
+                    drop_event: null,
+                    strategy_id: null,
+                    showIncompatibleStrategyDialog: false,
+                });
+                
+                console.log("Bot loaded successfully!");
+                
+                // Switch to bot builder tab after successful load
+                setActiveTab(DBOT_TABS.BOT_BUILDER);
+                
+                // Update workspace name
+                if (typeof updateWorkspaceName === 'function') {
+                    updateWorkspaceName(xmlContent);
                 }
-            } else {
-                console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
-                console.log("load_modal object:", load_modal);
-                //Removed alert message
+                
+            } catch (loadError) {
+                console.error("Error loading bot into workspace:", loadError);
             }
 
         } catch (error) {
             console.error("Error loading bot:", error);
-             //Removed alert message
         }
-    }, [setActiveTab, load_modal]);
+    }, [setActiveTab]);
 
     const handleOpen = useCallback(async () => {
         await load_modal.loadFileFromRecent();

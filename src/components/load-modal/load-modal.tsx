@@ -39,26 +39,7 @@ const LoadModal: React.FC = observer((): JSX.Element => {
         });
     };
 
-    // Ensure loadFileFromContent is defined on load_modal
-    load_modal.loadFileFromContent = async (xmlContent: string) => {
-        try {
-            console.log('Loading XML content:', xmlContent);
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
-            // Define the loadParsedXML method
-            load_modal.loadParsedXML = (xmlDoc: Document) => {
-                // Clear the existing workspace
-                const workspace = Blockly.getMainWorkspace();
-                workspace.clear();
-                // Load the parsed XML into the bot builder
-                Blockly.Xml.domToWorkspace(xmlDoc.documentElement, workspace);
-                console.log('Parsed XML loaded into workspace');
-            };
-            load_modal.loadParsedXML(xmlDoc);
-        } catch (error) {
-            console.error('Error loading XML content:', error);
-        }
-    };
+    
 
     if (!isDesktop) {
         return (
