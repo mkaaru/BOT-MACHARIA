@@ -11,26 +11,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
     const [progress, setProgress] = useState(0);
     const [currentMessage, setCurrentMessage] = useState('');
     const [displayedText, setDisplayedText] = useState('');
-    const [matrixChars, setMatrixChars] = useState<string[]>([]);
 
     const messages = [
-        '> Connecting to trading servers...',
-        '> Loading market data streams...',
-        '> Initializing trading algorithms...',
-        '> Analyzing market conditions...',
-        '> Preparing trading interface...',
-        '> System ready - Welcome to TradeCortex!'
+        'Initializing TradeCortex...',
+        'Loading trading interface...',
+        'Connecting to markets...',
+        'System ready!'
     ];
-
-    // Generate random matrix characters
-    useEffect(() => {
-        const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
-        const matrix: string[] = [];
-        for (let i = 0; i < 2000; i++) {
-            matrix.push(chars.charAt(Math.floor(Math.random() * chars.length)));
-        }
-        setMatrixChars(matrix);
-    }, []);
 
     useEffect(() => {
         let messageIndex = 0;
@@ -61,6 +48,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
             typeMessage();
         }, 500);
 
+        // Progress completes in 10 seconds (100 updates every 100ms = 10 seconds)
         const progressInterval = setInterval(() => {
             setProgress(prev => {
                 if (prev >= 100) {
@@ -78,91 +66,94 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
     }, [onComplete]);
 
     return (
-        <div className="splash-screen terminal-style" style={{ 
+        <div className="splash-screen" style={{ 
             position: 'fixed', 
             top: 0, 
             left: 0, 
             width: '100vw', 
             height: '100vh', 
             zIndex: 10000,
-            background: '#000000'
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            fontFamily: 'Arial, sans-serif'
         }}>
-            <div className="matrix-background">
-                {matrixChars.map((char, index) => (
-                    <span 
-                        key={index} 
-                        className="matrix-char" 
-                        style={{
-                            left: `${(index % 40) * 2.5}%`,
-                            top: `${Math.floor(index / 40) * 20}px`,
-                            animationDelay: `${Math.random() * 3}s`
-                        }}
-                    >
-                        {char}
-                    </span>
-                ))}
+            <div style={{
+                textAlign: 'center',
+                maxWidth: '400px',
+                padding: '40px'
+            }}>
+                <div style={{
+                    fontSize: '48px',
+                    fontWeight: 'bold',
+                    marginBottom: '20px'
+                }}>
+                    TradeCortex
+                </div>
+                
+                <div style={{
+                    fontSize: '16px',
+                    marginBottom: '40px',
+                    opacity: 0.9
+                }}>
+                    Advanced Trading Intelligence System
+                </div>
+                
+                <div style={{
+                    fontSize: '14px',
+                    marginBottom: '30px',
+                    minHeight: '20px'
+                }}>
+                    {displayedText}
+                    <span style={{
+                        opacity: progress < 100 ? 1 : 0,
+                        animation: 'blink 1s infinite'
+                    }}>|</span>
+                </div>
+                
+                <div style={{
+                    width: '100%',
+                    height: '4px',
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    borderRadius: '2px',
+                    overflow: 'hidden',
+                    marginBottom: '20px'
+                }}>
+                    <div style={{
+                        width: `${progress}%`,
+                        height: '100%',
+                        backgroundColor: '#4CAF50',
+                        transition: 'width 0.1s ease',
+                        borderRadius: '2px'
+                    }}></div>
+                </div>
+                
+                <div style={{
+                    fontSize: '12px',
+                    opacity: 0.8
+                }}>
+                    {Math.round(progress)}% Complete
+                </div>
+                
+                <div style={{
+                    fontSize: '10px',
+                    marginTop: '40px',
+                    opacity: 0.7
+                }}>
+                    © 2025 TradeCortex - Secure Trading Platform
+                </div>
             </div>
             
-            <div className="terminal-container">
-                <div className="terminal-header">
-                    <div className="terminal-title">TradeCortex AI</div>
-                    <div className="terminal-subtitle">Advanced Trading Intelligence System</div>
-                </div>
-                
-                <div className="terminal-content">
-                    <div className="boot-sequence">
-                        <div className="boot-line">
-                            <span className="prompt">$</span> 
-                            <span className="command">initialize_trading_system.sh</span>
-                        </div>
-                        <div className="boot-line">
-                            <span className="status-text">System initialization started...</span>
-                        </div>
-                        <div className="boot-line">
-                            <span className="status-text">Loading core modules: [OK]</span>
-                        </div>
-                        <div className="boot-line">
-                            <span className="status-text">Establishing market connection: [OK]</span>
-                        </div>
-                    </div>
-                    
-                    <div className="current-status">
-                        <div className="status-line">
-                            <span className="status-indicator">►</span>
-                            <span className="typing-text">{displayedText}</span>
-                            <span className="cursor">_</span>
-                        </div>
-                    </div>
-                    
-                    <div className="progress-section">
-                        <div className="progress-bar">
-                            <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-                        </div>
-                        <div className="progress-text">
-                            Loading... {Math.round(progress)}%
-                        </div>
-                    </div>
-                    
-                    <div className="system-info">
-                        <div className="info-line">
-                            <span className="label">Version:</span>
-                            <span className="value">2.1.0-BETA</span>
-                        </div>
-                        <div className="info-line">
-                            <span className="label">Build:</span>
-                            <span className="value">TC-{new Date().getFullYear()}.{String(new Date().getMonth() + 1).padStart(2, '0')}</span>
-                        </div>
-                        <div className="info-line">
-                            <span className="label">Status:</span>
-                            <span className="value success">ONLINE</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div className="terminal-footer">
-                    <div className="copyright">© 2025 TradeCortex - Secure Trading Platform</div>
-                </div>
-            </div>
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                    @keyframes blink {
+                        0%, 50% { opacity: 1; }
+                        51%, 100% { opacity: 0; }
+                    }
+                `
+            }} />
         </div>
     );
 };
