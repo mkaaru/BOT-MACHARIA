@@ -23,8 +23,6 @@ import { BrandDerivLogoCoralIcon } from '@deriv/quill-icons/Logo';
 import { useTranslations } from '@deriv-com/translations';
 import { ToggleSwitch } from '@deriv-com/ui';
 import { URLConstants } from '@deriv-com/utils';
-import { useStore } from '@/hooks/useStore';
-import { requestOidcAuthentication } from '@deriv-com/auth-client';
 
 export type TSubmenuSection = 'accountSettings' | 'cashier';
 
@@ -41,31 +39,11 @@ type TMenuConfig = {
     target?: ComponentProps<'a'>['target'];
 }[];
 
-const useMobileMenuConfig = ({ oAuthLogout }: { oAuthLogout: () => Promise<void> }) => {
-    const store = useStore();
-    const { ui, client } = store || {};
+const useMobileMenuConfig = (client?: RootStore['client']) => {
     const { localize } = useTranslations();
-    const { is_logged_in } = ui || {};
-    const { isOAuth2Enabled } = useOauth2({ client });
-
-    // Return empty config if store is not ready
-    if (!store || !client || !ui) {
-        return {
-            config: []
-        };
-    }
-
-    const handleMobileLogin = () => {
-        if (isOAuth2Enabled) {
-            requestOidcAuthentication({
-                redirectCallbackUri: `${window.location.origin}/callback`,
-            });
-        } else {
-            window.location.href = 'https://oauth.deriv.com/oauth2/authorize';
-        }
-    };
-
     const { is_dark_mode_on, toggleTheme } = useThemeSwitcher();
+
+    const { oAuthLogout } = useOauth2({ handleLogout: async () => client?.logout(), client });
 
     const { data } = useRemoteConfig(true);
     const { cs_chat_whatsapp } = data;
@@ -121,15 +99,7 @@ const useMobileMenuConfig = ({ oAuthLogout }: { oAuthLogout: () => Promise<void>
                       removeBorderBottom: true,
                   },
               ]
-            : [
-                  {
-                      as: 'button',
-                      label: localize('Log in'),
-                      LeftComponent: LegacyLogout1pxIcon,
-                      onClick: handleMobileLogin,
-                      removeBorderBottom: true,
-                  },
-              ],
+            : [],
     ];
 
     return {

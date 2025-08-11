@@ -154,18 +154,20 @@ const AppWrapper = observer(() => {
         const fetchBots = async () => {
             const botFiles = [
                 'Upgraded Candlemine.xml',
-                'Super Elite.xml',
-                'Gold Miner_S7.xml',
-                'Super Speed Bot.xml',
+                'Super Elite.xml', // Smart trading as second sub-tab
+                'Super Speed Bot.xml', // Speed bot as third sub-tab
                 'Envy-differ.xml',
                 'H_L auto vault.xml',
                 'Top-notch 2.xml',
+                // New bots added
                 '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1.xml',
                 '3 2025 Updated Version Of Candle Mine🇬🇧.xml',
                 'Accumulators Pro Bot.xml',
+                // Additional new bots
                 'AUTO C4 PRO (2) Version.xml',
                 '2025 Killer version Bot🤑.xml',
-                'Alpha Version 2025.xml'
+                'Alpha Version 2025.xml',
+                '1 Original DollarPrinterBot 2025 Version.xml',
             ];
 
             const loadedBots = [];
@@ -501,9 +503,10 @@ const AppWrapper = observer(() => {
           if (data.msg_type === 'forget_all') {
             console.log('All subscriptions forgotten successfully')
           }
-        } catch (parseError) {
+        } catch (parseError){
           console.error('Error parsing WebSocket message:', parseError)
-          setCurrentPrice('Parse Error')        }
+          setCurrentPrice('Parse Error')
+        }
       }
 
       ws.onclose = (event) => {

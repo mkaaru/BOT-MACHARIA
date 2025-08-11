@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useOauth2 } from '@/hooks/auth/useOauth2';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import './decycler-bot.scss';
@@ -13,23 +12,12 @@ interface DecyclerConfig {
     tick_count: number;
     use_10s_filter: boolean;
     monitor_interval: number;
-    contract_type: 'rise_fall' | 'higher_lower' | 'allow_equals' | 'multipliers';
+    contract_type: 'rise_fall' | 'higher_lower';
     use_trailing_stop: boolean;
     trailing_step: number;
     use_breakeven: boolean;
     breakeven_trigger: number;
     alpha: number;
-    min_risk_reward_ratio: number;
-    max_daily_loss: number;
-    max_consecutive_losses: number;
-    position_sizing_method: 'fixed' | 'percentage' | 'kelly' | 'adaptive';
-    account_balance: number;
-    risk_per_trade: number;
-    trend_strength_threshold: number;
-    // Multipliers specific
-    multiplier: number;
-    deal_cancellation?: '5m' | '10m' | '15m' | '30m' | '60m';
-    use_deal_cancellation: boolean;
 }
 
 interface TrendData {
@@ -67,37 +55,69 @@ interface BotStatus {
 }
 
 const DecyclerBot: React.FC = observer(() => {
-    const [config, setConfig] = useState({
-        api_token: '',
+    // Error boundary state
+    const [hasError, setHasError] = useState(false);
+
+    // Error boundary effect
+    useEffect(() => {
+        const handleError = (error: any) => {
+            console.error('DecyclerBot Error:', error);
+            // Only set error for critical errors, not minor API issues
+            if (error.message && !error.message.includes('API') && !error.message.includes('WebSocket')) {
+                setHasError(true);
+            }
+        };
+
+        window.addEventListener('error', handleError);
+        window.addEventListener('unhandledrejection', handleError);
+
+        return () => {
+            window.removeEventListener('error', handleError);
+            window.removeEventListener('unhandledrejection', handleError);
+        };
+    }, []);
+
+    if (hasError) {
+        return (
+            <div className="decycler-bot-container">
+                <div className="decycler-header">
+                    <h2>🔬 Decycler Multi-Timeframe Trading Bot</h2>
+                    <div className="bot-status stopped">
+                        <span className="status-dot"></span>
+                        ERROR
+                    </div>
+                </div>
+                <div className="error-message" style={{ padding: '20px', textAlign: 'center' }}>
+                    <p>⚠️ An error occurred while loading the Decycler Bot.</p>
+                    <button 
+                        className="control-btn start" 
+                        onClick={() => {
+                            setHasError(false);
+                        }}
+                        style={{ marginTop: '10px', padding: '10px 20px', backgroundColor: '#007cff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                        🔄 Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+    const [config, setConfig] = useState<DecyclerConfig>({
         app_id: 75771,
         symbol: '1HZ100V',
-        stake: 0.35,
-        take_profit: 0.85,
-        stop_loss: -0.35,
+        stake: 1.0,
+        take_profit: 1.5,
+        stop_loss: -1.0,
         tick_count: 5,
         use_10s_filter: true,
         monitor_interval: 10,
-        contract_type: 'allow_equals',
+        contract_type: 'rise_fall',
         use_trailing_stop: true,
         trailing_step: 0.5,
         use_breakeven: true,
         breakeven_trigger: 2.0,
-        alpha: 0.07,
-        min_risk_reward_ratio: 1.5,
-        max_daily_loss: 50,
-        max_consecutive_losses: 3,
-        position_sizing_method: 'fixed',
-        account_balance: 1000,
-        risk_per_trade: 2,
-        trend_strength_threshold: 0.75,
-        // Multipliers specific
-        multiplier: 100,
-        deal_cancellation: '60m',
-        use_deal_cancellation: false
+        alpha: 0.07
     });
-
-    // Check if user is OAuth authenticated
-    const isOAuthEnabled = useOauth2().isOAuth2Enabled;
 
     const [botStatus, setBotStatus] = useState<BotStatus>({
         is_running: false,
@@ -116,7 +136,6 @@ const DecyclerBot: React.FC = observer(() => {
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const monitorRef = useRef<NodeJS.Timeout | null>(null);
     const logsEndRef = useRef<HTMLDivElement>(null);
-    const isRunningRef = useRef<boolean>(false);
     const [isConnected, setIsConnected] = useState(false);
     const [currentPrice, setCurrentPrice] = useState<number | null>(null);
     const [isRunning, setIsRunning] = useState(false);
@@ -126,12 +145,10 @@ const DecyclerBot: React.FC = observer(() => {
         winRate: 0,
         totalPnL: 0
     });
-    const [isAuthorized, setIsAuthorized] = useState(false);
-    const [authToken, setAuthToken] = useState('');
+    
     const [tradingEnabled, setTradingEnabled] = useState(false);
     const [currentContract, setCurrentContract] = useState<any>(null);
     const [tradeHistory, setTradeHistory] = useState<any[]>([]);
-    const [dailyTradeCount, setDailyTradeCount] = useState(0);
 
     const timeframePresets = {
         scalping: ['1m', '2m', '3m', '4m', '5m'],
@@ -205,11 +222,11 @@ const DecyclerBot: React.FC = observer(() => {
     const getDayTicks = useCallback(async (symbol: string): Promise<any[]> => {
         try {
             addLog(`📅 Fetching day's worth of ticks for ${symbol} (86400 seconds)...`);
-
+            
             if (!api_base.api || api_base.api.connection.readyState !== 1) {
                 addLog(`🔄 Initializing API connection...`);
                 await api_base.init();
-
+                
                 let retries = 0;
                 while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
                     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -226,7 +243,7 @@ const DecyclerBot: React.FC = observer(() => {
             };
 
             addLog(`📊 Requesting 86400 ticks for full day analysis...`);
-
+            
             const dayTickResponse = await Promise.race([
                 api_base.api.send(dayTickRequest),
                 new Promise((_, reject) => 
@@ -237,7 +254,7 @@ const DecyclerBot: React.FC = observer(() => {
             if (dayTickResponse?.history?.prices && dayTickResponse?.history?.times) {
                 const prices = dayTickResponse.history.prices.map(p => parseFloat(p)).filter(p => !isNaN(p));
                 const times = dayTickResponse.history.times;
-
+                
                 addLog(`✅ Retrieved ${prices.length} ticks for day analysis`);
                 return prices.map((price, index) => ({
                     price,
@@ -704,453 +721,135 @@ const DecyclerBot: React.FC = observer(() => {
         return trends;
     }, [timeframes, fetchOHLCData, calculateDecycler, getTrend, config.alpha, addLog]);
 
-    // Check trend alignment with momentum and reversal detection
+    // Check trend alignment
     const checkAlignment = useCallback((trends: TrendData[]): 'aligned_bullish' | 'aligned_bearish' | 'mixed' | 'neutral' => {
-        addLog(`🔍 DEBUG: checkAlignment called with ${trends.length} trends`);
-
-        if (trends.length === 0) {
-            addLog(`⚠️ DEBUG: No trends provided, returning 'neutral'`);
-            return 'neutral';
-        }
+        if (trends.length === 0) return 'neutral';
 
         const bullishCount = trends.filter(t => t.trend === 'bullish').length;
         const bearishCount = trends.filter(t => t.trend === 'bearish').length;
         const neutralCount = trends.filter(t => t.trend === 'neutral').length;
 
-        const totalTrends = trends.length;
-        const alignmentThreshold = Math.ceil(totalTrends * 0.8); // Increased to 80% for better quality
-
-        addLog(`📊 DEBUG: Trend counts - Bullish: ${bullishCount}, Bearish: ${bearishCount}, Neutral: ${neutralCount}`);
-        addLog(`📏 DEBUG: Alignment threshold (80%): ${alignmentThreshold}/${totalTrends}`);
-
-        // Check for trend momentum by comparing shorter vs longer timeframe trends
-        const shortTermTrends = trends.slice(0, Math.ceil(trends.length / 2));
-        const longTermTrends = trends.slice(Math.ceil(trends.length / 2));
-
-        const shortBullish = shortTermTrends.filter(t => t.trend === 'bullish').length;
-        const longBullish = longTermTrends.filter(t => t.trend === 'bullish').length;
-
-        // Detect potential reversal - if short term contradicts long term, be cautious
-        const possibleReversal = (shortBullish / shortTermTrends.length) < 0.3 && (longBullish / longTermTrends.length) > 0.7 ||
-                                (shortBullish / shortTermTrends.length) > 0.7 && (longBullish / longTermTrends.length) < 0.3;
-
-        if (possibleReversal) {
-            addLog(`⚠️ DEBUG: Potential trend reversal detected - avoiding trade`);
-            return 'mixed';
-        }
-
-        // Perfect alignment (100%)
-        if (bullishCount === totalTrends) {
-            addLog(`🟢 DEBUG: Perfect bullish alignment (${bullishCount}/${totalTrends})`);
-            return 'aligned_bullish';
-        }
-        if (bearishCount === totalTrends) {
-            addLog(`🔴 DEBUG: Perfect bearish alignment (${bearishCount}/${totalTrends})`);
-            return 'aligned_bearish';
-        }
-
-        // Strong alignment (80% threshold)
-        if (bullishCount > bearishCount && bullishCount >= alignmentThreshold) {
-            addLog(`🟢 DEBUG: Strong bullish alignment (${bullishCount}/${totalTrends} >= ${alignmentThreshold})`);
-            return 'aligned_bullish';
-        }
-        if (bearishCount > bullishCount && bearishCount >= alignmentThreshold) {
-            addLog(`🔴 DEBUG: Strong bearish alignment (${bearishCount}/${totalTrends} >= ${alignmentThreshold})`);
-            return 'aligned_bearish';
-        }
-
-        addLog(`🟡 DEBUG: Mixed alignment - no clear direction`);
+        if (bullishCount === trends.length) return 'aligned_bullish';
+        if (bearishCount === trends.length) return 'aligned_bearish';
+        if (bullishCount > bearishCount && bullishCount >= trends.length * 0.7) return 'aligned_bullish';
+        if (bearishCount > bullishCount && bearishCount >= trends.length * 0.7) return 'aligned_bearish';
         return 'mixed';
-    }, [addLog]);
+    }, []);
 
-        // Enhanced risk management checks
-    const checkRiskManagement = useCallback((): boolean => {
-        addLog(`🔍 Running risk management checks...`);
-
-        // Check max daily loss
-        const dailyLoss = tradeHistory
-            .filter(trade => new Date(trade.timestamp).toDateString() === new Date().toDateString())
-            .reduce((acc, trade) => acc + trade.profit, 0);
-
-        if (dailyLoss < -config.max_daily_loss) {
-            addLog(`❌ Max daily loss exceeded: ${dailyLoss.toFixed(2)} / ${config.max_daily_loss} - Stopping trade`);
-            return false;
-        }
-
-        // Check max consecutive losses
-        const lastTrades = tradeHistory.slice(0, config.max_consecutive_losses);
-        const consecutiveLosses = lastTrades.every(trade => !trade.isWin);
-
-        if (consecutiveLosses && lastTrades.length === config.max_consecutive_losses) {
-            addLog(`❌ Max consecutive losses reached - Stopping trade`);
-            return false;
-        }
-
-        addLog(`✅ Risk checks passed`);
-        return true;
-    }, [tradeHistory, config, addLog]);
-
-    // Validate risk-to-reward ratio
-    const validateRiskReward = useCallback((currentPrice: number, direction: 'UP' | 'DOWN'): boolean => {
-        const potentialReward = config.take_profit;
-        const potentialRisk = Math.abs(config.stop_loss);
-
-        const riskRewardRatio = potentialReward / potentialRisk;
-        addLog(`📊 Validating risk/reward ratio: ${riskRewardRatio.toFixed(2)} (Min: ${config.min_risk_reward_ratio})`);
-
-        return riskRewardRatio >= config.min_risk_reward_ratio;
-    }, [config.take_profit, config.stop_loss, config.min_risk_reward_ratio, addLog]);
-
-    // Dynamic position sizing
-    const calculatePositionSize = useCallback((direction: 'UP' | 'DOWN', trendStrengthScore: number): number => {
-        let optimalStake = config.stake;
-
-        switch (config.position_sizing_method) {
-            case 'percentage': {
-                const calculatedStake = (config.account_balance * (config.risk_per_trade / 100));
-                optimalStake = Math.min(calculatedStake, config.stake * 2);
-                break;
-            }
-            case 'kelly': {
-                const winProbability = 0.6; // Example: can be based on backtesting
-                const payoutRatio = config.take_profit / Math.abs(config.stop_loss);
-                const edge = winProbability - (1 / payoutRatio);
-                optimalStake = config.account_balance * edge;
-                optimalStake = Math.max(config.stake * 0.5, Math.min(optimalStake, config.stake * 2)); // Cap stake
-                break;
-            }
-            case 'adaptive': {
-                // Scale stake based on trend strength (example)
-                const trendFactor = Math.max(1, trendStrengthScore / config.trend_strength_threshold);
-                optimalStake = config.stake * trendFactor;
-                break;
-            }
-            case 'fixed':
-            default:
-                break;
-        }
-
-        return optimalStake;
-    }, [config, addLog]);
-
-    // Execute trade using direct contract purchase (OAuth authenticated)
+    // Execute trade with proper API structure using authenticated app_id 75771
     const executeTrade = useCallback(async (direction: 'UP' | 'DOWN'): Promise<void> => {
-        addLog(`🚀 DEBUG: executeTrade called with direction: ${direction}`);
-
         if (!api_base.api) {
-            addLog('❌ DEBUG: API not connected - api_base.api is null/undefined');
+            addLog('❌ API not connected');
             return;
         }
-
-        if (!isAuthorized) {
-            addLog('❌ DEBUG: Not authorized for trading - please enter API token and authorize');
-            return;
-        }
-
-        if (!tradingEnabled) {
-            addLog('❌ DEBUG: Auto trading not enabled - please enable auto trading');
-            return;
-        }
-
-        addLog(`✅ DEBUG: API connection exists, readyState: ${api_base.api.connection?.readyState}`);
 
         try {
-            // Contract type mapping according to Deriv documentation
-            let contractType: string;
-            let barrier: string | undefined;
+            const contractTypeMap = {
+                rise_fall: direction === 'UP' ? 'CALL' : 'PUT',
+                higher_lower: direction === 'UP' ? 'CALLE' : 'PUTE'
+            };
 
-            if (config.contract_type === 'multipliers') {
-                // Multipliers contracts
-                if (direction === 'UP') {
-                    contractType = 'MULTUP'; // Multiplier Up
-                } else {
-                    contractType = 'MULTDOWN'; // Multiplier Down
-                }
-                addLog(`📊 Using Multipliers contract: ${contractType} with ${config.multiplier}x multiplier`);
-            } else if (config.contract_type === 'rise_fall') {
-                // Rise/Fall contracts
-                if (direction === 'UP') {
-                    contractType = 'CALL'; // Rise (strict)
-                } else {
-                    contractType = 'PUT'; // Fall (strict)
-                }
-                addLog(`📊 Using Rise/Fall contract: ${contractType} (strict comparison)`);
-            } else if (config.contract_type === 'higher_lower') {
-                // Higher/Lower contracts with barrier
-                if (direction === 'UP') {
-                    contractType = 'CALLE'; // Higher (Use CALLE for Higher)
-                } else {
-                    contractType = 'PUTE'; // Lower (Use PUTE for Lower)
-                }
+            const contractType = contractTypeMap[config.contract_type];
 
-                // For Higher/Lower, we need a proper barrier calculation
-                // Get current market price for barrier calculation
-                let currentPrice = 0;
-                try {
-                    // Try to get current price from recent tick data
-                    const tickRequest = {
-                        ticks: config.symbol,
-                        subscribe: 0,
-                        req_id: Math.floor(Math.random() * 1000000)
-                    };
-
-                    const tickResponse = await Promise.race([
-                        api_base.api.send(tickRequest),
-                        new Promise((_, reject) => 
-                            setTimeout(() => reject(new Error('Current price timeout')), 3000)
-                        )
-                    ]);
-
-                    if (tickResponse?.tick?.quote) {
-                        currentPrice = parseFloat(tickResponse.tick.quote);
-                        addLog(`📈 Current market price: ${currentPrice}`);
-                    }
-                } catch (error) {
-                    addLog(`⚠️ Could not get current price: ${error.message}`);
-                    // Use a default small offset if we can't get current price
-                    currentPrice = 0;
-                }
-
-                // Calculate barrier based on volatility and trend strength
-                const trendStrength = trends.filter(t => t.trend === (direction === 'UP' ? 'bullish' : 'bearish')).length / trends.length;
-
-                if (currentPrice > 0) {
-                    // Calculate percentage-based barrier for better accuracy
-                    const basePercentage = 0.05; // 0.05% base offset
-                    const dynamicPercentage = basePercentage * (0.5 + trendStrength);
-                    const absoluteOffset = currentPrice * (dynamicPercentage / 100);
-
-                    if (direction === 'UP') {
-                        barrier = (currentPrice + absoluteOffset).toFixed(2);
-                    } else {
-                        barrier = (currentPrice - absoluteOffset).toFixed(2);
-                    }
-                    addLog(`📊 Using Higher/Lower contract: ${contractType} with absolute barrier: ${barrier} (Current: ${currentPrice})`);
-                } else {
-                    // Fallback to relative barrier
-                    const baseOffset = 0.001;
-                    const dynamicOffset = baseOffset * (0.5 + trendStrength);
-                    barrier = direction === 'UP' ? `+${dynamicOffset.toFixed(3)}` : `-${dynamicOffset.toFixed(3)}`;
-                    addLog(`📊 Using Higher/Lower contract: ${contractType} with relative barrier: ${barrier}`);
-                }
-            } else {
-                // "Allow Equals" option
-                if (direction === 'UP') {
-                    contractType = 'CALLE'; // Rise (allows equals)
-                } else {
-                    contractType = 'PUTE'; // Fall (allows equals)
-                }
-                addLog(`📊 Using Allow Equals contract: ${contractType} (allows equal exit spot)`);
-            }
-
-            addLog(`🎯 Executing ${direction} trade: ${contractType} on ${config.symbol}`);
-            addLog(`💰 Stake: $${config.stake} | Ticks: ${config.tick_count}`);
-            if (barrier) {
-                addLog(`🎯 Barrier: ${barrier}`);
-            }
-
-            // First, let's try a proposal to validate the parameters
-            addLog(`🔍 DEBUG: Creating proposal first to validate parameters...`);
-            const proposalRequest: any = {
+            // Get proposal first
+            const proposalRequest = {
                 proposal: 1,
-                contract_type: contractType,
-                currency: 'USD',
-                symbol: config.symbol,
                 amount: config.stake,
                 basis: 'stake',
+                contract_type: contractType,
+                currency: 'USD',
+                duration: config.tick_count,
+                duration_unit: 't',
+                symbol: config.symbol,
                 req_id: Math.floor(Math.random() * 1000000)
             };
 
-            // Configure contract parameters based on type
-            if (config.contract_type === 'multipliers') {
-                // Multipliers contracts
-                proposalRequest.multiplier = config.multiplier;
-
-                // Add limit orders (take profit/stop loss)
-                const limitOrder: any = {};
-                if (config.take_profit > 0) {
-                    limitOrder.take_profit = config.take_profit;
-                }
-                if (config.stop_loss < 0) {
-                    limitOrder.stop_loss = Math.abs(config.stop_loss);
-                }
-                if (Object.keys(limitOrder).length > 0) {
-                    proposalRequest.limit_order = limitOrder;
-                    addLog(`🎯 DEBUG: Adding limit orders: ${JSON.stringify(limitOrder)}`);
-                }
-
-                // Add deal cancellation if enabled
-                if (config.use_deal_cancellation && config.deal_cancellation) {
-                    proposalRequest.cancellation = config.deal_cancellation;
-                    addLog(`🎯 DEBUG: Adding deal cancellation: ${config.deal_cancellation}`);
-                }
-
-                addLog(`🎯 DEBUG: Multipliers proposal with ${config.multiplier}x multiplier`);
-            } else {
-                // Binary options contracts - use duration
-                proposalRequest.duration = config.tick_count;
-                proposalRequest.duration_unit = 't';
-
-                // Add barrier for Higher/Lower contracts
-                if (barrier && config.contract_type === 'higher_lower') {
-                    // For Higher/Lower contracts, use barrier field
-                    if (barrier.startsWith('+') || barrier.startsWith('-')) {
-                        // Relative barrier
-                        proposalRequest.barrier = barrier;
-                    } else {
-                        // Absolute barrier
-                        proposalRequest.barrier = barrier;
-                    }
-                    addLog(`🎯 DEBUG: Adding barrier to proposal: ${barrier}`);
-                }
-            }
-
-            addLog(`📋 DEBUG: Proposal request: ${JSON.stringify(proposalRequest, null, 2)}`);
-
+            addLog(`🔄 Getting proposal for ${contractType} on ${config.symbol}...`);
+            
             const proposalResponse = await Promise.race([
                 api_base.api.send(proposalRequest),
                 new Promise((_, reject) => 
                     setTimeout(() => reject(new Error('Proposal timeout')), 10000)
                 )
-            ]).catch(error => {
-                addLog(`❌ DEBUG: Proposal request failed: ${error.message}`);
-                return { error: { message: error.message, code: 'RequestFailed' } };
-            });
+            ]);
 
-            addLog(`📨 DEBUG: Proposal response: ${JSON.stringify(proposalResponse, null, 2)}`);
-
-            if (proposalResponse?.error) {
-                addLog(`❌ DEBUG: Proposal failed: ${proposalResponse.error.message} (Code: ${proposalResponse.error.code})`);
-
-                // Detailed error analysis
-                if (proposalResponse.error.code === 'AuthorizationRequired') {
-                    addLog(`🔑 DEBUG: Authorization required - user needs to login with trading permissions`);
-                } else if (proposalResponse.error.code === 'InvalidSymbol') {
-                    addLog(`📋 DEBUG: Invalid symbol: ${config.symbol}`);
-                } else if (proposalResponse.error.code === 'InvalidContractType') {
-                    addLog(`📋 DEBUG: Invalid contract type: ${contractType}`);
-                } else if (proposalResponse.error.code === 'InvalidDuration') {
-                    addLog(`📋 DEBUG: Invalid duration: ${config.tick_count} ticks`);
-                } else if (proposalResponse.error.code === 'InvalidAmount') {
-                    addLog(`📋 DEBUG: Invalid amount: $${config.stake}`);
-                } else if (proposalResponse.error.code === 'InvalidBarrier') {
-                    addLog(`📋 DEBUG: Invalid barrier: ${barrier} for contract type: ${contractType}`);
-                    // Try without barrier as fallback for Higher/Lower
-                    if (config.contract_type === 'higher_lower') {
-                        addLog(`🔄 DEBUG: Retrying Higher/Lower without barrier...`);
-                        delete proposalRequest.barrier;
-
-                        const retryResponse = await Promise.race([
-                            api_base.api.send(proposalRequest),
-                            new Promise((_, reject) => 
-                                setTimeout(() => reject(new Error('Retry proposal timeout')), 10000)
-                            )
-                        ]);
-
-                        if (retryResponse?.error) {
-                            addLog(`❌ DEBUG: Retry also failed: ${retryResponse.error.message}`);
-                            return;
-                        } else {
-                            addLog(`✅ DEBUG: Retry successful without barrier`);
-                            // Continue with the retry response
-                            Object.assign(proposalResponse, retryResponse);
-                        }
-                    } else {
-                        return;
-                    }
-                } else {
-                    addLog(`📋 DEBUG: Unknown error: ${proposalResponse.error.message || 'Unknown proposal error'}`);
-                    return;
-                }
+            if (proposalResponse.error) {
+                addLog(`❌ Proposal error: ${proposalResponse.error.message} (Code: ${proposalResponse.error.code})`);
+                return;
             }
 
-            if (!proposalResponse?.proposal?.id) {
-                addLog(`❌ DEBUG: Proposal response missing or invalid: ${JSON.stringify(proposalResponse)}`);
+            if (!proposalResponse.proposal || !proposalResponse.proposal.id) {
+                addLog(`❌ Invalid proposal response`);
                 return;
             }
 
             const proposalId = proposalResponse.proposal.id;
-            const proposalPrice = proposalResponse.proposal.display_value;
-            addLog(`✅ DEBUG: Proposal successful - ID: ${proposalId}, Price: ${proposalPrice}`);
+            const entrySpot = proposalResponse.proposal.spot;
+            const payout = proposalResponse.proposal.payout;
 
-            // Now purchase the contract using the proposal ID
+            addLog(`✅ Proposal received: ID ${proposalId}, Entry: ${entrySpot}, Payout: ${payout}`);
+
+            // Purchase contract using existing OAuth session
             const buyRequest = {
                 buy: proposalId,
                 price: config.stake,
                 req_id: Math.floor(Math.random() * 1000000)
             };
 
-            addLog(`🔄 DEBUG: Purchasing contract with proposal ID: ${proposalId}`);
-            addLog(`📋 DEBUG: Buy request: ${JSON.stringify(buyRequest, null, 2)}`);
-
+            addLog(`💰 Purchasing contract with proposal ID ${proposalId} for $${config.stake}...`);
+            addLog(`🔑 Using OAuth authenticated session`);
+            
             const buyResponse = await Promise.race([
                 api_base.api.send(buyRequest),
                 new Promise((_, reject) => 
                     setTimeout(() => reject(new Error('Purchase timeout')), 15000)
                 )
-            ]).catch(error => {
-                addLog(`❌ DEBUG: Buy request failed: ${error.message}`);
-                return { error: { message: error.message, code: 'RequestFailed' } };
-            });
+            ]);
 
-            addLog(`📨 DEBUG: Buy response: ${JSON.stringify(buyResponse, null, 2)}`);
-
-            if (buyResponse?.error) {
-                addLog(`❌ DEBUG: Purchase error: ${buyResponse.error.message} (Code: ${buyResponse.error.code})`);
-
+            if (buyResponse.error) {
+                addLog(`❌ Purchase error: ${buyResponse.error.message} (Code: ${buyResponse.error.code})`);
+                
                 // Log specific error details for debugging
                 if (buyResponse.error.code === 'AuthorizationRequired') {
-                    addLog(`🔑 DEBUG: Authentication required during purchase`);
+                    addLog(`🔑 Authentication required - user needs to be logged in with trading permissions`);
                 } else if (buyResponse.error.code === 'InsufficientBalance') {
-                    addLog(`💰 DEBUG: Insufficient balance for purchase`);
+                    addLog(`💰 Insufficient balance for purchase`);
                 } else if (buyResponse.error.code === 'InvalidProposal') {
-                    addLog(`📋 DEBUG: Invalid or expired proposal ID: ${proposalId}`);
-                } else if (buyResponse.error.code === 'MarketIsClosed') {
-                    addLog(`🏪 DEBUG: Market is closed for ${config.symbol}`);
-                } else {
-                    addLog(`📋 DEBUG: Purchase error details: ${JSON.stringify(buyResponse.error)}`);
+                    addLog(`📋 Proposal expired or invalid - will retry on next signal`);
                 }
                 return;
             }
 
-            if (!buyResponse?.buy) {
-                addLog(`❌ DEBUG: Buy response missing 'buy' object: ${JSON.stringify(buyResponse)}`);
-                return;
-            }
-
-            if (!buyResponse.buy.contract_id) {
-                addLog(`❌ DEBUG: Buy response missing contract_id: ${JSON.stringify(buyResponse.buy)}`);
+            if (!buyResponse.buy || !buyResponse.buy.contract_id) {
+                addLog(`❌ Invalid buy response structure`);
                 return;
             }
 
             const contractId = buyResponse.buy.contract_id;
-            const buyPrice = buyResponse.buy.buy_price || proposalPrice;
+            const buyPrice = buyResponse.buy.buy_price;
             const balanceAfter = buyResponse.buy.balance_after;
             const transactionId = buyResponse.buy.transaction_id;
-            const payout = buyResponse.buy.payout;
-            const startTime = buyResponse.buy.start_time;
-
-            addLog(`✅ DEBUG: Contract purchased successfully!`);
-            addLog(`📊 DEBUG: Contract ID: ${contractId}`);
-            addLog(`🆔 DEBUG: Transaction ID: ${transactionId}`);
-            addLog(`💰 DEBUG: Buy Price: $${buyPrice}`);
-            addLog(`🎯 DEBUG: Expected Payout: $${payout}`);
-            addLog(`💳 DEBUG: Balance After: $${balanceAfter}`);
-            addLog(`⏰ DEBUG: Start Time: ${startTime ? new Date(startTime * 1000).toLocaleTimeString() : 'N/A'}`);
+            
+            addLog(`✅ Contract purchased successfully!`);
+            addLog(`📊 Contract ID: ${contractId}`);
+            addLog(`🆔 Transaction ID: ${transactionId}`);
+            addLog(`💰 Buy Price: $${buyPrice}`);
+            addLog(`🎯 Expected Payout: $${payout}`);
+            addLog(`💳 Balance After: $${balanceAfter}`);
 
             // Update contract info
             const newContract: ContractInfo = {
                 id: contractId.toString(),
                 type: contractType,
-                entry_price: buyPrice || config.stake,
-                current_price: buyPrice || config.stake,
+                entry_price: entrySpot,
+                current_price: entrySpot,
                 profit: 0,
                 status: 'open',
-                entry_time: startTime ? startTime * 1000 : Date.now(),
+                entry_time: Date.now(),
                 direction,
-                stop_loss: (buyPrice || config.stake) + config.stop_loss,
-                take_profit: (buyPrice || config.stake) + config.take_profit,
-                trailing_stop: config.use_trailing_stop ? (buyPrice || config.stake) + config.stop_loss : 0,
+                stop_loss: entrySpot + config.stop_loss,
+                take_profit: entrySpot + config.take_profit,
+                trailing_stop: config.use_trailing_stop ? entrySpot + config.stop_loss : 0,
                 breakeven_active: false
             };
 
@@ -1160,20 +859,16 @@ const DecyclerBot: React.FC = observer(() => {
                 total_trades: prev.total_trades + 1
             }));
 
-            addLog(`📈 DEBUG: Contract info updated in state`);
-
             // Start monitoring the contract
-            addLog(`👁️ DEBUG: Starting contract monitoring for ID: ${contractId}`);
             monitorContract(contractId.toString());
 
         } catch (error) {
-            addLog(`💥 DEBUG: Trade execution exception: ${error.message}`);
-            addLog(`🔍 DEBUG: Error stack: ${error.stack}`);
+            addLog(`💥 Failed to execute trade: ${error.message}`);
             console.error('Trade execution error:', error);
         }
     }, [api_base.api, config, addLog]);
 
-    // Monitor contract status with proper take profit/stop loss enforcement
+    // Monitor contract status using proper API structure
     const monitorContract = useCallback(async (contractId: string): Promise<void> => {
         if (!api_base.api) return;
 
@@ -1185,7 +880,7 @@ const DecyclerBot: React.FC = observer(() => {
                 req_id: Math.floor(Math.random() * 1000000)
             };
 
-            addLog(`👁️ Starting to monitor contract ${contractId} with TP: $${config.take_profit}, SL: $${config.stop_loss}...`);
+            addLog(`👁️ Starting to monitor contract ${contractId}...`);
 
             const response = await api_base.api.send(request);
 
@@ -1205,48 +900,6 @@ const DecyclerBot: React.FC = observer(() => {
                         const currentProfit = parseFloat(contract.profit || '0');
                         const currentSpot = contract.current_spot;
                         const isSold = contract.is_sold === 1;
-                        const canSell = contract.is_sellable === 1;
-
-                        // Check if we should manually close the contract based on our TP/SL levels
-                        let shouldSell = false;
-                        let sellReason = '';
-
-                        if (!isSold && canSell) {
-                            // Check take profit
-                            if (currentProfit >= config.take_profit) {
-                                shouldSell = true;
-                                sellReason = `Take Profit reached: $${currentProfit.toFixed(2)} >= $${config.take_profit}`;
-                            }
-                            // Check stop loss
-                            else if (currentProfit <= config.stop_loss) {
-                                shouldSell = true;
-                                sellReason = `Stop Loss reached: $${currentProfit.toFixed(2)} <= $${config.stop_loss}`;
-                            }
-
-                            // Execute manual sell if needed
-                            if (shouldSell) {
-                                addLog(`🛑 ${sellReason} - Selling contract manually...`);
-
-                                // Send sell request
-                                const sellRequest = {
-                                    sell: parseInt(contractId),
-                                    price: contract.bid_price || contract.payout,
-                                    req_id: Math.floor(Math.random() * 1000000)
-                                };
-
-                                api_base.api.send(sellRequest).then(sellResponse => {
-                                    if (sellResponse.error) {
-                                        addLog(`❌ Manual sell failed: ${sellResponse.error.message}`);
-                                    } else {
-                                        addLog(`✅ Contract sold manually at $${currentProfit.toFixed(2)} profit`);
-                                    }
-                                }).catch(error => {
-                                    addLog(`❌ Manual sell error: ${error.message}`);
-                                });
-
-                                return; // Exit early, let the sell response handle the rest
-                            }
-                        }
 
                         // Update current contract status
                         setBotStatus(prev => {
@@ -1267,29 +920,19 @@ const DecyclerBot: React.FC = observer(() => {
                             };
                         });
 
-                        // Log current status with TP/SL monitoring
-                        if (currentSpot && !isSold) {
-                            const tpDistance = config.take_profit - currentProfit;
-                            const slDistance = currentProfit - config.stop_loss;
-                            addLog(`📈 Contract ${contractId}: P&L $${currentProfit.toFixed(2)} | TP: ${tpDistance > 0 ? '+' : ''}${tpDistance.toFixed(2)} | SL: ${slDistance > 0 ? '+' : ''}${slDistance.toFixed(2)}`);
+                        // Log current status
+                        if (currentSpot) {
+                            addLog(`📈 Contract ${contractId}: Current spot ${currentSpot}, P&L: $${currentProfit.toFixed(2)}`);
                         }
 
-                        // Handle contract closure (natural expiry or manual sell)
+                        // Handle contract closure
                         if (isSold) {
                             const isWin = currentProfit > 0;
                             const sellPrice = contract.sell_price || 0;
-                            const closingReason = contract.sell_time ? 'Manual Sell' : 'Natural Expiry';
 
-                            addLog(`${isWin ? '🎉 WIN' : '💔 LOSS'}: Contract ${contractId} closed (${closingReason})`);
+                            addLog(`${isWin ? '🎉 WIN' : '💔 LOSS'}: Contract ${contractId} closed`);
                             addLog(`💰 Final P&L: $${currentProfit.toFixed(2)}`);
                             addLog(`💵 Sell Price: $${sellPrice}`);
-
-                            // Check if our TP/SL system worked
-                            if (currentProfit >= config.take_profit) {
-                                addLog(`✅ Take profit target achieved: $${config.take_profit}`);
-                            } else if (currentProfit <= config.stop_loss) {
-                                addLog(`🛑 Stop loss triggered: $${config.stop_loss}`);
-                            }
 
                             // Update performance metrics
                             setBotStatus(prev => {
@@ -1307,27 +950,13 @@ const DecyclerBot: React.FC = observer(() => {
                             // Add to trade history
                             setTradeHistory(prev => [{
                                 id: contractId,
-                                type: botStatus.current_contract?.type || 'UNKNOWN',
-                                direction: botStatus.current_contract?.direction || 'UP',
+                                type: prev.current_contract?.type || 'UNKNOWN',
+                                direction: prev.current_contract?.direction || 'UP',
                                 stake: config.stake,
                                 profit: currentProfit,
                                 isWin,
                                 timestamp: Date.now()
                             }, ...prev.slice(0, 19)]); // Keep last 20 trades
-
-                            // Adaptive stake sizing for next trade based on recent performance
-                            const recentTrades = tradeHistory.slice(-5); // Last 5 trades
-                            if (recentTrades.length > 0) {
-                                const recentWinRate = recentTrades.filter(t => t.isWin).length / recentTrades.length;
-
-                                if (recentWinRate < 0.3) {
-                                    const newStake = Math.max(config.stake * 0.7, 0.35);
-                                    addLog(`📉 Poor recent performance (${(recentWinRate * 100).toFixed(1)}%) - Consider reducing stake to $${newStake.toFixed(2)}`);
-                                } else if (recentWinRate > 0.7) {
-                                    const newStake = Math.min(config.stake * 1.2, config.stake * 2);
-                                    addLog(`📈 Good recent performance (${(recentWinRate * 100).toFixed(1)}%) - Could increase stake to $${newStake.toFixed(2)}`);
-                                }
-                            }
 
                             // Unsubscribe from this contract
                             subscription.unsubscribe();
@@ -1340,7 +969,7 @@ const DecyclerBot: React.FC = observer(() => {
         } catch (error) {
             addLog(`❌ Failed to monitor contract: ${error.message}`);
         }
-    }, [config.stake, config.take_profit, config.stop_loss, addLog, botStatus.current_contract, tradeHistory]);
+    }, [config.stake, addLog]);
 
     // Execute trade
 
@@ -1350,19 +979,13 @@ const DecyclerBot: React.FC = observer(() => {
 
     // Main trading loop
     const tradingLoop = useCallback(async (): Promise<void> => {
-        addLog(`🔍 DEBUG: tradingLoop called - bot running (state): ${botStatus.is_running}, (ref): ${isRunningRef.current}`);
-
-        if (!isRunningRef.current) {
-            addLog(`⏹️ DEBUG: Bot not running (ref check), exiting trading loop`);
-            return;
-        }
+        if (!botStatus.is_running) return;
 
         try {
             addLog('🔄 Starting trading analysis cycle...');
 
             // Analyze all timeframes
             const trends = await analyzeAllTimeframes();
-            addLog(`📊 DEBUG: Analyzed ${trends.length} timeframes`);
 
             if (trends.length === 0) {
                 addLog('⚠️ No trend data available - will retry next cycle');
@@ -1375,7 +998,6 @@ const DecyclerBot: React.FC = observer(() => {
             }
 
             const alignment = checkAlignment(trends);
-            addLog(`🎯 DEBUG: Alignment result: ${alignment}`);
 
             // Update bot status with new analysis
             setBotStatus(prev => ({
@@ -1395,139 +1017,44 @@ const DecyclerBot: React.FC = observer(() => {
 
             addLog(`📈 Trends: ${bullishCount} Bullish, ${bearishCount} Bearish, ${neutralCount} Neutral`);
 
-            // Detailed trend breakdown
-            trends.forEach(trend => {
-                addLog(`📊 DEBUG: ${trend.timeframe}: ${trend.trend.toUpperCase()} (value: ${trend.value.toFixed(5)})`);
-            });
-
-            // Check current contract status
-            addLog(`🔍 DEBUG: Current contract status: ${botStatus.current_contract ? 'ACTIVE' : 'NONE'}`);
-
-            // Check trading conditions
-            const hasStrongAlignment = alignment === 'aligned_bullish' || alignment === 'aligned_bearish';
-            addLog(`🎯 DEBUG: Strong alignment detected: ${hasStrongAlignment}`);
-            addLog(`📋 DEBUG: No current contract: ${!botStatus.current_contract}`);
-
-            // Additional market condition checks
-            const currentTime = new Date();
-            const hour = currentTime.getHours();
-            const minute = currentTime.getMinutes();
-
-            // Allow 24/7 trading for synthetic indices
-            const isHighVolatilityTime = true; // Always allow trading for synthetic indices
-
-            // Check recent trend consistency
-            const recentTrends = trends.slice(-3); // Last 3 timeframes
-            const trendConsistency = recentTrends.every(t => 
-                (alignment === 'aligned_bullish' && t.trend === 'bullish') ||
-                (alignment === 'aligned_bearish' && t.trend === 'bearish')
-            );
-
             // Check if we should enter a trade
-            if (!botStatus.current_contract && hasStrongAlignment && isHighVolatilityTime && trendConsistency) {
-
-                // Check authorization before attempting trade
-                if (!isAuthorized) {
-                    addLog(`❌ Trading signal detected but not authorized - please enter API token and authorize`);
-                    return;
-                }
-
-                if (!tradingEnabled) {
-                    addLog(`❌ Trading signal detected but auto trading disabled - please enable auto trading`);
-                    return;
-                }
-
+            if (!botStatus.current_contract && (alignment === 'aligned_bullish' || alignment === 'aligned_bearish')) {
                 const direction = alignment === 'aligned_bullish' ? 'UP' : 'DOWN';
 
-                // Calculate trend strength score
-                const trendStrengthScore = trends.filter(t => t.trend === (direction === 'UP' ? 'bullish' : 'bearish')).length / trends.length;
-
-                // Enhanced pre-trade validation
-                addLog(`🎯 Strong ${direction} alignment detected - Running enhanced risk checks...`);
-
-                // Check risk management rules
-                if (!checkRiskManagement()) {
-                    addLog(`❌ Risk management check failed - skipping trade`);
+                // Check if trading is enabled
+                if (!tradingEnabled) {
+                    addLog('🔄 ❌ TRADING BLOCKED: Auto trading is disabled');
+                    addLog('📝 Please enable "Auto Trading" checkbox to allow trade execution');
+                    setBotStatus(prev => ({
+                        ...prev,
+                        error_message: 'Trading blocked - Auto trading disabled'
+                    }));
                     return;
                 }
 
-                // Validate risk-to-reward ratio
-                if (!validateRiskReward(currentPrice || 0, direction)) {
-                    addLog(`❌ Risk/Reward ratio below minimum threshold of ${config.min_risk_reward_ratio}:1 - skipping trade`);
-                    return;
-                }
-
-                // Calculate optimal position size
-                const optimalStake = calculatePositionSize(direction, trendStrengthScore);
-                addLog(`💰 Calculated optimal position size: $${optimalStake.toFixed(2)} (Base: $${config.stake})`);
-
-                // Temporarily update stake for this trade
-                const originalStake = config.stake;
-                setConfig(prev => ({ ...prev, stake: optimalStake }));
-
-                addLog(`🚀 All risk checks passed - Executing ${direction} trade with $${optimalStake.toFixed(2)} stake`);
-
-                try {
-                    await executeTrade(direction);
-
-                    // Update daily trade count
-                    setDailyTradeCount(prev => prev + 1);
-
-                } finally {
-                    // Restore original stake
-                    setConfig(prev => ({ ...prev, stake: originalStake }));
-                }
-
-                addLog(`🚀 DEBUG: Trade conditions met - Direction: ${direction}`);
-                addLog(`⏰ DEBUG: High volatility time: ${isHighVolatilityTime}, Trend consistency: ${trendConsistency}`);
-
-                // Optional 10s confirmation with re-analysis
+                // Optional 10s confirmation
                 if (config.use_10s_filter) {
-                    addLog('⏱️ DEBUG: Applying 10-second confirmation filter...');
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-
-                    // Re-analyze shorter timeframes for confirmation
-                    const quickAnalysis = await analyzeAllTimeframes();
-                    const quickAlignment = checkAlignment(quickAnalysis);
-
-                    if (quickAlignment !== alignment) {
-                        addLog('❌ DEBUG: Confirmation failed - trend changed during filter');
-                        return;
-                    }
-                    addLog('✅ DEBUG: Confirmation filter passed');
+                    addLog('⏱️ Applying 10-second confirmation filter...');
+                    // Add a small delay for confirmation
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
 
-                addLog(`🎯 Strong ${direction} alignment detected - Preparing trade execution!`);
-                addLog(`💰 DEBUG: About to call executeTrade with direction: ${direction}`);
-
+                addLog(`🎯 Strong ${direction} alignment detected - Executing ${direction} trade!`);
+                addLog(`💰 Stake: $${config.stake} | Contract: ${config.contract_type.toUpperCase()}`);
                 await executeTrade(direction);
-
-                addLog(`✅ DEBUG: executeTrade call completed`);
             } else if (!botStatus.current_contract) {
-                if (!hasStrongAlignment) {
-                    addLog(`⏳ DEBUG: No strong alignment - Current: ${alignment}`);
+                if (!tradingEnabled) {
+                    addLog(`⏳ Trend analysis complete - Trading disabled (auto trading disabled)`);
+                } else {
+                    addLog('⏳ Waiting for trend alignment - No trade signal yet');
                 }
-                if (!isHighVolatilityTime) {
-                    addLog(`⏳ DEBUG: Low volatility time period (${hour}:${minute})`);
-                }
-                if (!trendConsistency) {
-                    addLog(`⏳ DEBUG: Trend inconsistency detected in recent timeframes`);
-                }
-                addLog(`⏳ DEBUG: No trade conditions met:`);
-                addLog(`   - Current contract: ${botStatus.current_contract ? 'EXISTS' : 'NONE'}`);
-                addLog(`   - Alignment: ${alignment}`);
-                addLog(`   - Strong alignment: ${hasStrongAlignment}`);
-                addLog('⏳ Waiting for trend alignment - No trade signal yet');
             } else {
                 addLog('📊 Active contract in progress - Monitoring...');
-                addLog(`   - Contract ID: ${botStatus.current_contract?.id}`);
-                addLog(`   - Contract Status: ${botStatus.current_contract?.status}`);
             }
 
         } catch (error) {
             const errorMsg = `Trading analysis error: ${error.message}`;
-            addLog(`❌ DEBUG: Trading loop exception: ${errorMsg}`);
-            addLog(`🔍 DEBUG: Error stack: ${error.stack}`);
+            addLog(`❌ ${errorMsg}`);
             setBotStatus(prev => ({
                 ...prev,
                 error_message: errorMsg,
@@ -1541,24 +1068,39 @@ const DecyclerBot: React.FC = observer(() => {
         try {
             addLog('🔄 Starting Decycler Bot...');
 
-            // Initialize API connection
-            if (!api_base.api || api_base.api.connection.readyState !== 1) {
-                addLog('🔌 Connecting to Deriv API...');
-                await api_base.init();
-
-                // Wait for connection to be ready
-                let retries = 0;
-                while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 15) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    retries++;
-                    const readyState = api_base.api?.connection?.readyState || 'undefined';
-                    addLog(`⏳ Waiting for WebSocket connection... (${retries}/15) - State: ${readyState}`);
-                }
-
+            // Initialize API connection with error handling
+            try {
                 if (!api_base.api || api_base.api.connection.readyState !== 1) {
-                    addLog('❌ Failed to establish WebSocket connection. Please check your internet connection and try again.');
-                    return;
+                    addLog('🔌 Connecting to Deriv API...');
+                    await api_base.init();
+
+                    // Wait for connection to be ready with better error handling
+                    let retries = 0;
+                    while ((!api_base.api || api_base.api.connection.readyState !== 1) && retries < 10) {
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        retries++;
+                        const readyState = api_base.api?.connection?.readyState || 'undefined';
+                        addLog(`⏳ Connection attempt ${retries}/10 - State: ${readyState}`);
+                    }
+
+                    if (!api_base.api || api_base.api.connection.readyState !== 1) {
+                        addLog('❌ API connection failed. Please refresh the page and try again.');
+                        setBotStatus(prev => ({
+                            ...prev,
+                            error_message: 'API connection failed - please refresh page',
+                            is_running: false
+                        }));
+                        return;
+                    }
                 }
+            } catch (initError) {
+                addLog(`❌ API initialization error: ${initError.message}`);
+                setBotStatus(prev => ({
+                    ...prev,
+                    error_message: `API error: ${initError.message}`,
+                    is_running: false
+                }));
+                return;
             }
 
             // Check connection status
@@ -1574,22 +1116,11 @@ const DecyclerBot: React.FC = observer(() => {
                 return;
             }
 
-            addLog('🔧 DEBUG: Setting bot status to running...');
-            isRunningRef.current = true;
             setBotStatus(prev => ({ ...prev, is_running: true }));
-
             addLog('🚀 Decycler Multi-Timeframe Bot Started!');
             addLog(`📊 Monitoring ${timeframes.join(', ')} timeframes`);
             addLog(`🎯 Symbol: ${config.symbol} | Stake: $${config.stake}`);
-            if (config.contract_type === 'multipliers') {
-                addLog(`⚙️ Contract Type: MULTIPLIERS (${config.multiplier}x)`);
-                if (config.use_deal_cancellation) {
-                    addLog(`🛡️ Deal Cancellation: ${config.deal_cancellation}`);
-                }
-            } else {
-                addLog(`⚙️ Contract Type: ${config.contract_type.toUpperCase()}`);
-            }
-            addLog(`🔧 DEBUG: isRunningRef.current set to: ${isRunningRef.current}`);
+            addLog(`⚙️ Contract Type: ${config.contract_type.toUpperCase()}`);
 
             // Start trading loop
             intervalRef.current = setInterval(tradingLoop, config.monitor_interval * 1000);
@@ -1599,24 +1130,20 @@ const DecyclerBot: React.FC = observer(() => {
         } catch (error) {
             addLog(`❌ Error starting bot: ${error.message}`);
         }
-    }, [config, timeframes, tradingLoop, addLog, botStatus.is_running]);
+    }, [config, timeframes, tradingLoop, addLog]);
 
         // Stop bot
     const stopBot = useCallback((): void => {
-        addLog('🔧 DEBUG: Stopping bot...');
-        isRunningRef.current = false;
         setBotStatus(prev => ({ ...prev, is_running: false }));
 
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
-            addLog('🔧 DEBUG: Trading interval cleared');
         }
 
         if (monitorRef.current) {
             clearInterval(monitorRef.current);
             monitorRef.current = null;
-            addLog('🔧 DEBUG: Monitor interval cleared');
         }
 
         addLog('⏹️ Decycler Bot Stopped');
@@ -1832,50 +1359,13 @@ const DecyclerBot: React.FC = observer(() => {
     const [currentSymbol, setCurrentSymbol] = useState(config.symbol);
     const [timeframeAnalysis, setTimeframeAnalysis] = useState<{ [key: string]: string }>({});
     const [overallAnalysis, setOverallAnalysis] = useState('NEUTRAL');
-  const [barrier, setBarrier] = useState('');
-  const [duration, setDuration] = useState(1);
-  const [durationType, setDurationType] = useState('t');
 
     useEffect(() => {
         setCurrentSymbol(config.symbol); // Update currentSymbol when config.symbol changes
     }, [config.symbol]);
 
     // Establish WebSocket connection on component mount
-  const authorizeAPI = async (token: string) => {
-    try {
-      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
-
-      return new Promise((resolve, reject) => {
-        ws.onopen = () => {
-          ws.send(JSON.stringify({
-            authorize: token,
-            req_id: Date.now()
-          }));
-        };
-
-        ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          if (data.authorize) {
-            setIsAuthorized(true);
-            setAuthToken(token);
-            ws.close();
-            resolve(data);
-          } else if (data.error) {
-            ws.close();
-            reject(data.error);
-          }
-        };
-
-        ws.onerror = (error) => {
-          ws.close();
-          reject(error);
-        };
-      });
-    } catch (error) {
-      console.error('Authorization failed:', error);
-      throw error;
-    }
-  };
+  
 
   // Contract Purchase Function
   const purchaseContract = async (direction: 'CALL' | 'PUT' | 'CALLE' | 'PUTE') => {
@@ -1939,7 +1429,7 @@ const DecyclerBot: React.FC = observer(() => {
 
   // Enhanced trading opportunity check with contract type support
     const checkTradingOpportunity = useCallback(async () => {
-        if (!tradingEnabled || !isAuthorized || currentContract) return;
+        if (!tradingEnabled || currentContract) return;
 
         const timeframes = selectedTimeframePreset === 'scalping'
             ? ['1m', '2m', '3m', '4m', '5m']
@@ -2008,37 +1498,73 @@ const DecyclerBot: React.FC = observer(() => {
         }
     }, [timeframeAnalysis, isRunning, checkTradingOpportunity]);
 
-    // Establish WebSocket connection on component mount
+    // Establish WebSocket connection on component mount with better error handling
     useEffect(() => {
         const connectWebSocket = () => {
-            const newWs = new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=75771");
+            try {
+                // Use api_base connection if available, fallback to direct WebSocket
+                if (api_base.api && api_base.api.connection && api_base.api.connection.readyState === 1) {
+                    console.log('✅ Using existing API connection');
+                    setIsConnected(true);
+                    return;
+                }
 
-            newWs.onopen = () => {
-                console.log('✅ WebSocket connected');
-                setIsConnected(true);
-                setWs(newWs);
-            };
+                addLog('🔌 Establishing direct WebSocket connection...');
+                const newWs = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=75771");
 
-            newWs.onclose = () => {
-                console.log('❌ WebSocket disconnected');
+                const connectionTimeout = setTimeout(() => {
+                    addLog('⏰ WebSocket connection timeout');
+                    newWs.close();
+                    setIsConnected(false);
+                }, 10000);
+
+                newWs.onopen = () => {
+                    clearTimeout(connectionTimeout);
+                    console.log('✅ Direct WebSocket connected');
+                    addLog('✅ WebSocket connection established');
+                    setIsConnected(true);
+                    setWs(newWs);
+                };
+
+                newWs.onclose = (event) => {
+                    clearTimeout(connectionTimeout);
+                    console.log('❌ WebSocket disconnected:', event.code, event.reason);
+                    addLog(`❌ WebSocket disconnected: ${event.reason || 'Unknown reason'}`);
+                    setIsConnected(false);
+                    setWs(null);
+                    
+                    // Only auto-reconnect if not intentional close
+                    if (event.code !== 1000 && event.code !== 1001) {
+                        addLog('🔄 Attempting to reconnect in 5 seconds...');
+                        setTimeout(connectWebSocket, 5000);
+                    }
+                };
+
+                newWs.onerror = (error) => {
+                    clearTimeout(connectionTimeout);
+                    console.log('❌ WebSocket error:', error);
+                    addLog('❌ WebSocket connection error');
+                    setIsConnected(false);
+                    setWs(null);
+                };
+            } catch (error) {
+                console.error('Failed to create WebSocket connection:', error);
+                addLog(`❌ WebSocket initialization failed: ${error.message}`);
                 setIsConnected(false);
-                setWs(null);
-                // Reconnect after 5 seconds
-                setTimeout(connectWebSocket, 5000);
-            };
-
-            newWs.onerror = (error) => {
-                console.log('❌ WebSocket error:', error);
-                setIsConnected(false);
-                setWs(null);
-            };
+            }
         };
 
-        connectWebSocket();
+        // Delay initial connection to allow main app to initialize
+        const initTimer = setTimeout(connectWebSocket, 1000);
 
         return () => {
-            if (ws) {
-                ws.close();
+            clearTimeout(initTimer);
+            try {
+                if (ws) {
+                    ws.close(1000, 'Component unmounting');
+                }
+            } catch (error) {
+                console.error('Error closing WebSocket:', error);
             }
         };
     }, []);
@@ -2453,203 +1979,13 @@ const DecyclerBot: React.FC = observer(() => {
             }, 8000);
         };
 
-    const handleStartBot = async () => {
-        // Skip API token requirement for OAuth authenticated users
-        if (!isOAuthEnabled) {
-            addLog('❌ OAuth authentication is required');
-            return;
-        }
-
-        if (!config.symbol || !config.stake || !config.contract_type) {
-            addLog('❌ Please configure all required settings');
-            return;
-        }
-
-        try {
-            addLog('🔗 Connecting to Deriv API...');
-
-            // Initialize WebSocket connection
-            const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${config.app_id}`;
-            const ws = new WebSocket(wsUrl);
-
-ws.onopen = () => {
-                addLog('Connected to Deriv API');
-
-                if (isOAuthEnabled) {
-                    // OAuth users are automatically authenticated
-                    addLog('OAuth authentication active - ready for trading');
-                    setIsAuthorized(true);
-                    setTradingEnabled(true);
-                }  else {
-                    addLog('No authentication method available');
-                    return;
-                }
-            };
-
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-
-                if (data.error) {
-                    addLog(`API Error: ${data.error.message}`);
-                    return;
-                }
-
-                if (data.msg_type === 'authorize') {
-                    addLog('API Authorized');
-                    setIsAuthorized(true);
-                }
-
-                // Handle other API messages
-            };
-
-            ws.onclose = () => {
-                addLog('Disconnected from Deriv API');
-                setIsAuthorized(false);
-            };
-
-            ws.onerror = (error) => {
-                addLog(`WebSocket Error: ${error}`);
-                setIsAuthorized(false);
-            };
-
-            wsRef.current = ws;
-
-            // Start trading loop
-            setIsRunning(true);
-            intervalRef.current = setInterval(tradingLoop, config.monitor_interval * 1000);
-
-            // Initial analysis
-            tradingLoop();
-
-        } catch (error) {
-            addLog(`Error starting bot: ${error}`);
-        }
-    };
-
-    const handleStopBot = () => {
-        setIsRunning(false);
-        clearInterval(intervalRef.current);
-        wsRef.current?.close();
-    };
-
-  const sendProposal = (contractType: string) => {
-    return new Promise((resolve, reject) => {
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        addLog('❌ WebSocket not connected');
-        reject(new Error('WebSocket not connected'));
-        return;
-      }
-
-      const proposalRequest = {
-        proposal: 1,
-        amount: config.stake,
-        symbol: config.symbol,
-        duration: duration,
-        duration_unit: durationType,
-        contract_type: contractType,
-        currency: 'USD',
-        barrier: barrier || undefined,
-        app_id: 75771 // Use authenticated app ID
-
-      };
-
-      const reqId = `proposal_${Date.now()}`;
-      const messageHandler = (event: MessageEvent) => {
-        const data = JSON.parse(event.data);
-        if (data.req_id === reqId) {
-          ws.removeEventListener('message', messageHandler);
-          if (data.error) {
-            addLog(`❌ Proposal error: ${data.error.message}`);
-            reject(data.error);
-          } else {
-            addLog(`✅ Proposal received for ${contractType}`);
-            resolve(data.proposal);
-          }
-        }
-      };
-
-      ws.addEventListener('message', messageHandler);
-      ws.send(JSON.stringify({ ...proposalRequest, req_id: reqId }));
-
-      setTimeout(() => {
-        ws.removeEventListener('message', messageHandler);
-        reject(new Error('Proposal request timeout'));
-      }, 10000);
-    });
-  };
-
-  const handleTrade = async (tradeType: string) => {
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-            addLog('❌ WebSocket not connected');
-            return;
-        }
-
-        try {
-            // Construct trade request
-            const tradeRequest = {
-                            buy: 1,
-                            parameters: {
-                                contract_type: tradeType,
-                                symbol: config.symbol,
-                                amount: config.stake,
-                                duration: 1,
-                                duration_unit: 't',
-                                basis: 'stake'
-                            }
-                        };
-
-                        // For multiplier trades, add multiplier-specific parameters
-                        if (config.contract_type === 'multipliers') {
-                            tradeRequest.parameters.multiplier = config.multiplier || 10;
-                            if (config.use_deal_cancellation) {
-                                tradeRequest.parameters.cancellation = config.deal_cancellation_minutes * 60;
-                            }
-                        }
-            // Send trade request
-            ws.send(JSON.stringify(tradeRequest));
-
-            // Handle trade response
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-
-                if (data.error) {
-                    addLog(`❌ Trade Error: ${data.error.message}`);
-                    return;
-                }
-
-                if (data.buy) {
-                    addLog(`✅ Trade successful - Contract ID: ${data.buy.contract_id}`);
-                    // Update performance data
-                    setPerformanceData((prevData) => ({
-                        ...prevData,
-                        totalTrades: prevData.totalTrades + 1
-                    }));
-
-                    // Update trade history
-                    setTradeHistory((prevHistory) => [
-                        ...prevHistory,
-                        {
-                            contractId: data.buy.contract_id,
-                            type: tradeType,
-                            profit: data.buy.payout - config.stake,
-                            timestamp: new Date().toLocaleString(),
-                        }
-                    ]);
-                }
-            };
-
-        } catch (error) {
-            addLog(`❌ Trade failed: ${error}`);
-        }
-    };
-
     return (
         <div className="decycler-bot-container">
             <div className="decycler-header">
                 <h2>🔬 Decycler Multi-Timeframe Trading Bot</h2>
-                <div className={`bot-status ${isRunning ? 'running' : 'stopped'}`}>
+                <div className={`bot-status ${botStatus.is_running ? 'running' : 'stopped'}`}>
                     <span className="status-dot"></span>
-                    {isRunning ? 'RUNNING' : 'STOPPED'}
+                    {botStatus.is_running ? 'RUNNING' : 'STOPPED'}
                 </div>
             </div>
 
@@ -2663,7 +1999,7 @@ ws.onopen = () => {
                             <select
                                 value={selectedTimeframePreset}
                                 onChange={e => setSelectedTimeframePreset(e.target.value as 'scalping' | 'multi')}
-                                disabled={isRunning}
+                                disabled={botStatus.is_running}
                             >
                                 <option value="scalping">Scalping (1m-5m)</option>
                                 <option value="multi">Multi-Timeframe (1m-4h)</option>
@@ -2675,51 +2011,31 @@ ws.onopen = () => {
                                 <select
                                     value={config.symbol}
                                     onChange={e => setConfig(prev => ({ ...prev, symbol: e.target.value }))}
-                                    disabled={isRunning}
+                                    disabled={botStatus.is_running}
                                 >
-                                    <optgroup label="Volatility Indices (1s)">
-                                        <option value="1HZ10V">Volatility 10 (1s) Index</option>
-                                        <option value="1HZ25V">Volatility 25 (1s) Index</option>
-                                        <option value="1HZ50V">Volatility 50 (1s) Index</option>
-                                        <option value="1HZ75V">Volatility 75 (1s) Index</option>
-                                        <option value="1HZ100V">Volatility 100 (1s) Index</option>
-                                        <option value="1HZ150V">Volatility 150 (1s) Index</option>
-                                        <option value="1HZ250V">Volatility 250 (1s) Index</option>
-                                    </optgroup>
-                                    <optgroup label="Volatility Indices">
-                                        <option value="R_10">Volatility 10 Index</option>
-                                        <option value="R_25">Volatility 25 Index</option>
-                                        <option value="R_50">Volatility 50 Index</option>
-                                        <option value="R_75">Volatility 75 Index</option>
-                                        <option value="R_100">Volatility 100 Index</option>
-                                        <option value="R_200">Volatility 200 Index</option>
-                                        <option value="R_300">Volatility 300 Index</option>
-                                        <option value="R_500">Volatility 500 Index</option>
-                                        <option value="R_1000">Volatility 1000 Index</option>
-                                    </optgroup>
-                                    <optgroup label="Market Indices">
-                                        <option value="RDBEAR">Bear Market Index</option>
-                                        <option value="RDBULL">Bull Market Index</option>
-                                    </optgroup>
-                                    <optgroup label="Jump Indices">
-                                        <option value="BOOM500">Boom 500 Index</option>
-                                        <option value="BOOM1000">Boom 1000 Index</option>
-                                        <option value="CRASH500">Crash 500 Index</option>
-                                        <option value="CRASH1000">Crash 1000 Index</option>
-                                    </optgroup>
-                                    <optgroup label="Step Index">
-                                        <option value="stpRNG">Step Index</option>
-                                    </optgroup>
-                                    {config.contract_type === 'multipliers' && (
-                                        <optgroup label="Forex (Multipliers Compatible)">
-                                            <option value="frxEURUSD">EUR/USD</option>
-                                            <option value="frxGBPUSD">GBP/USD</option>
-                                            <option value="frxUSDJPY">USD/JPY</option>
-                                            <option value="frxAUDUSD">AUD/USD</option>
-                                            <option value="frxUSDCAD">USD/CAD</option>
-                                            <option value="frxUSDCHF">USD/CHF</option>
-                                        </optgroup>
-                                    )}
+                                    <option value="1HZ10V">Volatility 10 (1s) Index</option>
+                                    <option value="1HZ25V">Volatility 25 (1s) Index</option>
+                                    <option value="1HZ50V">Volatility 50 (1s) Index</option>
+                                    <option value="1HZ75V">Volatility 75 (1s) Index</option>
+                                    <option value="1HZ100V">Volatility 100 (1s) Index</option>
+                                    <option value="1HZ150V">Volatility 150 (1s) Index</option>
+                                    <option value="1HZ250V">Volatility 250 (1s) Index</option>
+                                    <option value="R_10">Volatility 10 Index</option>
+                                    <option value="R_25">Volatility 25 Index</option>
+                                    <option value="R_50">Volatility 50 Index</option>
+                                    <option value="R_75">Volatility 75 Index</option>
+                                    <option value="R_100">Volatility 100 Index</option>
+                                    <option value="R_200">Volatility 200 Index</option>
+                                    <option value="R_300">Volatility 300 Index</option>
+                                    <option value="R_500">Volatility 500 Index</option>
+                                    <option value="R_1000">Volatility 1000 Index</option>
+                                    <option value="RDBEAR">Bear Market Index</option>
+                                    <option value="RDBULL">Bull Market Index</option>
+                                    <option value="BOOM500">Boom 500 Index</option>
+                                    <option value="BOOM1000">Boom 1000 Index</option>
+                                    <option value="CRASH500">Crash 500 Index</option>
+                                    <option value="CRASH1000">Crash 1000 Index</option>
+                                    <option value="stpRNG">Step Index</option>
                                 </select>
                             </div>
                             <div className="config-item">
@@ -2730,7 +2046,7 @@ ws.onopen = () => {
                                     onChange={e => setConfig(prev => ({ ...prev, stake: parseFloat(e.target.value) || 1 }))}
                                     min="1"
                                     step="0.1"
-                                    disabled={isRunning}
+                                    disabled={botStatus.is_running}
                                 />
                             </div>
                             <div className="config-item">
@@ -2740,7 +2056,7 @@ ws.onopen = () => {
                                     value={config.take_profit}
                                     onChange={e => setConfig(prev => ({ ...prev, take_profit: parseFloat(e.target.value) || 1.5 }))}
                                     step="0.1"
-                                    disabled={isRunning}
+                                    disabled={botStatus.is_running}
                                 />
                             </div>
                             <div className="config-item">
@@ -2750,20 +2066,18 @@ ws.onopen = () => {
                                     value={config.stop_loss}
                                     onChange={e => setConfig(prev => ({ ...prev, stop_loss: parseFloat(e.target.value) || -1 }))}
                                     step="0.1"
-                                    disabled={isRunning}
+                                    disabled={botStatus.is_running}
                                 />
                             </div>
                             <div className="config-item">
                                 <label>Contract Type</label>
                                 <select
                                     value={config.contract_type}
-                                    onChange={e => setConfig(prev => ({ ...prev, contract_type: e.target.value as 'rise_fall' | 'higher_lower' | 'allow_equals' | 'multipliers' }))}
-                                    disabled={isRunning}
+                                    onChange={e => setConfig(prev => ({ ...prev, contract_type: e.target.value as 'rise_fall' | 'higher_lower' }))}
+                                    disabled={botStatus.is_running}
                                 >
                                     <option value="rise_fall">Rise/Fall (Strict)</option>
-                                    <option value="higher_lower">Higher/Lower (with Barrier)</option>
-                                    <option value="allow_equals">Allow Equals (Rise/Fall + Equals)</option>
-                                    <option value="multipliers">Multipliers (Up to 2000x)</option>
+                                    <option value="higher_lower">Higher/Lower (Equals)</option>
                                 </select>
                             </div>
                             <div className="config-item">
@@ -2774,93 +2088,10 @@ ws.onopen = () => {
                                     onChange={e => setConfig(prev => ({ ...prev, tick_count: parseInt(e.target.value) || 5 }))}
                                     min="1"
                                     max="10"
-                                    disabled={isRunning}
+                                    disabled={botStatus.is_running}
                                 />
                             </div>
-                            <div className="config-item">
-                                <label>Barrier (optional)</label>
-                                <input
-                                    type="text"
-                                    value={barrier}
-                                    onChange={(e) => setBarrier(e.target.value)}
-                                    placeholder="e.g. +0.001, -0.001, or absolute value"
-                                    disabled={isRunning}
-                                />
-                            </div>
-
-                            {config.contract_type === 'multipliers' ? (
-                                <>
-                                    <div className="config-item">
-                                        <label>Multiplier (x)</label>
-                                        <input
-                                            type="number"
-                                            value={config.multiplier}
-                                            onChange={e => setConfig(prev => ({ ...prev, multiplier: parseInt(e.target.value) || 100 }))}
-                                            min="1"
-                                            max="2000"
-                                            disabled={isRunning}
-                                        />
-                                    </div>
-                                    <div className="config-item">
-                                        <label>
-                                            <input
-                                                type="checkbox"
-                                                checked={config.use_deal_cancellation}
-                                                onChange={e => setConfig(prev => ({ ...prev, use_deal_cancellation: e.target.checked }))}
-                                                disabled={isRunning}
-                                            />
-                                            Deal Cancellation
-                                        </label>
-                                        {config.use_deal_cancellation && (
-                                            <select
-                                                value={config.deal_cancellation}
-                                                onChange={e => setConfig(prev => ({ ...prev, deal_cancellation: e.target.value as '5m' | '10m' | '15m' | '30m' | '60m' }))}
-                                                disabled={isRunning}
-                                            >
-                                                <option value="5m">5 minutes</option>
-                                                <option value="10m">10 minutes</option>
-                                                <option value="15m">15 minutes</option>
-                                                <option value="30m">30 minutes</option>
-                                                <option value="60m">60 minutes</option>
-                                            </select>
-                                        )}
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="config-item">
-                                    <label>Duration</label>
-                                    <div className="duration-group">
-                                        <input
-                                            type="number"
-                                            value={duration}
-                                            onChange={(e) => setDuration(Number(e.target.value))}
-                                            min="1"
-                                            disabled={isRunning}
-                                        />
-                                        <select
-                                            value={durationType}
-                                            onChange={(e) => setDurationType(e.target.value)}
-                                            disabled={isRunning}
-                                        >
-                                            <option value="t">Ticks</option>
-                                            <option value="s">Seconds</option>
-                                            <option value="m">Minutes</option>
-                                            <option value="h">Hours</option>
-                                            <option value="d">Days</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            )}
                         </div>
-
-                        {isOAuthEnabled && (
-                            <div className="oauth-status">
-                                <span className="status-label">Authentication:</span>
-                                <span className="status-value connected">
-                                    ✅ OAuth Authenticated - Ready for Trading
-                                </span>
-                            </div>
-                        )}
 
                         {/* Advanced Risk Management */}
                         <div className="risk-management">
@@ -2871,7 +2102,7 @@ ws.onopen = () => {
                                         type="checkbox"
                                         checked={config.use_trailing_stop}
                                         onChange={e => setConfig(prev => ({ ...prev, use_trailing_stop: e.target.checked }))}
-                                        disabled={isRunning}
+                                        disabled={botStatus.is_running}
                                     />
                                     Trailing Stop (${config.trailing_step})
                                 </label>
@@ -2880,7 +2111,7 @@ ws.onopen = () => {
                                         type="checkbox"
                                         checked={config.use_breakeven}
                                         onChange={e => setConfig(prev => ({ ...prev, use_breakeven: e.target.checked }))}
-                                        disabled={isRunning}
+                                        disabled={botStatus.is_running}
                                     />
                                     Breakeven at ${config.breakeven_trigger} profit
                                 </label>
@@ -2889,7 +2120,7 @@ ws.onopen = () => {
                                         type="checkbox"
                                         checked={config.use_10s_filter}
                                         onChange={e => setConfig(prev => ({ ...prev, use_10s_filter: e.target.checked }))}
-                                        disabled={isRunning}
+                                        disabled={botStatus.is_running}
                                     />
                                     10-Second Confirmation Filter
                                 </label>
@@ -2912,26 +2143,25 @@ ws.onopen = () => {
                             )}
                         </div>
 
-          <div className="control-item">
-            <span className="control-label">Trading Status:</span>
-            <span className={`status ${isAuthorized ? 'connected' : 'disconnected'}`}>
-              {isAuthorized ? '🟢 Authorized' : '🔴 Not Authorized'}
-            </span>
-          </div>
+          <div className="trading-controls">
+            <div className="control-item">
+              <span className="control-label">Trading Status:</span>
+              <span className="status connected">
+                🟢 Ready for Trading (OAuth Authenticated)
+              </span>
+            </div>
 
-
-
-          <div className="control-item">
-            <label className="control-label">
-              <input
-                type="checkbox"
-                checked={tradingEnabled}
-                onChange={(e) => setTradingEnabled(e.target.checked)}
-                disabled={!isAuthorized}
-                style={{ marginRight: '10px' }}
-              />
-              Enable Auto Trading
-            </label>
+            <div className="control-item">
+              <label className="control-label">
+                <input
+                  type="checkbox"
+                  checked={tradingEnabled}
+                  onChange={(e) => setTradingEnabled(e.target.checked)}
+                  style={{ marginRight: '10px' }}
+                />
+                Enable Auto Trading
+              </label>
+            </div>
           </div>
 
           {currentContract && (
@@ -2944,22 +2174,22 @@ ws.onopen = () => {
           )}
                         <div className="control-buttons">
                             <button
-                                className={`control-btn ${isRunning ? 'stop' : 'start'}`}
-                                onClick={isRunning ? handleStopBot : handleStartBot}
+                                className={`control-btn ${botStatus.is_running ? 'stop' : 'start'}`}
+                                onClick={botStatus.is_running ? stopBot : startBot}
                             >
-                                {isRunning ? '⏹️ Stop Bot' : '▶️ Start Bot'}
+                                {botStatus.is_running ? '⏹️ Stop Bot' : '▶️ Start Bot'}
                             </button>
                             <button
                                 className="control-btn test"
                                 onClick={testConnection}
-                                disabled={isRunning}
+                                disabled={botStatus.is_running}
                             >
                                 🔍 Test Connection
                             </button>
                             <button
                                 className="control-btn day-ticks"
                                 onClick={() => getDayTicks(config.symbol)}
-                                disabled={isRunning}
+                                disabled={botStatus.is_running}
                             >
                                 📅 Get Day Ticks (86400)
                             </button>
@@ -2972,25 +2202,25 @@ ws.onopen = () => {
                     </div>
 
                     {/* Current Contract */}
-                    {currentContract && (
+                    {botStatus.current_contract && (
                         <div className="current-contract">
                             <h3>📊 Current Contract</h3>
                             <div className="contract-info">
                                 <div className="contract-details">
-                                    <span>ID: {currentContract.id}</span>
-                                    <span>Type: {currentContract.type}</span>
-                                    <span>Direction: {currentContract.direction}</span>
-                                    <span>Entry: {currentContract.entry_price.toFixed(5)}</span>
+                                    <span>ID: {botStatus.current_contract.id}</span>
+                                    <span>Type: {botStatus.current_contract.type}</span>
+                                    <span>Direction: {botStatus.current_contract.direction}</span>
+                                    <span>Entry: {botStatus.current_contract.entry_price.toFixed(5)}</span>
                                 </div>
-                                <div className={`profit-display ${currentContract.profit >= 0 ? 'positive' : 'negative'}`}>
-                                    P&L: ${currentContract.profit.toFixed(2)}
+                                <div className={`profit-display ${botStatus.current_contract.profit >= 0 ? 'positive' : 'negative'}`}>
+                                    P&L: ${botStatus.current_contract.profit.toFixed(2)}
                                 </div>
                             </div>
                             <div className="risk-status">
                                 {config.use_trailing_stop && (
-                                    <span>Trailing Stop: {currentContract.trailing_stop.toFixed(5)}</span>
+                                    <span>Trailing Stop: {botStatus.current_contract.trailing_stop.toFixed(5)}</span>
                                 )}
-                                {currentContract.breakeven_active && (
+                                {botStatus.current_contract.breakeven_active && (
                                     <span className="breakeven-active">Breakeven Active</span>
                                 )}
                             </div>
@@ -3002,12 +2232,12 @@ ws.onopen = () => {
                     {/* Timeframe Analysis */}
                     <div className="timeframe-analysis">
                         <h3>📈 Multi-Timeframe Analysis</h3>
-                        <div className={`alignment-status ${overallAnalysis}`}>
+                        <div className={`alignment-status ${botStatus.alignment_status}`}>
                             <div 
                                 className="alignment-indicator"
-                                style={{ backgroundColor: getAlignmentColor(overallAnalysis) }}
+                                style={{ backgroundColor: getAlignmentColor(botStatus.alignment_status) }}
                             >
-                                {overallAnalysis.replace('_', ' ').toUpperCase()}
+                                {botStatus.alignment_status.replace('_', ' ').toUpperCase()}
                             </div>
                         </div>
                         <div className="trends-grid">
@@ -3036,20 +2266,20 @@ ws.onopen = () => {
                         <div className="stats-grid">
                             <div className="stat-item">
                                 <span className="stat-label">Total Trades</span>
-                                <span className="stat-value">{performanceData.totalTrades}</span>
+                                <span className="stat-value">{botStatus.total_trades}</span>
                             </div>
                             <div className="stat-item">
                                 <span className="stat-label">Win Rate</span>
                                 <span className="stat-value">
-                                    {tradeHistory.length > 0 
-                                        ? ((tradeHistory.filter(trade => trade.profit > 0).length / tradeHistory.length) * 100).toFixed(1) 
+                                    {botStatus.total_trades > 0 
+                                        ? ((botStatus.winning_trades / botStatus.total_trades) * 100).toFixed(1) 
                                         : 0}%
                                 </span>
                             </div>
                             <div className="performance-item">
             <span className="stat-label">Total P&L</span>
-                                <span className={`stat-value ${tradeHistory.reduce((acc, trade) => acc + trade.profit, 0) >= 0 ? 'positive' : 'negative'}`}>
-                                    ${tradeHistory.reduce((acc, trade) => acc + trade.profit, 0).toFixed(2)}
+                                <span className={`stat-value ${botStatus.total_pnl >= 0 ? 'positive' : 'negative'}`}>
+                                    ${botStatus.total_pnl.toFixed(2)}
                                 </span>
                             </div>
                         </div>
@@ -3061,9 +2291,9 @@ ws.onopen = () => {
               {tradeHistory.slice(-5).reverse().map((trade, index) => (
                 <div key={index} className="trade-item">
                   <span className="trade-type">{trade.type}</span>
-                  <span className="trade-stake">${config.stake}</span>
-                  <span className={`trade-result ${trade.profit > 0 ? 'win' : 'loss'}`}>
-                    {trade.profit > 0 ? 'WIN' : 'LOSS'}
+                  <span className="trade-stake">${trade.stake}</span>
+                  <span className={`trade-result ${trade.isWin ? 'win' : 'loss'}`}>
+                    {trade.isWin ? 'WIN' : 'LOSS'}
                   </span>
                   <span className={`trade-profit ${trade.profit >= 0 ? 'positive' : 'negative'}`}>
                     ${trade.profit.toFixed(2)}

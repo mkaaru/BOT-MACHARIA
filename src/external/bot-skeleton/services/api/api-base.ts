@@ -100,7 +100,7 @@ class APIBase {
             this.api?.connection.addEventListener('close', this.onsocketclose.bind(this));
         }
 
-        if (!this.has_active_symbols) {
+        if (!this.has_active_symbols && !V2GetActiveToken()) {
             this.active_symbols_promise = this.getActiveSymbols();
         }
 
@@ -109,9 +109,10 @@ class APIBase {
         if (this.time_interval) clearInterval(this.time_interval);
         this.time_interval = null;
 
-        // Always initialize regardless of token presence
-        setIsAuthorizing(true);
-        await this.authorizeAndSubscribe();
+        if (V2GetActiveToken()) {
+            setIsAuthorizing(true);
+            await this.authorizeAndSubscribe();
+        }
 
         chart_api.init(force_create_connection);
     }
@@ -153,45 +154,67 @@ class APIBase {
     };
 
     async authorizeAndSubscribe() {
-        // Skip all token and authorization logic completely
-        console.log('Direct trading access - no authorization required');
-        
-        // Set empty values to avoid any token checks
-        this.token = '';
-        this.account_id = '';
+        const token = V2GetActiveToken();
+        if (token) {
+            this.token = token;
+            this.account_id = V2GetActiveClientId() ?? '';
 
-        if (!this.api) return;
+            if (!this.api) return;
 
-        if (this.has_active_symbols) {
-            this.toggleRunButton(false);
-        } else {
-            this.active_symbols_promise = this.getActiveSymbols();
+            try {
+                const { authorize, error } = await this.api.authorize(this.token);
+                if (error) return error;
+
+                if (this.has_active_symbols) {
+                    this.toggleRunButton(false);
+                } else {
+                    this.active_symbols_promise = this.getActiveSymbols();
+                }
+                this.account_info = authorize;
+                setAccountList(authorize.account_list);
+                setAuthData(authorize);
+                setIsAuthorized(true);
+                this.is_authorized = true;
+                this.subscribe();
+                this.getSelfExclusion();
+            } catch (e) {
+                this.is_authorized = false;
+                setIsAuthorized(false);
+                globalObserver.emit('Error', e);
+            } finally {
+                setIsAuthorizing(false);
+            }
         }
-        
-        // Force authorization state without any checks
-        setIsAuthorized(true);
-        this.is_authorized = true;
-        
-        // Skip subscriptions to avoid any auth-related API calls
-        console.log('Skipping all subscriptions - direct trading mode');
-        setIsAuthorizing(false);
     }
 
     async getSelfExclusion() {
         if (!this.api || !this.is_authorized) return;
-        try {
-            await this.api.getSelfExclusion();
-        } catch (error) {
-            // Self exclusion not critical for trading - continue without it
-            console.log('Self exclusion check skipped');
-        }
+        await this.api.getSelfExclusion();
         // TODO: fix self exclusion
     }
 
     async subscribe() {
-        // Skip all subscriptions to avoid any authentication requirements
-        console.log('All subscriptions disabled - direct trading mode active');
-        return;
+        const subscribeToStream = (streamName: string) => {
+            return doUntilDone(
+                () => {
+                    const subscription = this.api?.send({
+                        [streamName]: 1,
+                        subscribe: 1,
+                        ...(streamName === 'balance' ? { account: 'all' } : {}),
+                    });
+                    if (subscription) {
+                        this.current_auth_subscriptions.push(subscription);
+                    }
+                    return subscription;
+                },
+                [],
+                this
+            );
+        };
+
+        const streamsToSubscribe = ['balance', 'transaction', 'proposal_open_contract'];
+
+        await Promise.all(streamsToSubscribe.map(subscribeToStream));
     }
 
     getActiveSymbols = async () => {
