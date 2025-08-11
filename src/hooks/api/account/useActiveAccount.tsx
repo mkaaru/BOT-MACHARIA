@@ -6,7 +6,8 @@ import { Balance } from '@deriv/api-types';
 import { localize } from '@deriv-com/translations';
 
 /** A custom hook that returns the account object for the current active account. */
-const useActiveAccount = ({ allBalanceData }: { allBalanceData: Balance | null }) => {
+const useActiveAccount = (param?: { allBalanceData?: Balance[] }) => {
+    const { allBalanceData } = param || {};
     const { accountList, activeLoginid } = useApiBase();
 
     const activeAccount = useMemo(
