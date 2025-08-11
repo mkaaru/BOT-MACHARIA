@@ -7,6 +7,7 @@ interface SplashScreenProps {
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
+    console.log('SplashScreen component rendered');
     const [progress, setProgress] = useState(0);
     const [currentMessage, setCurrentMessage] = useState('');
     const [displayedText, setDisplayedText] = useState('');

@@ -179,7 +179,10 @@ const AppContent = observer(() => {
     const isLoading = is_loading; // Using existing is_loading state
 
 
+    console.log('App-content render check:', { forceShowApp, is_loading, 'client.is_logged_in': client.is_logged_in });
+    
     if (!forceShowApp) {
+        console.log('Showing splash screen');
         return (
             <SplashScreen onComplete={() => setForceShowApp(true)} />
         );
