@@ -160,7 +160,7 @@ const AppContent = observer(() => {
             initHotjar(client);
         }
     }, []);
-    
+
      React.useEffect(() => {
         const timeout = setTimeout(() => {
             setForceShowApp(true);
