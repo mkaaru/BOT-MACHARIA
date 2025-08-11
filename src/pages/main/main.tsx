@@ -368,6 +368,11 @@ const AppWrapper = observer(() => {
         try {
             console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
 
+            // Show loading state
+            if (dashboard.setLoadingState) {
+                dashboard.setLoadingState(true);
+            }
+
             let xmlContent = bot.xmlContent;
 
             // If it's a placeholder bot or no content, try to load the content now
@@ -579,19 +584,61 @@ const AppWrapper = observer(() => {
                             setActiveTab(DBOT_TABS.BOT_BUILDER);
                         } catch (retryError) {
                             console.error("❌ Failed to load bot on retry:", retryError);
-                            alert("Failed to load the bot. Please try again or contact support.");
+                            
+                            // Show user-friendly error dialog instead of alert
+                            if (run_panel.showErrorMessage) {
+                                run_panel.showErrorMessage("Failed to load the bot. The bot file may be incompatible with this version. Please try a different bot or contact support.", 'Bot Loading Error');
+                            } else {
+                                alert("Failed to load the bot. Please try again or contact support.");
+                            }
                         }
                     }, 2000);
                 } else {
                     console.error("❌ Unknown loading error:", loadError);
-                    alert("An unknown error occurred while loading the bot. Please try again.");
+                    
+                    // Track unknown errors for debugging
+                    if (window.rudderanalytics) {
+                        window.rudderanalytics.track('Bot Loading Error', {
+                            bot_title: bot.title,
+                            bot_file: bot.filePath,
+                            error_message: loadError.message,
+                            error_type: 'unknown_loading_error'
+                        });
+                    }
+                    
+                    if (run_panel.showErrorMessage) {
+                        run_panel.showErrorMessage("An unexpected error occurred while loading the bot. Please try refreshing the page or contact support.", 'Bot Loading Error');
+                    } else {
+                        alert("An unknown error occurred while loading the bot. Please try again.");
+                    }
                 }
             }
 
         } catch (error) {
             console.error("Error loading bot:", error);
+            
+            // Track all bot loading errors
+            if (window.rudderanalytics) {
+                window.rudderanalytics.track('Bot Loading Error', {
+                    bot_title: bot.title,
+                    bot_file: bot.filePath,
+                    error_message: error.message,
+                    error_type: 'general_loading_error'
+                });
+            }
+            
+            if (run_panel.showErrorMessage) {
+                run_panel.showErrorMessage(`Failed to load bot "${bot.title}". Please check the bot file and try again.`, 'Bot Loading Error');
+            } else {
+                alert(`Failed to load bot "${bot.title}". Please try again.`);
+            }
+        } finally {
+            // Hide loading state
+            if (dashboard.setLoadingState) {
+                dashboard.setLoadingState(false);
+            }
         }
-    }, [setActiveTab]);
+    }, [setActiveTab, dashboard, run_panel]);
 
     const handleOpen = useCallback(async () => {
         await load_modal.loadFileFromRecent();
@@ -1496,14 +1543,36 @@ if __name__ == "__main__":
 
     const handleTabChange = useCallback((tab_index: string) => {
         try {
+            // Validate tab exists before switching
+            const validTabs = Object.values(DBOT_TABS);
+            if (!validTabs.includes(tab_index)) {
+                console.warn('Invalid tab index:', tab_index);
+                setActiveTab(DBOT_TABS.DASHBOARD);
+                return;
+            }
+
             setActiveTab(tab_index);
             console.log('Tab changed to:', tab_index);
+
+            // Clear any previous errors when successfully changing tabs
+            if (dashboard.error) {
+                dashboard.clearError();
+            }
         } catch (error) {
             console.error('Error changing tab:', error);
+            
+            // Track the error
+            if (window.rudderanalytics) {
+                window.rudderanalytics.track('Tab Change Error', {
+                    attempted_tab: tab_index,
+                    error_message: error.message
+                });
+            }
+            
             // Fallback to dashboard if tab change fails
             setActiveTab(DBOT_TABS.DASHBOARD);
         }
-    }, [setActiveTab]);
+    }, [setActiveTab, dashboard]);
 
     const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
 
