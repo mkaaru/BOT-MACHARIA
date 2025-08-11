@@ -1,7 +1,7 @@
 import React from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
-import { getSavedWorkspaces } from '@/external/bot-skeleton';
+import { getSavedWorkspaces } from '@/external/bot-skeleton/utils/local-storage';
 import { useStore } from '@/hooks/useStore';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';

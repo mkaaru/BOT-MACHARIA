@@ -41,3 +41,9 @@ export enum LogTypes {
     WELCOME_BACK = 'welcome_back',
     WELCOME = 'welcome',
 }
+export default {
+    ERROR: 'error',
+    INFO: 'info',
+    SUCCESS: 'success',
+    WARNING: 'warning',
+};

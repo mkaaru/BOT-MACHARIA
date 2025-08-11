@@ -44,3 +44,50 @@ export const isDbotRTL = () => {
     const dirValue = htmlElement.getAttribute('dir');
     return dirValue === 'rtl';
 };
+// Workspace utility for loading and managing bot strategies
+const workspace = {
+    load: async ({ block_string, file_name, workspace, from, drop_event, strategy_id, showIncompatibleStrategyDialog }) => {
+        try {
+            console.log(`Loading strategy: ${file_name}`);
+            
+            if (!block_string) {
+                throw new Error('No block string provided');
+            }
+
+            // Parse the XML block string
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(block_string, 'text/xml');
+            
+            if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+                throw new Error('Invalid XML format');
+            }
+
+            // Clear existing workspace if it exists
+            if (workspace) {
+                workspace.clear();
+                
+                // Load the new blocks into workspace
+                if (window.Blockly && window.Blockly.Xml) {
+                    window.Blockly.Xml.domToWorkspace(xmlDoc, workspace);
+                }
+            }
+
+            console.log('Strategy loaded successfully');
+            return Promise.resolve();
+        } catch (error) {
+            console.error('Failed to load strategy:', error);
+            return Promise.reject(error);
+        }
+    },
+
+    save: (workspace) => {
+        if (workspace && window.Blockly && window.Blockly.Xml) {
+            const xml = window.Blockly.Xml.workspaceToDom(workspace);
+            return window.Blockly.Xml.domToText(xml);
+        }
+        return '';
+    }
+};
+
+export default workspace;
+export const load = workspace.load;

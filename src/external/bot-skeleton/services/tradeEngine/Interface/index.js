@@ -39,3 +39,9 @@ const Interface = $scope => {
 };
 
 export default Interface;
+export { default as BotInterface } from './BotInterface';
+export { default as CandleInterface } from './CandleInterface';
+export { default as IndicatorsInterface } from './IndicatorsInterface';
+export { default as MiscInterface } from './MiscInterface';
+export { default as TicksInterface } from './TicksInterface';
+export { default as ToolsInterface } from './ToolsInterface';
