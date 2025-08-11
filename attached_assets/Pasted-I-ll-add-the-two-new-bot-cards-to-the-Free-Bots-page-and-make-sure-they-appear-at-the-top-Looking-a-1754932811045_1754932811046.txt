@@ -1,0 +1,41 @@
+I'll add the two new bot cards to the Free Bots page and make sure they appear at the top. Looking at the main.tsx file, I can see how the bot list is structured and where to add the new bots.
+
+src/pages/main/main.tsx
+Now I need to add the bot metadata for these two new bots so they display with proper titles and descriptions:
+
+Now I need to copy the XML files to the public directory so they can be loaded:
+
+public/Upgarged CandleMine_1754930851660.xml
+public/Maziwa Tele Under Bot_1754930865460.xml
+Perfect! I've successfully added the two new bot cards to the Free Bots page. Here's what I've done:
+
+Added the new bots at the top of the bot list: Both "Upgarged CandleMine_1754930851660.xml" and "Maziwa Tele Under Bot_1754930865460.xml" are now positioned at the beginning of the botFiles array, ensuring they appear first.
+
+Added descriptive metadata for both bots:
+
+Upgraded CandleMine Pro: Features UFO digit analysis and martingale strategy
+Maziwa Tele Under Bot: Professional under prediction bot with advanced loss management
+Created the XML files in the public directory so they can be properly loaded by the application.
+
+The new bots will now appear as the first two cards in the Free Bots tab, each with their own card displaying the title, description, and bot icon. Users will be able to click on these cards to load and use the respective bot strategies.
+
+Currently at checkpoint
+Added two new bot cards at the top of Free Bots page
+21 minutes ago
+•
+there is a problem , when i click on load bot nothing is happenning seems like its trying to refresh run bot
+
+MK
+
+smartrader1989
+Assistant
+14 minutes ago
+Looking at your code, I can see the issue. The loadFileFromContent method is being defined inside the LoadModal component, but it's not properly integrated with the existing load modal store methods. The bot loading functionality should use the existing loadFileFromContent method that's properly connected to the Blockly workspace.
+
+Let me fix this by updating the handleBotClick function in main.tsx to use the proper loading mechanism:
+
+src/pages/main/main.tsx
+Now I also need to remove the problematic loadFileFromContent definition that was added to the LoadModal component:
+
+src/components/load-modal/load-modal.tsx
+The issue was that the bot loading functionality was trying to use a custom loadFileFromContent method that wasn't properly integrated with the existing Blockly workspace loading system. The fix uses the proper load function from the bot-skeleton module, which is the same method used throughout the application for loading XML strategies into the workspace.
