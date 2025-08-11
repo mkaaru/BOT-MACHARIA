@@ -1687,80 +1687,80 @@ const AppWrapper = observer(() => {
                     if (workspace && xmlContent) {
                         console.log(`=== CLEARING AND LOADING ${bot.title} ===`);
 
-                        // COMPLETE WORKSPACE RESET
-                        try {
-                            console.log("Step 1: Clearing workspace completely...");
+                        console.log("Step 1: Clearing workspace completely...");
 
-                            // Disable events during clearing to prevent issues
-                            const eventsEnabled = workspace.recordUndo;
-                            workspace.recordUndo = false;
+                        // Close any floating UI elements that might interfere
+                        const floatingElements = document.querySelectorAll('.blocklyWidgetDiv, .blocklyDropDownDiv, .blocklyTooltipDiv');
+                        floatingElements.forEach(el => {
+                            if (el && el.parentNode) {
+                                el.parentNode.removeChild(el);
+                            }
+                        });
 
-                            // Force clear all blocks manually first
-                            const allBlocks = workspace.getAllBlocks?.(false) || [];
-                            console.log(`Found ${allBlocks.length} blocks to clear`);
+                        // Hide any overlays or modals
+                        const overlays = document.querySelectorAll('[class*="modal"], [class*="dialog"], [class*="overlay"]');
+                        overlays.forEach(overlay => {
+                            if (overlay.style) {
+                                overlay.style.display = 'none';
+                                overlay.style.visibility = 'hidden';
+                            }
+                        });
 
-                            allBlocks.forEach((block, index) => {
+                        // Disable events during clearing to prevent issues
+                        const eventsEnabled = workspace.recordUndo;
+                        workspace.recordUndo = false;
+
+                        // Force clear all blocks manually first
+                        const allBlocks = workspace.getAllBlocks?.(false) || [];
+                        console.log(`Found ${allBlocks.length} blocks to clear`);
+
+                        allBlocks.forEach((block, index) => {
+                            try {
+                                console.log(`Disposing block ${index + 1}/${allBlocks.length}: ${block.type}`);
+                                block.dispose(true); // Force dispose with heal
+                            } catch (e) {
+                                console.warn(`Error disposing block ${index}:`, e);
+                            }
+                        });
+
+                        // Clear the workspace completely
+                        if (workspace.clear && typeof workspace.clear === 'function') {
+                            workspace.clear();
+                            console.log('Workspace cleared using clear()');
+                        }
+
+                        // Clear variables
+                        if (workspace.getAllVariables) {
+                            const variables = workspace.getAllVariables();
+                            console.log(`Clearing ${variables.length} variables`);
+                            variables.forEach(variable => {
                                 try {
-                                    console.log(`Disposing block ${index + 1}/${allBlocks.length}: ${block.type}`);
-                                    block.dispose(true); // Force dispose with heal
+                                    workspace.deleteVariableById?.(variable.getId());
                                 } catch (e) {
-                                    console.warn(`Error disposing block ${index}:`, e);
+                                    console.warn('Error clearing variable:', e);
                                 }
                             });
-
-                            // Clear the workspace completely
-                            if (workspace.clear && typeof workspace.clear === 'function') {
-                                workspace.clear();
-                                console.log('Workspace cleared using clear()');
-                            }
-
-                            // Clear variables
-                            if (workspace.getAllVariables) {
-                                const variables = workspace.getAllVariables();
-                                console.log(`Clearing ${variables.length} variables`);
-                                variables.forEach(variable => {
-                                    try {
-                                        workspace.deleteVariableById?.(variable.getId());
-                                    } catch (e) {
-                                        console.warn('Error clearing variable:', e);
-                                    }
-                                });
-                            }
-
-                            // Clear undo/redo history
-                            if (workspace.clearUndo && typeof workspace.clearUndo === 'function') {
-                                workspace.clearUndo();
-                                console.log('Cleared undo history');
-                            }
-
-                            // Reset workspace state
-                            workspace.current_strategy_id = null;
-                            console.log('Reset strategy ID');
-
-                            // Re-enable events
-                            workspace.recordUndo = eventsEnabled;
-
-                            // Force refresh and wait
-                            if (workspace.render) {
-                                workspace.render();
-                            }
-
-                            await new Promise(resolve => setTimeout(resolve, 300));
-
-                            // Verify workspace is actually empty
-                            const remainingBlocks = workspace.getAllBlocks?.(false) || [];
-                            console.log(`Verification: ${remainingBlocks.length} blocks remaining after clear`);
-
-                        } catch (clearError) {
-                            console.error('Error clearing workspace:', clearError);
-                            // Force clear as last resort
-                            try {
-                                workspace.clear();
-                            } catch (e) {
-                                console.error('Even force clear failed:', e);
-                            }
-                            await new Promise(resolve => setTimeout(resolve, 300));
                         }
+
+                        // Clear undo/redo history
+                        if (workspace.clearUndo && typeof workspace.clearUndo === 'function') {
+                            workspace.clearUndo();
+                            console.log('Cleared undo history');
+                        }
+
+                        // Reset workspace state
+                        workspace.current_strategy_id = null;
+                        console.log('Reset strategy ID');
+
+                        // Re-enable events
+                        workspace.recordUndo = eventsEnabled;
+
+                        // Force refresh and wait
+                        if (workspace.render) {
+                            workspace.render();
+                        }
+
+                        await new Promise(resolve => setTimeout(resolve, 500));
 
                         console.log("Step 2: Parsing XML content for", bot.title);
 
