@@ -31,3 +31,5 @@ export const getContractTypeName = contract => {
 
     return name;
 };
+
+export default { getContractTypeName };

@@ -238,3 +238,4 @@ class APIBase {
 }
 
 export const api_base = new APIBase();
+export default api_base;
