@@ -165,7 +165,7 @@ const AppContent = observer(() => {
      React.useEffect(() => {
         const timeout = setTimeout(() => {
             setForceShowApp(true);
-        }, 5000); // Show app after 5 seconds regardless
+        }, 10000); // Show app after 10 seconds regardless
 
         return () => clearTimeout(timeout);
     }, []);
@@ -179,11 +179,9 @@ const AppContent = observer(() => {
     const isLoading = is_loading; // Using existing is_loading state
 
 
-    if (!authData.isLoggedIn || isLoading || !forceShowApp) {
+    if (!forceShowApp) {
         return (
-            <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 10000 }}>
-                <SplashScreen onComplete={() => setForceShowApp(true)} />
-            </div>
+            <SplashScreen onComplete={() => setForceShowApp(true)} />
         );
     }
 

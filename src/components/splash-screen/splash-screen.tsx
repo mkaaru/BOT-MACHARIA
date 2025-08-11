@@ -64,12 +64,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
             setProgress(prev => {
                 if (prev >= 100) {
                     clearInterval(progressInterval);
-                    setTimeout(() => onComplete?.(), 1000);
+                    setTimeout(() => onComplete?.(), 500);
                     return 100;
                 }
-                return prev + 1.5;
+                return prev + 1;
             });
-        }, 80);
+        }, 100);
 
         return () => {
             clearInterval(progressInterval);
