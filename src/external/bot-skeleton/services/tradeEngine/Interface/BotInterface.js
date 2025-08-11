@@ -1,5 +1,5 @@
 
-import { createDetails } from '../utils/details';
+import { createDetails } from '../utils/helpers';
 
 const getProposal = (contract_type, tradeEngine) => {
     return tradeEngine.data.proposals.find(
