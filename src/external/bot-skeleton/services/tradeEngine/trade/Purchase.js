@@ -150,11 +150,63 @@ export default Engine =>
             purchase_reference = getUUID();
         };
 
-        // Configure martingale from bot parameters - placeholder for XML-based strategies
+        // Configure martingale from bot parameters - ensure proper contract completion
         configureMartingaleFromBot() {
             console.log('🔧 MARTINGALE: Configuration handled by XML strategy files');
             console.log('📁 Available XML strategies: martingale.xml, martingale-pro.xml, martingale_max-stake.xml');
-            // XML-based strategies handle their own martingale logic through Blockly blocks
-            // No custom JavaScript implementation needed here
+            
+            // Ensure we wait for contract completion before next trade
+            this.contractCompletionRequired = true;
+            this.isProcessingTrade = false;
+            
+            // Remove any per-tick listeners that might cause rapid execution
+            this.removePerTickListeners();
+        }
+
+        // Remove per-tick execution listeners
+        removePerTickListeners() {
+            if (this.tickListener) {
+                this.tickListener.unsubscribe();
+                this.tickListener = null;
+            }
+            console.log('🔧 MARTINGALE: Removed per-tick listeners to prevent rapid execution');
+        }
+
+        // Ensure contract completion before next trade
+        waitForContractCompletion(callback) {
+            if (this.isProcessingTrade) {
+                console.log('⏳ MARTINGALE: Waiting for current contract to complete...');
+                return;
+            }
+            
+            this.isProcessingTrade = true;
+            
+            // Set a timeout to ensure we don't wait indefinitely
+            const completionTimeout = setTimeout(() => {
+                console.log('⚠️ MARTINGALE: Contract completion timeout, proceeding with next trade');
+                this.isProcessingTrade = false;
+                if (callback) callback();
+            }, 30000); // 30 second timeout
+            
+            // Wait for actual contract completion
+            const checkCompletion = setInterval(() => {
+                const openContract = this.getOpenContract();
+                if (!openContract || openContract.is_sold) {
+                    clearInterval(checkCompletion);
+                    clearTimeout(completionTimeout);
+                    this.isProcessingTrade = false;
+                    console.log('✅ MARTINGALE: Contract completed, ready for next trade');
+                    if (callback) callback();
+                }
+            }, 1000);
+        }
+
+        // Get current open contract
+        getOpenContract() {
+            try {
+                return window.Blockly.derivWorkspace.getAllBlocks()
+                    .find(block => block.type === 'open_contract')?.contract;
+            } catch (error) {
+                return null; here
         }
     };
