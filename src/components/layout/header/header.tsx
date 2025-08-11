@@ -54,27 +54,27 @@ const InfoIcon = () => {
                 <svg width="32" height="32" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
                     {/* Main circle background */}
                     <circle cx="32" cy="32" r="30" fill="url(#socialGradient)"/>
-                    
+
                     {/* Decorative rings */}
                     <circle cx="32" cy="32" r="24" stroke="#FFF" strokeWidth="2" strokeDasharray="4 4"/>
                     <circle cx="32" cy="32" r="18" fill="rgba(255,255,255,0.1)"/>
-                    
+
                     {/* Connect dots pattern */}
                     <circle cx="32" cy="20" r="3" fill="#FFD700"/>
                     <circle cx="44" cy="32" r="3" fill="#4CAF50"/>
                     <circle cx="32" cy="44" r="3" fill="#FF5722"/>
                     <circle cx="20" cy="32" r="3" fill="#2196F3"/>
-                    
+
                     {/* Connection lines */}
                     <path d="M32 23L44 32" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/>
                     <path d="M44 32L32 44" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/>
                     <path d="M32 44L20 32" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/>
                     <path d="M20 32L32 20" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/>
-                    
+
                     {/* Center hub */}
                     <circle cx="32" cy="32" r="6" fill="white"/>
                     <circle cx="32" cy="32" r="4" fill="#E91E63"/>
-                    
+
                     {/* Gradient definition */}
                     <defs>
                         <linearGradient id="socialGradient" x1="0" y1="0" x2="64" y2="64">
@@ -111,20 +111,56 @@ const InfoIcon = () => {
 };
 
 const AppHeader = observer(() => {
+    const { client, ui, common } = useStore();
     const { isDesktop } = useDevice();
-    const { isAuthorizing, activeLoginid } = useApiBase();
-    const { client } = useStore() ?? {};
+    const { localize } = useTranslations();
+    const { data: activeAccount } = useActiveAccount();
+    const { isOAuth2Enabled, oAuthLogout } = useOauth2({ client });
+    const { switchEndpoint } = useApiBase();
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const { data: activeAccount } = useActiveAccount({ allBalanceData: client?.all_accounts_balance });
+    const {
+        account_switcher_disabled_message,
+        app_routing_history,
+        is_logged_in,
+        is_logging_in,
+        is_mobile,
+        notifications_dialog,
+        should_show_real_accounts_list,
+    } = ui;
+    const { platform, network_status } = common;
+    const { loginid, is_virtual, residence, email, balance, currency, landing_company_shortcode } = client;
+
+    const openModal = () => setIsModalOpen(true);
+    const closeModal = () => setIsModalOpen(false);
+
+    const handleLogin = () => {
+        if (isOAuth2Enabled) {
+            requestOidcAuthentication({
+                redirectCallbackUri: `${window.location.origin}/callback`,
+            });
+        } else {
+            // Handle traditional login flow
+            window.location.href = 'https://oauth.deriv.com/oauth2/authorize';
+        }
+    };
+
+    const handleSignup = () => {
+        if (isOAuth2Enabled) {
+            requestOidcAuthentication({
+                redirectCallbackUri: `${window.location.origin}/callback`,
+            });
+        } else {
+            // Handle traditional signup flow
+            window.location.href = 'https://deriv.com/signup/';
+        }
+    };
+
+
     const { accounts } = client ?? {};
     const has_wallet = Object.keys(accounts ?? {}).some(id => accounts?.[id].account_category === 'wallet');
 
-    const { localize } = useTranslations();
-
-    const { isOAuth2Enabled } = useOauth2();
-
     const [isToggled, setIsToggled] = useState(false);
-    const [isModalOpen, setIsModalOpen] = useState(false);
     const [stake, setStake] = useState('');
     const [martingale, setMartingale] = useState('');
 
@@ -190,17 +226,13 @@ const AppHeader = observer(() => {
                 <div className='auth-actions'>
                     <Button
                         tertiary
-                        onClick={() => {
-                            window.location.replace('https://oauth.deriv.com/oauth2/authorize?app_id=75771&l=EN&brand=tradecortex');
-                        }}
+                        onClick={handleLogin}
                     >
                         <Localize i18n_default_text='Log in' />
                     </Button>
                     <Button
                         primary
-                        onClick={() => {
-                            window.open('https://track.deriv.com/_cjFwFCL6Iy0KqFKZ7JdnQ2Nd7ZgqdRLk/1/');
-                        }}
+                        onClick={handleSignup}
                     >
                         <Localize i18n_default_text='Sign up' />
                     </Button>
