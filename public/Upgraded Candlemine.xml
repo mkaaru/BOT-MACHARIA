@@ -149,7 +149,7 @@
             <next>
               <block type="notify" id="nyDsGh4M*Kt_m8rZz[Lj">
                 <field name="NOTIFICATION_TYPE">success</field>
-                <field name="NOTIFICATION_SOUND">earned-money</field>
+                <field name="NOTIFICATION_SOUND">silent</field>
                 <value name="MESSAGE">
                   <block type="variables_get" id="@P:@(Ra|a?)zmM!JZ:.Z">
                     <field name="VAR" id="]hOJfhIb0jq@|fR3bS;Z">text</field>
@@ -319,7 +319,7 @@
             <next>
               <block type="notify" id="=@KJ?5agQ2Y9RV=!1tvB">
                 <field name="NOTIFICATION_TYPE">info</field>
-                <field name="NOTIFICATION_SOUND">earned-money</field>
+                <field name="NOTIFICATION_SOUND">silent</field>
                 <value name="MESSAGE">
                   <block type="variables_get" id="tU?GjO8ZPvT%$$JJ`5i5">
                     <field name="VAR" id="!#VfU!}MCN5Q0y7#04[;">text2</field>
