@@ -22,6 +22,19 @@ export default Engine =>
             return Promise.resolve();
         }
 
+        // CRITICAL: Prevent per-tick execution - ensure previous contract is completed
+        if (this.isProcessingTrade) {
+            console.log('⏸️ PURCHASE BLOCKED: Previous trade still processing');
+            return Promise.resolve();
+        }
+
+        // Check if we have an active contract that's not yet sold
+        const openContract = this.getOpenContract();
+        if (openContract && !openContract.is_sold) {
+            console.log('⏸️ PURCHASE BLOCKED: Contract still active, waiting for completion');
+            return Promise.resolve();
+        }
+
         const { currency, is_sold } = this.data.contract;
         const is_same_symbol = this.data.contract.underlying === this.options.symbol;
         const should_forget_proposal = is_sold && is_same_symbol;
@@ -231,15 +244,16 @@ export default Engine =>
             console.log(`⚡ IMMEDIATE MARTINGALE: Processing trade result P&L: ${profit} USD`);
             console.log(`⚡ Current consecutive losses: ${consecutiveLosses}`);
             console.log(`⚡ Current stake: ${this.tradeOptions.amount} USD, Base amount: ${baseAmount} USD`);
+            console.log(`⚡ Multiplier: ${userMultiplier}x`);
 
             if (profit < 0) {
-                // Loss: Multiply stake by user-defined multiplier
+                // Loss: Increment consecutive losses and calculate new stake
                 const newConsecutiveLosses = consecutiveLosses + 1;
 
-                if (newConsecutiveLosses < maxConsecutiveLosses) {
+                if (newConsecutiveLosses <= maxConsecutiveLosses) {
                     this.martingaleState.consecutiveLosses = newConsecutiveLosses;
 
-                    // Calculate new stake using proper base amount and multiplier
+                    // FIXED: Calculate new stake based on consecutive losses, not current stake
                     const newStake = baseAmount * Math.pow(userMultiplier, newConsecutiveLosses);
 
                     // Apply max stake limit if configured
@@ -252,11 +266,9 @@ export default Engine =>
                     // Round to 2 decimal places and ensure minimum stake
                     this.tradeOptions.amount = Math.max(0.35, Math.round(newStake * 100) / 100);
 
-                    console.log(`🔴 LOSS: Multiplying stake by ${userMultiplier}x`);
-                    console.log(`🔴 Stake calculation: ${baseAmount} * ${userMultiplier}^${newConsecutiveLosses} = ${this.tradeOptions.amount} USD`);
-                    console.log(`🔴 Consecutive losses: ${newConsecutiveLosses}/${maxConsecutiveLosses}`);
+                    console.log(`🔴 LOSS ${newConsecutiveLosses}: Stake calculation: ${baseAmount} * ${userMultiplier}^${newConsecutiveLosses} = ${this.tradeOptions.amount} USD`);
                 } else {
-                    // Reset on max consecutive losses
+                    // Reset on max consecutive losses exceeded
                     this.resetMartingale();
                     console.log(`⚠️ MAX LOSSES REACHED: Reset to base ${this.martingaleState.baseAmount} USD`);
                 }
@@ -270,7 +282,7 @@ export default Engine =>
             } else {
                 // Break-even: Keep current state but reset if no consecutive losses
                 if (consecutiveLosses > 0) {
-                    console.log(`🟡 BREAK-EVEN: Maintaining current martingale state`);
+                    console.log(`🟡 BREAK-EVEN: Maintaining current martingale state (losses: ${consecutiveLosses})`);
                 } else {
                     this.tradeOptions.amount = baseAmount;
                     console.log(`🟡 BREAK-EVEN: Using base stake ${this.tradeOptions.amount} USD`);
