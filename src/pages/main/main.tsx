@@ -260,7 +260,7 @@ const AppWrapper = observer(() => {
                               </block>
                             </value>
                             <next>
-                              <block type="variables_set" id="-z^omJLEhT5\`I:NZ;J=-">
+                              <block type="variables_set" id="-z^omJLEhTT5\`I:NZ;J=-">
                                 <field name="VAR" id="~ZEk9Zr7t[g;-\\\`afIGOO">Initial Stake</field>
                                 <value name="VALUE">
                                   <block type="variables_get" id="SoAC,+VI6PpU1=/|ThHQ">
@@ -1645,15 +1645,55 @@ const AppWrapper = observer(() => {
                 try {
                     // Check if workspace exists and load content directly
                     const workspace = window.Blockly?.derivWorkspace || window.Blockly?.getMainWorkspace?.();
-                    
+
                     if (workspace && xmlContent) {
                         console.log(`Loading ${bot.title} into workspace...`);
-                        
-                        // Clear existing workspace completely
-                        workspace.clear();
-                        
-                        // Force a small delay to ensure workspace is cleared
-                        await new Promise(resolve => setTimeout(resolve, 100));
+
+                        // Completely clear the workspace using all available methods
+                        try {
+                            // Method 1: Use asyncClear if available (most thorough)
+                            if (workspace.asyncClear && typeof workspace.asyncClear === 'function') {
+                                await workspace.asyncClear();
+                                console.log('Workspace cleared using asyncClear');
+                            } else {
+                                // Method 2: Standard clear
+                                workspace.clear();
+                                console.log('Workspace cleared using clear()');
+                            }
+
+                            // Method 3: Clear undo history
+                            if (workspace.clearUndo && typeof workspace.clearUndo === 'function') {
+                                workspace.clearUndo();
+                            }
+
+                            // Method 4: Reset strategy ID if it exists
+                            if (workspace.current_strategy_id) {
+                                workspace.current_strategy_id = null;
+                            }
+
+                            // Force a longer delay to ensure complete clearing
+                            await new Promise(resolve => setTimeout(resolve, 300));
+
+                            // Verify workspace is actually empty
+                            const allBlocks = workspace.getAllBlocks?.() || [];
+                            if (allBlocks.length > 0) {
+                                console.warn(`Workspace still has ${allBlocks.length} blocks after clearing, removing manually...`);
+                                allBlocks.forEach(block => {
+                                    try {
+                                        block.dispose();
+                                    } catch (e) {
+                                        console.warn('Error disposing block:', e);
+                                    }
+                                });
+                                await new Promise(resolve => setTimeout(resolve, 100));
+                            }
+
+                        } catch (clearError) {
+                            console.error('Error clearing workspace:', clearError);
+                            // Force clear as last resort
+                            workspace.clear();
+                            await new Promise(resolve => setTimeout(resolve, 200));
+                        }
 
                         // Parse and load the XML
                         const parser = new DOMParser();
@@ -1669,13 +1709,35 @@ const AppWrapper = observer(() => {
                         // Load the XML into Blockly workspace
                         const xmlElement = xmlDoc.getElementsByTagName('xml')[0];
                         if (xmlElement) {
-                            window.Blockly.Xml.domToWorkspace(xmlElement, workspace);
-                            console.log(`${bot.title} loaded successfully into workspace!`);
+                            // Use clearWorkspaceAndLoadFromXml for complete replacement
+                            if (window.Blockly?.Xml?.clearWorkspaceAndLoadFromXml) {
+                                window.Blockly.Xml.clearWorkspaceAndLoadFromXml(xmlElement, workspace);
+                                console.log(`${bot.title} loaded using clearWorkspaceAndLoadFromXml`);
+                            } else {
+                                // Fallback to domToWorkspace
+                                window.Blockly.Xml.domToWorkspace(xmlElement, workspace);
+                                console.log(`${bot.title} loaded using domToWorkspace`);
+                            }
+
+                            // Clean up the workspace layout
+                            if (workspace.cleanUp && typeof workspace.cleanUp === 'function') {
+                                workspace.cleanUp();
+                            }
+
+                            // Clear undo history again after loading
+                            if (workspace.clearUndo && typeof workspace.clearUndo === 'function') {
+                                workspace.clearUndo();
+                            }
+
+                            // Set new strategy ID
+                            workspace.current_strategy_id = window.Blockly?.utils?.idGenerator?.genUid?.() || Date.now().toString();
 
                             // Update workspace name with bot title
                             if (typeof updateWorkspaceName === 'function') {
                                 updateWorkspaceName(bot.title || 'Imported Bot');
                             }
+
+                            console.log(`${bot.title} loaded successfully into workspace!`);
                         } else {
                             throw new Error("No XML element found in content");
                         }
@@ -1692,7 +1754,7 @@ const AppWrapper = observer(() => {
                     }
                 } catch (loadingError) {
                     console.error(`Error loading ${bot.title}:`, loadingError);
-                    
+
                     // Final fallback
                     try {
                         if (load_modal?.loadFileFromContent) {
@@ -1703,7 +1765,7 @@ const AppWrapper = observer(() => {
                         console.error(`All loading methods failed for ${bot.title}:`, fallbackError);
                     }
                 }
-            }, 500); // Increased timeout to ensure workspace is ready
+            }, 800); // Increased timeout to ensure workspace is ready
 
         } catch (error) {
             console.error(`Error loading bot ${bot.title}:`, error);
