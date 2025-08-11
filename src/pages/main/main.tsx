@@ -23,7 +23,6 @@ import RunStrategy from '../dashboard/run-strategy';
 import AnalysistoolComponent from '@/components/analysistool/analysis';
 import PercentageTool from '@/components/percentage-tool/percentage-tool';
 import DecyclerBot from '@/components/decycler-bot/decycler-bot';
-import ErrorBoundary from '@/components/error-boundary/ErrorBoundary';
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
@@ -150,45 +149,23 @@ const AppWrapper = observer(() => {
         }
     }, [clear, connectionStatus, stopBot]);
 
-    // Initialize trading engine integration
     useEffect(() => {
-        // Ensure trading engine is properly initialized
-        const initializeTradingEngine = () => {
-            if (typeof window !== 'undefined') {
-                // Check if Blockly workspace is available
-                if (window.Blockly?.derivWorkspace) {
-                    console.log("🔧 Trading engine workspace available");
-                } else {
-                    console.warn("⚠️ Trading engine workspace not yet available");
-                }
-
-                // Check if bot interpreter is available
-                if (window.dbot?.interpreter) {
-                    console.log("🎯 Bot interpreter ready for trade execution");
-                } else {
-                    console.warn("⚠️ Bot interpreter not yet available");
-                }
-            }
-        };
-
-        initializeTradingEngine();
-    }, []);
-
-    useEffect(() => {
-        // Fetch the XML files and parse them with error handling
+        // Fetch the XML files and parse them
         const fetchBots = async () => {
             const botFiles = [
                 'Upgarged CandleMine_1754930851660.xml',
                 'Maziwa Tele Under Bot_1754930865460.xml',
                 'Upgraded Candlemine.xml',
-                'Super Elite.xml',
-                'Super Speed Bot.xml',
+                'Super Elite.xml', // Smart trading as second sub-tab
+                'Super Speed Bot.xml', // Speed bot as third sub-tab
                 'Envy-differ.xml',
                 'H_L auto vault.xml',
                 'Top-notch 2.xml',
+                // New bots added
                 '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1.xml',
                 '3 2025 Updated Version Of Candle Mine🇬🇧.xml',
                 'Accumulators Pro Bot.xml',
+                // Additional new bots
                 'AUTO C4 PRO (2) Version.xml',
                 '2025 Killer version Bot🤑.xml',
                 'Alpha Version 2025.xml',
@@ -197,46 +174,44 @@ const AppWrapper = observer(() => {
 
             const loadedBots = [];
 
-            // Use a more robust approach with timeout
-            const fetchWithTimeout = async (url, timeout = 5000) => {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), timeout);
-                
-                try {
-                    const response = await fetch(url, { 
-                        signal: controller.signal,
-                        cache: 'no-cache',
-                        headers: {
-                            'Cache-Control': 'no-cache',
-                            'Pragma': 'no-cache'
-                        }
-                    });
-                    clearTimeout(timeoutId);
-                    return response;
-                } catch (error) {
-                    clearTimeout(timeoutId);
-                    throw error;
-                }
-            };
-
             for (const file of botFiles) {
                 try {
+                    // Try multiple fetch approaches for better compatibility
+                    let response;
                     let text = null;
-                    const urls = [
-                        `/${encodeURIComponent(file)}`,
-                        `/${file}`,
-                        file
-                    ];
 
-                    for (const url of urls) {
+                    // Try public directory with encoded URI
+                    try {
+                        const encodedFile = encodeURIComponent(file);
+                        response = await fetch(`/${encodedFile}`);
+                        if (response.ok) {
+                            text = await response.text();
+                        }
+                    } catch (e) {
+                        console.log(`Failed to fetch encoded: ${file}`);
+                    }
+
+                    // Try normal fetch if encoded didn't work
+                    if (!text) {
                         try {
-                            const response = await fetchWithTimeout(url);
+                            response = await fetch(`/${file}`);
                             if (response.ok) {
                                 text = await response.text();
-                                break;
                             }
                         } catch (e) {
-                            console.log(`Failed to fetch from ${url}:`, e.message);
+                            console.log(`Failed to fetch normal: ${file}`);
+                        }
+                    }
+
+                    // Try without leading slash
+                    if (!text) {
+                        try {
+                            response = await fetch(file);
+                            if (response.ok) {
+                                text = await response.text();
+                            }
+                        } catch (e) {
+                            console.log(`Failed to fetch without slash: ${file}`);
                         }
                     }
 
@@ -252,10 +227,9 @@ const AppWrapper = observer(() => {
                         continue;
                     }
 
-                    // Validate and parse XML more safely
-                    const trimmedText = text.trim();
-                    if (!trimmedText.startsWith('<xml') && !trimmedText.startsWith('<?xml')) {
-                        console.warn(`File ${file} doesn't appear to be XML format`);
+                    // Validate XML content
+                    if (!text.trim().startsWith('<xml') && !text.trim().startsWith('<?xml')) {
+                        console.warn(`Invalid XML content for ${file}`);
                         loadedBots.push({
                             title: file.replace('.xml', ''),
                             image: 'default_image_path',
@@ -266,34 +240,32 @@ const AppWrapper = observer(() => {
                         continue;
                     }
 
-                    try {
-                        const parser = new DOMParser();
-                        const xml = parser.parseFromString(trimmedText, 'application/xml');
-                        const parseError = xml.getElementsByTagName('parsererror')[0];
-                        
-                        if (parseError) {
-                            console.warn(`XML parsing error for ${file}:`, parseError.textContent);
-                        }
+                    const parser = new DOMParser();
+                    const xml = parser.parseFromString(text, 'application/xml');
 
-                        loadedBots.push({
-                            title: file.replace('.xml', ''),
-                            image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
-                            filePath: file,
-                            xmlContent: trimmedText,
-                            isPlaceholder: false
-                        });
-
-                        console.log(`Successfully loaded: ${file}`);
-                    } catch (parseError) {
-                        console.error(`Parse error for ${file}:`, parseError);
+                    // Check if XML parsing was successful
+                    const parseError = xml.getElementsByTagName('parsererror')[0];
+                    if (parseError) {
+                        console.warn(`XML parsing error for ${file}:`, parseError.textContent);
                         loadedBots.push({
                             title: file.replace('.xml', ''),
                             image: 'default_image_path',
                             filePath: file,
-                            xmlContent: trimmedText,
+                            xmlContent: text, // Still include the content even if parsing failed
                             isPlaceholder: false
                         });
+                        continue;
                     }
+
+                    loadedBots.push({
+                        title: file.replace('.xml', ''),
+                        image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
+                        filePath: file,
+                        xmlContent: text,
+                        isPlaceholder: false
+                    });
+
+                    console.log(`Successfully loaded: ${file}`);
 
                 } catch (error) {
                     console.error(`Error loading bot ${file}:`, error);
@@ -313,50 +285,8 @@ const AppWrapper = observer(() => {
             console.log(`Placeholders: ${loadedBots.filter(b => b.isPlaceholder).length}`);
         };
 
-        // Add error boundary for the fetch operation
-        fetchBots().catch(error => {
-            console.error('Failed to fetch bots:', error);
-            // Set empty bots array if fetch completely fails
-            setBots([]);
-        });
+        fetchBots();
     }, []);
-
-    const validateXMLFile = (xmlContent: string, fileName: string): boolean => {
-        if (!xmlContent || xmlContent.trim().length === 0) {
-            console.error("Empty file content");
-            return false;
-        }
-
-        // Basic XML format check - more lenient for compatibility
-        const trimmedContent = xmlContent.trim();
-        if (!trimmedContent.startsWith('<xml') && !trimmedContent.startsWith('<?xml')) {
-            console.error("Invalid XML format for file:", fileName);
-            return false;
-        }
-
-        // Check for basic XML structure without strict validation
-        if (trimmedContent.includes('<xml') && trimmedContent.includes('</xml>')) {
-            return true;
-        }
-
-        // More lenient check for self-closing XML or other valid formats
-        if (trimmedContent.includes('<xml') && (trimmedContent.includes('/>') || trimmedContent.includes('</xml>'))) {
-            return true;
-        }
-
-        console.warn("XML structure check failed for file:", fileName, "but allowing load attempt");
-        return true; // Allow attempt to load even if validation is uncertain
-    };
-
-    const fixCommonXmlIssues = (xmlContent: string): string => {
-        // Example fix: Add missing xmlns attribute if root is <xml>
-        let modifiedXml = xmlContent;
-        if (modifiedXml.trim().startsWith('<xml') && !modifiedXml.includes('xmlns=')) {
-            modifiedXml = modifiedXml.replace('<xml', '<xml xmlns="https://developers.google.com/blockly/xml"');
-        }
-        // Add more common fixes as needed
-        return modifiedXml;
-    };
 
     const runBot = (xmlContent: string) => {
         // Load the strategy into the bot builder
@@ -364,14 +294,17 @@ const AppWrapper = observer(() => {
         console.log('Running bot with content:', xmlContent);
     };
 
+    const handleTabChange = React.useCallback(
+        (tab_index: number) => {
+            setActiveTab(tab_index);
+        },
+        [setActiveTab]
+    );
+
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
+        setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
             console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
-
-            // Show loading state
-            if (dashboard.setLoadingState) {
-                dashboard.setLoadingState(true);
-            }
 
             let xmlContent = bot.xmlContent;
 
@@ -382,11 +315,7 @@ const AppWrapper = observer(() => {
                     let response;
                     let success = false;
 
-                    // Create abort controller for timeout
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-                    // Try multiple approaches with proper error handling
+                    // Try multiple approaches
                     const attempts = [
                         `/${encodeURIComponent(bot.filePath)}`,
                         `/${bot.filePath}`,
@@ -395,250 +324,66 @@ const AppWrapper = observer(() => {
 
                     for (const url of attempts) {
                         try {
-                            response = await fetch(url, { 
-                                signal: controller.signal,
-                                cache: 'no-cache',
-                                headers: {
-                                    'Cache-Control': 'no-cache',
-                                    'Pragma': 'no-cache'
-                                }
-                            });
+                            response = await fetch(url);
                             if (response.ok) {
                                 xmlContent = await response.text();
                                 console.log(`Successfully loaded XML from: ${url}`);
                                 success = true;
-                                clearTimeout(timeoutId);
                                 break;
                             }
                         } catch (e) {
-                            console.log(`Failed attempt with URL: ${url}`, e.message);
+                            console.log(`Failed attempt with URL: ${url}`);
                         }
                     }
-
-                    clearTimeout(timeoutId);
 
                     if (!success) {
                         throw new Error(`Could not fetch ${bot.filePath} from any URL`);
                     }
                 } catch (fetchError) {
                     console.error("Failed to load bot content:", fetchError);
-                    alert(`Failed to load bot file "${bot.filePath}". The file may be missing or corrupted. Please check your network connection and try again.`);
+                    // Removed alert message
                     return;
                 }
             }
 
             if (!xmlContent || xmlContent.trim().length === 0) {
+                //Removed alert message
                 return;
             }
 
             console.log("XML Content length:", xmlContent?.length);
             console.log("XML Content preview:", xmlContent?.substring(0, 200));
 
-            // Validate and clean XML content
+            // Validate XML content
             if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
-                console.error("Invalid XML format: File must start with <xml or <?xml");
+                //Removed alert message
                 return;
             }
 
-            // Clean and validate XML content
-            let cleanedXmlContent = xmlContent.trim();
+            if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
+                try {
+                    await load_modal.loadFileFromContent(xmlContent);
+                    console.log("Bot loaded successfully!");
 
-            // Remove any BOM or invalid characters at the beginning
-            cleanedXmlContent = cleanedXmlContent.replace(/^\uFEFF/, ''); // Remove BOM
-            cleanedXmlContent = cleanedXmlContent.replace(/^[^\<]*/, ''); // Remove any non-XML content before first tag
-
-            // Ensure XML is well-formed
-            try {
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(cleanedXmlContent, 'application/xml');
-                const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
-
-                if (parseError) {
-                    console.error("XML parsing error:", parseError.textContent);
-                    // Try to fix common XML issues
-                    cleanedXmlContent = fixCommonXmlIssues(cleanedXmlContent);
-
-                    // Re-validate after fixes
-                    const retestDoc = parser.parseFromString(cleanedXmlContent, 'application/xml');
-                    const retestError = retestDoc.getElementsByTagName('parsererror')[0];
-                    if (retestError) {
-                        console.error("Unable to fix XML errors. File may be corrupted.");
-                        return;
+                    // Also update workspace name
+                    if (typeof updateWorkspaceName === 'function') {
+                        updateWorkspaceName(xmlContent);
                     }
+                } catch (loadError) {
+                    console.error("Error in load_modal.loadFileFromContent:", loadError);
+                    //Removed alert message
                 }
-
-                // Ensure the root element is 'xml' and has required attributes
-                const rootElement = xmlDoc.documentElement;
-                if (rootElement.tagName !== 'xml') {
-                    console.error("Invalid XML: Root element must be 'xml'");
-                    return;
-                }
-
-                // Add missing attributes if necessary
-                if (!rootElement.hasAttribute('xmlns')) {
-                    rootElement.setAttribute('xmlns', 'https://developers.google.com/blockly/xml');
-                }
-                if (!rootElement.hasAttribute('is_dbot')) {
-                    rootElement.setAttribute('is_dbot', 'true');
-                }
-
-                // Serialize the cleaned XML
-                const serializer = new XMLSerializer();
-                cleanedXmlContent = serializer.serializeToString(xmlDoc);
-
-            } catch (parseError) {
-                console.error("Failed to parse or clean XML:", parseError);
-                return;
-            }
-
-            // Use the load function from bot-skeleton which properly handles XML loading
-            const { load, save_types } = await import('@/external/bot-skeleton');
-
-            try {
-                console.log(`🚀 Loading bot: ${bot.title || bot.filePath}`);
-
-                // Ensure workspace is available
-                if (!window.Blockly?.derivWorkspace) {
-                    console.warn("Blockly workspace not available, waiting...");
-                    // Wait a bit for workspace to initialize
-                    await new Promise(resolve => setTimeout(resolve, 500));
-
-                    if (!window.Blockly?.derivWorkspace) {
-                        console.error("Blockly workspace still not available");
-                        return;
-                    }
-                }
-
-                // Load the XML content into the workspace using the built-in trading engine
-                await load({
-                    block_string: cleanedXmlContent,
-                    file_name: bot.title || bot.filePath.replace('.xml', ''),
-                    workspace: window.Blockly.derivWorkspace,
-                    from: save_types.LOCAL,
-                    drop_event: null,
-                    strategy_id: null,
-                    showIncompatibleStrategyDialog: false,
-                });
-
-                console.log("✅ Bot loaded successfully into trading engine!");
-
-                // Switch to bot builder tab after successful load
-                setActiveTab(DBOT_TABS.BOT_BUILDER);
-
-                // Update workspace name for the trading engine
-                if (typeof updateWorkspaceName === 'function') {
-                    updateWorkspaceName(cleanedXmlContent);
-                }
-
-                // Initialize trading engine components if available
-                const workspace = window.Blockly.derivWorkspace;
-
-                // Check if the loaded strategy has trading blocks
-                setTimeout(() => {
-                    try {
-                        const tradeBlocks = workspace.getBlocksByType('trade_definition');
-                        if (tradeBlocks.length > 0) {
-                            console.log("🎯 Trading strategy detected - ready for execution");
-                            console.log(`📋 Found ${tradeBlocks.length} trade definition blocks`);
-                        } else {
-                            console.log("📋 No trade definition blocks found, checking for other block types...");
-                            const allBlocks = workspace.getAllBlocks();
-                            console.log(`📋 Total blocks loaded: ${allBlocks.length}`);
-                        }
-
-                        // Ensure the trading engine is ready
-                        if (window.dbot && window.dbot.interpreter) {
-                            console.log("🔧 Trading engine interpreter ready");
-                        }
-                    } catch (blockError) {
-                        console.warn("⚠️ Could not analyze loaded blocks:", blockError);
-                    }
-                }, 1000);
-
-            } catch (loadError) {
-                console.error("❌ Error loading bot into trading engine:", loadError);
-
-                // Provide user-friendly error messages
-                if (loadError.message && loadError.message.includes('XML file contains unsupported elements')) {
-                    console.error("❌ XML contains unsupported elements - the bot may use blocks not supported in this version");
-                    alert("This bot uses features not supported in the current version. Please try a different bot or update to the latest version.");
-                } else if (loadError.message && loadError.message.includes('Invalid XML')) {
-                    console.error("❌ XML parsing failed - file may be corrupted or incomplete");
-                    alert("The bot file appears to be corrupted or incomplete. Please try re-uploading the file.");
-                } else if (loadError.message && loadError.message.includes('workspace')) {
-                    console.error("❌ Workspace not ready - retrying...");
-
-                    // Retry after workspace initialization
-                    setTimeout(async () => {
-                        try {
-                            await load({
-                                block_string: cleanedXmlContent,
-                                file_name: bot.title || bot.filePath.replace('.xml', ''),
-                                workspace: window.Blockly?.derivWorkspace,
-                                from: save_types.LOCAL,
-                                drop_event: null,
-                                strategy_id: null,
-                                showIncompatibleStrategyDialog: false,
-                            });
-                            console.log("✅ Bot loaded successfully on retry!");
-                            setActiveTab(DBOT_TABS.BOT_BUILDER);
-                        } catch (retryError) {
-                            console.error("❌ Failed to load bot on retry:", retryError);
-                            
-                            // Show user-friendly error dialog instead of alert
-                            if (run_panel.showErrorMessage) {
-                                run_panel.showErrorMessage("Failed to load the bot. The bot file may be incompatible with this version. Please try a different bot or contact support.", 'Bot Loading Error');
-                            } else {
-                                alert("Failed to load the bot. Please try again or contact support.");
-                            }
-                        }
-                    }, 2000);
-                } else {
-                    console.error("❌ Unknown loading error:", loadError);
-                    
-                    // Track unknown errors for debugging
-                    if (window.rudderanalytics) {
-                        window.rudderanalytics.track('Bot Loading Error', {
-                            bot_title: bot.title,
-                            bot_file: bot.filePath,
-                            error_message: loadError.message,
-                            error_type: 'unknown_loading_error'
-                        });
-                    }
-                    
-                    if (run_panel.showErrorMessage) {
-                        run_panel.showErrorMessage("An unexpected error occurred while loading the bot. Please try refreshing the page or contact support.", 'Bot Loading Error');
-                    } else {
-                        alert("An unknown error occurred while loading the bot. Please try again.");
-                    }
-                }
+            } else {
+                console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
+                console.log("load_modal object:", load_modal);
+                //Removed alert message
             }
 
         } catch (error) {
             console.error("Error loading bot:", error);
-            
-            // Track all bot loading errors
-            if (window.rudderanalytics) {
-                window.rudderanalytics.track('Bot Loading Error', {
-                    bot_title: bot.title,
-                    bot_file: bot.filePath,
-                    error_message: error.message,
-                    error_type: 'general_loading_error'
-                });
-            }
-            
-            if (run_panel.showErrorMessage) {
-                run_panel.showErrorMessage(`Failed to load bot "${bot.title}". Please check the bot file and try again.`, 'Bot Loading Error');
-            } else {
-                alert(`Failed to load bot "${bot.title}". Please try again.`);
-            }
-        } finally {
-            // Hide loading state
-            if (dashboard.setLoadingState) {
-                dashboard.setLoadingState(false);
-            }
+             //Removed alert message
         }
-    }, [setActiveTab, dashboard, run_panel]);
+    }, [setActiveTab, load_modal]);
 
     const handleOpen = useCallback(async () => {
         await load_modal.loadFileFromRecent();
@@ -1541,43 +1286,10 @@ if __name__ == "__main__":
     };
 
 
-    const handleTabChange = useCallback((tab_index: string) => {
-        try {
-            // Validate tab exists before switching
-            const validTabs = Object.values(DBOT_TABS);
-            if (!validTabs.includes(tab_index)) {
-                console.warn('Invalid tab index:', tab_index);
-                setActiveTab(DBOT_TABS.DASHBOARD);
-                return;
-            }
-
-            setActiveTab(tab_index);
-            console.log('Tab changed to:', tab_index);
-
-            // Clear any previous errors when successfully changing tabs
-            if (dashboard.error) {
-                dashboard.clearError();
-            }
-        } catch (error) {
-            console.error('Error changing tab:', error);
-            
-            // Track the error
-            if (window.rudderanalytics) {
-                window.rudderanalytics.track('Tab Change Error', {
-                    attempted_tab: tab_index,
-                    error_message: error.message
-                });
-            }
-            
-            // Fallback to dashboard if tab change fails
-            setActiveTab(DBOT_TABS.DASHBOARD);
-        }
-    }, [setActiveTab, dashboard]);
-
     const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
 
     return (
-        <ErrorBoundary>
+        <>
             <div className='main'>
                 <div className='main__container main-content'>
                     <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
@@ -1712,7 +1424,7 @@ if __name__ == "__main__":
             <Dialog cancel_button_text={cancel_button_text || localize('Cancel')} confirm_button_text={ok_button_text || localize('Ok')} has_close_icon is_visible={is_dialog_open} onCancel={onCancelButtonClick} onClose={onCloseDialog} onConfirm={onOkButtonClick || onCloseDialog} title={title}>
                 {message}
             </Dialog>
-        </ErrorBoundary>
+        </>
     );
 });
 
