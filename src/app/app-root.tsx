@@ -39,7 +39,6 @@ const AppRoot = () => {
     const store = useStore();
     const api_base_initialized = useRef(false);
     const [is_api_initialized, setIsApiInitialized] = useState(false);
-    const [showSplash, setShowSplash] = useState(true);
 
     useEffect(() => {
         const initializeApi = async () => {
@@ -51,20 +50,9 @@ const AppRoot = () => {
         };
 
         initializeApi();
-
-         // Show splash screen for minimum 3 seconds
-        const timer = setTimeout(() => {
-            setShowSplash(false);
-        }, 3000);
-
-        return () => clearTimeout(timer);
     }, []);
 
     if (!store || !is_api_initialized) return <AppRootLoader />;
-
-    if (showSplash) {
-        return <MatrixLoading message={localize('Initializing Trade Cortex...')} show={true} />;
-    }
 
     return (
         <Suspense fallback={<AppRootLoader />}>

@@ -4,22 +4,21 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: linear-gradient(135deg, #0a0e27 0%, #16213e 25%, #1a2744 50%, #0f1a35 75%, #0a0e27 100%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 9999;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    overflow: hidden;
+    z-index: 10000;
 }
 
-.splash-background {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
+.splash-content {
+    text-align: center;
+    color: white;
+
+    h1 {
+        font-size: 2rem;
+        font-weight: bold;
+    }
 }
 
 .gradient-orb {
@@ -28,7 +27,7 @@
     filter: blur(40px);
     opacity: 0.4;
     animation: floatOrb 8s ease-in-out infinite;
-    
+
     &.orb-1 {
         width: 300px;
         height: 300px;
@@ -37,7 +36,7 @@
         left: 20%;
         animation-delay: 0s;
     }
-    
+
     &.orb-2 {
         width: 200px;
         height: 200px;
@@ -46,7 +45,7 @@
         right: 15%;
         animation-delay: 2s;
     }
-    
+
     &.orb-3 {
         width: 250px;
         height: 250px;
@@ -55,14 +54,6 @@
         left: 10%;
         animation-delay: 4s;
     }
-}
-
-.splash-content {
-    text-align: center;
-    max-width: 600px;
-    padding: 2rem;
-    position: relative;
-    z-index: 10;
 }
 
 .logo-container {
@@ -102,7 +93,7 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.2);
     position: relative;
     z-index: 2;
-    
+
     .logo-image {
         width: 90px;
         height: 90px;
@@ -125,7 +116,7 @@
 
 .brand-section {
     margin-bottom: 3.5rem;
-    
+
     .brand-title {
         font-size: 3.5rem;
         font-weight: 800;
@@ -133,7 +124,7 @@
         color: #ffffff;
         letter-spacing: -0.02em;
         text-shadow: 0 4px 20px rgba(66, 153, 225, 0.3);
-        
+
         .brand-highlight {
             background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
             -webkit-background-clip: text;
@@ -142,18 +133,18 @@
             filter: drop-shadow(0 2px 10px rgba(251, 191, 36, 0.4));
         }
     }
-    
+
     .brand-subtitle {
         font-size: 1.2rem;
         color: #a0aec0;
         margin: 0.5rem 0;
         font-weight: 500;
-        
+
         &::before {
             content: 'by ';
         }
     }
-    
+
     .brand-tagline {
         font-size: 0.9rem;
         color: #4299e1;
@@ -191,7 +182,7 @@
     transition: width 0.3s ease;
     position: relative;
     animation: shimmer 2s linear infinite;
-    
+
     .progress-glow {
         position: absolute;
         top: -4px;
@@ -216,7 +207,7 @@
 
 .status-section {
     margin-bottom: 3rem;
-    
+
     .status-message {
         font-size: 1.1rem;
         color: #e2e8f0;
@@ -226,7 +217,7 @@
         align-items: center;
         justify-content: center;
         gap: 0.5rem;
-        
+
         .status-icon {
             font-size: 1.2rem;
             animation: bounce 1s ease-in-out infinite;
@@ -237,11 +228,11 @@
 .loading-animation {
     display: flex;
     justify-content: center;
-    
+
     .loading-dots {
         display: flex;
         gap: 6px;
-        
+
         span {
             width: 10px;
             height: 10px;
@@ -249,7 +240,7 @@
             border-radius: 50%;
             animation: dotPulse 1.5s infinite ease-in-out;
             box-shadow: 0 2px 10px rgba(66, 153, 225, 0.4);
-            
+
             &:nth-child(1) { animation-delay: 0s; }
             &:nth-child(2) { animation-delay: 0.2s; }
             &:nth-child(3) { animation-delay: 0.4s; }
@@ -262,7 +253,7 @@
     grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
     margin-bottom: 2rem;
-    
+
     .feature-card {
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.1);
@@ -272,7 +263,7 @@
         transition: all 0.3s ease;
         position: relative;
         overflow: hidden;
-        
+
         &::before {
             content: '';
             position: absolute;
@@ -282,24 +273,24 @@
             height: 1px;
             background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
         }
-        
+
         &:hover {
             background: rgba(255, 255, 255, 0.08);
             transform: translateY(-4px);
             box-shadow: 0 20px 40px rgba(66, 153, 225, 0.2);
         }
-        
+
         .feature-icon-wrapper {
             position: relative;
             display: inline-block;
             margin-bottom: 1rem;
-            
+
             .feature-icon {
                 font-size: 2rem;
                 position: relative;
                 z-index: 2;
             }
-            
+
             .feature-icon-glow {
                 position: absolute;
                 top: 50%;
@@ -312,14 +303,14 @@
                 z-index: 1;
             }
         }
-        
+
         .feature-text {
             font-size: 1rem;
             color: #ffffff;
             font-weight: 600;
             margin-bottom: 0.5rem;
         }
-        
+
         .feature-description {
             font-size: 0.8rem;
             color: #a0aec0;
@@ -334,13 +325,13 @@
     align-items: center;
     padding-top: 2rem;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
-    
+
     .version-info {
         font-size: 0.8rem;
         color: #718096;
         font-weight: 500;
     }
-    
+
     .security-badge {
         display: flex;
         align-items: center;
@@ -348,7 +339,7 @@
         font-size: 0.8rem;
         color: #4299e1;
         font-weight: 500;
-        
+
         .security-icon {
             font-size: 1rem;
         }
@@ -395,57 +386,57 @@
         padding: 1rem;
         max-width: 400px;
     }
-    
+
     .brand-title {
         font-size: 2.5rem !important;
     }
-    
+
     .logo-avatar {
         width: 120px !important;
         height: 120px !important;
-        
+
         .logo-image {
             width: 75px !important;
             height: 75px !important;
         }
     }
-    
+
     .logo-glow {
         width: 140px !important;
         height: 140px !important;
     }
-    
+
     .logo-pulse {
         width: 120px !important;
         height: 120px !important;
     }
-    
+
     .features-grid {
         grid-template-columns: 1fr;
         gap: 1rem;
-        
+
         .feature-card {
             padding: 1.25rem;
         }
     }
-    
+
     .splash-footer {
         flex-direction: column;
         gap: 1rem;
         text-align: center;
     }
-    
+
     .gradient-orb {
         &.orb-1 {
             width: 200px;
             height: 200px;
         }
-        
+
         &.orb-2 {
             width: 150px;
             height: 150px;
         }
-        
+
         &.orb-3 {
             width: 180px;
             height: 180px;
@@ -457,28 +448,12 @@
     .brand-title {
         font-size: 2rem !important;
     }
-    
+
     .features-grid {
         .feature-card {
             padding: 1rem;
         }
     }
-}
-
-.splash-screen.terminal-style {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: #000000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
-    overflow: hidden;
-    color: #00ff00;
 }
 
 .matrix-background {

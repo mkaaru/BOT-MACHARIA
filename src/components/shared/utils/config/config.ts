@@ -79,7 +79,7 @@ export const getAppId = () => {
 
     console.log("🔍 [config.ts] Using App ID:", app_id);
     return app_id;
-};
+}
 
 export const getSocketURL = () => window.localStorage.getItem('config.server_url') ?? getDefaultServerURL();
 
