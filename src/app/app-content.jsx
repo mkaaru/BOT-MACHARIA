@@ -28,7 +28,7 @@ import Main from '../pages/main';
 import './app.scss';
 import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
-import SplashScreen from '../components/splash-screen';
+import { SplashScreen } from '../components/splash-screen';
 
 const AppContent = observer(() => {
     const [is_api_initialized, setIsApiInitialized] = React.useState(false);
