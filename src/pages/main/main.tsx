@@ -228,7 +228,7 @@ const AppWrapper = observer(() => {
                     }
 
                     // Validate XML content
-                    if (!text.trim().startsWith('<xml') && !text.trim().startsWith('<?xml')) {
+                    if (!validateXMLFile(text, file)) {
                         console.warn(`Invalid XML content for ${file}`);
                         loadedBots.push({
                             title: file.replace('.xml', ''),
@@ -288,6 +288,41 @@ const AppWrapper = observer(() => {
         fetchBots();
     }, []);
 
+    const validateXMLFile = (xmlContent: string, fileName: string): boolean => {
+        if (!xmlContent || xmlContent.trim().length === 0) {
+            console.error("Empty file content");
+            return false;
+        }
+
+        // Check XML format
+        if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
+            console.error("Invalid XML format for file:", fileName);
+            return false;
+        }
+
+        try {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
+            
+            const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
+            if (parseError) {
+                console.error("XML parsing error for file:", fileName, parseError.textContent);
+                return false;
+            }
+
+            const xmlRoot = xmlDoc.documentElement;
+            if (!xmlRoot || xmlRoot.tagName !== 'xml') {
+                console.error("Invalid XML root element for file:", fileName);
+                return false;
+            }
+
+            return true;
+        } catch (error) {
+            console.error("XML validation error for file:", fileName, error);
+            return false;
+        }
+    };
+
     const runBot = (xmlContent: string) => {
         // Load the strategy into the bot builder
         updateWorkspaceName(xmlContent);
@@ -340,6 +375,7 @@ const AppWrapper = observer(() => {
                     }
                 } catch (fetchError) {
                     console.error("Failed to load bot content:", fetchError);
+                    alert(`Failed to load bot file "${bot.filePath}". The file may be missing or corrupted. Please ensure you have a complete XML file uploaded.`);
                     return;
                 }
             }
@@ -351,8 +387,52 @@ const AppWrapper = observer(() => {
             console.log("XML Content length:", xmlContent?.length);
             console.log("XML Content preview:", xmlContent?.substring(0, 200));
 
-            // Validate XML content
+            // Enhanced XML validation
             if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
+                console.error("Invalid XML format: File must start with <xml or <?xml");
+                alert("Invalid file format. Please upload a complete XML file that starts with <xml> tag.");
+                return;
+            }
+
+            // Check if XML is complete and properly formatted
+            try {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
+                
+                // Check for parsing errors
+                const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
+                if (parseError) {
+                    console.error("XML parsing error:", parseError.textContent);
+                    alert("Invalid XML file: The file contains syntax errors and cannot be parsed. Please upload a complete, valid XML file.");
+                    return;
+                }
+
+                // Check for essential DBot XML structure
+                const xmlRoot = xmlDoc.documentElement;
+                if (!xmlRoot || xmlRoot.tagName !== 'xml') {
+                    console.error("Invalid DBot XML: Missing root <xml> element");
+                    alert("Invalid DBot file: The XML file must have a root <xml> element. Please upload a complete DBot strategy file.");
+                    return;
+                }
+
+                // Check for DBot attributes
+                if (!xmlRoot.hasAttribute('is_dbot') && !xmlRoot.hasAttribute('xmlns')) {
+                    console.error("Invalid DBot XML: Missing DBot attributes");
+                    alert("Invalid DBot file: This doesn't appear to be a valid DBot strategy file. Please upload a complete DBot XML file.");
+                    return;
+                }
+
+                // Check if file has blocks (not empty strategy)
+                const blocks = xmlDoc.getElementsByTagName('block');
+                if (blocks.length === 0) {
+                    console.error("Empty strategy: No blocks found in XML");
+                    alert("Empty strategy file: The uploaded file contains no trading blocks. Please upload a complete strategy with trading logic.");
+                    return;
+                }
+
+            } catch (parseError) {
+                console.error("XML validation error:", parseError);
+                alert("Invalid XML file: Unable to parse the file. Please ensure you upload a complete, valid XML file.");
                 return;
             }
 
@@ -371,6 +451,7 @@ const AppWrapper = observer(() => {
                 });
                 
                 console.log("Bot loaded successfully!");
+                alert(`Successfully loaded "${bot.title || bot.filePath}" strategy!`);
                 
                 // Switch to bot builder tab after successful load
                 setActiveTab(DBOT_TABS.BOT_BUILDER);
@@ -382,6 +463,7 @@ const AppWrapper = observer(() => {
                 
             } catch (loadError) {
                 console.error("Error loading bot into workspace:", loadError);
+                alert("Failed to load strategy: The file may be corrupted or incompatible. Please check the file and try again with a complete XML strategy file.");
             }
 
         } catch (error) {
