@@ -302,7 +302,7 @@ const AppWrapper = observer(() => {
 
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
         try {
-            console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
+            console.log("Loading bot directly to Bot Builder:", bot.title, "Placeholder:", bot.isPlaceholder);
 
             let xmlContent = bot.xmlContent;
 
@@ -360,30 +360,73 @@ const AppWrapper = observer(() => {
             // First switch to Bot Builder tab
             setActiveTab(DBOT_TABS.BOT_BUILDER);
             
-            // Wait a short moment for the tab to render
+            // Wait a short moment for the tab to render, then load the bot directly
             setTimeout(async () => {
-                if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
+                // Check if workspace exists and load content directly
+                const workspace = window.Blockly?.derivWorkspace;
+                if (workspace && xmlContent) {
                     try {
-                        await load_modal.loadFileFromContent(xmlContent);
-                        console.log("Bot loaded successfully!");
-
-                        // Also update workspace name
-                        if (typeof updateWorkspaceName === 'function') {
-                            updateWorkspaceName(xmlContent);
-                        }
+                        // Clear existing workspace
+                        workspace.clear();
                         
-                        // Close any open modals
-                        if (load_modal.toggleLoadModal) {
-                            load_modal.toggleLoadModal();
+                        // Parse and load the XML
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
+                        
+                        // Check for parsing errors
+                        const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
+                        if (!parseError) {
+                            // Load the XML into Blockly workspace
+                            const xmlElement = xmlDoc.getElementsByTagName('xml')[0];
+                            if (xmlElement) {
+                                window.Blockly.Xml.domToWorkspace(xmlElement, workspace);
+                                console.log("Bot loaded directly into workspace!");
+                                
+                                // Update workspace name
+                                if (typeof updateWorkspaceName === 'function') {
+                                    updateWorkspaceName(xmlContent);
+                                }
+                            }
+                        } else {
+                            throw new Error("XML parsing failed");
                         }
-                    } catch (loadError) {
-                        console.error("Error in load_modal.loadFileFromContent:", loadError);
+                    } catch (directLoadError) {
+                        console.log("Direct loading failed, trying load_modal method:", directLoadError);
+                        
+                        // Fallback to load_modal method
+                        if (typeof load_modal.loadFileFromContent === 'function') {
+                            try {
+                                await load_modal.loadFileFromContent(xmlContent);
+                                console.log("Bot loaded via load_modal fallback!");
+                                
+                                // Update workspace name
+                                if (typeof updateWorkspaceName === 'function') {
+                                    updateWorkspaceName(xmlContent);
+                                }
+                            } catch (loadError) {
+                                console.error("Error in load_modal.loadFileFromContent:", loadError);
+                            }
+                        }
                     }
                 } else {
-                    console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
-                    console.log("load_modal object:", load_modal);
+                    console.log("Workspace not ready, using load_modal method");
+                    
+                    // Fallback to load_modal method if workspace isn't ready
+                    if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
+                        try {
+                            await load_modal.loadFileFromContent(xmlContent);
+                            console.log("Bot loaded via load_modal!");
+                            
+                            // Update workspace name
+                            if (typeof updateWorkspaceName === 'function') {
+                                updateWorkspaceName(xmlContent);
+                            }
+                        } catch (loadError) {
+                            console.error("Error in load_modal.loadFileFromContent:", loadError);
+                        }
+                    }
                 }
-            }, 100);
+            }, 300);
 
         } catch (error) {
             console.error("Error loading bot:", error);
