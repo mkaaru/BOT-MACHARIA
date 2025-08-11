@@ -1,0 +1,51 @@
+Compilation failed
+
+File: /home/runner/workspace/src/external/bot-skeleton/index.js:1:1
+  × ESModulesLinkingError: export 'default' (reexported as 'api_base') was not found in './services/api/api-base' (possible exports: api_base)
+    ╭─[15:0]
+ 13 │ export { default as load } from './utils/workspace';
+ 14 │ export { default as runGroupedEvents } from './utils/observer';
+ 15 │ export { default as api_base } from './services/api/api-base';
+    · ──────────────────────────────────────────────────────────────
+ 16 │ export { default as getSavedWorkspaces } from './utils/local-storage';
+ 17 │ 
+    ╰────/nFile: /home/runner/workspace/src/external/bot-skeleton/utils/index.js:1:1
+  × ESModulesLinkingError: export 'default' (reexported as 'contract') was not found in './contract' (possible exports: getContractTypeName)
+    ╭─[13:0]
+ 11 │ export { default as workspace } from './workspace';
+ 12 │ export { default as local_storage } from './local-storage';
+ 13 │ export { default as contract } from './contract';
+    · ─────────────────────────────────────────────────
+ 14 │ 
+ 15 │ function $RefreshSig$() {
+    ╰────/nFile: /home/runner/workspace/src/stores/chart-store.ts:1:1
+  × ESModulesLinkingError: export 'default' (imported as 'api_base') was not found in '@/external/bot-skeleton/services/api/api-base' (possible exports: api_base)
+    ╭─[35:135]
+ 33 │                 return block.type === 'trade_definition_market';
+ 34 │             });
+ 35 │             const symbol = (market_block === null || market_block === void 0 ? void 0 : market_block.getFieldValue('SYMBOL_LIST')) ?? (api_base === null || api_base === void 0 ? void 0 : (_api_base_active_symbols_ = api_base.active_symbols[0]) === null || _api_base_active_symbols_ === void 0 ? void 0 : _api_base_active_symbols_.symbol);
+    ·                                                                                                                                        ────────
+ 36 │             this.symbol = symbol;
+ 37 │         });
+    ╰────/nFile: /home/runner/workspace/src/stores/chart-store.ts:1:1
+  × ESModulesLinkingError: export 'default' (imported as 'api_base') was not found in '@/external/bot-skeleton/services/api/api-base' (possible exports: api_base)
+    ╭─[35:156]
+ 33 │                 return block.type === 'trade_definition_market';
+ 34 │             });
+ 35 │             const symbol = (market_block === null || market_block === void 0 ? void 0 : market_block.getFieldValue('SYMBOL_LIST')) ?? (api_base === null || api_base === void 0 ? void 0 : (_api_base_active_symbols_ = api_base.active_symbols[0]) === null || _api_base_active_symbols_ === void 0 ? void 0 : _api_base_active_symbols_.symbol);
+    ·                                                                                                                                                             ────────
+ 36 │             this.symbol = symbol;
+ 37 │         });
+    ╰────/nFile: /home/runner/workspace/src/stores/chart-store.ts:1:1
+  × ESModulesLinkingError: export 'default' (imported as 'api_base') was not found in '@/external/bot-skeleton/services/api/api-base' (possible exports: api_base)
+    ╭─[35:216]
+ 33 │                 return block.type === 'trade_definition_market';
+ 34 │             });
+ 35 │             const symbol = (market_block === null || market_block === void 0 ? void 0 : market_block.getFieldValue('SYMBOL_LIST')) ?? (api_base === null || api_base === void 0 ? void 0 : (_api_base_active_symbols_ = api_base.active_symbols[0]) === null || _api_base_active_symbols_ === void 0 ? void 0 : _api_base_active_symbols_.symbol);
+    ·                                                                                                                                                                                                                         ──────────────────────────
+ 36 │             this.symbol = symbol;
+ 37 │         });
+    ╰────
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false
