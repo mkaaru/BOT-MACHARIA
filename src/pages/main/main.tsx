@@ -395,7 +395,7 @@ const AppWrapper = observer(() => {
                           <shadow type="text" id="A\`([INSV+:7ygD7cZ@j;">
                             <field name="TEXT"></field>
                           </shadow>
-                          <block type="total_profit" id="A~!}?z=.-$yZ3Y${jZ~4"></block>
+                          <block type="total_profit" id="A~!}?z=.-$yZ3Y$\{jZ~4"></block>
                         </value>
                       </block>
                     </next>
