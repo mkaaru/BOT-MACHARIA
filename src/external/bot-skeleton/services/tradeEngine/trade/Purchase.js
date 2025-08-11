@@ -46,6 +46,11 @@ export default Engine =>
             this.minimumTradeDelay = 200; // Configurable minimum delay between trades
 
             console.log('🟦 PURCHASE ENGINE: Initialized with sequential trading support');
+            
+            // Initialize martingale configuration
+            setTimeout(() => {
+                this.configureMartingaleFromBot();
+            }, 100); // Small delay to ensure tradeOptions are available
     }
 
         purchase(contract_type) {
@@ -189,7 +194,20 @@ export default Engine =>
             }
 
             this.contractClosurePromise = new Promise(resolve => {
+                let checkCount = 0;
+                const maxChecks = 60; // Maximum 3 minutes of checking
+                
                 const intervalId = setInterval(() => {
+                    checkCount++;
+                    
+                    if (checkCount > maxChecks) {
+                        console.log(`⏰ CONTRACT TIMEOUT: Stopping checks for ${contractId} after ${maxChecks} attempts`);
+                        clearInterval(intervalId);
+                        this.clearContractClosureState();
+                        resolve();
+                        return;
+                    }
+
                     api_base.api.send({ proposal_open_contract: contractId })
                         .then(response => {
                             if (response.error) {
@@ -204,14 +222,15 @@ export default Engine =>
                             if (contract && contract.status === 'closed') {
                                 console.log(`✅ CONTRACT CLOSED: ID ${contractId}, Final profit: ${contract.profit} USD`);
 
-                                // Update trade result with final profit
+                                // Update trade result with final profit (sound will be played here)
                                 this.updateTradeResult(contract.profit);
 
                                 clearInterval(intervalId);
                                 this.clearContractClosureState();
                                 resolve();
-                            } else {
-                                console.log(`🔍 Checking contract status: ${contractId} still ${contract ? contract.status : 'not found'}`);
+                            } else if (checkCount % 10 === 0) {
+                                // Only log every 10th check to reduce spam
+                                console.log(`🔍 Contract ${contractId} status: ${contract ? contract.status : 'not found'} (check ${checkCount}/${maxChecks})`);
                             }
                         })
                         .catch(error => {
@@ -220,7 +239,7 @@ export default Engine =>
                             this.clearContractClosureState();
                             resolve();
                         });
-                }, 3000); // Poll every 3 seconds - adjust as necessary
+                }, 3000); // Poll every 3 seconds
             });
         }
 
@@ -276,32 +295,46 @@ export default Engine =>
             this.martingaleState.currentPurchasePrice = 0; // Reset for next trade
 
             if (profit < 0) {
-                // Loss - increase multiplier
+                // Loss - increase stake by multiplying by 2 (fixed multiplier)
                 this.martingaleState.consecutiveLosses++;
                 this.martingaleState.cumulativeLosses += Math.abs(profit);
 
-                if (this.martingaleState.consecutiveLosses < this.martingaleState.maxConsecutiveLosses && 
-                    this.martingaleState.multiplier < this.martingaleState.maxMultiplier) {
-                    this.martingaleState.multiplier *= this.martingaleState.martingaleMultiplier;
-                    console.log(`📈 MARTINGALE: Increased multiplier to ${this.martingaleState.multiplier}x after loss`);
+                if (this.martingaleState.consecutiveLosses < this.martingaleState.maxConsecutiveLosses) {
+                    // Always multiply by 2 for consistency across all markets
+                    const newStake = this.tradeOptions.amount * 2;
+                    
+                    // Check max stake limit
+                    if (this.martingaleState.maxStake && newStake > this.martingaleState.maxStake) {
+                        console.log(`⚠️ MARTINGALE: Calculated stake ${newStake} exceeds max stake ${this.martingaleState.maxStake}, resetting to base`);
+                        this.tradeOptions.amount = this.martingaleState.baseAmount;
+                        this.martingaleState.consecutiveLosses = 0;
+                        this.martingaleState.cumulativeLosses = 0;
+                    } else {
+                        this.tradeOptions.amount = Math.round(newStake * 100) / 100; // Round to 2 decimal places
+                        console.log(`📈 MARTINGALE: Doubled stake to ${this.tradeOptions.amount} after loss (consecutive losses: ${this.martingaleState.consecutiveLosses})`);
+                    }
                 } else {
-                    console.log(`⚠️ MARTINGALE: Reached limits, resetting multiplier`);
-                    this.martingaleState.multiplier = 1;
+                    console.log(`⚠️ MARTINGALE: Max consecutive losses reached, resetting to base stake`);
+                    this.tradeOptions.amount = this.martingaleState.baseAmount;
                     this.martingaleState.consecutiveLosses = 0;
                     this.martingaleState.cumulativeLosses = 0;
                 }
             } else if (profit > 0) {
-                // Win - reset multiplier
-                console.log(`🎉 MARTINGALE: Win! Resetting multiplier (was ${this.martingaleState.multiplier}x)`);
-                this.martingaleState.multiplier = 1;
+                // Win - reset to original stake
+                const previousStake = this.tradeOptions.amount;
+                this.tradeOptions.amount = this.martingaleState.baseAmount;
                 this.martingaleState.consecutiveLosses = 0;
                 this.martingaleState.cumulativeLosses = 0;
+                console.log(`🎉 MARTINGALE: Win! Reset stake from ${previousStake} to ${this.tradeOptions.amount} (base amount)`);
             }
 
             // Mark trade as confirmed for next purchase decision
             this.isTradeConfirmed = true;
 
-            console.log(`📊 MARTINGALE STATE: Multiplier=${this.martingaleState.multiplier}x, Consecutive Losses=${this.martingaleState.consecutiveLosses}, Total Profit=${this.martingaleState.totalProfit}`);
+            console.log(`📊 MARTINGALE STATE: Current stake: ${this.tradeOptions.amount}, Base: ${this.martingaleState.baseAmount}, Consecutive Losses: ${this.martingaleState.consecutiveLosses}, Total Profit: ${this.martingaleState.totalProfit}`);
+
+            // Play sound notification for actual trade execution (not every tick)
+            this.playTradeExecutionSound();
 
             // Trigger readiness check for next trade
             this.checkTradeReadiness();
@@ -315,14 +348,21 @@ export default Engine =>
                 const config = this.tradeOptions.martingale;
                 this.martingaleState.isEnabled = config.enabled || false;
                 this.martingaleState.baseAmount = config.initialStake || this.tradeOptions.amount;
-                this.martingaleState.martingaleMultiplier = config.multiplier || 2;
+                this.martingaleState.martingaleMultiplier = 2; // Fixed to 2 for consistency
                 this.martingaleState.maxMultiplier = config.maxMultiplier || 64;
                 this.martingaleState.maxConsecutiveLosses = config.maxConsecutiveLosses || 10;
                 this.martingaleState.profitThreshold = config.profitThreshold || null;
                 this.martingaleState.lossThreshold = config.lossThreshold || null;
                 this.martingaleState.maxStake = config.maxStake || null;
 
-                console.log(`🔧 MARTINGALE CONFIGURED: Enabled=${this.martingaleState.isEnabled}, Multiplier=${this.martingaleState.martingaleMultiplier}x, Max=${this.martingaleState.maxMultiplier}x`);
+                console.log(`🔧 MARTINGALE CONFIGURED: Enabled=${this.martingaleState.isEnabled}, Base stake=${this.martingaleState.baseAmount}, Max consecutive losses=${this.martingaleState.maxConsecutiveLosses}`);
+            } else {
+                // Fallback configuration if no martingale config is provided
+                this.martingaleState.isEnabled = true; // Enable by default for consistency
+                this.martingaleState.baseAmount = this.tradeOptions.amount;
+                this.martingaleState.martingaleMultiplier = 2; // Always 2x
+                
+                console.log(`🔧 MARTINGALE DEFAULT CONFIG: Base stake=${this.martingaleState.baseAmount}`);
             }
         }
 
@@ -332,17 +372,24 @@ export default Engine =>
                 return this.tradeOptions.amount;
             }
 
-            const calculatedStake = this.martingaleState.baseAmount * this.martingaleState.multiplier;
+            // Return current stake amount (already calculated in updateTradeResult)
+            return this.tradeOptions.amount;
+        }
 
-            // Apply max stake limit if set
-            if (this.martingaleState.maxStake && calculatedStake > this.martingaleState.maxStake) {
-                console.log(`⚠️ MARTINGALE: Calculated stake ${calculatedStake} exceeds max stake ${this.martingaleState.maxStake}, resetting to base`);
-                this.martingaleState.multiplier = 1;
-                this.martingaleState.consecutiveLosses = 0;
-                return this.martingaleState.baseAmount;
+        // Play sound only when trade is actually executed
+        playTradeExecutionSound() {
+            try {
+                // Only play sound for actual trade execution, not every tick
+                if (typeof Audio !== 'undefined') {
+                    const audio = new Audio('/assets/media/coins.mp3');
+                    audio.volume = 0.3; // Reasonable volume
+                    audio.play().catch(error => {
+                        console.log('Audio play failed:', error);
+                    });
+                }
+            } catch (error) {
+                console.log('Sound notification error:', error);
             }
-
-            return calculatedStake;
         }
 
         // Check if trading should continue based on thresholds
