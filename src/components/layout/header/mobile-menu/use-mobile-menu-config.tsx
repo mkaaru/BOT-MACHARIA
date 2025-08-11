@@ -42,10 +42,18 @@ type TMenuConfig = {
 }[];
 
 const useMobileMenuConfig = ({ oAuthLogout }: { oAuthLogout: () => Promise<void> }) => {
-    const { ui, client } = useStore();
+    const store = useStore();
+    const { ui, client } = store || {};
     const { localize } = useTranslations();
-    const { is_logged_in } = ui;
+    const { is_logged_in } = ui || {};
     const { isOAuth2Enabled } = useOauth2({ client });
+
+    // Return empty config if store is not ready
+    if (!store || !client || !ui) {
+        return {
+            config: []
+        };
+    }
 
     const handleMobileLogin = () => {
         if (isOAuth2Enabled) {

@@ -111,13 +111,23 @@ const InfoIcon = () => {
 };
 
 const AppHeader = observer(() => {
-    const { client, ui, common } = useStore();
+    const store = useStore();
+    const { client, ui, common } = store || {};
     const { isDesktop } = useDevice();
     const { localize } = useTranslations();
     const { data: activeAccount } = useActiveAccount();
     const { isOAuth2Enabled, oAuthLogout } = useOauth2({ client });
     const { switchEndpoint } = useApiBase();
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    // Early return if store is not ready
+    if (!store || !client || !ui || !common) {
+        return (
+            <Header className="app-header app-header--loading">
+                <div>Loading...</div>
+            </Header>
+        );
+    }
 
     const {
         account_switcher_disabled_message,
