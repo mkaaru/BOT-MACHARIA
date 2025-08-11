@@ -229,7 +229,7 @@ const AppWrapper = observer(() => {
             </value>
             <next>
               <block type="variables_set" id="_aSBe^/).nS{bwLbiE9n">
-                <field name="VAR" id="x\`Ia+qCu@StiaJI^X([4">Entrypoint-Digit</field>
+                <field name="VAR" id="x\\\`Ia+qCu@StiaJI^X([4">Entrypoint-Digit</field>
                 <value name="VALUE">
                   <block type="math_number" id="KR2=c$XO!b_Bgl_ASR4(">
                     <field name="NUM">7</field>
@@ -261,7 +261,7 @@ const AppWrapper = observer(() => {
                             </value>
                             <next>
                               <block type="variables_set" id="-z^omJLEhT5\`I:NZ;J=-">
-                                <field name="VAR" id="~ZEk9Zr7t[g;-\`afIGOO">Initial Stake</field>
+                                <field name="VAR" id="~ZEk9Zr7t[g;-\\\`afIGOO">Initial Stake</field>
                                 <value name="VALUE">
                                   <block type="variables_get" id="SoAC,+VI6PpU1=/|ThHQ">
                                     <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
@@ -710,7 +710,7 @@ const AppWrapper = observer(() => {
                             <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
                             <value name="VALUE">
                               <block type="variables_get" id="oPs59-gAp.s,G2l8JwZF">
-                                <field name="VAR" id="~ZEk9Zr7t[g;-\`afIGOO">Initial Stake</field>
+                                <field name="VAR" id="~ZEk9Zr7t[g;-\\\`afIGOO">Initial Stake</field>
                               </block>
                             </value>
                             <next>
@@ -799,7 +799,7 @@ const AppWrapper = observer(() => {
                 </value>
                 <value name="B">
                   <block type="variables_get" id=".b/[NSo_Mz(b6aE81#V)">
-                    <field name="VAR" id="x\`Ia+qCu@StiaJI^X([4">Entrypoint-Digit</field>
+                    <field name="VAR" id="x\\\`Ia+qCu@StiaJI^X([4">Entrypoint-Digit</field>
                   </block>
                 </value>
               </block>
@@ -1361,7 +1361,7 @@ const AppWrapper = observer(() => {
                           <shadow type="math_number" id="{l:XXKUF6qZ)WX[pq+\`q">
                             <field name="NUM">1</field>
                           </shadow>
-                          <block type="total_profit" id="cp_,]Wf-,u_:I)5#pW#."></block>
+                          <block type="total_profit" id="cp_,]Wf-,u_:I)5#pW#."/>
                         </value>
                         <value name="B">
                           <shadow type="math_number" id="X{:c|#G\`h382I5tg;u#h">
@@ -1404,7 +1404,7 @@ const AppWrapper = observer(() => {
           <block type="logic_compare" id="Lr2.vux1[)1[jnM/A6DN">
             <field name="OP">EQ</field>
             <value name="A">
-              <block type="variables_get" id="xX2xwTg6rAWL8{yw*uH}">
+              <block type="variables_get" id="xX2xwTg6rAWL8{yw*uH">
                 <field name="VAR" id="3l2;8_qp2J#kc})!ERqK">Ufo trade type</field>
               </block>
             </value>
@@ -1450,11 +1450,11 @@ const AppWrapper = observer(() => {
                 '2025 Killer version Bot🤑.xml',
                 'Alpha Version 2025.xml',
                 '1 Original DollarPrinterBot 2025 Version.xml',
-            ];</old_str>
+            ];
 
             const loadedBots = [...priorityBots]; // Add priority bots first
 
-            for (const file of botFiles) {</old_str>
+            for (const file of botFiles) {
                 try {
                     // Try multiple fetch approaches for better compatibility
                     let response;
@@ -1640,7 +1640,7 @@ const AppWrapper = observer(() => {
 
             // First switch to Bot Builder tab
             setActiveTab(DBOT_TABS.BOT_BUILDER);
-            
+
             // Wait a short moment for the tab to render, then load the bot directly
             setTimeout(async () => {
                 // Check if workspace exists and load content directly
@@ -1649,11 +1649,11 @@ const AppWrapper = observer(() => {
                     try {
                         // Clear existing workspace
                         workspace.clear();
-                        
+
                         // Parse and load the XML
                         const parser = new DOMParser();
                         const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
-                        
+
                         // Check for parsing errors
                         const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
                         if (!parseError) {
@@ -1662,7 +1662,7 @@ const AppWrapper = observer(() => {
                             if (xmlElement) {
                                 window.Blockly.Xml.domToWorkspace(xmlElement, workspace);
                                 console.log("Bot loaded directly into workspace!");
-                                
+
                                 // Update workspace name
                                 if (typeof updateWorkspaceName === 'function') {
                                     updateWorkspaceName(xmlContent);
@@ -1673,13 +1673,13 @@ const AppWrapper = observer(() => {
                         }
                     } catch (directLoadError) {
                         console.log("Direct loading failed, trying load_modal method:", directLoadError);
-                        
+
                         // Fallback to load_modal method
                         if (typeof load_modal.loadFileFromContent === 'function') {
                             try {
                                 await load_modal.loadFileFromContent(xmlContent);
                                 console.log("Bot loaded via load_modal fallback!");
-                                
+
                                 // Update workspace name
                                 if (typeof updateWorkspaceName === 'function') {
                                     updateWorkspaceName(xmlContent);
@@ -1691,13 +1691,13 @@ const AppWrapper = observer(() => {
                     }
                 } else {
                     console.log("Workspace not ready, using load_modal method");
-                    
+
                     // Fallback to load_modal method if workspace isn't ready
                     if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
                         try {
                             await load_modal.loadFileFromContent(xmlContent);
                             console.log("Bot loaded via load_modal!");
-                            
+
                             // Update workspace name
                             if (typeof updateWorkspaceName === 'function') {
                                 updateWorkspaceName(xmlContent);
@@ -1874,7 +1874,7 @@ const AppWrapper = observer(() => {
     const symbolMap = {
       // Forward mapping
       'R_10': '1HZ10V',
-      'R_25': '1HZ25V', 
+      'R_25': '1HZ25V',
       'R_50': '1HZ50V',
       'R_75': '1HZ75V',
       'R_100': '1HZ100V',
@@ -2561,9 +2561,9 @@ if __name__ == "__main__":
                                 <div className='free-bots__content-wrapper'>
                                     <div className='free-bots__content'>
                                         {bots.map((bot, index) => (
-                                            <div 
+                                            <div
                                                 className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
-                                                key={index} 
+                                                key={index}
                                                 onClick={() => {
                                                     handleBotClick(bot);
                                                 }}
@@ -2612,13 +2612,13 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <iframe 
+                                <iframe
                                     src="https://tracktool.netlify.app/signals.html"
                                     width="100%"
                                     height="100%"
-                                    style={{ 
-                                        border: 'none', 
-                                        display: 'block', 
+                                    style={{
+                                        border: 'none',
+                                        display: 'block',
                                         minHeight: '600px',
                                         height: 'calc(100vh - 200px)'
                                     }}
@@ -2632,7 +2632,7 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <Tabs 
+                                <Tabs
                                     className="analysis-tool-tabs"
                                     active_tab_icon_color="var(--brand-secondary)"
                                     background_color="var(--general-main-1)"
