@@ -153,8 +153,6 @@ const AppWrapper = observer(() => {
         // Fetch the XML files and parse them
         const fetchBots = async () => {
             const botFiles = [
-                'Upgarged CandleMine_1754930851660.xml',
-                'Maziwa Tele Under Bot_1754930865460.xml',
                 'Upgraded Candlemine.xml',
                 'Super Elite.xml', // Smart trading as second sub-tab
                 'Super Speed Bot.xml', // Speed bot as third sub-tab
@@ -1219,14 +1217,6 @@ if __name__ == "__main__":
     }, [selectedIndex, isConnected, websocket, tickHistory])
 
     const botMetadata = {
-                        'Upgarged CandleMine_1754930851660.xml': {
-                            title: 'Upgraded CandleMine Pro',
-                            description: 'Enhanced CandleMine bot with UFO digit analysis and martingale strategy'
-                        },
-                        'Maziwa Tele Under Bot_1754930865460.xml': {
-                            title: 'Maziwa Tele Under Bot',
-                            description: 'Professional under prediction bot with advanced loss management'
-                        },
                         'Upgraded Candlemine.xml': {
                             title: 'Upgraded CandleMine',
                             description: 'Advanced candle analysis bot with improved accuracy'
