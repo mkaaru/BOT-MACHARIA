@@ -23,6 +23,7 @@ import RunStrategy from '../dashboard/run-strategy';
 import AnalysistoolComponent from '@/components/analysistool/analysis';
 import PercentageTool from '@/components/percentage-tool/percentage-tool';
 import DecyclerBot from '@/components/decycler-bot/decycler-bot';
+import ErrorBoundary from '@/components/error-boundary/ErrorBoundary';
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
@@ -174,22 +175,20 @@ const AppWrapper = observer(() => {
     }, []);
 
     useEffect(() => {
-        // Fetch the XML files and parse them
+        // Fetch the XML files and parse them with error handling
         const fetchBots = async () => {
             const botFiles = [
                 'Upgarged CandleMine_1754930851660.xml',
                 'Maziwa Tele Under Bot_1754930865460.xml',
                 'Upgraded Candlemine.xml',
-                'Super Elite.xml', // Smart trading as second sub-tab
-                'Super Speed Bot.xml', // Speed bot as third sub-tab
+                'Super Elite.xml',
+                'Super Speed Bot.xml',
                 'Envy-differ.xml',
                 'H_L auto vault.xml',
                 'Top-notch 2.xml',
-                // New bots added
                 '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1.xml',
                 '3 2025 Updated Version Of Candle Mine🇬🇧.xml',
                 'Accumulators Pro Bot.xml',
-                // Additional new bots
                 'AUTO C4 PRO (2) Version.xml',
                 '2025 Killer version Bot🤑.xml',
                 'Alpha Version 2025.xml',
@@ -198,44 +197,46 @@ const AppWrapper = observer(() => {
 
             const loadedBots = [];
 
+            // Use a more robust approach with timeout
+            const fetchWithTimeout = async (url, timeout = 5000) => {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), timeout);
+                
+                try {
+                    const response = await fetch(url, { 
+                        signal: controller.signal,
+                        cache: 'no-cache',
+                        headers: {
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache'
+                        }
+                    });
+                    clearTimeout(timeoutId);
+                    return response;
+                } catch (error) {
+                    clearTimeout(timeoutId);
+                    throw error;
+                }
+            };
+
             for (const file of botFiles) {
                 try {
-                    // Try multiple fetch approaches for better compatibility
-                    let response;
                     let text = null;
+                    const urls = [
+                        `/${encodeURIComponent(file)}`,
+                        `/${file}`,
+                        file
+                    ];
 
-                    // Try public directory with encoded URI
-                    try {
-                        const encodedFile = encodeURIComponent(file);
-                        response = await fetch(`/${encodedFile}`);
-                        if (response.ok) {
-                            text = await response.text();
-                        }
-                    } catch (e) {
-                        console.log(`Failed to fetch encoded: ${file}`);
-                    }
-
-                    // Try normal fetch if encoded didn't work
-                    if (!text) {
+                    for (const url of urls) {
                         try {
-                            response = await fetch(`/${file}`);
+                            const response = await fetchWithTimeout(url);
                             if (response.ok) {
                                 text = await response.text();
+                                break;
                             }
                         } catch (e) {
-                            console.log(`Failed to fetch normal: ${file}`);
-                        }
-                    }
-
-                    // Try without leading slash
-                    if (!text) {
-                        try {
-                            response = await fetch(file);
-                            if (response.ok) {
-                                text = await response.text();
-                            }
-                        } catch (e) {
-                            console.log(`Failed to fetch without slash: ${file}`);
+                            console.log(`Failed to fetch from ${url}:`, e.message);
                         }
                     }
 
@@ -251,9 +252,9 @@ const AppWrapper = observer(() => {
                         continue;
                     }
 
-                    // Validate XML content
-                    // More lenient validation - allow bots to load even with minor XML issues
-                    if (!text.trim().startsWith('<xml') && !text.trim().startsWith('<?xml')) {
+                    // Validate and parse XML more safely
+                    const trimmedText = text.trim();
+                    if (!trimmedText.startsWith('<xml') && !trimmedText.startsWith('<?xml')) {
                         console.warn(`File ${file} doesn't appear to be XML format`);
                         loadedBots.push({
                             title: file.replace('.xml', ''),
@@ -265,32 +266,34 @@ const AppWrapper = observer(() => {
                         continue;
                     }
 
-                    const parser = new DOMParser();
-                    const xml = parser.parseFromString(text, 'application/xml');
+                    try {
+                        const parser = new DOMParser();
+                        const xml = parser.parseFromString(trimmedText, 'application/xml');
+                        const parseError = xml.getElementsByTagName('parsererror')[0];
+                        
+                        if (parseError) {
+                            console.warn(`XML parsing error for ${file}:`, parseError.textContent);
+                        }
 
-                    // Check if XML parsing was successful
-                    const parseError = xml.getElementsByTagName('parsererror')[0];
-                    if (parseError) {
-                        console.warn(`XML parsing error for ${file}:`, parseError.textContent);
+                        loadedBots.push({
+                            title: file.replace('.xml', ''),
+                            image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
+                            filePath: file,
+                            xmlContent: trimmedText,
+                            isPlaceholder: false
+                        });
+
+                        console.log(`Successfully loaded: ${file}`);
+                    } catch (parseError) {
+                        console.error(`Parse error for ${file}:`, parseError);
                         loadedBots.push({
                             title: file.replace('.xml', ''),
                             image: 'default_image_path',
                             filePath: file,
-                            xmlContent: text, // Still include the content even if parsing failed
+                            xmlContent: trimmedText,
                             isPlaceholder: false
                         });
-                        continue;
                     }
-
-                    loadedBots.push({
-                        title: file.replace('.xml', ''),
-                        image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
-                        filePath: file,
-                        xmlContent: text,
-                        isPlaceholder: false
-                    });
-
-                    console.log(`Successfully loaded: ${file}`);
 
                 } catch (error) {
                     console.error(`Error loading bot ${file}:`, error);
@@ -310,7 +313,12 @@ const AppWrapper = observer(() => {
             console.log(`Placeholders: ${loadedBots.filter(b => b.isPlaceholder).length}`);
         };
 
-        fetchBots();
+        // Add error boundary for the fetch operation
+        fetchBots().catch(error => {
+            console.error('Failed to fetch bots:', error);
+            // Set empty bots array if fetch completely fails
+            setBots([]);
+        });
     }, []);
 
     const validateXMLFile = (xmlContent: string, fileName: string): boolean => {
@@ -369,7 +377,11 @@ const AppWrapper = observer(() => {
                     let response;
                     let success = false;
 
-                    // Try multiple approaches
+                    // Create abort controller for timeout
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+                    // Try multiple approaches with proper error handling
                     const attempts = [
                         `/${encodeURIComponent(bot.filePath)}`,
                         `/${bot.filePath}`,
@@ -378,24 +390,34 @@ const AppWrapper = observer(() => {
 
                     for (const url of attempts) {
                         try {
-                            response = await fetch(url);
+                            response = await fetch(url, { 
+                                signal: controller.signal,
+                                cache: 'no-cache',
+                                headers: {
+                                    'Cache-Control': 'no-cache',
+                                    'Pragma': 'no-cache'
+                                }
+                            });
                             if (response.ok) {
                                 xmlContent = await response.text();
                                 console.log(`Successfully loaded XML from: ${url}`);
                                 success = true;
+                                clearTimeout(timeoutId);
                                 break;
                             }
                         } catch (e) {
-                            console.log(`Failed attempt with URL: ${url}`);
+                            console.log(`Failed attempt with URL: ${url}`, e.message);
                         }
                     }
+
+                    clearTimeout(timeoutId);
 
                     if (!success) {
                         throw new Error(`Could not fetch ${bot.filePath} from any URL`);
                     }
                 } catch (fetchError) {
                     console.error("Failed to load bot content:", fetchError);
-                    alert(`Failed to load bot file "${bot.filePath}". The file may be missing or corrupted. Please ensure you have a complete XML file uploaded.`);
+                    alert(`Failed to load bot file "${bot.filePath}". The file may be missing or corrupted. Please check your network connection and try again.`);
                     return;
                 }
             }
@@ -1472,10 +1494,21 @@ if __name__ == "__main__":
     };
 
 
+    const handleTabChange = useCallback((tab_index: string) => {
+        try {
+            setActiveTab(tab_index);
+            console.log('Tab changed to:', tab_index);
+        } catch (error) {
+            console.error('Error changing tab:', error);
+            // Fallback to dashboard if tab change fails
+            setActiveTab(DBOT_TABS.DASHBOARD);
+        }
+    }, [setActiveTab]);
+
     const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
 
     return (
-        <>
+        <ErrorBoundary>
             <div className='main'>
                 <div className='main__container main-content'>
                     <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
@@ -1610,7 +1643,7 @@ if __name__ == "__main__":
             <Dialog cancel_button_text={cancel_button_text || localize('Cancel')} confirm_button_text={ok_button_text || localize('Ok')} has_close_icon is_visible={is_dialog_open} onCancel={onCancelButtonClick} onClose={onCloseDialog} onConfirm={onOkButtonClick || onCloseDialog} title={title}>
                 {message}
             </Dialog>
-        </>
+        </ErrorBoundary>
     );
 });
 
