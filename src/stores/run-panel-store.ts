@@ -248,14 +248,26 @@ export default class RunPanelStore {
     stopBot = () => {
         const { ui } = this.core;
 
-        this.dbot.stopBot();
+        try {
+            this.dbot.stopBot();
+        } catch (error) {
+            console.warn('Error stopping bot:', error);
+        }
 
-        ui.setPromptHandler(false);
+        try {
+            ui.setPromptHandler(false);
+        } catch (error) {
+            console.warn('Error setting prompt handler:', error);
+        }
 
         if (this.error_type) {
             // when user click stop button when there is a error but bot is retrying
             this.setContractStage(contract_stages.NOT_RUNNING);
-            ui.setAccountSwitcherDisabledMessage();
+            try {
+                ui.setAccountSwitcherDisabledMessage();
+            } catch (error) {
+                console.warn('Error setting account switcher message:', error);
+            }
             this.setIsRunning(false);
         } else if (this.has_open_contract) {
             // when user click stop button when bot is running
@@ -263,8 +275,16 @@ export default class RunPanelStore {
         } else {
             // when user click stop button before bot start running
             this.setContractStage(contract_stages.NOT_RUNNING);
-            this.unregisterBotListeners();
-            ui.setAccountSwitcherDisabledMessage();
+            try {
+                this.unregisterBotListeners();
+            } catch (error) {
+                console.warn('Error unregistering bot listeners:', error);
+            }
+            try {
+                ui.setAccountSwitcherDisabledMessage();
+            } catch (error) {
+                console.warn('Error setting account switcher message:', error);
+            }
             this.setIsRunning(false);
         }
 
@@ -288,13 +308,38 @@ export default class RunPanelStore {
     clearStat = () => {
         const { summary_card, journal, transactions } = this.root_store;
 
-        this.setIsRunning(false);
-        this.setHasOpenContract(false);
-        this.clear();
-        journal.clear();
-        summary_card.clear();
-        transactions.clear();
-        this.setContractStage(contract_stages.NOT_RUNNING);
+        try {
+            this.setIsRunning(false);
+            this.setHasOpenContract(false);
+            this.clear();
+            
+            // Safely clear stores with error handling
+            try {
+                journal.clear();
+            } catch (error) {
+                console.warn('Error clearing journal:', error);
+            }
+            
+            try {
+                summary_card.clear();
+            } catch (error) {
+                console.warn('Error clearing summary card:', error);
+            }
+            
+            try {
+                transactions.clear();
+            } catch (error) {
+                console.warn('Error clearing transactions:', error);
+            }
+            
+            this.setContractStage(contract_stages.NOT_RUNNING);
+        } catch (error) {
+            console.warn('Error during clearStat:', error);
+            // Ensure we at least set the basic state even if clearing fails
+            this.setIsRunning(false);
+            this.setHasOpenContract(false);
+            this.setContractStage(contract_stages.NOT_RUNNING);
+        }
     };
 
     toggleStatisticsInfoModal = () => {
@@ -703,18 +748,43 @@ export default class RunPanelStore {
     onUnmount = () => {
         const { journal, summary_card, transactions } = this.root_store;
 
-        if (!this.is_running) {
-            this.unregisterBotListeners();
-            this.disposeReactionsFn();
-            journal.disposeReactionsFn();
-            summary_card.disposeReactionsFn();
-            transactions.disposeReactionsFn();
-        }
+        try {
+            if (!this.is_running) {
+                this.unregisterBotListeners();
+                
+                // Safely dispose reactions with error handling
+                try {
+                    this.disposeReactionsFn();
+                } catch (error) {
+                    console.warn('Error disposing run panel reactions:', error);
+                }
+                
+                try {
+                    journal.disposeReactionsFn();
+                } catch (error) {
+                    console.warn('Error disposing journal reactions:', error);
+                }
+                
+                try {
+                    summary_card.disposeReactionsFn();
+                } catch (error) {
+                    console.warn('Error disposing summary card reactions:', error);
+                }
+                
+                try {
+                    transactions.disposeReactionsFn();
+                } catch (error) {
+                    console.warn('Error disposing transactions reactions:', error);
+                }
+            }
 
-        observer.unregisterAll('ui.log.error');
-        observer.unregisterAll('ui.log.notify');
-        observer.unregisterAll('ui.log.success');
-        observer.unregisterAll('client.invalid_token');
+            observer.unregisterAll('ui.log.error');
+            observer.unregisterAll('ui.log.notify');
+            observer.unregisterAll('ui.log.success');
+            observer.unregisterAll('client.invalid_token');
+        } catch (error) {
+            console.warn('Error during run panel unmount:', error);
+        }
     };
 
     handleInvalidToken = async () => {
