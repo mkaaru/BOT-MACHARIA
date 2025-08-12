@@ -201,13 +201,13 @@
           </block>
         </value>
         <value name="AMOUNT">
-          <block type="math_number" id="V/nDq4H|+8T`s7mE6kPz">
-            <field name="NUM">1</field>
+          <block type="variables_get" id="V/nDq4H|+8T`s7mE6kPz">
+            <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
           </block>
         </value>
         <value name="PREDICTION">
-          <block type="math_number" id="d5f1g2h3i4j5k6l7m8n9">
-            <field name="NUM">7</field>
+          <block type="variables_get" id="d5f1g2h3i4j5k6l7m8n9">
+            <field name="VAR" id="$+Q3~hzlFiI[$SMrBNB?">Prediction</field>
           </block>
         </value>
       </block>
