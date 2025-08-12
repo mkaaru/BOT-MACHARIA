@@ -435,25 +435,3 @@
     top: 0;
     z-index: 1000;
 }
-
-.header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 1.6rem;
-    height: 4rem;
-    background: var(--general-main-1);
-    border-bottom: 1px solid var(--general-section-1);
-    position: relative;
-    z-index: 4;
-
-    .menu-item,
-    .dc-btn,
-    a {
-        color: #2196F3 !important;
-    }
-
-    @include mobile {
-        padding: 0 1.2rem;
-    }
-}
