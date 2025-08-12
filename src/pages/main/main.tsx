@@ -1432,6 +1432,7 @@ const AppWrapper = observer(() => {
             const botFiles = [
                 'Super Elite.xml', // Smart trading as second sub-tab
                 'Super Speed Bot.xml', // Speed bot as third sub-tab
+                'Upgraded Candlemine.xml',
                 'Envy-differ.xml',
                 'H_L auto vault.xml',
                 'Top-notch 2.xml',
