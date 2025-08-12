@@ -309,6 +309,18 @@ export default class RunPanelStore {
         const { summary_card, journal, transactions } = this.root_store;
 
         try {
+            // Save the current workspace before clearing to prevent fallback loading
+            const workspace = window.Blockly?.derivWorkspace;
+            let savedWorkspaceXml = null;
+            
+            if (workspace) {
+                try {
+                    savedWorkspaceXml = window.Blockly.Xml.workspaceToDom(workspace);
+                } catch (error) {
+                    console.warn('Error saving workspace before reset:', error);
+                }
+            }
+
             this.setIsRunning(false);
             this.setHasOpenContract(false);
             this.clear();
@@ -333,6 +345,24 @@ export default class RunPanelStore {
             }
             
             this.setContractStage(contract_stages.NOT_RUNNING);
+
+            // Restore the workspace to prevent fallback loading and flickering
+            if (savedWorkspaceXml && workspace) {
+                try {
+                    // Small delay to ensure UI state is stable
+                    setTimeout(() => {
+                        try {
+                            workspace.clear();
+                            window.Blockly.Xml.domToWorkspace(savedWorkspaceXml, workspace);
+                            console.log('Workspace restored after reset');
+                        } catch (error) {
+                            console.warn('Error restoring workspace after reset:', error);
+                        }
+                    }, 100);
+                } catch (error) {
+                    console.warn('Error scheduling workspace restoration:', error);
+                }
+            }
         } catch (error) {
             console.warn('Error during clearStat:', error);
             // Ensure we at least set the basic state even if clearing fails
@@ -749,6 +779,13 @@ export default class RunPanelStore {
         const { journal, summary_card, transactions } = this.root_store;
 
         try {
+            // Prevent workspace disposal during reset operations
+            const workspace = window.Blockly?.derivWorkspace;
+            if (workspace && workspace.isInReset) {
+                console.log('Skipping unmount during reset operation');
+                return;
+            }
+
             if (!this.is_running) {
                 this.unregisterBotListeners();
                 

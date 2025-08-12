@@ -57,11 +57,24 @@ const BotBuilder = observer(() => {
                 cleanup_ref.current = true;
                 is_mounted.current = false;
                 
-                // Clean up any workspace references
+                // Clean up any workspace references safely
                 if (window.Blockly?.derivWorkspace) {
                     const workspace = window.Blockly.derivWorkspace;
+                    
+                    // Mark workspace as being disposed to prevent subscription errors
+                    workspace.isDisposing = true;
+                    
                     if (workspace.bot_builder_instance === instance_id.current) {
                         workspace.bot_builder_instance = null;
+                    }
+                    
+                    // Safely dispose workspace subscriptions
+                    try {
+                        if (workspace.themeManager_ && workspace.themeManager_.unsubscribeWorkspace) {
+                            workspace.themeManager_.unsubscribeWorkspace(workspace);
+                        }
+                    } catch (error) {
+                        console.warn('Error unsubscribing workspace theme:', error);
                     }
                 }
                 

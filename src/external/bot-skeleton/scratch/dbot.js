@@ -365,12 +365,24 @@ class DBot {
 
         api_base.setIsRunning(false);
 
+        // Mark workspace as being reset to prevent disposal errors
+        if (window.Blockly?.derivWorkspace) {
+            window.Blockly.derivWorkspace.isInReset = true;
+        }
+
         await this.interpreter.stop();
         this.is_bot_running = false;
         this.interpreter = null;
         this.interpreter = Interpreter();
         await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
         forgetAccumulatorsProposalRequest(this);
+
+        // Clear reset flag after a brief delay
+        setTimeout(() => {
+            if (window.Blockly?.derivWorkspace) {
+                window.Blockly.derivWorkspace.isInReset = false;
+            }
+        }, 500);
     }
 
     /**
