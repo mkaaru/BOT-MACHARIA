@@ -17,12 +17,8 @@ let purchase_reference;
         purchase(contract_type) {
             // Prevent calling purchase twice
             if (this.store.getState().scope !== BEFORE_PURCHASE) {
-                console.log('⚠️ Purchase blocked - not in BEFORE_PURCHASE state, current scope:', this.store.getState().scope);
                 return Promise.resolve();
             }
-
-            console.log('🎯 Purchase triggered for contract type:', contract_type);
-            console.log('💰 Current trade options:', this.tradeOptions);
 
             const { currency, is_sold } = this.data.contract;
             const is_same_symbol = this.data.contract.underlying === this.options.symbol;

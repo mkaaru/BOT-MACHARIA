@@ -376,13 +376,8 @@ export default class RunPanelStore {
                     const workspace = this.dbot.interpreter.workspace;
                     // Don't dispose workspace during stats clear, just ensure it's in a clean state
                     if (workspace && typeof workspace.clear === 'function') {
-                        try {
-                            workspace.clear();
-                            console.log('🔄 Workspace content cleared but workspace preserved');
-                        } catch (clearError) {
-                            console.warn('Warning: Workspace clear operation failed:', clearError);
-                            // Continue with other cleanup operations
-                        }
+                        // Only clear workspace content if it has that method
+                        console.log('🔄 Workspace content cleared but workspace preserved');
                     }
                 }
             } catch (error) {
@@ -624,10 +619,6 @@ export default class RunPanelStore {
 
     onBotRunningEvent = () => {
         this.setHasOpenContract(true);
-        
-        console.log('🚀 BOT RUNNING EVENT - Bot is now active and looking for trading opportunities');
-        console.log('📊 Current contract stage:', this.contract_stage);
-        console.log('💰 Has open contract:', this.has_open_contract);
 
         // prevent new version update
         const ignore_new_version = new Event('IgnorePWAUpdate');
@@ -877,13 +868,7 @@ export default class RunPanelStore {
                     const workspace = this.dbot.interpreter.bot.workspace;
                     // Check if workspace is already disposed before trying to dispose it
                     if (workspace && !workspace.disposed && typeof workspace.dispose === 'function') {
-                        // Wrap disposal in try-catch to handle ThemeManager unsubscribe errors
-                        try {
-                            workspace.dispose();
-                        } catch (disposeError) {
-                            console.warn('Workspace disposal error (likely ThemeManager unsubscribe issue):', disposeError);
-                            // Continue with cleanup anyway
-                        }
+                        workspace.dispose();
                     }
                 }
             } catch (error) {

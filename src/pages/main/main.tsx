@@ -85,8 +85,6 @@ const BotIcon = () => (
 import VolatilityAnalyzer from '@/components/volatility-analyzer/volatility-analyzer';
 import SpeedBot from '@/components/speed-bot/speed-bot';
 import TradingHubDisplay from '@/components/trading-hub-display/trading-hub-display';
-import marketAnalyzer from '@/services/market-analyzer';
-import { signalIntegrationService } from '@/services/signal-integration';
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -1709,6 +1707,15 @@ const AppWrapper = observer(() => {
         }
     }, [savedScripts]);
 
+    const addOutput = useCallback((type, content) => {
+        const newLine = {
+            type,
+            content,
+            timestamp: new Date().toLocaleTimeString(),
+        };
+        setPythonOutput(prev => [...prev, newLine]);
+    }, []);
+
     const loadTemplate = useCallback((templateType) => {
         const templates = {
             basic_strategy: `# Basic Trading Strategy Template
@@ -1975,30 +1982,6 @@ if __name__ == "__main__":
 
 
     const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
-
-    // Auto-start market analyzer and signal services
-    React.useEffect(() => {
-        if (connectionStatus === CONNECTION_STATUS.OPENED) {
-            // Start market analyzer for trading signals
-            if (!marketAnalyzer.isReadyForTrading()) {
-                console.log('🚀 Starting market analyzer for trading signals...');
-                marketAnalyzer.start();
-            }
-
-            // Initialize signal integration service
-            console.log('📡 Signal integration service initialized');
-            signalIntegrationService.init(); // Ensure signal integration is initialized
-        }
-
-        return () => {
-            // Cleanup on unmount
-            if (marketAnalyzer.isReadyForTrading()) {
-                marketAnalyzer.stop();
-            }
-            // Optional: stop signal integration if needed, though often it's a singleton managed elsewhere
-        };
-    }, [connectionStatus]);
-
 
     return (
         <>
