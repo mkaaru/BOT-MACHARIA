@@ -66,7 +66,7 @@ const SignalsIcon = () => (
 );
 
 const TradingHubIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="var(--text-general)" width="24px" height="24px" viewBox="0 0 24 24"><path d="M21.49 13.926l-3.273 2.48c.054-.663.116-1.435.143-2.275.04-.89.023-1.854-.043-2.835-.043-.487-.097-.98-.184-1.467-.077-.485-.196-.982-.31-1.39-.238-.862-.535-1.68-.9-2.35-.352-.673-.786-1.173-1.12-1.462-.172-.144-.31-.248-.414-.306l-.153-.093c-.083-.05-.187-.056-.275-.003-.13.08-.175.252-.1.388l.01.02s.11.198.258.54c.07.176.155.38.223.63.08.24.14.528.206.838.063.313.114.66.17 1.03l.15 1.188c.055.44.106.826.13 1.246.03.416.033.85.026 1.285.004.872-.063 1.76-.115 2.602-.062.853-.12 1.65-.172 2.335 0 .04-.004.073-.005.11l-.115-.118-2.996-3.028-1.6.454 5.566 6.66 6.394-5.803-1.503-.677z"/><path d="M2.503 9.48L5.775 7c-.054.664-.116 1.435-.143 2.276-.04.89-.023 1.855.043 2.835.043.49.097.98.184 1.47.076.484.195.98.31 1.388.237.862.534 1.68.9 2.35.35.674.785 1.174 1.12 1.463.17.145.31.25.413.307.1.06.152.093.152.093.083.05.187.055.275.003.13-.08.175-.252.1-.388l-.01-.02s-.11-.2-.258-.54c-.07-.177-.155-.38-.223-.63-.082-.242-.14-.528-.207-.84-.064-.312-.115-.658-.172-1.027-.046-.378-.096-.777-.15-1.19-.053-.44-.104-.825-.128-1.246-.03-.415-.033-.85-.026-1.285-.004-.872.063-1.76.115-2.603.064-.853.122-1.65.174-2.334 0-.04.004-.074.005-.11l.114.118 2.996 3.027 1.6-.454L7.394 3 1 8.804l1.503.678z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="var(--text-general)" width="24px" height="24px" viewBox="0 0 24 24"><path d="M21.49 13.926l-3.273 2.48c.054-.663.116-1.435.143-2.275.04-.89.023-1.854-.043-2.835-.043-.487-.097-.98-.184-1.467-.077-.485-.196-.982-.31-1.39-.238-.862-.535-1.68-.9-2.35-.352-.673-.786-1.173-1.12-1.462-.172-.144-.31-.248-.414-.306l-.153-.093c-.083-.05-.187-.056-.275-.003-.13.08-.175.252-.1.388l.01.02s.11.198.258.54c.07.176.155.38.223.63.08.24.14.528.206.838.063.313.114.66.17 1.03l.15 1.188c.055.44.106.826.13 1.246.03.416.033.85.026 1.285.004.872-.063 1.76-.115 2.602-.062.853-.12 1.65-.172 2.335 0 .04-.004.073-.005.11l-.115-.118-2.996-3.028-1.6.454 5.566 6.66 6.394-5.803-1.503-.677z"/><path d="M2.503 9.48L5.775 7c-.054.664-.116 1.435-.143 2.276-.04.89-.023 1.855.043 2.835.043.49.097.98.184 1.47.076.484.195.98.31 1.388.237.862.534 1.68.9 2.35.35.674.785 1.174 1.12 1.463.17.145.31.25.413.307.1.06.152.093.152.093.083.05.187.055.275.003.13-.08.175-.252.1-.388l-.01-.02s-.11-.2-.258-.54c-.07-.177-.155-.38-.223-.63-.082-.242-.14-.528-.207-.84-.064-.312-.115-.658-.172-1.19-.053-.44-.104-.825-.128-1.246-.03-.415-.033-.85-.026-1.285-.004-.872.063-1.76.115-2.603.064-.853.122-1.65.174-2.334 0-.04.004-.074.005-.11l.114.118 2.996 3.027 1.6-.454L7.394 3 1 8.804l1.503.678z"/></svg>
 );
 
 const FreeBotsIcon = () => (
@@ -81,7 +81,7 @@ const BotIcon = () => (
 
 // Import actual components
 import VolatilityAnalyzer from '@/components/volatility-analyzer/volatility-analyzer';
-import SpeedBot from '@/components/speed-bot/speed-bot';
+// Removed SpeedBot import
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -151,17 +151,18 @@ const AppWrapper = observer(() => {
         // Fetch the XML files and parse them
         const fetchBots = async () => {
             const botFiles = [
-                'Upgraded Candlemine.xml',
+                // Pushed to the front
+                'Super Elite.xml',
+                'Maziwa Tele Under Bot.xml',
+                'Upgraded CandleMine.xml',
+                // Original order or rearranged
                 'Envy-differ.xml',
                 'H_L auto vault.xml',
                 'Top-notch 2.xml',
-                // New bots added
                 '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1.xml',
                 '3 2025 Updated Version Of Candle Mine🇬🇧.xml',
                 'Accumulators Pro Bot.xml',
                 'Super Speed Bot.xml',
-                // Additional new bots
-                'Super Elite.xml',
                 'AUTO C4 PRO (2) Version.xml',
                 '2025 Killer version Bot🤑.xml',
                 'Alpha Version 2025.xml',
@@ -541,7 +542,7 @@ const AppWrapper = observer(() => {
     const symbolMap = {
       // Forward mapping
       'R_10': '1HZ10V',
-      'R_25': '1HZ25V', 
+      'R_25': '1HZ25V',
       'R_50': '1HZ50V',
       'R_75': '1HZ75V',
       'R_100': '1HZ100V',
@@ -1232,9 +1233,9 @@ if __name__ == "__main__":
                                         <div className='free-bots__content-wrapper'>
                                             <div className='free-bots__content'>
                                                 {bots.map((bot, index) => (
-                                                    <div 
+                                                    <div
                                                         className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
-                                                        key={index} 
+                                                        key={index}
                                                         onClick={() => {
                                                             handleBotClick(bot);
                                                         }}
@@ -1270,9 +1271,6 @@ if __name__ == "__main__":
                                 <div label={<Localize i18n_default_text='Smart Trading' />} id='id-smart-trading'>
                                     <VolatilityAnalyzer />
                                 </div>
-                                <div label={<Localize i18n_default_text='Speed Bot' />} id='id-speed-bot'>
-                                    <SpeedBot />
-                                </div>
                             </Tabs>
                         </div>
 
@@ -1283,13 +1281,13 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <iframe 
+                                <iframe
                                     src="https://tracktool.netlify.app/signals.html"
                                     width="100%"
                                     height="100%"
-                                    style={{ 
-                                        border: 'none', 
-                                        display: 'block', 
+                                    style={{
+                                        border: 'none',
+                                        display: 'block',
                                         minHeight: '600px',
                                         height: 'calc(100vh - 200px)'
                                     }}
@@ -1303,7 +1301,7 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <Tabs 
+                                <Tabs
                                     className="analysis-tool-tabs"
                                     active_tab_icon_color="var(--brand-secondary)"
                                     background_color="var(--general-main-1)"
