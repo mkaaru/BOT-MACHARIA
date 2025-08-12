@@ -921,7 +921,12 @@ const AppWrapper = observer(() => {
 </xml>`,
                     description: 'Advanced Under prediction bot with entry point analysis and martingale strategy',
                     isPlaceholder: false
-                }
+                },
+                {
+                    title: 'Smart Tick Bot',
+                    filePath: 'Smart Tick Bot.xml',
+                    xmlContent: `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <variables>
     <variable id="y2g6EF=EdB(Qr1kN5fjw">Target Profit</variable>
     <variable id="3iZTdl$_k8,?$go(8cbZ">Even Count</variable>
     <variable id="5+OW~93s?I*]o.(.B\`Cx">Stop Loss</variable>
@@ -1809,11 +1814,19 @@ const AppWrapper = observer(() => {
                         // Load the XML using the proper loading mechanism
                         try {
                             console.log(`Loading ${bot.title} XML using proper load function...`);
-                            
-                            // Use the load function from bot-skeleton which properly handles XML loading
-                            const { load } = await import('@/external/bot-skeleton');
+
+                            // Try importing load function from bot-skeleton
+                            let loadModule;
+                            try {
+                                loadModule = await import('@/external/bot-skeleton');
+                            } catch (importError) {
+                                console.error("Failed to import bot-skeleton:", importError);
+                                throw new Error("Could not import bot-skeleton module.");
+                            }
+
+                            const { load } = loadModule;
                             const { save_types } = await import('@/external/bot-skeleton/constants');
-                            
+
                             await load({
                                 block_string: xmlContent,
                                 file_name: bot.title,
@@ -1830,7 +1843,7 @@ const AppWrapper = observer(() => {
                             const uniqueStrategyId = `${bot.title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                             workspace.current_strategy_id = uniqueStrategyId;
                             workspace.strategy_to_load = xmlContent;
-                            
+
                             // Store comprehensive bot metadata with signature
                             workspace.bot_metadata = {
                                 title: bot.title,
@@ -1866,7 +1879,7 @@ const AppWrapper = observer(() => {
                             // Final verification of loaded content
                             const finalBlocks = workspace.getAllBlocks?.(false) || [];
                             const finalVariables = workspace.getAllVariables?.() || [];
-                            
+
                             console.log(`=== FINAL VERIFICATION FOR ${bot.title} ===`);
                             console.log(`Loaded blocks: ${finalBlocks.length}`);
                             console.log(`Loaded variables: ${finalVariables.length}`);
@@ -1896,7 +1909,7 @@ const AppWrapper = observer(() => {
                             // Try using the load function directly without workspace dependency
                             const { load } = await import('@/external/bot-skeleton');
                             const { save_types } = await import('@/external/bot-skeleton/constants');
-                            
+
                             console.log(`Using direct load function for ${bot.title}`);
                             await load({
                                 block_string: xmlContent,
@@ -1907,11 +1920,11 @@ const AppWrapper = observer(() => {
                                 strategy_id: `${bot.title}_${Date.now()}`,
                                 showIncompatibleStrategyDialog: false,
                             });
-                            
+
                             console.log(`${bot.title} loaded via direct load function with signature ${contentSignature}!`);
                         } catch (directLoadError) {
                             console.error(`Direct load error for ${bot.title}:`, directLoadError);
-                            
+
                             // Final fallback to load_modal
                             if (load_modal?.loadFileFromContent) {
                                 console.log(`Using load_modal fallback for ${bot.title}`);
