@@ -5,7 +5,6 @@ import useLiveChat from '@/components/chat/useLiveChat';
 import ChunkLoader from '@/components/loader/chunk-loader';
 import MatrixLoading from '@/components/matrix-loading';
 import { getUrlBase } from '@/components/shared';
-import SplashScreen from '@/components/splash-screen';
 import TncStatusUpdateModal from '@/components/tnc-status-update-modal';
 import TransactionDetailsModal from '@/components/transaction-details';
 import { api_base, ApiHelpers, ServerTime } from '@/external/bot-skeleton';
@@ -165,19 +164,16 @@ const AppContent = observer(() => {
      React.useEffect(() => {
         const timeout = setTimeout(() => {
             setForceShowApp(true);
-        }, 8000); // Show app after 8 seconds regardless
+        }, 5000); // Show app after 5 seconds regardless
 
         return () => clearTimeout(timeout);
     }, []);
 
     if (common?.error) return null;
 
-    // Only show splash screen during initial loading
-    if (is_loading && !forceShowApp && !client.is_logged_in) {
-        return <SplashScreen onComplete={() => setForceShowApp(true)} />;
-    }
-
-    return (
+    return is_loading && !forceShowApp ? (
+        <MatrixLoading message={localize('Initializing your account...')} show={true} />
+    ) : (
         <>
             <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
                 <BlocklyLoading />

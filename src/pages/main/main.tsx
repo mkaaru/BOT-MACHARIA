@@ -284,6 +284,7 @@ const AppWrapper = observer(() => {
     );
 
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
+        setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
             console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
 
@@ -303,58 +304,46 @@ const AppWrapper = observer(() => {
                         bot.filePath
                     ];
 
-                    for (const attempt of attempts) {
+                    for (const url of attempts) {
                         try {
-                            console.log(`Trying to fetch: ${attempt}`);
-                            response = await fetch(attempt);
+                            response = await fetch(url);
                             if (response.ok) {
                                 xmlContent = await response.text();
-                                console.log("Successfully loaded XML content, length:", xmlContent?.length);
+                                console.log(`Successfully loaded XML from: ${url}`);
                                 success = true;
                                 break;
                             }
                         } catch (e) {
-                            console.log(`Failed attempt: ${attempt}`, e);
-                            continue;
+                            console.log(`Failed attempt with URL: ${url}`);
                         }
                     }
 
-                    if (!success || !xmlContent) {
-                        console.error("Failed to load XML content from all attempts");
-                        alert(`Failed to load bot: ${bot.title}`);
-                        return;
+                    if (!success) {
+                        throw new Error(`Could not fetch ${bot.filePath} from any URL`);
                     }
                 } catch (fetchError) {
-                    console.error("Error fetching bot content:", fetchError);
-                    alert(`Error loading bot: ${fetchError.message}`);
+                    console.error("Failed to load bot content:", fetchError);
+                    // Removed alert message
                     return;
                 }
             }
 
-            console.log("About to load XML content...");
-
-            // Check if we have valid XML content
             if (!xmlContent || xmlContent.trim().length === 0) {
-                console.error("No valid XML content to load");
-                alert("Bot file appears to be empty or invalid");
+                //Removed alert message
                 return;
             }
 
-            // Validate XML structure
-            if (!xmlContent.includes('<xml') || !xmlContent.includes('</xml>')) {
-                console.error("Invalid XML structure detected");
-                alert("Bot file does not contain valid XML structure");
+            console.log("XML Content length:", xmlContent?.length);
+            console.log("XML Content preview:", xmlContent?.substring(0, 200));
+
+            // Validate XML content
+            if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
+                //Removed alert message
                 return;
             }
 
-            if (typeof load_modal.loadFileFromContent === 'function') {
+            if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
                 try {
-                    // First switch to bot builder tab
-                    setActiveTab(DBOT_TABS.BOT_BUILDER);
-
-                    // Give a small delay to ensure tab switch completes
-                    await new Promise(resolve => setTimeout(resolve, 100));
-
                     await load_modal.loadFileFromContent(xmlContent);
                     console.log("Bot loaded successfully!");
 
@@ -362,27 +351,19 @@ const AppWrapper = observer(() => {
                     if (typeof updateWorkspaceName === 'function') {
                         updateWorkspaceName(xmlContent);
                     }
-
-                    // Force a workspace refresh if available
-                    if (window.Blockly?.derivWorkspace) {
-                        window.Blockly.derivWorkspace.render();
-                    }
-
                 } catch (loadError) {
                     console.error("Error in load_modal.loadFileFromContent:", loadError);
-                    alert(`Failed to load bot into workspace: ${loadError.message}`);
-                    return;
+                    //Removed alert message
                 }
             } else {
-                console.error("loadFileFromContent is not defined on load_modal");
+                console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
                 console.log("load_modal object:", load_modal);
-                alert("Bot loading functionality is not available. Please refresh the page and try again.");
-                return;
+                //Removed alert message
             }
 
         } catch (error) {
             console.error("Error loading bot:", error);
-            alert(`Unexpected error loading bot: ${error.message}`);
+             //Removed alert message
         }
     }, [setActiveTab, load_modal]);
 

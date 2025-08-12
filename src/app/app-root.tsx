@@ -3,7 +3,7 @@ import { observer } from 'mobx-react-lite';
 import ErrorBoundary from '@/components/error-component/error-boundary';
 import ErrorComponent from '@/components/error-component/error-component';
 import ChunkLoader from '@/components/loader/chunk-loader';
-import SplashScreen from '@/components/splash-screen';
+import MatrixLoading from '@/components/matrix-loading';
 import TradingAssesmentModal from '@/components/trading-assesment-modal';
 import { api_base } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
@@ -13,7 +13,7 @@ import './app-root.scss';
 const AppContent = lazy(() => import('./app-content'));
 
 const AppRootLoader = () => {
-    return <SplashScreen />;
+    return <MatrixLoading message={localize('Initializing Deriv Bot...')} show={true} />;
 };
 
 const ErrorComponentWrapper = observer(() => {
