@@ -22,6 +22,8 @@ const BotBuilder = observer(() => {
     const is_blockly_listener_registered = React.useRef(false);
     const is_blockly_delete_listener_registered = React.useRef(false);
     const is_mounted = React.useRef(false);
+    const instance_id = React.useRef(`bot-builder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+    const cleanup_ref = React.useRef(false);
     const { isDesktop } = useDevice();
     const { onMount, onUnmount } = app;
     const el_ref = React.useRef<HTMLInputElement | null>(null);
@@ -32,14 +34,37 @@ const BotBuilder = observer(() => {
     let deleted_block_id: null | string = null;
 
     React.useEffect(() => {
-        if (!is_mounted.current) {
+        if (!is_mounted.current && !cleanup_ref.current) {
+            console.log(`Bot Builder mounting with instance ID: ${instance_id.current}`);
             is_mounted.current = true;
+            
+            // Ensure only one instance exists
+            const existingBotBuilders = document.querySelectorAll('.bot-builder');
+            if (existingBotBuilders.length > 1) {
+                console.warn(`Found ${existingBotBuilders.length} Bot Builder instances, cleaning up old ones`);
+                Array.from(existingBotBuilders).slice(0, -1).forEach((el, index) => {
+                    console.log(`Removing old Bot Builder instance ${index}`);
+                    el.remove();
+                });
+            }
+            
             onMount();
         }
         
         return () => {
-            if (is_mounted.current) {
+            if (is_mounted.current && !cleanup_ref.current) {
+                console.log(`Bot Builder unmounting instance: ${instance_id.current}`);
+                cleanup_ref.current = true;
                 is_mounted.current = false;
+                
+                // Clean up any workspace references
+                if (window.Blockly?.derivWorkspace) {
+                    const workspace = window.Blockly.derivWorkspace;
+                    if (workspace.bot_builder_instance === instance_id.current) {
+                        workspace.bot_builder_instance = null;
+                    }
+                }
+                
                 onUnmount();
             }
         };
@@ -115,28 +140,42 @@ const BotBuilder = observer(() => {
         });
     };
 
-    // Only render if component is properly mounted
-    if (!is_mounted.current) return null;
+    // Set workspace instance tracking
+    React.useEffect(() => {
+        if (is_mounted.current && window.Blockly?.derivWorkspace) {
+            const workspace = window.Blockly.derivWorkspace;
+            workspace.bot_builder_instance = instance_id.current;
+            console.log(`Workspace assigned to Bot Builder instance: ${instance_id.current}`);
+        }
+    }, [is_mounted.current, is_loading]);
+
+    // Only render if component is properly mounted and not cleaned up
+    if (!is_mounted.current || cleanup_ref.current) {
+        console.log(`Bot Builder render blocked - mounted: ${is_mounted.current}, cleanup: ${cleanup_ref.current}`);
+        return null;
+    }
 
     return (
         <>
             <div
-                key="bot-builder-main"
+                key={instance_id.current}
+                data-instance-id={instance_id.current}
                 className={classNames('bot-builder', {
                     'bot-builder--active': active_tab === 1 && !is_preview_on_popup,
                     'bot-builder--inactive': is_preview_on_popup,
                     'bot-builder--tour-active': active_tour,
                 })}
+                style={{ position: 'relative', zIndex: 1 }}
             >
-                <div id='scratch_div' ref={el_ref} key="scratch-workspace">
-                    <WorkspaceWrapper key="workspace-wrapper" />
+                <div id='scratch_div' ref={el_ref} key={`scratch-workspace-${instance_id.current}`}>
+                    <WorkspaceWrapper key={`workspace-wrapper-${instance_id.current}`} />
                 </div>
             </div>
-            {active_tab === 1 && <BotBuilderTourHandler key="tour-handler" is_mobile={!isDesktop} />}
+            {active_tab === 1 && <BotBuilderTourHandler key={`tour-handler-${instance_id.current}`} is_mobile={!isDesktop} />}
             {/* removed this outside from toolbar because it needs to loaded separately without dependency */}
-            <LoadModal key="load-modal" />
-            <SaveModal key="save-modal" />
-            {is_open && <QuickStrategy1 key="quick-strategy" />}
+            <LoadModal key={`load-modal-${instance_id.current}`} />
+            <SaveModal key={`save-modal-${instance_id.current}`} />
+            {is_open && <QuickStrategy1 key={`quick-strategy-${instance_id.current}`} />}
         </>
     );
 });
