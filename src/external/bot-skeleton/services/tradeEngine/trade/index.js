@@ -108,34 +108,19 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         if (this.token === token) {
             return Promise.resolve();
         }
-        
+        // for strategies using total runs, GetTotalRuns function is trying to get loginid and it gets called before Proposals calls.
+        // the below required loginid to be set in Proposal calls where loginAndGetBalance gets resolved.
+        // Earlier this used to happen as soon as we get ticks_history response and by the time GetTotalRuns gets called we have required info.
         this.accountInfo = api_base.account_info;
         this.token = api_base.token;
-        this.isWaitingForContractClose = false;
-        
         return new Promise(resolve => {
+            // Try to recover from a situation where API doesn't give us a correct response on
+            // "proposal_open_contract" which would make the bot run forever. When there's a "sell"
+            // event, wait a couple seconds for the API to give us the correct "proposal_open_contract"
+            // response, if there's none after x seconds. Send an explicit request, which _should_
+            // solve the issue. This is a backup!
             const subscription = api_base.api.onMessage().subscribe(({ data }) => {
-                // Handle contract closure to enable next trade
-                if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract) {
-                    const contract = data.proposal_open_contract;
-                    if (contract.is_sold) {
-                        this.isWaitingForContractClose = false;
-                        
-                        // Calculate profit/loss for martingale
-                        const profit = parseFloat(contract.sell_price) - parseFloat(contract.buy_price);
-                        console.log(`📈 CONTRACT CLOSED: Buy: ${contract.buy_price}, Sell: ${contract.sell_price}, P&L: ${profit}`);
-                        
-                        // Update martingale state with trade result
-                        if (this.updateTradeResult) {
-                            this.updateTradeResult(profit);
-                        }
-                        
-                        globalObserver.emit('contract.closed', contract);
-                    }
-                }
-                
                 if (data.msg_type === 'transaction' && data.transaction.action === 'sell') {
-                    this.isWaitingForContractClose = false;
                     this.transaction_recovery_timeout = setTimeout(() => {
                         const { contract } = this.data;
                         const is_same_contract = contract.contract_id === data.transaction.contract_id;

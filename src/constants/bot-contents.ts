@@ -13,16 +13,17 @@ export const tabs_title: TTabsTitle = Object.freeze({
 
 export const DBOT_TABS = {
     FREE_BOTS: 0,
-    ANALYSIS_TOOL: 1,
-    DECYCLER_BOT: 2,
+    BOT_BUILDER: 1,
+    TRADING_HUB: 2,
+    ANALYSIS_TOOL: 3,
+    CHART: 4,
+    TUTORIAL: 5,
+    DASHBOARD: 6,
+    SIGNALS: 7,
 } as const;
 
 export const MAX_STRATEGIES = 10;
 
-export const TAB_IDS = {
-    FREE_BOTS: 'FREE_BOTS',
-    ANALYSIS_TOOL: 'ANALYSIS_TOOL',
-    DECYCLER_BOT: 'DECYCLER_BOT',
-} as const;
+export const TAB_IDS = ['id-free-bots', 'id-bot-builder', 'id-charts', 'id-tutorials', 'id-analysis-tool', 'id-signals', 'id-dbot-dashboard'];
 
 export const DEBOUNCE_INTERVAL_TIME = 500;

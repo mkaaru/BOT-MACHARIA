@@ -16,34 +16,8 @@ const getBotInterface = tradeEngine => {
         sellAtMarket: () => tradeEngine.sellAtMarket(),
         getSellPrice: () => getSellPrice(tradeEngine),
         isResult: result => getDetail(10) === result,
-
-        // Simplified martingale interface - delegates to tradeEngine
-        getMartingaleMultiplier: () => tradeEngine.getMartingaleMultiplier?.() || 1,
-        getConsecutiveLosses: () => tradeEngine.getConsecutiveLosses?.() || 0,
-        getBaseAmount: () => tradeEngine.getBaseAmount?.() || null,
-        getLastTradeProfit: () => tradeEngine.getLastTradeProfit?.() || 0,
-        getCurrentPurchasePrice: () => tradeEngine.getCurrentPurchasePrice?.() || 0,
-        getTotalProfit: () => tradeEngine.getTotalProfit?.() || 0,
-        
-        // Martingale control methods
-        setMartingaleEnabled: (enabled) => tradeEngine.setMartingaleEnabled?.(enabled),
-        setMartingaleLimits: (maxMultiplier, maxConsecutiveLosses) => tradeEngine.setMartingaleLimits?.(maxMultiplier, maxConsecutiveLosses),
-        updateTradeResult: (profit) => tradeEngine.updateTradeResult?.(profit),
-
-        // Method to update trade results
-        updateTradeResult: (profit) => tradeEngine.updateTradeResult?.(profit),
-        
-        // Sequential trading methods
-        isWaitingForContractClose: () => tradeEngine.isWaitingForContractClose || false,
-        isWaitingForContractClosure: () => tradeEngine.isWaitingForContractClosure || false,
-        canMakeNextPurchase: () => tradeEngine.canMakeNextPurchase?.() || true,
-        forceReleaseContractWait: () => tradeEngine.forceReleaseContractWait?.(),
-
-        // Utility methods
         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
         readDetails: i => getDetail(i - 1),
-        getTotalRuns: () => tradeEngine.totalRuns,
-        shouldContinueTrading: () => tradeEngine.shouldContinueTrading?.() || true,
     };
 };
 

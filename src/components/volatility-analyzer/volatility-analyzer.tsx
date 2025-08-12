@@ -85,19 +85,6 @@ const VolatilityAnalyzer: React.FC = () => {
               if (derivWs && derivWs.readyState === WebSocket.OPEN) {
                 console.log('Sending authorization request');
                 derivWs.send(JSON.stringify({ app_id: 75771 }));
-
-                // Check if API token is available for real trading
-                const apiToken = localStorage.getItem('dbot_api_token');
-                if (apiToken) {
-                  console.log('🔑 Authorizing with API token for real trading');
-                  derivWs.send(JSON.stringify({
-                    authorize: apiToken,
-                    req_id: 'auth_request'
-                  }));
-                } else {
-                  console.log('⚠️ No API token found - trading will be simulated');
-                }
-
                 requestTickHistory();
               }
             } catch (error) {
@@ -124,17 +111,6 @@ const VolatilityAnalyzer: React.FC = () => {
             // Ensure we're showing connected status when receiving data
             if (connectionStatus !== 'connected') {
               setConnectionStatus('connected');
-            }
-
-            // Check for authorization response
-            if (data.req_id === 'auth_request') {
-              if (data.authorize) {
-                console.log('🔑 API authorization successful - real trading enabled');
-                setIsRealTrading(true);
-              } else {
-                console.log('❌ API authorization failed - using simulation mode');
-                setIsRealTrading(false);
-              }
             }
 
             if (data.history) {
@@ -421,14 +397,14 @@ const VolatilityAnalyzer: React.FC = () => {
         derivWs.onclose = null;
         derivWs.close();
       }
-
+      
       // Clear all trading intervals
       Object.values(tradingIntervals).forEach(interval => {
         if (interval) {
           clearInterval(interval);
         }
       });
-
+      
       // Reset auto trading status
       setAutoTradingStatus({
         'rise-fall': false,
@@ -493,7 +469,6 @@ const VolatilityAnalyzer: React.FC = () => {
   const [stakeAmount, setStakeAmount] = useState(0.5);
   const [ticksAmount, setTicksAmount] = useState(1);
   const [martingaleAmount, setMartingaleAmount] = useState(1);
-  const [isRealTrading, setIsRealTrading] = useState(false);
   const [tradingConditions, setTradingConditions] = useState<Record<string, any>>({
     'rise-fall': { condition: 'Rise Prob', operator: '>', value: 55 },
     'even-odd': { condition: 'Even Prob', operator: '>', value: 55 },
@@ -504,33 +479,35 @@ const VolatilityAnalyzer: React.FC = () => {
   });
 
   const executeTrade = async (strategyId: string, tradeType: string) => {
-    console.log(`🔄 Executing ${tradeType} trade for ${strategyId}`);
-
+    console.log(`Executing ${tradeType} trade for ${strategyId}`);
+    
     if (connectionStatus !== 'connected') {
-      console.error('❌ Cannot trade: Not connected to API');
+      console.error('Cannot trade: Not connected to API');
       return;
     }
 
     try {
       const data = analysisData[strategyId];
       const condition = tradingConditions[strategyId];
-
+      
       if (!data?.data) {
-        console.error('❌ No analysis data available for trading');
+        console.error('No analysis data available for trading');
         return;
       }
 
-      // Check trading conditions for both manual and auto trades
-      const shouldTrade = checkTradingConditions(strategyId, data.data, condition);
-      if (!shouldTrade && tradeType === 'manual') {
-        console.log(`⚠️ Trading conditions not met for ${strategyId}`);
-        return;
+      // For manual trades, check conditions; for auto trades, execute based on analysis
+      if (tradeType === 'manual') {
+        const shouldTrade = checkTradingConditions(strategyId, data.data, condition);
+        if (!shouldTrade) {
+          console.log(`Trading conditions not met for ${strategyId}`);
+          return;
+        }
       }
 
       // Determine contract type based on strategy and current analysis
       let contractType = '';
-      let prediction;
-
+      let barrier;
+      
       switch (strategyId) {
         case 'rise-fall':
           contractType = parseFloat(data.data.riseRatio || '0') > parseFloat(data.data.fallRatio || '0') ? 'CALL' : 'PUT';
@@ -542,20 +519,19 @@ const VolatilityAnalyzer: React.FC = () => {
         case 'over-under':
         case 'over-under-2':
           contractType = parseFloat(data.data.overProbability || '0') > parseFloat(data.data.underProbability || '0') ? 'DIGITOVER' : 'DIGITUNDER';
-          prediction = data.data.barrier;
+          barrier = data.data.barrier;
           break;
         case 'matches-differs':
           contractType = parseFloat(data.data.mostFrequentProbability || '0') > 15 ? 'DIGITMATCH' : 'DIGITDIFF';
-          prediction = data.data.target;
+          barrier = data.data.target;
           break;
         default:
-          console.error('❌ Unknown strategy type');
+          console.error('Unknown strategy type');
           return;
       }
 
       // Create proposal request
       const proposalRequest = {
-        proposal: 1,
         amount: stakeAmount,
         basis: 'stake',
         contract_type: contractType,
@@ -565,65 +541,48 @@ const VolatilityAnalyzer: React.FC = () => {
         duration_unit: 't'
       };
 
-      // Add prediction for digit contracts
-      if (prediction !== undefined) {
-        proposalRequest.barrier = prediction;
+      // Add barrier for digit contracts
+      if (barrier !== undefined) {
+        proposalRequest.barrier = barrier;
       }
 
-      console.log('📡 Sending proposal request:', proposalRequest);
-
-      // Execute real trade through trading engine
-      try {
-        const proposalResponse = await tradingEngine.getProposal(proposalRequest);
-
-        if (proposalResponse.proposal) {
-          console.log('💰 Proposal received:', proposalResponse.proposal);
-
-          // Execute the purchase
-          const purchaseResponse = await tradingEngine.buyContract(
-            proposalResponse.proposal.id,
-            proposalResponse.proposal.ask_price
-          );
-
-          if (purchaseResponse.buy) {
-            console.log(`✅ Real ${contractType} trade executed for ${strategyId}`);
-            console.log(`💰 Stake: ${stakeAmount}, Duration: ${ticksAmount} ticks`);
-            console.log(`📊 Contract ID: ${purchaseResponse.buy.contract_id}`);
-            console.log(`💵 Purchase Price: ${purchaseResponse.buy.buy_price}`);
-
-            // Store successful trade info (you can extend this for trade history)
-            const tradeInfo = {
-              strategyId,
-              contractType,
-              contractId: purchaseResponse.buy.contract_id,
-              buyPrice: purchaseResponse.buy.buy_price,
-              stake: stakeAmount,
-              timestamp: new Date().toISOString(),
-              symbol: selectedSymbol,
-              duration: ticksAmount
-            };
-
-            console.log('📝 Trade executed successfully:', tradeInfo);
-          } else {
-            console.error('❌ Purchase failed:', purchaseResponse);
+      console.log('Sending proposal request:', proposalRequest);
+      
+      // Get proposal from Deriv API
+      const proposalResponse = await tradingEngine.getProposal(proposalRequest);
+      
+      if (proposalResponse.proposal) {
+        console.log('Proposal received:', proposalResponse.proposal);
+        
+        // Automatically buy the contract
+        const purchaseResponse = await tradingEngine.buyContract(
+          proposalResponse.proposal.id,
+          proposalResponse.proposal.ask_price
+        );
+        
+        if (purchaseResponse.buy) {
+          console.log('Contract purchased successfully:', purchaseResponse.buy);
+          
+          // Apply martingale logic for next trade if this one loses
+          if (martingaleAmount > 1) {
+            // Store current stake for martingale progression
+            // This would be implemented based on your martingale strategy
           }
         } else {
-          console.error('❌ Proposal failed:', proposalResponse);
+          console.error('Purchase failed:', purchaseResponse);
         }
-      } catch (error) {
-        console.error('❌ Trading engine error:', error);
-        // Fall back to simulation if trading engine fails
-        console.log(`⚠️ Fallback: Simulated ${contractType} trade for ${strategyId}`);
+      } else {
+        console.error('Proposal failed:', proposalResponse);
       }
 
     } catch (error) {
-      console.error('❌ Error executing trade:', error);
+      console.error('Error executing trade:', error);
     }
   };
 
   const startAutoTrading = (strategyId: string) => {
     if (connectionStatus !== 'connected') {
-      console.error('❌ Cannot start auto trading: Not connected to API');
+      console.error('Cannot start auto trading: Not connected to API');
       return;
     }
 
@@ -632,7 +591,7 @@ const VolatilityAnalyzer: React.FC = () => {
       clearInterval(tradingIntervals[strategyId]);
     }
 
-    // Set auto trading status to active first
+    // Set auto trading status to active
     setAutoTradingStatus(prev => ({
       ...prev,
       [strategyId]: true
@@ -640,33 +599,21 @@ const VolatilityAnalyzer: React.FC = () => {
 
     // Determine interval based on volatility symbol
     let intervalMs = 1000; // Default 1 second for 1s volatilities
-
+    
     // For regular volatilities (not 1s), use tick-based timing
     if (!selectedSymbol.includes('1HZ')) {
       // Regular volatilities get ticks approximately every 1-2 seconds
       intervalMs = 2000; // 2 seconds for regular volatilities
     }
 
-    console.log(`🚀 Starting auto trading for ${strategyId} with ${intervalMs}ms interval`);
-
-    // Execute first trade immediately
-    setTimeout(() => {
-      if (autoTradingStatus[strategyId] || true) { // Check current state
-        console.log(`🔄 Auto executing initial trade for ${strategyId}`);
-        executeTrade(strategyId, 'auto');
-      }
-    }, 1000);
+    console.log(`Starting auto trading for ${strategyId} with ${intervalMs}ms interval`);
 
     // Create trading interval
     const interval = setInterval(async () => {
-      // Check if auto trading is still active for this strategy
-      setAutoTradingStatus(current => {
-        if (current[strategyId] && connectionStatus === 'connected') {
-          console.log(`🔄 Auto executing trade for ${strategyId}`);
-          executeTrade(strategyId, 'auto');
-        }
-        return current;
-      });
+      if (autoTradingStatus[strategyId] && connectionStatus === 'connected') {
+        console.log(`Auto executing trade for ${strategyId}`);
+        await executeTrade(strategyId, 'auto');
+      }
     }, intervalMs);
 
     // Store the interval
@@ -675,7 +622,7 @@ const VolatilityAnalyzer: React.FC = () => {
       [strategyId]: interval
     }));
 
-    console.log(`✅ Auto trading started for ${strategyId}`);
+    console.log(`Auto trading started for ${strategyId}`);
   };
 
   const stopAutoTrading = (strategyId: string) => {
@@ -699,7 +646,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
   const checkTradingConditions = (strategyId: string, data: any, condition: any) => {
     let currentValue = 0;
-
+    
     switch (condition.condition) {
       case 'Rise Prob':
         currentValue = parseFloat(data.riseRatio || '0');
@@ -726,27 +673,19 @@ const VolatilityAnalyzer: React.FC = () => {
         currentValue = 100 - parseFloat(data.mostFrequentProbability || '0');
         break;
       default:
-        console.log(`⚠️ Unknown condition: ${condition.condition}, allowing trade`);
-        return true; // Allow trade for unknown conditions
+        return false;
     }
 
-    let conditionMet = false;
     switch (condition.operator) {
       case '>':
-        conditionMet = currentValue > condition.value;
-        break;
+        return currentValue > condition.value;
       case '<':
-        conditionMet = currentValue < condition.value;
-        break;
+        return currentValue < condition.value;
       case '=':
-        conditionMet = Math.abs(currentValue - condition.value) < 0.1;
-        break;
+        return Math.abs(currentValue - condition.value) < 0.1;
       default:
-        conditionMet = true; // Allow trade for unknown operators
+        return false;
     }
-
-    console.log(`📊 Condition check for ${strategyId}: ${condition.condition} ${currentValue}% ${condition.operator} ${condition.value}% = ${conditionMet}`);
-    return conditionMet;
   };
 
   const renderProgressBar = (label: string, percentage: number, color: string) => {
@@ -1079,13 +1018,10 @@ const VolatilityAnalyzer: React.FC = () => {
     <div className="volatility-analyzer">
       <div className="analyzer-header">
         <h2>Smart Trading Analytics</h2>
-        <div className="status-indicators">
-          <div className={`connection-status ${connectionStatus}`}>
-            {connectionStatus === 'connected' && '🟢 Connected'}
-            {connectionStatus === 'disconnected' && '🔴 Disconnected'}
-            {connectionStatus === 'error' && '⚠️ Error'}
-          </div>
-          
+        <div className={`connection-status ${connectionStatus}`}>
+          {connectionStatus === 'connected' && '🟢 Connected'}
+          {connectionStatus === 'disconnected' && '🔴 Disconnected'}
+          {connectionStatus === 'error' && '⚠️ Error'}
         </div>
       </div>
 

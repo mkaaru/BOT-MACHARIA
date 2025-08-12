@@ -22,11 +22,9 @@ import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
 import AnalysistoolComponent from '@/components/analysistool/analysis';
 import PercentageTool from '@/components/percentage-tool/percentage-tool';
-import DecyclerBot from '@/components/decycler-bot/decycler-bot';
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
-const BotBuilder = lazy(() => import('../bot-builder'));
 
 const DashboardIcon = () => (
     <svg width="20" height="20" fill="var(--text-general)" viewBox="0 0 24 24">
@@ -68,7 +66,7 @@ const SignalsIcon = () => (
 );
 
 const TradingHubIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="var(--text-general)" width="24px" height="24px" viewBox="0 0 24 24"><path d="M21.49 13.926l-3.273 2.48c.054-.663.116-1.435.143-2.275.04-.89.023-1.854-.043-2.835-.043-.487-.097-.98-.184-1.467-.077-.485-.196-.982-.31-1.39-.238-.862-.535-1.68-.9-2.35-.352-.673-.786-1.173-1.12-1.462-.172-.144-.31-.248-.414-.306l-.153-.093c-.083-.05-.187-.056-.275-.003-.13.08-.175.252-.1.388l.01.02s.11.198.258.54c.07.176.155.38.223.63.08.24.14.528.206.838.063.313.114.66.17 1.03l.15 1.188c.055.44.106.826.13 1.246.03.416.033.85.026 1.285.004.872-.063 1.76-.115 2.602-.062.853-.12 1.65-.172 2.335 0 .04-.004.073-.005.11l-.115-.118-2.996-3.028-1.6.454 5.566 6.66 6.394-5.803-1.503-.677z"/><path d="M2.503 9.48L5.775 7c-.054.664-.116 1.435-.143 2.276-.04.89-.023 1.855.043 2.835.043.49.097.98.184 1.47.076.484.195.98.31 1.388.237.862.534 1.68.9 2.35.35.674.785 1.174 1.12 1.463.17.145.31.25.413.307.1.06.152.093.152.093.083.05.187.055.275.003.13-.08.175-.252.1-.388l-.01-.02s-.11-.2-.258-.54c-.07-.177-.155-.38-.223-.63-.082-.242-.14-.528-.207-.84-.064-.312-.115-.658-.15-1.19-.053-.44-.104-.825-.128-1.246-.03-.415-.033-.85-.026-1.285-.004-.872.063-1.76.115-2.603.064-.853.122-1.65.174-2.334 0-.04.004-.074.005-.11l.114.118 2.996 3.027 1.6-.454L7.394 3 1 8.804l1.503.678z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="var(--text-general)" width="24px" height="24px" viewBox="0 0 24 24"><path d="M21.49 13.926l-3.273 2.48c.054-.663.116-1.435.143-2.275.04-.89.023-1.854-.043-2.835-.043-.487-.097-.98-.184-1.467-.077-.485-.196-.982-.31-1.39-.238-.862-.535-1.68-.9-2.35-.352-.673-.786-1.173-1.12-1.462-.172-.144-.31-.248-.414-.306l-.153-.093c-.083-.05-.187-.056-.275-.003-.13.08-.175.252-.1.388l.01.02s.11.198.258.54c.07.176.155.38.223.63.08.24.14.528.206.838.063.313.114.66.17 1.03l.15 1.188c.055.44.106.826.13 1.246.03.416.033.85.026 1.285.004.872-.063 1.76-.115 2.602-.062.853-.12 1.65-.172 2.335 0 .04-.004.073-.005.11l-.115-.118-2.996-3.028-1.6.454 5.566 6.66 6.394-5.803-1.503-.677z"/><path d="M2.503 9.48L5.775 7c-.054.664-.116 1.435-.143 2.276-.04.89-.023 1.855.043 2.835.043.49.097.98.184 1.47.076.484.195.98.31 1.388.237.862.534 1.68.9 2.35.35.674.785 1.174 1.12 1.463.17.145.31.25.413.307.1.06.152.093.152.093.083.05.187.055.275.003.13-.08.175-.252.1-.388l-.01-.02s-.11-.2-.258-.54c-.07-.177-.155-.38-.223-.63-.082-.242-.14-.528-.207-.84-.064-.312-.115-.658-.172-1.027-.046-.378-.096-.777-.15-1.19-.053-.44-.104-.825-.128-1.246-.03-.415-.033-.85-.026-1.285-.004-.872.063-1.76.115-2.603.064-.853.122-1.65.174-2.334 0-.04.004-.074.005-.11l.114.118 2.996 3.027 1.6-.454L7.394 3 1 8.804l1.503.678z"/></svg>
 );
 
 const FreeBotsIcon = () => (
@@ -84,7 +82,6 @@ const BotIcon = () => (
 // Import actual components
 import VolatilityAnalyzer from '@/components/volatility-analyzer/volatility-analyzer';
 import SpeedBot from '@/components/speed-bot/speed-bot';
-import TradingHubDisplay from '@/components/trading-hub-display/trading-hub-display';
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -153,787 +150,25 @@ const AppWrapper = observer(() => {
     useEffect(() => {
         // Fetch the XML files and parse them
         const fetchBots = async () => {
-            // Priority bots with embedded XML content
-            const priorityBots = [
-                {
-                    title: 'Maziwa Tele Under Bot',
-                    filePath: 'Maziwa Tele Under Bot.xml',
-                    xmlContent: `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
-  <variables>
-    <variable id="sF6($OTq!BVWswgj}4|S">Prediction before loss</variable>
-    <variable id="o!-=j_eJZCfW(+iV7;MS">Tick 1</variable>
-    <variable id="OPb$Wwph1|)^r0#|^^y}">Prediction after loss</variable>
-    <variable id="7Q4y$nr_sr!x2NkOu%)2">Stake</variable>
-    <variable id="$+Q3~hzlFiI[$SMrBNB?">Prediction</variable>
-    <variable id="Y$cG[}L|(_T-=;0ZyXI.">text1</variable>
-    <variable id="icmJXVK=|*WSXkYEU*E;">text</variable>
-    <variable id="x\`Ia+qCu@StiaJI^X([4">Entrypoint-Digit</variable>
-    <variable id=":Z8WvPXWG?qCe|8=iii1">Expected Profit</variable>
-    <variable id="S10~wx4EJ/w3gZZ;v77Y">Total Lost</variable>
-    <variable id="+L:nET.PS2OXV5VNGInM">Analysis</variable>
-    <variable id="L.cN$B-UUzkS|eDQm2xZ">Stop Loss</variable>
-    <variable id="Op-Cim@t?DJN?i;G)w)C">Count Loss</variable>
-    <variable id="~ZEk9Zr7t[g;-\`afIGOO">Initial Stake</variable>
-    <variable id="!mQjsA[]viO$7Gu~UzUn">Martingale Split</variable>
-    <variable id="VK7:nSRSXJ=|#p(oAU9v">Payout %</variable>
-  </variables>
-  <block type="trade_definition" id="deUzn(1}F)X6;d+O#$A8" deletable="false" x="0" y="60">
-    <statement name="TRADE_OPTIONS">
-      <block type="trade_definition_market" id="*ZjSt,1/{;THl;IV%*sy" deletable="false" movable="false">
-        <field name="MARKET_LIST">synthetic_index</field>
-        <field name="SUBMARKET_LIST">random_index</field>
-        <field name="SYMBOL_LIST">1HZ10V</field>
-        <next>
-          <block type="trade_definition_tradetype" id="xzc0Sl\`,#G4h{;usN50T" deletable="false" movable="false">
-            <field name="TRADETYPECAT_LIST">digits</field>
-            <field name="TRADETYPE_LIST">overunder</field>
-            <next>
-              <block type="trade_definition_contracttype" id="z9892C3%qM2{aa@jy]2]" deletable="false" movable="false">
-                <field name="TYPE_LIST">both</field>
-                <next>
-                  <block type="trade_definition_candleinterval" id=";)B,zZH~+e,96QvZt*7;" deletable="false" movable="false">
-                    <field name="CANDLEINTERVAL_LIST">60</field>
-                    <next>
-                      <block type="trade_definition_restartbuysell" id="5E?,-;gq5Qu_eyIs.)m!" deletable="false" movable="false">
-                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
-                        <next>
-                          <block type="trade_definition_restartonerror" id="?u~0^reDb~fVp[b-~w|G" deletable="false" movable="false">
-                            <field name="RESTARTONERROR">TRUE</field>
-                          </block>
-                        </next>
-                      </block>
-                    </next>
-                  </block>
-                </next>
-              </block>
-            </next>
-          </block>
-        </next>
-      </block>
-    </statement>
-    <statement name="INITIALIZATION">
-      <block type="variables_set" id="4$5m(H*{\`c4#S-)o=;aV">
-        <field name="VAR" id="sF6($OTq!BVWswgj}4|S">Prediction before loss</field>
-        <value name="VALUE">
-          <block type="math_number" id="Ai5]{:#d~w;]%q\`:p[h,">
-            <field name="NUM">9</field>
-          </block>
-        </value>
-        <next>
-          <block type="variables_set" id="f;c!1^-bb9K7rQ{#3/l0">
-            <field name="VAR" id="OPb$Wwph1|)^r0#|^^y}">Prediction after loss</field>
-            <value name="VALUE">
-              <block type="math_number" id="gT6?xbULKjs8^Sw?0iH%">
-                <field name="NUM">6</field>
-              </block>
-            </value>
-            <next>
-              <block type="variables_set" id="_aSBe^/).nS{bwLbiE9n">
-                <field name="VAR" id="x\\\`Ia+qCu@StiaJI^X([4">Entrypoint-Digit</field>
-                <value name="VALUE">
-                  <block type="math_number" id="KR2=c$XO!b_Bgl_ASR4(">
-                    <field name="NUM">7</field>
-                  </block>
-                </value>
-                <next>
-                  <block type="variables_set" id="y-?,og][*D.g)z\`wz~sr">
-                    <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
-                    <value name="VALUE">
-                      <block type="math_number" id="!TI[pk;TXnU%n?K/nH:^">
-                        <field name="NUM">1</field>
-                      </block>
-                    </value>
-                    <next>
-                      <block type="variables_set" id="9.jN~btog59cUwf8:lPl">
-                        <field name="VAR" id=":Z8WvPXWG?qCe|8=iii1">Expected Profit</field>
-                        <value name="VALUE">
-                          <block type="math_number" id=".\`(0weVv%;N,|MA\`*;Ll">
-                            <field name="NUM">100</field>
-                          </block>
-                        </value>
-                        <next>
-                          <block type="variables_set" id="MpN0,W8A;joH2n#IXF@!">
-                            <field name="VAR" id="L.cN$B-UUzkS|eDQm2xZ">Stop Loss</field>
-                            <value name="VALUE">
-                              <block type="math_number" id="tACLVvalL.#)Xxz\`ZoBC">
-                                <field name="NUM">1000</field>
-                              </block>
-                            </value>
-                            <next>
-                              <block type="variables_set" id="-z^omJLEhTT5\`I:NZ;J=-">
-                                <field name="VAR" id="~ZEk9Zr7t[g;-\\\`afIGOO">Initial Stake</field>
-                                <value name="VALUE">
-                                  <block type="variables_get" id="SoAC,+VI6PpU1=/|ThHQ">
-                                    <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
-                                  </block>
-                                </value>
-                                <next>
-                                  <block type="variables_set" id=":y8AYtv{x\`8LFslg8@Pc">
-                                    <field name="VAR" id="!mQjsA[]viO$7Gu~UzUn">Martingale Split</field>
-                                    <value name="VALUE">
-                                      <block type="math_number" id="LqV%S=;Xlb|o9}weJjz1">
-                                        <field name="NUM">2.55</field>
-                                      </block>
-                                    </value>
-                                    <next>
-                                      <block type="variables_set" id="7A:2S/;VFh?W0fI|W^{]">
-                                        <field name="VAR" id="VK7:nSRSXJ=|#p(oAU9v">Payout %</field>
-                                        <value name="VALUE">
-                                          <block type="math_number" id="*nsC7E\`vh$_)]~v1u.#[">
-                                            <field name="NUM">39</field>
-                                          </block>
-                                        </value>
-                                        <next>
-                                          <block type="variables_set" id="i-+y35ET%iNI#gfE=j}f">
-                                            <field name="VAR" id="$+Q3~hzlFiI[$SMrBNB?">Prediction</field>
-                                            <value name="VALUE">
-                                              <block type="variables_get" id="lz.rXO5Nim{3$+J{lQc">
-                                                <field name="VAR" id="sF6($OTq!BVWswgj}4|S">Prediction before loss</field>
-                                              </block>
-                                            </value>
-                                            <next>
-                                              <block type="variables_set" id="8pGcw{d^D[X~Q9WWr9L$">
-                                                <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
-                                                <value name="VALUE">
-                                                  <block type="text" id="CSPjU%E/2Z*fs-7r2@%|">
-                                                    <field name="TEXT">analysis</field>
-                                                  </block>
-                                                </value>
-                                              </block>
-                                            </next>
-                                          </block>
-                                        </next>
-                                      </block>
-                                    </next>
-                                  </block>
-                                </next>
-                              </block>
-                            </next>
-                          </block>
-                        </next>
-                      </block>
-                    </next>
-                  </block>
-                </next>
-              </block>
-            </next>
-          </block>
-        </next>
-      </block>
-    </statement>
-    <statement name="SUBMARKET">
-      <block type="trade_definition_tradeoptions" id="+2=*XrtB:_,H.ZbX=p:?">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
-        <field name="DURATIONTYPE_LIST">t</field>
-        <value name="DURATION">
-          <shadow type="math_number" id=".VN]5$PRz#[mu4gLEpE)">
-            <field name="NUM">1</field>
-          </shadow>
-        </value>
-        <value name="AMOUNT">
-          <shadow type="math_number" id="uDV:;sle3{o8l:/liSA4">
-            <field name="NUM">1</field>
-          </shadow>
-          <block type="variables_get" id="e8^MR4,v|mL$uYo-N2,7">
-            <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
-          </block>
-        </value>
-        <value name="PREDICTION">
-          <shadow type="math_number_positive" id="C._P3Q2a(ed{Kmim3U^G">
-            <field name="NUM">1</field>
-          </shadow>
-          <block type="variables_get" id="7M|Q{wh7BX?zpzY|TlN.">
-            <field name="VAR" id="$+Q3~hzlFiI[$SMrBNB?">Prediction</field>
-          </block>
-        </value>
-      </block>
-    </statement>
-  </block>
-  <block type="after_purchase" id="ymTrZ2T/bD#hXN^}%;gD" x="893" y="60">
-    <statement name="AFTERPURCHASE_STACK">
-      <block type="controls_if" id="aZ/eJwRn+2B?g?#!Rb%#">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
-        <value name="IF0">
-          <block type="logic_compare" id="=CPoUAxWy4D?!*TdX_:Q">
-            <field name="OP">GT</field>
-            <value name="A">
-              <block type="total_profit" id="%W]vwSTU2OHqSjiF#6vF"></block>
-            </value>
-            <value name="B">
-              <block type="variables_get" id="u{$,)w%F3EH+k_ppwTuh">
-                <field name="VAR" id=":Z8WvPXWG?qCe|8=iii1">Expected Profit</field>
-              </block>
-            </value>
-          </block>
-        </value>
-        <statement name="DO0">
-          <block type="text_join" id="wXlfZYv9q1.db)%Mk;n:">
-            <field name="VARIABLE" id="Y$cG[}L|(_T-=;0ZyXI.">text1</field>
-            <statement name="STACK">
-              <block type="text_statement" id="fEODtPvxb~Pq9(wLL(7)">
-                <value name="TEXT">
-                  <shadow type="text" id="}G!me?B=1d+JazlN/cn9">
-                    <field name="TEXT"></field>
-                  </shadow>
-                  <block type="text" id="}z_N)o#C_q%y%O*-06h[">
-                    <field name="TEXT">Tp hit</field>
-                  </block>
-                </value>
-                <next>
-                  <block type="text_statement" id="[DYy),LGh$:we/z91nXm">
-                    <value name="TEXT">
-                      <shadow type="text" id="$iphA?Wh5=3Cir9KM{OT">
-                        <field name="TEXT"></field>
-                      </shadow>
-                      <block type="text" id="cc=!2%kS#4A#EaD1emS4">
-                        <field name="TEXT">&lt;&lt; CONGRATULATIONS. &gt;&gt; You have successfully printed&gt;  &amp;</field>
-                      </block>
-                    </value>
-                    <next>
-                      <block type="text_statement" id=":{/=:+zah8V6/Q?ZE{(z">
-                        <value name="TEXT">
-                          <shadow type="text" id="A\`([INSV+:7ygD7cZ@j;">
-                            <field name="TEXT"></field>
-                          </shadow>
-                          <block type="total_profit" id="A~!}?z=.-$yZ3Y$\{jZ~4"></block>
-                        </value>
-                      </block>
-                    </next>
-                  </block>
-                </next>
-              </block>
-            </statement>
-            <next>
-              <block type="text_print" id="bn4.=Kye=;B06#m*^]Mz">
-                <value name="TEXT">
-                  <shadow type="text" id="L;9=9qa,@)]+arRqzGT|">
-                    <field name="TEXT">abc</field>
-                  </shadow>
-                  <block type="variables_get" id="_a38DajDS)I21w2c[1Ou">
-                    <field name="VAR" id="Y$cG[}L|(_T-=;0ZyXI.">text1</field>
-                  </block>
-                </value>
-              </block>
-            </next>
-          </block>
-        </statement>
-        <value name="IF1">
-          <block type="logic_compare" id="z5WP~8PDdgsb($NhN;$|">
-            <field name="OP">LTE</field>
-            <value name="A">
-              <block type="total_profit" id="U(mi=kxH#ytDrvpszM,|"></block>
-            </value>
-            <value name="B">
-              <block type="math_single" id="?vi^Mf0IMKgiWl?7(kXF">
-                <field name="OP">NEG</field>
-                <value name="NUM">
-                  <shadow type="math_number" id="G5%tZ/b;7*ZdUOhD/7]Y">
-                    <field name="NUM">9</field>
-                  </shadow>
-                  <block type="variables_get" id="%0X#dsb^67G_o-lF}4z#">
-                    <field name="VAR" id="L.cN$B-UUzkS|eDQm2xZ">Stop Loss</field>
-                  </block>
-                </value>
-              </block>
-            </value>
-          </block>
-        </value>
-        <statement name="DO1">
-          <block type="text_print" id="W[bg\`R=Gq/~{0M#AfLt}">
-            <value name="TEXT">
-              <shadow type="text" id="su#SP}OYEm942K4~)nLH">
-                <field name="TEXT">SL hit</field>
-              </shadow>
-            </value>
-          </block>
-        </statement>
-        <statement name="ELSE">
-          <block type="controls_if" id="*Gyn=E:%D.Zg+QXU4/5B">
-            <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
-            <value name="IF0">
-              <block type="contract_check_result" id="4dW}cXg#gmD#,,rnEyQ*">
-                <field name="CHECK_RESULT">loss</field>
-              </block>
-            </value>
-            <statement name="DO0">
-              <block type="math_change" id="DmlXTt^a/Pz.1ZcJ1[DB">
-                <field name="VAR" id="S10~wx4EJ/w3gZZ;v77Y">Total Lost</field>
-                <value name="DELTA">
-                  <shadow type="math_number" id="@KJq1;gh,*]xXvHs%wR]">
-                    <field name="NUM">1</field>
-                  </shadow>
-                  <block type="variables_get" id="5OL;;LN/RE~[8skE!\`8">
-                    <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
-                  </block>
-                </value>
-                <next>
-                  <block type="controls_if" id="vJz]y7]1v7[Lay.S9|RQ">
-                    <value name="IF0">
-                      <block type="logic_compare" id="TiYBy5{NUh21rh!]WP1{">
-                        <field name="OP">GT</field>
-                        <value name="A">
-                          <block type="variables_get" id="_f9{!u:oct6GDaaZc/?t">
-                            <field name="VAR" id="Op-Cim@t?DJN?i;G)w)C">Count Loss</field>
-                          </block>
-                        </value>
-                        <value name="B">
-                          <block type="math_number" id="!1:Qc)Cp#@{W$~?Jc;jw">
-                            <field name="NUM">0</field>
-                          </block>
-                        </value>
-                      </block>
-                    </value>
-                    <statement name="DO0">
-                      <block type="variables_set" id="CB;A*!5?-TW-xF)m}DIX">
-                        <field name="VAR" id="Op-Cim@t?DJN?i;G)w)C">Count Loss</field>
-                        <value name="VALUE">
-                          <block type="math_number" id="6)f[75M@_[kv*{G8[P6y">
-                            <field name="NUM">0</field>
-                          </block>
-                        </value>
-                      </block>
-                    </statement>
-                  </block>
-                </next>
-              </block>
-            </statement>
-            <statement name="ELSE">
-              <block type="variables_set" id="He_x6j*4kHFBYva,NX(%">
-                <field name="VAR" id="$+Q3~hzlFiI[$SMrBNB?">Prediction</field>
-                <value name="VALUE">
-                  <block type="variables_get" id="y!8w@QY!!M{={xj7YcAc">
-                    <field name="VAR" id="OPb$Wwph1|)^r0#|^^y}">Prediction after loss</field>
-                  </block>
-                </value>
-                <next>
-                  <block type="variables_set" id="{Bzpl6Bze5j1=9;KTYo!">
-                    <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
-                    <value name="VALUE">
-                      <block type="text" id="Ko,r\`,iWR)zE2?zoQPy*">
-                        <field name="TEXT">gk</field>
-                      </block>
-                    </value>
-                    <next>
-                      <block type="math_change" id="[(u[h.H,+ZSePi._I#Ae">
-                        <field name="VAR" id="S10~wx4EJ/w3gZZ;v77Y">Total Lost</field>
-                        <value name="DELTA">
-                          <shadow type="math_number" id=";vm%OPmNCN=gCQW)(t@S">
-                            <field name="NUM">1</field>
-                          </shadow>
-                          <block type="math_single" id=";pMO[^7+@pX!F6{PO,cu">
-                            <field name="OP">NEG</field>
-                            <value name="NUM">
-                              <shadow type="math_number" id=")8P8lMVf0i}%mC/@]7-e">
-                                <field name="NUM">9</field>
-                              </shadow>
-                              <block type="read_details" id="qgSZdkTT+k._L1{~5Yf|">
-                                <field name="DETAIL_INDEX">4</field>
-                              </block>
-                            </value>
-                          </block>
-                        </value>
-                        <next>
-                          <block type="controls_if" id="KJ*,2)^Zgv|0RqFOPd5Q">
-                            <value name="IF0">
-                              <block type="logic_compare" id="J%ddIHb)=I-TK|Sh!0m5">
-                                <field name="OP">LT</field>
-                                <value name="A">
-                                  <block type="variables_get" id="Mnd!\`VtpYWWTyGQ/Ln4Q">
-                                    <field name="VAR" id="S10~wx4EJ/w3gZZ;v77Y">Total Lost</field>
-                                  </block>
-                                </value>
-                                <value name="B">
-                                  <block type="math_number" id="xP:|X^Iyz=23f|,p!OT5">
-                                    <field name="NUM">0</field>
-                                  </block>
-                                </value>
-                              </block>
-                            </value>
-                            <statement name="DO0">
-                              <block type="variables_set" id="4rv~sV-aHjztXMjoEE^Q">
-                                <field name="VAR" id="S10~wx4EJ/w3gZZ;v77Y">Total Lost</field>
-                                <value name="VALUE">
-                                  <block type="math_number" id="efYt//0}X;(,x:NR](*B">
-                                    <field name="NUM">0</field>
-                                  </block>
-                                </value>
-                              </block>
-                            </statement>
-                          </block>
-                        </next>
-                      </block>
-                    </next>
-                  </block>
-                </next>
-              </block>
-            </statement>
-            <next>
-              <block type="controls_if" id="fEu5CRw~xV5XY~ZPY6^g">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
-                <value name="IF0">
-                  <block type="logic_compare" id="7N2#NJB0lz;$BIBSY#7:">
-                    <field name="OP">GT</field>
-                    <value name="A">
-                      <block type="variables_get" id="Ru9Qzl:Aj3:mEyS[xFFh">
-                        <field name="VAR" id="S10~wx4EJ/w3gZZ;v77Y">Total Lost</field>
-                      </block>
-                    </value>
-                    <value name="B">
-                      <block type="math_number" id="{~q2nK%||rPAI=dKBC6u">
-                        <field name="NUM">0</field>
-                      </block>
-                    </value>
-                  </block>
-                </value>
-                <statement name="DO0">
-                  <block type="variables_set" id="\`\`9Ns8YsZLkiMUlVV[f?">
-                    <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
-                    <value name="VALUE">
-                      <block type="text" id="/U]vn-l$[/eR^sx2f@H5">
-                        <field name="TEXT">Mkorean SV7</field>
-                      </block>
-                    </value>
-                    <next>
-                      <block type="math_change" id="5/jGQV7l?U^^ZK#Gl~jH">
-                        <field name="VAR" id="Op-Cim@t?DJN?i;G)w)C">Count Loss</field>
-                        <value name="DELTA">
-                          <shadow type="math_number" id="H:-3cL?I-*LgT*^_=0cF">
-                            <field name="NUM">1</field>
-                          </shadow>
-                        </value>
-                        <next>
-                          <block type="controls_if" id="poO+9^__{8%X[FxTy[Q)">
-                            <value name="IF0">
-                              <block type="logic_compare" id="yx3cUC728v|o(o*8tiM*">
-                                <field name="OP">EQ</field>
-                                <value name="A">
-                                  <block type="variables_get" id="U;a?%DCjzJNaT!W%_k;p">
-                                    <field name="VAR" id="Op-Cim@t?DJN?i;G)w)C">Count Loss</field>
-                                  </block>
-                                </value>
-                                <value name="B">
-                                  <block type="math_number" id="F!|~%qyh$eUvJ~Ck8DN7">
-                                    <field name="NUM">1</field>
-                                  </block>
-                                </value>
-                              </block>
-                            </value>
-                            <statement name="DO0">
-                              <block type="variables_set" id="sJn7HO6,bB6MF!/^y8~[">
-                                <field name="VAR" id="$+Q3~hzlFiI[$SMrBNB?">Prediction</field>
-                                <value name="VALUE">
-                                  <block type="variables_get" id="GC@fih|#VBqf!uGNE%$m">
-                                    <field name="VAR" id="OPb$Wwph1|)^r0#|^^y}">Prediction after loss</field>
-                                  </block>
-                                </value>
-                                <next>
-                                  <block type="variables_set" id="I2/{Y9F%^SE^zVF)-jL\`">
-                                    <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
-                                    <value name="VALUE">
-                                      <block type="math_arithmetic" id="vmwp:KfA,IW}yAO3,.F~">
-                                        <field name="OP">DIVIDE</field>
-                                        <value name="A">
-                                          <shadow type="math_number" id="K/FHvn1QO4e4z4v:OzHy">
-                                            <field name="NUM">1</field>
-                                          </shadow>
-                                          <block type="math_arithmetic" id="C2ia/?FqFCO|r@9|cl,;">
-                                            <field name="OP">MULTIPLY</field>
-                                            <value name="A">
-                                              <shadow type="math_number" id="(_{7M\`XGN8N[M_7O!N,">
-                                                <field name="NUM">1</field>
-                                              </shadow>
-                                              <block type="variables_get" id="?VzvCm3c1bSI8%=cEw|u">
-                                                <field name="VAR" id="S10~wx4EJ/w3gZZ;v77Y">Total Lost</field>
-                                              </block>
-                                            </value>
-                                            <value name="B">
-                                              <shadow type="math_number" id="%^OafCLE@JX!L;@i/#n,">
-                                                <field name="NUM">1</field>
-                                              </shadow>
-                                              <block type="math_arithmetic" id="R6m56UI(u~~z]dH/:CG\`">
-                                                <field name="OP">DIVIDE</field>
-                                                <value name="A">
-                                                  <shadow type="math_number" id="a2wvoTV=+sFF]BZ0cL?,">
-                                                    <field name="NUM">100</field>
-                                                  </shadow>
-                                                </value>
-                                                <value name="B">
-                                                  <shadow type="math_number" id="^?b7^);In|\`Ec::.uyh5">
-                                                    <field name="NUM">24</field>
-                                                  </shadow>
-                                                  <block type="variables_get" id="]2D;spPi[pG/x~r_{wpU">
-                                                    <field name="VAR" id="VK7:nSRSXJ=|#p(oAU9v">Payout %</field>
-                                                  </block>
-                                                </value>
-                                              </block>
-                                            </value>
-                                          </block>
-                                        </value>
-                                        <value name="B">
-                                          <shadow type="math_number" id="cFb#@DcZ:{~P+Fp#{adm">
-                                            <field name="NUM">1</field>
-                                          </shadow>
-                                          <block type="variables_get" id="l3s.,44;O?Y?6Y9Wn.J[">
-                                            <field name="VAR" id="!mQjsA[]viO$7Gu~UzUn">Martingale Split</field>
-                                          </block>
-                                        </value>
-                                      </block>
-                                    </value>
-                                  </block>
-                                </next>
-                              </block>
-                            </statement>
-                          </block>
-                        </next>
-                      </block>
-                    </next>
-                  </block>
-                </statement>
-                <statement name="ELSE">
-                  <block type="variables_set" id=":GL+TqjAhT}R9\`R7a)r-">
-                    <field name="VAR" id="Op-Cim@t?DJN?i;G)w)C">Count Loss</field>
-                    <value name="VALUE">
-                      <block type="math_number" id="?F8*!~Iw*,Cl2E%-xZ?f">
-                        <field name="NUM">0</field>
-                      </block>
-                    </value>
-                    <next>
-                      <block type="variables_set" id="d\`pWAxZ)-H\`DyzU@)We:">
-                        <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
-                        <value name="VALUE">
-                          <block type="text" id=",VaK^!c3pIK\`a3k:8*UG">
-                            <field name="TEXT">gk</field>
-                          </block>
-                        </value>
-                        <next>
-                          <block type="variables_set" id="lZN2-r.!$w$!$0jIytwR">
-                            <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
-                            <value name="VALUE">
-                              <block type="variables_get" id="oPs59-gAp.s,G2l8JwZF">
-                                <field name="VAR" id="~ZEk9Zr7t[g;-\\\`afIGOO">Initial Stake</field>
-                              </block>
-                            </value>
-                            <next>
-                              <block type="variables_set" id="tmEYS!$HHZK\`jx;}?@@$">
-                                <field name="VAR" id="$+Q3~hzlFiI[$SMrBNB?">Prediction</field>
-                                <value name="VALUE">
-                                  <block type="variables_get" id="HmhEF.Mk,SNCZfE_et#K">
-                                    <field name="VAR" id="sF6($OTq!BVWswgj}4|S">Prediction before loss</field>
-                                  </block>
-                                </value>
-                              </block>
-                            </next>
-                          </block>
-                        </next>
-                      </block>
-                    </next>
-                  </block>
-                </statement>
-                <next>
-                  <block type="controls_if" id="J+v4dmlVZEBry+%nA/?@">
-                    <value name="IF0">
-                      <block type="logic_compare" id="Q$x}DoiS]BBd,.}1#?D{">
-                        <field name="OP">LT</field>
-                        <value name="A">
-                          <block type="variables_get" id="jyfJ,z=)uq(o$?aOvJy/">
-                            <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
-                          </block>
-                        </value>
-                        <value name="B">
-                          <block type="math_number" id="Akj}7JIvuT)!kwrNj-JD">
-                            <field name="NUM">0.35</field>
-                          </block>
-                        </value>
-                      </block>
-                    </value>
-                    <statement name="DO0">
-                      <block type="variables_set" id="|dkn|CT8tQLSHu4NmLyy">
-                        <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
-                        <value name="VALUE">
-                          <block type="math_number" id="s(vOxwBuk{KQ7Pqc_Z3)">
-                            <field name="NUM">0.35</field>
-                          </block>
-                        </value>
-                      </block>
-                    </statement>
-                    <next>
-                      <block type="trade_again" id="C+Xpw8f|N)y\`_}N2BA6p"></block>
-                    </next>
-                  </block>
-                </next>
-              </block>
-            </next>
-          </block>
-        </statement>
-      </block>
-    </statement>
-  </block>
-  <block type="before_purchase" id=":Nx^]Pu__xj[_w$h8*VZ" x="352" y="1062">
-    <statement name="BEFOREPURCHASE_STACK">
-      <block type="controls_if" id="aZ/eJwRn+2B?g?#!Rb%#">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
-        <value name="IF0">
-          <block type="logic_compare" id="=CPoUAxWy4D?!*TdX_:Q">
-            <field name="OP">EQ</field>
-            <value name="A">
-              <block type="variables_get" id="H7PW59RD?,Kp?xpJN!c.">
-                <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
-              </block>
-            </value>
-            <value name="B">
-              <block type="text" id="bl*30(v6\`wbHz=v;rA!n">
-                <field name="TEXT">analysis</field>
-              </block>
-            </value>
-          </block>
-        </value>
-        <statement name="DO0">
-          <block type="controls_if" id=")l1fu6j4Picu4#dk\`oYK">
-            <value name="IF0">
-              <block type="logic_compare" id="YDm+8EqUYBhaq.NKEp(~">
-                <field name="OP">EQ</field>
-                <value name="A">
-                  <block type="variables_get" id="h+w4=F)E*A#TqpF:{tjr">
-                    <field name="VAR" id="o!-=j_eJZCfW(+iV7;MS">Tick 1</field>
-                  </block>
-                </value>
-                <value name="B">
-                  <block type="variables_get" id=".b/[NSo_Mz(b6aE81#V)">
-                    <field name="VAR" id="x\\\`Ia+qCu@StiaJI^X([4">Entrypoint-Digit</field>
-                  </block>
-                </value>
-              </block>
-            </value>
-            <statement name="DO0">
-              <block type="purchase" id=":Nx^]Pu__xj[_w$h8*VZ">
-                <field name="PURCHASE_LIST">DIGITUNDER</field>
-              </block>
-            </statement>
-          </block>
-        </statement>
-        <value name="IF1">
-          <block type="logic_compare" id="xXd9JKFx4pk]?ruXi_)Q">
-            <field name="OP">EQ</field>
-            <value name="A">
-              <block type="variables_get" id="?W~D%e;EO6*1n?vUBo[K">
-                <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
-              </block>
-            </value>
-            <value name="B">
-              <block type="text" id="S+;:1.@y=QJ|.W}#68lZ">
-                <field name="TEXT">gk</field>
-              </block>
-            </value>
-          </block>
-        </value>
-        <statement name="DO1">
-          <block type="purchase" id="zOCam5W}Z-j~)}t9XOPF">
-            <field name="PURCHASE_LIST">DIGITUNDER</field>
-          </block>
-        </statement>
-        <statement name="ELSE">
-          <block type="controls_if" id="=#FQ-DvRG:x+k:/=:zpM">
-            <value name="IF0">
-              <block type="logic_compare" id=",I!4r$s27MG}~,]ac,}h">
-                <field name="OP">EQ</field>
-                <value name="A">
-                  <block type="variables_get" id="_P#Y0$pohq8}Ts^*+c:p">
-                    <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
-                  </block>
-                </value>
-                <value name="B">
-                  <block type="text" id="p,(0|5+OX\`Wl^!aVU)\`-">
-                    <field name="TEXT">Mkorean SV7</field>
-                  </block>
-                </value>
-              </block>
-            </value>
-            <statement name="DO0">
-              <block type="timeout" id="6;XYzu@SIXmr7.^#Y)xR">
-                <statement name="TIMEOUTSTACK">
-                  <block type="purchase" id="BvzdHe]!O+GD=E;c7NS6">
-                    <field name="PURCHASE_LIST">DIGITUNDER</field>
-                  </block>
-                </statement>
-                <value name="SECONDS">
-                  <block type="math_number" id="D\`@0lu|rfT;R}~mS;Y=0">
-                    <field name="NUM">0</field>
-                  </block>
-                </value>
-              </block>
-            </statement>
-          </block>
-        </statement>
-      </block>
-    </statement>
-  </block>
-  <block type="tick_analysis" id="@BqMT#eB?~r!*!lw$Cte" x="0" y="2132">
-    <statement name="TICKANALYSIS_STACK">
-      <block type="variables_set" id="@%.cH#mIqC)Wl4$9ol(m">
-        <field name="VAR" id="o!-=j_eJZCfW(+iV7;MS">Tick 1</field>
-        <value name="VALUE">
-          <block type="lists_getIndex" id="HA?F321LSW(X6htiNCx{">
-            <mutation xmlns="http://www.w3.org/1999/xhtml" statement="false" at="true"></mutation>
-            <field name="MODE">GET</field>
-            <field name="WHERE">FROM_END</field>
-            <value name="VALUE">
-              <block type="lastDigitList" id="gX804KiYdl6~UquqaPP)"></block>
-            </value>
-            <value name="AT">
-              <block type="math_number" id="=edszCSX?p\`sSO0OlO0(">
-                <field name="NUM">1</field>
-              </block>
-            </value>
-          </block>
-        </value>
-        <next>
-          <block type="text_join" id="^Dv$/2iLZKC-*:6HiUe4">
-            <field name="VARIABLE" id="icmJXVK=|*WSXkYEU*E;">text</field>
-            <statement name="STACK">
-              <block type="text_statement" id="qf8!h_@O%DMKb}A(-@cS">
-                <value name="TEXT">
-                  <shadow type="text" id="JXbo}srO/#6=a:~=562H">
-                    <field name="TEXT"></field>
-                  </shadow>
-                  <block type="text" id="09l.;el1t%J@/b0N$pe5">
-                    <field name="TEXT"> Last Appearing Digit&gt;  | </field>
-                  </block>
-                </value>
-                <next>
-                  <block type="text_statement" id="Id5enOrAiqU__!JA%6iF">
-                    <value name="TEXT">
-                      <shadow type="text" id="q/GQjv(vG!#x!_~Bcjx%">
-                        <field name="TEXT"></field>
-                      </shadow>
-                      <block type="variables_get" id="+ww=_m@\`3vY^xU1lioSe">
-                        <field name="VAR" id="o!-=j_eJZCfW(+iV7;MS">Tick 1</field>
-                      </block>
-                    </value>
-                  </block>
-                </next>
-              </block>
-            </statement>
-          </block>
-        </next>
-      </block>
-    </statement>
-  </block>
-</xml>`,
-                    description: 'Advanced Under prediction bot with entry point analysis and martingale strategy',
-                    isPlaceholder: false
-                }
-            ];
-
             const botFiles = [
-                'Super Elite.xml', // Smart trading as second sub-tab
-                'Super Speed Bot.xml', // Speed bot as third sub-tab
                 'Upgraded Candlemine.xml',
                 'Envy-differ.xml',
                 'H_L auto vault.xml',
                 'Top-notch 2.xml',
+                // New bots added
+                '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1.xml',
+                '3 2025 Updated Version Of Candle Mine🇬🇧.xml',
+                'Accumulators Pro Bot.xml',
+                'Super Speed Bot.xml',
+                // Additional new bots
+                'Super Elite.xml',
+                'AUTO C4 PRO (2) Version.xml',
+                '2025 Killer version Bot🤑.xml',
+                'Alpha Version 2025.xml',
+                '1 Original DollarPrinterBot 2025 Version.xml',
             ];
 
-            const loadedBots = [...priorityBots]; // Add priority bots first
+            const loadedBots = [];
 
             for (const file of botFiles) {
                 try {
@@ -1063,87 +298,86 @@ const AppWrapper = observer(() => {
     );
 
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
+        setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
-            console.log("=== LOADING SPECIFIC BOT ===");
-            console.log("Bot:", bot.title, "File:", bot.filePath);
+            console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
 
             let xmlContent = bot.xmlContent;
 
-            // Load content if not available
+            // If it's a placeholder bot or no content, try to load the content now
             if (bot.isPlaceholder || !xmlContent) {
-                const attempts = [
-                    `/${encodeURIComponent(bot.filePath)}`,
-                    `/${bot.filePath}`,
-                    bot.filePath
-                ];
+                console.log("Attempting to load XML content for bot...");
+                try {
+                    let response;
+                    let success = false;
 
-                let loaded = false;
-                for (const url of attempts) {
-                    try {
-                        const response = await fetch(url);
-                        if (response.ok) {
-                            xmlContent = await response.text();
-                            console.log(`Loaded XML from: ${url}`);
-                            loaded = true;
-                            break;
+                    // Try multiple approaches
+                    const attempts = [
+                        `/${encodeURIComponent(bot.filePath)}`,
+                        `/${bot.filePath}`,
+                        bot.filePath
+                    ];
+
+                    for (const url of attempts) {
+                        try {
+                            response = await fetch(url);
+                            if (response.ok) {
+                                xmlContent = await response.text();
+                                console.log(`Successfully loaded XML from: ${url}`);
+                                success = true;
+                                break;
+                            }
+                        } catch (e) {
+                            console.log(`Failed attempt with URL: ${url}`);
                         }
-                    } catch (e) {
-                        console.log(`Failed: ${url}`);
                     }
-                }
 
-                if (!loaded) {
-                    alert(`Could not load ${bot.title}`);
+                    if (!success) {
+                        throw new Error(`Could not fetch ${bot.filePath} from any URL`);
+                    }
+                } catch (fetchError) {
+                    console.error("Failed to load bot content:", fetchError);
+                    // Removed alert message
                     return;
                 }
             }
 
-            // Validate XML content
-            if (!xmlContent?.trim() || (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml'))) {
-                alert(`Invalid XML format for ${bot.title}`);
+            if (!xmlContent || xmlContent.trim().length === 0) {
+                //Removed alert message
                 return;
             }
 
-            console.log(`Switching to Bot Builder and loading ${bot.title}...`);
-            setActiveTab(DBOT_TABS.BOT_BUILDER);
+            console.log("XML Content length:", xmlContent?.length);
+            console.log("XML Content preview:", xmlContent?.substring(0, 200));
 
-            // Use a shorter timeout and more direct approach
-            setTimeout(async () => {
+            // Validate XML content
+            if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
+                //Removed alert message
+                return;
+            }
+
+            if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
                 try {
-                    // Try to use the load modal's loadFileFromContent method directly
-                    if (load_modal?.loadFileFromContent) {
-                        console.log(`Loading ${bot.title} via loadFileFromContent...`);
-                        await load_modal.loadFileFromContent(xmlContent, bot.title || 'Bot');
-                        console.log(`✅ Successfully loaded ${bot.title}`);
-                        return;
+                    await load_modal.loadFileFromContent(xmlContent);
+                    console.log("Bot loaded successfully!");
+
+                    // Also update workspace name
+                    if (typeof updateWorkspaceName === 'function') {
+                        updateWorkspaceName(xmlContent);
                     }
-
-                    // Fallback: try direct bot-skeleton load
-                    const { load } = await import('@/external/bot-skeleton');
-                    const { save_types } = await import('@/external/bot-skeleton/constants');
-
-                    console.log(`Loading ${bot.title} via bot-skeleton load...`);
-                    await load({
-                        block_string: xmlContent,
-                        file_name: bot.title || 'Bot',
-                        workspace: null,
-                        from: save_types.LOCAL,
-                        drop_event: {},
-                        strategy_id: `${bot.title}_${Date.now()}`,
-                        showIncompatibleStrategyDialog: false,
-                    });
-
-                    console.log(`✅ Successfully loaded ${bot.title}`);
-
-                } catch (error) {
-                    console.error(`Failed to load ${bot.title}:`, error);
-                    alert(`Failed to load ${bot.title}: ${error.message}`);
+                } catch (loadError) {
+                    console.error("Error in load_modal.loadFileFromContent:", loadError);
+                    //Removed alert message
                 }
-            }, 500);
+            } else {
+                console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
+                console.log("load_modal object:", load_modal);
+                //Removed alert message
+            }
 
         } catch (error) {
-            console.error(`Error loading ${bot.title}:`, error);
-            alert(`Error loading ${bot.title}: ${error.message}`);
+            console.error("Error loading bot:", error);
+             //Removed alert message
         }
     }, [setActiveTab, load_modal]);
 
@@ -1267,7 +501,7 @@ const AppWrapper = observer(() => {
           if (data.msg_type === 'forget_all') {
             console.log('All subscriptions forgotten successfully')
           }
-        } catch (parseError){
+        } catch (parseError) {
           console.error('Error parsing WebSocket message:', parseError)
           setCurrentPrice('Parse Error')
         }
@@ -1307,7 +541,7 @@ const AppWrapper = observer(() => {
     const symbolMap = {
       // Forward mapping
       'R_10': '1HZ10V',
-      'R_25': '1HZ25V',
+      'R_25': '1HZ25V', 
       'R_50': '1HZ50V',
       'R_75': '1HZ75V',
       'R_100': '1HZ100V',
@@ -1989,69 +1223,73 @@ if __name__ == "__main__":
                 <div className='main__container main-content'>
                     <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
                         <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
-                            <div className='free-bots'>
-                                <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
-                                <div className='free-bots__content-wrapper'>
-                                    <div className='free-bots__content'>
-                                        {bots.map((bot, index) => (
-                                            <div
-                                                className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
-                                                key={index}
-                                                onClick={() => {
-                                                    handleBotClick(bot);
-                                                }}
-                                                style={{
-                                                    cursor: 'pointer',
-                                                    opacity: bot.isPlaceholder ? 0.7 : 1
-                                                }}
-                                            >
-                                                <div className='free-bot-card__icon'>
-                                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="#1976D2">
-                                                        <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
-                                                        <rect x="6" y="10" width="12" height="8" rx="2" fill="#1976D2"/>
-                                                        <circle cx="9" cy="13" r="1.5" fill="white"/>
-                                                        <circle cx="15" cy="13" r="1.5" fill="white"/>
-                                                        <rect x="10" y="15" width="4" height="1" rx="0.5" fill="white"/>
-                                                        <rect x="4" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
-                                                        <rect x="18" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
-                                                    </svg>
-                                                </div>
-                                                <div className='free-bot-card__details'>
-                                                    <h3 className='free-bot-card__title'>{bot.title}</h3>
-                                                    <p className='free-bot-card__description'>{bot.description}</p>
-                                                    <p className='free-bot-card__action'>
-                                                        {bot.isPlaceholder ? 'Loading bot...' : 'Click to load this bot'}
-                                                    </p>
-                                                </div>
+
+<div className='free-bots-container'>
+                            <Tabs active_index={0} className='free-bots-tabs' top>
+                                <div label={<Localize i18n_default_text='Free Bots' />} id='id-free-bots-list'>
+                                    <div className='free-bots'>
+                                        <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
+                                        <div className='free-bots__content-wrapper'>
+                                            <div className='free-bots__content'>
+                                                {bots.map((bot, index) => (
+                                                    <div 
+                                                        className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
+                                                        key={index} 
+                                                        onClick={() => {
+                                                            handleBotClick(bot);
+                                                        }}
+                                                        style={{
+                                                            cursor: 'pointer',
+                                                            opacity: bot.isPlaceholder ? 0.7 : 1
+                                                        }}
+                                                    >
+                                                        <div className='free-bot-card__icon'>
+                                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="#1976D2">
+                                                                <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
+                                                                <rect x="6" y="10" width="12" height="8" rx="2" fill="#1976D2"/>
+                                                                <circle cx="9" cy="13" r="1.5" fill="white"/>
+                                                                <circle cx="15" cy="13" r="1.5" fill="white"/>
+                                                                <rect x="10" y="15" width="4" height="1" rx="0.5" fill="white"/>
+                                                                <rect x="4" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
+                                                                <rect x="18" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
+                                                            </svg>
+                                                        </div>
+                                                        <div className='free-bot-card__details'>
+                                                            <h3 className='free-bot-card__title'>{bot.title}</h3>
+                                                            <p className='free-bot-card__description'>{bot.description}</p>
+                                                            <p className='free-bot-card__action'>
+                                                                {bot.isPlaceholder ? 'Loading bot...' : 'Click to load this bot'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                                <div label={<Localize i18n_default_text='Smart Trading' />} id='id-smart-trading'>
+                                    <VolatilityAnalyzer />
+                                </div>
+                                <div label={<Localize i18n_default_text='Speed Bot' />} id='id-speed-bot'>
+                                    <SpeedBot />
+                                </div>
+                            </Tabs>
                         </div>
-                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder'>
-                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading bot builder...')} />}>
-                                {active_tab === DBOT_TABS.BOT_BUILDER && <BotBuilder key={`bot-builder-${Date.now()}`} />}
-                            </Suspense>
+
                         </div>
-                        <div label={<><BotIcon /><Localize i18n_default_text='Smart Trading' /></>} id='id-smart-trading'>
-                            <VolatilityAnalyzer />
-                        </div>
-                        <div label={<><BotIcon /><Localize i18n_default_text='Speed Bot' /></>} id='id-speed-bot'>
-                            <SpeedBot />
-                        </div>
+                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
                         <div label={<><SignalsIcon /><Localize i18n_default_text='Signal Scanner' /></>} id='id-signals'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <iframe
+                                <iframe 
                                     src="https://tracktool.netlify.app/signals.html"
                                     width="100%"
                                     height="100%"
-                                    style={{
-                                        border: 'none',
-                                        display: 'block',
+                                    style={{ 
+                                        border: 'none', 
+                                        display: 'block', 
                                         minHeight: '600px',
                                         height: 'calc(100vh - 200px)'
                                     }}
@@ -2065,7 +1303,7 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <Tabs
+                                <Tabs 
                                     className="analysis-tool-tabs"
                                     active_tab_icon_color="var(--brand-secondary)"
                                     background_color="var(--general-main-1)"
@@ -2094,10 +1332,12 @@ if __name__ == "__main__":
                             </Suspense>
                         </div>
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
-                            <TradingHubDisplay />
-                        </div>
-                         <div label={<><BotIcon /><Localize i18n_default_text='Decycler Bot' /></>} id='id-Decycler-Bot'>
-                            <DecyclerBot />
+                            <div className={classNames('dashboard__chart-wrapper', {
+                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
+                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
+                            })}>
+                                <PercentageTool />
+                            </div>
                         </div>
                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
                             <Dashboard handleTabChange={handleTabChange} />

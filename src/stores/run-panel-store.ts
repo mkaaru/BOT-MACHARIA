@@ -248,26 +248,14 @@ export default class RunPanelStore {
     stopBot = () => {
         const { ui } = this.core;
 
-        try {
-            this.dbot.stopBot();
-        } catch (error) {
-            console.warn('Error stopping bot:', error);
-        }
+        this.dbot.stopBot();
 
-        try {
-            ui.setPromptHandler(false);
-        } catch (error) {
-            console.warn('Error setting prompt handler:', error);
-        }
+        ui.setPromptHandler(false);
 
         if (this.error_type) {
             // when user click stop button when there is a error but bot is retrying
             this.setContractStage(contract_stages.NOT_RUNNING);
-            try {
-                ui.setAccountSwitcherDisabledMessage();
-            } catch (error) {
-                console.warn('Error setting account switcher message:', error);
-            }
+            ui.setAccountSwitcherDisabledMessage();
             this.setIsRunning(false);
         } else if (this.has_open_contract) {
             // when user click stop button when bot is running
@@ -275,16 +263,8 @@ export default class RunPanelStore {
         } else {
             // when user click stop button before bot start running
             this.setContractStage(contract_stages.NOT_RUNNING);
-            try {
-                this.unregisterBotListeners();
-            } catch (error) {
-                console.warn('Error unregistering bot listeners:', error);
-            }
-            try {
-                ui.setAccountSwitcherDisabledMessage();
-            } catch (error) {
-                console.warn('Error setting account switcher message:', error);
-            }
+            this.unregisterBotListeners();
+            ui.setAccountSwitcherDisabledMessage();
             this.setIsRunning(false);
         }
 
@@ -308,110 +288,13 @@ export default class RunPanelStore {
     clearStat = () => {
         const { summary_card, journal, transactions } = this.root_store;
 
-        try {
-            console.log('🔄 CLEARING TRADE STATISTICS: Preserving bot builder workspace');
-
-            // Stop any running operations first
-            this.setIsRunning(false);
-            this.setHasOpenContract(false);
-
-            // Clear trade-related data only, DO NOT touch workspace
-            if (transactions) {
-                try {
-                    transactions.clear();
-                    console.log('✅ Transactions cleared successfully');
-                } catch (error) {
-                    console.warn('Warning: Error clearing transactions:', error);
-                }
-            }
-
-            if (journal) {
-                try {
-                    journal.clear();
-                    console.log('✅ Journal cleared successfully');
-                } catch (error) {
-                    console.warn('Warning: Error clearing journal:', error);
-                }
-            }
-
-            if (summary_card) {
-                try {
-                    summary_card.clear();
-                    console.log('✅ Summary card cleared successfully');
-                } catch (error) {
-                    console.warn('Warning: Error clearing summary card:', error);
-                }
-            }
-
-            // Reset martingale state to base configuration but keep bot settings
-            if (this.dbot?.interpreter?.bot?.tradeEngine?.purchase) {
-                try {
-                    const purchase = this.dbot.interpreter.bot.tradeEngine.purchase;
-
-                    // Reset martingale state while preserving configuration
-                    purchase.martingaleState.consecutiveLosses = 0;
-                    purchase.martingaleState.totalProfit = 0;
-                    purchase.martingaleState.lastTradeProfit = null;
-                    purchase.martingaleState.currentPurchasePrice = 0;
-
-                    // Reset stake to base amount if available
-                    if (purchase.martingaleState.baseAmount) {
-                        purchase.tradeOptions.amount = purchase.martingaleState.baseAmount;
-                    }
-
-                    // Clear any contract closure state
-                    purchase.isWaitingForContractClosure = false;
-                    purchase.contractClosurePromise = null;
-                    purchase.lastContractId = null;
-
-                    console.log('✅ Martingale state reset to base configuration');
-                } catch (error) {
-                    console.warn('Warning: Error resetting martingale state:', error);
-                }
-            }
-
-            // Safely ensure workspace subscriptions are handled correctly
-            try {
-                if (this.dbot?.interpreter?.workspace) {
-                    const workspace = this.dbot.interpreter.workspace;
-                    // Don't dispose workspace during stats clear, just ensure it's in a clean state
-                    if (workspace && typeof workspace.clear === 'function') {
-                        // Only clear workspace content if it has that method
-                        console.log('🔄 Workspace content cleared but workspace preserved');
-                    }
-                }
-            } catch (error) {
-                console.warn('Warning: Error handling workspace during stat clear:', error);
-            }
-
-            // Reset panel state without affecting workspace
-            this.setContractStage(contract_stages.NOT_RUNNING);
-            this.error_type = undefined;
-            this.is_sell_requested = false;
-            this.run_id = '';
-
-            // Emit statistics clear event for other components
-            try {
-                observer.emit('statistics.clear');
-            } catch (error) {
-                console.warn('Warning: Error emitting statistics clear event:', error);
-            }
-
-            console.log('🎯 RESET COMPLETE: All trade statistics cleared, bot builder workspace preserved intact');
-            console.log('📋 Bot remains loaded with all blocks, variables, and settings ready for next run');
-
-        } catch (error) {
-            console.error('❌ Error during clearStat operation:', error);
-
-            // Ensure we at least set the basic state even if other operations fail
-            try {
-                this.setIsRunning(false);
-                this.setHasOpenContract(false);
-                this.setContractStage(contract_stages.NOT_RUNNING);
-            } catch (stateError) {
-                console.error('❌ Critical error setting basic state:', stateError);
-            }
-        }
+        this.setIsRunning(false);
+        this.setHasOpenContract(false);
+        this.clear();
+        journal.clear();
+        summary_card.clear();
+        transactions.clear();
+        this.setContractStage(contract_stages.NOT_RUNNING);
     };
 
     toggleStatisticsInfoModal = () => {
@@ -737,13 +620,7 @@ export default class RunPanelStore {
     };
 
     clear = () => {
-        // Only emit statistics clear event, DO NOT dispose workspace
-        try {
-            observer.emit('statistics.clear');
-            console.log('📊 Statistics clear event emitted');
-        } catch (error) {
-            console.warn('Warning: Error emitting statistics clear:', error);
-        }
+        observer.emit('statistics.clear');
     };
 
     onBotContractEvent = (data: { is_sold?: boolean }) => {
@@ -826,68 +703,18 @@ export default class RunPanelStore {
     onUnmount = () => {
         const { journal, summary_card, transactions } = this.root_store;
 
-        try {
-            if (!this.is_running) {
-                this.unregisterBotListeners();
-
-                // Safely dispose reactions with error handling
-                try {
-                    this.disposeReactionsFn();
-                } catch (error) {
-                    console.warn('Error disposing run panel reactions:', error);
-                }
-
-                try {
-                    if (journal?.disposeReactionsFn) {
-                        journal.disposeReactionsFn();
-                    }
-                } catch (error) {
-                    console.warn('Error disposing journal reactions:', error);
-                }
-
-                try {
-                    if (summary_card?.disposeReactionsFn) {
-                        summary_card.disposeReactionsFn();
-                    }
-                } catch (error) {
-                    console.warn('Error disposing summary card reactions:', error);
-                }
-
-                try {
-                    if (transactions?.disposeReactionsFn) {
-                        transactions.disposeReactionsFn();
-                    }
-                } catch (error) {
-                    console.warn('Error disposing transactions reactions:', error);
-                }
-            }
-
-            // Safely dispose workspace if it exists
-            try {
-                if (this.dbot?.interpreter?.bot?.workspace) {
-                    const workspace = this.dbot.interpreter.bot.workspace;
-                    // Check if workspace is already disposed before trying to dispose it
-                    if (workspace && !workspace.disposed && typeof workspace.dispose === 'function') {
-                        workspace.dispose();
-                    }
-                }
-            } catch (error) {
-                console.warn('Error disposing workspace:', error);
-            }
-
-            // Safely unregister observers
-            try {
-                observer.unregisterAll('ui.log.error');
-                observer.unregisterAll('ui.log.notify');
-                observer.unregisterAll('ui.log.success');
-                observer.unregisterAll('client.invalid_token');
-            } catch (error) {
-                console.warn('Error unregistering observers:', error);
-            }
-
-        } catch (error) {
-            console.warn('Critical error during run panel unmount:', error);
+        if (!this.is_running) {
+            this.unregisterBotListeners();
+            this.disposeReactionsFn();
+            journal.disposeReactionsFn();
+            summary_card.disposeReactionsFn();
+            transactions.disposeReactionsFn();
         }
+
+        observer.unregisterAll('ui.log.error');
+        observer.unregisterAll('ui.log.notify');
+        observer.unregisterAll('ui.log.success');
+        observer.unregisterAll('client.invalid_token');
     };
 
     handleInvalidToken = async () => {

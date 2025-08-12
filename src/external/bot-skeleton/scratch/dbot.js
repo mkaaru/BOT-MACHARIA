@@ -337,20 +337,18 @@ class DBot {
                     sleep(1);
                     continue;
                 }
-                // Enhanced sequential purchase execution
-                if (!Bot.canMakeNextPurchase()) {
-                    console.log('⏳ SEQUENTIAL: Waiting for previous trade to complete...');
-                    sleep(1);
-                    continue;
+                while (watch('before')) {
+                    BinaryBotPrivateTickAnalysis();
+                    BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
                 }
-                BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
-                
-                // Small delay between purchases to prevent rate limiting
-                sleep(1);
-                
-                // Continue without waiting for contract completion
+                while (watch('during')) {
+                    BinaryBotPrivateTickAnalysis();
+                    BinaryBotPrivateRun(BinaryBotPrivateDuringPurchase);
+                }
                 BinaryBotPrivateTickAnalysis();
-                BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase);
+                if (!BinaryBotPrivateRun(BinaryBotPrivateAfterPurchase)) {
+                    break;
+                }
             }
             
             `;
@@ -365,45 +363,12 @@ class DBot {
 
         api_base.setIsRunning(false);
 
-        try {
-            // Mark workspace as being reset to prevent disposal errors
-            if (window.Blockly?.derivWorkspace) {
-                window.Blockly.derivWorkspace.isInReset = true;
-            }
-
-            // Preserve martingale state before stopping
-            let martingaleState = null;
-            if (this.interpreter?.bot?.tradeEngine?.purchase?.martingaleState) {
-                martingaleState = { ...this.interpreter.bot.tradeEngine.purchase.martingaleState };
-            }
-
-            await this.interpreter.stop();
-            this.is_bot_running = false;
-            
-            // Reinitialize interpreter
-            this.interpreter = null;
-            this.interpreter = Interpreter();
-            
-            // Restore martingale state if it existed
-            if (martingaleState && this.interpreter?.bot?.tradeEngine?.purchase) {
-                this.interpreter.bot.tradeEngine.purchase.martingaleState = martingaleState;
-            }
-            
-            await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
-            forgetAccumulatorsProposalRequest(this);
-
-            console.log('✅ Bot stopped successfully with preserved settings');
-
-        } catch (error) {
-            console.warn('Error during bot stop:', error);
-        } finally {
-            // Clear reset flag after operations complete
-            setTimeout(() => {
-                if (window.Blockly?.derivWorkspace) {
-                    window.Blockly.derivWorkspace.isInReset = false;
-                }
-            }, 500);
-        }
+        await this.interpreter.stop();
+        this.is_bot_running = false;
+        this.interpreter = null;
+        this.interpreter = Interpreter();
+        await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
+        forgetAccumulatorsProposalRequest(this);
     }
 
     /**
