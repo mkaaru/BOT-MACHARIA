@@ -1441,15 +1441,6 @@ const AppWrapper = observer(() => {
                 'Envy-differ.xml',
                 'H_L auto vault.xml',
                 'Top-notch 2.xml',
-                // New bots added
-                '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1.xml',
-                '3 2025 Updated Version Of Candle Mine🇬🇧.xml',
-                'Accumulators Pro Bot.xml',
-                // Additional new bots
-                'AUTO C4 PRO (2) Version.xml',
-                '2025 Killer version Bot🤑.xml',
-                'Alpha Version 2025.xml',
-                '1 Original DollarPrinterBot 2025 Version.xml',
             ];
 
             const loadedBots = [...priorityBots]; // Add priority bots first
