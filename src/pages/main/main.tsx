@@ -921,13 +921,7 @@ const AppWrapper = observer(() => {
 </xml>`,
                     description: 'Advanced Under prediction bot with entry point analysis and martingale strategy',
                     isPlaceholder: false
-                },
-                {
-                    title: 'Upgraded CandleMine',
-                    filePath: 'Upgraded CandleMine.xml',
-                    xmlContent: `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
-  <variables>
-    <variable id="|SPx|9Jtl7i/N2)ciVd-">Stake</variable>
+                }
     <variable id="+u-u)z[IFx8X|o3x0,-l">Martingale stake</variable>
     <variable id="3h10%8w[DY\`nltID+}ZZ">Martingale size</variable>
     <variable id="+9x$PYUowRX%@x^)Fbu)">Odd Count</variable>
@@ -1435,7 +1429,6 @@ const AppWrapper = observer(() => {
             ];
 
             const botFiles = [
-                'Upgraded Candlemine.xml',
                 'Super Elite.xml', // Smart trading as second sub-tab
                 'Super Speed Bot.xml', // Speed bot as third sub-tab
                 'Envy-differ.xml',
