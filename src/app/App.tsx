@@ -1,5 +1,5 @@
 import { initSurvicate } from '../public-path';
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router-dom';
 import ChunkLoader from '@/components/loader/chunk-loader';
 import RoutePromptDialog from '@/components/route-prompt-dialog';
@@ -10,6 +10,7 @@ import { TAuthData } from '@/types/api-types';
 import { initializeI18n, localize, TranslationProvider } from '@deriv-com/translations';
 import CoreStoreProvider from './CoreStoreProvider';
 import './app-root.scss';
+import { SplashScreen } from '@/components/splash-screen';
 
 const Layout = lazy(() => import('../components/layout'));
 const AppRoot = lazy(() => import('./app-root'));
@@ -44,6 +45,10 @@ const router = createBrowserRouter(
 );
 
 function App() {
+    const { common } = useStore();
+    const { error } = common;
+    const [showSplash, setShowSplash] = useState(true);
+
     useEffect(() => {
         initSurvicate();
         window?.dataLayer?.push({ event: 'page_load' });
@@ -125,6 +130,16 @@ function App() {
             });
         }
     }, []);
+
+    const handleSplashComplete = () => {
+        setShowSplash(false);
+    };
+
+    if (showSplash) {
+        return <SplashScreen onComplete={handleSplashComplete} />;
+    }
+
+    if (error.header) return <PageErrorContainer {...error} />;
 
     return <RouterProvider router={router} />;
 }
