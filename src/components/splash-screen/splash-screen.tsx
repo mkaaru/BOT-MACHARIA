@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import './splash-screen.scss';
 
@@ -7,133 +6,54 @@ export interface SplashScreenProps {
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
-    console.log('SplashScreen component rendered');
+    console.log('SplashScreen component rendered with onComplete:', typeof onComplete);
     const [progress, setProgress] = useState(0);
-    const [currentMessage, setCurrentMessage] = useState('');
-    const [displayedText, setDisplayedText] = useState('');
-    const [error, setError] = useState<string | null>(null);
-
-    const messages = [
-        'Initializing TradeCortex...',
-        'Loading trading interface...',
-        'Connecting to markets...',
-        'System ready!'
-    ];
 
     useEffect(() => {
-        try {
-            let messageIndex = 0;
-            let charIndex = 0;
-            
-            const typeMessage = () => {
-                try {
-                    if (messageIndex < messages.length) {
-                        const currentMsg = messages[messageIndex];
-                        if (charIndex < currentMsg.length) {
-                            setDisplayedText(currentMsg.substring(0, charIndex + 1));
-                            charIndex++;
-                            setTimeout(typeMessage, 50);
-                        } else {
-                            setTimeout(() => {
-                                messageIndex++;
-                                charIndex = 0;
-                                if (messageIndex < messages.length) {
-                                    setCurrentMessage(messages[messageIndex]);
-                                    typeMessage();
-                                }
-                            }, 1000);
-                        }
-                    }
-                } catch (err) {
-                    console.error('Error in typeMessage:', err);
-                    setError('Animation error occurred');
+        console.log('SplashScreen useEffect starting');
+
+        // Simple progress animation
+        const interval = setInterval(() => {
+            setProgress(prev => {
+                const newProgress = prev + 5;
+                console.log('Progress updated to:', newProgress);
+
+                if (newProgress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        console.log('Calling onComplete');
+                        onComplete?.();
+                    }, 500);
+                    return 100;
                 }
-            };
+                return newProgress;
+            });
+        }, 100);
 
-            // Start typing animation
-            setCurrentMessage(messages[0]);
-            typeMessage();
-
-            // Progress bar animation
-            const progressInterval = setInterval(() => {
-                setProgress(prev => {
-                    if (prev >= 100) {
-                        clearInterval(progressInterval);
-                        // Auto complete after progress reaches 100%
-                        setTimeout(() => {
-                            try {
-                                onComplete?.();
-                            } catch (err) {
-                                console.error('Error in onComplete:', err);
-                            }
-                        }, 500);
-                        return 100;
-                    }
-                    return prev + 2;
-                });
-            }, 60);
-
-            return () => {
-                clearInterval(progressInterval);
-            };
-        } catch (err) {
-            console.error('SplashScreen useEffect error:', err);
-            setError('Initialization error occurred');
-        }
+        return () => {
+            clearInterval(interval);
+        };
     }, [onComplete]);
 
-    if (error) {
-        return (
-            <div style={{ 
-                position: 'fixed', 
-                top: 0, 
-                left: 0, 
-                width: '100vw', 
-                height: '100vh', 
-                zIndex: 10000,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                fontFamily: 'Arial, sans-serif',
-                flexDirection: 'column'
-            }}>
-                <h2>TradeCortex</h2>
-                <p>Loading...</p>
-                <button 
-                    onClick={() => onComplete?.()} 
-                    style={{
-                        padding: '10px 20px',
-                        marginTop: '20px',
-                        background: '#00ff88',
-                        border: 'none',
-                        borderRadius: '5px',
-                        color: '#000',
-                        cursor: 'pointer'
-                    }}
-                >
-                    Continue
-                </button>
-            </div>
-        );
-    }
+    const splashStyle: React.CSSProperties = {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 10000,
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'white',
+        fontFamily: 'Arial, sans-serif'
+    };
+
+    console.log('SplashScreen rendering with progress:', progress);
 
     return (
-        <div className="splash-screen" style={{ 
-            position: 'fixed', 
-            top: 0, 
-            left: 0, 
-            width: '100vw', 
-            height: '100vh', 
-            zIndex: 10000,
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontFamily: 'Arial, sans-serif'
-        }}>
+        <div style={splashStyle}>
             <div style={{
                 textAlign: 'center',
                 maxWidth: '400px',
@@ -146,7 +66,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
                 }}>
                     TradeCortex
                 </div>
-                
+
                 <div style={{
                     fontSize: '16px',
                     marginBottom: '40px',
@@ -154,17 +74,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
                 }}>
                     Advanced Trading Intelligence System
                 </div>
-                
+
                 <div style={{
                     fontSize: '14px',
                     marginBottom: '30px',
                     minHeight: '20px'
                 }}>
-                    {displayedText}
-                    <span style={{
-                        opacity: progress < 100 ? 1 : 0,
-                        animation: 'blink 1s infinite'
-                    }}>|</span>
+                    Loading TradeCortex...
                 </div>
 
                 <div style={{
@@ -191,13 +107,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
                     {progress.toFixed(0)}% Complete
                 </div>
             </div>
-
-            <style>{`
-                @keyframes blink {
-                    0%, 50% { opacity: 1; }
-                    51%, 100% { opacity: 0; }
-                }
-            `}</style>
         </div>
     );
 };

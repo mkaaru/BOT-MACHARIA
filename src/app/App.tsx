@@ -50,7 +50,10 @@ function App() {
     const { error } = common;
     const [showSplash, setShowSplash] = useState(true);
 
+    console.log('App component rendered, showSplash:', showSplash);
+
     useEffect(() => {
+        console.log('App useEffect running');
         initSurvicate();
         window?.dataLayer?.push({ event: 'page_load' });
 
@@ -133,10 +136,14 @@ function App() {
     }, []);
 
     const handleSplashComplete = () => {
+        console.log('Splash complete handler called');
         setShowSplash(false);
     };
 
+    console.log('About to render, showSplash:', showSplash, 'error.header:', error.header);
+
     if (showSplash) {
+        console.log('Rendering SplashScreen');
         return <SplashScreen onComplete={handleSplashComplete} />;
     }
 
