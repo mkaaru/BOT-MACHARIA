@@ -310,11 +310,11 @@ export default class RunPanelStore {
 
         try {
             console.log('🔄 CLEARING TRADE STATISTICS: Preserving bot builder workspace');
-            
+
             // Stop any running operations first
             this.setIsRunning(false);
             this.setHasOpenContract(false);
-            
+
             // Clear trade-related data only, DO NOT touch workspace
             if (transactions) {
                 try {
@@ -324,7 +324,7 @@ export default class RunPanelStore {
                     console.warn('Warning: Error clearing transactions:', error);
                 }
             }
-            
+
             if (journal) {
                 try {
                     journal.clear();
@@ -333,7 +333,7 @@ export default class RunPanelStore {
                     console.warn('Warning: Error clearing journal:', error);
                 }
             }
-            
+
             if (summary_card) {
                 try {
                     summary_card.clear();
@@ -342,34 +342,34 @@ export default class RunPanelStore {
                     console.warn('Warning: Error clearing summary card:', error);
                 }
             }
-            
+
             // Reset martingale state to base configuration but keep bot settings
             if (this.dbot?.interpreter?.bot?.tradeEngine?.purchase) {
                 try {
                     const purchase = this.dbot.interpreter.bot.tradeEngine.purchase;
-                    
+
                     // Reset martingale state while preserving configuration
                     purchase.martingaleState.consecutiveLosses = 0;
                     purchase.martingaleState.totalProfit = 0;
                     purchase.martingaleState.lastTradeProfit = null;
                     purchase.martingaleState.currentPurchasePrice = 0;
-                    
+
                     // Reset stake to base amount if available
                     if (purchase.martingaleState.baseAmount) {
                         purchase.tradeOptions.amount = purchase.martingaleState.baseAmount;
                     }
-                    
+
                     // Clear any contract closure state
                     purchase.isWaitingForContractClosure = false;
                     purchase.contractClosurePromise = null;
                     purchase.lastContractId = null;
-                    
+
                     console.log('✅ Martingale state reset to base configuration');
                 } catch (error) {
                     console.warn('Warning: Error resetting martingale state:', error);
                 }
             }
-            
+
             // Reset panel state without affecting workspace
             this.setContractStage(contract_stages.NOT_RUNNING);
             this.error_type = undefined;
@@ -385,10 +385,10 @@ export default class RunPanelStore {
 
             console.log('🎯 RESET COMPLETE: All trade statistics cleared, bot builder workspace preserved intact');
             console.log('📋 Bot remains loaded with all blocks, variables, and settings ready for next run');
-            
+
         } catch (error) {
             console.error('❌ Error during clearStat operation:', error);
-            
+
             // Ensure we at least set the basic state even if other operations fail
             try {
                 this.setIsRunning(false);
@@ -815,14 +815,14 @@ export default class RunPanelStore {
         try {
             if (!this.is_running) {
                 this.unregisterBotListeners();
-                
+
                 // Safely dispose reactions with error handling
                 try {
                     this.disposeReactionsFn();
                 } catch (error) {
                     console.warn('Error disposing run panel reactions:', error);
                 }
-                
+
                 try {
                     if (journal.disposeReactionsFn) {
                         journal.disposeReactionsFn();
@@ -830,7 +830,7 @@ export default class RunPanelStore {
                 } catch (error) {
                     console.warn('Error disposing journal reactions:', error);
                 }
-                
+
                 try {
                     if (summary_card.disposeReactionsFn) {
                         summary_card.disposeReactionsFn();
@@ -838,7 +838,7 @@ export default class RunPanelStore {
                 } catch (error) {
                     console.warn('Error disposing summary card reactions:', error);
                 }
-                
+
                 try {
                     if (transactions.disposeReactionsFn) {
                         transactions.disposeReactionsFn();
