@@ -152,6 +152,7 @@ const AppWrapper = observer(() => {
             const botFiles = [
                 'Upgraded Candlemine.xml',
                 'Super Elite.xml',
+                'Maziwa Tele Under Bot.xml',
             ];
 
             const loadedBots = [];
