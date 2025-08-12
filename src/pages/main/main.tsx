@@ -1817,26 +1817,30 @@ const AppWrapper = observer(() => {
                         const varNames = Array.from(variableElements).slice(0, 5).map(v => v.textContent);
                         console.log(`${bot.title} first 5 variables:`, varNames);
 
-                        // Load the XML with complete state reset
+                        // Load the XML using the proper loading mechanism
                         try {
-                            workspace.recordUndo = false;
-
-                            console.log(`Loading ${bot.title} XML into completely cleared workspace...`);
+                            console.log(`Loading ${bot.title} XML using proper load function...`);
                             
-                            if (window.Blockly?.Xml?.domToWorkspace) {
-                                // Clone the XML element to avoid reference issues
-                                const clonedXmlElement = xmlElement.cloneNode(true);
-                                window.Blockly.Xml.domToWorkspace(clonedXmlElement, workspace);
-                                console.log(`Successfully loaded ${bot.title} XML content`);
-                            } else {
-                                throw new Error("Blockly XML loader not available");
-                            }
+                            // Use the load function from bot-skeleton which properly handles XML loading
+                            const { load } = await import('@/external/bot-skeleton');
+                            const { save_types } = await import('@/external/bot-skeleton/constants');
+                            
+                            await load({
+                                block_string: xmlContent,
+                                file_name: bot.title,
+                                workspace: workspace,
+                                from: save_types.LOCAL,
+                                drop_event: {},
+                                strategy_id: `${bot.title}_${Date.now()}`,
+                                showIncompatibleStrategyDialog: false,
+                            });
 
-                            workspace.recordUndo = true;
+                            console.log(`Successfully loaded ${bot.title} using load function`);
 
                             // Set completely unique strategy ID with bot signature
                             const uniqueStrategyId = `${bot.title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                             workspace.current_strategy_id = uniqueStrategyId;
+                            workspace.strategy_to_load = xmlContent;
                             
                             // Store comprehensive bot metadata with signature
                             workspace.bot_metadata = {
@@ -1899,18 +1903,40 @@ const AppWrapper = observer(() => {
                     } else {
                         console.log("Workspace not ready, trying alternative method...");
 
-                        if (load_modal?.loadFileFromContent) {
-                            console.log(`Using load_modal fallback for ${bot.title}`);
-                            try {
-                                await load_modal.loadFileFromContent(xmlContent, bot.title || 'Imported Bot');
-                                console.log(`${bot.title} loaded via load_modal with signature ${contentSignature}!`);
-                            } catch (modalError) {
-                                console.error(`Load modal error for ${bot.title}:`, modalError);
-                                alert(`Failed to load ${bot.title} via modal: ${modalError.message}`);
+                        try {
+                            // Try using the load function directly without workspace dependency
+                            const { load } = await import('@/external/bot-skeleton');
+                            const { save_types } = await import('@/external/bot-skeleton/constants');
+                            
+                            console.log(`Using direct load function for ${bot.title}`);
+                            await load({
+                                block_string: xmlContent,
+                                file_name: bot.title || 'Imported Bot',
+                                workspace: null, // Let load function handle workspace creation
+                                from: save_types.LOCAL,
+                                drop_event: {},
+                                strategy_id: `${bot.title}_${Date.now()}`,
+                                showIncompatibleStrategyDialog: false,
+                            });
+                            
+                            console.log(`${bot.title} loaded via direct load function with signature ${contentSignature}!`);
+                        } catch (directLoadError) {
+                            console.error(`Direct load error for ${bot.title}:`, directLoadError);
+                            
+                            // Final fallback to load_modal
+                            if (load_modal?.loadFileFromContent) {
+                                console.log(`Using load_modal fallback for ${bot.title}`);
+                                try {
+                                    await load_modal.loadFileFromContent(xmlContent, bot.title || 'Imported Bot');
+                                    console.log(`${bot.title} loaded via load_modal with signature ${contentSignature}!`);
+                                } catch (modalError) {
+                                    console.error(`Load modal error for ${bot.title}:`, modalError);
+                                    alert(`Failed to load ${bot.title}: ${modalError.message}`);
+                                }
+                            } else {
+                                console.error("No loading method available");
+                                alert(`Failed to load ${bot.title} - no loading method available`);
                             }
-                        } else {
-                            console.error("No loading method available");
-                            alert(`Failed to load ${bot.title} - no loading method available`);
                         }
                     }
                 } catch (loadingError) {
