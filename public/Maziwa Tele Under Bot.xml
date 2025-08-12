@@ -1,4 +1,3 @@
-
 <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id="sF6($OTq!BVWswgj}4|S">Prediction before loss</variable>
@@ -197,18 +196,18 @@
         <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
         <field name="DURATIONTYPE_LIST">t</field>
         <value name="DURATION">
-          <block type="math_number" id=".VN]5$PRz#[mu4gLEpE)">
-            <field name="NUM">1</field>
+          <block type="math_number" id="SZ:5P1GxJXrJXuNMFO}}">
+            <field name="NUM">5</field>
           </block>
         </value>
         <value name="AMOUNT">
-          <block type="variables_get" id="e8^MR4,v|mL$uYo-N2,7">
-            <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
+          <block type="math_number" id="V/nDq4H|+8T`s7mE6kPz">
+            <field name="NUM">1</field>
           </block>
         </value>
         <value name="PREDICTION">
-          <block type="variables_get" id="7M|Q{wh7BX?zpzY|TlN.">
-            <field name="VAR" id="$+Q3~hzlFiI[$SMrBNB?">Prediction</field>
+          <block type="math_number" id="d5f1g2h3i4j5k6l7m8n9">
+            <field name="NUM">7</field>
           </block>
         </value>
       </block>
