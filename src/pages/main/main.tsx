@@ -1570,386 +1570,84 @@ const AppWrapper = observer(() => {
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
         try {
             console.log("=== LOADING SPECIFIC BOT ===");
-            console.log("Bot Title:", bot.title);
-            console.log("File Path:", bot.filePath);
-            console.log("Has XML Content:", !!bot.xmlContent);
-            console.log("Is Placeholder:", bot.isPlaceholder);
+            console.log("Bot:", bot.title, "File:", bot.filePath);
 
             let xmlContent = bot.xmlContent;
 
-            // If it's a placeholder bot or no content, try to load the content now
+            // Load content if not available
             if (bot.isPlaceholder || !xmlContent) {
-                console.log("Attempting to load XML content for bot...");
-                try {
-                    let response;
-                    let success = false;
+                const attempts = [
+                    `/${encodeURIComponent(bot.filePath)}`,
+                    `/${bot.filePath}`,
+                    bot.filePath
+                ];
 
-                    // Try multiple approaches with the exact file path
-                    const attempts = [
-                        `/${encodeURIComponent(bot.filePath)}`,
-                        `/${bot.filePath}`,
-                        bot.filePath,
-                        `/public/${bot.filePath}`,
-                        `./public/${bot.filePath}`
-                    ];
-
-                    for (const url of attempts) {
-                        try {
-                            console.log(`Trying to fetch: ${url}`);
-                            response = await fetch(url);
-                            if (response.ok) {
-                                xmlContent = await response.text();
-                                console.log(`Successfully loaded XML from: ${url}`);
-                                console.log("Loaded content length:", xmlContent.length);
-                                console.log("Content preview:", xmlContent.substring(0, 200));
-                                success = true;
-                                break;
-                            } else {
-                                console.log(`Failed with status: ${response.status} for ${url}`);
-                            }
-                        } catch (e) {
-                            console.log(`Failed attempt with URL: ${url}`, e.message);
+                let loaded = false;
+                for (const url of attempts) {
+                    try {
+                        const response = await fetch(url);
+                        if (response.ok) {
+                            xmlContent = await response.text();
+                            console.log(`Loaded XML from: ${url}`);
+                            loaded = true;
+                            break;
                         }
+                    } catch (e) {
+                        console.log(`Failed: ${url}`);
                     }
+                }
 
-                    if (!success) {
-                        console.warn(`Could not fetch ${bot.filePath} from any URL - bot may not exist`);
-                        alert(`Could not load ${bot.title}. The bot file "${bot.filePath}" was not found.`);
-                        return;
-                    }
-                } catch (fetchError) {
-                    console.error("Failed to load bot content:", fetchError);
-                    alert(`Failed to load ${bot.title}: ${fetchError.message}`);
+                if (!loaded) {
+                    alert(`Could not load ${bot.title}`);
                     return;
                 }
             }
 
-            // Validate that we have XML content
-            if (!xmlContent || xmlContent.trim().length === 0) {
-                console.error("No XML content available for bot:", bot.title);
-                alert(`No content available for ${bot.title}. Please check if the bot file exists.`);
-                return;
-            }
-
-            // Validate XML content format
-            const trimmedContent = xmlContent.trim();
-            if (!trimmedContent.startsWith('<xml') && !trimmedContent.startsWith('<?xml')) {
-                console.error("Invalid XML format for bot:", bot.title);
-                console.log("Content starts with:", trimmedContent.substring(0, 50));
+            // Validate XML content
+            if (!xmlContent?.trim() || (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml'))) {
                 alert(`Invalid XML format for ${bot.title}`);
                 return;
             }
 
-            // Create a unique content signature for this specific bot
-            const contentSignature = `${bot.title}_${bot.filePath}_${xmlContent.length}_${Date.now()}`;
-            console.log(`=== LOADING ${bot.title.toUpperCase()} WITH UNIQUE SIGNATURE: ${contentSignature} ===`);
-
-            // First switch to Bot Builder tab
-            console.log("Switching to Bot Builder tab...");
+            console.log(`Switching to Bot Builder and loading ${bot.title}...`);
             setActiveTab(DBOT_TABS.BOT_BUILDER);
 
-            // Wait for the tab to render and workspace to be ready
+            // Use a shorter timeout and more direct approach
             setTimeout(async () => {
                 try {
-                    console.log(`Attempting to load ${bot.title} with signature ${contentSignature}...`);
-
-                    // Try multiple ways to get the workspace
-                    let workspace = null;
-
-                    // Method 1: Try derivWorkspace
-                    if (window.Blockly?.derivWorkspace) {
-                        workspace = window.Blockly.derivWorkspace;
-                        console.log("Found derivWorkspace");
+                    // Try to use the load modal's loadFileFromContent method directly
+                    if (load_modal?.loadFileFromContent) {
+                        console.log(`Loading ${bot.title} via loadFileFromContent...`);
+                        await load_modal.loadFileFromContent(xmlContent, bot.title || 'Bot');
+                        console.log(`✅ Successfully loaded ${bot.title}`);
+                        return;
                     }
 
-                    // Method 2: Try getMainWorkspace
-                    if (!workspace && window.Blockly?.getMainWorkspace) {
-                        workspace = window.Blockly.getMainWorkspace();
-                        console.log("Found workspace via getMainWorkspace");
-                    }
+                    // Fallback: try direct bot-skeleton load
+                    const { load } = await import('@/external/bot-skeleton');
+                    const { save_types } = await import('@/external/bot-skeleton/constants');
 
-                    // Method 3: Try accessing workspace from global
-                    if (!workspace && window.Blockly?.Workspace) {
-                        workspace = window.Blockly.Workspace.getAll()?.[0];
-                        console.log("Found workspace via getAll");
-                    }
+                    console.log(`Loading ${bot.title} via bot-skeleton load...`);
+                    await load({
+                        block_string: xmlContent,
+                        file_name: bot.title || 'Bot',
+                        workspace: null,
+                        from: save_types.LOCAL,
+                        drop_event: {},
+                        strategy_id: `${bot.title}_${Date.now()}`,
+                        showIncompatibleStrategyDialog: false,
+                    });
 
-                    if (workspace && xmlContent) {
-                        console.log(`=== FORCE CLEARING WORKSPACE FOR ${bot.title} ===`);
+                    console.log(`✅ Successfully loaded ${bot.title}`);
 
-                        // Store current state to verify changes
-                        const beforeClearBlocks = workspace.getAllBlocks?.(false) || [];
-                        console.log(`Before clear: ${beforeClearBlocks.length} blocks`);
-
-                        // Disable events during clearing to prevent issues
-                        const eventsEnabled = workspace.recordUndo;
-                        workspace.recordUndo = false;
-
-                        // Force dispose all blocks manually with detailed logging
-                        beforeClearBlocks.forEach((block, index) => {
-                            try {
-                                if (block && block.dispose) {
-                                    console.log(`Disposing block ${index + 1}/${beforeClearBlocks.length}: ${block.type}`);
-                                    block.dispose(true, true); // Force dispose with heal and no events
-                                }
-                            } catch (e) {
-                                console.warn(`Error disposing block ${index}:`, e);
-                            }
-                        });
-
-                        // Multiple clearing strategies to ensure complete reset
-                        if (workspace.clear && typeof workspace.clear === 'function') {
-                            workspace.clear();
-                            console.log('Workspace cleared using clear()');
-                        }
-
-                        // Force clear the workspace contents
-                        if (workspace.getTopBlocks) {
-                            const remainingBlocks = workspace.getTopBlocks(true);
-                            if (remainingBlocks.length > 0) {
-                                console.log(`Force clearing ${remainingBlocks.length} remaining top blocks`);
-                                remainingBlocks.forEach(block => {
-                                    try {
-                                        block.dispose(true, true);
-                                    } catch (e) {
-                                        console.warn('Error disposing remaining block:', e);
-                                    }
-                                });
-                            }
-                        }
-
-                        // Clear variables completely
-                        if (workspace.getAllVariables) {
-                            const variables = workspace.getAllVariables();
-                            console.log(`Force clearing ${variables.length} variables`);
-                            variables.forEach(variable => {
-                                try {
-                                    if (workspace.deleteVariableById) {
-                                        workspace.deleteVariableById(variable.getId());
-                                    }
-                                } catch (e) {
-                                    console.warn('Error clearing variable:', e);
-                                }
-                            });
-                        }
-
-                        // Reset workspace state completely with unique identifiers
-                        workspace.current_strategy_id = null;
-                        workspace.bot_metadata = null;
-                        workspace.last_loaded_bot = null;
-                        console.log('Reset all workspace state');
-
-                        // Clear undo/redo history completely
-                        if (workspace.clearUndo && typeof workspace.clearUndo === 'function') {
-                            workspace.clearUndo();
-                        }
-                        if (workspace.undoStack_) {
-                            workspace.undoStack_ = [];
-                        }
-                        if (workspace.redoStack_) {
-                            workspace.redoStack_ = [];
-                        }
-
-                        // Force render and wait for stabilization
-                        if (workspace.render) {
-                            workspace.render();
-                        }
-                        workspace.recordUndo = eventsEnabled;
-
-                        // Extra wait to ensure workspace is completely cleared
-                        await new Promise(resolve => setTimeout(resolve, 500));
-
-                        // Verify workspace is truly empty
-                        const afterClearBlocks = workspace.getAllBlocks?.(false) || [];
-                        console.log(`After clear: ${afterClearBlocks.length} blocks remaining`);
-
-                        if (afterClearBlocks.length > 0) {
-                            console.warn(`Warning: ${afterClearBlocks.length} blocks still remain after clearing!`);
-                            // Force remove any remaining blocks
-                            afterClearBlocks.forEach((block, index) => {
-                                try {
-                                    console.log(`Force removing remaining block ${index}: ${block.type}`);
-                                    block.dispose(true, true);
-                                } catch (e) {
-                                    console.warn(`Failed to remove remaining block ${index}:`, e);
-                                }
-                            });
-                        }
-
-                        console.log(`=== PARSING FRESH XML FOR ${bot.title} ===`);
-
-                        // Parse XML with fresh instance to avoid caching issues
-                        const parser = new DOMParser();
-                        const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
-
-                        // Check for parsing errors
-                        const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
-                        if (parseError) {
-                            console.error("XML parsing error:", parseError.textContent);
-                            alert(`XML parsing failed for ${bot.title}: ${parseError.textContent}`);
-                            return;
-                        }
-
-                        const xmlElement = xmlDoc.getElementsByTagName('xml')[0];
-                        if (!xmlElement) {
-                            console.error("No XML root element found in content for", bot.title);
-                            alert(`No valid XML content found for ${bot.title}`);
-                            return;
-                        }
-
-                        console.log(`=== LOADING ${bot.title} WITH FRESH XML CONTENT ===`);
-
-                        // Extract and log bot-specific information
-                        const variableElements = xmlElement.querySelectorAll('variable');
-                        const blockElements = xmlElement.querySelectorAll('block');
-                        console.log(`${bot.title} XML contains:`, {
-                            variables: variableElements.length,
-                            blocks: blockElements.length,
-                            signature: contentSignature
-                        });
-
-                        // Log first few variable names to verify uniqueness
-                        const varNames = Array.from(variableElements).slice(0, 5).map(v => v.textContent);
-                        console.log(`${bot.title} first 5 variables:`, varNames);
-
-                        // Load the XML using the proper loading mechanism
-                        try {
-                            console.log(`Loading ${bot.title} XML using proper load function...`);
-
-                            // Try importing load function from bot-skeleton
-                            let loadModule;
-                            try {
-                                loadModule = await import('@/external/bot-skeleton');
-                            } catch (importError) {
-                                console.error("Failed to import bot-skeleton:", importError);
-                                throw new Error("Could not import bot-skeleton module.");
-                            }
-
-                            const { load } = loadModule;
-                            const { save_types } = await import('@/external/bot-skeleton/constants');
-
-                            await load({
-                                block_string: xmlContent,
-                                file_name: bot.title,
-                                workspace: workspace,
-                                from: save_types.LOCAL,
-                                drop_event: {},
-                                strategy_id: `${bot.title}_${Date.now()}`,
-                                showIncompatibleStrategyDialog: false,
-                            });
-
-                            console.log(`Successfully loaded ${bot.title} using load function`);
-
-                            // Set completely unique strategy ID with bot signature
-                            const uniqueStrategyId = `${bot.title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                            workspace.current_strategy_id = uniqueStrategyId;
-                            workspace.strategy_to_load = xmlContent;
-
-                            // Store comprehensive bot metadata with signature
-                            workspace.bot_metadata = {
-                                title: bot.title,
-                                filePath: bot.filePath,
-                                loadedAt: new Date().toISOString(),
-                                strategyId: uniqueStrategyId,
-                                contentSignature: contentSignature,
-                                xmlLength: xmlContent.length
-                            };
-                            workspace.last_loaded_bot = contentSignature;
-
-                            console.log(`Set unique metadata for ${bot.title}:`, workspace.bot_metadata);
-
-                            // Update workspace name to reflect the specific bot
-                            if (typeof updateWorkspaceName === 'function') {
-                                updateWorkspaceName(`${bot.title} - ${new Date().toLocaleTimeString()}`);
-                                console.log("Updated workspace name for:", bot.title);
-                            }
-
-                            // Force complete render and cleanup
-                            if (workspace.render) {
-                                workspace.render();
-                            }
-
-                            // Clean up layout after loading
-                            setTimeout(() => {
-                                if (workspace.cleanUp && typeof workspace.cleanUp === 'function') {
-                                    workspace.cleanUp();
-                                    console.log(`Layout cleaned for ${bot.title}`);
-                                }
-                            }, 200);
-
-                            // Final verification of loaded content
-                            const finalBlocks = workspace.getAllBlocks?.(false) || [];
-                            const finalVariables = workspace.getAllVariables?.() || [];
-
-                            console.log(`=== FINAL VERIFICATION FOR ${bot.title} ===`);
-                            console.log(`Loaded blocks: ${finalBlocks.length}`);
-                            console.log(`Loaded variables: ${finalVariables.length}`);
-                            console.log(`Content signature: ${contentSignature}`);
-
-                            if (finalBlocks.length > 0) {
-                                const blockTypes = finalBlocks.slice(0, 3).map(b => b.type);
-                                console.log(`${bot.title} block types:`, blockTypes);
-                            }
-
-                            if (finalVariables.length > 0) {
-                                const varNames = finalVariables.slice(0, 3).map(v => v.name);
-                                console.log(`${bot.title} variable names:`, varNames);
-                            }
-
-                            console.log(`✅ SUCCESS: "${bot.title}" loaded with signature ${contentSignature}!`);
-
-                        } catch (loadError) {
-                            console.error(`Error loading ${bot.title} XML:`, loadError);
-                            alert(`Failed to load ${bot.title}: ${loadError.message}`);
-                        }
-
-                    } else {
-                        console.log("Workspace not ready, trying alternative method...");
-
-                        try {
-                            // Try using the load function directly without workspace dependency
-                            const { load } = await import('@/external/bot-skeleton');
-                            const { save_types } = await import('@/external/bot-skeleton/constants');
-
-                            console.log(`Using direct load function for ${bot.title}`);
-                            await load({
-                                block_string: xmlContent,
-                                file_name: bot.title || 'Imported Bot',
-                                workspace: null, // Let load function handle workspace creation
-                                from: save_types.LOCAL,
-                                drop_event: {},
-                                strategy_id: `${bot.title}_${Date.now()}`,
-                                showIncompatibleStrategyDialog: false,
-                            });
-
-                            console.log(`${bot.title} loaded via direct load function with signature ${contentSignature}!`);
-                        } catch (directLoadError) {
-                            console.error(`Direct load error for ${bot.title}:`, directLoadError);
-
-                            // Final fallback to load_modal
-                            if (load_modal?.loadFileFromContent) {
-                                console.log(`Using load_modal fallback for ${bot.title}`);
-                                try {
-                                    await load_modal.loadFileFromContent(xmlContent, bot.title || 'Imported Bot');
-                                    console.log(`${bot.title} loaded via load_modal with signature ${contentSignature}!`);
-                                } catch (modalError) {
-                                    console.error(`Load modal error for ${bot.title}:`, modalError);
-                                    alert(`Failed to load ${bot.title}: ${modalError.message}`);
-                                }
-                            } else {
-                                console.error("No loading method available");
-                                alert(`Failed to load ${bot.title} - no loading method available`);
-                            }
-                        }
-                    }
-                } catch (loadingError) {
-                    console.error(`Error in bot loading process for ${bot.title}:`, loadingError);
-                    alert(`Error loading ${bot.title}: ${loadingError.message}`);
+                } catch (error) {
+                    console.error(`Failed to load ${bot.title}:`, error);
+                    alert(`Failed to load ${bot.title}: ${error.message}`);
                 }
-            }, 1000);
+            }, 500);
 
         } catch (error) {
-            console.error(`Error in handleBotClick for ${bot.title}:`, error);
+            console.error(`Error loading ${bot.title}:`, error);
             alert(`Error loading ${bot.title}: ${error.message}`);
         }
     }, [setActiveTab, load_modal]);
