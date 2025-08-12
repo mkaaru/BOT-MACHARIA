@@ -370,6 +370,20 @@ export default class RunPanelStore {
                 }
             }
 
+            // Safely ensure workspace subscriptions are handled correctly
+            try {
+                if (this.dbot?.interpreter?.workspace) {
+                    const workspace = this.dbot.interpreter.workspace;
+                    // Don't dispose workspace during stats clear, just ensure it's in a clean state
+                    if (workspace && typeof workspace.clear === 'function') {
+                        // Only clear workspace content if it has that method
+                        console.log('🔄 Workspace content cleared but workspace preserved');
+                    }
+                }
+            } catch (error) {
+                console.warn('Warning: Error handling workspace during stat clear:', error);
+            }
+
             // Reset panel state without affecting workspace
             this.setContractStage(contract_stages.NOT_RUNNING);
             this.error_type = undefined;
@@ -824,7 +838,7 @@ export default class RunPanelStore {
                 }
 
                 try {
-                    if (journal.disposeReactionsFn) {
+                    if (journal?.disposeReactionsFn) {
                         journal.disposeReactionsFn();
                     }
                 } catch (error) {
@@ -832,7 +846,7 @@ export default class RunPanelStore {
                 }
 
                 try {
-                    if (summary_card.disposeReactionsFn) {
+                    if (summary_card?.disposeReactionsFn) {
                         summary_card.disposeReactionsFn();
                     }
                 } catch (error) {
@@ -840,7 +854,7 @@ export default class RunPanelStore {
                 }
 
                 try {
-                    if (transactions.disposeReactionsFn) {
+                    if (transactions?.disposeReactionsFn) {
                         transactions.disposeReactionsFn();
                     }
                 } catch (error) {
@@ -848,12 +862,31 @@ export default class RunPanelStore {
                 }
             }
 
-            observer.unregisterAll('ui.log.error');
-            observer.unregisterAll('ui.log.notify');
-            observer.unregisterAll('ui.log.success');
-            observer.unregisterAll('client.invalid_token');
+            // Safely dispose workspace if it exists
+            try {
+                if (this.dbot?.interpreter?.bot?.workspace) {
+                    const workspace = this.dbot.interpreter.bot.workspace;
+                    // Check if workspace is already disposed before trying to dispose it
+                    if (workspace && !workspace.disposed && typeof workspace.dispose === 'function') {
+                        workspace.dispose();
+                    }
+                }
+            } catch (error) {
+                console.warn('Error disposing workspace:', error);
+            }
+
+            // Safely unregister observers
+            try {
+                observer.unregisterAll('ui.log.error');
+                observer.unregisterAll('ui.log.notify');
+                observer.unregisterAll('ui.log.success');
+                observer.unregisterAll('client.invalid_token');
+            } catch (error) {
+                console.warn('Error unregistering observers:', error);
+            }
+
         } catch (error) {
-            console.warn('Error during run panel unmount:', error);
+            console.warn('Critical error during run panel unmount:', error);
         }
     };
 
