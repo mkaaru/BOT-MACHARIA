@@ -1645,12 +1645,9 @@ const AppWrapper = observer(() => {
                 return;
             }
 
-            console.log(`=== LOADING ${bot.title.toUpperCase()} WITH UNIQUE CONTENT ===`);
-            console.log("XML Content length:", xmlContent.length);
-            console.log("XML Content hash:", xmlContent.substring(0, 100).split('').reduce((a, b) => {
-                a = ((a << 5) - a) + b.charCodeAt(0);
-                return a & a;
-            }, 0));
+            // Create a unique content signature for this specific bot
+            const contentSignature = `${bot.title}_${bot.filePath}_${xmlContent.length}_${Date.now()}`;
+            console.log(`=== LOADING ${bot.title.toUpperCase()} WITH UNIQUE SIGNATURE: ${contentSignature} ===`);
 
             // First switch to Bot Builder tab
             console.log("Switching to Bot Builder tab...");
@@ -1659,7 +1656,7 @@ const AppWrapper = observer(() => {
             // Wait for the tab to render and workspace to be ready
             setTimeout(async () => {
                 try {
-                    console.log(`Attempting to load ${bot.title} with unique XML content...`);
+                    console.log(`Attempting to load ${bot.title} with signature ${contentSignature}...`);
 
                     // Try multiple ways to get the workspace
                     let workspace = null;
@@ -1683,67 +1680,110 @@ const AppWrapper = observer(() => {
                     }
 
                     if (workspace && xmlContent) {
-                        console.log(`=== CLEARING WORKSPACE FOR ${bot.title} ===`);
+                        console.log(`=== FORCE CLEARING WORKSPACE FOR ${bot.title} ===`);
+
+                        // Store current state to verify changes
+                        const beforeClearBlocks = workspace.getAllBlocks?.(false) || [];
+                        console.log(`Before clear: ${beforeClearBlocks.length} blocks`);
 
                         // Disable events during clearing to prevent issues
                         const eventsEnabled = workspace.recordUndo;
                         workspace.recordUndo = false;
 
-                        // Force clear all blocks manually first
-                        const allBlocks = workspace.getAllBlocks?.(false) || [];
-                        console.log(`Found ${allBlocks.length} blocks to clear for ${bot.title}`);
-
-                        allBlocks.forEach((block, index) => {
+                        // Force dispose all blocks manually with detailed logging
+                        beforeClearBlocks.forEach((block, index) => {
                             try {
-                                block.dispose(true); // Force dispose with heal
+                                if (block && block.dispose) {
+                                    console.log(`Disposing block ${index + 1}/${beforeClearBlocks.length}: ${block.type}`);
+                                    block.dispose(true, true); // Force dispose with heal and no events
+                                }
                             } catch (e) {
                                 console.warn(`Error disposing block ${index}:`, e);
                             }
                         });
 
-                        // Clear the workspace completely
+                        // Multiple clearing strategies to ensure complete reset
                         if (workspace.clear && typeof workspace.clear === 'function') {
                             workspace.clear();
                             console.log('Workspace cleared using clear()');
                         }
 
-                        // Clear variables
+                        // Force clear the workspace contents
+                        if (workspace.getTopBlocks) {
+                            const remainingBlocks = workspace.getTopBlocks(true);
+                            if (remainingBlocks.length > 0) {
+                                console.log(`Force clearing ${remainingBlocks.length} remaining top blocks`);
+                                remainingBlocks.forEach(block => {
+                                    try {
+                                        block.dispose(true, true);
+                                    } catch (e) {
+                                        console.warn('Error disposing remaining block:', e);
+                                    }
+                                });
+                            }
+                        }
+
+                        // Clear variables completely
                         if (workspace.getAllVariables) {
                             const variables = workspace.getAllVariables();
-                            console.log(`Clearing ${variables.length} variables`);
+                            console.log(`Force clearing ${variables.length} variables`);
                             variables.forEach(variable => {
                                 try {
-                                    workspace.deleteVariableById?.(variable.getId());
+                                    if (workspace.deleteVariableById) {
+                                        workspace.deleteVariableById(variable.getId());
+                                    }
                                 } catch (e) {
                                     console.warn('Error clearing variable:', e);
                                 }
                             });
                         }
 
-                        // Clear undo/redo history
-                        if (workspace.clearUndo && typeof workspace.clearUndo === 'function') {
-                            workspace.clearUndo();
-                            console.log('Cleared undo history');
-                        }
-
-                        // Reset workspace state completely
+                        // Reset workspace state completely with unique identifiers
                         workspace.current_strategy_id = null;
                         workspace.bot_metadata = null;
-                        console.log('Reset strategy ID and metadata');
+                        workspace.last_loaded_bot = null;
+                        console.log('Reset all workspace state');
 
-                        // Re-enable events
-                        workspace.recordUndo = eventsEnabled;
+                        // Clear undo/redo history completely
+                        if (workspace.clearUndo && typeof workspace.clearUndo === 'function') {
+                            workspace.clearUndo();
+                        }
+                        if (workspace.undoStack_) {
+                            workspace.undoStack_ = [];
+                        }
+                        if (workspace.redoStack_) {
+                            workspace.redoStack_ = [];
+                        }
 
-                        // Force refresh and wait
+                        // Force render and wait for stabilization
                         if (workspace.render) {
                             workspace.render();
                         }
+                        workspace.recordUndo = eventsEnabled;
 
-                        await new Promise(resolve => setTimeout(resolve, 300));
+                        // Extra wait to ensure workspace is completely cleared
+                        await new Promise(resolve => setTimeout(resolve, 500));
 
-                        console.log(`=== PARSING XML FOR ${bot.title} ===`);
+                        // Verify workspace is truly empty
+                        const afterClearBlocks = workspace.getAllBlocks?.(false) || [];
+                        console.log(`After clear: ${afterClearBlocks.length} blocks remaining`);
 
-                        // Parse and validate XML with specific content for this bot
+                        if (afterClearBlocks.length > 0) {
+                            console.warn(`Warning: ${afterClearBlocks.length} blocks still remain after clearing!`);
+                            // Force remove any remaining blocks
+                            afterClearBlocks.forEach((block, index) => {
+                                try {
+                                    console.log(`Force removing remaining block ${index}: ${block.type}`);
+                                    block.dispose(true, true);
+                                } catch (e) {
+                                    console.warn(`Failed to remove remaining block ${index}:`, e);
+                                }
+                            });
+                        }
+
+                        console.log(`=== PARSING FRESH XML FOR ${bot.title} ===`);
+
+                        // Parse XML with fresh instance to avoid caching issues
                         const parser = new DOMParser();
                         const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
 
@@ -1762,112 +1802,122 @@ const AppWrapper = observer(() => {
                             return;
                         }
 
-                        console.log(`=== LOADING ${bot.title} WITH SPECIFIC PARAMETERS ===`);
+                        console.log(`=== LOADING ${bot.title} WITH FRESH XML CONTENT ===`);
 
-                        // Extract bot parameters from XML for verification
+                        // Extract and log bot-specific information
                         const variableElements = xmlElement.querySelectorAll('variable');
                         const blockElements = xmlElement.querySelectorAll('block');
-                        console.log(`${bot.title} contains ${variableElements.length} variables and ${blockElements.length} blocks`);
+                        console.log(`${bot.title} XML contains:`, {
+                            variables: variableElements.length,
+                            blocks: blockElements.length,
+                            signature: contentSignature
+                        });
 
-                        // Load the XML into Blockly workspace with all parameters
+                        // Log first few variable names to verify uniqueness
+                        const varNames = Array.from(variableElements).slice(0, 5).map(v => v.textContent);
+                        console.log(`${bot.title} first 5 variables:`, varNames);
+
+                        // Load the XML with complete state reset
                         try {
-                            // Disable events during loading
                             workspace.recordUndo = false;
 
-                            // Use domToWorkspace to load the specific bot content
+                            console.log(`Loading ${bot.title} XML into completely cleared workspace...`);
+                            
                             if (window.Blockly?.Xml?.domToWorkspace) {
-                                console.log(`Loading ${bot.title} using domToWorkspace`);
-                                window.Blockly.Xml.domToWorkspace(xmlElement, workspace);
+                                // Clone the XML element to avoid reference issues
+                                const clonedXmlElement = xmlElement.cloneNode(true);
+                                window.Blockly.Xml.domToWorkspace(clonedXmlElement, workspace);
+                                console.log(`Successfully loaded ${bot.title} XML content`);
                             } else {
-                                throw new Error("No XML loading methods available");
+                                throw new Error("Blockly XML loader not available");
                             }
 
-                            // Re-enable events
                             workspace.recordUndo = true;
 
-                            // Set unique strategy ID for this specific bot with timestamp to ensure uniqueness
+                            // Set completely unique strategy ID with bot signature
                             const uniqueStrategyId = `${bot.title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                             workspace.current_strategy_id = uniqueStrategyId;
-                            console.log(`Set unique strategy ID for ${bot.title}:`, uniqueStrategyId);
-
-                            // Update workspace name with specific bot title
-                            if (typeof updateWorkspaceName === 'function') {
-                                updateWorkspaceName(bot.title || 'Imported Bot');
-                                console.log("Updated workspace name to:", bot.title);
-                            }
-
-                            // Store bot metadata for future reference with unique identifier
+                            
+                            // Store comprehensive bot metadata with signature
                             workspace.bot_metadata = {
                                 title: bot.title,
                                 filePath: bot.filePath,
                                 loadedAt: new Date().toISOString(),
                                 strategyId: uniqueStrategyId,
-                                contentHash: xmlContent.substring(0, 100).split('').reduce((a, b) => {
-                                    a = ((a << 5) - a) + b.charCodeAt(0);
-                                    return a & a;
-                                }, 0)
+                                contentSignature: contentSignature,
+                                xmlLength: xmlContent.length
                             };
+                            workspace.last_loaded_bot = contentSignature;
 
-                            // Clean up the workspace layout
-                            if (workspace.cleanUp && typeof workspace.cleanUp === 'function') {
-                                setTimeout(() => {
-                                    workspace.cleanUp();
-                                    console.log(`Workspace layout cleaned up for ${bot.title}`);
-                                }, 100);
+                            console.log(`Set unique metadata for ${bot.title}:`, workspace.bot_metadata);
+
+                            // Update workspace name to reflect the specific bot
+                            if (typeof updateWorkspaceName === 'function') {
+                                updateWorkspaceName(`${bot.title} - ${new Date().toLocaleTimeString()}`);
+                                console.log("Updated workspace name for:", bot.title);
                             }
 
-                            // Clear undo history for fresh start
-                            if (workspace.clearUndo && typeof workspace.clearUndo === 'function') {
-                                workspace.clearUndo();
-                            }
-
-                            // Force render to ensure everything is displayed
+                            // Force complete render and cleanup
                             if (workspace.render) {
                                 workspace.render();
                             }
 
-                            // Final verification with parameter check
-                            const loadedBlocks = workspace.getAllBlocks?.(false) || [];
-                            const loadedVariables = workspace.getAllVariables?.() || [];
+                            // Clean up layout after loading
+                            setTimeout(() => {
+                                if (workspace.cleanUp && typeof workspace.cleanUp === 'function') {
+                                    workspace.cleanUp();
+                                    console.log(`Layout cleaned for ${bot.title}`);
+                                }
+                            }, 200);
+
+                            // Final verification of loaded content
+                            const finalBlocks = workspace.getAllBlocks?.(false) || [];
+                            const finalVariables = workspace.getAllVariables?.() || [];
                             
-                            console.log(`=== SUCCESS: ${bot.title} loaded with ${loadedBlocks.length} blocks and ${loadedVariables.length} variables ===`);
+                            console.log(`=== FINAL VERIFICATION FOR ${bot.title} ===`);
+                            console.log(`Loaded blocks: ${finalBlocks.length}`);
+                            console.log(`Loaded variables: ${finalVariables.length}`);
+                            console.log(`Content signature: ${contentSignature}`);
 
-                            // Log specific bot parameters for verification
-                            if (loadedBlocks.length > 0) {
-                                console.log(`${bot.title} loaded blocks:`, loadedBlocks.slice(0, 5).map(b => b.type));
+                            if (finalBlocks.length > 0) {
+                                const blockTypes = finalBlocks.slice(0, 3).map(b => b.type);
+                                console.log(`${bot.title} block types:`, blockTypes);
                             }
 
-                            if (loadedVariables.length > 0) {
-                                console.log(`${bot.title} loaded variables:`, loadedVariables.map(v => v.name));
+                            if (finalVariables.length > 0) {
+                                const varNames = finalVariables.slice(0, 3).map(v => v.name);
+                                console.log(`${bot.title} variable names:`, varNames);
                             }
 
-                            // Show success message with bot name
-                            console.log(`✅ Bot "${bot.title}" successfully loaded with its unique configuration!`);
+                            console.log(`✅ SUCCESS: "${bot.title}" loaded with signature ${contentSignature}!`);
 
                         } catch (loadError) {
-                            console.error("Error during XML loading:", loadError);
+                            console.error(`Error loading ${bot.title} XML:`, loadError);
                             alert(`Failed to load ${bot.title}: ${loadError.message}`);
-                            throw loadError;
                         }
 
                     } else {
-                        console.log("Workspace not found, trying alternative loading methods...");
+                        console.log("Workspace not ready, trying alternative method...");
 
-                        // Fallback to load_modal method if workspace isn't ready
                         if (load_modal?.loadFileFromContent) {
-                            console.log("Using load_modal fallback method for", bot.title);
-                            await load_modal.loadFileFromContent(xmlContent, bot.title || 'Imported Bot');
-                            console.log(`${bot.title} loaded via load_modal!`);
+                            console.log(`Using load_modal fallback for ${bot.title}`);
+                            try {
+                                await load_modal.loadFileFromContent(xmlContent, bot.title || 'Imported Bot');
+                                console.log(`${bot.title} loaded via load_modal with signature ${contentSignature}!`);
+                            } catch (modalError) {
+                                console.error(`Load modal error for ${bot.title}:`, modalError);
+                                alert(`Failed to load ${bot.title} via modal: ${modalError.message}`);
+                            }
                         } else {
-                            console.error("No loading method available - workspace not found and load_modal not available");
-                            alert(`Failed to load ${bot.title} - workspace not available`);
+                            console.error("No loading method available");
+                            alert(`Failed to load ${bot.title} - no loading method available`);
                         }
                     }
                 } catch (loadingError) {
-                    console.error(`Error loading ${bot.title}:`, loadingError);
+                    console.error(`Error in bot loading process for ${bot.title}:`, loadingError);
                     alert(`Error loading ${bot.title}: ${loadingError.message}`);
                 }
-            }, 1000); // Reduced timeout for better user experience
+            }, 1000);
 
         } catch (error) {
             console.error(`Error in handleBotClick for ${bot.title}:`, error);
