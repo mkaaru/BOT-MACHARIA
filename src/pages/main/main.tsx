@@ -1574,7 +1574,7 @@ const AppWrapper = observer(() => {
 
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
         try {
-            console.log("=== LOADING BOT ===");
+            console.log("=== LOADING SPECIFIC BOT ===");
             console.log("Bot Title:", bot.title);
             console.log("File Path:", bot.filePath);
             console.log("Has XML Content:", !!bot.xmlContent);
@@ -1618,12 +1618,14 @@ const AppWrapper = observer(() => {
                     }
 
                     if (!success) {
-                        console.warn(`Could not fetch ${bot.filePath} from any URL - using placeholder content`);
-                        // Don't return here, continue with any existing content
+                        console.warn(`Could not fetch ${bot.filePath} from any URL - bot may not exist`);
+                        alert(`Could not load ${bot.title}. The bot file "${bot.filePath}" was not found.`);
+                        return;
                     }
                 } catch (fetchError) {
                     console.error("Failed to load bot content:", fetchError);
-                    // Continue with existing content if available
+                    alert(`Failed to load ${bot.title}: ${fetchError.message}`);
+                    return;
                 }
             }
 
@@ -1634,8 +1636,6 @@ const AppWrapper = observer(() => {
                 return;
             }
 
-            console.log(`Preparing to load ${bot.title} - Content length:`, xmlContent.length);
-
             // Validate XML content format
             const trimmedContent = xmlContent.trim();
             if (!trimmedContent.startsWith('<xml') && !trimmedContent.startsWith('<?xml')) {
@@ -1645,6 +1645,13 @@ const AppWrapper = observer(() => {
                 return;
             }
 
+            console.log(`=== LOADING ${bot.title.toUpperCase()} WITH UNIQUE CONTENT ===`);
+            console.log("XML Content length:", xmlContent.length);
+            console.log("XML Content hash:", xmlContent.substring(0, 100).split('').reduce((a, b) => {
+                a = ((a << 5) - a) + b.charCodeAt(0);
+                return a & a;
+            }, 0));
+
             // First switch to Bot Builder tab
             console.log("Switching to Bot Builder tab...");
             setActiveTab(DBOT_TABS.BOT_BUILDER);
@@ -1652,7 +1659,7 @@ const AppWrapper = observer(() => {
             // Wait for the tab to render and workspace to be ready
             setTimeout(async () => {
                 try {
-                    console.log("Attempting to access workspace...");
+                    console.log(`Attempting to load ${bot.title} with unique XML content...`);
 
                     // Try multiple ways to get the workspace
                     let workspace = null;
@@ -1676,26 +1683,7 @@ const AppWrapper = observer(() => {
                     }
 
                     if (workspace && xmlContent) {
-                        console.log(`=== CLEARING AND LOADING ${bot.title} WITH PARAMETERS ===`);
-
-                        console.log("Step 1: Clearing workspace completely...");
-
-                        // Close any floating UI elements that might interfere
-                        const floatingElements = document.querySelectorAll('.blocklyWidgetDiv, .blocklyDropDownDiv, .blocklyTooltipDiv');
-                        floatingElements.forEach(el => {
-                            if (el && el.parentNode) {
-                                el.parentNode.removeChild(el);
-                            }
-                        });
-
-                        // Hide any overlays or modals
-                        const overlays = document.querySelectorAll('[class*="modal"], [class*="dialog"], [class*="overlay"]');
-                        overlays.forEach(overlay => {
-                            if (overlay.style) {
-                                overlay.style.display = 'none';
-                                overlay.style.visibility = 'hidden';
-                            }
-                        });
+                        console.log(`=== CLEARING WORKSPACE FOR ${bot.title} ===`);
 
                         // Disable events during clearing to prevent issues
                         const eventsEnabled = workspace.recordUndo;
@@ -1703,11 +1691,10 @@ const AppWrapper = observer(() => {
 
                         // Force clear all blocks manually first
                         const allBlocks = workspace.getAllBlocks?.(false) || [];
-                        console.log(`Found ${allBlocks.length} blocks to clear`);
+                        console.log(`Found ${allBlocks.length} blocks to clear for ${bot.title}`);
 
                         allBlocks.forEach((block, index) => {
                             try {
-                                console.log(`Disposing block ${index + 1}/${allBlocks.length}: ${block.type}`);
                                 block.dispose(true); // Force dispose with heal
                             } catch (e) {
                                 console.warn(`Error disposing block ${index}:`, e);
@@ -1739,9 +1726,10 @@ const AppWrapper = observer(() => {
                             console.log('Cleared undo history');
                         }
 
-                        // Reset workspace state
+                        // Reset workspace state completely
                         workspace.current_strategy_id = null;
-                        console.log('Reset strategy ID');
+                        workspace.bot_metadata = null;
+                        console.log('Reset strategy ID and metadata');
 
                         // Re-enable events
                         workspace.recordUndo = eventsEnabled;
@@ -1751,9 +1739,9 @@ const AppWrapper = observer(() => {
                             workspace.render();
                         }
 
-                        await new Promise(resolve => setTimeout(resolve, 500));
+                        await new Promise(resolve => setTimeout(resolve, 300));
 
-                        console.log("Step 2: Parsing XML content with parameters for", bot.title);
+                        console.log(`=== PARSING XML FOR ${bot.title} ===`);
 
                         // Parse and validate XML with specific content for this bot
                         const parser = new DOMParser();
@@ -1774,22 +1762,21 @@ const AppWrapper = observer(() => {
                             return;
                         }
 
-                        console.log("Step 3: Loading XML with all parameters into workspace for", bot.title);
-                        console.log("XML Element preview:", xmlElement.outerHTML.substring(0, 200) + "...");
+                        console.log(`=== LOADING ${bot.title} WITH SPECIFIC PARAMETERS ===`);
 
-                        // Extract bot parameters from XML for logging
+                        // Extract bot parameters from XML for verification
                         const variableElements = xmlElement.querySelectorAll('variable');
                         const blockElements = xmlElement.querySelectorAll('block');
-                        console.log(`Bot contains ${variableElements.length} variables and ${blockElements.length} blocks`);
+                        console.log(`${bot.title} contains ${variableElements.length} variables and ${blockElements.length} blocks`);
 
                         // Load the XML into Blockly workspace with all parameters
                         try {
                             // Disable events during loading
                             workspace.recordUndo = false;
 
-                            // Use the load function from external bot skeleton for comprehensive loading
+                            // Use domToWorkspace to load the specific bot content
                             if (window.Blockly?.Xml?.domToWorkspace) {
-                                console.log("Loading bot with all parameters using domToWorkspace for", bot.title);
+                                console.log(`Loading ${bot.title} using domToWorkspace`);
                                 window.Blockly.Xml.domToWorkspace(xmlElement, workspace);
                             } else {
                                 throw new Error("No XML loading methods available");
@@ -1798,13 +1785,10 @@ const AppWrapper = observer(() => {
                             // Re-enable events
                             workspace.recordUndo = true;
 
-                            // Post-load setup with bot-specific parameters
-                            console.log("Step 4: Setting up bot parameters for", bot.title);
-
-                            // Set unique strategy ID for this specific bot
-                            const newStrategyId = `${bot.title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
-                            workspace.current_strategy_id = newStrategyId;
-                            console.log("Set bot strategy ID:", newStrategyId);
+                            // Set unique strategy ID for this specific bot with timestamp to ensure uniqueness
+                            const uniqueStrategyId = `${bot.title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                            workspace.current_strategy_id = uniqueStrategyId;
+                            console.log(`Set unique strategy ID for ${bot.title}:`, uniqueStrategyId);
 
                             // Update workspace name with specific bot title
                             if (typeof updateWorkspaceName === 'function') {
@@ -1812,19 +1796,23 @@ const AppWrapper = observer(() => {
                                 console.log("Updated workspace name to:", bot.title);
                             }
 
-                            // Store bot metadata for future reference
+                            // Store bot metadata for future reference with unique identifier
                             workspace.bot_metadata = {
                                 title: bot.title,
                                 filePath: bot.filePath,
                                 loadedAt: new Date().toISOString(),
-                                strategyId: newStrategyId
+                                strategyId: uniqueStrategyId,
+                                contentHash: xmlContent.substring(0, 100).split('').reduce((a, b) => {
+                                    a = ((a << 5) - a) + b.charCodeAt(0);
+                                    return a & a;
+                                }, 0)
                             };
 
                             // Clean up the workspace layout
                             if (workspace.cleanUp && typeof workspace.cleanUp === 'function') {
                                 setTimeout(() => {
                                     workspace.cleanUp();
-                                    console.log("Workspace layout cleaned up for", bot.title);
+                                    console.log(`Workspace layout cleaned up for ${bot.title}`);
                                 }, 100);
                             }
 
@@ -1844,23 +1832,17 @@ const AppWrapper = observer(() => {
                             
                             console.log(`=== SUCCESS: ${bot.title} loaded with ${loadedBlocks.length} blocks and ${loadedVariables.length} variables ===`);
 
-                            // Log bot parameters for verification
+                            // Log specific bot parameters for verification
                             if (loadedBlocks.length > 0) {
-                                console.log("Loaded blocks:");
-                                loadedBlocks.slice(0, 10).forEach((block, index) => {
-                                    console.log(`Block ${index + 1}: ${block.type} (ID: ${block.id})`);
-                                });
+                                console.log(`${bot.title} loaded blocks:`, loadedBlocks.slice(0, 5).map(b => b.type));
                             }
 
                             if (loadedVariables.length > 0) {
-                                console.log("Loaded variables:");
-                                loadedVariables.forEach((variable, index) => {
-                                    console.log(`Variable ${index + 1}: ${variable.name} (ID: ${variable.id})`);
-                                });
+                                console.log(`${bot.title} loaded variables:`, loadedVariables.map(v => v.name));
                             }
 
-                            // Show success message
-                            console.log(`Bot "${bot.title}" successfully loaded with all parameters in Bot Builder!`);
+                            // Show success message with bot name
+                            console.log(`✅ Bot "${bot.title}" successfully loaded with its unique configuration!`);
 
                         } catch (loadError) {
                             console.error("Error during XML loading:", loadError);
@@ -1874,7 +1856,7 @@ const AppWrapper = observer(() => {
                         // Fallback to load_modal method if workspace isn't ready
                         if (load_modal?.loadFileFromContent) {
                             console.log("Using load_modal fallback method for", bot.title);
-                            await load_modal.loadFileFromContent(xmlContent, bot.title);
+                            await load_modal.loadFileFromContent(xmlContent, bot.title || 'Imported Bot');
                             console.log(`${bot.title} loaded via load_modal!`);
                         } else {
                             console.error("No loading method available - workspace not found and load_modal not available");
@@ -1884,20 +1866,8 @@ const AppWrapper = observer(() => {
                 } catch (loadingError) {
                     console.error(`Error loading ${bot.title}:`, loadingError);
                     alert(`Error loading ${bot.title}: ${loadingError.message}`);
-
-                    // Final fallback attempt
-                    try {
-                        console.log("Attempting final fallback method for", bot.title);
-                        if (load_modal?.loadFileFromContent) {
-                            await load_modal.loadFileFromContent(xmlContent, bot.title);
-                            console.log(`${bot.title} loaded via final fallback!`);
-                        }
-                    } catch (fallbackError) {
-                        console.error(`All loading methods failed for ${bot.title}:`, fallbackError);
-                        alert(`All loading methods failed for ${bot.title}`);
-                    }
                 }
-            }, 1200); // Increased timeout for better reliability
+            }, 1000); // Reduced timeout for better user experience
 
         } catch (error) {
             console.error(`Error in handleBotClick for ${bot.title}:`, error);
