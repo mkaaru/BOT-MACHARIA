@@ -3,12 +3,13 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router-dom';
 import ChunkLoader from '@/components/loader/chunk-loader';
 import RoutePromptDialog from '@/components/route-prompt-dialog';
-import { StoreProvider } from '@/hooks/useStore';
+import { StoreProvider, useStore } from '@/hooks/useStore';
 import CallbackPage from '@/pages/callback';
 import Endpoint from '@/pages/endpoint';
 import { TAuthData } from '@/types/api-types';
 import { initializeI18n, localize, TranslationProvider } from '@deriv-com/translations';
 import CoreStoreProvider from './CoreStoreProvider';
+import PageErrorContainer from '@/components/page-error-container';
 import './app-root.scss';
 import { SplashScreen } from '@/components/splash-screen';
 
