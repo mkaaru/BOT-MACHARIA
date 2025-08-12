@@ -922,10 +922,6 @@ const AppWrapper = observer(() => {
                     description: 'Advanced Under prediction bot with entry point analysis and martingale strategy',
                     isPlaceholder: false
                 }
-    <variable id="+u-u)z[IFx8X|o3x0,-l">Martingale stake</variable>
-    <variable id="3h10%8w[DY\`nltID+}ZZ">Martingale size</variable>
-    <variable id="+9x$PYUowRX%@x^)Fbu)">Odd Count</variable>
-    <variable id="3l2;8_qp2J#kc})!ERqK">Trade Type</variable>
     <variable id="y2g6EF=EdB(Qr1kN5fjw">Target Profit</variable>
     <variable id="3iZTdl$_k8,?$go(8cbZ">Even Count</variable>
     <variable id="5+OW~93s?I*]o.(.B\`Cx">Stop Loss</variable>
