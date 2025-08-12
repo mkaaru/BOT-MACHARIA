@@ -309,55 +309,94 @@ export default class RunPanelStore {
         const { summary_card, journal, transactions } = this.root_store;
 
         try {
+            console.log('🔄 CLEARING TRADE STATISTICS: Preserving bot builder workspace');
+            
             // Stop any running operations first
             this.setIsRunning(false);
             this.setHasOpenContract(false);
             
-            // Only clear transactions and trading statistics, preserve bot builder workspace
-            try {
-                transactions.clear();
-                console.log('✅ Transactions cleared');
-            } catch (error) {
-                console.warn('Error clearing transactions:', error);
-            }
-            
-            try {
-                journal.clear();
-                console.log('✅ Journal cleared');
-            } catch (error) {
-                console.warn('Error clearing journal:', error);
-            }
-            
-            try {
-                summary_card.clear();
-                console.log('✅ Summary card cleared');
-            } catch (error) {
-                console.warn('Error clearing summary card:', error);
-            }
-            
-            // Reset only trading-related statistics without touching the workspace
-            this.clear();
-            
-            // Reset martingale state but preserve bot configuration
-            if (this.dbot.interpreter?.bot?.tradeEngine?.purchase) {
+            // Clear trade-related data only, DO NOT touch workspace
+            if (transactions) {
                 try {
-                    this.dbot.interpreter.bot.tradeEngine.purchase.resetMartingale();
-                    console.log('✅ Martingale state reset');
+                    transactions.clear();
+                    console.log('✅ Transactions cleared successfully');
                 } catch (error) {
-                    console.warn('Error resetting martingale:', error);
+                    console.warn('Warning: Error clearing transactions:', error);
                 }
             }
             
+            if (journal) {
+                try {
+                    journal.clear();
+                    console.log('✅ Journal cleared successfully');
+                } catch (error) {
+                    console.warn('Warning: Error clearing journal:', error);
+                }
+            }
+            
+            if (summary_card) {
+                try {
+                    summary_card.clear();
+                    console.log('✅ Summary card cleared successfully');
+                } catch (error) {
+                    console.warn('Warning: Error clearing summary card:', error);
+                }
+            }
+            
+            // Reset martingale state to base configuration but keep bot settings
+            if (this.dbot?.interpreter?.bot?.tradeEngine?.purchase) {
+                try {
+                    const purchase = this.dbot.interpreter.bot.tradeEngine.purchase;
+                    
+                    // Reset martingale state while preserving configuration
+                    purchase.martingaleState.consecutiveLosses = 0;
+                    purchase.martingaleState.totalProfit = 0;
+                    purchase.martingaleState.lastTradeProfit = null;
+                    purchase.martingaleState.currentPurchasePrice = 0;
+                    
+                    // Reset stake to base amount if available
+                    if (purchase.martingaleState.baseAmount) {
+                        purchase.tradeOptions.amount = purchase.martingaleState.baseAmount;
+                    }
+                    
+                    // Clear any contract closure state
+                    purchase.isWaitingForContractClosure = false;
+                    purchase.contractClosurePromise = null;
+                    purchase.lastContractId = null;
+                    
+                    console.log('✅ Martingale state reset to base configuration');
+                } catch (error) {
+                    console.warn('Warning: Error resetting martingale state:', error);
+                }
+            }
+            
+            // Reset panel state without affecting workspace
             this.setContractStage(contract_stages.NOT_RUNNING);
+            this.error_type = undefined;
+            this.is_sell_requested = false;
+            this.run_id = '';
 
-            console.log('✅ Trade statistics cleared - Bot builder workspace preserved with current settings');
+            // Emit statistics clear event for other components
+            try {
+                observer.emit('statistics.clear');
+            } catch (error) {
+                console.warn('Warning: Error emitting statistics clear event:', error);
+            }
+
+            console.log('🎯 RESET COMPLETE: All trade statistics cleared, bot builder workspace preserved intact');
+            console.log('📋 Bot remains loaded with all blocks, variables, and settings ready for next run');
             
         } catch (error) {
-            console.warn('Error during clearStat:', error);
-            // Ensure we at least set the basic state
-            this.setIsRunning(false);
-            this.setHasOpenContract(false);
-            this.setContractStage(contract_stages.NOT_RUNNING);
+            console.error('❌ Error during clearStat operation:', error);
+            
+            // Ensure we at least set the basic state even if other operations fail
+            try {
+                this.setIsRunning(false);
+                this.setHasOpenContract(false);
+                this.setContractStage(contract_stages.NOT_RUNNING);
+            } catch (stateError) {
+                console.error('❌ Critical error setting basic state:', stateError);
+            }
         }
     };
 
@@ -684,7 +723,13 @@ export default class RunPanelStore {
     };
 
     clear = () => {
-        observer.emit('statistics.clear');
+        // Only emit statistics clear event, DO NOT dispose workspace
+        try {
+            observer.emit('statistics.clear');
+            console.log('📊 Statistics clear event emitted');
+        } catch (error) {
+            console.warn('Warning: Error emitting statistics clear:', error);
+        }
     };
 
     onBotContractEvent = (data: { is_sold?: boolean }) => {
