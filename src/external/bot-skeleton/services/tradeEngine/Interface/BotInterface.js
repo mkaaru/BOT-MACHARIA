@@ -44,6 +44,50 @@ const getBotInterface = tradeEngine => {
         readDetails: i => getDetail(i - 1),
         getTotalRuns: () => tradeEngine.totalRuns,
         shouldContinueTrading: () => tradeEngine.shouldContinueTrading?.() || true,
+        
+        // Auto-trading functionality
+        executeAutoTrade: async () => {
+            try {
+                // Import market analyzer dynamically
+                const { default: marketAnalyzer } = await import('../../../../../../../services/market-analyzer');
+                
+                if (!marketAnalyzer.isReadyForTrading()) {
+                    console.log('⏳ Market analyzer not ready, starting...');
+                    marketAnalyzer.start();
+                    await marketAnalyzer.waitForAnalysisReady();
+                }
+                
+                const recommendation = await marketAnalyzer.getLatestRecommendation();
+                
+                if (recommendation && tradeEngine.canMakeNextPurchase()) {
+                    console.log('🎯 Auto-trade recommendation:', recommendation);
+                    
+                    // Determine contract type based on recommendation
+                    let contractType;
+                    if (recommendation.strategy === 'over') {
+                        contractType = 'DIGITOVER';
+                    } else if (recommendation.strategy === 'under') {
+                        contractType = 'DIGITUNDER';
+                    }
+                    
+                    if (contractType) {
+                        console.log('🚀 Executing auto-trade:', contractType, 'on', recommendation.symbol);
+                        return tradeEngine.purchase(contractType);
+                    }
+                }
+                
+                console.log('⏳ No valid trading signal available');
+                return Promise.resolve();
+            } catch (error) {
+                console.error('❌ Auto-trade execution error:', error);
+                return Promise.resolve();
+            }
+        },
+        
+        canMakeNextPurchase: () => {
+            const state = tradeEngine.store.getState();
+            return state.scope === 'BEFORE_PURCHASE' && !tradeEngine.isWaitingForContractClose;
+        },
     };
 };
 

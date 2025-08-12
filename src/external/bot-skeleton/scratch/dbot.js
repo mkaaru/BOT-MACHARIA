@@ -337,6 +337,19 @@ class DBot {
                     sleep(1);
                     continue;
                 }
+                
+                // Auto-trading logic
+                if (Bot.canMakeNextPurchase && Bot.canMakeNextPurchase()) {
+                    try {
+                        // Execute auto-trade if available
+                        if (Bot.executeAutoTrade) {
+                            Bot.executeAutoTrade();
+                        }
+                    } catch (error) {
+                        console.error('Auto-trade error:', error);
+                    }
+                }
+                
                 // Enhanced sequential purchase execution
                 if (!Bot.canMakeNextPurchase()) {
                     console.log('⏳ SEQUENTIAL: Waiting for previous trade to complete...');

@@ -624,6 +624,10 @@ export default class RunPanelStore {
 
     onBotRunningEvent = () => {
         this.setHasOpenContract(true);
+        
+        console.log('🚀 BOT RUNNING EVENT - Bot is now active and looking for trading opportunities');
+        console.log('📊 Current contract stage:', this.contract_stage);
+        console.log('💰 Has open contract:', this.has_open_contract);
 
         // prevent new version update
         const ignore_new_version = new Event('IgnorePWAUpdate');
