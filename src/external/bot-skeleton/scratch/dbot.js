@@ -365,24 +365,45 @@ class DBot {
 
         api_base.setIsRunning(false);
 
-        // Mark workspace as being reset to prevent disposal errors
-        if (window.Blockly?.derivWorkspace) {
-            window.Blockly.derivWorkspace.isInReset = true;
-        }
-
-        await this.interpreter.stop();
-        this.is_bot_running = false;
-        this.interpreter = null;
-        this.interpreter = Interpreter();
-        await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
-        forgetAccumulatorsProposalRequest(this);
-
-        // Clear reset flag after a brief delay
-        setTimeout(() => {
+        try {
+            // Mark workspace as being reset to prevent disposal errors
             if (window.Blockly?.derivWorkspace) {
-                window.Blockly.derivWorkspace.isInReset = false;
+                window.Blockly.derivWorkspace.isInReset = true;
             }
-        }, 500);
+
+            // Preserve martingale state before stopping
+            let martingaleState = null;
+            if (this.interpreter?.bot?.tradeEngine?.purchase?.martingaleState) {
+                martingaleState = { ...this.interpreter.bot.tradeEngine.purchase.martingaleState };
+            }
+
+            await this.interpreter.stop();
+            this.is_bot_running = false;
+            
+            // Reinitialize interpreter
+            this.interpreter = null;
+            this.interpreter = Interpreter();
+            
+            // Restore martingale state if it existed
+            if (martingaleState && this.interpreter?.bot?.tradeEngine?.purchase) {
+                this.interpreter.bot.tradeEngine.purchase.martingaleState = martingaleState;
+            }
+            
+            await this.interpreter.bot.tradeEngine.watchTicks(this.symbol);
+            forgetAccumulatorsProposalRequest(this);
+
+            console.log('✅ Bot stopped successfully with preserved settings');
+
+        } catch (error) {
+            console.warn('Error during bot stop:', error);
+        } finally {
+            // Clear reset flag after operations complete
+            setTimeout(() => {
+                if (window.Blockly?.derivWorkspace) {
+                    window.Blockly.derivWorkspace.isInReset = false;
+                }
+            }, 500);
+        }
     }
 
     /**

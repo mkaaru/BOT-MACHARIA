@@ -309,23 +309,28 @@ export default class RunPanelStore {
         const { summary_card, journal, transactions } = this.root_store;
 
         try {
-            // Save the current workspace before clearing to prevent fallback loading
-            const workspace = window.Blockly?.derivWorkspace;
-            let savedWorkspaceXml = null;
-            
-            if (workspace) {
-                try {
-                    savedWorkspaceXml = window.Blockly.Xml.workspaceToDom(workspace);
-                } catch (error) {
-                    console.warn('Error saving workspace before reset:', error);
-                }
+            // Prevent workspace disposal during reset
+            if (window.Blockly?.derivWorkspace) {
+                window.Blockly.derivWorkspace.isInReset = true;
             }
 
+            // Stop any running operations first
             this.setIsRunning(false);
             this.setHasOpenContract(false);
+            
+            // Reset martingale state in the trading engine
+            if (this.dbot.interpreter?.bot?.tradeEngine?.purchase) {
+                try {
+                    this.dbot.interpreter.bot.tradeEngine.purchase.resetMartingale();
+                } catch (error) {
+                    console.warn('Error resetting martingale:', error);
+                }
+            }
+            
+            // Clear stores without disposing workspace
             this.clear();
             
-            // Safely clear stores with error handling
+            // Safely clear other stores
             try {
                 journal.clear();
             } catch (error) {
@@ -346,29 +351,26 @@ export default class RunPanelStore {
             
             this.setContractStage(contract_stages.NOT_RUNNING);
 
-            // Restore the workspace to prevent fallback loading and flickering
-            if (savedWorkspaceXml && workspace) {
-                try {
-                    // Small delay to ensure UI state is stable
-                    setTimeout(() => {
-                        try {
-                            workspace.clear();
-                            window.Blockly.Xml.domToWorkspace(savedWorkspaceXml, workspace);
-                            console.log('Workspace restored after reset');
-                        } catch (error) {
-                            console.warn('Error restoring workspace after reset:', error);
-                        }
-                    }, 100);
-                } catch (error) {
-                    console.warn('Error scheduling workspace restoration:', error);
+            // Clear reset flag after operations complete
+            setTimeout(() => {
+                if (window.Blockly?.derivWorkspace) {
+                    window.Blockly.derivWorkspace.isInReset = false;
                 }
-            }
+            }, 500);
+
+            console.log('✅ Statistics cleared successfully - ready for next run');
+            
         } catch (error) {
             console.warn('Error during clearStat:', error);
-            // Ensure we at least set the basic state even if clearing fails
+            // Ensure we at least set the basic state
             this.setIsRunning(false);
             this.setHasOpenContract(false);
             this.setContractStage(contract_stages.NOT_RUNNING);
+            
+            // Still clear the reset flag
+            if (window.Blockly?.derivWorkspace) {
+                window.Blockly.derivWorkspace.isInReset = false;
+            }
         }
     };
 
