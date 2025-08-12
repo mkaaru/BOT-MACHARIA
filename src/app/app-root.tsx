@@ -13,7 +13,7 @@ import './app-root.scss';
 const AppContent = lazy(() => import('./app-content'));
 
 const AppRootLoader = () => {
-    return <SplashScreen />;
+    return <ChunkLoader />;
 };
 
 const ErrorComponentWrapper = observer(() => {
@@ -42,10 +42,15 @@ const AppRoot = () => {
 
     useEffect(() => {
         const initializeApi = async () => {
-            if (!api_base_initialized.current) {
-                await api_base.init();
-                api_base_initialized.current = true;
-                setIsApiInitialized(true);
+            try {
+                if (!api_base_initialized.current) {
+                    await api_base.init();
+                    api_base_initialized.current = true;
+                    setIsApiInitialized(true);
+                }
+            } catch (error) {
+                console.error('API initialization failed:', error);
+                setIsApiInitialized(true); // Still set to true to allow app to load
             }
         };
 

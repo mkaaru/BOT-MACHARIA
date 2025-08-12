@@ -132,6 +132,9 @@ const AppContent = observer(() => {
         const { active_symbols } = ApiHelpers.instance;
         active_symbols.retrieveActiveSymbols(true).then(() => {
             setIsLoading(false);
+        }).catch((error) => {
+            console.error('Failed to load active symbols:', error);
+            setIsLoading(false); // Still set loading to false to show the app
         });
     };
 
@@ -164,16 +167,19 @@ const AppContent = observer(() => {
      React.useEffect(() => {
         const timeout = setTimeout(() => {
             setForceShowApp(true);
-        }, 5000); // Show app after 5 seconds regardless
+        }, 8000); // Show app after 8 seconds regardless
 
         return () => clearTimeout(timeout);
     }, []);
 
     if (common?.error) return null;
 
-    return is_loading && !forceShowApp ? (
-        <SplashScreen />
-    ) : (
+    // Only show splash screen during initial loading
+    if (is_loading && !forceShowApp && !client.is_logged_in) {
+        return <SplashScreen onComplete={() => setForceShowApp(true)} />;
+    }
+
+    return (
         <>
             <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
                 <BlocklyLoading />
