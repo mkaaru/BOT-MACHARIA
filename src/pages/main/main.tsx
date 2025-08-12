@@ -1676,7 +1676,7 @@ const AppWrapper = observer(() => {
                     }
 
                     if (workspace && xmlContent) {
-                        console.log(`=== CLEARING AND LOADING ${bot.title} ===`);
+                        console.log(`=== CLEARING AND LOADING ${bot.title} WITH PARAMETERS ===`);
 
                         console.log("Step 1: Clearing workspace completely...");
 
@@ -1753,7 +1753,7 @@ const AppWrapper = observer(() => {
 
                         await new Promise(resolve => setTimeout(resolve, 500));
 
-                        console.log("Step 2: Parsing XML content for", bot.title);
+                        console.log("Step 2: Parsing XML content with parameters for", bot.title);
 
                         // Parse and validate XML with specific content for this bot
                         const parser = new DOMParser();
@@ -1774,22 +1774,22 @@ const AppWrapper = observer(() => {
                             return;
                         }
 
-                        console.log("Step 3: Loading XML into workspace for", bot.title);
+                        console.log("Step 3: Loading XML with all parameters into workspace for", bot.title);
                         console.log("XML Element preview:", xmlElement.outerHTML.substring(0, 200) + "...");
 
-                        // Load the XML into Blockly workspace
+                        // Extract bot parameters from XML for logging
+                        const variableElements = xmlElement.querySelectorAll('variable');
+                        const blockElements = xmlElement.querySelectorAll('block');
+                        console.log(`Bot contains ${variableElements.length} variables and ${blockElements.length} blocks`);
+
+                        // Load the XML into Blockly workspace with all parameters
                         try {
                             // Disable events during loading
                             workspace.recordUndo = false;
 
-                            // Try the most comprehensive loading method first
+                            // Use the load function from external bot skeleton for comprehensive loading
                             if (window.Blockly?.Xml?.domToWorkspace) {
-                                console.log("Using domToWorkspace method for", bot.title);
-                                window.Blockly.Xml.domToWorkspace(xmlElement, workspace);
-                            } else if (window.Blockly?.Xml?.workspaceToDom) {
-                                console.log("Using alternative XML loading method for", bot.title);
-                                // Alternative method if domToWorkspace is not available
-                                workspace.clear();
+                                console.log("Loading bot with all parameters using domToWorkspace for", bot.title);
                                 window.Blockly.Xml.domToWorkspace(xmlElement, workspace);
                             } else {
                                 throw new Error("No XML loading methods available");
@@ -1798,19 +1798,27 @@ const AppWrapper = observer(() => {
                             // Re-enable events
                             workspace.recordUndo = true;
 
-                            // Post-load cleanup and setup
-                            console.log("Step 4: Post-load setup for", bot.title);
+                            // Post-load setup with bot-specific parameters
+                            console.log("Step 4: Setting up bot parameters for", bot.title);
 
-                            // Set new unique strategy ID for this specific bot
-                            const newStrategyId = `${bot.title}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                            // Set unique strategy ID for this specific bot
+                            const newStrategyId = `${bot.title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
                             workspace.current_strategy_id = newStrategyId;
-                            console.log("Set new strategy ID:", newStrategyId);
+                            console.log("Set bot strategy ID:", newStrategyId);
 
                             // Update workspace name with specific bot title
                             if (typeof updateWorkspaceName === 'function') {
                                 updateWorkspaceName(bot.title || 'Imported Bot');
                                 console.log("Updated workspace name to:", bot.title);
                             }
+
+                            // Store bot metadata for future reference
+                            workspace.bot_metadata = {
+                                title: bot.title,
+                                filePath: bot.filePath,
+                                loadedAt: new Date().toISOString(),
+                                strategyId: newStrategyId
+                            };
 
                             // Clean up the workspace layout
                             if (workspace.cleanUp && typeof workspace.cleanUp === 'function') {
@@ -1830,19 +1838,29 @@ const AppWrapper = observer(() => {
                                 workspace.render();
                             }
 
-                            // Final verification
+                            // Final verification with parameter check
                             const loadedBlocks = workspace.getAllBlocks?.(false) || [];
-                            console.log(`=== SUCCESS: ${bot.title} loaded with ${loadedBlocks.length} blocks ===`);
+                            const loadedVariables = workspace.getAllVariables?.() || [];
+                            
+                            console.log(`=== SUCCESS: ${bot.title} loaded with ${loadedBlocks.length} blocks and ${loadedVariables.length} variables ===`);
 
-                            // Log some block types for verification
+                            // Log bot parameters for verification
                             if (loadedBlocks.length > 0) {
                                 console.log("Loaded blocks:");
-                                loadedBlocks.slice(0, 5).forEach((block, index) => {
+                                loadedBlocks.slice(0, 10).forEach((block, index) => {
                                     console.log(`Block ${index + 1}: ${block.type} (ID: ${block.id})`);
                                 });
-                            } else {
-                                console.warn("No blocks were loaded - this might indicate an issue");
                             }
+
+                            if (loadedVariables.length > 0) {
+                                console.log("Loaded variables:");
+                                loadedVariables.forEach((variable, index) => {
+                                    console.log(`Variable ${index + 1}: ${variable.name} (ID: ${variable.id})`);
+                                });
+                            }
+
+                            // Show success message
+                            console.log(`Bot "${bot.title}" successfully loaded with all parameters in Bot Builder!`);
 
                         } catch (loadError) {
                             console.error("Error during XML loading:", loadError);

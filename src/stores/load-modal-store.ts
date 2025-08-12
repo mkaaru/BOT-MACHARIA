@@ -553,4 +553,43 @@ export default class LoadModalStore {
             });
         }
     };
+
+    loadFileFromContent = async (xmlContent: string, fileName: string) => {
+        try {
+            console.log(`Loading ${fileName} from content directly into Bot Builder`);
+            this.is_open_button_loading = true;
+            
+            const workspace = window.Blockly?.derivWorkspace;
+            if (!workspace) {
+                throw new Error('Workspace not available');
+            }
+
+            // Clear workspace first
+            workspace.clear();
+            
+            // Load the XML content directly
+            await load({
+                block_string: xmlContent,
+                file_name: fileName,
+                workspace: workspace,
+                from: save_types.LOCAL,
+                drop_event: {},
+                strategy_id: `${fileName}_${Date.now()}`,
+                showIncompatibleStrategyDialog: false,
+            });
+
+            // Update workspace metadata
+            workspace.strategy_to_load = xmlContent;
+            workspace.current_strategy_id = `${fileName}_${Date.now()}`;
+
+            console.log(`Successfully loaded ${fileName} into Bot Builder`);
+            this.is_open_button_loading = false;
+            
+            return true;
+        } catch (error) {
+            console.error(`Failed to load ${fileName}:`, error);
+            this.is_open_button_loading = false;
+            throw error;
+        }
+    };
 }
