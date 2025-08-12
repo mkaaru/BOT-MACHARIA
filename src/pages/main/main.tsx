@@ -66,7 +66,7 @@ const SignalsIcon = () => (
 );
 
 const TradingHubIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="var(--text-general)" width="24px" height="24px" viewBox="0 0 24 24"><path d="M21.49 13.926l-3.273 2.48c.054-.663.116-1.435.143-2.275.04-.89.023-1.854-.043-2.835-.043-.487-.097-.98-.184-1.467-.077-.485-.196-.982-.31-1.39-.238-.862-.535-1.68-.9-2.35-.352-.673-.786-1.173-1.12-1.462-.172-.144-.31-.248-.414-.306l-.153-.093c-.083-.05-.187-.056-.275-.003-.13.08-.175.252-.1.388l.01.02s.11.198.258.54c.07.176.155.38.223.63.08.24.14.528.206.838.063.313.114.66.17 1.03l.15 1.188c.055.44.106.826.13 1.246.03.416.033.85.026 1.285.004.872-.063 1.76-.115 2.602-.062.853-.12 1.65-.172 2.335 0 .04-.004.073-.005.11l-.115-.118-2.996-3.028-1.6.454 5.566 6.66 6.394-5.803-1.503-.677z"/><path d="M2.503 9.48L5.775 7c-.054.664-.116 1.435-.143 2.276-.04.89-.023 1.855.043 2.835.043.49.097.98.184 1.47.076.484.195.98.31 1.388.237.862.534 1.68.9 2.35.35.674.785 1.174 1.12 1.463.17.145.31.25.413.307.1.06.152.093.152.093.083.05.187.055.275.003.13-.08.175-.252.1-.388l-.01-.02s-.11-.2-.258-.54c-.07-.177-.155-.38-.223-.63-.082-.242-.14-.528-.207-.84-.064-.312-.115-.658-.172-1.19-.053-.44-.104-.825-.128-1.246-.03-.415-.033-.85-.026-1.285-.004-.872.063-1.76.115-2.603.064-.853.122-1.65.174-2.334 0-.04.004-.074.005-.11l.114.118 2.996 3.027 1.6-.454L7.394 3 1 8.804l1.503.678z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="var(--text-general)" width="24px" height="24px" viewBox="0 0 24 24"><path d="M21.49 13.926l-3.273 2.48c.054-.663.116-1.435.143-2.275.04-.89.023-1.854-.043-2.835-.043-.487-.097-.98-.184-1.467-.077-.485-.196-.982-.31-1.39-.238-.862-.535-1.68-.9-2.35-.352-.673-.786-1.173-1.12-1.462-.172-.144-.31-.248-.414-.306l-.153-.093c-.083-.05-.187-.056-.275-.003-.13.08-.175.252-.1.388l.01.02s.11.198.258.54c.07.176.155.38.223.63.08.24.14.528.206.838.063.313.114.66.17 1.03l.15 1.188c.055.44.106.826.13 1.246.03.416.033.85.026 1.285.004.872-.063 1.76-.115 2.602-.062.853-.12 1.65-.172 2.335 0 .04-.004.073-.005.11l-.115-.118-2.996-3.028-1.6.454 5.566 6.66 6.394-5.803-1.503-.677z"/><path d="M2.503 9.48L5.775 7c-.054.664-.116 1.435-.143 2.276-.04.89-.023 1.855.043 2.835.043.49.097.98.184 1.47.076.484.195.98.31 1.388.237.862.534 1.68.9 2.35.35.674.785 1.174 1.12 1.463.17.145.31.25.413.307.1.06.152.093.152.093.083.05.187.055.275.003.13-.08.175-.252.1-.388l-.01-.02s-.11-.2-.258-.54c-.07-.177-.155-.38-.223-.63-.082-.242-.14-.528-.207-.84-.064-.312-.115-.658-.172-1.027-.046-.378-.096-.777-.15-1.19-.053-.44-.104-.825-.128-1.246-.03-.415-.033-.85-.026-1.285-.004-.872.063-1.76.115-2.603.064-.853.122-1.65.174-2.334 0-.04.004-.074.005-.11l.114.118 2.996 3.027 1.6-.454L7.394 3 1 8.804l1.503.678z"/></svg>
 );
 
 const FreeBotsIcon = () => (
@@ -81,7 +81,7 @@ const BotIcon = () => (
 
 // Import actual components
 import VolatilityAnalyzer from '@/components/volatility-analyzer/volatility-analyzer';
-// Removed SpeedBot import
+import SpeedBot from '@/components/speed-bot/speed-bot';
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -131,6 +131,7 @@ const AppWrapper = observer(() => {
     const [savedScripts, setSavedScripts] = useState([]);
     const [isExecuting, setIsExecuting] = useState(false);
     // Add new state for analysis tool URL
+    const [tradeInterval, setTradeInterval] = useState<NodeJS.Timeout | null>(null);
 
 
     // Add function to check if analysis tool is active
@@ -151,18 +152,17 @@ const AppWrapper = observer(() => {
         // Fetch the XML files and parse them
         const fetchBots = async () => {
             const botFiles = [
-                // Pushed to the front
-                'Super Elite.xml',
-                'Maziwa Tele Under Bot.xml',
-                'Upgraded CandleMine.xml',
-                // Original order or rearranged
+                'Upgraded Candlemine.xml',
                 'Envy-differ.xml',
                 'H_L auto vault.xml',
                 'Top-notch 2.xml',
+                // New bots added
                 '2_2025_Updated_Expert_Speed_Bot_Version_📉📉📉📈📈📈_1_1.xml',
                 '3 2025 Updated Version Of Candle Mine🇬🇧.xml',
                 'Accumulators Pro Bot.xml',
                 'Super Speed Bot.xml',
+                // Additional new bots
+                'Super Elite.xml',
                 'AUTO C4 PRO (2) Version.xml',
                 '2025 Killer version Bot🤑.xml',
                 'Alpha Version 2025.xml',
@@ -839,6 +839,36 @@ const AppWrapper = observer(() => {
       pnl: '---',
       type: 'system'
     }])
+    // Clear existing interval
+    if (tradeInterval) {
+        clearInterval(tradeInterval);
+    }
+
+    // Determine the interval based on selected volatility
+    let intervalMs = 0;
+    if (selectedIndex === 'R_10') {
+        intervalMs = 5000; // 5 seconds
+    } else if (selectedIndex === 'R_25') {
+        intervalMs = 4000; // 4 seconds
+    }else if (selectedIndex === 'R_50') {
+        intervalMs = 3000; // 3 seconds
+    } else if (selectedIndex === 'R_75') {
+        intervalMs = 2000; // 2 seconds
+    } else if (selectedIndex === 'R_100') {
+        intervalMs = 1000; // 1 second
+    } else {
+        intervalMs = 1000; // Default to 1 second
+    }
+
+    // Set up interval trading if an interval is defined
+    if (intervalMs > 0) {
+        const intervalId = setInterval(() => {
+            if (currentTick) {
+                executeTradeDecision(currentTick);
+            }
+        }, intervalMs);
+        setTradeInterval(intervalId);
+    }
   }
 
   const stopTrading = () => {
@@ -851,6 +881,11 @@ const AppWrapper = observer(() => {
       pnl: '---',
       type: 'system'
     }])
+    // Clear any existing interval when stopping
+    if (tradeInterval) {
+        clearInterval(tradeInterval);
+        setTradeInterval(null);
+    }
   }
 
     const executePythonCode = useCallback(async () => {
@@ -1142,10 +1177,6 @@ if __name__ == "__main__":
     }, []);
 
     useEffect(() => {
-      if (active_tab === 'auto-trades') {
-        // Auto trades specific logic can go here
-      }
-
       // Cleanup WebSocket connection on unmount
       return () => {
         if (websocket) {
@@ -1153,8 +1184,12 @@ if __name__ == "__main__":
           setWebsocket(null)
           setIsConnected(false)
         }
+          if (tradeInterval) {
+              clearInterval(tradeInterval);
+              setTradeInterval(null);
+          }
       }
-    }, [active_tab])
+    }, [])
 
     // Reconnect when volatility changes
     useEffect(() => {
@@ -1223,58 +1258,6 @@ if __name__ == "__main__":
             <div className='main'>
                 <div className='main__container main-content'>
                     <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
-                        <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
-
-<div className='free-bots-container'>
-                            <Tabs active_index={0} className='free-bots-tabs' top>
-                                <div label={<Localize i18n_default_text='Free Bots' />} id='id-free-bots-list'>
-                                    <div className='free-bots'>
-                                        <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
-                                        <div className='free-bots__content-wrapper'>
-                                            <div className='free-bots__content'>
-                                                {bots.map((bot, index) => (
-                                                    <div
-                                                        className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
-                                                        key={index}
-                                                        onClick={() => {
-                                                            handleBotClick(bot);
-                                                        }}
-                                                        style={{
-                                                            cursor: 'pointer',
-                                                            opacity: bot.isPlaceholder ? 0.7 : 1
-                                                        }}
-                                                    >
-                                                        <div className='free-bot-card__icon'>
-                                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="#1976D2">
-                                                                <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
-                                                                <rect x="6" y="10" width="12" height="8" rx="2" fill="#1976D2"/>
-                                                                <circle cx="9" cy="13" r="1.5" fill="white"/>
-                                                                <circle cx="15" cy="13" r="1.5" fill="white"/>
-                                                                <rect x="10" y="15" width="4" height="1" rx="0.5" fill="white"/>
-                                                                <rect x="4" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
-                                                                <rect x="18" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
-                                                            </svg>
-                                                        </div>
-                                                        <div className='free-bot-card__details'>
-                                                            <h3 className='free-bot-card__title'>{bot.title}</h3>
-                                                            <p className='free-bot-card__description'>{bot.description}</p>
-                                                            <p className='free-bot-card__action'>
-                                                                {bot.isPlaceholder ? 'Loading bot...' : 'Click to load this bot'}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div label={<Localize i18n_default_text='Smart Trading' />} id='id-smart-trading'>
-                                    <VolatilityAnalyzer />
-                                </div>
-                            </Tabs>
-                        </div>
-
-                        </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
                         <div label={<><SignalsIcon /><Localize i18n_default_text='Signal Scanner' /></>} id='id-signals'>
                             <div className={classNames('dashboard__chart-wrapper', {
@@ -1340,6 +1323,61 @@ if __name__ == "__main__":
                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
                             <Dashboard handleTabChange={handleTabChange} />
                             <button onClick={handleOpen}>Load Bot</button>
+                        </div>
+                                                <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
+
+<div className='free-bots-container'>
+                            <Tabs active_index={0} className='free-bots-tabs' top>
+                                <div label={<Localize i18n_default_text='Free Bots' />} id='id-free-bots-list'>
+                                    <div className='free-bots'>
+                                        <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
+                                        <div className='free-bots__content-wrapper'>
+                                            <div className='free-bots__content'>
+                                                {bots.map((bot, index) => (
+                                                    <div
+                                                        className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
+                                                        key={index}
+                                                        onClick={() => {
+                                                            handleBotClick(bot);
+                                                        }}
+                                                        style={{
+                                                            cursor: 'pointer',
+                                                            opacity: bot.isPlaceholder ? 0.7 : 1
+                                                        }}
+                                                    >
+                                                        <div className='free-bot-card__icon'>
+                                                                                           <svg width="48" height="48" viewBox="0 0 24 24" fill="#1976D2">
+                                                                <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
+                                                                <rect x="6" y="10" width="12" height="8" rx="2" fill="#1976D2"/>
+                                                                <circle cx="9" cy="13" r="1.5" fill="white"/>
+                                                                <circle cx="15" cy="13" r="1.5" fill="white"/>
+                                                                <rect x="10" y="15" width="4" height="1" rx="0.5" fill="white"/>
+                                                                <rect x="4" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
+                                                                <rect x="18" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
+                                                            </svg>
+                                                        </div>
+                                                        <div className='free-bot-card__details'>
+                                                            <h3 className='free-bot-card__title'>{bot.title}</h3>
+                                                            <p className='free-bot-card__description'>{bot.description}</p>
+                                                            <p className='free-bot-card__action'>
+                                                                {bot.isPlaceholder ? 'Loading bot...' : 'Click to load this bot'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div label={<Localize i18n_default_text='Smart Trading' />} id='id-smart-trading'>
+                                    <VolatilityAnalyzer />
+                                </div>
+                                <div label={<Localize i18n_default_text='Speed Bot' />} id='id-speed-bot'>
+                                    <SpeedBot />
+                                </div>
+                            </Tabs>
+                        </div>
+
                         </div>
                     </Tabs>
                 </div>
