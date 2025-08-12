@@ -172,7 +172,7 @@ const AppContent = observer(() => {
     if (common?.error) return null;
 
     return is_loading && !forceShowApp ? (
-        <MatrixLoading message={localize('Initializing your account...')} show={true} />
+        <SplashScreen />
     ) : (
         <>
             <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
