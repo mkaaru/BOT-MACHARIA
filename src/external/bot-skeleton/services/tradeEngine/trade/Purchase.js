@@ -49,6 +49,28 @@ export default Engine =>
 
             // Configure martingale from bot parameters
             this.configureMartingaleFromBot();
+
+            // Listen for contract completion events from the bot's observer system
+            if (typeof observer !== 'undefined') {
+                observer.register('bot.contract', this.handleBotContractEvent.bind(this));
+            }
+        }
+
+        // Handle bot contract events to catch contract completion
+        handleBotContractEvent(contract_data) {
+            if (contract_data && contract_data.is_sold && contract_data.profit !== undefined) {
+                console.log(`🎯 BOT CONTRACT EVENT: Contract sold with profit ${contract_data.profit} USD`);
+                
+                // Apply martingale logic based on the closed contract
+                this.applyMartingaleLogicImmediate(parseFloat(contract_data.profit));
+                
+                // Update total profit tracking
+                this.martingaleState.lastTradeProfit = parseFloat(contract_data.profit);
+                this.martingaleState.totalProfit = (this.martingaleState.totalProfit || 0) + parseFloat(contract_data.profit);
+                
+                console.log(`💰 UPDATED TOTALS: P&L: ${contract_data.profit} USD | Total P&L: ${this.martingaleState.totalProfit.toFixed(2)} USD`);
+                console.log(`📊 MARTINGALE STATE: Consecutive losses: ${this.martingaleState.consecutiveLosses}, Next stake: ${this.tradeOptions.amount} USD`);
+            }
         }
 
         // Configure martingale parameters from bot builder settings
@@ -270,7 +292,7 @@ export default Engine =>
                 this.forgetProposals();
             }
 
-            // Apply martingale logic before purchase
+            // Apply martingale logic before purchase (based on previous closed trade results)
             this.applyMartingaleLogic();
 
             return new Promise((resolve) => {
@@ -489,10 +511,19 @@ export default Engine =>
 
         resetMartingale() {
             this.martingaleState.consecutiveLosses = 0;
+            this.martingaleState.totalProfit = 0;
+            this.martingaleState.lastTradeProfit = null;
+            this.martingaleState.currentPurchasePrice = 0;
+            
             if (this.martingaleState.baseAmount) {
                 this.tradeOptions.amount = this.martingaleState.baseAmount;
             }
-            console.log(`🔄 MARTINGALE RESET: Back to base amount ${this.tradeOptions.amount} USD`);
+            
+            // Clear any pending contract closure state
+            this.clearContractClosureState();
+            
+            console.log(`🔄 MARTINGALE RESET: Complete reset - Back to base amount ${this.tradeOptions.amount} USD`);
+            console.log(`🔄 All martingale statistics cleared`);
         }
 
         // Method to update profit after trade result
@@ -500,14 +531,10 @@ export default Engine =>
             this.martingaleState.lastTradeProfit = profit;
             this.martingaleState.totalProfit = (this.martingaleState.totalProfit || 0) + profit;
 
-            // Apply martingale logic immediately after trade result
-            this.applyMartingaleLogicImmediate(profit);
-
             // Update engine configuration
             setTimeout(() => {
                 this.configureMartingaleFromBot();
             }, 100);
-
 
             // Clear the waiting flags
             this.isWaitingForContractClosure = false;
@@ -671,8 +698,11 @@ export default Engine =>
                             }
 
                             const contract = response.proposal_open_contract;
-                            if (contract && contract.status === 'closed') {
+                            if (contract && contract.is_sold && contract.status === 'sold') {
                                 console.log(`✅ CONTRACT CLOSED: ID ${contractId}, Final profit: ${contract.profit} USD`);
+
+                                // Apply martingale logic AFTER contract is closed with final profit
+                                this.applyMartingaleLogicImmediate(parseFloat(contract.profit));
 
                                 // Update trade result with final profit
                                 this.updateTradeResult(contract.profit);
@@ -680,8 +710,10 @@ export default Engine =>
                                 clearInterval(intervalId);
                                 this.clearContractClosureState();
                                 resolve();
+                            } else if (contract && contract.status === 'open') {
+                                console.log(`🔍 Contract ${contractId} still open, profit: ${contract.profit || 'N/A'} USD`);
                             } else {
-                                console.log(`🔍 Checking contract status: ${contractId} still ${contract ? contract.status : 'not found'}`);
+                                console.log(`🔍 Checking contract status: ${contractId} - ${contract ? contract.status : 'not found'}`);
                             }
                         })
                         .catch(error => {
@@ -690,7 +722,7 @@ export default Engine =>
                             this.clearContractClosureState();
                             resolve();
                         });
-                }, 3000); // Poll every 3 seconds - adjust as necessary
+                }, 2000); // Poll every 2 seconds for faster response
             });
         }
 

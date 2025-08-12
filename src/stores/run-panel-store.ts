@@ -768,13 +768,6 @@ export default class RunPanelStore {
         const { journal, summary_card, transactions } = this.root_store;
 
         try {
-            // Prevent workspace disposal during reset operations
-            const workspace = window.Blockly?.derivWorkspace;
-            if (workspace && workspace.isInReset) {
-                console.log('Skipping unmount during reset operation');
-                return;
-            }
-
             if (!this.is_running) {
                 this.unregisterBotListeners();
                 
@@ -786,19 +779,25 @@ export default class RunPanelStore {
                 }
                 
                 try {
-                    journal.disposeReactionsFn();
+                    if (journal.disposeReactionsFn) {
+                        journal.disposeReactionsFn();
+                    }
                 } catch (error) {
                     console.warn('Error disposing journal reactions:', error);
                 }
                 
                 try {
-                    summary_card.disposeReactionsFn();
+                    if (summary_card.disposeReactionsFn) {
+                        summary_card.disposeReactionsFn();
+                    }
                 } catch (error) {
                     console.warn('Error disposing summary card reactions:', error);
                 }
                 
                 try {
-                    transactions.disposeReactionsFn();
+                    if (transactions.disposeReactionsFn) {
+                        transactions.disposeReactionsFn();
+                    }
                 } catch (error) {
                     console.warn('Error disposing transactions reactions:', error);
                 }
