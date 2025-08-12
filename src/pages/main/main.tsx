@@ -2835,7 +2835,7 @@ if __name__ == "__main__":
                         </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder'>
                             <Suspense fallback={<ChunkLoader message={localize('Please wait, loading bot builder...')} />}>
-                                <BotBuilder />
+                                <BotBuilder key={`bot-builder-${active_tab}`} />
                             </Suspense>
                         </div>
                         <div label={<><BotIcon /><Localize i18n_default_text='Smart Trading' /></>} id='id-smart-trading'>

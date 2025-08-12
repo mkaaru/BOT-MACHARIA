@@ -21,6 +21,7 @@ const BotBuilder = observer(() => {
     const { is_loading } = blockly_store;
     const is_blockly_listener_registered = React.useRef(false);
     const is_blockly_delete_listener_registered = React.useRef(false);
+    const is_mounted = React.useRef(false);
     const { isDesktop } = useDevice();
     const { onMount, onUnmount } = app;
     const el_ref = React.useRef<HTMLInputElement | null>(null);
@@ -31,8 +32,17 @@ const BotBuilder = observer(() => {
     let deleted_block_id: null | string = null;
 
     React.useEffect(() => {
-        onMount();
-        return () => onUnmount();
+        if (!is_mounted.current) {
+            is_mounted.current = true;
+            onMount();
+        }
+        
+        return () => {
+            if (is_mounted.current) {
+                is_mounted.current = false;
+                onUnmount();
+            }
+        };
     }, [onMount, onUnmount]);
 
     React.useEffect(() => {
@@ -105,24 +115,28 @@ const BotBuilder = observer(() => {
         });
     };
 
+    // Only render if component is properly mounted
+    if (!is_mounted.current) return null;
+
     return (
         <>
             <div
+                key="bot-builder-main"
                 className={classNames('bot-builder', {
                     'bot-builder--active': active_tab === 1 && !is_preview_on_popup,
                     'bot-builder--inactive': is_preview_on_popup,
                     'bot-builder--tour-active': active_tour,
                 })}
             >
-                <div id='scratch_div' ref={el_ref}>
-                    <WorkspaceWrapper />
+                <div id='scratch_div' ref={el_ref} key="scratch-workspace">
+                    <WorkspaceWrapper key="workspace-wrapper" />
                 </div>
             </div>
-            {active_tab === 1 && <BotBuilderTourHandler is_mobile={!isDesktop} />}
-            {/* removed this outside from toolbar becuase it needs to loaded seperately without dependency */}
-            <LoadModal />
-            <SaveModal />
-            {is_open && <QuickStrategy1 />}
+            {active_tab === 1 && <BotBuilderTourHandler key="tour-handler" is_mobile={!isDesktop} />}
+            {/* removed this outside from toolbar because it needs to loaded separately without dependency */}
+            <LoadModal key="load-modal" />
+            <SaveModal key="save-modal" />
+            {is_open && <QuickStrategy1 key="quick-strategy" />}
         </>
     );
 });
