@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface ErrorBoundaryState {
@@ -19,17 +18,31 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     }
 
     static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+        console.error('ErrorBoundary caught error:', error);
+
+        // Check if this is a workspace disposal error and handle it gracefully
+        if (error.message?.includes('Cannot unsubscribe a workspace that hasn\'t been subscribed')) {
+            console.warn('Workspace subscription error caught by ErrorBoundary - continuing operation');
+            // Don't show error UI for this specific error, just log it
+            return { hasError: false };
+        }
+
         return { hasError: true, error };
     }
 
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-        console.error('Error caught by boundary:', error, errorInfo);
-        this.setState({ error, errorInfo });
-        
+        console.error('ErrorBoundary componentDidCatch:', error, errorInfo);
+
+        // Special handling for workspace errors
+        if (error.message?.includes('Cannot unsubscribe a workspace')) {
+            console.warn('Workspace disposal error handled gracefully');
+        }
+
         // Log to any error reporting service if available
         if (window.Sentry) {
             window.Sentry.captureException(error);
         }
+        this.setState({ error, errorInfo });
     }
 
     retry = () => {

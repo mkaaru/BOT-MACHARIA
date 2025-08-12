@@ -376,8 +376,13 @@ export default class RunPanelStore {
                     const workspace = this.dbot.interpreter.workspace;
                     // Don't dispose workspace during stats clear, just ensure it's in a clean state
                     if (workspace && typeof workspace.clear === 'function') {
-                        // Only clear workspace content if it has that method
-                        console.log('🔄 Workspace content cleared but workspace preserved');
+                        try {
+                            workspace.clear();
+                            console.log('🔄 Workspace content cleared but workspace preserved');
+                        } catch (clearError) {
+                            console.warn('Warning: Workspace clear operation failed:', clearError);
+                            // Continue with other cleanup operations
+                        }
                     }
                 }
             } catch (error) {
@@ -868,7 +873,13 @@ export default class RunPanelStore {
                     const workspace = this.dbot.interpreter.bot.workspace;
                     // Check if workspace is already disposed before trying to dispose it
                     if (workspace && !workspace.disposed && typeof workspace.dispose === 'function') {
-                        workspace.dispose();
+                        // Wrap disposal in try-catch to handle ThemeManager unsubscribe errors
+                        try {
+                            workspace.dispose();
+                        } catch (disposeError) {
+                            console.warn('Workspace disposal error (likely ThemeManager unsubscribe issue):', disposeError);
+                            // Continue with cleanup anyway
+                        }
                     }
                 }
             } catch (error) {
