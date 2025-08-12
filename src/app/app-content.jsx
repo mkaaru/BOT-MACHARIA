@@ -29,9 +29,12 @@ import './app.scss';
 import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
 
+import { SplashScreen } from '@/components/splash-screen';
+
 const AppContent = observer(() => {
     const [is_api_initialized, setIsApiInitialized] = React.useState(false);
     const [is_loading, setIsLoading] = React.useState(true);
+    const [showSplashScreen, setShowSplashScreen] = React.useState(true);
     const store = useStore();
     const { app, transactions, common, client } = store;
     const { showDigitalOptionsMaltainvestError } = app;
@@ -164,10 +167,20 @@ const AppContent = observer(() => {
      React.useEffect(() => {
         const timeout = setTimeout(() => {
             setForceShowApp(true);
+            setShowSplashScreen(false);
         }, 5000); // Show app after 5 seconds regardless
 
         return () => clearTimeout(timeout);
     }, []);
+
+    const handleSplashScreenComplete = () => {
+        setShowSplashScreen(false);
+    };
+
+    // Show splash screen first
+    if (showSplashScreen) {
+        return <SplashScreen onComplete={handleSplashScreenComplete} />;
+    }
 
     if (common?.error) return null;
 
