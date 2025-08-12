@@ -1,4 +1,3 @@
-
 @use 'components/shared/styles/constants' as *;
 @use 'components/shared/styles/mixins' as *;
 
@@ -48,7 +47,7 @@
   &__placeholder {
     text-align: center;
     padding: 40px 20px;
-    
+
     p {
       margin: 10px 0;
       color: var(--text-general);
@@ -886,42 +885,42 @@
         padding: 0.5rem;
         width: 100%;
         min-height: min-content;
-        
+
         // Mobile: 1 column
         grid-template-columns: 1fr;
-        
+
         // Small mobile landscape: 2 columns
         @media (min-width: 480px) {
             grid-template-columns: repeat(2, 1fr);
         }
-        
+
         // Tablets: 3 columns
         @media (min-width: 768px) {
             grid-template-columns: repeat(3, 1fr);
             gap: 1.2rem;
             padding: 1rem;
         }
-        
+
         // Large tablets: 4 columns
         @media (min-width: 1024px) {
             grid-template-columns: repeat(4, 1fr);
         }
-        
+
         // Desktop: 5 columns
         @media (min-width: 1200px) {
             grid-template-columns: repeat(5, 1fr);
         }
-        
+
         // Large desktop: 6 columns
         @media (min-width: 1440px) {
             grid-template-columns: repeat(6, 1fr);
         }
-        
+
         // Extra large screens: 7 columns
         @media (min-width: 1920px) {
             grid-template-columns: repeat(7, 1fr);
         }
-        
+
         // Ultra wide screens: 8 columns
         @media (min-width: 2560px) {
             grid-template-columns: repeat(8, 1fr);
@@ -930,130 +929,66 @@
 }
 
 .free-bot-card {
-    background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 50%, #90CAF9 100%);
-    border: 1px solid #64B5F6;
-    border-radius: clamp(8px, 1.5vw, 12px);
-    padding: clamp(1rem, 2vw, 1.5rem);
+    background: var(--general-section-1);
+    border: 1px solid var(--border-normal);
+    border-radius: 8px;
+    padding: 32px;
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15);
-    min-height: clamp(120px, 20vh, 180px);
-    max-height: 220px;
+    transition: all 0.2s ease;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    aspect-ratio: 3/4;
-    overflow: hidden;
+    align-items: center;
+    text-align: center;
+    min-height: 400px;
+    width: 100%;
+    max-width: 600px;
 
     &:hover {
-        transform: translateY(-4px) scale(1.02);
-        box-shadow: 0 8px 24px rgba(25, 118, 210, 0.35);
-        background: linear-gradient(135deg, #BBDEFB 0%, #90CAF9 50%, #64B5F6 100%);
-    }
-
-    &__icon {
-        display: flex;
-        justify-content: center;
-        margin-bottom: clamp(0.5rem, 1.5vw, 1rem);
-        flex-shrink: 0;
-
-        svg {
-            width: clamp(32px, 6vw, 48px);
-            height: clamp(32px, 6vw, 48px);
-            fill: #1976D2;
-            transition: transform 0.3s ease;
-        }
-    }
-
-    &:hover &__icon svg {
-        transform: scale(1.1);
-    }
-
-    &__details {
-        text-align: center;
-        flex-grow: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        min-height: 0;
-        overflow: hidden;
-    }
-
-    &__title {
-        font-size: clamp(0.8rem, 2vw, 1.1rem);
-        font-weight: 700;
-        color: #0D47A1;
-        margin-bottom: clamp(0.25rem, 1vw, 0.5rem);
-        text-shadow: 0 1px 2px rgba(13, 71, 161, 0.1);
-        line-height: 1.2;
-        word-wrap: break-word;
-        hyphens: auto;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    &__description {
-        font-size: clamp(0.7rem, 1.5vw, 0.85rem);
-        color: #1565C0;
-        margin: 0;
-        font-weight: 500;
-        opacity: 0.8;
-        line-height: 1.3;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        border-color: var(--brand-coral);
     }
 
     &--loading {
-        position: relative;
-        overflow: hidden;
+        opacity: 0.7;
+        pointer-events: none;
+    }
 
-        &::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(
-                90deg,
-                transparent 0%,
-                rgba(255, 255, 255, 0.3) 50%,
-                transparent 100%
-            );
-            animation: shimmer 2s infinite;
+    &__icon {
+        margin-bottom: 24px;
+
+        svg {
+            width: 96px;
+            height: 96px;
         }
     }
 
-    // Responsive adjustments
-    @media (max-width: 480px) {
-        aspect-ratio: 1/1;
-        min-height: 100px;
-        
-        &__title {
-            -webkit-line-clamp: 2;
-        }
-        
-        &__description {
-            -webkit-line-clamp: 1;
-        }
+    &__details {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
     }
 
-    @media (min-width: 1024px) {
-        aspect-ratio: 4/5;
-        
-        &__title {
-            -webkit-line-clamp: 4;
-        }
-        
-        &__description {
-            -webkit-line-clamp: 3;
-        }
+    &__title {
+        font-size: 32px;
+        font-weight: 600;
+        margin: 0 0 16px 0;
+        color: var(--text-prominent);
+    }
+
+    &__description {
+        font-size: 28px;
+        color: var(--text-general);
+        margin: 0 0 24px 0;
+        line-height: 1.4;
+    }
+
+    &__action {
+        font-size: 24px;
+        color: var(--text-less-prominent);
+        margin: 0;
+        font-style: italic;
     }
 }
 
@@ -2019,7 +1954,7 @@ font-family: 'Courier New', monospace;
       & > div {
         height: 100%;
         width: 100%;
-        
+
         iframe {
           width: 100%;
           height: 100%;
