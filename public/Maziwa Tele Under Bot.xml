@@ -140,6 +140,36 @@
                                                     <field name="TEXT">analysis</field>
                                                   </block>
                                                 </value>
+                                                <next>
+                                                  <block type="variables_set" id="InitializeTotalLost">
+                                                    <field name="VAR" id="S10~wx4EJ/w3gZZ;v77Y">Total Lost</field>
+                                                    <value name="VALUE">
+                                                      <block type="math_number" id="InitTotalLostValue">
+                                                        <field name="NUM">0</field>
+                                                      </block>
+                                                    </value>
+                                                    <next>
+                                                      <block type="variables_set" id="InitializeCountLoss">
+                                                        <field name="VAR" id="Op-Cim@t?DJN?i;G)w)C">Count Loss</field>
+                                                        <value name="VALUE">
+                                                          <block type="math_number" id="InitCountLossValue">
+                                                            <field name="NUM">0</field>
+                                                          </block>
+                                                        </value>
+                                                        <next>
+                                                          <block type="variables_set" id="InitializeTick1">
+                                                            <field name="VAR" id="o!-=j_eJZCfW(+iV7;MS">Tick 1</field>
+                                                            <value name="VALUE">
+                                                              <block type="math_number" id="InitTick1Value">
+                                                                <field name="NUM">0</field>
+                                                              </block>
+                                                            </value>
+                                                          </block>
+                                                        </next>
+                                                      </block>
+                                                    </next>
+                                                  </block>
+                                                </next>
                                               </block>
                                             </next>
                                           </block>
@@ -167,22 +197,16 @@
         <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
         <field name="DURATIONTYPE_LIST">t</field>
         <value name="DURATION">
-          <shadow type="math_number" id=".VN]5$PRz#[mu4gLEpE)">
+          <block type="math_number" id=".VN]5$PRz#[mu4gLEpE)">
             <field name="NUM">1</field>
-          </shadow>
+          </block>
         </value>
         <value name="AMOUNT">
-          <shadow type="math_number" id="uDV:;sle3{o8l:/liSA4">
-            <field name="NUM">1</field>
-          </shadow>
           <block type="variables_get" id="e8^MR4,v|mL$uYo-N2,7">
             <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
           </block>
         </value>
         <value name="PREDICTION">
-          <shadow type="math_number_positive" id="C._P3Q2a(ed{Kmim3U^G">
-            <field name="NUM">1</field>
-          </shadow>
           <block type="variables_get" id="7M|Q{wh7BX?zpzY|TlN.">
             <field name="VAR" id="$+Q3~hzlFiI[$SMrBNB?">Prediction</field>
           </block>
@@ -213,9 +237,6 @@
             <statement name="STACK">
               <block type="text_statement" id="fEODtPvxb~Pq9(wLL(7)">
                 <value name="TEXT">
-                  <shadow type="text" id="}G!me?B=1d+JazlN/cn9">
-                    <field name="TEXT"></field>
-                  </shadow>
                   <block type="text" id="}z_N)o#C_q%y%O*-06h[">
                     <field name="TEXT">Tp hit</field>
                   </block>
@@ -223,9 +244,6 @@
                 <next>
                   <block type="text_statement" id="[DYy),LGh$:we/z91nXm">
                     <value name="TEXT">
-                      <shadow type="text" id="$iphA?Wh5=3Cir9KM{OT">
-                        <field name="TEXT"></field>
-                      </shadow>
                       <block type="text" id="cc=!2%kS#4A#EaD1emS4">
                         <field name="TEXT">&lt;&lt; CONGRATULATIONS. &gt;&gt; You have successfully printed&gt;  &amp;</field>
                       </block>
@@ -233,9 +251,6 @@
                     <next>
                       <block type="text_statement" id=":{/=:+zah8V6/Q?ZE{(z">
                         <value name="TEXT">
-                          <shadow type="text" id="A`([INSV+:7ygD7cZ@j;">
-                            <field name="TEXT"></field>
-                          </shadow>
                           <block type="total_profit" id="A~!}?z=.-$yZ3Y${jZ~4"></block>
                         </value>
                       </block>
@@ -247,9 +262,6 @@
             <next>
               <block type="text_print" id="bn4.=Kye=;B06#m*^]Mz">
                 <value name="TEXT">
-                  <shadow type="text" id="L;9=9qa,@)]+arRqzGT|">
-                    <field name="TEXT">abc</field>
-                  </shadow>
                   <block type="variables_get" id="_a38DajDS)I21w2c[1Ou">
                     <field name="VAR" id="Y$cG[}L|(_T-=;0ZyXI.">text1</field>
                   </block>
@@ -268,9 +280,6 @@
               <block type="math_single" id="?vi^Mf0IMKgiWl?7(kXF">
                 <field name="OP">NEG</field>
                 <value name="NUM">
-                  <shadow type="math_number" id="G5%tZ/b;7*ZdUOhD/7]Y">
-                    <field name="NUM">9</field>
-                  </shadow>
                   <block type="variables_get" id="%0X#dsb^67G_o-lF}4z#">
                     <field name="VAR" id="L.cN$B-UUzkS|eDQm2xZ">Stop Loss</field>
                   </block>
@@ -282,9 +291,9 @@
         <statement name="DO1">
           <block type="text_print" id="W[bg`R=Gq/~{0M#AfLt}">
             <value name="TEXT">
-              <shadow type="text" id="su#SP}OYEm942K4~)nLH">
+              <block type="text" id="su#SP}OYEm942K4~)nLH">
                 <field name="TEXT">SL hit</field>
-              </shadow>
+              </block>
             </value>
           </block>
         </statement>
@@ -300,9 +309,6 @@
               <block type="math_change" id="DmlXTt^a/Pz.1ZcJ1[DB">
                 <field name="VAR" id="S10~wx4EJ/w3gZZ;v77Y">Total Lost</field>
                 <value name="DELTA">
-                  <shadow type="math_number" id="@KJq1;gh,*]xXvHs%wR]">
-                    <field name="NUM">1</field>
-                  </shadow>
                   <block type="variables_get" id="5OL;;LN/RE~[8skE!*`8">
                     <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
                   </block>
@@ -358,15 +364,9 @@
                       <block type="math_change" id="[(u[h.H,+ZSePi._I#Ae">
                         <field name="VAR" id="S10~wx4EJ/w3gZZ;v77Y">Total Lost</field>
                         <value name="DELTA">
-                          <shadow type="math_number" id=";vm%OPmNCN=gCQW)(t@S">
-                            <field name="NUM">1</field>
-                          </shadow>
                           <block type="math_single" id=";pMO[^7+@pX!F6{PO,cu">
                             <field name="OP">NEG</field>
                             <value name="NUM">
-                              <shadow type="math_number" id=")8P8lMVf0i}%mC/@]7-e">
-                                <field name="NUM">9</field>
-                              </shadow>
                               <block type="read_details" id="qgSZdkTT+k._L1{~5Yf|">
                                 <field name="DETAIL_INDEX">4</field>
                               </block>
@@ -438,9 +438,9 @@
                       <block type="math_change" id="5/jGQV7l?U^^ZK#Gl~jH">
                         <field name="VAR" id="Op-Cim@t?DJN?i;G)w)C">Count Loss</field>
                         <value name="DELTA">
-                          <shadow type="math_number" id="H:-3cL?I-*LgT*^_=0cF">
+                          <block type="math_number" id="H:-3cL?I-*LgT*^_=0cF">
                             <field name="NUM">1</field>
-                          </shadow>
+                          </block>
                         </value>
                         <next>
                           <block type="controls_if" id="poO+9^__{8%X[FxTy[Q)">
@@ -474,34 +474,22 @@
                                       <block type="math_arithmetic" id="vmwp:KfA,IW}yAO3,.F~">
                                         <field name="OP">DIVIDE</field>
                                         <value name="A">
-                                          <shadow type="math_number" id="K/FHvn1QO4e4z4v:OzHy">
-                                            <field name="NUM">1</field>
-                                          </shadow>
                                           <block type="math_arithmetic" id="C2ia/?FqFCO|r@9|cl,;">
                                             <field name="OP">MULTIPLY</field>
                                             <value name="A">
-                                              <shadow type="math_number" id="(_{`7M`XGN8N[M_7O!N,">
-                                                <field name="NUM">1</field>
-                                              </shadow>
                                               <block type="variables_get" id="?VzvCm3c1bSI8%=cEw|u">
                                                 <field name="VAR" id="S10~wx4EJ/w3gZZ;v77Y">Total Lost</field>
                                               </block>
                                             </value>
                                             <value name="B">
-                                              <shadow type="math_number" id="%^OafCLE@JX!L;@i/#n,">
-                                                <field name="NUM">1</field>
-                                              </shadow>
                                               <block type="math_arithmetic" id="R6m56UI(u~~z]dH/:CG`">
                                                 <field name="OP">DIVIDE</field>
                                                 <value name="A">
-                                                  <shadow type="math_number" id="a2wvoTV=+sFF]BZ0cL?,">
+                                                  <block type="math_number" id="a2wvoTV=+sFF]BZ0cL?,">
                                                     <field name="NUM">100</field>
-                                                  </shadow>
+                                                  </block>
                                                 </value>
                                                 <value name="B">
-                                                  <shadow type="math_number" id="^?b7^);In|`Ec::.uyh5">
-                                                    <field name="NUM">24</field>
-                                                  </shadow>
                                                   <block type="variables_get" id="]2D;spPi[pG/x~r_{wpU">
                                                     <field name="VAR" id="VK7:nSRSXJ=|#p(oAU9v">Payout %</field>
                                                   </block>
@@ -511,9 +499,6 @@
                                           </block>
                                         </value>
                                         <value name="B">
-                                          <shadow type="math_number" id="cFb#@DcZ:{~P+Fp#{adm">
-                                            <field name="NUM">1</field>
-                                          </shadow>
                                           <block type="variables_get" id="l3s.,44;O?Y?6Y9Wn.J[">
                                             <field name="VAR" id="!mQjsA[]viO$7Gu~UzUn">Martingale Split</field>
                                           </block>
@@ -733,9 +718,6 @@
             <statement name="STACK">
               <block type="text_statement" id="qf8!h_@O%DMKb}A(-@cS">
                 <value name="TEXT">
-                  <shadow type="text" id="JXbo}srO/#6=a:~=562H">
-                    <field name="TEXT"></field>
-                  </shadow>
                   <block type="text" id="09l.;el1t%J@/b0N$pe5">
                     <field name="TEXT"> Last Appearing Digit&gt;  | </field>
                   </block>
@@ -743,9 +725,6 @@
                 <next>
                   <block type="text_statement" id="Id5enOrAiqU__!JA%6iF">
                     <value name="TEXT">
-                      <shadow type="text" id="q/GQjv(vG!#x!_~Bcjx%">
-                        <field name="TEXT"></field>
-                      </shadow>
                       <block type="variables_get" id="+ww=_m@`3vY^xU1lioSe">
                         <field name="VAR" id="o!-=j_eJZCfW(+iV7;MS">Tick 1</field>
                       </block>
