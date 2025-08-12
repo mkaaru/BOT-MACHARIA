@@ -309,56 +309,48 @@ export default class RunPanelStore {
         const { summary_card, journal, transactions } = this.root_store;
 
         try {
-            // Prevent workspace disposal during reset
-            if (window.Blockly?.derivWorkspace) {
-                window.Blockly.derivWorkspace.isInReset = true;
-            }
-
             // Stop any running operations first
             this.setIsRunning(false);
             this.setHasOpenContract(false);
             
-            // Reset martingale state in the trading engine
-            if (this.dbot.interpreter?.bot?.tradeEngine?.purchase) {
-                try {
-                    this.dbot.interpreter.bot.tradeEngine.purchase.resetMartingale();
-                } catch (error) {
-                    console.warn('Error resetting martingale:', error);
-                }
+            // Only clear transactions and trading statistics, preserve bot builder workspace
+            try {
+                transactions.clear();
+                console.log('✅ Transactions cleared');
+            } catch (error) {
+                console.warn('Error clearing transactions:', error);
             }
             
-            // Clear stores without disposing workspace
-            this.clear();
-            
-            // Safely clear other stores
             try {
                 journal.clear();
+                console.log('✅ Journal cleared');
             } catch (error) {
                 console.warn('Error clearing journal:', error);
             }
             
             try {
                 summary_card.clear();
+                console.log('✅ Summary card cleared');
             } catch (error) {
                 console.warn('Error clearing summary card:', error);
             }
             
-            try {
-                transactions.clear();
-            } catch (error) {
-                console.warn('Error clearing transactions:', error);
+            // Reset only trading-related statistics without touching the workspace
+            this.clear();
+            
+            // Reset martingale state but preserve bot configuration
+            if (this.dbot.interpreter?.bot?.tradeEngine?.purchase) {
+                try {
+                    this.dbot.interpreter.bot.tradeEngine.purchase.resetMartingale();
+                    console.log('✅ Martingale state reset');
+                } catch (error) {
+                    console.warn('Error resetting martingale:', error);
+                }
             }
             
             this.setContractStage(contract_stages.NOT_RUNNING);
 
-            // Clear reset flag after operations complete
-            setTimeout(() => {
-                if (window.Blockly?.derivWorkspace) {
-                    window.Blockly.derivWorkspace.isInReset = false;
-                }
-            }, 500);
-
-            console.log('✅ Statistics cleared successfully - ready for next run');
+            console.log('✅ Trade statistics cleared - Bot builder workspace preserved with current settings');
             
         } catch (error) {
             console.warn('Error during clearStat:', error);
@@ -366,11 +358,6 @@ export default class RunPanelStore {
             this.setIsRunning(false);
             this.setHasOpenContract(false);
             this.setContractStage(contract_stages.NOT_RUNNING);
-            
-            // Still clear the reset flag
-            if (window.Blockly?.derivWorkspace) {
-                window.Blockly.derivWorkspace.isInReset = false;
-            }
         }
     };
 
