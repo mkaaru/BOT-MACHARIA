@@ -1,0 +1,552 @@
+
+<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <variables>
+    <variable id="W4$:ZQCmEz#8+=4ysv5Y">Loss</variable>
+    <variable id="j}8O`Vs+RJljIwPu-_:_">Stake</variable>
+    <variable id="@1^Qc:ZmUG!!g,c$=~aV">Entry Point</variable>
+    <variable id="b{,~*3*`%/Pc=9p^,|$P">Trend Direction</variable>
+    <variable id="$hzv!Z_T7z5rRrLA{S5_">Consecutive Count</variable>
+    <variable id="mXtFswo{p,|%W1:V-$+r">Target Profit</variable>
+    <variable id="%L?;380E6Lr^3b.%}t5Q">Base Stake</variable>
+    <variable id="dhpl!.uWBt`]RbJ4~liH">Trade Direction</variable>
+    <variable id="qWx9$Nz@7mK{4P*8fR2L">Last Digit</variable>
+  </variables>
+  <block type="trade_definition" id="1#[S[W}OC|2oF#?r]!Q:" deletable="false" x="0" y="60">
+    <statement name="TRADE_OPTIONS">
+      <block type="trade_definition_market" id="PpTYCikO-Vl3xW7EvY;9" deletable="false" movable="false">
+        <field name="MARKET_LIST">synthetic_index</field>
+        <field name="SUBMARKET_LIST">random_index</field>
+        <field name="SYMBOL_LIST">R_100</field>
+        <next>
+          <block type="trade_definition_tradetype" id="_]^,~{o$]3uX4sZ2OB!7" deletable="false" movable="false">
+            <field name="TRADETYPECAT_LIST">digits</field>
+            <field name="TRADETYPE_LIST">overunder</field>
+            <next>
+              <block type="trade_definition_contracttype" id="ldtHR:/t$,8Y^%9yWwya" deletable="false" movable="false">
+                <field name="TYPE_LIST">DIGITOVER</field>
+                <next>
+                  <block type="trade_definition_candleinterval" id="f]S;-}9H6+#EPsfb+I4p" deletable="false" movable="false">
+                    <field name="CANDLEINTERVAL_LIST">60</field>
+                    <next>
+                      <block type="trade_definition_restartbuysell" id="@;Mot_]u|gES)y_r./tC" deletable="false" movable="false">
+                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                        <next>
+                          <block type="trade_definition_restartonerror" id=";T,;FM_tw4C;RFNRw)s." deletable="false" movable="false">
+                            <field name="RESTARTONERROR">TRUE</field>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="INITIALIZATION">
+      <block type="text_print" id="Pc7|fxqq^GS#~E![)0:q">
+        <value name="TEXT">
+          <shadow type="text" id="%S~G_]0/Vd|W4l~tRg)~">
+            <field name="TEXT">🎯 Bandwagon with Entry Point Bot Started! 📈 Following the Trend with Precision Entry 🚀</field>
+          </shadow>
+        </value>
+        <next>
+          <block type="variables_set" id="z18LL#EOuXV/ot~jOSwU">
+            <field name="VAR" id="W4$:ZQCmEz#8+=4ysv5Y">Loss</field>
+            <value name="VALUE">
+              <block type="math_number" id="{TpcuVb,~K#zZ#}lS({J">
+                <field name="NUM">1000</field>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id="ijf@o:zVg0FT0y9nPa@Z">
+                <field name="VAR" id="mXtFswo{p,|%W1:V-$+r">Target Profit</field>
+                <value name="VALUE">
+                  <block type="math_number" id="W.5F|X1T}Ki@]^K3PM34">
+                    <field name="NUM">500</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="wi;LzooRcdm1?=@Ye^M#">
+                    <field name="VAR" id="j}8O`Vs+RJljIwPu-_:_">Stake</field>
+                    <value name="VALUE">
+                      <block type="math_number" id="cwQn8]iJ[{izD*!JTkSu">
+                        <field name="NUM">1</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set" id="BaseStakeSet123">
+                        <field name="VAR" id="%L?;380E6Lr^3b.%}t5Q">Base Stake</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="BaseStakeNum456">
+                            <field name="NUM">1</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="EntryPointSet789">
+                            <field name="VAR" id="@1^Qc:ZmUG!!g,c$=~aV">Entry Point</field>
+                            <value name="VALUE">
+                              <block type="math_number" id="EntryPointNum101">
+                                <field name="NUM">5</field>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="variables_set" id="ConsecutiveSet112">
+                                <field name="VAR" id="$hzv!Z_T7z5rRrLA{S5_">Consecutive Count</field>
+                                <value name="VALUE">
+                                  <block type="math_number" id="ConsecutiveNum113">
+                                    <field name="NUM">0</field>
+                                  </block>
+                                </value>
+                                <next>
+                                  <block type="variables_set" id="TrendSet114">
+                                    <field name="VAR" id="b{,~*3*`%/Pc=9p^,|$P">Trend Direction</field>
+                                    <value name="VALUE">
+                                      <block type="text" id="TrendText115">
+                                        <field name="TEXT">none</field>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="BEFORE_PURCHASE">
+      <block type="controls_if" id="StopLossCheck001">
+        <value name="IF0">
+          <block type="logic_compare" id="StopLossCompare002">
+            <field name="OP">GTE</field>
+            <value name="A">
+              <block type="total_runs" id="TotalRunsGet003"/>
+            </value>
+            <value name="B">
+              <block type="variables_get" id="StopLossVar004">
+                <field name="VAR" id="W4$:ZQCmEz#8+=4ysv5Y">Loss</field>
+              </block>
+            </value>
+          </block>
+        </value>
+        <statement name="DO0">
+          <block type="notify" id="StopLossNotify005">
+            <field name="NOTIFICATION_TYPE">warn</field>
+            <value name="MESSAGE">
+              <block type="text" id="StopLossText006">
+                <field name="TEXT">🛑 Stop Loss Reached! Bot Stopped for Safety 🛑</field>
+              </block>
+            </value>
+            <next>
+              <block type="trade_again" id="StopLossStop007">
+                <field name="TRADE_AGAIN">FALSE</field>
+              </block>
+            </next>
+          </block>
+        </statement>
+        <next>
+          <block type="controls_if" id="ProfitCheck008">
+            <value name="IF0">
+              <block type="logic_compare" id="ProfitCompare009">
+                <field name="OP">GTE</field>
+                <value name="A">
+                  <block type="total_profit" id="TotalProfitGet010"/>
+                </value>
+                <value name="B">
+                  <block type="variables_get" id="ProfitVar011">
+                    <field name="VAR" id="mXtFswo{p,|%W1:V-$+r">Target Profit</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="notify" id="ProfitNotify012">
+                <field name="NOTIFICATION_TYPE">success</field>
+                <value name="MESSAGE">
+                  <block type="text" id="ProfitText013">
+                    <field name="TEXT">🎉 Target Profit Achieved! Well Done! 💰</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="trade_again" id="ProfitStop014">
+                    <field name="TRADE_AGAIN">FALSE</field>
+                  </block>
+                </next>
+              </block>
+            </statement>
+            <next>
+              <block type="variables_set" id="LastDigitSet015">
+                <field name="VAR" id="qWx9$Nz@7mK{4P*8fR2L">Last Digit</field>
+                <value name="VALUE">
+                  <block type="last_digit" id="LastDigitGet016">
+                    <value name="TICK_LIST">
+                      <block type="tick" id="LastDigitTick017">
+                        <field name="CANDLEINTERVAL_LIST">1</field>
+                      </block>
+                    </value>
+                  </block>
+                </value>
+                <next>
+                  <block type="controls_if" id="EntryPointCheck018">
+                    <mutation elseif="2"/>
+                    <value name="IF0">
+                      <block type="logic_compare" id="EntryPointCompare019">
+                        <field name="OP">GT</field>
+                        <value name="A">
+                          <block type="variables_get" id="LastDigitVar020">
+                            <field name="VAR" id="qWx9$Nz@7mK{4P*8fR2L">Last Digit</field>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <block type="variables_get" id="EntryPointVar021">
+                            <field name="VAR" id="@1^Qc:ZmUG!!g,c$=~aV">Entry Point</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                    <statement name="DO0">
+                      <block type="controls_if" id="TrendUpCheck022">
+                        <value name="IF0">
+                          <block type="logic_compare" id="TrendUpCompare023">
+                            <field name="OP">EQ</field>
+                            <value name="A">
+                              <block type="variables_get" id="TrendUpVar024">
+                                <field name="VAR" id="b{,~*3*`%/Pc=9p^,|$P">Trend Direction</field>
+                              </block>
+                            </value>
+                            <value name="B">
+                              <block type="text" id="TrendUpText025">
+                                <field name="TEXT">up</field>
+                              </block>
+                            </value>
+                          </block>
+                        </value>
+                        <statement name="DO0">
+                          <block type="variables_set" id="ConsecutiveUpSet026">
+                            <field name="VAR" id="$hzv!Z_T7z5rRrLA{S5_">Consecutive Count</field>
+                            <value name="VALUE">
+                              <block type="math_arithmetic" id="ConsecutiveUpAdd027">
+                                <field name="OP">ADD</field>
+                                <value name="A">
+                                  <block type="variables_get" id="ConsecutiveUpVar028">
+                                    <field name="VAR" id="$hzv!Z_T7z5rRrLA{S5_">Consecutive Count</field>
+                                  </block>
+                                </value>
+                                <value name="B">
+                                  <block type="math_number" id="ConsecutiveUpNum029">
+                                    <field name="NUM">1</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </value>
+                          </block>
+                        </statement>
+                        <next>
+                          <block type="variables_set" id="TrendUpSet030">
+                            <field name="VAR" id="b{,~*3*`%/Pc=9p^,|$P">Trend Direction</field>
+                            <value name="VALUE">
+                              <block type="text" id="TrendUpNewText031">
+                                <field name="TEXT">up</field>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="variables_set" id="TradeUpSet032">
+                                <field name="VAR" id="dhpl!.uWBt`]RbJ4~liH">Trade Direction</field>
+                                <value name="VALUE">
+                                  <block type="text" id="TradeUpText033">
+                                    <field name="TEXT">DIGITOVER</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                    <value name="IF1">
+                      <block type="logic_compare" id="EntryPointCompareLT034">
+                        <field name="OP">LT</field>
+                        <value name="A">
+                          <block type="variables_get" id="LastDigitVarLT035">
+                            <field name="VAR" id="qWx9$Nz@7mK{4P*8fR2L">Last Digit</field>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <block type="variables_get" id="EntryPointVarLT036">
+                            <field name="VAR" id="@1^Qc:ZmUG!!g,c$=~aV">Entry Point</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                    <statement name="DO1">
+                      <block type="controls_if" id="TrendDownCheck037">
+                        <value name="IF0">
+                          <block type="logic_compare" id="TrendDownCompare038">
+                            <field name="OP">EQ</field>
+                            <value name="A">
+                              <block type="variables_get" id="TrendDownVar039">
+                                <field name="VAR" id="b{,~*3*`%/Pc=9p^,|$P">Trend Direction</field>
+                              </block>
+                            </value>
+                            <value name="B">
+                              <block type="text" id="TrendDownText040">
+                                <field name="TEXT">down</field>
+                              </block>
+                            </value>
+                          </block>
+                        </value>
+                        <statement name="DO0">
+                          <block type="variables_set" id="ConsecutiveDownSet041">
+                            <field name="VAR" id="$hzv!Z_T7z5rRrLA{S5_">Consecutive Count</field>
+                            <value name="VALUE">
+                              <block type="math_arithmetic" id="ConsecutiveDownAdd042">
+                                <field name="OP">ADD</field>
+                                <value name="A">
+                                  <block type="variables_get" id="ConsecutiveDownVar043">
+                                    <field name="VAR" id="$hzv!Z_T7z5rRrLA{S5_">Consecutive Count</field>
+                                  </block>
+                                </value>
+                                <value name="B">
+                                  <block type="math_number" id="ConsecutiveDownNum044">
+                                    <field name="NUM">1</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </value>
+                          </block>
+                        </statement>
+                        <next>
+                          <block type="variables_set" id="TrendDownSet045">
+                            <field name="VAR" id="b{,~*3*`%/Pc=9p^,|$P">Trend Direction</field>
+                            <value name="VALUE">
+                              <block type="text" id="TrendDownNewText046">
+                                <field name="TEXT">down</field>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="variables_set" id="TradeDownSet047">
+                                <field name="VAR" id="dhpl!.uWBt`]RbJ4~liH">Trade Direction</field>
+                                <value name="VALUE">
+                                  <block type="text" id="TradeDownText048">
+                                    <field name="TEXT">DIGITUNDER</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                    <value name="IF2">
+                      <block type="logic_compare" id="EntryPointCompareEQ049">
+                        <field name="OP">EQ</field>
+                        <value name="A">
+                          <block type="variables_get" id="LastDigitVarEQ050">
+                            <field name="VAR" id="qWx9$Nz@7mK{4P*8fR2L">Last Digit</field>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <block type="variables_get" id="EntryPointVarEQ051">
+                            <field name="VAR" id="@1^Qc:ZmUG!!g,c$=~aV">Entry Point</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                    <statement name="DO2">
+                      <block type="variables_set" id="ConsecutiveResetSet052">
+                        <field name="VAR" id="$hzv!Z_T7z5rRrLA{S5_">Consecutive Count</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="ConsecutiveResetNum053">
+                            <field name="NUM">1</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="TradeNeutralSet054">
+                            <field name="VAR" id="dhpl!.uWBt`]RbJ4~liH">Trade Direction</field>
+                            <value name="VALUE">
+                              <block type="text" id="TradeNeutralText055">
+                                <field name="TEXT">DIGITOVER</field>
+                              </block>
+                            </value>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                    <next>
+                      <block type="controls_if" id="BandwagonCheck056">
+                        <value name="IF0">
+                          <block type="logic_compare" id="BandwagonCompare057">
+                            <field name="OP">GTE</field>
+                            <value name="A">
+                              <block type="variables_get" id="BandwagonVar058">
+                                <field name="VAR" id="$hzv!Z_T7z5rRrLA{S5_">Consecutive Count</field>
+                              </block>
+                            </value>
+                            <value name="B">
+                              <block type="math_number" id="BandwagonNum059">
+                                <field name="NUM">3</field>
+                              </block>
+                            </value>
+                          </block>
+                        </value>
+                        <statement name="DO0">
+                          <block type="variables_set" id="StakeMultiplySet060">
+                            <field name="VAR" id="j}8O`Vs+RJljIwPu-_:_">Stake</field>
+                            <value name="VALUE">
+                              <block type="math_arithmetic" id="StakeMultiplyCalc061">
+                                <field name="OP">MULTIPLY</field>
+                                <value name="A">
+                                  <block type="variables_get" id="BaseStakeMultiplyVar062">
+                                    <field name="VAR" id="%L?;380E6Lr^3b.%}t5Q">Base Stake</field>
+                                  </block>
+                                </value>
+                                <value name="B">
+                                  <block type="math_arithmetic" id="BandwagonMultiplier063">
+                                    <field name="OP">POWER</field>
+                                    <value name="A">
+                                      <block type="math_number" id="BandwagonBase064">
+                                        <field name="NUM">1.5</field>
+                                      </block>
+                                    </value>
+                                    <value name="B">
+                                      <block type="variables_get" id="BandwagonPowerVar065">
+                                        <field name="VAR" id="$hzv!Z_T7z5rRrLA{S5_">Consecutive Count</field>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </value>
+                              </block>
+                            </value>
+                          </block>
+                        </statement>
+                        <next>
+                          <block type="purchase" id="PurchaseBlock066">
+                            <value name="PURCHASE_LIST">
+                              <block type="variables_get" id="PurchaseDirectionVar067">
+                                <field name="VAR" id="dhpl!.uWBt`]RbJ4~liH">Trade Direction</field>
+                              </block>
+                            </value>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="AFTER_PURCHASE">
+      <block type="controls_if" id="WinCheck068">
+        <mutation else="1"/>
+        <value name="IF0">
+          <block type="contract_check_result" id="WinCheckResult069">
+            <field name="CHECK_RESULT">win</field>
+          </block>
+        </value>
+        <statement name="DO0">
+          <block type="notify" id="WinNotify070">
+            <field name="NOTIFICATION_TYPE">success</field>
+            <value name="MESSAGE">
+              <block type="text_join" id="WinMessageJoin071">
+                <mutation items="3"/>
+                <value name="ADD0">
+                  <block type="text" id="WinText1072">
+                    <field name="TEXT">🎉 WIN! Profit: $</field>
+                  </block>
+                </value>
+                <value name="ADD1">
+                  <block type="contract_details" id="WinProfitDetail073">
+                    <field name="DETAIL_INDEX">2</field>
+                  </block>
+                </value>
+                <value name="ADD2">
+                  <block type="text" id="WinText2074">
+                    <field name="TEXT"> | Bandwagon Strategy Working! 📈</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id="StakeResetWin075">
+                <field name="VAR" id="j}8O`Vs+RJljIwPu-_:_">Stake</field>
+                <value name="VALUE">
+                  <block type="variables_get" id="BaseStakeResetWin076">
+                    <field name="VAR" id="%L?;380E6Lr^3b.%}t5Q">Base Stake</field>
+                  </block>
+                </value>
+              </block>
+            </next>
+          </block>
+        </statement>
+        <statement name="ELSE">
+          <block type="notify" id="LossNotify077">
+            <field name="NOTIFICATION_TYPE">warn</field>
+            <value name="MESSAGE">
+              <block type="text_join" id="LossMessageJoin078">
+                <mutation items="3"/>
+                <value name="ADD0">
+                  <block type="text" id="LossText1079">
+                    <field name="TEXT">❌ LOSS: $</field>
+                  </block>
+                </value>
+                <value name="ADD1">
+                  <block type="contract_details" id="LossProfitDetail080">
+                    <field name="DETAIL_INDEX">2</field>
+                  </block>
+                </value>
+                <value name="ADD2">
+                  <block type="text" id="LossText2081">
+                    <field name="TEXT"> | Adjusting Strategy... 🔄</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id="ConsecutiveResetLoss082">
+                <field name="VAR" id="$hzv!Z_T7z5rRrLA{S5_">Consecutive Count</field>
+                <value name="VALUE">
+                  <block type="math_number" id="ConsecutiveResetLossNum083">
+                    <field name="NUM">0</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="TrendResetLoss084">
+                    <field name="VAR" id="b{,~*3*`%/Pc=9p^,|$P">Trend Direction</field>
+                    <value name="VALUE">
+                      <block type="text" id="TrendResetLossText085">
+                        <field name="TEXT">none</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set" id="StakeResetLoss086">
+                        <field name="VAR" id="j}8O`Vs+RJljIwPu-_:_">Stake</field>
+                        <value name="VALUE">
+                          <block type="variables_get" id="BaseStakeResetLoss087">
+                            <field name="VAR" id="%L?;380E6Lr^3b.%}t5Q">Base Stake</field>
+                          </block>
+                        </value>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </statement>
+      </block>
+    </statement>
+  </block>
+</xml>
