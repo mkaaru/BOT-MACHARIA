@@ -153,6 +153,7 @@ const AppWrapper = observer(() => {
                 'Upgraded Candlemine.xml',
                 'Super Elite.xml',
                 'AUTO C4 PRO Version.xml',
+                'Mkorean SV4.xml',
             ];
 
             const loadedBots = [];
