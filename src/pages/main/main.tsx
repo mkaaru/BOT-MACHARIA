@@ -152,6 +152,7 @@ const AppWrapper = observer(() => {
             const botFiles = [
                 'Upgraded Candlemine.xml',
                 'Super Elite.xml',
+                'Alpha Version 2025.xml',
             ];
 
             const loadedBots = [];
