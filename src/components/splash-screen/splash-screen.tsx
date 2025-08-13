@@ -42,9 +42,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
                     }, 1000);
                     return 100;
                 }
-                return prev + 1.5;
+                return prev + 2;
             });
-        }, 80);
+        }, 60);
 
         // System readiness animation
         const readinessInterval = setInterval(() => {
@@ -70,7 +70,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
 
                 {/* Main Title */}
                 <div className="main-title">
-                    <div className="title-text">TRADECORTEX</div>
+                    <div className="title-text">TRADE CORTEX</div>
                     <div className="subtitle">Professional Trading Platform</div>
                 </div>
 
