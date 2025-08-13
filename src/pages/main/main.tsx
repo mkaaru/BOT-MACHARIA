@@ -152,7 +152,6 @@ const AppWrapper = observer(() => {
             const botFiles = [
                 'Upgraded Candlemine.xml',
                 'Super Elite.xml',
-                'Bandwagon with Entry Point.xml',
                 'AUTO C4 PRO Version.xml',
             ];
 
