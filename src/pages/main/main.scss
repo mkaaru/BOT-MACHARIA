@@ -1013,6 +1013,19 @@
     }
 }
 
+.auto-trades-container {
+    height: 100%;
+
+    .auto-trades-tabs {
+        height: 100%;
+
+        .dc-tabs__content {
+            height: calc(100% - 50px);
+            overflow: hidden;
+        }
+    }
+}
+
 .auto-trades {
     padding: 2rem;
     height: 100%;
