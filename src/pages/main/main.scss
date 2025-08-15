@@ -131,6 +131,10 @@
         padding: 0;
     }
 
+    @media (max-width: 480px) {
+        height: calc(100vh - 5rem);
+    }
+
     &__container {
         position: relative;
         border: none;
@@ -171,10 +175,15 @@
                     overflow-y: hidden;
                     -ms-overflow-style: none;
                     scrollbar-width: none;
+                    scroll-behavior: smooth;
 
                     &::-webkit-scrollbar {
                         display: none;
                     }
+                }
+
+                @media (max-width: 480px) {
+                    padding: 0 0.5rem;
                 }
 
                 &--header {
@@ -184,6 +193,10 @@
                                 width: 100%;
                                 overflow-x: auto;
                                 padding: 0.8rem 1.6rem 0;
+                            }
+
+                            @media (max-width: 480px) {
+                                padding: 0.5rem 0.8rem 0;
                             }
                         }
                     }
@@ -200,6 +213,7 @@
                 @include mobile-or-tablet-screen {
                     width: 100%;
                     overflow-x: auto;
+                    overflow-y: auto;
 
                     &--no-result {
                         @include flex-center;
@@ -207,19 +221,43 @@
                         flex-direction: column;
                         justify-content: flex-start;
                         height: 100vh;
-                        margin-top: 5rem;
+                        margin-top: 3rem;
+                        padding: 1rem;
+
+                        @media (max-width: 480px) {
+                            margin-top: 2rem;
+                            padding: 0.5rem;
+                        }
 
                         svg {
-                            margin-bottom: 2.4rem;
+                            margin-bottom: 2rem;
+
+                            @media (max-width: 480px) {
+                                margin-bottom: 1rem;
+                                width: 60px;
+                                height: 60px;
+                            }
                         }
 
                         h1 {
                             margin-bottom: 0.8rem;
+                            font-size: clamp(1.5rem, 4vw, 2rem);
+
+                            @media (max-width: 480px) {
+                                margin-bottom: 0.5rem;
+                            }
                         }
 
                         span {
                             word-break: break-word;
                             text-align: center;
+                            font-size: clamp(0.875rem, 3vw, 1rem);
+                            line-height: 1.4;
+                            padding: 0 1rem;
+
+                            @media (max-width: 480px) {
+                                padding: 0 0.5rem;
+                            }
                         }
                     }
                 }
@@ -243,21 +281,62 @@
                 height: 4.8rem;
                 padding: 0 2rem;
                 width: auto;
+                min-width: fit-content;
+                flex-shrink: 0;
 
                 @include flex-center;
+
+                @include mobile-or-tablet-screen {
+                    height: 4rem;
+                    padding: 0 1rem;
+                    border-radius: 0.5rem;
+                    font-size: 0.875rem;
+                }
+
+                @media (max-width: 480px) {
+                    height: 3.5rem;
+                    padding: 0 0.75rem;
+                    font-size: 0.8rem;
+                }
 
                 svg {
                     padding-inline-end: 0;
                     margin-inline-end: 0.8rem;
+                    flex-shrink: 0;
 
                     @include mobile-or-tablet-screen {
                         margin-inline-end: 0.4rem;
+                        width: 18px;
+                        height: 18px;
+                    }
+
+                    @media (max-width: 480px) {
+                        margin-inline-end: 0.25rem;
+                        width: 16px;
+                        height: 16px;
                     }
                 }
 
                 &__icon {
                     @include mobile-or-tablet-screen {
                         padding-top: 0.5rem;
+                    }
+
+                    @media (max-width: 480px) {
+                        padding-top: 0.25rem;
+                    }
+                }
+
+                /* Hide text on very small screens, show only icons */
+                @media (max-width: 320px) {
+                    padding: 0 0.5rem;
+                    
+                    span:not(.dc-tabs__item__icon) {
+                        display: none;
+                    }
+                    
+                    svg {
+                        margin-inline-end: 0;
                     }
                 }
             }
@@ -862,13 +941,29 @@
     flex-direction: column;
     overflow: hidden;
 
+    @media (max-width: 768px) {
+        padding: 0.75rem;
+    }
+
+    @media (max-width: 480px) {
+        padding: 0.5rem;
+    }
+
     &__heading {
-        font-size: clamp(1.5rem, 3vw, 2rem);
-        margin-bottom: 1.5rem;
+        font-size: clamp(1.2rem, 4vw, 2rem);
+        margin-bottom: 1rem;
         color: var(--text-general);
         font-weight: bold;
         text-align: center;
         flex-shrink: 0;
+
+        @media (max-width: 768px) {
+            margin-bottom: 0.75rem;
+        }
+
+        @media (max-width: 480px) {
+            margin-bottom: 0.5rem;
+        }
     }
 
     &__content-wrapper {
@@ -877,53 +972,80 @@
         width: 100%;
         padding: 0;
         min-height: 0;
+
+        /* Custom scrollbar for mobile */
+        @media (max-width: 768px) {
+            &::-webkit-scrollbar {
+                width: 4px;
+            }
+
+            &::-webkit-scrollbar-track {
+                background: rgba(0, 0, 0, 0.1);
+            }
+
+            &::-webkit-scrollbar-thumb {
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 2px;
+            }
+        }
     }
 
     &__content {
         display: grid;
-        gap: clamp(1rem, 2vw, 1.5rem);
+        gap: 0.75rem;
         padding: 0.5rem;
         width: 100%;
         min-height: min-content;
 
-        // Mobile: 1 column
+        // Mobile portrait: 1 column
         grid-template-columns: 1fr;
 
-        // Small mobile landscape: 2 columns
-        @media (min-width: 480px) {
+        // Mobile landscape: 2 columns
+        @media (min-width: 480px) and (max-width: 767px) {
             grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
         }
 
-        // Tablets: 3 columns
-        @media (min-width: 768px) {
+        // Tablets: 2 columns (adjusted for better mobile experience)
+        @media (min-width: 768px) and (max-width: 1023px) {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            padding: 0.75rem;
+        }
+
+        // Large tablets: 3 columns
+        @media (min-width: 1024px) and (max-width: 1199px) {
             grid-template-columns: repeat(3, 1fr);
             gap: 1.2rem;
             padding: 1rem;
         }
 
-        // Large tablets: 4 columns
-        @media (min-width: 1024px) {
+        // Desktop: 4 columns (reduced for better visibility)
+        @media (min-width: 1200px) and (max-width: 1439px) {
             grid-template-columns: repeat(4, 1fr);
+            gap: 1.2rem;
+            padding: 1rem;
         }
 
-        // Desktop: 5 columns
-        @media (min-width: 1200px) {
+        // Large desktop: 5 columns
+        @media (min-width: 1440px) and (max-width: 1919px) {
             grid-template-columns: repeat(5, 1fr);
+            gap: 1.2rem;
+            padding: 1rem;
         }
 
-        // Large desktop: 6 columns
-        @media (min-width: 1440px) {
+        // Extra large screens: 6 columns
+        @media (min-width: 1920px) and (max-width: 2559px) {
             grid-template-columns: repeat(6, 1fr);
+            gap: 1.5rem;
+            padding: 1rem;
         }
 
-        // Extra large screens: 7 columns
-        @media (min-width: 1920px) {
-            grid-template-columns: repeat(7, 1fr);
-        }
-
-        // Ultra wide screens: 8 columns
+        // Ultra wide screens: 7 columns
         @media (min-width: 2560px) {
-            grid-template-columns: repeat(8, 1fr);
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1.5rem;
+            padding: 1rem;
         }
     }
 }
@@ -932,21 +1054,54 @@
     background: var(--general-section-1);
     border: 1px solid var(--border-normal);
     border-radius: 8px;
-    padding: 32px;
+    padding: 1rem;
     cursor: pointer;
     transition: all 0.2s ease;
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    min-height: 400px;
+    min-height: 200px;
     width: 100%;
-    max-width: 600px;
+    position: relative;
+
+    @media (min-width: 480px) {
+        padding: 1.25rem;
+        min-height: 240px;
+    }
+
+    @media (min-width: 768px) {
+        padding: 1.5rem;
+        min-height: 280px;
+    }
+
+    @media (min-width: 1024px) {
+        padding: 2rem;
+        min-height: 320px;
+    }
+
+    @media (min-width: 1200px) {
+        padding: 2rem;
+        min-height: 360px;
+    }
 
     &:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         border-color: var(--brand-coral);
+
+        @media (max-width: 768px) {
+            /* Reduce hover effects on mobile for better performance */
+            transform: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+    }
+
+    &:active {
+        @media (max-width: 768px) {
+            transform: scale(0.98);
+            background: var(--general-hover);
+        }
     }
 
     &--loading {
@@ -955,11 +1110,44 @@
     }
 
     &__icon {
-        margin-bottom: 24px;
+        margin-bottom: 0.75rem;
+        flex-shrink: 0;
+
+        @media (min-width: 480px) {
+            margin-bottom: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            margin-bottom: 1.25rem;
+        }
+
+        @media (min-width: 1024px) {
+            margin-bottom: 1.5rem;
+        }
 
         svg {
-            width: 96px;
-            height: 96px;
+            width: 40px;
+            height: 40px;
+
+            @media (min-width: 480px) {
+                width: 48px;
+                height: 48px;
+            }
+
+            @media (min-width: 768px) {
+                width: 60px;
+                height: 60px;
+            }
+
+            @media (min-width: 1024px) {
+                width: 72px;
+                height: 72px;
+            }
+
+            @media (min-width: 1200px) {
+                width: 80px;
+                height: 80px;
+            }
         }
     }
 
@@ -968,27 +1156,73 @@
         display: flex;
         flex-direction: column;
         justify-content: space-between;
+        width: 100%;
+        min-height: 0;
     }
 
     &__title {
-        font-size: 32px;
+        font-size: clamp(0.875rem, 2.5vw, 1.25rem);
         font-weight: 600;
-        margin: 0 0 16px 0;
+        margin: 0 0 0.5rem 0;
         color: var(--text-prominent);
+        line-height: 1.2;
+        word-break: break-word;
+        hyphens: auto;
+
+        @media (min-width: 768px) {
+            font-size: clamp(1rem, 2vw, 1.375rem);
+            margin-bottom: 0.75rem;
+        }
+
+        @media (min-width: 1024px) {
+            font-size: clamp(1.125rem, 1.5vw, 1.5rem);
+            margin-bottom: 1rem;
+        }
     }
 
     &__description {
-        font-size: 28px;
+        font-size: clamp(0.75rem, 2vw, 0.875rem);
         color: var(--text-general);
-        margin: 0 0 24px 0;
-        line-height: 1.4;
+        margin: 0 0 0.75rem 0;
+        line-height: 1.3;
+        flex: 1;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-word;
+
+        @media (min-width: 480px) {
+            -webkit-line-clamp: 4;
+        }
+
+        @media (min-width: 768px) {
+            font-size: clamp(0.8rem, 1.5vw, 1rem);
+            margin-bottom: 1rem;
+            -webkit-line-clamp: 5;
+        }
+
+        @media (min-width: 1024px) {
+            font-size: clamp(0.875rem, 1.2vw, 1.125rem);
+            margin-bottom: 1.25rem;
+        }
     }
 
     &__action {
-        font-size: 24px;
+        font-size: clamp(0.6rem, 1.8vw, 0.75rem);
         color: var(--text-less-prominent);
         margin: 0;
         font-style: italic;
+        margin-top: auto;
+        flex-shrink: 0;
+
+        @media (min-width: 768px) {
+            font-size: clamp(0.7rem, 1.2vw, 0.875rem);
+        }
+
+        @media (min-width: 1024px) {
+            font-size: clamp(0.75rem, 1vw, 1rem);
+        }
     }
 }
 
@@ -1865,20 +2099,214 @@ font-family: 'Courier New', monospace;
 }
 
 /* Enhanced Responsive Design */
-@media (max-width: 480px) {
+@media (max-width: 320px) {
   .auto-trades-container.matrix-theme {
-    padding: 5px;
+    padding: 2px;
+    font-size: 0.75rem;
+
+    .matrix-header {
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+
+      .matrix-title {
+        font-size: clamp(1rem, 6vw, 1.5rem);
+        margin-bottom: 5px;
+      }
+
+      .matrix-subtitle {
+        font-size: clamp(0.6rem, 3vw, 0.8rem);
+      }
+    }
 
     .trading-dashboard {
-      gap: 10px;
+      gap: 5px;
 
       .control-panel, .analytics-panel, .trading-log, .performance-metrics {
-        padding: 10px;
+        padding: 5px;
+        border-radius: 4px;
+      }
+
+      .control-panel {
+        .config-grid {
+          grid-template-columns: 1fr;
+          gap: 5px;
+
+          .config-item {
+            label {
+              font-size: 0.6rem;
+              margin-bottom: 2px;
+            }
+
+            select, input {
+              padding: 4px 6px;
+              font-size: 0.65rem;
+            }
+          }
+        }
+
+        .control-buttons {
+          flex-direction: column;
+          gap: 5px;
+
+          button {
+            padding: 6px 10px;
+            font-size: 0.6rem;
+          }
+        }
+      }
+
+      .analytics-panel {
+        .price-display {
+          padding: 5px;
+
+          .current-price {
+            flex-direction: column;
+            gap: 5px;
+
+            .price-value {
+              font-size: clamp(0.9rem, 4vw, 1.2rem);
+            }
+
+            .last-digit {
+              font-size: clamp(0.8rem, 3vw, 1rem);
+              padding: 2px 6px;
+            }
+          }
+        }
+
+        .digits-distribution {
+          padding: 5px;
+
+          .digits-grid {
+            gap: 2px;
+
+            .digit-box {
+              padding: 3px;
+
+              .digit-number {
+                font-size: clamp(0.7rem, 3vw, 0.9rem);
+              }
+
+              .digit-percentage {
+                font-size: clamp(0.5rem, 2vw, 0.6rem);
+              }
+
+              .digit-count {
+                font-size: clamp(0.4rem, 1.5vw, 0.5rem);
+              }
+
+              .digit-bar {
+                height: 2px;
+              }
+            }
+          }
+        }
       }
 
       .performance-metrics .metrics-grid {
         grid-template-columns: 1fr;
-        gap: 10px;
+        gap: 5px;
+
+        .metric-card {
+          padding: 8px;
+
+          .metric-value {
+            font-size: 1.2rem;
+            margin-bottom: 3px;
+          }
+
+          .metric-label {
+            font-size: 0.6rem;
+          }
+        }
+      }
+
+      .trading-log .log-container {
+        max-height: 150px;
+        padding: 5px;
+
+        .log-entry {
+          grid-template-columns: 1fr;
+          gap: 3px;
+          padding: 5px;
+          font-size: 0.6rem;
+        }
+      }
+    }
+  }
+}
+
+@media (min-width: 321px) and (max-width: 480px) {
+  .auto-trades-container.matrix-theme {
+    padding: 5px;
+
+    .matrix-header {
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+    }
+
+    .trading-dashboard {
+      gap: 8px;
+
+      .control-panel, .analytics-panel, .trading-log, .performance-metrics {
+        padding: 8px;
+      }
+
+      .control-panel {
+        .config-grid {
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+
+        .control-buttons {
+          gap: 8px;
+
+          button {
+            padding: 8px 12px;
+            font-size: 0.65rem;
+          }
+        }
+      }
+
+      .analytics-panel {
+        .price-display {
+          padding: 8px;
+
+          .current-price {
+            gap: 6px;
+
+            .price-value {
+              font-size: clamp(1.1rem, 4vw, 1.4rem);
+            }
+          }
+        }
+
+        .digits-distribution {
+          .digits-grid {
+            gap: 3px;
+
+            .digit-box {
+              padding: 4px;
+            }
+          }
+        }
+      }
+
+      .performance-metrics .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+
+        .metric-card {
+          padding: 10px;
+
+          .metric-value {
+            font-size: 1.4rem;
+          }
+
+          .metric-label {
+            font-size: 0.7rem;
+          }
+        }
       }
 
       .trading-log .log-container {
@@ -1887,7 +2315,7 @@ font-family: 'Courier New', monospace;
         .log-entry {
           grid-template-columns: 1fr;
           gap: 5px;
-          padding: 8px;
+          padding: 6px;
           font-size: 0.7rem;
         }
       }
@@ -1897,13 +2325,31 @@ font-family: 'Courier New', monospace;
 
 @media (min-width: 481px) and (max-width: 768px) {
   .auto-trades-container.matrix-theme {
+    padding: 8px;
+
     .trading-dashboard {
+      gap: 12px;
+
+      .control-panel, .analytics-panel, .trading-log, .performance-metrics {
+        padding: 12px;
+      }
+
+      .control-panel {
+        .config-grid {
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+        }
+      }
+
       .performance-metrics .metrics-grid {
         grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
       }
 
       .trading-log .log-container .log-entry {
         font-size: 0.75rem;
+        grid-template-columns: 1fr 2fr 1fr 1fr;
+        gap: 8px;
       }
     }
   }
@@ -1911,7 +2357,16 @@ font-family: 'Courier New', monospace;
 
 @media (min-width: 769px) and (max-width: 1024px) {
   .auto-trades-container.matrix-theme {
+    padding: 15px;
+
     .trading-dashboard {
+      gap: 15px;
+
+      .control-panel {
+        grid-column: 1 / -1;
+        order: 1;
+      }
+
       .analytics-panel {
         order: 2;
       }
@@ -1925,6 +2380,10 @@ font-family: 'Courier New', monospace;
         grid-column: 1 / -1;
         order: 4;
       }
+
+      .performance-metrics .metrics-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
     }
   }
 }
@@ -1936,6 +2395,58 @@ font-family: 'Courier New', monospace;
     .trading-dashboard {
       grid-template-columns: 1fr 1fr;
       grid-template-rows: auto auto auto;
+      gap: 20px;
+    }
+  }
+}
+
+/* Additional mobile optimizations */
+@media (max-width: 768px) {
+  .auto-trades-container.matrix-theme {
+    /* Optimize touch targets */
+    button, select, input {
+      min-height: 44px;
+    }
+
+    /* Reduce animation intensity on mobile for better performance */
+    * {
+      animation-duration: 0.2s !important;
+    }
+
+    .matrix-glow {
+      animation: none !important;
+      text-shadow: 0 0 5px #00ff00 !important;
+    }
+
+    /* Improve readability on small screens */
+    .trading-dashboard {
+      .tick-analysis, .prediction-panel {
+        h3 {
+          font-size: clamp(0.8rem, 3vw, 1rem);
+        }
+      }
+
+      .stat-item, .prob-item {
+        font-size: 0.75rem;
+        padding: 6px;
+      }
+    }
+  }
+}
+
+/* Landscape mode optimizations for mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .auto-trades-container.matrix-theme {
+    .trading-dashboard {
+      grid-template-columns: repeat(2, 1fr);
+      
+      .control-panel {
+        grid-column: 1 / -1;
+      }
+      
+      .performance-metrics {
+        grid-column: 1 / -1;
+      }
     }
   }
 }
