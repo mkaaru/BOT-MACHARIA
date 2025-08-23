@@ -1217,8 +1217,8 @@ if __name__ == "__main__":
                         <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
 
 <div className='free-bots-container'>
-                            <Tabs active_index={activeSubTab} onTabItemChange={(index: string) => setActiveSubTab(index)} className='free-bots-tabs' top>
-                                <div label={<Localize i18n_default_text='Free Bots' />} id='ai-trader'>
+                            <Tabs active_index={0} className='free-bots-tabs' top>
+                                <div label={<Localize i18n_default_text='Free Bots' />} id='id-free-bots-list'>
                                     <div className='free-bots'>
                                         <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
                                         <div className='free-bots__content-wrapper'>
@@ -1259,10 +1259,10 @@ if __name__ == "__main__":
                                         </div>
                                     </div>
                                 </div>
-                                <div label={<Localize i18n_default_text='AI Trader' />} id='smart-trading'>
+                                <div label={<Localize i18n_default_text='AI Trader' />} id='id-ai-trader'>
                                     <SmartTrader />
                                 </div>
-                                <div label={<Localize i18n_default_text='Smart Trading' />} id='smart-trading'>
+                                <div label={<Localize i18n_default_text='Smart Trading' />} id='id-smart-trading'>
                                     <VolatilityAnalyzer />
                                 </div>
                             </Tabs>
