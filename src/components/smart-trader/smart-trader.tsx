@@ -4,13 +4,12 @@ import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
-// import { tradeOptionToBuy } from '@/external/bot-skeleton/services/tradeEngine/utils/helpers';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import RunPanel from '@/components/run-panel';
 import './smart-trader.scss';
 
-// Minimal trade types we will support initially
+// Trade types we support
 const TRADE_TYPES = [
     { value: 'DIGITOVER', label: 'Digits Over' },
     { value: 'DIGITUNDER', label: 'Digits Under' },
@@ -19,29 +18,6 @@ const TRADE_TYPES = [
     { value: 'DIGITMATCH', label: 'Matches' },
     { value: 'DIGITDIFF', label: 'Differs' },
 ];
-// Safe version of tradeOptionToBuy without Blockly dependencies
-const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
-    const buy = {
-        buy: '1',
-        price: trade_option.amount,
-        parameters: {
-            amount: trade_option.amount,
-            basis: trade_option.basis,
-            contract_type,
-            currency: trade_option.currency,
-            duration: trade_option.duration,
-            duration_unit: trade_option.duration_unit,
-            symbol: trade_option.symbol,
-        },
-    };
-    if (trade_option.prediction !== undefined) {
-        buy.parameters.selected_tick = trade_option.prediction;
-    }
-    if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
-        buy.parameters.barrier = trade_option.prediction;
-    }
-    return buy;
-};
 
 const SmartTrader = observer(() => {
     const store = useStore();
@@ -50,12 +26,12 @@ const SmartTrader = observer(() => {
     const apiRef = useRef<any>(null);
     const tickStreamIdRef = useRef<string | null>(null);
     const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
-
     const lastOutcomeWasLossRef = useRef(false);
 
     const [is_authorized, setIsAuthorized] = useState(false);
     const [account_currency, setAccountCurrency] = useState<string>('USD');
     const [symbols, setSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
+    const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
 
     // Form state
     const [symbol, setSymbol] = useState<string>('');
@@ -63,10 +39,12 @@ const SmartTrader = observer(() => {
     const [ticks, setTicks] = useState<number>(1);
     const [stake, setStake] = useState<number>(0.5);
     const [baseStake, setBaseStake] = useState<number>(0.5);
+    
     // Predictions
     const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(5);
     const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(5);
-    const [mdPrediction, setMdPrediction] = useState<number>(5); // for match/diff
+    const [mdPrediction, setMdPrediction] = useState<number>(5);
+    
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.0);
 
@@ -78,7 +56,6 @@ const SmartTrader = observer(() => {
     const [status, setStatus] = useState<string>('');
     const [is_running, setIsRunning] = useState(false);
     const stopFlagRef = useRef<boolean>(false);
-
 
     const getHintClass = (d: number) => {
         if (tradeType === 'DIGITEVEN') return d % 2 === 0 ? 'is-green' : 'is-red';
@@ -100,30 +77,50 @@ const SmartTrader = observer(() => {
     };
 
     useEffect(() => {
-        // Initialize API connection and fetch active symbols
-        const api = generateDerivApiInstance();
-        apiRef.current = api;
-        const init = async () => {
+        const initApi = async () => {
             try {
+                setConnectionStatus('connecting');
+                const api = generateDerivApiInstance();
+                apiRef.current = api;
+
+                // Wait for connection
+                await new Promise((resolve, reject) => {
+                    const checkConnection = () => {
+                        if (api.connection && api.connection.readyState === WebSocket.OPEN) {
+                            resolve(true);
+                        } else {
+                            setTimeout(checkConnection, 100);
+                        }
+                    };
+                    checkConnection();
+                });
+
+                setConnectionStatus('connected');
+
                 // Fetch active symbols (volatility indices)
                 const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
                 if (asErr) throw asErr;
+
                 const syn = (active_symbols || [])
                     .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol))
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
+
                 setSymbols(syn);
-                if (!symbol && syn[0]?.symbol) setSymbol(syn[0].symbol);
-                if (syn[0]?.symbol) startTicks(syn[0].symbol);
+                if (!symbol && syn[0]?.symbol) {
+                    setSymbol(syn[0].symbol);
+                    startTicks(syn[0].symbol);
+                }
+
             } catch (e: any) {
-                // eslint-disable-next-line no-console
                 console.error('SmartTrader init error', e);
-                setStatus(e?.message || 'Failed to load symbols');
+                setStatus(e?.message || 'Failed to initialize');
+                setConnectionStatus('disconnected');
             }
         };
-        init();
+
+        initApi();
 
         return () => {
-            // Clean up streams and socket
             try {
                 if (tickStreamIdRef.current) {
                     apiRef.current?.forget({ forget: tickStreamIdRef.current });
@@ -133,10 +130,9 @@ const SmartTrader = observer(() => {
                     apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
                     messageHandlerRef.current = null;
                 }
-                api?.disconnect?.();
+                apiRef.current?.disconnect?.();
             } catch { /* noop */ }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const authorizeIfNeeded = async () => {
@@ -154,8 +150,8 @@ const SmartTrader = observer(() => {
         setIsAuthorized(true);
         const loginid = authorize?.loginid || V2GetActiveClientId();
         setAccountCurrency(authorize?.currency || 'USD');
+        
         try {
-            // Sync Smart Trader auth state into shared ClientStore so Transactions store keys correctly by account
             store?.client?.setLoginId?.(loginid || '');
             store?.client?.setCurrency?.(authorize?.currency || 'USD');
             store?.client?.setIsLoggedIn?.(true);
@@ -184,7 +180,7 @@ const SmartTrader = observer(() => {
             const { subscription, error } = await apiRef.current.send({ ticks: sym, subscribe: 1 });
             if (error) throw error;
             if (subscription?.id) tickStreamIdRef.current = subscription.id;
-            // Listen for streaming ticks on the raw websocket
+
             const onMsg = (evt: MessageEvent) => {
                 try {
                     const data = JSON.parse(evt.data as any);
@@ -195,44 +191,165 @@ const SmartTrader = observer(() => {
                         setDigits(prev => [...prev.slice(-8), digit]);
                         setTicksProcessed(prev => prev + 1);
                     }
-                    if (data?.forget?.id && data?.forget?.id === tickStreamIdRef.current) {
-                        // stopped
-                    }
                 } catch {}
             };
             messageHandlerRef.current = onMsg;
             apiRef.current?.connection?.addEventListener('message', onMsg);
 
         } catch (e: any) {
-            // eslint-disable-next-line no-console
             console.error('startTicks error', e);
         }
     };
 
-    const purchaseOnce = async () => {
-        await authorizeIfNeeded();
-
-        const trade_option: any = {
-            amount: Number(stake),
-            basis: 'stake',
-            contractTypes: [tradeType],
-            currency: account_currency,
-            duration: Number(ticks),
-            duration_unit: 't',
-            symbol,
-        };
-        // Choose prediction based on trade type and last outcome
-        if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
-            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
-        } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
-            trade_option.prediction = Number(mdPrediction);
+    const executeTrade = async () => {
+        if (connectionStatus !== 'connected') {
+            console.error('Cannot trade: Not connected to API');
+            setStatus('Error: Not connected to API');
+            return;
         }
 
-        const buy_req = tradeOptionToBuy(tradeType, trade_option);
-        const { buy, error } = await apiRef.current.buy(buy_req);
-        if (error) throw error;
-        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
-        return buy;
+        try {
+            await authorizeIfNeeded();
+
+            // Determine barrier/prediction based on trade type
+            let barrier;
+            const activePred = lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss;
+            
+            if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
+                barrier = activePred;
+            } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
+                barrier = mdPrediction;
+            }
+
+            // Create proposal request
+            const proposalRequest: any = {
+                proposal: 1,
+                amount: stake,
+                basis: 'stake',
+                contract_type: tradeType,
+                currency: account_currency,
+                duration: ticks,
+                duration_unit: 't',
+                symbol: symbol,
+            };
+
+            if (barrier !== undefined) {
+                proposalRequest.barrier = barrier;
+            }
+
+            console.log('Sending proposal request:', proposalRequest);
+
+            // Get proposal
+            const proposalResponse = await apiRef.current.send(proposalRequest);
+            console.log('Proposal response:', proposalResponse);
+
+            if (proposalResponse.error) {
+                throw new Error(`Proposal failed: ${proposalResponse.error.message}`);
+            }
+
+            if (!proposalResponse.proposal) {
+                throw new Error('No proposal received');
+            }
+
+            // Create buy request
+            const buyRequest = {
+                buy: proposalResponse.proposal.id,
+                price: stake,
+            };
+
+            console.log('Sending buy request:', buyRequest);
+
+            // Execute purchase
+            const buyResponse = await apiRef.current.send(buyRequest);
+            console.log('Buy response:', buyResponse);
+
+            if (buyResponse.error) {
+                throw new Error(`Purchase failed: ${buyResponse.error.message}`);
+            }
+
+            if (!buyResponse.buy) {
+                throw new Error('No buy confirmation received');
+            }
+
+            const buy = buyResponse.buy;
+            setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
+
+            // Add transaction to store
+            try {
+                const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
+                transactions.onBotContractEvent({
+                    contract_id: buy?.contract_id,
+                    transaction_ids: { buy: buy?.transaction_id },
+                    buy_price: buy?.buy_price,
+                    currency: account_currency,
+                    contract_type: tradeType as any,
+                    underlying: symbol,
+                    display_name: symbol_display,
+                    date_start: Math.floor(Date.now() / 1000),
+                    status: 'open',
+                } as any);
+            } catch {}
+
+            run_panel.setHasOpenContract(true);
+            run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+
+            // Subscribe to contract updates
+            try {
+                const res = await apiRef.current.send({
+                    proposal_open_contract: 1,
+                    contract_id: buy?.contract_id,
+                    subscribe: 1,
+                });
+
+                const { error, proposal_open_contract: pocInit, subscription } = res || {};
+                if (error) throw error;
+
+                let pocSubId: string | null = subscription?.id || null;
+                const targetId = String(buy?.contract_id || '');
+
+                if (pocInit && String(pocInit?.contract_id || '') === targetId) {
+                    transactions.onBotContractEvent(pocInit);
+                    run_panel.setHasOpenContract(true);
+                }
+
+                const onMsg = (evt: MessageEvent) => {
+                    try {
+                        const data = JSON.parse(evt.data as any);
+                        if (data?.msg_type === 'proposal_open_contract') {
+                            const poc = data.proposal_open_contract;
+                            if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
+                            if (String(poc?.contract_id || '') === targetId) {
+                                transactions.onBotContractEvent(poc);
+                                run_panel.setHasOpenContract(true);
+                                if (poc?.is_sold || poc?.status === 'sold') {
+                                    run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                                    run_panel.setHasOpenContract(false);
+                                    if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
+                                    apiRef.current?.connection?.removeEventListener('message', onMsg);
+                                    
+                                    const profit = Number(poc?.profit || 0);
+                                    if (profit > 0) {
+                                        lastOutcomeWasLossRef.current = false;
+                                    } else {
+                                        lastOutcomeWasLossRef.current = true;
+                                    }
+                                }
+                            }
+                        }
+                    } catch {}
+                };
+                apiRef.current?.connection?.addEventListener('message', onMsg);
+            } catch (subErr) {
+                console.error('subscribe poc error', subErr);
+            }
+
+            return buy;
+
+        } catch (error: any) {
+            console.error('Error executing trade:', error);
+            setStatus(`Error: ${error.message || 'Failed to execute trade'}`);
+            throw error;
+        }
     };
 
     const onRun = async () => {
@@ -240,113 +357,34 @@ const SmartTrader = observer(() => {
         setIsRunning(true);
         stopFlagRef.current = false;
         run_panel.toggleDrawer(true);
-        run_panel.setActiveTabIndex(1); // Transactions tab index in run panel tabs
+        run_panel.setActiveTabIndex(1);
         run_panel.run_id = `smart-${Date.now()}`;
         run_panel.setIsRunning(true);
         run_panel.setContractStage(contract_stages.STARTING);
 
         try {
-            let lossStreak = 0;
             let step = 0;
             baseStake !== stake && setBaseStake(stake);
+            
             while (!stopFlagRef.current) {
-                // Adjust stake and prediction based on prior outcomes (simple martingale)
+                // Adjust stake based on martingale
                 const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
-                // apply effective stake to buy
                 setStake(effectiveStake);
 
                 const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
                 if (isOU) {
-                    lastOutcomeWasLossRef.current = lossStreak > 0;
+                    lastOutcomeWasLossRef.current = step > 0;
                 }
 
-                const buy = await purchaseOnce();
+                await executeTrade();
 
-                // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
-                try {
-                    const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
-                    transactions.onBotContractEvent({
-                        contract_id: buy?.contract_id,
-                        transaction_ids: { buy: buy?.transaction_id },
-                        buy_price: buy?.buy_price,
-                        currency: account_currency,
-                        contract_type: tradeType as any,
-                        underlying: symbol,
-                        display_name: symbol_display,
-                        date_start: Math.floor(Date.now() / 1000),
-                        status: 'open',
-                    } as any);
-                } catch {}
-
-                // Reflect stage immediately after successful buy
-                run_panel.setHasOpenContract(true);
-                run_panel.setContractStage(contract_stages.PURCHASE_SENT);
-
-                // subscribe to contract updates for this purchase and push to transactions
-                try {
-                    const res = await apiRef.current.send({
-                        proposal_open_contract: 1,
-                        contract_id: buy?.contract_id,
-                        subscribe: 1,
-                    });
-                    const { error, proposal_open_contract: pocInit, subscription } = res || {};
-                    if (error) throw error;
-
-                    let pocSubId: string | null = subscription?.id || null;
-                    const targetId = String(buy?.contract_id || '');
-
-                    // Push initial snapshot if present in the first response
-                    if (pocInit && String(pocInit?.contract_id || '') === targetId) {
-                        transactions.onBotContractEvent(pocInit);
-                        run_panel.setHasOpenContract(true);
-                    }
-
-                    // Listen for subsequent streaming updates
-                    const onMsg = (evt: MessageEvent) => {
-                        try {
-                            const data = JSON.parse(evt.data as any);
-                            if (data?.msg_type === 'proposal_open_contract') {
-                                const poc = data.proposal_open_contract;
-                                // capture subscription id for later forget
-                                if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
-                                if (String(poc?.contract_id || '') === targetId) {
-                                    transactions.onBotContractEvent(poc);
-                                    run_panel.setHasOpenContract(true);
-                                    if (poc?.is_sold || poc?.status === 'sold') {
-                                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
-                                        run_panel.setHasOpenContract(false);
-                                        if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
-                                        apiRef.current?.connection?.removeEventListener('message', onMsg);
-                                        const profit = Number(poc?.profit || 0);
-                                        if (profit > 0) {
-                                            lastOutcomeWasLossRef.current = false;
-                                            lossStreak = 0;
-                                            step = 0;
-                                            setStake(baseStake);
-                                        } else {
-                                            lastOutcomeWasLossRef.current = true;
-                                            lossStreak++;
-                                            step = Math.min(step + 1, 50);
-                                        }
-                                    }
-                                }
-                            }
-                        } catch {
-                            // noop
-                        }
-                    };
-                    apiRef.current?.connection?.addEventListener('message', onMsg);
-                } catch (subErr) {
-                    // eslint-disable-next-line no-console
-                    console.error('subscribe poc error', subErr);
-                }
-
-                // Wait minimally between purchases: we'll wait for ticks duration completion by polling poc completion
-                // Simple delay to prevent spamming if API rejects immediate buy loop
-                await new Promise(res => setTimeout(res, 500));
+                // Wait before next trade
+                await new Promise(res => setTimeout(res, 2000));
+                
+                // For demo, increment step (in real implementation, this would be based on win/loss)
+                step = Math.min(step + 1, 10);
             }
         } catch (e: any) {
-            // eslint-disable-next-line no-console
             console.error('SmartTrader run loop error', e);
             const msg = e?.message || e?.error?.message || 'Something went wrong';
             setStatus(`Error: ${msg}`);
@@ -355,13 +393,23 @@ const SmartTrader = observer(() => {
             run_panel.setIsRunning(false);
             run_panel.setHasOpenContract(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
-
         }
     };
 
     const onStop = () => {
         stopFlagRef.current = true;
         setIsRunning(false);
+    };
+
+    const onSingleTrade = async () => {
+        if (is_running) return;
+        
+        setStatus('Executing single trade...');
+        try {
+            await executeTrade();
+        } catch (e: any) {
+            // Error already handled in executeTrade
+        }
     };
 
     return (
@@ -426,43 +474,42 @@ const SmartTrader = observer(() => {
                                     value={stake}
                                     onChange={e => setStake(Number(e.target.value))}
                                 />
-
-                            {/* Strategy controls */}
-                            {tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF' ? (
-                                <div className='smart-trader__row smart-trader__row--two'>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-md-pred'>{localize('Match/Diff prediction digit')}</label>
-                                        <input id='st-md-pred' type='number' min={0} max={9} value={mdPrediction}
-                                            onChange={e => { const v = Math.max(0, Math.min(9, Number(e.target.value))); setMdPrediction(v); }} />
-                                    </div>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
-                                        <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
-                                            onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className='smart-trader__row smart-trader__row--compact'>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-ou-pred-pre'>{localize('Over/Under prediction (pre-loss)')}</label>
-                                        <input id='st-ou-pred-pre' type='number' min={0} max={9} value={ouPredPreLoss}
-                                            onChange={e => setOuPredPreLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
-                                    </div>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-ou-pred-post'>{localize('Over/Under prediction (after loss)')}</label>
-                                        <input id='st-ou-pred-post' type='number' min={0} max={9} value={ouPredPostLoss}
-                                            onChange={e => setOuPredPostLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
-                                    </div>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
-                                        <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
-                                            onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
-                                    </div>
-                                </div>
-                            )}
-
                             </div>
                         </div>
+
+                        {/* Strategy controls */}
+                        {tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF' ? (
+                            <div className='smart-trader__row smart-trader__row--two'>
+                                <div className='smart-trader__field'>
+                                    <label htmlFor='st-md-pred'>{localize('Match/Diff prediction digit')}</label>
+                                    <input id='st-md-pred' type='number' min={0} max={9} value={mdPrediction}
+                                        onChange={e => { const v = Math.max(0, Math.min(9, Number(e.target.value))); setMdPrediction(v); }} />
+                                </div>
+                                <div className='smart-trader__field'>
+                                    <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
+                                    <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
+                                        onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className='smart-trader__row smart-trader__row--compact'>
+                                <div className='smart-trader__field'>
+                                    <label htmlFor='st-ou-pred-pre'>{localize('Over/Under prediction (pre-loss)')}</label>
+                                    <input id='st-ou-pred-pre' type='number' min={0} max={9} value={ouPredPreLoss}
+                                        onChange={e => setOuPredPreLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
+                                </div>
+                                <div className='smart-trader__field'>
+                                    <label htmlFor='st-ou-pred-post'>{localize('Over/Under prediction (after loss)')}</label>
+                                    <input id='st-ou-pred-post' type='number' min={0} max={9} value={ouPredPostLoss}
+                                        onChange={e => setOuPredPostLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
+                                </div>
+                                <div className='smart-trader__field'>
+                                    <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
+                                    <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
+                                        onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
+                                </div>
+                            </div>
+                        )}
 
                         <div className='smart-trader__digits'>
                             {digits.map((d, idx) => (
@@ -474,7 +521,11 @@ const SmartTrader = observer(() => {
                                 </div>
                             ))}
                         </div>
+                        
                         <div className='smart-trader__meta'>
+                            <Text size='xs' color='general'>
+                                {localize('Connection:')} {connectionStatus}
+                            </Text>
                             <Text size='xs' color='general'>
                                 {localize('Ticks Processed:')} {ticksProcessed}
                             </Text>
@@ -486,10 +537,17 @@ const SmartTrader = observer(() => {
                         <div className='smart-trader__actions'>
                             <button
                                 className='smart-trader__run'
-                                onClick={onRun}
-                                disabled={is_running || !symbol}
+                                onClick={onSingleTrade}
+                                disabled={is_running || !symbol || connectionStatus !== 'connected'}
                             >
-                                {is_running ? localize('Running...') : localize('Start Trading')}
+                                {localize('Single Trade')}
+                            </button>
+                            <button
+                                className='smart-trader__run'
+                                onClick={onRun}
+                                disabled={is_running || !symbol || connectionStatus !== 'connected'}
+                            >
+                                {is_running ? localize('Running...') : localize('Start Auto Trading')}
                             </button>
                             {is_running && (
                                 <button className='smart-trader__stop' onClick={onStop}>
