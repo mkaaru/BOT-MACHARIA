@@ -24,6 +24,7 @@ import AnalysistoolComponent from '@/components/analysistool/analysis';
 import PercentageTool from '@/components/percentage-tool/percentage-tool';
 import VolatilityAnalyzer from '@/components/volatility-analyzer';
 import SmartTrader from '@/components/smart-trader';
+import MLTrader from '@/components/ml-trader';
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
@@ -1262,8 +1263,11 @@ if __name__ == "__main__":
                                 <div label={<Localize i18n_default_text='AI Trader' />} id='id-ai-trader'>
                                     <SmartTrader />
                                 </div>
-                                <div label={<Localize i18n_default_text='Smart Trading' />} id='id-smart-trading'>
+                                <div label={<Localize i18n_default_text='Smart Trading' />} id='smart-trading'>
                                     <VolatilityAnalyzer />
+                                </div>
+                                <div label={<Localize i18n_default_text='🤖 ML Trader' />} id='ml-trader'>
+                                    <MLTrader />
                                 </div>
                             </Tabs>
                         </div>
