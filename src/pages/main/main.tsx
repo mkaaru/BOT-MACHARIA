@@ -82,6 +82,13 @@ const BotIcon = () => (
     </svg>
 );
 
+const AITraderIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="var(--text-general)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <circle cx="12" cy="12" r="2" fill="var(--text-general)"/>
+    </svg>
+);
+
 // Import actual components
 // import VolatilityAnalyzer from '@/components/volatility-analyzer/volatility-analyzer';
 
@@ -1260,9 +1267,6 @@ if __name__ == "__main__":
                                         </div>
                                     </div>
                                 </div>
-                                <div label={<Localize i18n_default_text='AI Trader' />} id='id-ai-trader'>
-                                    <SmartTrader />
-                                </div>
                                 <div label={<Localize i18n_default_text='Smart Trading' />} id='smart-trading'>
                                     <VolatilityAnalyzer />
                                 </div>
@@ -1274,6 +1278,9 @@ if __name__ == "__main__":
 
                         </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
+                        <div label={<><AITraderIcon /><Localize i18n_default_text='AI Trader' /></>} id='id-ai-trader'>
+                            <SmartTrader />
+                        </div>
                         <div label={<><SignalsIcon /><Localize i18n_default_text='Signal Scanner' /></>} id='id-signals'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
