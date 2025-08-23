@@ -1,0 +1,27 @@
+Vanilla Options
+Suggest Edits
+Earn a potentially high payout with Vanilla Options if your predictions are right within a timed contract based on market conditions.
+
+
+Vanilla options allow you to predict an upward (bullish) or downward (bearish) direction of the underlying asset by purchasing a "Call" or a "Put".
+
+If you select "Call", you'll earn a Payout if the Final price is above the Strike price at Expiry. Otherwise, you won't receive a payout.
+If you select "Put", you'll earn a Payout if the Final price is below the Strike price at Expiry. Otherwise, you won't receive a payout.
+
+Your Payout is equal to the Payout per point multiplied by the difference between the Final price and the Strike price. You will only earn a profit if your Payout is higher than your initial stake.
+
+You may sell the contract up until 60 seconds before Expiry. If you do, we'll pay you the Contract value.
+
+Trading Flow
+Authorize using your token: Call authorize API using your token. Ensure that the token has the trading scope enabled.
+Fetch Available Instruments: Use the active_symbols API to retrieve a list of all trading instruments offered on Deriv.
+Get Contract Details: Using the contracts_for API, obtain a list of contracts available for a specific instrument.
+Request a Price: Use the proposal API to get a quote. This will return an ID for the proposed trade.
+For the vanilla options, use the following:
+Set contract_type:
+For Vanilla Call, use:"VANILLALONGCALL"
+For Vanilla Put, use: "VANILLALONGPUT"
+Strike price: The strike price can have the following values: "+2.20", "+1.10", "+0.00", "-1.10", "-2.00". Eg: To define the strike price set barrier: "+0.00"
+Buy the Contract: Execute the trade by using the buy API with the ID from the proposal response. This action returns a unique contract_id.
+Monitor the Contract Status: Check the contract’s progress or outcome using the proposal_open_contract API with the contract_id.
+Close the Contract Early (if Needed): If you want to exit before the contract’s expiration, use the sell API with the contract_id.
