@@ -134,66 +134,96 @@ class MLTradingEngine {
 
         const [trend, volatility, momentum, rsi, evenRatio, maxConsecutive, over5Ratio] = features;
 
-        // ML decision tree logic
+        // ML decision tree logic with dynamic confidence
         let recommendation = 'WAIT';
         let confidence = 0;
         let reasoning = '';
         let tradeType = 'DIGITEVEN';
         let prediction: number | undefined;
 
-        // High confidence signals
-        if (evenRatio > 0.7 && maxConsecutive < 3) {
+        // Calculate time-based confidence modifier
+        const tickCount = this.tickHistory.length;
+        const timeModifier = Math.min(1.2, 1 + (tickCount / 100) * 0.2);
+
+        // High confidence signals with dynamic thresholds
+        if (evenRatio > 0.75 && maxConsecutive < 4 && volatility < 0.0002) {
             recommendation = 'STRONG_ODD';
             tradeType = 'DIGITODD';
-            confidence = Math.min(90, 60 + (evenRatio - 0.7) * 100);
-            reasoning = `Strong even streak (${(evenRatio * 100).toFixed(1)}%) suggests odd reversal`;
-        } else if (evenRatio < 0.3 && maxConsecutive < 3) {
+            confidence = Math.min(95, (70 + (evenRatio - 0.75) * 100) * timeModifier);
+            reasoning = `Very strong even streak (${(evenRatio * 100).toFixed(1)}%) with low volatility - high probability odd reversal`;
+        } else if (evenRatio < 0.25 && maxConsecutive < 4 && volatility < 0.0002) {
             recommendation = 'STRONG_EVEN';
             tradeType = 'DIGITEVEN';
-            confidence = Math.min(90, 60 + (0.3 - evenRatio) * 100);
-            reasoning = `Strong odd streak (${((1 - evenRatio) * 100).toFixed(1)}%) suggests even reversal`;
+            confidence = Math.min(95, (70 + (0.25 - evenRatio) * 100) * timeModifier);
+            reasoning = `Very strong odd streak (${((1 - evenRatio) * 100).toFixed(1)}%) with low volatility - high probability even reversal`;
         }
-        // Over/Under predictions based on trend and volatility
-        else if (over5Ratio > 0.65 && volatility < 0.0001) {
+        // Over/Under predictions with improved logic
+        else if (over5Ratio > 0.7 && volatility < 0.0001 && momentum < 0) {
             recommendation = 'STRONG_UNDER';
             tradeType = 'DIGITUNDER';
-            prediction = Math.floor(4 - (over5Ratio - 0.65) * 10);
-            confidence = Math.min(85, 55 + (over5Ratio - 0.65) * 80);
-            reasoning = `High over-5 ratio (${(over5Ratio * 100).toFixed(1)}%) with low volatility suggests under reversal`;
-        } else if (over5Ratio < 0.35 && volatility < 0.0001) {
+            prediction = Math.max(0, Math.min(4, Math.floor(4 - (over5Ratio - 0.7) * 15)));
+            confidence = Math.min(90, (60 + (over5Ratio - 0.7) * 100) * timeModifier);
+            reasoning = `Extremely high over-5 ratio (${(over5Ratio * 100).toFixed(1)}%) with downward momentum - strong under signal`;
+        } else if (over5Ratio < 0.3 && volatility < 0.0001 && momentum > 0) {
             recommendation = 'STRONG_OVER';
             tradeType = 'DIGITOVER';
-            prediction = Math.floor(6 + (0.35 - over5Ratio) * 10);
-            confidence = Math.min(85, 55 + (0.35 - over5Ratio) * 80);
-            reasoning = `Low over-5 ratio (${(over5Ratio * 100).toFixed(1)}%) with low volatility suggests over reversal`;
+            prediction = Math.max(6, Math.min(9, Math.floor(6 + (0.3 - over5Ratio) * 15)));
+            confidence = Math.min(90, (60 + (0.3 - over5Ratio) * 100) * timeModifier);
+            reasoning = `Extremely low over-5 ratio (${(over5Ratio * 100).toFixed(1)}%) with upward momentum - strong over signal`;
+        }
+        // Medium-high confidence patterns
+        else if (maxConsecutive >= 5 && volatility < 0.0003) {
+            if (evenRatio > 0.6) {
+                recommendation = 'HIGH_ODD';
+                tradeType = 'DIGITODD';
+                confidence = Math.min(85, (55 + maxConsecutive * 8) * timeModifier);
+                reasoning = `${maxConsecutive} consecutive even pattern with low volatility - strong odd reversal signal`;
+            } else {
+                recommendation = 'HIGH_EVEN';
+                tradeType = 'DIGITEVEN';
+                confidence = Math.min(85, (55 + maxConsecutive * 8) * timeModifier);
+                reasoning = `${maxConsecutive} consecutive odd pattern with low volatility - strong even reversal signal`;
+            }
         }
         // Medium confidence signals
-        else if (maxConsecutive >= 4) {
-            if (evenRatio > 0.5) {
+        else if (maxConsecutive >= 3) {
+            if (evenRatio > 0.55) {
                 recommendation = 'MEDIUM_ODD';
                 tradeType = 'DIGITODD';
-                confidence = 45 + maxConsecutive * 5;
-                reasoning = `${maxConsecutive} consecutive pattern suggests reversal to odd`;
+                confidence = Math.min(75, (40 + maxConsecutive * 6 + (evenRatio - 0.5) * 50) * timeModifier);
+                reasoning = `${maxConsecutive} consecutive pattern (${(evenRatio * 100).toFixed(1)}% even) suggests odd reversal`;
             } else {
                 recommendation = 'MEDIUM_EVEN';
                 tradeType = 'DIGITEVEN';
-                confidence = 45 + maxConsecutive * 5;
-                reasoning = `${maxConsecutive} consecutive pattern suggests reversal to even`;
+                confidence = Math.min(75, (40 + maxConsecutive * 6 + (0.5 - evenRatio) * 50) * timeModifier);
+                reasoning = `${maxConsecutive} consecutive pattern (${((1-evenRatio) * 100).toFixed(1)}% odd) suggests even reversal`;
             }
         }
-        // RSI-based signals
-        else if (rsi > 70 && momentum > 0) {
-            recommendation = 'MEDIUM_SELL';
-            tradeType = trend > 0 ? 'DIGITUNDER' : 'DIGITEVEN';
-            prediction = trend > 0 ? 4 : undefined;
-            confidence = Math.min(75, 40 + (rsi - 70) * 1.5);
-            reasoning = `Overbought RSI (${rsi.toFixed(1)}) with positive momentum suggests reversal`;
-        } else if (rsi < 30 && momentum < 0) {
-            recommendation = 'MEDIUM_BUY';
-            tradeType = trend > 0 ? 'DIGITOVER' : 'DIGITODD';
-            prediction = trend > 0 ? 6 : undefined;
-            confidence = Math.min(75, 40 + (30 - rsi) * 1.5);
-            reasoning = `Oversold RSI (${rsi.toFixed(1)}) with negative momentum suggests reversal`;
+        // RSI-based signals with trend confirmation
+        else if (rsi > 75 && momentum > 0.001 && trend < 0) {
+            recommendation = 'MEDIUM_UNDER';
+            tradeType = 'DIGITUNDER';
+            prediction = Math.floor(3 + Math.random() * 2);
+            confidence = Math.min(80, (45 + (rsi - 70) * 2) * timeModifier);
+            reasoning = `Overbought RSI (${rsi.toFixed(1)}) with strong momentum and downtrend - reversal expected`;
+        } else if (rsi < 25 && momentum < -0.001 && trend > 0) {
+            recommendation = 'MEDIUM_OVER';
+            tradeType = 'DIGITOVER';
+            prediction = Math.floor(6 + Math.random() * 2);
+            confidence = Math.min(80, (45 + (30 - rsi) * 2) * timeModifier);
+            reasoning = `Oversold RSI (${rsi.toFixed(1)}) with strong downward momentum and uptrend - reversal expected`;
+        }
+        // Weak signals for continuous recommendations
+        else if (evenRatio > 0.6) {
+            recommendation = 'WEAK_ODD';
+            tradeType = 'DIGITODD';
+            confidence = Math.max(35, Math.min(55, (30 + (evenRatio - 0.5) * 40) * timeModifier));
+            reasoning = `Slight even bias (${(evenRatio * 100).toFixed(1)}%) suggests potential odd correction`;
+        } else if (evenRatio < 0.4) {
+            recommendation = 'WEAK_EVEN';
+            tradeType = 'DIGITEVEN';
+            confidence = Math.max(35, Math.min(55, (30 + (0.5 - evenRatio) * 40) * timeModifier));
+            reasoning = `Slight odd bias (${((1-evenRatio) * 100).toFixed(1)}%) suggests potential even correction`;
         }
 
         return {
@@ -387,39 +417,49 @@ const MLTrader = observer(() => {
                         setDigits(prev => [...prev.slice(-19), digit]);
                         setTicksProcessed(prev => prev + 1);
 
-                        // Generate ML prediction every few ticks
-                        if (ticksProcessed % 3 === 0) {
-                            const features = mlEngineRef.current.extractFeatures(mlEngineRef.current['tickHistory']);
-                            if (features.length > 0) {
-                                const prediction = mlEngineRef.current.predict(features);
-                                setMlRecommendation(prediction);
-                                
-                                // Add to prediction history
+                        // Generate ML prediction on every tick for real-time updates
+                        const features = mlEngineRef.current.extractFeatures(mlEngineRef.current['tickHistory']);
+                        if (features.length > 0) {
+                            const prediction = mlEngineRef.current.predict(features);
+                            
+                            // Always update the current recommendation
+                            setMlRecommendation(prediction);
+                            
+                            // Add to prediction history every 2 ticks to avoid spam
+                            if (ticksProcessed % 2 === 0) {
                                 setPredictionHistory(prev => [
                                     ...prev.slice(-9),
                                     {
                                         timestamp: new Date().toLocaleTimeString(),
                                         ...prediction,
-                                        tick: quote
+                                        tick: quote,
+                                        digit: digit
                                     }
                                 ]);
+                            }
 
-                                // Check if recommendation changed for auto-execution
-                                const recommendationKey = `${prediction.tradeType}_${prediction.prediction || ''}_${Math.floor(prediction.confidence / 10) * 10}`;
-                                if (lastRecommendationRef.current !== recommendationKey) {
-                                    lastRecommendationRef.current = recommendationKey;
-                                    setCurrentRecommendation(prediction);
+                            // Check if recommendation significantly changed for auto-execution
+                            const recommendationKey = `${prediction.tradeType}_${prediction.recommendation}_${Math.floor(prediction.confidence / 5) * 5}`;
+                            if (lastRecommendationRef.current !== recommendationKey && prediction.confidence >= minConfidence) {
+                                lastRecommendationRef.current = recommendationKey;
+                                setCurrentRecommendation(prediction);
+                                
+                                console.log('New ML Signal:', {
+                                    recommendation: prediction.recommendation,
+                                    tradeType: prediction.tradeType,
+                                    confidence: prediction.confidence,
+                                    reasoning: prediction.reasoning
+                                });
 
-                                    // Auto-execute if conditions are met
-                                    if (is_auto_executing && prediction.confidence >= minConfidence && is_running) {
-                                        executeTradeWithLogging(prediction, sym);
-                                    }
+                                // Auto-execute if conditions are met
+                                if (is_auto_executing && prediction.confidence >= minConfidence && is_running) {
+                                    executeTradeWithLogging(prediction, sym);
                                 }
+                            }
 
-                                // Auto-trade if enabled and confidence is high (legacy support)
-                                if (autoTrade && prediction.confidence >= minConfidence && is_running && !is_auto_executing) {
-                                    executeTrade(prediction);
-                                }
+                            // Auto-trade if enabled and confidence is high (legacy support)
+                            if (autoTrade && prediction.confidence >= minConfidence && is_running && !is_auto_executing) {
+                                executeTrade(prediction);
                             }
                         }
 
@@ -738,10 +778,13 @@ const MLTrader = observer(() => {
                     {/* ML Recommendation Panel */}
                     {mlRecommendation && (
                         <div className='ml-trader__recommendation'>
-                            <h3 className='ml-trader__rec-title'>🎯 ML Recommendation</h3>
+                            <h3 className='ml-trader__rec-title'>🎯 ML Recommendation (Live)</h3>
                             <div className={`ml-trader__rec-card ${getRecommendationColor(mlRecommendation.confidence)}`}>
                                 <div className='ml-trader__rec-header'>
-                                    <span className='ml-trader__rec-action'>{mlRecommendation.recommendation}</span>
+                                    <span className='ml-trader__rec-action'>
+                                        {mlRecommendation.recommendation}
+                                        <span className='ml-trader__rec-blink'>●</span>
+                                    </span>
                                     <span className='ml-trader__rec-confidence'>{mlRecommendation.confidence}%</span>
                                 </div>
                                 <div className='ml-trader__rec-details'>
@@ -754,6 +797,11 @@ const MLTrader = observer(() => {
                                     <div className='ml-trader__rec-reasoning'>
                                         <strong>{localize('Analysis:')}</strong> {mlRecommendation.reasoning}
                                     </div>
+                                    <div className='ml-trader__rec-meta'>
+                                        <span><strong>Ticks Analyzed:</strong> {ticksProcessed}</span>
+                                        <span><strong>Last Digit:</strong> {lastDigit}</span>
+                                        <span><strong>Updated:</strong> {new Date().toLocaleTimeString()}</span>
+                                    </div>
                                 </div>
                                 {mlRecommendation.confidence >= minConfidence && (
                                     <button
@@ -761,7 +809,7 @@ const MLTrader = observer(() => {
                                         onClick={() => executeTrade(mlRecommendation)}
                                         disabled={is_running && autoTrade}
                                     >
-                                        {localize('Execute Trade')}
+                                        {localize('Execute Trade')} ({mlRecommendation.confidence}%)
                                     </button>
                                 )}
                             </div>

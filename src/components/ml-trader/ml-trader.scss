@@ -152,6 +152,32 @@
         font-size: 0.9rem;
     }
 
+    &__rec-meta {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        font-size: 0.8rem;
+        color: var(--text-less-prominent);
+        margin-top: 0.5rem;
+        
+        span {
+            padding: 0.2rem 0.4rem;
+            background: var(--general-hover);
+            border-radius: 3px;
+        }
+    }
+
+    &__rec-blink {
+        color: var(--brand-green);
+        animation: blink 1s infinite;
+        margin-left: 0.5rem;
+    }
+
+    @keyframes blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0.3; }
+    }
+
     &__execute-btn {
         width: 100%;
         padding: 0.75rem;
