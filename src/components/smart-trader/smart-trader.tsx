@@ -17,6 +17,8 @@ const TRADE_TYPES = [
     { value: 'DIGITODD', label: 'Odd' },
     { value: 'DIGITMATCH', label: 'Matches' },
     { value: 'DIGITDIFF', label: 'Differs' },
+    { value: 'CALL', label: 'Higher' },
+    { value: 'PUT', label: 'Lower' },
 ];
 // Safe version of tradeOptionToBuy without Blockly dependencies
 const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
@@ -38,6 +40,9 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     }
     if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
         buy.parameters.barrier = trade_option.prediction;
+    }
+    if (trade_option.barrier !== undefined) {
+        buy.parameters.barrier = trade_option.barrier;
     }
     return buy;
 };
@@ -66,6 +71,8 @@ const SmartTrader = observer(() => {
     const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(5);
     const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(5);
     const [mdPrediction, setMdPrediction] = useState<number>(5); // for match/diff
+    // Higher/Lower barrier
+    const [barrier, setBarrier] = useState<string>('+0.37');
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.0);
 
@@ -225,6 +232,8 @@ const SmartTrader = observer(() => {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
+        } else if (tradeType === 'CALL' || tradeType === 'PUT') {
+            trade_option.barrier = barrier;
         }
 
         const buy_req = tradeOptionToBuy(tradeType, trade_option);
@@ -428,7 +437,7 @@ const SmartTrader = observer(() => {
                                 />
 
                             {/* Strategy controls */}
-                            {tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF' ? (
+                            {(tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') ? (
                                 <div className='smart-trader__row smart-trader__row--two'>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-md-pred'>{localize('Match/Diff prediction digit')}</label>
@@ -441,7 +450,7 @@ const SmartTrader = observer(() => {
                                             onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
                                     </div>
                                 </div>
-                            ) : (
+                            ) : (tradeType !== 'CALL' && tradeType !== 'PUT') ? (
                                 <div className='smart-trader__row smart-trader__row--compact'>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-ou-pred-pre'>{localize('Over/Under prediction (pre-loss)')}</label>
@@ -459,28 +468,64 @@ const SmartTrader = observer(() => {
                                             onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
                                     </div>
                                 </div>
-                            )}
+                            ) : null}
 
                             </div>
                         </div>
 
-                        <div className='smart-trader__digits'>
-                            {digits.map((d, idx) => (
-                                <div
-                                    key={`${idx}-${d}`}
-                                    className={`smart-trader__digit ${d === lastDigit ? 'is-current' : ''} ${getHintClass(d)}`}
-                                >
-                                    {d}
+                        {/* Higher/Lower Barrier Controls */}
+                        {(tradeType === 'CALL' || tradeType === 'PUT') && (
+                            <div className='smart-trader__row smart-trader__row--two'>
+                                <div className='smart-trader__field'>
+                                    <label htmlFor='st-barrier'>{localize('Barrier')}</label>
+                                    <input
+                                        id='st-barrier'
+                                        type='text'
+                                        value={barrier}
+                                        onChange={e => setBarrier(e.target.value)}
+                                        placeholder='+0.37'
+                                    />
                                 </div>
-                            ))}
-                        </div>
+                                <div className='smart-trader__field'>
+                                    <label htmlFor='st-martingale-hl'>{localize('Martingale multiplier')}</label>
+                                    <input
+                                        id='st-martingale-hl'
+                                        type='number'
+                                        min={1}
+                                        step='0.1'
+                                        value={martingaleMultiplier}
+                                        onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {(tradeType !== 'CALL' && tradeType !== 'PUT') && (
+                            <div className='smart-trader__digits'>
+                                {digits.map((d, idx) => (
+                                    <div
+                                        key={`${idx}-${d}`}
+                                        className={`smart-trader__digit ${d === lastDigit ? 'is-current' : ''} ${getHintClass(d)}`}
+                                    >
+                                        {d}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                         <div className='smart-trader__meta'>
                             <Text size='xs' color='general'>
                                 {localize('Ticks Processed:')} {ticksProcessed}
                             </Text>
-                            <Text size='xs' color='general'>
-                                {localize('Last Digit:')} {lastDigit ?? '-'}
-                            </Text>
+                            {(tradeType !== 'CALL' && tradeType !== 'PUT') && (
+                                <Text size='xs' color='general'>
+                                    {localize('Last Digit:')} {lastDigit ?? '-'}
+                                </Text>
+                            )}
+                            {(tradeType === 'CALL' || tradeType === 'PUT') && (
+                                <Text size='xs' color='general'>
+                                    {localize('Current Barrier:')} {barrier}
+                                </Text>
+                            )}
                         </div>
 
                         <div className='smart-trader__actions'>
