@@ -170,6 +170,18 @@ class MLTradingEngine {
             confidence = Math.min(90, (60 + (0.3 - over5Ratio) * 100) * timeModifier);
             reasoning = `Extremely low over-5 ratio (${(over5Ratio * 100).toFixed(1)}%) with upward momentum - strong over signal`;
         }
+        // Higher/Lower predictions based on trend and momentum
+        else if (momentum > 0.002 && trend > 0 && rsi < 30) {
+            recommendation = 'STRONG_HIGHER';
+            tradeType = 'CALL';
+            confidence = Math.min(85, (65 + momentum * 10000) * timeModifier);
+            reasoning = `Strong upward momentum (${(momentum * 100).toFixed(3)}%) with oversold RSI - strong higher signal`;
+        } else if (momentum < -0.002 && trend < 0 && rsi > 70) {
+            recommendation = 'STRONG_LOWER';
+            tradeType = 'PUT';
+            confidence = Math.min(85, (65 + Math.abs(momentum) * 10000) * timeModifier);
+            reasoning = `Strong downward momentum (${(momentum * 100).toFixed(3)}%) with overbought RSI - strong lower signal`;
+        }
         // Medium-high confidence patterns
         else if (maxConsecutive >= 5 && volatility < 0.0003) {
             if (evenRatio > 0.6) {
@@ -200,17 +212,29 @@ class MLTradingEngine {
         }
         // RSI-based signals with trend confirmation
         else if (rsi > 75 && momentum > 0.001 && trend < 0) {
-            recommendation = 'MEDIUM_UNDER';
-            tradeType = 'DIGITUNDER';
-            prediction = Math.floor(3 + Math.random() * 2);
+            recommendation = 'MEDIUM_LOWER';
+            tradeType = 'PUT';
             confidence = Math.min(80, (45 + (rsi - 70) * 2) * timeModifier);
             reasoning = `Overbought RSI (${rsi.toFixed(1)}) with strong momentum and downtrend - reversal expected`;
         } else if (rsi < 25 && momentum < -0.001 && trend > 0) {
+            recommendation = 'MEDIUM_HIGHER';
+            tradeType = 'CALL';
+            confidence = Math.min(80, (45 + (30 - rsi) * 2) * timeModifier);
+            reasoning = `Oversold RSI (${rsi.toFixed(1)}) with strong downward momentum and uptrend - reversal expected`;
+        }
+        // Additional digit-based signals for backwards compatibility
+        else if (rsi > 75 && momentum > 0.001) {
+            recommendation = 'MEDIUM_UNDER';
+            tradeType = 'DIGITUNDER';
+            prediction = Math.floor(3 + Math.random() * 2);
+            confidence = Math.min(75, (40 + (rsi - 70) * 2) * timeModifier);
+            reasoning = `Overbought RSI (${rsi.toFixed(1)}) suggests digit under signal`;
+        } else if (rsi < 25 && momentum < -0.001) {
             recommendation = 'MEDIUM_OVER';
             tradeType = 'DIGITOVER';
             prediction = Math.floor(6 + Math.random() * 2);
-            confidence = Math.min(80, (45 + (30 - rsi) * 2) * timeModifier);
-            reasoning = `Oversold RSI (${rsi.toFixed(1)}) with strong downward momentum and uptrend - reversal expected`;
+            confidence = Math.min(75, (40 + (30 - rsi) * 2) * timeModifier);
+            reasoning = `Oversold RSI (${rsi.toFixed(1)}) suggests digit over signal`;
         }
         // Weak signals for continuous recommendations
         else if (evenRatio > 0.6) {
@@ -267,8 +291,8 @@ const TRADE_TYPES = [
     { value: 'DIGITODD', label: 'Odd' },
     { value: 'DIGITMATCH', label: 'Matches' },
     { value: 'DIGITDIFF', label: 'Differs' },
-    { value: 'VANILLALONGCALL', label: 'Higher' }, // Added Higher
-    { value: 'VANILLALONGPUT', label: 'Lower' }, // Added Lower
+    { value: 'CALL', label: 'Higher' }, // Higher/Lower using CALL
+    { value: 'PUT', label: 'Lower' }, // Higher/Lower using PUT
 ];
 
 const MLTrader = observer(() => {
@@ -298,6 +322,9 @@ const MLTrader = observer(() => {
     const [strikePrice, setStrikePrice] = useState<string>('+0.00');
     const [duration, setDuration] = useState<number>(1);
     const [durationType, setDurationType] = useState<string>('m');
+    
+    // Current market price for barrier calculation
+    const [currentPrice, setCurrentPrice] = useState<number>(0);
 
     // ML state
     const [mlRecommendation, setMlRecommendation] = useState<any>(null);
@@ -420,6 +447,9 @@ const MLTrader = observer(() => {
 
                         // Update ML model
                         mlEngineRef.current.updateModel(quote);
+
+                        // Update current price for barrier calculation
+                        setCurrentPrice(quote);
 
                         setLastDigit(digit);
                         setDigits(prev => [...prev.slice(-19), digit]);
@@ -602,8 +632,11 @@ const MLTrader = observer(() => {
             };
 
             // Handle Higher/Lower specific parameters
-            if (prediction.tradeType === 'VANILLALONGCALL' || prediction.tradeType === 'VANILLALONGPUT') {
-                trade_option.strike_price = Number(strikePrice);
+            if (prediction.tradeType === 'CALL' || prediction.tradeType === 'PUT') {
+                // Calculate barrier based on current price and strike price offset
+                const strikeOffset = parseFloat(strikePrice);
+                const barrier = (currentPrice + strikeOffset).toFixed(5);
+                trade_option.barrier = barrier;
                 trade_option.duration = Number(duration);
                 trade_option.duration_unit = durationType;
             } else if (prediction.prediction !== undefined) {
@@ -632,8 +665,8 @@ const MLTrader = observer(() => {
             }
 
             // Set barrier for Higher/Lower trades
-            if (prediction.tradeType === 'VANILLALONGCALL' || prediction.tradeType === 'VANILLALONGPUT') {
-                buy_req.parameters.barrier = trade_option.strike_price;
+            if (prediction.tradeType === 'CALL' || prediction.tradeType === 'PUT') {
+                buy_req.parameters.barrier = trade_option.barrier;
             }
 
             const { buy, error } = await apiRef.current.buy(buy_req);
@@ -820,18 +853,27 @@ const MLTrader = observer(() => {
 
                         <div className='ml-trader__row'>
                             <div className='ml-trader__field'>
-                                <label htmlFor='ml-strike-price'>{localize('Strike Price (Higher/Lower)')}</label>
+                                <label htmlFor='ml-strike-price'>{localize('Barrier Offset (Higher/Lower)')}</label>
                                 <select
                                     id='ml-strike-price'
                                     value={strikePrice}
                                     onChange={e => setStrikePrice(e.target.value)}
                                 >
-                                    <option value='+2.20'>+2.20</option>
-                                    <option value='+1.10'>+1.10</option>
+                                    <option value='+0.50'>+0.50</option>
+                                    <option value='+0.25'>+0.25</option>
+                                    <option value='+0.10'>+0.10</option>
+                                    <option value='+0.05'>+0.05</option>
                                     <option value='+0.00'>+0.00</option>
-                                    <option value='-1.10'>-1.10</option>
-                                    <option value='-2.00'>-2.00</option>
+                                    <option value='-0.05'>-0.05</option>
+                                    <option value='-0.10'>-0.10</option>
+                                    <option value='-0.25'>-0.25</option>
+                                    <option value='-0.50'>-0.50</option>
                                 </select>
+                                {currentPrice > 0 && (
+                                    <div className='ml-trader__barrier-preview'>
+                                        Barrier: {(currentPrice + parseFloat(strikePrice)).toFixed(5)}
+                                    </div>
+                                )}
                             </div>
                             <div className='ml-trader__field'>
                                 <label htmlFor='ml-duration'>{localize('Duration (Higher/Lower)')}</label>
