@@ -1,4 +1,3 @@
-
 .ml-trader {
     height: 100vh;
     width: 100%;
@@ -324,48 +323,262 @@
     }
 
     &__history-type {
-        color: var(--text-prominent);
-        font-size: 0.8rem;
-        min-width: 100px;
-        text-align: right;
+        color: var(--text-less-prominent);
+        font-size: 1.1rem;
+    }
+
+    &__market-scanner {
+        background: var(--general-section-1);
+        border-radius: 0.8rem;
+        padding: 1.6rem;
+        margin-bottom: 1.6rem;
+        border: 1px solid var(--border-normal);
+
+        &-title {
+            color: var(--text-prominent);
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 1.2rem;
+        }
+
+        .ml-trader__best-signal {
+            background: var(--general-main-1);
+            border-radius: 0.6rem;
+            padding: 1.2rem;
+            border: 1px solid var(--border-normal);
+
+            &-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.8rem;
+            }
+
+            &-market {
+                font-weight: 600;
+                color: var(--text-prominent);
+            }
+
+            &-confidence {
+                padding: 0.4rem 0.8rem;
+                border-radius: 0.4rem;
+                font-weight: 600;
+                font-size: 1.2rem;
+
+                &.is-green { background: rgba(76, 175, 80, 0.1); color: #4CAF50; }
+                &.is-yellow { background: rgba(255, 193, 7, 0.1); color: #FFC107; }
+                &.is-orange { background: rgba(255, 152, 0, 0.1); color: #FF9800; }
+                &.is-red { background: rgba(244, 67, 54, 0.1); color: #F44336; }
+            }
+
+            &-details {
+                display: flex;
+                gap: 1.2rem;
+                font-size: 1.1rem;
+            }
+
+            &-type {
+                background: var(--brand-blue);
+                color: white;
+                padding: 0.2rem 0.6rem;
+                border-radius: 0.3rem;
+                font-size: 1rem;
+            }
+
+            &-action {
+                color: var(--text-prominent);
+                font-weight: 500;
+            }
+        }
+
+        .ml-trader__scanning {
+            margin-top: 1rem;
+            padding: 0.8rem;
+            background: var(--general-hover);
+            border-radius: 0.4rem;
+            text-align: center;
+        }
+    }
+
+    &__trades {
+        background: var(--general-section-1);
+        border-radius: 0.8rem;
+        padding: 1.6rem;
+        margin-bottom: 1.6rem;
+        border: 1px solid var(--border-normal);
+
+        &-title {
+            color: var(--text-prominent);
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 1.2rem;
+        }
+
+        &-list {
+            max-height: 40rem;
+            overflow-y: auto;
+        }
+
+        .ml-trader__trade-item {
+            background: var(--general-main-1);
+            border-radius: 0.6rem;
+            padding: 1.2rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-normal);
+
+            &:last-child {
+                margin-bottom: 0;
+            }
+        }
+
+        &-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.8rem;
+        }
+
+        &-time {
+            color: var(--text-less-prominent);
+            font-size: 1.1rem;
+        }
+
+        &-status {
+            padding: 0.3rem 0.8rem;
+            border-radius: 0.3rem;
+            font-size: 1rem;
+            font-weight: 600;
+
+            &.status-executing {
+                background: rgba(255, 193, 7, 0.1);
+                color: #FFC107;
+            }
+
+            &.status-completed {
+                background: rgba(76, 175, 80, 0.1);
+                color: #4CAF50;
+            }
+
+            &.status-failed {
+                background: rgba(244, 67, 54, 0.1);
+                color: #F44336;
+            }
+        }
+
+        &-details {
+            display: flex;
+            gap: 1.2rem;
+            margin-bottom: 0.6rem;
+            font-size: 1.1rem;
+        }
+
+        &-market {
+            color: var(--text-prominent);
+            font-weight: 600;
+        }
+
+        &-type {
+            background: var(--brand-blue);
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 0.3rem;
+            font-size: 1rem;
+        }
+
+        &-confidence {
+            color: var(--brand-green);
+            font-weight: 500;
+        }
+
+        &-stake {
+            color: var(--text-prominent);
+            font-weight: 500;
+        }
+
+        &-reasoning {
+            color: var(--text-less-prominent);
+            font-size: 1rem;
+            font-style: italic;
+            margin-top: 0.6rem;
+        }
     }
 
     &__actions {
+        margin-top: 2rem;
         display: flex;
+        gap: 1.2rem;
         justify-content: center;
-        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    &__toggle, &__auto-execute, &__scan-markets, &__stop-all {
+        padding: 1.2rem 2.4rem;
+        border: none;
+        border-radius: 0.6rem;
+        font-size: 1.3rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-width: 14rem;
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
     }
 
     &__toggle {
-        padding: 1rem 2rem;
-        border: none;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 1rem;
-        cursor: pointer;
-        transition: all 0.2s;
-
         &.is-start {
-            background: var(--status-success);
+            background: var(--brand-green);
             color: white;
 
-            &:hover {
-                background: var(--status-success-dark);
+            &:hover:not(:disabled) {
+                background: var(--brand-green-dark);
+                transform: translateY(-0.2rem);
             }
         }
 
         &.is-stop {
-            background: var(--status-danger);
+            background: var(--brand-red-dark);
             color: white;
 
-            &:hover {
-                background: var(--status-danger-dark);
+            &:hover:not(:disabled) {
+                background: var(--brand-red);
+                transform: translateY(-0.2rem);
             }
         }
+    }
 
-        &:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
+    &__auto-execute {
+        background: var(--brand-blue);
+        color: white;
+
+        &.is-active {
+            background: var(--brand-orange);
+        }
+
+        &:hover:not(:disabled) {
+            transform: translateY(-0.2rem);
+        }
+    }
+
+    &__scan-markets {
+        background: var(--brand-purple);
+        color: white;
+
+        &:hover:not(:disabled) {
+            transform: translateY(-0.2rem);
+        }
+    }
+
+    &__stop-all {
+        background: var(--brand-red);
+        color: white;
+
+        &:hover:not(:disabled) {
+            background: var(--brand-red-dark);
+            transform: translateY(-0.2rem);
         }
     }
 

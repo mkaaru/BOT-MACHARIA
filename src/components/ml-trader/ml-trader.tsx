@@ -252,6 +252,7 @@ const MLTrader = observer(() => {
     const [is_authorized, setIsAuthorized] = useState(false);
     const [account_currency, setAccountCurrency] = useState<string>('USD');
     const [symbols, setSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
+    const [market_analysis, setMarketAnalysis] = useState<{[key: string]: any}>({});
 
     // Form state
     const [symbol, setSymbol] = useState<string>('');
@@ -270,7 +271,15 @@ const MLTrader = observer(() => {
 
     const [status, setStatus] = useState<string>('');
     const [is_running, setIsRunning] = useState(false);
+    const [is_auto_executing, setIsAutoExecuting] = useState(false);
+    const [current_recommendation, setCurrentRecommendation] = useState<any>(null);
+    const [executed_trades, setExecutedTrades] = useState<any[]>([]);
+    const [market_scanner_active, setMarketScannerActive] = useState(false);
+    const [best_market_signal, setBestMarketSignal] = useState<any>(null);
+    const [scanning_markets, setScanningMarkets] = useState<string[]>([]);
     const stopFlagRef = useRef<boolean>(false);
+    const autoExecutionRef = useRef<boolean>(false);
+    const lastRecommendationRef = useRef<string>('');
 
     const getRecommendationColor = (confidence: number) => {
         if (confidence >= 80) return 'is-green';
@@ -395,8 +404,20 @@ const MLTrader = observer(() => {
                                     }
                                 ]);
 
-                                // Auto-trade if enabled and confidence is high
-                                if (autoTrade && prediction.confidence >= minConfidence && is_running) {
+                                // Check if recommendation changed for auto-execution
+                                const recommendationKey = `${prediction.tradeType}_${prediction.prediction || ''}_${Math.floor(prediction.confidence / 10) * 10}`;
+                                if (lastRecommendationRef.current !== recommendationKey) {
+                                    lastRecommendationRef.current = recommendationKey;
+                                    setCurrentRecommendation(prediction);
+
+                                    // Auto-execute if conditions are met
+                                    if (is_auto_executing && prediction.confidence >= minConfidence && is_running) {
+                                        executeTradeWithLogging(prediction, sym);
+                                    }
+                                }
+
+                                // Auto-trade if enabled and confidence is high (legacy support)
+                                if (autoTrade && prediction.confidence >= minConfidence && is_running && !is_auto_executing) {
                                     executeTrade(prediction);
                                 }
                             }
@@ -412,6 +433,108 @@ const MLTrader = observer(() => {
 
         } catch (e: any) {
             console.error('startTicks error', e);
+        }
+    };
+
+    const scanMarkets = async () => {
+        const marketsToScan = symbols.slice(0, 5); // Scan top 5 markets
+        setScanningMarkets(marketsToScan.map(s => s.symbol));
+        setMarketScannerActive(true);
+        
+        const marketSignals: any[] = [];
+        
+        for (const market of marketsToScan) {
+            try {
+                // Get historical data for this market
+                const { history } = await apiRef.current.send({
+                    ticks_history: market.symbol,
+                    count: 100,
+                    end: 'latest',
+                    style: 'ticks'
+                });
+                
+                if (history?.prices) {
+                    const prices = history.prices.map((p: string) => parseFloat(p));
+                    const tempEngine = new MLTradingEngine();
+                    
+                    // Populate engine with historical data
+                    prices.forEach(price => tempEngine.updateModel(price));
+                    
+                    // Get prediction for this market
+                    const features = tempEngine.extractFeatures(prices);
+                    if (features.length > 0) {
+                        const prediction = tempEngine.predict(features);
+                        
+                        marketSignals.push({
+                            symbol: market.symbol,
+                            display_name: market.display_name,
+                            ...prediction,
+                            last_price: prices[prices.length - 1]
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error(`Error scanning market ${market.symbol}:`, error);
+            }
+        }
+        
+        // Find best signal
+        const bestSignal = marketSignals.reduce((best, current) => {
+            return (current.confidence > (best?.confidence || 0)) ? current : best;
+        }, null);
+        
+        setBestMarketSignal(bestSignal);
+        setMarketAnalysis(
+            marketSignals.reduce((acc, signal) => {
+                acc[signal.symbol] = signal;
+                return acc;
+            }, {})
+        );
+        
+        setMarketScannerActive(false);
+        setScanningMarkets([]);
+        
+        // Switch to best market if found and confidence is high
+        if (bestSignal && bestSignal.confidence >= minConfidence + 10) {
+            setSymbol(bestSignal.symbol);
+            startTicks(bestSignal.symbol);
+            setStatus(`Switched to ${bestSignal.display_name} (${bestSignal.confidence}% confidence)`);
+        }
+    };
+
+    const executeTradeWithLogging = async (prediction: any, currentSymbol: string) => {
+        const tradeId = `trade_${Date.now()}`;
+        const trade = {
+            id: tradeId,
+            symbol: currentSymbol,
+            symbol_display: symbols.find(s => s.symbol === currentSymbol)?.display_name || currentSymbol,
+            timestamp: new Date().toLocaleTimeString(),
+            trade_type: prediction.tradeType,
+            prediction: prediction.prediction,
+            confidence: prediction.confidence,
+            reasoning: prediction.reasoning,
+            stake: stake,
+            status: 'executing'
+        };
+        
+        setExecutedTrades(prev => [trade, ...prev.slice(0, 19)]); // Keep last 20 trades
+        
+        try {
+            const result = await executeTrade(prediction);
+            
+            // Update trade status
+            setExecutedTrades(prev => prev.map(t => 
+                t.id === tradeId 
+                    ? { ...t, status: 'completed', result: result }
+                    : t
+            ));
+            
+        } catch (error) {
+            setExecutedTrades(prev => prev.map(t => 
+                t.id === tradeId 
+                    ? { ...t, status: 'failed', error: error.message }
+                    : t
+            ));
         }
     };
 
@@ -484,9 +607,12 @@ const MLTrader = observer(() => {
     const toggleTrading = () => {
         if (is_running) {
             setIsRunning(false);
+            setIsAutoExecuting(false);
             stopFlagRef.current = true;
+            autoExecutionRef.current = false;
             run_panel.setIsRunning(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
+            setStatus('Analysis and trading stopped');
         } else {
             setIsRunning(true);
             stopFlagRef.current = false;
@@ -495,7 +621,39 @@ const MLTrader = observer(() => {
             run_panel.run_id = `ml-trader-${Date.now()}`;
             run_panel.setIsRunning(true);
             run_panel.setContractStage(contract_stages.STARTING);
+            setStatus('ML Analysis started');
         }
+    };
+
+    const toggleAutoExecution = () => {
+        if (is_auto_executing) {
+            setIsAutoExecuting(false);
+            autoExecutionRef.current = false;
+            setStatus('Auto-execution stopped');
+        } else {
+            setIsAutoExecuting(true);
+            autoExecutionRef.current = true;
+            setStatus('Auto-execution enabled - will trade on recommendation changes');
+            
+            // Start market scanning if not already running
+            if (!market_scanner_active) {
+                scanMarkets();
+            }
+        }
+    };
+
+    const stopAnalysis = () => {
+        setIsRunning(false);
+        setIsAutoExecuting(false);
+        setMarketScannerActive(false);
+        stopFlagRef.current = true;
+        autoExecutionRef.current = false;
+        run_panel.setIsRunning(false);
+        run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        setStatus('All analysis and trading stopped');
+        
+        // Stop tick stream
+        stopTicks();
     };
 
     return (
@@ -671,6 +829,62 @@ const MLTrader = observer(() => {
                         </div>
                     )}
 
+                    {/* Market Scanner */}
+                    {best_market_signal && (
+                        <div className='ml-trader__market-scanner'>
+                            <h4 className='ml-trader__scanner-title'>{localize('🔍 Best Market Signal')}</h4>
+                            <div className='ml-trader__best-signal'>
+                                <div className='ml-trader__best-signal-header'>
+                                    <span className='ml-trader__best-signal-market'>{best_market_signal.display_name}</span>
+                                    <span className={`ml-trader__best-signal-confidence ${getRecommendationColor(best_market_signal.confidence)}`}>
+                                        {best_market_signal.confidence}%
+                                    </span>
+                                </div>
+                                <div className='ml-trader__best-signal-details'>
+                                    <span className='ml-trader__best-signal-type'>{best_market_signal.tradeType}</span>
+                                    <span className='ml-trader__best-signal-action'>{best_market_signal.recommendation}</span>
+                                </div>
+                            </div>
+                            {market_scanner_active && (
+                                <div className='ml-trader__scanning'>
+                                    <Text size='xs' color='general'>
+                                        {localize('Scanning markets:')} {scanning_markets.join(', ')}...
+                                    </Text>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Executed Trades */}
+                    {executed_trades.length > 0 && (
+                        <div className='ml-trader__trades'>
+                            <h4 className='ml-trader__trades-title'>{localize('📊 Recent Trades')}</h4>
+                            <div className='ml-trader__trades-list'>
+                                {executed_trades.slice(0, 10).map(trade => (
+                                    <div key={trade.id} className='ml-trader__trade-item'>
+                                        <div className='ml-trader__trade-header'>
+                                            <span className='ml-trader__trade-time'>{trade.timestamp}</span>
+                                            <span className={`ml-trader__trade-status status-${trade.status}`}>
+                                                {trade.status.toUpperCase()}
+                                            </span>
+                                        </div>
+                                        <div className='ml-trader__trade-details'>
+                                            <span className='ml-trader__trade-market'>{trade.symbol_display}</span>
+                                            <span className='ml-trader__trade-type'>{trade.trade_type}</span>
+                                            <span className='ml-trader__trade-confidence'>{trade.confidence}%</span>
+                                            <span className='ml-trader__trade-stake'>${trade.stake}</span>
+                                        </div>
+                                        {trade.reasoning && (
+                                            <div className='ml-trader__trade-reasoning'>
+                                                {trade.reasoning}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Controls */}
                     <div className='ml-trader__actions'>
                         <button
@@ -678,7 +892,31 @@ const MLTrader = observer(() => {
                             onClick={toggleTrading}
                             disabled={!symbol}
                         >
-                            {is_running ? localize('Stop ML Trading') : localize('Start ML Analysis')}
+                            {is_running ? localize('Stop Analysis') : localize('Start ML Analysis')}
+                        </button>
+                        
+                        <button
+                            className={`ml-trader__auto-execute ${is_auto_executing ? 'is-active' : ''}`}
+                            onClick={toggleAutoExecution}
+                            disabled={!is_running}
+                        >
+                            {is_auto_executing ? localize('Stop Auto-Execute') : localize('Start Auto-Execute')}
+                        </button>
+                        
+                        <button
+                            className='ml-trader__scan-markets'
+                            onClick={scanMarkets}
+                            disabled={market_scanner_active || !is_running}
+                        >
+                            {market_scanner_active ? localize('Scanning...') : localize('Scan Markets')}
+                        </button>
+                        
+                        <button
+                            className='ml-trader__stop-all'
+                            onClick={stopAnalysis}
+                            disabled={!is_running && !is_auto_executing}
+                        >
+                            {localize('🛑 Stop All')}
                         </button>
                     </div>
 
