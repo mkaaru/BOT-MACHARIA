@@ -290,6 +290,8 @@ const MLTrader = observer(() => {
     const [stake, setStake] = useState<number>(0.5);
     const [autoTrade, setAutoTrade] = useState<boolean>(false);
     const [minConfidence, setMinConfidence] = useState<number>(70);
+    const [maxStopLoss, setMaxStopLoss] = useState<number>(50);
+    const [takeProfit, setTakeProfit] = useState<number>(100);
 
     // ML state
     const [mlRecommendation, setMlRecommendation] = useState<any>(null);
@@ -451,15 +453,10 @@ const MLTrader = observer(() => {
                                     reasoning: prediction.reasoning
                                 });
 
-                                // Auto-execute if conditions are met
-                                if (is_auto_executing && prediction.confidence >= minConfidence && is_running) {
+                                // Auto-execute if auto-trade is enabled and confidence is sufficient
+                                if ((autoTrade || is_auto_executing) && prediction.confidence >= minConfidence && is_running) {
                                     executeTradeWithLogging(prediction, sym);
                                 }
-                            }
-
-                            // Auto-trade if enabled and confidence is high (legacy support)
-                            if (autoTrade && prediction.confidence >= minConfidence && is_running && !is_auto_executing) {
-                                executeTrade(prediction);
                             }
                         }
 
@@ -554,6 +551,8 @@ const MLTrader = observer(() => {
             confidence: prediction.confidence,
             reasoning: prediction.reasoning,
             stake: stake,
+            max_stop_loss: maxStopLoss,
+            take_profit: takeProfit,
             status: 'executing'
         };
         
@@ -569,12 +568,16 @@ const MLTrader = observer(() => {
                     : t
             ));
             
+            setStatus(`✅ Trade executed: ${prediction.tradeType} (${prediction.confidence}% confidence) - Stake: $${stake}`);
+            
         } catch (error) {
             setExecutedTrades(prev => prev.map(t => 
                 t.id === tradeId 
                     ? { ...t, status: 'failed', error: error.message }
                     : t
             ));
+            
+            setStatus(`❌ Trade failed: ${error.message}`);
         }
     };
 
@@ -773,6 +776,31 @@ const MLTrader = observer(() => {
                                 />
                             </div>
                         </div>
+
+                        <div className='ml-trader__row'>
+                            <div className='ml-trader__field'>
+                                <label htmlFor='ml-stop-loss'>{localize('Max Stop Loss ($)')}</label>
+                                <input
+                                    id='ml-stop-loss'
+                                    type='number'
+                                    step='0.01'
+                                    min={1}
+                                    value={maxStopLoss}
+                                    onChange={e => setMaxStopLoss(Number(e.target.value))}
+                                />
+                            </div>
+                            <div className='ml-trader__field'>
+                                <label htmlFor='ml-take-profit'>{localize('Take Profit ($)')}</label>
+                                <input
+                                    id='ml-take-profit'
+                                    type='number'
+                                    step='0.01'
+                                    min={1}
+                                    value={takeProfit}
+                                    onChange={e => setTakeProfit(Number(e.target.value))}
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     {/* ML Recommendation Panel */}
@@ -804,13 +832,22 @@ const MLTrader = observer(() => {
                                     </div>
                                 </div>
                                 {mlRecommendation.confidence >= minConfidence && (
-                                    <button
-                                        className='ml-trader__execute-btn'
-                                        onClick={() => executeTrade(mlRecommendation)}
-                                        disabled={is_running && autoTrade}
-                                    >
-                                        {localize('Execute Trade')} ({mlRecommendation.confidence}%)
-                                    </button>
+                                    <div className='ml-trader__execute-section'>
+                                        <button
+                                            className='ml-trader__execute-btn'
+                                            onClick={() => executeTradeWithLogging(mlRecommendation, symbol)}
+                                            disabled={autoTrade && is_running}
+                                        >
+                                            {autoTrade && is_running ? 
+                                                localize('Auto-Trading Active') : 
+                                                localize('Execute Trade')} ({mlRecommendation.confidence}%)
+                                        </button>
+                                        {autoTrade && is_running && (
+                                            <div className='ml-trader__auto-status'>
+                                                ✓ {localize('Will execute automatically on next signal')}
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -921,6 +958,10 @@ const MLTrader = observer(() => {
                                             <span className='ml-trader__trade-type'>{trade.trade_type}</span>
                                             <span className='ml-trader__trade-confidence'>{trade.confidence}%</span>
                                             <span className='ml-trader__trade-stake'>${trade.stake}</span>
+                                        </div>
+                                        <div className='ml-trader__trade-risk'>
+                                            <span className='ml-trader__trade-sl'>SL: ${trade.max_stop_loss || maxStopLoss}</span>
+                                            <span className='ml-trader__trade-tp'>TP: ${trade.take_profit || takeProfit}</span>
                                         </div>
                                         {trade.reasoning && (
                                             <div className='ml-trader__trade-reasoning'>
