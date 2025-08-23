@@ -1,4 +1,3 @@
-
 .smart-trader {
     height: 100%;
     width: 100%;
@@ -144,12 +143,112 @@
     }
 
     &__meta {
+        margin-top: 1.6rem;
         display: flex;
-        justify-content: space-between;
-        margin-top: 0.6rem;
+        gap: 1.6rem;
+        flex-wrap: wrap;
     }
 
-    &__status {
-        margin-top: 0.4rem;
+    &__hl-meta {
+        display: flex;
+        gap: 1.6rem;
+        flex-wrap: wrap;
+    }
+
+    &__open-position {
+        margin: 1.6rem 0;
+        border: 1px solid var(--border-normal);
+        border-radius: 0.8rem;
+        overflow: hidden;
+    }
+
+    &__position-header {
+        background: var(--fill-normal);
+        padding: 1.2rem 1.6rem;
+        border-bottom: 1px solid var(--border-normal);
+    }
+
+    &__position-card {
+        padding: 1.6rem;
+        background: var(--general-main-1);
+    }
+
+    &__symbol-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.8rem;
+    }
+
+    &__direction-badge {
+        padding: 0.4rem 0.8rem;
+        border-radius: 0.4rem;
+        color: var(--text-colored-background);
+        font-size: 1.2rem;
+        font-weight: bold;
+
+        &.higher {
+            background: var(--status-success);
+        }
+
+        &.lower {
+            background: var(--status-danger);
+        }
+    }
+
+    &__duration-display {
+        text-align: center;
+        margin-bottom: 1.2rem;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 1.4rem;
+        font-weight: bold;
+        color: var(--text-prominent);
+    }
+
+    &__contract-values {
+        margin-bottom: 1.6rem;
+    }
+
+    &__value-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.8rem;
+
+        &:last-child {
+            margin-bottom: 0;
+        }
+    }
+
+    &__value-item {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        min-width: 0;
+        flex: 1;
+
+        &:last-child {
+            align-items: flex-end;
+        }
+    }
+
+    &__sell-button {
+        width: 100%;
+        padding: 1.2rem;
+        background: var(--button-secondary-default);
+        color: var(--text-colored-background);
+        border: none;
+        border-radius: 0.4rem;
+        font-size: 1.4rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.3s ease;
+
+        &:hover {
+            background: var(--button-secondary-hover);
+        }
+
+        &:active {
+            background: var(--button-secondary-active);
+        }
     }
 }

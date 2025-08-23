@@ -65,6 +65,8 @@ const SmartTrader = observer(() => {
     const [symbol, setSymbol] = useState<string>('');
     const [tradeType, setTradeType] = useState<string>('DIGITOVER');
     const [ticks, setTicks] = useState<number>(1);
+    const [duration, setDuration] = useState<number>(46); // For time-based duration
+    const [durationType, setDurationType] = useState<string>('t'); // 't' for ticks, 's' for seconds, 'm' for minutes
     const [stake, setStake] = useState<number>(0.5);
     const [baseStake, setBaseStake] = useState<number>(0.5);
     // Predictions
@@ -75,6 +77,12 @@ const SmartTrader = observer(() => {
     const [barrier, setBarrier] = useState<string>('+0.37');
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.0);
+
+    // Contract tracking state
+    const [currentProfit, setCurrentProfit] = useState<number>(0);
+    const [contractValue, setContractValue] = useState<number>(0);
+    const [potentialPayout, setPotentialPayout] = useState<number>(0);
+    const [contractDuration, setContractDuration] = useState<string>('00:00:00');
 
     // Live digits state
     const [digits, setDigits] = useState<number[]>([]);
@@ -223,8 +231,8 @@ const SmartTrader = observer(() => {
             basis: 'stake',
             contractTypes: [tradeType],
             currency: account_currency,
-            duration: Number(ticks),
-            duration_unit: 't',
+            duration: durationType === 't' ? Number(ticks) : Number(duration),
+            duration_unit: durationType,
             symbol,
         };
         // Choose prediction based on trade type and last outcome
@@ -320,6 +328,23 @@ const SmartTrader = observer(() => {
                                 if (String(poc?.contract_id || '') === targetId) {
                                     transactions.onBotContractEvent(poc);
                                     run_panel.setHasOpenContract(true);
+                                    
+                                    // Update contract tracking values
+                                    setCurrentProfit(Number(poc?.profit || 0));
+                                    setContractValue(Number(poc?.bid_price || 0));
+                                    setPotentialPayout(Number(poc?.payout || 0));
+                                    
+                                    // Calculate remaining time
+                                    if (poc?.date_expiry && !poc?.is_sold) {
+                                        const now = Math.floor(Date.now() / 1000);
+                                        const expiry = Number(poc.date_expiry);
+                                        const remaining = Math.max(0, expiry - now);
+                                        const hours = Math.floor(remaining / 3600);
+                                        const minutes = Math.floor((remaining % 3600) / 60);
+                                        const seconds = remaining % 60;
+                                        setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+                                    }
+                                    
                                     if (poc?.is_sold || poc?.status === 'sold') {
                                         run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
                                         run_panel.setHasOpenContract(false);
@@ -336,6 +361,11 @@ const SmartTrader = observer(() => {
                                             lossStreak++;
                                             step = Math.min(step + 1, 50);
                                         }
+                                        // Reset contract values
+                                        setCurrentProfit(0);
+                                        setContractValue(0);
+                                        setPotentialPayout(0);
+                                        setContractDuration('00:00:00');
                                     }
                                 }
                             }
@@ -413,18 +443,45 @@ const SmartTrader = observer(() => {
                             </div>
                         </div>
 
-                        <div className='smart-trader__row smart-trader__row--compact'>
+                        {/* Duration Controls */}
+                        <div className='smart-trader__row smart-trader__row--two'>
                             <div className='smart-trader__field'>
-                                <label htmlFor='st-ticks'>{localize('Ticks')}</label>
-                                <input
-                                    id='st-ticks'
-                                    type='number'
-                                    min={1}
-                                    max={10}
-                                    value={ticks}
-                                    onChange={e => setTicks(Number(e.target.value))}
-                                />
+                                <label htmlFor='st-duration-type'>{localize('Duration Type')}</label>
+                                <select
+                                    id='st-duration-type'
+                                    value={durationType}
+                                    onChange={e => setDurationType(e.target.value)}
+                                >
+                                    <option value='t'>{localize('Ticks')}</option>
+                                    <option value='s'>{localize('Seconds')}</option>
+                                    <option value='m'>{localize('Minutes')}</option>
+                                </select>
                             </div>
+                            <div className='smart-trader__field'>
+                                <label htmlFor='st-duration'>{localize('Duration')}</label>
+                                {durationType === 't' ? (
+                                    <input
+                                        id='st-duration'
+                                        type='number'
+                                        min={1}
+                                        max={10}
+                                        value={ticks}
+                                        onChange={e => setTicks(Number(e.target.value))}
+                                    />
+                                ) : (
+                                    <input
+                                        id='st-duration'
+                                        type='number'
+                                        min={durationType === 's' ? 15 : 1}
+                                        max={durationType === 's' ? 86400 : 1440}
+                                        value={duration}
+                                        onChange={e => setDuration(Number(e.target.value))}
+                                    />
+                                )}
+                            </div>
+                        </div>
+
+                        <div className='smart-trader__row smart-trader__row--compact'>
                             <div className='smart-trader__field'>
                                 <label htmlFor='st-stake'>{localize('Stake')}</label>
                                 <input
@@ -435,6 +492,7 @@ const SmartTrader = observer(() => {
                                     value={stake}
                                     onChange={e => setStake(Number(e.target.value))}
                                 />
+                            </div>
 
                             {/* Strategy controls */}
                             {(tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') ? (
@@ -470,7 +528,6 @@ const SmartTrader = observer(() => {
                                 </div>
                             ) : null}
 
-                            </div>
                         </div>
 
                         {/* Higher/Lower Barrier Controls */}
@@ -500,6 +557,61 @@ const SmartTrader = observer(() => {
                             </div>
                         )}
 
+                        {/* Open Position Display for Higher/Lower */}
+                        {(tradeType === 'CALL' || tradeType === 'PUT') && run_panel.hasOpenContract && (
+                            <div className='smart-trader__open-position'>
+                                <div className='smart-trader__position-header'>
+                                    <Text size='s' weight='bold'>{localize('Open positions')}</Text>
+                                </div>
+                                <div className='smart-trader__position-card'>
+                                    <div className='smart-trader__position-info'>
+                                        <div className='smart-trader__symbol-info'>
+                                            <Text size='xs' color='general'>
+                                                {symbols.find(s => s.symbol === symbol)?.display_name || symbol}
+                                            </Text>
+                                            <div className='smart-trader__trade-direction'>
+                                                <span className={`smart-trader__direction-badge ${tradeType === 'CALL' ? 'higher' : 'lower'}`}>
+                                                    {tradeType === 'CALL' ? 'Higher' : 'Lower'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className='smart-trader__duration-display'>
+                                            <Text size='xs' color='general'>{contractDuration}</Text>
+                                        </div>
+                                        <div className='smart-trader__contract-values'>
+                                            <div className='smart-trader__value-row'>
+                                                <div className='smart-trader__value-item'>
+                                                    <Text size='xs' color='general'>{localize('Total profit/loss:')}</Text>
+                                                    <Text size='xs' color={currentProfit >= 0 ? 'profit-success' : 'loss-danger'}>
+                                                        {currentProfit >= 0 ? '+' : ''}{currentProfit.toFixed(2)}
+                                                    </Text>
+                                                </div>
+                                                <div className='smart-trader__value-item'>
+                                                    <Text size='xs' color='general'>{localize('Contract value:')}</Text>
+                                                    <Text size='xs' color='prominent'>
+                                                        {contractValue.toFixed(2)}
+                                                    </Text>
+                                                </div>
+                                            </div>
+                                            <div className='smart-trader__value-row'>
+                                                <div className='smart-trader__value-item'>
+                                                    <Text size='xs' color='general'>{localize('Stake:')}</Text>
+                                                    <Text size='xs' color='prominent'>{stake.toFixed(2)}</Text>
+                                                </div>
+                                                <div className='smart-trader__value-item'>
+                                                    <Text size='xs' color='general'>{localize('Potential payout:')}</Text>
+                                                    <Text size='xs' color='prominent'>{potentialPayout.toFixed(2)}</Text>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button className='smart-trader__sell-button'>
+                                            {localize('Sell')}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {(tradeType !== 'CALL' && tradeType !== 'PUT') && (
                             <div className='smart-trader__digits'>
                                 {digits.map((d, idx) => (
@@ -522,9 +634,14 @@ const SmartTrader = observer(() => {
                                 </Text>
                             )}
                             {(tradeType === 'CALL' || tradeType === 'PUT') && (
-                                <Text size='xs' color='general'>
-                                    {localize('Current Barrier:')} {barrier}
-                                </Text>
+                                <div className='smart-trader__hl-meta'>
+                                    <Text size='xs' color='general'>
+                                        {localize('Barrier:')} {barrier}
+                                    </Text>
+                                    <Text size='xs' color='general'>
+                                        {localize('Duration:')} {durationType === 't' ? `${ticks} ${localize('ticks')}` : `${duration} ${durationType === 's' ? localize('seconds') : localize('minutes')}`}
+                                    </Text>
+                                </div>
                             )}
                         </div>
 
