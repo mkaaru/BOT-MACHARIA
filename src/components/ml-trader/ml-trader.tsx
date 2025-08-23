@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
@@ -80,14 +79,14 @@ class MLTradingEngine {
     // RSI calculation
     calculateRSI(data: number[], period = 14): number {
         if (data.length < period + 1) return 50;
-        
+
         let gains = 0, losses = 0;
         for (let i = 1; i < Math.min(period + 1, data.length); i++) {
             const change = data[i] - data[i - 1];
             if (change > 0) gains += change;
             else losses -= change;
         }
-        
+
         const avgGain = gains / period;
         const avgLoss = losses / period;
         const rs = avgGain / (avgLoss || 1);
@@ -268,6 +267,8 @@ const TRADE_TYPES = [
     { value: 'DIGITODD', label: 'Odd' },
     { value: 'DIGITMATCH', label: 'Matches' },
     { value: 'DIGITDIFF', label: 'Differs' },
+    { value: 'VANILLALONGCALL', label: 'Higher' }, // Added Higher
+    { value: 'VANILLALONGPUT', label: 'Lower' }, // Added Lower
 ];
 
 const MLTrader = observer(() => {
@@ -293,6 +294,11 @@ const MLTrader = observer(() => {
     const [maxStopLoss, setMaxStopLoss] = useState<number>(50);
     const [takeProfit, setTakeProfit] = useState<number>(100);
 
+    // New state for Higher/Lower trades
+    const [strikePrice, setStrikePrice] = useState<string>('+0.00');
+    const [duration, setDuration] = useState<number>(1);
+    const [durationType, setDurationType] = useState<string>('m');
+
     // ML state
     const [mlRecommendation, setMlRecommendation] = useState<any>(null);
     const [modelStats, setModelStats] = useState<any>(null);
@@ -316,7 +322,7 @@ const MLTrader = observer(() => {
     const getRecommendationColor = (confidence: number) => {
         if (confidence >= 80) return 'is-green';
         if (confidence >= 60) return 'is-yellow';
-        if (confidence >= 40) return 'is-orange';
+        if (confidence >= 40) return 'is-red';
         return 'is-red';
     };
 
@@ -399,7 +405,7 @@ const MLTrader = observer(() => {
         setLastDigit(null);
         setTicksProcessed(0);
         mlEngineRef.current = new MLTradingEngine(); // Reset ML engine
-        
+
         try {
             const { subscription, error } = await apiRef.current.send({ ticks: sym, subscribe: 1 });
             if (error) throw error;
@@ -411,10 +417,10 @@ const MLTrader = observer(() => {
                     if (data?.msg_type === 'tick' && data?.tick?.symbol === sym) {
                         const quote = data.tick.quote;
                         const digit = Number(String(quote).slice(-1));
-                        
+
                         // Update ML model
                         mlEngineRef.current.updateModel(quote);
-                        
+
                         setLastDigit(digit);
                         setDigits(prev => [...prev.slice(-19), digit]);
                         setTicksProcessed(prev => prev + 1);
@@ -423,10 +429,10 @@ const MLTrader = observer(() => {
                         const features = mlEngineRef.current.extractFeatures(mlEngineRef.current['tickHistory']);
                         if (features.length > 0) {
                             const prediction = mlEngineRef.current.predict(features);
-                            
+
                             // Always update the current recommendation
                             setMlRecommendation(prediction);
-                            
+
                             // Add to prediction history every 2 ticks to avoid spam
                             if (ticksProcessed % 2 === 0) {
                                 setPredictionHistory(prev => [
@@ -445,7 +451,7 @@ const MLTrader = observer(() => {
                             if (lastRecommendationRef.current !== recommendationKey && prediction.confidence >= minConfidence) {
                                 lastRecommendationRef.current = recommendationKey;
                                 setCurrentRecommendation(prediction);
-                                
+
                                 console.log('New ML Signal:', {
                                     recommendation: prediction.recommendation,
                                     tradeType: prediction.tradeType,
@@ -477,9 +483,9 @@ const MLTrader = observer(() => {
         const marketsToScan = symbols.slice(0, 5); // Scan top 5 markets
         setScanningMarkets(marketsToScan.map(s => s.symbol));
         setMarketScannerActive(true);
-        
+
         const marketSignals: any[] = [];
-        
+
         for (const market of marketsToScan) {
             try {
                 // Get historical data for this market
@@ -489,19 +495,19 @@ const MLTrader = observer(() => {
                     end: 'latest',
                     style: 'ticks'
                 });
-                
+
                 if (history?.prices) {
                     const prices = history.prices.map((p: string) => parseFloat(p));
                     const tempEngine = new MLTradingEngine();
-                    
+
                     // Populate engine with historical data
                     prices.forEach(price => tempEngine.updateModel(price));
-                    
+
                     // Get prediction for this market
                     const features = tempEngine.extractFeatures(prices);
                     if (features.length > 0) {
                         const prediction = tempEngine.predict(features);
-                        
+
                         marketSignals.push({
                             symbol: market.symbol,
                             display_name: market.display_name,
@@ -514,12 +520,12 @@ const MLTrader = observer(() => {
                 console.error(`Error scanning market ${market.symbol}:`, error);
             }
         }
-        
+
         // Find best signal
         const bestSignal = marketSignals.reduce((best, current) => {
             return (current.confidence > (best?.confidence || 0)) ? current : best;
         }, null);
-        
+
         setBestMarketSignal(bestSignal);
         setMarketAnalysis(
             marketSignals.reduce((acc, signal) => {
@@ -527,10 +533,10 @@ const MLTrader = observer(() => {
                 return acc;
             }, {})
         );
-        
+
         setMarketScannerActive(false);
         setScanningMarkets([]);
-        
+
         // Switch to best market if found and confidence is high
         if (bestSignal && bestSignal.confidence >= minConfidence + 10) {
             setSymbol(bestSignal.symbol);
@@ -555,28 +561,28 @@ const MLTrader = observer(() => {
             take_profit: takeProfit,
             status: 'executing'
         };
-        
+
         setExecutedTrades(prev => [trade, ...prev.slice(0, 19)]); // Keep last 20 trades
-        
+
         try {
             const result = await executeTrade(prediction);
-            
+
             // Update trade status
             setExecutedTrades(prev => prev.map(t => 
                 t.id === tradeId 
                     ? { ...t, status: 'completed', result: result }
                     : t
             ));
-            
+
             setStatus(`✅ Trade executed: ${prediction.tradeType} (${prediction.confidence}% confidence) - Stake: $${stake}`);
-            
+
         } catch (error) {
             setExecutedTrades(prev => prev.map(t => 
                 t.id === tradeId 
                     ? { ...t, status: 'failed', error: error.message }
                     : t
             ));
-            
+
             setStatus(`❌ Trade failed: ${error.message}`);
         }
     };
@@ -595,7 +601,12 @@ const MLTrader = observer(() => {
                 symbol,
             };
 
-            if (prediction.prediction !== undefined) {
+            // Handle Higher/Lower specific parameters
+            if (prediction.tradeType === 'VANILLALONGCALL' || prediction.tradeType === 'VANILLALONGPUT') {
+                trade_option.strike_price = Number(strikePrice);
+                trade_option.duration = Number(duration);
+                trade_option.duration_unit = durationType;
+            } else if (prediction.prediction !== undefined) {
                 trade_option.prediction = Number(prediction.prediction);
             }
 
@@ -618,6 +629,11 @@ const MLTrader = observer(() => {
                 if (!['TICKLOW', 'TICKHIGH'].includes(prediction.tradeType)) {
                     buy_req.parameters.barrier = trade_option.prediction;
                 }
+            }
+
+            // Set barrier for Higher/Lower trades
+            if (prediction.tradeType === 'VANILLALONGCALL' || prediction.tradeType === 'VANILLALONGPUT') {
+                buy_req.parameters.barrier = trade_option.strike_price;
             }
 
             const { buy, error } = await apiRef.current.buy(buy_req);
@@ -677,7 +693,7 @@ const MLTrader = observer(() => {
             setIsAutoExecuting(true);
             autoExecutionRef.current = true;
             setStatus('Auto-execution enabled - will trade on recommendation changes');
-            
+
             // Start market scanning if not already running
             if (!market_scanner_active) {
                 scanMarkets();
@@ -694,7 +710,7 @@ const MLTrader = observer(() => {
         run_panel.setIsRunning(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
         setStatus('All analysis and trading stopped');
-        
+
         // Stop tick stream
         stopTicks();
     };
@@ -799,6 +815,46 @@ const MLTrader = observer(() => {
                                     value={takeProfit}
                                     onChange={e => setTakeProfit(Number(e.target.value))}
                                 />
+                            </div>
+                        </div>
+
+                        <div className='ml-trader__row'>
+                            <div className='ml-trader__field'>
+                                <label htmlFor='ml-strike-price'>{localize('Strike Price (Higher/Lower)')}</label>
+                                <select
+                                    id='ml-strike-price'
+                                    value={strikePrice}
+                                    onChange={e => setStrikePrice(e.target.value)}
+                                >
+                                    <option value='+2.20'>+2.20</option>
+                                    <option value='+1.10'>+1.10</option>
+                                    <option value='+0.00'>+0.00</option>
+                                    <option value='-1.10'>-1.10</option>
+                                    <option value='-2.00'>-2.00</option>
+                                </select>
+                            </div>
+                            <div className='ml-trader__field'>
+                                <label htmlFor='ml-duration'>{localize('Duration (Higher/Lower)')}</label>
+                                <input
+                                    id='ml-duration'
+                                    type='number'
+                                    min={1}
+                                    max={60}
+                                    value={duration}
+                                    onChange={e => setDuration(Number(e.target.value))}
+                                />
+                            </div>
+                            <div className='ml-trader__field'>
+                                <label htmlFor='ml-duration-type'>{localize('Duration Unit')}</label>
+                                <select
+                                    id='ml-duration-type'
+                                    value={durationType}
+                                    onChange={e => setDurationType(e.target.value)}
+                                >
+                                    <option value='m'>Minutes</option>
+                                    <option value='h'>Hours</option>
+                                    <option value='d'>Days</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -983,7 +1039,7 @@ const MLTrader = observer(() => {
                         >
                             {is_running ? localize('Stop Analysis') : localize('Start ML Analysis')}
                         </button>
-                        
+
                         <button
                             className={`ml-trader__auto-execute ${is_auto_executing ? 'is-active' : ''}`}
                             onClick={toggleAutoExecution}
@@ -991,7 +1047,7 @@ const MLTrader = observer(() => {
                         >
                             {is_auto_executing ? localize('Stop Auto-Execute') : localize('Start Auto-Execute')}
                         </button>
-                        
+
                         <button
                             className='ml-trader__scan-markets'
                             onClick={scanMarkets}
@@ -999,7 +1055,7 @@ const MLTrader = observer(() => {
                         >
                             {market_scanner_active ? localize('Scanning...') : localize('Scan Markets')}
                         </button>
-                        
+
                         <button
                             className='ml-trader__stop-all'
                             onClick={stopAnalysis}

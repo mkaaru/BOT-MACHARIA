@@ -159,7 +159,7 @@
         font-size: 0.8rem;
         color: var(--text-less-prominent);
         margin-top: 0.5rem;
-        
+
         span {
             padding: 0.2rem 0.4rem;
             background: var(--general-hover);
@@ -183,29 +183,22 @@
     }
 
     &__execute-btn {
-        width: 100%;
-        padding: 0.75rem;
-        background: var(--brand-coral);
-        color: white !important;
+        background: var(--color-green-1);
+        color: white;
         border: none;
+        padding: 10px 20px;
         border-radius: 4px;
-        font-weight: 600;
         cursor: pointer;
-        transition: all 0.3s ease;
-        font-size: 1rem;
-        min-height: 50px;
+        font-weight: bold;
+        margin-right: 10px;
 
-        &:hover:not(:disabled) {
-            background: var(--brand-coral-dark);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        &:hover {
+            background: var(--color-green-2);
         }
 
         &:disabled {
-            background: var(--brand-blue);
-            opacity: 0.8;
+            background: var(--color-disabled);
             cursor: not-allowed;
-            transform: none;
         }
     }
 
@@ -652,6 +645,21 @@
         background: var(--general-section-1);
         border-radius: 6px;
         border: 1px solid var(--border-normal);
+    }
+
+    &__vanilla-info {
+        background: var(--color-blue-8);
+        border: 1px solid var(--color-blue-6);
+        border-radius: 4px;
+        padding: 8px 12px;
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--color-blue-2);
+
+        .trade-type-vanilla {
+            font-weight: bold;
+            color: var(--color-blue-1);
+        }
     }
 
     // Mobile responsiveness
