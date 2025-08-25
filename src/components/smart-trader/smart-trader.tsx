@@ -97,6 +97,7 @@ const SmartTrader = observer(() => {
         '15m': { trend: 'NEUTRAL', value: 0 }
     });
     const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
+    const [allVolatilitiesData, setAllVolatilitiesData] = useState<Record<string, Array<{ time: number, price: number, close: number }>>>({});
 
     const [status, setStatus] = useState<string>('');
     const [is_running, setIsRunning] = useState(false);
@@ -120,6 +121,73 @@ const SmartTrader = observer(() => {
             }
         }
         return '';
+    };
+
+    // Load historical data for all volatility indices
+    const loadAllVolatilitiesHistoricalData = async (volatilities: Array<{ symbol: string; display_name: string }>) => {
+        if (!apiRef.current) return;
+        
+        setStatus('Loading historical data for all volatilities...');
+        
+        try {
+            const allData: Record<string, Array<{ time: number, price: number, close: number }>> = {};
+            
+            // Load historical data for each volatility in batches to avoid overwhelming the API
+            const batchSize = 3;
+            for (let i = 0; i < volatilities.length; i += batchSize) {
+                const batch = volatilities.slice(i, i + batchSize);
+                
+                const batchPromises = batch.map(async (vol) => {
+                    try {
+                        const request = {
+                            ticks_history: vol.symbol,
+                            adjust_start_time: 1,
+                            count: 5000, // Maximum historical data
+                            end: "latest",
+                            start: 1,
+                            style: "ticks"
+                        };
+
+                        const response = await apiRef.current.send(request);
+                        
+                        if (response.error) {
+                            console.error(`Historical ticks fetch error for ${vol.symbol}:`, response.error);
+                            return;
+                        }
+
+                        if (response.history && response.history.prices && response.history.times) {
+                            const historicalData = response.history.prices.map((price: string, index: number) => ({
+                                time: response.history.times[index] * 1000, // Convert to milliseconds
+                                price: parseFloat(price),
+                                close: parseFloat(price)
+                            }));
+
+                            allData[vol.symbol] = historicalData;
+                            console.log(`Loaded ${historicalData.length} historical ticks for ${vol.symbol}`);
+                        }
+                    } catch (error) {
+                        console.error(`Error loading historical data for ${vol.symbol}:`, error);
+                    }
+                });
+
+                // Wait for current batch to complete before starting next batch
+                await Promise.all(batchPromises);
+                
+                // Small delay between batches to be respectful to the API
+                if (i + batchSize < volatilities.length) {
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+            }
+            
+            setAllVolatilitiesData(allData);
+            setStatus(`Loaded historical data for ${Object.keys(allData).length} volatilities`);
+            
+            console.log('All volatilities historical data loaded:', Object.keys(allData));
+            
+        } catch (error) {
+            console.error('Error loading all volatilities historical data:', error);
+            setStatus('Failed to load historical data');
+        }
     };
 
     // Fetch historical tick data for Hull Moving Average analysis
@@ -302,6 +370,10 @@ const SmartTrader = observer(() => {
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
                 setSymbols(syn);
                 if (!symbol && syn[0]?.symbol) setSymbol(syn[0].symbol);
+                
+                // Load historical data for all volatility indices for better Hull MA analysis
+                await loadAllVolatilitiesHistoricalData(syn);
+                
                 if (syn[0]?.symbol) startTicks(syn[0].symbol);
             } catch (e: any) {
                 // eslint-disable-next-line no-console
@@ -328,13 +400,21 @@ const SmartTrader = observer(() => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Effect to fetch historical data when trade type changes to Higher/Lower
+    // Effect to use pre-loaded historical data when trade type changes to Higher/Lower
     useEffect(() => {
-        if ((tradeType === 'CALL' || tradeType === 'PUT') && symbol && apiRef.current) {
-            fetchHistoricalTicks(symbol);
+        if ((tradeType === 'CALL' || tradeType === 'PUT') && symbol) {
+            // Use pre-loaded historical data if available
+            if (allVolatilitiesData[symbol] && allVolatilitiesData[symbol].length > 0) {
+                setTickData(allVolatilitiesData[symbol]);
+                updateHullTrends(allVolatilitiesData[symbol]);
+                console.log(`Using pre-loaded data for ${symbol}: ${allVolatilitiesData[symbol].length} ticks`);
+            } else if (apiRef.current) {
+                // Fallback to fetching if not pre-loaded
+                fetchHistoricalTicks(symbol);
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tradeType, symbol]);
+    }, [tradeType, symbol, allVolatilitiesData]);
 
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
@@ -379,9 +459,14 @@ const SmartTrader = observer(() => {
         setTicksProcessed(0);
         
         try {
-            // First, fetch historical data for Hull Moving Average analysis
+            // Use pre-loaded historical data for Hull Moving Average analysis if available
             if (tradeType === 'CALL' || tradeType === 'PUT') {
-                await fetchHistoricalTicks(sym);
+                if (allVolatilitiesData[sym] && allVolatilitiesData[sym].length > 0) {
+                    setTickData(allVolatilitiesData[sym]);
+                    updateHullTrends(allVolatilitiesData[sym]);
+                } else {
+                    await fetchHistoricalTicks(sym);
+                }
             }
             
             // Then start live tick subscription
@@ -629,6 +714,13 @@ const SmartTrader = observer(() => {
                                     onChange={e => {
                                         const v = e.target.value;
                                         setSymbol(v);
+                                        
+                                        // Use pre-loaded historical data if available
+                                        if (allVolatilitiesData[v] && (tradeType === 'CALL' || tradeType === 'PUT')) {
+                                            setTickData(allVolatilitiesData[v]);
+                                            updateHullTrends(allVolatilitiesData[v]);
+                                        }
+                                        
                                         startTicks(v);
                                     }}
                                 >
