@@ -89,6 +89,15 @@ const SmartTrader = observer(() => {
     const [lastDigit, setLastDigit] = useState<number | null>(null);
     const [ticksProcessed, setTicksProcessed] = useState<number>(0);
 
+    // Hull Moving Average trend analysis state
+    const [hullTrends, setHullTrends] = useState({
+        '15s': { trend: 'NEUTRAL', value: 0 },
+        '1m': { trend: 'NEUTRAL', value: 0 },
+        '5m': { trend: 'NEUTRAL', value: 0 },
+        '15m': { trend: 'NEUTRAL', value: 0 }
+    });
+    const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
+
     const [status, setStatus] = useState<string>('');
     const [is_running, setIsRunning] = useState(false);
     const stopFlagRef = useRef<boolean>(false);
@@ -111,6 +120,78 @@ const SmartTrader = observer(() => {
             }
         }
         return '';
+    };
+
+    // Hull Moving Average calculation
+    const calculateHMA = (data: number[], period: number) => {
+        if (data.length < period) return null;
+        
+        const calculateWMA = (values: number[], periods: number) => {
+            if (values.length < periods) return null;
+            const weights = Array.from({length: periods}, (_, i) => i + 1);
+            const weightSum = weights.reduce((sum, w) => sum + w, 0);
+            const recentValues = values.slice(-periods);
+            const weightedSum = recentValues.reduce((sum, val, i) => sum + val * weights[i], 0);
+            return weightedSum / weightSum;
+        };
+
+        const halfPeriod = Math.floor(period / 2);
+        const sqrtPeriod = Math.floor(Math.sqrt(period));
+        
+        const wmaHalf = calculateWMA(data, halfPeriod);
+        const wmaFull = calculateWMA(data, period);
+        
+        if (wmaHalf === null || wmaFull === null) return null;
+        
+        const rawHMA = 2 * wmaHalf - wmaFull;
+        return rawHMA;
+    };
+
+    // Update Hull trends based on tick data
+    const updateHullTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
+        const now = Date.now();
+        const newTrends = { ...hullTrends };
+
+        // Define timeframe periods in seconds
+        const timeframes = {
+            '15s': 15,
+            '1m': 60,
+            '5m': 300,
+            '15m': 900
+        };
+
+        Object.entries(timeframes).forEach(([timeframe, seconds]) => {
+            const cutoffTime = now - (seconds * 1000);
+            const relevantData = newTickData.filter(tick => tick.time >= cutoffTime);
+            
+            if (relevantData.length >= 10) { // Minimum data points for HMA
+                const prices = relevantData.map(tick => tick.price);
+                const hmaValue = calculateHMA(prices, Math.min(14, prices.length));
+                
+                if (hmaValue !== null && relevantData.length >= 2) {
+                    const previousPrice = relevantData[relevantData.length - 2]?.price || 0;
+                    const currentPrice = relevantData[relevantData.length - 1]?.price || 0;
+                    
+                    let trend = 'NEUTRAL';
+                    if (hmaValue > currentPrice && currentPrice > previousPrice) {
+                        trend = 'BULLISH';
+                    } else if (hmaValue < currentPrice && currentPrice < previousPrice) {
+                        trend = 'BEARISH';
+                    } else if (hmaValue > previousPrice) {
+                        trend = 'BULLISH';
+                    } else if (hmaValue < previousPrice) {
+                        trend = 'BEARISH';
+                    }
+                    
+                    newTrends[timeframe as keyof typeof hullTrends] = {
+                        trend,
+                        value: Number(hmaValue.toFixed(5))
+                    };
+                }
+            }
+        });
+
+        setHullTrends(newTrends);
     };
 
     useEffect(() => {
@@ -205,9 +286,30 @@ const SmartTrader = observer(() => {
                     if (data?.msg_type === 'tick' && data?.tick?.symbol === sym) {
                         const quote = data.tick.quote;
                         const digit = Number(String(quote).slice(-1));
+                        const tickTime = Date.now();
+                        
                         setLastDigit(digit);
                         setDigits(prev => [...prev.slice(-8), digit]);
                         setTicksProcessed(prev => prev + 1);
+                        
+                        // Update tick data for Hull Moving Average analysis
+                        setTickData(prev => {
+                            const newTickData = [...prev, { 
+                                time: tickTime, 
+                                price: quote, 
+                                close: quote 
+                            }];
+                            
+                            // Keep only last 1000 ticks to prevent memory issues
+                            const trimmedData = newTickData.slice(-1000);
+                            
+                            // Update Hull trends for Higher/Lower trades
+                            if (tradeType === 'CALL' || tradeType === 'PUT') {
+                                updateHullTrends(trimmedData);
+                            }
+                            
+                            return trimmedData;
+                        });
                     }
                     if (data?.forget?.id && data?.forget?.id === tickStreamIdRef.current) {
                         // stopped
@@ -553,6 +655,36 @@ const SmartTrader = observer(() => {
                                         value={martingaleMultiplier}
                                         onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
                                     />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Hull Moving Average Trend Analysis for Higher/Lower */}
+                        {(tradeType === 'CALL' || tradeType === 'PUT') && (
+                            <div className='smart-trader__hull-trends'>
+                                <div className='smart-trader__trends-header'>
+                                    <Text size='s' weight='bold'>{localize('Hull MA Trend Analysis')}</Text>
+                                </div>
+                                <div className='smart-trader__trends-grid'>
+                                    {Object.entries(hullTrends).map(([timeframe, data]) => (
+                                        <div key={timeframe} className='smart-trader__trend-item'>
+                                            <div className='smart-trader__timeframe'>
+                                                <Text size='xs' color='general'>{timeframe}</Text>
+                                            </div>
+                                            <div className={`smart-trader__trend-badge ${data.trend.toLowerCase()}`}>
+                                                <Text size='xs' weight='bold' color='prominent'>
+                                                    {data.trend === 'BULLISH' ? '📈 BULLISH' : 
+                                                     data.trend === 'BEARISH' ? '📉 BEARISH' : 
+                                                     '➡️ NEUTRAL'}
+                                                </Text>
+                                            </div>
+                                            <div className='smart-trader__trend-value'>
+                                                <Text size='xs' color='general'>
+                                                    {data.value.toFixed(5)}
+                                                </Text>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}
