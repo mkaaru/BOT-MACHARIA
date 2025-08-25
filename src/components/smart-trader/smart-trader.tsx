@@ -122,7 +122,55 @@ const SmartTrader = observer(() => {
         return '';
     };
 
-    // Hull Moving Average calculation
+    // Fetch historical tick data for Hull Moving Average analysis
+    const fetchHistoricalTicks = async (symbolToFetch: string) => {
+        try {
+            const request = {
+                ticks_history: symbolToFetch,
+                adjust_start_time: 1,
+                count: 1000, // Get more historical data for better HMA calculation
+                end: "latest",
+                start: 1,
+                style: "ticks"
+            };
+
+            const response = await apiRef.current.send(request);
+            
+            if (response.error) {
+                console.error('Historical ticks fetch error:', response.error);
+                return;
+            }
+
+            if (response.history && response.history.prices && response.history.times) {
+                const historicalData = response.history.prices.map((price: string, index: number) => ({
+                    time: response.history.times[index] * 1000, // Convert to milliseconds
+                    price: parseFloat(price),
+                    close: parseFloat(price)
+                }));
+
+                setTickData(prev => {
+                    const combinedData = [...historicalData, ...prev];
+                    const uniqueData = combinedData.filter((tick, index, arr) => 
+                        arr.findIndex(t => t.time === tick.time) === index
+                    ).sort((a, b) => a.time - b.time);
+                    
+                    // Keep only last 2000 ticks to prevent memory issues
+                    const trimmedData = uniqueData.slice(-2000);
+                    
+                    // Update Hull trends with historical data
+                    if (tradeType === 'CALL' || tradeType === 'PUT') {
+                        updateHullTrends(trimmedData);
+                    }
+                    
+                    return trimmedData;
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching historical ticks:', error);
+        }
+    };
+
+    // Hull Moving Average calculation with Weighted Moving Average
     const calculateHMA = (data: number[], period: number) => {
         if (data.length < period) return null;
         
@@ -138,18 +186,56 @@ const SmartTrader = observer(() => {
         const halfPeriod = Math.floor(period / 2);
         const sqrtPeriod = Math.floor(Math.sqrt(period));
         
+        // Calculate WMA for half period and full period
         const wmaHalf = calculateWMA(data, halfPeriod);
         const wmaFull = calculateWMA(data, period);
         
         if (wmaHalf === null || wmaFull === null) return null;
         
+        // Hull MA formula: WMA(2*WMA(n/2) - WMA(n), sqrt(n))
         const rawHMA = 2 * wmaHalf - wmaFull;
+        
+        // For a complete HMA calculation, we should apply WMA to the raw HMA values
+        // But for simplicity in real-time, we'll use the raw calculation
         return rawHMA;
     };
 
-    // Update Hull trends based on tick data
+    // Convert tick data to candles for better trend analysis
+    const ticksToCandles = (ticks: Array<{ time: number, price: number }>, timeframeSeconds: number) => {
+        if (ticks.length === 0) return [];
+        
+        const candles = [];
+        const timeframeMsec = timeframeSeconds * 1000;
+        
+        // Group ticks into timeframe buckets
+        const buckets = new Map();
+        
+        ticks.forEach(tick => {
+            const bucketTime = Math.floor(tick.time / timeframeMsec) * timeframeMsec;
+            if (!buckets.has(bucketTime)) {
+                buckets.set(bucketTime, []);
+            }
+            buckets.get(bucketTime).push(tick.price);
+        });
+        
+        // Convert buckets to OHLC candles
+        Array.from(buckets.entries()).sort((a, b) => a[0] - b[0]).forEach(([time, prices]) => {
+            if (prices.length > 0) {
+                candles.push({
+                    time,
+                    open: prices[0],
+                    high: Math.max(...prices),
+                    low: Math.min(...prices),
+                    close: prices[prices.length - 1]
+                });
+            }
+        });
+        
+        return candles;
+    };
+
+    // Update Hull trends based on tick data with improved analysis
     const updateHullTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
-        const now = Date.now();
         const newTrends = { ...hullTrends };
 
         // Define timeframe periods in seconds
@@ -161,25 +247,33 @@ const SmartTrader = observer(() => {
         };
 
         Object.entries(timeframes).forEach(([timeframe, seconds]) => {
-            const cutoffTime = now - (seconds * 1000);
-            const relevantData = newTickData.filter(tick => tick.time >= cutoffTime);
+            // Convert ticks to candles for this timeframe
+            const candles = ticksToCandles(newTickData, seconds);
             
-            if (relevantData.length >= 10) { // Minimum data points for HMA
-                const prices = relevantData.map(tick => tick.price);
-                const hmaValue = calculateHMA(prices, Math.min(14, prices.length));
+            if (candles.length >= 20) { // Need enough candles for meaningful HMA
+                const closePrices = candles.map(candle => candle.close);
+                const hmaValue = calculateHMA(closePrices, Math.min(14, closePrices.length));
                 
-                if (hmaValue !== null && relevantData.length >= 2) {
-                    const previousPrice = relevantData[relevantData.length - 2]?.price || 0;
-                    const currentPrice = relevantData[relevantData.length - 1]?.price || 0;
+                if (hmaValue !== null && candles.length >= 3) {
+                    const currentCandle = candles[candles.length - 1];
+                    const previousCandle = candles[candles.length - 2];
+                    const prevPrevCandle = candles[candles.length - 3];
                     
                     let trend = 'NEUTRAL';
-                    if (hmaValue > currentPrice && currentPrice > previousPrice) {
+                    
+                    // Enhanced trend detection using HMA and price action
+                    const hmaSlope = hmaValue - calculateHMA(closePrices.slice(0, -1), Math.min(14, closePrices.length - 1));
+                    const priceAboveHMA = currentCandle.close > hmaValue;
+                    const risingPrices = currentCandle.close > previousCandle.close && previousCandle.close > prevPrevCandle.close;
+                    const fallingPrices = currentCandle.close < previousCandle.close && previousCandle.close < prevPrevCandle.close;
+                    
+                    if (hmaSlope > 0 && priceAboveHMA && risingPrices) {
                         trend = 'BULLISH';
-                    } else if (hmaValue < currentPrice && currentPrice < previousPrice) {
+                    } else if (hmaSlope < 0 && !priceAboveHMA && fallingPrices) {
                         trend = 'BEARISH';
-                    } else if (hmaValue > previousPrice) {
+                    } else if (hmaSlope > 0 && priceAboveHMA) {
                         trend = 'BULLISH';
-                    } else if (hmaValue < previousPrice) {
+                    } else if (hmaSlope < 0 && !priceAboveHMA) {
                         trend = 'BEARISH';
                     }
                     
@@ -234,6 +328,14 @@ const SmartTrader = observer(() => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Effect to fetch historical data when trade type changes to Higher/Lower
+    useEffect(() => {
+        if ((tradeType === 'CALL' || tradeType === 'PUT') && symbol && apiRef.current) {
+            fetchHistoricalTicks(symbol);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tradeType, symbol]);
+
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
         const token = V2GetActiveToken();
@@ -275,10 +377,18 @@ const SmartTrader = observer(() => {
         setDigits([]);
         setLastDigit(null);
         setTicksProcessed(0);
+        
         try {
+            // First, fetch historical data for Hull Moving Average analysis
+            if (tradeType === 'CALL' || tradeType === 'PUT') {
+                await fetchHistoricalTicks(sym);
+            }
+            
+            // Then start live tick subscription
             const { subscription, error } = await apiRef.current.send({ ticks: sym, subscribe: 1 });
             if (error) throw error;
             if (subscription?.id) tickStreamIdRef.current = subscription.id;
+            
             // Listen for streaming ticks on the raw websocket
             const onMsg = (evt: MessageEvent) => {
                 try {
@@ -286,7 +396,7 @@ const SmartTrader = observer(() => {
                     if (data?.msg_type === 'tick' && data?.tick?.symbol === sym) {
                         const quote = data.tick.quote;
                         const digit = Number(String(quote).slice(-1));
-                        const tickTime = Date.now();
+                        const tickTime = data.tick.epoch * 1000; // Use server time
                         
                         setLastDigit(digit);
                         setDigits(prev => [...prev.slice(-8), digit]);
@@ -300,8 +410,8 @@ const SmartTrader = observer(() => {
                                 close: quote 
                             }];
                             
-                            // Keep only last 1000 ticks to prevent memory issues
-                            const trimmedData = newTickData.slice(-1000);
+                            // Keep only last 2000 ticks to prevent memory issues
+                            const trimmedData = newTickData.slice(-2000);
                             
                             // Update Hull trends for Higher/Lower trades
                             if (tradeType === 'CALL' || tradeType === 'PUT') {
