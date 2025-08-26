@@ -106,7 +106,7 @@ const AppWrapper = observer(() => {
     const { is_dialog_open, dialog_options, onCancelButtonClick, onCloseDialog, onOkButtonClick, stopBot, is_drawer_open } = run_panel;
     const { cancel_button_text, ok_button_text, title, message } = dialog_options as { [key: string]: string };
     const { clear } = summary_card;
-    const { FREE_BOTS, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, DASHBOARD } = DBOT_TABS;
+    const { FREE_BOTS, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, DASHBOARD, AI_TRADER } = DBOT_TABS;
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -1215,7 +1215,7 @@ if __name__ == "__main__":
     }, [selectedIndex, isConnected, websocket, tickHistory])
 
 
-    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
+    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS, DBOT_TABS.AI_TRADER].includes(active_tab);
 
     return (
         <>
