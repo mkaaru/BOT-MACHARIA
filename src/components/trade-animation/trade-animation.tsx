@@ -101,11 +101,6 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
                 onClick={() => {
                     setShouldDisable(true);
                     if (is_stop_button_visible) {
-                        // Emit stop events for Smart Trader integration
-                        if (run_panel?.dbot?.observer) {
-                            run_panel.dbot.observer.emit('bot.stop');
-                            run_panel.dbot.observer.emit('bot.click_stop');
-                        }
                         onStopBotClick();
                         return;
                     }

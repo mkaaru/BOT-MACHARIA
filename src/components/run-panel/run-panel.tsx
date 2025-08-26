@@ -166,15 +166,10 @@ const DrawerFooter = ({ is_clear_stat_disabled, onClearStatClick }: TDrawerFoote
 );
 
 const MobileDrawerFooter = () => {
-    const { run_panel } = useStore();
-
     return (
         <div className='controls__section'>
             <div className='controls__buttons'>
-                <TradeAnimation 
-                    className='controls__animation' 
-                    should_show_overlay 
-                />
+                <TradeAnimation className='controls__animation' should_show_overlay />
             </div>
         </div>
     );
