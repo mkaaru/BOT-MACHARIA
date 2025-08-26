@@ -531,10 +531,14 @@ const SmartTrader = observer(() => {
     };
 
     const purchaseOnce = async () => {
+        return await purchaseOnceWithStake(stake);
+    };
+
+    const purchaseOnceWithStake = async (stakeAmount: number) => {
         await authorizeIfNeeded();
 
         const trade_option: any = {
-            amount: Number(stake),
+            amount: Number(stakeAmount),
             basis: 'stake',
             contractTypes: [tradeType],
             currency: account_currency,
@@ -554,7 +558,7 @@ const SmartTrader = observer(() => {
         const buy_req = tradeOptionToBuy(tradeType, trade_option);
         const { buy, error } = await apiRef.current.buy(buy_req);
         if (error) throw error;
-        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
+        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
         return buy;
     };
 
@@ -575,15 +579,16 @@ const SmartTrader = observer(() => {
             while (!stopFlagRef.current) {
                 // Adjust stake and prediction based on prior outcomes (simple martingale)
                 const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
-                // apply effective stake to buy
-                setStake(effectiveStake);
-
+                
                 const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
                 if (isOU) {
                     lastOutcomeWasLossRef.current = lossStreak > 0;
                 }
 
-                const buy = await purchaseOnce();
+                // Update UI stake display
+                setStake(effectiveStake);
+
+                const buy = await purchaseOnceWithStake(effectiveStake);
 
                 // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
                 try {
@@ -662,11 +667,12 @@ const SmartTrader = observer(() => {
                                             lastOutcomeWasLossRef.current = false;
                                             lossStreak = 0;
                                             step = 0;
+                                            // Reset to base stake on win
                                             setStake(baseStake);
                                         } else {
                                             lastOutcomeWasLossRef.current = true;
                                             lossStreak++;
-                                            step = Math.min(step + 1, 50);
+                                            step = Math.min(step + 1, 10); // Cap at 10 steps to prevent excessive stake
                                         }
                                         // Reset contract values
                                         setCurrentProfit(0);
