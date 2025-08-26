@@ -24,6 +24,7 @@ import AnalysistoolComponent from '@/components/analysistool/analysis';
 import PercentageTool from '@/components/percentage-tool/percentage-tool';
 import VolatilityAnalyzer from '@/components/volatility-analyzer';
 import SmartTrader from '@/components/smart-trader';
+import MLTrader from '@/components/ml-trader';
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
@@ -81,6 +82,13 @@ const BotIcon = () => (
     </svg>
 );
 
+const AITraderIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="var(--text-general)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <circle cx="12" cy="12" r="2" fill="var(--text-general)"/>
+    </svg>
+);
+
 // Import actual components
 // import VolatilityAnalyzer from '@/components/volatility-analyzer/volatility-analyzer';
 
@@ -98,7 +106,7 @@ const AppWrapper = observer(() => {
     const { is_dialog_open, dialog_options, onCancelButtonClick, onCloseDialog, onOkButtonClick, stopBot, is_drawer_open } = run_panel;
     const { cancel_button_text, ok_button_text, title, message } = dialog_options as { [key: string]: string };
     const { clear } = summary_card;
-    const { FREE_BOTS, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, DASHBOARD } = DBOT_TABS;
+    const { FREE_BOTS, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, DASHBOARD, AI_TRADER } = DBOT_TABS;
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -1207,7 +1215,7 @@ if __name__ == "__main__":
     }, [selectedIndex, isConnected, websocket, tickHistory])
 
 
-    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS].includes(active_tab);
+    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS, DBOT_TABS.AI_TRADER].includes(active_tab);
 
     return (
         <>
@@ -1217,8 +1225,8 @@ if __name__ == "__main__":
                         <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
 
 <div className='free-bots-container'>
-                            <Tabs active_index={activeSubTab} onTabItemChange={(index: string) => setActiveSubTab(index)} className='free-bots-tabs' top>
-                                <div label={<Localize i18n_default_text='Free Bots' />} id='ai-trader'>
+                            <Tabs active_index={0} className='free-bots-tabs' top>
+                                <div label={<Localize i18n_default_text='Free Bots' />} id='id-free-bots-list'>
                                     <div className='free-bots'>
                                         <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
                                         <div className='free-bots__content-wrapper'>
@@ -1259,17 +1267,20 @@ if __name__ == "__main__":
                                         </div>
                                     </div>
                                 </div>
-                                <div label={<Localize i18n_default_text='AI Trader' />} id='smart-trading'>
-                                    <SmartTrader />
-                                </div>
                                 <div label={<Localize i18n_default_text='Smart Trading' />} id='smart-trading'>
                                     <VolatilityAnalyzer />
+                                </div>
+                                <div label={<Localize i18n_default_text='🤖 ML Trader' />} id='ml-trader'>
+                                    <MLTrader />
                                 </div>
                             </Tabs>
                         </div>
 
                         </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
+                        <div label={<><AITraderIcon /><Localize i18n_default_text='AI Trader' /></>} id='id-ai-trader'>
+                            <SmartTrader />
+                        </div>
                         <div label={<><SignalsIcon /><Localize i18n_default_text='Signal Scanner' /></>} id='id-signals'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,

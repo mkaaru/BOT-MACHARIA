@@ -166,10 +166,25 @@ const DrawerFooter = ({ is_clear_stat_disabled, onClearStatClick }: TDrawerFoote
 );
 
 const MobileDrawerFooter = () => {
+    const { run_panel } = useStore();
+    const { is_running } = run_panel.dbot;
+
+    const handleStopClick = () => {
+        if (run_panel?.dbot?.observer) {
+            run_panel.dbot.observer.emit('bot.stop');
+            run_panel.dbot.observer.emit('bot.click_stop');
+        }
+        onRunButtonClick();
+    };
+
     return (
         <div className='controls__section'>
             <div className='controls__buttons'>
-                <TradeAnimation className='controls__animation' should_show_overlay />
+                <TradeAnimation
+                    className='controls__animation'
+                    should_show_overlay
+                    onStopButtonClick={is_running ? handleStopClick : undefined}
+                />
             </div>
         </div>
     );
@@ -253,7 +268,7 @@ const RunPanel = observer(() => {
     const { statistics } = transactions;
     const { active_tour, active_tab } = dashboard;
     const { total_payout, total_profit, total_stake, won_contracts, lost_contracts, number_of_runs } = statistics;
-    const { BOT_BUILDER, CHART, SIGNALS, ANALYSIS_TOOL } = DBOT_TABS;
+    const { BOT_BUILDER, CHART, SIGNALS, ANALYSIS_TOOL, AI_TRADER } = DBOT_TABS;
 
     React.useEffect(() => {
         onMount();
@@ -296,7 +311,7 @@ const RunPanel = observer(() => {
         />
     );
 
-    const show_run_panel = [BOT_BUILDER, CHART, ANALYSIS_TOOL, SIGNALS].includes(active_tab) || active_tour;
+    const show_run_panel = [BOT_BUILDER, CHART, ANALYSIS_TOOL, SIGNALS, DBOT_TABS.AI_TRADER].includes(active_tab) || active_tour;
     if ((!show_run_panel && isDesktop) || active_tour === 'bot_builder') return null;
 
     return (
