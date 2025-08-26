@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
@@ -102,14 +103,6 @@ const SmartTrader = observer(() => {
     const [is_running, setIsRunning] = useState(false);
     const stopFlagRef = useRef<boolean>(false);
 
-    // --- New State Variables for Run Panel Integration ---
-    const [isTrading, setIsTrading] = useState(false); // Tracks if trading is active
-    const [isConnected, setIsConnected] = useState(false); // Tracks API connection status
-    const [websocket, setWebsocket] = useState<any>(null); // Stores websocket instance
-    const [autoExecute, setAutoExecute] = useState(false); // Flag for auto-execution
-    const [tickHistory, setTickHistory] = useState<Array<{ time: number, price: number }>>([]); // For tick history
-
-    // --- Helper Functions ---
 
     const getHintClass = (d: number) => {
         if (tradeType === 'DIGITEVEN') return d % 2 === 0 ? 'is-green' : 'is-red';
@@ -133,17 +126,17 @@ const SmartTrader = observer(() => {
     // Load historical data for all volatility indices
     const loadAllVolatilitiesHistoricalData = async (volatilities: Array<{ symbol: string; display_name: string }>) => {
         if (!apiRef.current) return;
-
+        
         setStatus('Loading historical data for all volatilities...');
-
+        
         try {
             const allData: Record<string, Array<{ time: number, price: number, close: number }>> = {};
-
+            
             // Load historical data for each volatility in batches to avoid overwhelming the API
             const batchSize = 3;
             for (let i = 0; i < volatilities.length; i += batchSize) {
                 const batch = volatilities.slice(i, i + batchSize);
-
+                
                 const batchPromises = batch.map(async (vol) => {
                     try {
                         const request = {
@@ -156,7 +149,7 @@ const SmartTrader = observer(() => {
                         };
 
                         const response = await apiRef.current.send(request);
-
+                        
                         if (response.error) {
                             console.error(`Historical ticks fetch error for ${vol.symbol}:`, response.error);
                             return;
@@ -179,18 +172,18 @@ const SmartTrader = observer(() => {
 
                 // Wait for current batch to complete before starting next batch
                 await Promise.all(batchPromises);
-
+                
                 // Small delay between batches to be respectful to the API
                 if (i + batchSize < volatilities.length) {
                     await new Promise(resolve => setTimeout(resolve, 200));
                 }
             }
-
+            
             setAllVolatilitiesData(allData);
             setStatus(`Loaded historical data for ${Object.keys(allData).length} volatilities`);
-
+            
             console.log('All volatilities historical data loaded:', Object.keys(allData));
-
+            
         } catch (error) {
             console.error('Error loading all volatilities historical data:', error);
             setStatus('Failed to load historical data');
@@ -210,7 +203,7 @@ const SmartTrader = observer(() => {
             };
 
             const response = await apiRef.current.send(request);
-
+            
             if (response.error) {
                 console.error('Historical ticks fetch error:', response.error);
                 return;
@@ -225,18 +218,18 @@ const SmartTrader = observer(() => {
 
                 setTickData(prev => {
                     const combinedData = [...historicalData, ...prev];
-                    const uniqueData = combinedData.filter((tick, index, arr) =>
+                    const uniqueData = combinedData.filter((tick, index, arr) => 
                         arr.findIndex(t => t.time === tick.time) === index
                     ).sort((a, b) => a.time - b.time);
-
+                    
                     // Keep only last 2000 ticks to prevent memory issues
                     const trimmedData = uniqueData.slice(-2000);
-
+                    
                     // Update Hull trends with historical data
                     if (tradeType === 'CALL' || tradeType === 'PUT') {
                         updateHullTrends(trimmedData);
                     }
-
+                    
                     return trimmedData;
                 });
             }
@@ -248,7 +241,7 @@ const SmartTrader = observer(() => {
     // Hull Moving Average calculation with Weighted Moving Average
     const calculateHMA = (data: number[], period: number) => {
         if (data.length < period) return null;
-
+        
         const calculateWMA = (values: number[], periods: number) => {
             if (values.length < periods) return null;
             const weights = Array.from({length: periods}, (_, i) => i + 1);
@@ -260,16 +253,16 @@ const SmartTrader = observer(() => {
 
         const halfPeriod = Math.floor(period / 2);
         const sqrtPeriod = Math.floor(Math.sqrt(period));
-
+        
         // Calculate WMA for half period and full period
         const wmaHalf = calculateWMA(data, halfPeriod);
         const wmaFull = calculateWMA(data, period);
-
+        
         if (wmaHalf === null || wmaFull === null) return null;
-
+        
         // Hull MA formula: WMA(2*WMA(n/2) - WMA(n), sqrt(n))
         const rawHMA = 2 * wmaHalf - wmaFull;
-
+        
         // For a complete HMA calculation, we should apply WMA to the raw HMA values
         // But for simplicity in real-time, we'll use the raw calculation
         return rawHMA;
@@ -278,13 +271,13 @@ const SmartTrader = observer(() => {
     // Convert tick data to candles for better trend analysis
     const ticksToCandles = (ticks: Array<{ time: number, price: number }>, timeframeSeconds: number) => {
         if (ticks.length === 0) return [];
-
+        
         const candles = [];
         const timeframeMsec = timeframeSeconds * 1000;
-
+        
         // Group ticks into timeframe buckets
         const buckets = new Map();
-
+        
         ticks.forEach(tick => {
             const bucketTime = Math.floor(tick.time / timeframeMsec) * timeframeMsec;
             if (!buckets.has(bucketTime)) {
@@ -292,7 +285,7 @@ const SmartTrader = observer(() => {
             }
             buckets.get(bucketTime).push(tick.price);
         });
-
+        
         // Convert buckets to OHLC candles
         Array.from(buckets.entries()).sort((a, b) => a[0] - b[0]).forEach(([time, prices]) => {
             if (prices.length > 0) {
@@ -305,7 +298,7 @@ const SmartTrader = observer(() => {
                 });
             }
         });
-
+        
         return candles;
     };
 
@@ -324,24 +317,24 @@ const SmartTrader = observer(() => {
         Object.entries(timeframes).forEach(([timeframe, seconds]) => {
             // Convert ticks to candles for this timeframe
             const candles = ticksToCandles(newTickData, seconds);
-
+            
             if (candles.length >= 20) { // Need enough candles for meaningful HMA
                 const closePrices = candles.map(candle => candle.close);
                 const hmaValue = calculateHMA(closePrices, Math.min(14, closePrices.length));
-
+                
                 if (hmaValue !== null && candles.length >= 3) {
                     const currentCandle = candles[candles.length - 1];
                     const previousCandle = candles[candles.length - 2];
                     const prevPrevCandle = candles[candles.length - 3];
-
+                    
                     let trend = 'NEUTRAL';
-
+                    
                     // Enhanced trend detection using HMA and price action
                     const hmaSlope = hmaValue - calculateHMA(closePrices.slice(0, -1), Math.min(14, closePrices.length - 1));
                     const priceAboveHMA = currentCandle.close > hmaValue;
                     const risingPrices = currentCandle.close > previousCandle.close && previousCandle.close > prevPrevCandle.close;
                     const fallingPrices = currentCandle.close < previousCandle.close && previousCandle.close < prevPrevCandle.close;
-
+                    
                     if (hmaSlope > 0 && priceAboveHMA && risingPrices) {
                         trend = 'BULLISH';
                     } else if (hmaSlope < 0 && !priceAboveHMA && fallingPrices) {
@@ -351,7 +344,7 @@ const SmartTrader = observer(() => {
                     } else if (hmaSlope < 0 && !priceAboveHMA) {
                         trend = 'BEARISH';
                     }
-
+                    
                     newTrends[timeframe as keyof typeof hullTrends] = {
                         trend,
                         value: Number(hmaValue.toFixed(5))
@@ -363,10 +356,8 @@ const SmartTrader = observer(() => {
         setHullTrends(newTrends);
     };
 
-    // --- Core Trading Logic ---
-
-    // Effect to initialize API connection and fetch active symbols
     useEffect(() => {
+        // Initialize API connection and fetch active symbols
         const api = generateDerivApiInstance();
         apiRef.current = api;
         const init = async () => {
@@ -379,10 +370,10 @@ const SmartTrader = observer(() => {
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
                 setSymbols(syn);
                 if (!symbol && syn[0]?.symbol) setSymbol(syn[0].symbol);
-
+                
                 // Load historical data for all volatility indices for better Hull MA analysis
                 await loadAllVolatilitiesHistoricalData(syn);
-
+                
                 if (syn[0]?.symbol) startTicks(syn[0].symbol);
             } catch (e: any) {
                 // eslint-disable-next-line no-console
@@ -466,7 +457,7 @@ const SmartTrader = observer(() => {
         setDigits([]);
         setLastDigit(null);
         setTicksProcessed(0);
-
+        
         try {
             // Use pre-loaded historical data for Hull Moving Average analysis if available
             if (tradeType === 'CALL' || tradeType === 'PUT') {
@@ -477,12 +468,12 @@ const SmartTrader = observer(() => {
                     await fetchHistoricalTicks(sym);
                 }
             }
-
+            
             // Then start live tick subscription
             const { subscription, error } = await apiRef.current.send({ ticks: sym, subscribe: 1 });
             if (error) throw error;
             if (subscription?.id) tickStreamIdRef.current = subscription.id;
-
+            
             // Listen for streaming ticks on the raw websocket
             const onMsg = (evt: MessageEvent) => {
                 try {
@@ -491,28 +482,27 @@ const SmartTrader = observer(() => {
                         const quote = data.tick.quote;
                         const digit = Number(String(quote).slice(-1));
                         const tickTime = data.tick.epoch * 1000; // Use server time
-                        setTickHistory(prev => [...prev.slice(-500), { time: tickTime, price: quote }]); // Keep last 500 ticks for tick history
-
+                        
                         setLastDigit(digit);
                         setDigits(prev => [...prev.slice(-8), digit]);
                         setTicksProcessed(prev => prev + 1);
-
+                        
                         // Update tick data for Hull Moving Average analysis
                         setTickData(prev => {
-                            const newTickData = [...prev, {
-                                time: tickTime,
-                                price: quote,
-                                close: quote
+                            const newTickData = [...prev, { 
+                                time: tickTime, 
+                                price: quote, 
+                                close: quote 
                             }];
-
+                            
                             // Keep only last 2000 ticks to prevent memory issues
                             const trimmedData = newTickData.slice(-2000);
-
+                            
                             // Update Hull trends for Higher/Lower trades
                             if (tradeType === 'CALL' || tradeType === 'PUT') {
                                 updateHullTrends(trimmedData);
                             }
-
+                            
                             return trimmedData;
                         });
                     }
@@ -635,12 +625,12 @@ const SmartTrader = observer(() => {
                                 if (String(poc?.contract_id || '') === targetId) {
                                     transactions.onBotContractEvent(poc);
                                     run_panel.setHasOpenContract(true);
-
+                                    
                                     // Update contract tracking values
                                     setCurrentProfit(Number(poc?.profit || 0));
                                     setContractValue(Number(poc?.bid_price || 0));
                                     setPotentialPayout(Number(poc?.payout || 0));
-
+                                    
                                     // Calculate remaining time
                                     if (poc?.date_expiry && !poc?.is_sold) {
                                         const now = Math.floor(Date.now() / 1000);
@@ -651,7 +641,7 @@ const SmartTrader = observer(() => {
                                         const seconds = remaining % 60;
                                         setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
                                     }
-
+                                    
                                     if (poc?.is_sold || poc?.status === 'sold') {
                                         run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
                                         run_panel.setHasOpenContract(false);
@@ -704,84 +694,9 @@ const SmartTrader = observer(() => {
         }
     };
 
-    // --- Stop Trading Logic ---
-    const stopTrading = () => {
+    const onStop = () => {
         stopFlagRef.current = true;
         setIsRunning(false);
-        setIsTrading(false);
-        // Cleanup live ticks
-        stopTicks();
-        // Update Run Panel state
-        run_panel.setIsRunning(false);
-        run_panel.setHasOpenContract(false);
-        run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        setStatus('Trading stopped');
-    };
-
-    // Listen for Run Panel stop events
-    useEffect(() => {
-        const handleRunPanelStop = () => {
-            if (is_running) { // Only stop if currently trading
-                stopTrading();
-            }
-        };
-
-        // Register listener for Run Panel stop button
-        // Ensure run_panel and its observer are available before registering
-        if (run_panel?.dbot?.observer) {
-            run_panel.dbot.observer.register('bot.stop', handleRunPanelStop);
-            run_panel.dbot.observer.register('bot.click_stop', handleRunPanelStop);
-        }
-
-        return () => {
-            // Cleanup listeners if they were registered
-            if (run_panel?.dbot?.observer) {
-                run_panel.dbot.observer.unregisterAll('bot.stop');
-                run_panel.dbot.observer.unregisterAll('bot.click_stop');
-            }
-        };
-        // Depend on is_running and run_panel to ensure correct listener attachment/detachment
-    }, [is_running, run_panel]);
-
-    // Additional effect to handle Run Panel's onRunButtonClick for stop functionality
-    useEffect(() => {
-        // Override the run panel's onRunButtonClick to handle Smart Trader stop
-        if (run_panel && is_running) {
-            const originalOnRunButtonClick = run_panel.onRunButtonClick;
-            run_panel.onRunButtonClick = () => {
-                if (run_panel.is_running) {
-                    stopTrading();
-                } else {
-                    // Call original function for start logic if not running
-                    originalOnRunButtonClick?.();
-                }
-            };
-
-            return () => {
-                // Restore original function
-                run_panel.onRunButtonClick = originalOnRunButtonClick;
-            };
-        }
-    }, [is_running, run_panel]);
-
-
-    // --- Start Trading Logic ---
-    const startTrading = () => {
-        if (!apiRef.current) { // Check if API is initialized
-            setStatus('Please connect to API first');
-            return;
-        }
-
-        setIsTrading(true);
-        // Call the actual trading logic
-        onRun();
-    };
-
-    // Placeholder for executeNextTrade if it exists elsewhere or needs implementation
-    const executeNextTrade = () => {
-        // This function would typically trigger the purchase logic
-        // For now, it's a placeholder. Ensure it's defined if autoExecute is used.
-        console.log('Executing next trade...');
     };
 
     return (
@@ -799,13 +714,13 @@ const SmartTrader = observer(() => {
                                     onChange={e => {
                                         const v = e.target.value;
                                         setSymbol(v);
-
+                                        
                                         // Use pre-loaded historical data if available
                                         if (allVolatilitiesData[v] && (tradeType === 'CALL' || tradeType === 'PUT')) {
                                             setTickData(allVolatilitiesData[v]);
                                             updateHullTrends(allVolatilitiesData[v]);
                                         }
-
+                                        
                                         startTicks(v);
                                     }}
                                 >
@@ -960,8 +875,8 @@ const SmartTrader = observer(() => {
                                             </div>
                                             <div className={`smart-trader__trend-badge ${data.trend.toLowerCase()}`}>
                                                 <Text size='xs' weight='bold' color='prominent'>
-                                                    {data.trend === 'BULLISH' ? '📈 BULLISH' :
-                                                     data.trend === 'BEARISH' ? '📉 BEARISH' :
+                                                    {data.trend === 'BULLISH' ? '📈 BULLISH' : 
+                                                     data.trend === 'BEARISH' ? '📉 BEARISH' : 
                                                      '➡️ NEUTRAL'}
                                                 </Text>
                                             </div>
@@ -1067,13 +982,13 @@ const SmartTrader = observer(() => {
                         <div className='smart-trader__actions'>
                             <button
                                 className='smart-trader__run'
-                                onClick={startTrading}
-                                disabled={is_running || !symbol || !apiRef.current}
+                                onClick={onRun}
+                                disabled={is_running || !symbol}
                             >
                                 {is_running ? localize('Running...') : localize('Start Trading')}
                             </button>
                             {is_running && (
-                                <button className='smart-trader__stop' onClick={stopTrading}>
+                                <button className='smart-trader__stop' onClick={onStop}>
                                     {localize('Stop')}
                                 </button>
                             )}
