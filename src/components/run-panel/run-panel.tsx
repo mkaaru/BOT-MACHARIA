@@ -166,25 +166,10 @@ const DrawerFooter = ({ is_clear_stat_disabled, onClearStatClick }: TDrawerFoote
 );
 
 const MobileDrawerFooter = () => {
-    const { run_panel } = useStore();
-    const { is_running } = run_panel.dbot;
-
-    const handleStopClick = () => {
-        if (run_panel?.dbot?.observer) {
-            run_panel.dbot.observer.emit('bot.stop');
-            run_panel.dbot.observer.emit('bot.click_stop');
-        }
-        onRunButtonClick();
-    };
-
     return (
         <div className='controls__section'>
             <div className='controls__buttons'>
-                <TradeAnimation
-                    className='controls__animation'
-                    should_show_overlay
-                    onStopButtonClick={is_running ? handleStopClick : undefined}
-                />
+                <TradeAnimation className='controls__animation' should_show_overlay />
             </div>
         </div>
     );
