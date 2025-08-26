@@ -359,27 +359,63 @@ const SmartTrader = observer(() => {
         // Initialize API connection and fetch active symbols
         const api = generateDerivApiInstance();
         apiRef.current = api;
+        
         const init = async () => {
             try {
+                setStatus('Connecting to server...');
+                
+                // Test connection first
+                const ping = await api.send({ ping: 1 });
+                if (ping.error) {
+                    throw new Error('Unable to connect to trading server');
+                }
+
+                setStatus('Loading available symbols...');
+                
                 // Fetch active symbols (volatility indices)
                 const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
-                if (asErr) throw asErr;
+                if (asErr) {
+                    throw new Error(`Failed to load symbols: ${asErr.message || asErr.code}`);
+                }
+                
                 const syn = (active_symbols || [])
                     .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol))
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
+                
+                if (syn.length === 0) {
+                    throw new Error('No trading symbols available');
+                }
+                
                 setSymbols(syn);
                 if (!symbol && syn[0]?.symbol) setSymbol(syn[0].symbol);
 
+                setStatus('Loading historical data...');
+                
                 // Load historical data for all volatility indices for better Hull MA analysis
                 await loadAllVolatilitiesHistoricalData(syn);
 
-                if (syn[0]?.symbol) startTicks(syn[0].symbol);
+                if (syn[0]?.symbol) {
+                    await startTicks(syn[0].symbol);
+                }
+                
+                setStatus('Ready to trade');
+                
             } catch (e: any) {
-                // eslint-disable-next-line no-console
                 console.error('SmartTrader init error', e);
-                setStatus(e?.message || 'Failed to load symbols');
+                const errorMessage = e?.message || 'Failed to initialize trading system';
+                setStatus(`Error: ${errorMessage}`);
+                
+                // Show user-friendly error message based on error type
+                if (errorMessage.includes('connect')) {
+                    setStatus('Connection failed. Please check your internet connection and refresh the page.');
+                } else if (errorMessage.includes('symbols')) {
+                    setStatus('Failed to load trading symbols. Please refresh the page and try again.');
+                } else {
+                    setStatus(errorMessage);
+                }
             }
         };
+        
         init();
 
         return () => {
@@ -522,6 +558,15 @@ const SmartTrader = observer(() => {
     const purchaseOnce = async () => {
         await authorizeIfNeeded();
 
+        // Validate inputs before attempting purchase
+        if (!symbol) {
+            throw new Error('Please select a symbol before trading');
+        }
+
+        if (Number(stake) < 0.35) {
+            throw new Error('Minimum stake is 0.35');
+        }
+
         const trade_option: any = {
             amount: Number(stake),
             basis: 'stake',
@@ -531,6 +576,7 @@ const SmartTrader = observer(() => {
             duration_unit: durationType,
             symbol,
         };
+
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
@@ -541,58 +587,100 @@ const SmartTrader = observer(() => {
         }
 
         const buy_req = tradeOptionToBuy(tradeType, trade_option);
-        const { buy, error } = await apiRef.current.buy(buy_req);
-        if (error) throw error;
-        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
-        return buy;
+        
+        try {
+            const { buy, error } = await apiRef.current.buy(buy_req);
+            
+            if (error) {
+                // Handle specific error cases
+                if (error.code === 'InvalidToken') {
+                    setIsAuthorized(false);
+                    throw new Error('Session expired. Please refresh and log in again.');
+                } else if (error.code === 'MarketIsClosed') {
+                    throw new Error('Market is closed. Please try again when market opens.');
+                } else if (error.code === 'InsufficientBalance') {
+                    throw new Error('Insufficient balance to place this trade.');
+                } else {
+                    throw new Error(error.message || 'Purchase failed. Please try again.');
+                }
+            }
+            
+            setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
+            return buy;
+            
+        } catch (buyError: any) {
+            // If it's already a formatted error, re-throw it
+            if (buyError.message) {
+                throw buyError;
+            }
+            // Otherwise format it
+            throw new Error('Unable to place trade. Please check your connection and try again.');
+        }
     };
 
     const onRun = async () => {
-        setStatus('');
-        setIsRunning(true);
-        stopFlagRef.current = false;
-        run_panel.toggleDrawer(true);
-        run_panel.setActiveTabIndex(1); // Transactions tab index in run panel tabs
-        run_panel.run_id = `smart-${Date.now()}`;
-        run_panel.setIsRunning(true);
-        run_panel.setContractStage(contract_stages.STARTING);
-
+        setStatus('Initializing...');
+        
         try {
+            // Ensure API is properly connected before starting
+            if (!apiRef.current) {
+                throw new Error('API not initialized. Please refresh the page and try again.');
+            }
+
+            // Test API connection
+            const ping = await apiRef.current.send({ ping: 1 });
+            if (ping.error) {
+                throw new Error('Unable to connect to trading server. Please check your connection.');
+            }
+
+            // Authorize if needed
+            await authorizeIfNeeded();
+            
+            setIsRunning(true);
+            stopFlagRef.current = false;
+            run_panel.toggleDrawer(true);
+            run_panel.setActiveTabIndex(1); // Transactions tab index in run panel tabs
+            run_panel.run_id = `smart-${Date.now()}`;
+            run_panel.setIsRunning(true);
+            run_panel.setContractStage(contract_stages.STARTING);
+
             let lossStreak = 0;
             let step = 0;
             baseStake !== stake && setBaseStake(stake);
+            
             while (!stopFlagRef.current) {
-                // Adjust stake and prediction based on prior outcomes (simple martingale)
-                const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
-                // apply effective stake to buy
-                setStake(effectiveStake);
-
-                const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
-                if (isOU) {
-                    lastOutcomeWasLossRef.current = lossStreak > 0;
-                }
-
-                const buy = await purchaseOnce();
-
-                // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
                 try {
-                    const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
-                    transactions.onBotContractEvent({
-                        contract_id: buy?.contract_id,
-                        transaction_ids: { buy: buy?.transaction_id },
-                        buy_price: buy?.buy_price,
-                        currency: account_currency,
-                        contract_type: tradeType as any,
-                        underlying: symbol,
-                        display_name: symbol_display,
-                        date_start: Math.floor(Date.now() / 1000),
-                        status: 'open',
-                    } as any);
-                } catch {}
+                    // Adjust stake and prediction based on prior outcomes (simple martingale)
+                    const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
+                    // apply effective stake to buy
+                    setStake(effectiveStake);
 
-                // Reflect stage immediately after successful buy
-                run_panel.setHasOpenContract(true);
-                run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+                    const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
+                    if (isOU) {
+                        lastOutcomeWasLossRef.current = lossStreak > 0;
+                    }
+
+                    const buy = await purchaseOnce();
+
+                    // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
+                    try {
+                        const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
+                        transactions.onBotContractEvent({
+                            contract_id: buy?.contract_id,
+                            transaction_ids: { buy: buy?.transaction_id },
+                            buy_price: buy?.buy_price,
+                            currency: account_currency,
+                            contract_type: tradeType as any,
+                            underlying: symbol,
+                            display_name: symbol_display,
+                            date_start: Math.floor(Date.now() / 1000),
+                            status: 'open',
+                        } as any);
+                    } catch {}
+
+                    // Reflect stage immediately after successful buy
+                    run_panel.setHasOpenContract(true);
+                    run_panel.setContractStage(contract_stages.PURCHASE_SENT);
 
                 // subscribe to contract updates for this purchase and push to transactions
                 try {
@@ -1033,7 +1121,7 @@ const SmartTrader = observer(() => {
                                 {is_running ? localize('Running...') : localize('Start Trading')}
                             </button>
                             {is_running && (
-                                <button className='smart-trader__stop' onClick={onStop}>
+                                <button className='smart-trader__stop' onClick={stopTrading}>
                                     {localize('Stop')}
                                 </button>
                             )}
