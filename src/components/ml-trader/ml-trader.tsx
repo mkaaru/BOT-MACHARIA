@@ -308,6 +308,7 @@ const MLTrader = observer(() => {
     const [account_currency, setAccountCurrency] = useState<string>('USD');
     const [symbols, setSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
     const [market_analysis, setMarketAnalysis] = useState<{[key: string]: any}>({});
+    const [isConnected, setIsConnected] = useState(false); // State to track API connection status
 
     // Form state
     const [symbol, setSymbol] = useState<string>('');
@@ -322,7 +323,7 @@ const MLTrader = observer(() => {
     const [strikePrice, setStrikePrice] = useState<string>('+0.00');
     const [duration, setDuration] = useState<number>(1);
     const [durationType, setDurationType] = useState<string>('m');
-    
+
     // Current market price for barrier calculation
     const [currentPrice, setCurrentPrice] = useState<number>(0);
 
@@ -353,10 +354,65 @@ const MLTrader = observer(() => {
         return 'is-red';
     };
 
+    // Helper to get trade options, including barriers for Higher/Lower
+    const getTradeOptions = (selectedSymbol: string, tradeType: string) => {
+        const symbolTicks = ticks[selectedSymbol];
+        if (!symbolTicks || symbolTicks.length === 0) {
+            console.warn(`No ticks available for ${selectedSymbol}`);
+            return null;
+        }
+
+        const currentTick = symbolTicks[symbolTicks.length - 1];
+        if (!currentTick || isNaN(currentTick)) {
+            console.warn(`Invalid current tick for ${selectedSymbol}:`, currentTick);
+            return null;
+        }
+
+        const baseConfig = {
+            symbol: selectedSymbol,
+            contract_type: tradeType,
+            duration: 1,
+            duration_unit: 't',
+        };
+
+        try {
+            switch (tradeType) {
+                case 'CALL':
+                    const callBarrier = (parseFloat(currentTick.toString()) + 0.001).toFixed(5);
+                    return {
+                        ...baseConfig,
+                        barrier: callBarrier,
+                    };
+                case 'PUT':
+                    const putBarrier = (parseFloat(currentTick.toString()) - 0.001).toFixed(5);
+                    return {
+                        ...baseConfig,
+                        barrier: putBarrier,
+                    };
+                case 'DIGITEVEN':
+                case 'DIGITODD':
+                case 'DIGITOVER':
+                case 'DIGITUNDER':
+                case 'DIGITMATCH':
+                case 'DIGITDIFF':
+                    // Digit contracts don't need barriers
+                    return baseConfig;
+                default:
+                    console.warn(`Unsupported trade type: ${tradeType}`);
+                    return baseConfig;
+            }
+        } catch (error) {
+            console.error('Error calculating trade options:', error);
+            return null;
+        }
+    };
+
+
+    // Effect for initializing API and fetching symbols
     useEffect(() => {
-        // Initialize API connection and fetch active symbols
         const api = generateDerivApiInstance();
         apiRef.current = api;
+
         const init = async () => {
             try {
                 const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
@@ -367,6 +423,7 @@ const MLTrader = observer(() => {
                 setSymbols(syn);
                 if (!symbol && syn[0]?.symbol) {
                     setSymbol(syn[0].symbol);
+                    // Initial call to startTicks after symbols are loaded
                     startTicks(syn[0].symbol);
                 }
             } catch (e: any) {
@@ -377,6 +434,7 @@ const MLTrader = observer(() => {
         init();
 
         return () => {
+            // Cleanup on component unmount
             try {
                 if (tickStreamIdRef.current) {
                     apiRef.current?.forget({ forget: tickStreamIdRef.current });
@@ -391,6 +449,71 @@ const MLTrader = observer(() => {
         };
     }, []);
 
+    // Function to connect to the API and subscribe to ticks
+    const connectToAPI = useCallback(async () => {
+        if (!symbol) {
+            setStatus('Please select a symbol first');
+            return;
+        }
+
+        try {
+            setStatus('Connecting to API...');
+
+            // Initialize API connection with proper error handling
+            const api = apiRef.current;
+            if (!api) {
+                console.log('Initializing API connection...');
+                // Try to reconnect API if not available
+                setTimeout(() => connectToAPI(), 2000);
+                return;
+            }
+
+            // Check if we're already connected
+            if (api.connection && api.connection.readyState === 1) {
+                setIsConnected(true);
+                setStatus(`Already connected to ${symbol} - Ready for analysis`);
+                return;
+            }
+
+            // Subscribe to ticks for the selected symbol with retry logic
+            let retryCount = 0;
+            const maxRetries = 3;
+
+            const attemptSubscription = async () => {
+                try {
+                    const subscription = await api.subscribe({
+                        ticks: symbol,
+                        subscribe: 1
+                    });
+
+                    if (subscription && subscription.error) {
+                        throw new Error(subscription.error.message);
+                    }
+
+                    setIsConnected(true);
+                    setStatus(`Connected to ${symbol} - Ready for analysis`);
+
+                } catch (subError) {
+                    retryCount++;
+                    if (retryCount < maxRetries) {
+                        setStatus(`Connection attempt ${retryCount}/${maxRetries} failed, retrying...`);
+                        setTimeout(attemptSubscription, 1000 * retryCount);
+                    } else {
+                        throw subError;
+                    }
+                }
+            };
+
+            await attemptSubscription();
+
+        } catch (error) {
+            console.error('API connection error:', error);
+            setStatus(`Connection failed: ${error?.message || 'Unknown error'}. Please check your internet connection and try again.`);
+            setIsConnected(false);
+        }
+    }, [symbol]);
+
+    // Function to authorize the user if not already
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
         const token = V2GetActiveToken();
@@ -413,6 +536,7 @@ const MLTrader = observer(() => {
         } catch {}
     };
 
+    // Function to stop the tick stream
     const stopTicks = () => {
         try {
             if (tickStreamIdRef.current) {
@@ -426,6 +550,7 @@ const MLTrader = observer(() => {
         } catch {}
     };
 
+    // Function to start receiving tick data
     const startTicks = async (sym: string) => {
         stopTicks();
         setDigits([]);
@@ -454,6 +579,12 @@ const MLTrader = observer(() => {
                         setLastDigit(digit);
                         setDigits(prev => [...prev.slice(-19), digit]);
                         setTicksProcessed(prev => prev + 1);
+
+                        // Update the ticks state for getTradeOptions
+                        setTicks(prevTicks => ({
+                            ...prevTicks,
+                            [sym]: [...(prevTicks[sym] || []), quote]
+                        }));
 
                         // Generate ML prediction on every tick for real-time updates
                         const features = mlEngineRef.current.extractFeatures(mlEngineRef.current['tickHistory']);
@@ -499,16 +630,20 @@ const MLTrader = observer(() => {
                         // Update model stats
                         setModelStats(mlEngineRef.current.getModelStats());
                     }
-                } catch {}
+                } catch (msgError) {
+                    console.error('Error processing tick message:', msgError);
+                }
             };
             messageHandlerRef.current = onMsg;
             apiRef.current?.connection?.addEventListener('message', onMsg);
 
         } catch (e: any) {
             console.error('startTicks error', e);
+            setStatus(`Failed to start ticks: ${e?.message || 'Unknown error'}`);
         }
     };
 
+    // Function to scan markets for the best signal
     const scanMarkets = async () => {
         const marketsToScan = symbols.slice(0, 5); // Scan top 5 markets
         setScanningMarkets(marketsToScan.map(s => s.symbol));
@@ -575,127 +710,95 @@ const MLTrader = observer(() => {
         }
     };
 
-    const executeTradeWithLogging = async (prediction: any, currentSymbol: string) => {
-        const tradeId = `trade_${Date.now()}`;
-        const trade = {
-            id: tradeId,
-            symbol: currentSymbol,
-            symbol_display: symbols.find(s => s.symbol === currentSymbol)?.display_name || currentSymbol,
-            timestamp: new Date().toLocaleTimeString(),
-            trade_type: prediction.tradeType,
-            prediction: prediction.prediction,
-            confidence: prediction.confidence,
-            reasoning: prediction.reasoning,
-            stake: stake,
-            max_stop_loss: maxStopLoss,
-            take_profit: takeProfit,
-            status: 'executing'
-        };
-
-        setExecutedTrades(prev => [trade, ...prev.slice(0, 19)]); // Keep last 20 trades
+    // Function to execute a trade and log the process
+    const executeTradeWithLogging = async (prediction: any, selectedSymbol: string) => {
+        if (!prediction || !selectedSymbol) return;
 
         try {
-            const result = await executeTrade(prediction);
+            setStatus(`Executing ${prediction.tradeType} trade...`);
 
-            // Update trade status
-            setExecutedTrades(prev => prev.map(t => 
-                t.id === tradeId 
-                    ? { ...t, status: 'completed', result: result }
-                    : t
-            ));
-
-            setStatus(`✅ Trade executed: ${prediction.tradeType} (${prediction.confidence}% confidence) - Stake: $${stake}`);
-
-        } catch (error) {
-            setExecutedTrades(prev => prev.map(t => 
-                t.id === tradeId 
-                    ? { ...t, status: 'failed', error: error.message }
-                    : t
-            ));
-
-            setStatus(`❌ Trade failed: ${error.message}`);
-        }
-    };
-
-    const executeTrade = async (prediction: any) => {
-        try {
-            await authorizeIfNeeded();
-
-            const trade_option: any = {
-                amount: Number(stake),
-                basis: 'stake',
-                contractTypes: [prediction.tradeType],
-                currency: account_currency,
-                duration: Number(ticks),
-                duration_unit: 't',
-                symbol,
-            };
-
-            // Handle Higher/Lower specific parameters
-            if (prediction.tradeType === 'CALL' || prediction.tradeType === 'PUT') {
-                // Calculate barrier based on current price and strike price offset
-                const strikeOffset = parseFloat(strikePrice);
-                const barrier = (currentPrice + strikeOffset).toFixed(5);
-                trade_option.barrier = barrier;
-                trade_option.duration = Number(duration);
-                trade_option.duration_unit = durationType;
-            } else if (prediction.prediction !== undefined) {
-                trade_option.prediction = Number(prediction.prediction);
+            // Check if API is connected
+            if (!apiRef.current || !isConnected) {
+                throw new Error('API not connected. Please connect first.');
             }
 
-            const buy_req = {
-                buy: '1',
-                price: trade_option.amount,
+            const trade_option = getTradeOptions(selectedSymbol, prediction.tradeType);
+            if (!trade_option) {
+                throw new Error(`Invalid trade configuration for ${prediction.tradeType} on ${selectedSymbol}`);
+            }
+
+            // Validate prediction type for Higher/Lower contracts
+            if ((prediction.tradeType === 'CALL' || prediction.tradeType === 'PUT') && !trade_option.barrier) {
+                throw new Error('Barrier required for Higher/Lower contracts but not provided');
+            }
+
+            const buy_req: any = {
+                buy: 1,
+                price: parseFloat(stake) || 1,
                 parameters: {
-                    amount: trade_option.amount,
-                    basis: trade_option.basis,
                     contract_type: prediction.tradeType,
-                    currency: trade_option.currency,
-                    duration: trade_option.duration,
-                    duration_unit: trade_option.duration_unit,
-                    symbol: trade_option.symbol,
-                },
-            };
-
-            if (trade_option.prediction !== undefined) {
-                buy_req.parameters.selected_tick = trade_option.prediction;
-                if (!['TICKLOW', 'TICKHIGH'].includes(prediction.tradeType)) {
-                    buy_req.parameters.barrier = trade_option.prediction;
+                    symbol: selectedSymbol,
+                    duration: 1,
+                    duration_unit: 't',
+                    amount: parseFloat(stake) || 1,
+                    basis: 'stake',
+                    currency: account_currency || 'USD'
                 }
-            }
+            };
 
             // Set barrier for Higher/Lower trades
             if (prediction.tradeType === 'CALL' || prediction.tradeType === 'PUT') {
                 buy_req.parameters.barrier = trade_option.barrier;
+                setStatus(`Setting barrier at ${trade_option.barrier} for ${prediction.tradeType} trade`);
             }
 
-            const { buy, error } = await apiRef.current.buy(buy_req);
-            if (error) throw error;
+            console.log('Executing trade with parameters:', buy_req);
 
-            setStatus(`ML Auto-Trade: ${prediction.tradeType} (${prediction.confidence}% confidence) - ${buy?.longcode || 'Contract'}`);
+            const result = await apiRef.current.buy(buy_req);
+            const { buy, error } = result || {};
 
-            // Add to transactions
+            if (error) {
+                throw new Error(error.message || 'Trade execution failed');
+            }
+
+            if (!buy) {
+                throw new Error('No buy response received from API');
+            }
+
+            setStatus(`✅ ${prediction.tradeType} trade executed (${prediction.confidence}% confidence) - ${buy?.longcode || 'Contract placed'}`);
+
+            // Add to transactions with error handling
             try {
-                const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
+                const symbol_display = symbols.find(s => s.symbol === selectedSymbol)?.display_name || selectedSymbol;
                 transactions.onBotContractEvent({
                     contract_id: buy?.contract_id,
                     transaction_ids: { buy: buy?.transaction_id },
                     buy_price: buy?.buy_price,
-                    currency: account_currency,
+                    currency: account_currency || 'USD',
                     contract_type: prediction.tradeType as any,
-                    underlying: symbol,
+                    underlying: selectedSymbol,
                     display_name: symbol_display,
                     date_start: Math.floor(Date.now() / 1000),
                     status: 'open',
                 } as any);
-            } catch {}
+            } catch (transactionError) {
+                console.warn('Failed to add to transactions:', transactionError);
+            }
 
         } catch (e: any) {
-            console.error('Execute trade error', e);
-            setStatus(`Trade error: ${e?.message || 'Unknown error'}`);
+            console.error('Execute trade error:', e);
+            const errorMessage = e?.message || e?.error?.message || 'Unknown trading error';
+            setStatus(`❌ Trade failed: ${errorMessage}`);
+
+            // If it's a connection error, try to reconnect
+            if (errorMessage.includes('connection') || errorMessage.includes('network')) {
+                setIsConnected(false);
+                setStatus('Connection lost. Please reconnect and try again.');
+            }
         }
     };
 
+    // Function to toggle the main analysis running state
     const toggleTrading = () => {
         if (is_running) {
             setIsRunning(false);
@@ -714,9 +817,12 @@ const MLTrader = observer(() => {
             run_panel.setIsRunning(true);
             run_panel.setContractStage(contract_stages.STARTING);
             setStatus('ML Analysis started');
+            // Ensure connection is attempted when starting
+            connectToAPI();
         }
     };
 
+    // Function to toggle the auto-execution feature
     const toggleAutoExecution = () => {
         if (is_auto_executing) {
             setIsAutoExecuting(false);
@@ -734,6 +840,7 @@ const MLTrader = observer(() => {
         }
     };
 
+    // Function to stop all analysis and trading activities
     const stopAnalysis = () => {
         setIsRunning(false);
         setIsAutoExecuting(false);
@@ -768,7 +875,8 @@ const MLTrader = observer(() => {
                                     onChange={e => {
                                         const v = e.target.value;
                                         setSymbol(v);
-                                        startTicks(v);
+                                        startTicks(v); // Start ticks when symbol changes
+                                        connectToAPI(); // Ensure connection is active for the new symbol
                                     }}
                                 >
                                     {symbols.map(s => (
@@ -916,7 +1024,7 @@ const MLTrader = observer(() => {
                                 <div className='ml-trader__rec-details'>
                                     <div className='ml-trader__rec-trade-type'>
                                         <strong>{localize('Trade Type:')}</strong> {mlRecommendation.tradeType}
-                                        {mlRecommendation.prediction && (
+                                        {mlRecommendation.prediction !== undefined && (
                                             <span> | <strong>{localize('Prediction:')}</strong> {mlRecommendation.prediction}</span>
                                         )}
                                     </div>
@@ -936,8 +1044,8 @@ const MLTrader = observer(() => {
                                             onClick={() => executeTradeWithLogging(mlRecommendation, symbol)}
                                             disabled={autoTrade && is_running}
                                         >
-                                            {autoTrade && is_running ? 
-                                                localize('Auto-Trading Active') : 
+                                            {autoTrade && is_running ?
+                                                localize('Auto-Trading Active') :
                                                 localize('Execute Trade')} ({mlRecommendation.confidence}%)
                                         </button>
                                         {autoTrade && is_running && (
