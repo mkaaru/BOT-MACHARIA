@@ -7,6 +7,7 @@ import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from 
 // import { tradeOptionToBuy } from '@/external/bot-skeleton/services/tradeEngine/utils/helpers';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
+import RunPanel from '@/components/run-panel';
 import './smart-trader.scss';
 
 // Minimal trade types we will support initially
@@ -366,7 +367,6 @@ const SmartTrader = observer(() => {
     return (
         <div className='smart-trader'>
             <div className='smart-trader__container'>
-
                 <div className='smart-trader__content'>
                     <div className='smart-trader__card'>
                         <div className='smart-trader__row smart-trader__row--two'>
@@ -508,6 +508,7 @@ const SmartTrader = observer(() => {
                     </div>
                 </div>
             </div>
+            <RunPanel />
         </div>
     );
 });

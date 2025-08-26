@@ -1,17 +1,19 @@
-
 .smart-trader {
-    height: 100%;
+    height: 100vh;
     width: 100%;
     display: flex;
     flex-direction: column;
     background: var(--general-main-1);
+    position: relative;
+    z-index: 1;
 
     &__container {
         padding: 2.4rem;
-        height: 100%;
+        flex: 1;
         display: flex;
         flex-direction: column;
         gap: 2.4rem;
+        overflow-y: auto;
     }
 
     &__header {
