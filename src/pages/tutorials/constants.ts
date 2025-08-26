@@ -506,10 +506,4 @@ export const quick_strategy_content = (): TQuickStrategyContent[] => [
         content: [localize('Exploring the 1-3-2-6 strategy in Deriv Bot'), localize('An example of 1-3-2-6 strategy')],
         search_id: `${QUICK_STRATEGY_GUIDES}-5`,
     },
-    {
-        qs_name: 'DIGIT_OVER_RECOVERY',
-        type: localize('About Digit Over Recovery'),
-        content: [localize('Exploring the Digit Over Recovery strategy in Deriv Bot'), localize('An example of Digit Over Recovery strategy')],
-        search_id: `${QUICK_STRATEGY_GUIDES}-6`,
-    },
 ];

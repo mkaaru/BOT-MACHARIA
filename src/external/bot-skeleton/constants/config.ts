@@ -296,7 +296,7 @@ export const config = () => ({
             index: 1,
             label: localize("D'Alembert"),
             description: localize(
-                'The concept of the D\'Alembert Strategy is said to be similar to the Martingale Strategy where you will increase your contract size after a loss. With the D\'Alembert Strategy, you will also decrease your contract size after a successful trade.'
+                'The concept of the D’Alembert Strategy is said to be similar to the Martingale Strategy where you will increase your contract size after a loss. With the D’Alembert Strategy, you will also decrease your contract size after a successful trade.'
             ),
         },
         oscars_grind: {
@@ -304,13 +304,6 @@ export const config = () => ({
             label: localize("Oscar's Grind"),
             description: localize(
                 "The Oscar's Grind Strategy is a low-risk positive progression strategy that first appeared in 1965. By using this strategy, the size of your contract will increase after successful trades, but remains unchanged after unsuccessful trades."
-            ),
-        },
-        digit_over_recovery: {
-            index: 3,
-            label: localize('Digit Over Recovery'),
-            description: localize(
-                'An advanced strategy that combines digit over predictions with martingale recovery and pattern-based trading during loss streaks.'
             ),
         },
     },
