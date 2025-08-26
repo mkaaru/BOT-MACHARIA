@@ -743,6 +743,27 @@ const SmartTrader = observer(() => {
         // Depend on is_running and run_panel to ensure correct listener attachment/detachment
     }, [is_running, run_panel]);
 
+    // Additional effect to handle Run Panel's onRunButtonClick for stop functionality
+    useEffect(() => {
+        // Override the run panel's onRunButtonClick to handle Smart Trader stop
+        if (run_panel && is_running) {
+            const originalOnRunButtonClick = run_panel.onRunButtonClick;
+            run_panel.onRunButtonClick = () => {
+                if (run_panel.is_running) {
+                    stopTrading();
+                } else {
+                    // Call original function for start logic if not running
+                    originalOnRunButtonClick?.();
+                }
+            };
+
+            return () => {
+                // Restore original function
+                run_panel.onRunButtonClick = originalOnRunButtonClick;
+            };
+        }
+    }, [is_running, run_panel]);
+
 
     // --- Start Trading Logic ---
     const startTrading = () => {
