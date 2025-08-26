@@ -706,27 +706,22 @@ const SmartTrader = observer(() => {
 
     // --- Stop Trading Logic ---
     const stopTrading = () => {
+        stopFlagRef.current = true;
+        setIsRunning(false);
         setIsTrading(false);
-        setIsConnected(false); // Assuming connection is tied to trading state in this context
-        if (websocket) {
-            websocket.close();
-            setWebsocket(null);
-        }
         // Cleanup live ticks
         stopTicks();
         // Update Run Panel state
         run_panel.setIsRunning(false);
         run_panel.setHasOpenContract(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        // Unregister any listeners registered by this bot instance
-        run_panel.unregisterBotListeners();
         setStatus('Trading stopped');
     };
 
     // Listen for Run Panel stop events
     useEffect(() => {
         const handleRunPanelStop = () => {
-            if (isTrading) { // Only stop if currently trading
+            if (is_running) { // Only stop if currently trading
                 stopTrading();
             }
         };
@@ -745,30 +740,20 @@ const SmartTrader = observer(() => {
                 run_panel.dbot.observer.unregisterAll('bot.click_stop');
             }
         };
-        // Depend on isTrading and run_panel to ensure correct listener attachment/detachment
-    }, [isTrading, run_panel]);
+        // Depend on is_running and run_panel to ensure correct listener attachment/detachment
+    }, [is_running, run_panel]);
 
 
     // --- Start Trading Logic ---
     const startTrading = () => {
-        if (!isConnected && !apiRef.current) { // Check if API is initialized and connected
+        if (!apiRef.current) { // Check if API is initialized
             setStatus('Please connect to API first');
             return;
         }
 
         setIsTrading(true);
-        run_panel.setIsRunning(true);
-        run_panel.setHasOpenContract(false);
-        run_panel.setContractStage(contract_stages.STARTING);
-        run_panel.toggleDrawer(true);
-        run_panel.registerBotListeners(); // Ensure listeners are registered for this bot
-        run_panel.run_id = `smart-trader-${Date.now()}`; // Assign a unique run ID
-        setStatus('Smart trading started');
-
-        // Set up auto-execution if enabled
-        if (autoExecute) {
-            executeNextTrade();
-        }
+        // Call the actual trading logic
+        onRun();
     };
 
     // Placeholder for executeNextTrade if it exists elsewhere or needs implementation
@@ -1061,12 +1046,12 @@ const SmartTrader = observer(() => {
                         <div className='smart-trader__actions'>
                             <button
                                 className='smart-trader__run'
-                                onClick={startTrading} // Changed to call startTrading
-                                disabled={isTrading || !symbol || !apiRef.current} // Disable if already trading or API not ready
+                                onClick={startTrading}
+                                disabled={is_running || !symbol || !apiRef.current}
                             >
-                                {isTrading ? localize('Running...') : localize('Start Trading')}
+                                {is_running ? localize('Running...') : localize('Start Trading')}
                             </button>
-                            {isTrading && ( // Show stop button only when trading is active
+                            {is_running && (
                                 <button className='smart-trader__stop' onClick={stopTrading}>
                                     {localize('Stop')}
                                 </button>
