@@ -18,8 +18,6 @@ const TRADE_TYPES = [
     { value: 'DIGITDIFF', label: 'Differs' },
     { value: 'CALL', label: 'Higher' },
     { value: 'PUT', label: 'Lower' },
-    { value: 'CALLE', label: 'Higher' }, // Alias for Higher/Lower
-    { value: 'PUTE', label: 'Lower' }, // Alias for Higher/Lower
 ];
 // Safe version of tradeOptionToBuy without Blockly dependencies
 const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
@@ -99,18 +97,6 @@ const SmartTrader = observer(() => {
     });
     const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
     const [allVolatilitiesData, setAllVolatilitiesData] = useState<Record<string, Array<{ time: number, price: number, close: number }>>>({});
-
-    // --- New State Variables for Probability Analysis and Auto-Trading ---
-    const [currentPrice, setCurrentPrice] = useState<number>(0);
-    const [priceHistory, setPriceHistory] = useState<Array<number>>([]);
-    const [evenProb, setEvenProb] = useState<number>(0);
-    const [oddProb, setOddProb] = useState<number>(0);
-    const [riseProb, setRiseProb] = useState<number>(0);
-    const [fallProb, setFallProb] = useState<number>(0);
-    const [evenOddPattern, setEvenOddPattern] = useState<string>('');
-    const [currentStreak, setCurrentStreak] = useState<number>(0);
-    const [probabilityThreshold, setProbabilityThreshold] = useState<number>(70); // Default threshold
-    const [autoTrading, setAutoTrading] = useState<boolean>(false); // Toggle for auto-trading
 
     const [status, setStatus] = useState<string>('');
     const [is_running, setIsRunning] = useState(false);
@@ -247,7 +233,7 @@ const SmartTrader = observer(() => {
                     const trimmedData = uniqueData.slice(-2000);
 
                     // Update Hull trends with historical data
-                    if (tradeType === 'CALL' || tradeType === 'PUT' || tradeType === 'CALLE' || tradeType === 'PUTE') {
+                    if (tradeType === 'CALL' || tradeType === 'PUT') {
                         updateHullTrends(trimmedData);
                     }
 
@@ -425,7 +411,7 @@ const SmartTrader = observer(() => {
 
     // Effect to use pre-loaded historical data when trade type changes to Higher/Lower
     useEffect(() => {
-        if ((tradeType === 'CALL' || tradeType === 'PUT' || tradeType === 'CALLE' || tradeType === 'PUTE') && symbol) {
+        if ((tradeType === 'CALL' || tradeType === 'PUT') && symbol) {
             // Use pre-loaded historical data if available
             if (allVolatilitiesData[symbol] && allVolatilitiesData[symbol].length > 0) {
                 setTickData(allVolatilitiesData[symbol]);
@@ -483,7 +469,7 @@ const SmartTrader = observer(() => {
 
         try {
             // Use pre-loaded historical data for Hull Moving Average analysis if available
-            if (tradeType === 'CALL' || tradeType === 'PUT' || tradeType === 'CALLE' || tradeType === 'PUTE') {
+            if (tradeType === 'CALL' || tradeType === 'PUT') {
                 if (allVolatilitiesData[sym] && allVolatilitiesData[sym].length > 0) {
                     setTickData(allVolatilitiesData[sym]);
                     updateHullTrends(allVolatilitiesData[sym]);
@@ -504,20 +490,31 @@ const SmartTrader = observer(() => {
                     if (data?.msg_type === 'tick' && data?.tick?.symbol === sym) {
                         const quote = data.tick.quote;
                         const digit = Number(String(quote).slice(-1));
+                        const tickTime = data.tick.epoch * 1000; // Use server time
+                        setTickHistory(prev => [...prev.slice(-500), { time: tickTime, price: quote }]); // Keep last 500 ticks for tick history
 
-                        setCurrentPrice(quote);
                         setLastDigit(digit);
-                        setDigits(prev => [...prev.slice(-9), digit]);
-                        setPriceHistory(prev => [...prev.slice(-99), quote]);
+                        setDigits(prev => [...prev.slice(-8), digit]);
                         setTicksProcessed(prev => prev + 1);
 
-                        // Analyze probabilities based on recent data
-                        analyzeTradingConditions(digit, quote);
+                        // Update tick data for Hull Moving Average analysis
+                        setTickData(prev => {
+                            const newTickData = [...prev, {
+                                time: tickTime,
+                                price: quote,
+                                close: quote
+                            }];
 
-                        // Check if auto trading conditions are met
-                        if (autoTrading && shouldExecuteTrade()) {
-                            executeAutoTrade();
-                        }
+                            // Keep only last 2000 ticks to prevent memory issues
+                            const trimmedData = newTickData.slice(-2000);
+
+                            // Update Hull trends for Higher/Lower trades
+                            if (tradeType === 'CALL' || tradeType === 'PUT') {
+                                updateHullTrends(trimmedData);
+                            }
+
+                            return trimmedData;
+                        });
                     }
                     if (data?.forget?.id && data?.forget?.id === tickStreamIdRef.current) {
                         // stopped
@@ -533,91 +530,15 @@ const SmartTrader = observer(() => {
         }
     };
 
-    // --- New Functions for Probability Analysis and Auto-Trading ---
-
-    const analyzeTradingConditions = (digit: number, price: number) => {
-        if (digits.length < 10) return;
-
-        const recentDigits = [...digits.slice(-9), digit];
-        const recentPrices = [...priceHistory.slice(-9), price];
-
-        // Calculate Even/Odd probabilities
-        const evenCount = recentDigits.filter(d => d % 2 === 0).length;
-        const oddCount = recentDigits.length - evenCount;
-        const totalDigits = recentDigits.length;
-
-        setEvenProb(Number(((evenCount / totalDigits) * 100).toFixed(1)));
-        setOddProb(Number(((oddCount / totalDigits) * 100).toFixed(1)));
-
-        // Calculate Rise/Fall probabilities based on price movements
-        if (recentPrices.length >= 2) {
-            const rises = recentPrices.slice(1).filter((p, i) => p > recentPrices[i]).length;
-            const falls = recentPrices.length - 1 - rises;
-            const totalMoves = recentPrices.length - 1;
-
-            setRiseProb(Number(((rises / totalMoves) * 100).toFixed(1)));
-            setFallProb(Number(((falls / totalMoves) * 100).toFixed(1)));
-        }
-
-        // Update Even/Odd pattern
-        const patternStr = recentDigits.slice(-5).map(d => d % 2 === 0 ? 'E' : 'O').join('');
-        setEvenOddPattern(patternStr);
-
-        // Calculate current streak
-        const lastType = digit % 2 === 0 ? 'even' : 'odd';
-        let streak = 1;
-        for (let i = recentDigits.length - 2; i >= 0; i--) {
-            const currentType = recentDigits[i] % 2 === 0 ? 'even' : 'odd';
-            if (currentType === lastType) {
-                streak++;
-            } else {
-                break;
-            }
-        }
-        setCurrentStreak(streak);
-    };
-
-    const shouldExecuteTrade = (): boolean => {
-        if (!autoTrading) return false;
-
-        switch (tradeType) {
-            case 'DIGITEVEN':
-                return evenProb >= probabilityThreshold;
-            case 'DIGITODD':
-                return oddProb >= probabilityThreshold;
-            case 'CALL':
-            case 'CALLE': // Treat CALLE as CALL for probability logic
-                return riseProb >= probabilityThreshold;
-            case 'PUT':
-            case 'PUTE': // Treat PUTE as PUT for probability logic
-                return fallProb >= probabilityThreshold;
-            case 'DIGITOVER':
-                // If DIGITOVER, we are looking for the opposite of the prediction to be more probable
-                // e.g., if prediction is 5, we want UNDER 5 (Even) to be probable if DIGITUNDER is selected
-                // This logic might need refinement based on exact user intent for DIGITOVER/DIGITUNDER with probabilities
-                return (tradeType === 'DIGITOVER' ? oddProb : evenProb) >= probabilityThreshold;
-            case 'DIGITUNDER':
-                return (tradeType === 'DIGITUNDER' ? evenProb : oddProb) >= probabilityThreshold;
-            default:
-                return false;
-        }
-    };
-
-    const executeAutoTrade = async () => {
-        if (is_running) return; // Prevent multiple simultaneous trades
-
-        try {
-            await purchaseOnce();
-        } catch (error) {
-            console.error('Auto trade execution failed:', error);
-        }
-    };
-
     const purchaseOnce = async () => {
+        return await purchaseOnceWithStake(stake);
+    };
+
+    const purchaseOnceWithStake = async (stakeAmount: number) => {
         await authorizeIfNeeded();
 
         const trade_option: any = {
-            amount: Number(stake),
+            amount: Number(stakeAmount),
             basis: 'stake',
             contractTypes: [tradeType],
             currency: account_currency,
@@ -625,15 +546,12 @@ const SmartTrader = observer(() => {
             duration_unit: durationType,
             symbol,
         };
-
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
-        } else if (tradeType === 'CALLE' || tradeType === 'PUTE') {
-            // For Higher/Lower, the barrier is typically set relative to the current price
-            // This simple implementation uses the static barrier input, which might need dynamic adjustment
+        } else if (tradeType === 'CALL' || tradeType === 'PUT') {
             trade_option.barrier = barrier;
         }
 
@@ -661,7 +579,7 @@ const SmartTrader = observer(() => {
             while (!stopFlagRef.current) {
                 // Adjust stake and prediction based on prior outcomes (simple martingale)
                 const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
-
+                
                 const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
                 if (isOU) {
                     lastOutcomeWasLossRef.current = lossStreak > 0;
@@ -868,7 +786,7 @@ const SmartTrader = observer(() => {
                                         setSymbol(v);
 
                                         // Use pre-loaded historical data if available
-                                        if (allVolatilitiesData[v] && (tradeType === 'CALL' || tradeType === 'PUT' || tradeType === 'CALLE' || tradeType === 'PUTE')) {
+                                        if (allVolatilitiesData[v] && (tradeType === 'CALL' || tradeType === 'PUT')) {
                                             setTickData(allVolatilitiesData[v]);
                                             updateHullTrends(allVolatilitiesData[v]);
                                         }
@@ -964,7 +882,7 @@ const SmartTrader = observer(() => {
                                             onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
                                     </div>
                                 </div>
-                            ) : (tradeType !== 'CALL' && tradeType !== 'PUT' && tradeType !== 'CALLE' && tradeType !== 'PUTE') ? (
+                            ) : (tradeType !== 'CALL' && tradeType !== 'PUT') ? (
                                 <div className='smart-trader__row smart-trader__row--compact'>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-ou-pred-pre'>{localize('Over/Under prediction (pre-loss)')}</label>
@@ -987,7 +905,7 @@ const SmartTrader = observer(() => {
                         </div>
 
                         {/* Higher/Lower Barrier Controls */}
-                        {(tradeType === 'CALLE' || tradeType === 'PUTE') && (
+                        {(tradeType === 'CALL' || tradeType === 'PUT') && (
                             <div className='smart-trader__row smart-trader__row--two'>
                                 <div className='smart-trader__field'>
                                     <label htmlFor='st-barrier'>{localize('Barrier')}</label>
@@ -1014,7 +932,7 @@ const SmartTrader = observer(() => {
                         )}
 
                         {/* Hull Moving Average Trend Analysis for Higher/Lower */}
-                        {(tradeType === 'CALL' || tradeType === 'PUT' || tradeType === 'CALLE' || tradeType === 'PUTE') && (
+                        {(tradeType === 'CALL' || tradeType === 'PUT') && (
                             <div className='smart-trader__hull-trends'>
                                 <div className='smart-trader__trends-header'>
                                     <Text size='s' weight='bold'>{localize('Hull MA Trend Analysis')}</Text>
@@ -1043,118 +961,8 @@ const SmartTrader = observer(() => {
                             </div>
                         )}
 
-                        {/* Probability Analysis Display */}
-                        <div className='smart-trader__analysis'>
-                            <div className='smart-trader__analysis-section'>
-                                <Text size='s' weight='bold'>{localize('Rise/Fall Analysis')}</Text>
-                                <div className='smart-trader__prob-bars'>
-                                    <div className='smart-trader__prob-item'>
-                                        <span>Rise</span>
-                                        <div className='smart-trader__prob-bar'>
-                                            <div
-                                                className='smart-trader__prob-fill smart-trader__prob-fill--rise'
-                                                style={{ width: `${riseProb}%` }}
-                                            />
-                                        </div>
-                                        <span>{riseProb}%</span>
-                                    </div>
-                                    <div className='smart-trader__prob-item'>
-                                        <span>Fall</span>
-                                        <div className='smart-trader__prob-bar'>
-                                            <div
-                                                className='smart-trader__prob-fill smart-trader__prob-fill--fall'
-                                                style={{ width: `${fallProb}%` }}
-                                            />
-                                        </div>
-                                        <span>{fallProb}%</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className='smart-trader__analysis-section'>
-                                <Text size='s' weight='bold'>{localize('Even/Odd Analysis')}</Text>
-                                <div className='smart-trader__prob-bars'>
-                                    <div className='smart-trader__prob-item'>
-                                        <span>Even</span>
-                                        <div className='smart-trader__prob-bar'>
-                                            <div
-                                                className='smart-trader__prob-fill smart-trader__prob-fill--even'
-                                                style={{ width: `${evenProb}%` }}
-                                            />
-                                        </div>
-                                        <span>{evenProb}%</span>
-                                    </div>
-                                    <div className='smart-trader__prob-item'>
-                                        <span>Odd</span>
-                                        <div className='smart-trader__prob-bar'>
-                                            <div
-                                                className='smart-trader__prob-fill smart-trader__prob-fill--odd'
-                                                style={{ width: `${oddProb}%` }}
-                                            />
-                                        </div>
-                                        <span>{oddProb}%</span>
-                                    </div>
-                                </div>
-                                <div className='smart-trader__pattern'>
-                                    <Text size='xs'>{localize('Last 5 Digits Pattern:')} {evenOddPattern}</Text>
-                                    <Text size='xs'>{localize('Current streak:')} {currentStreak} {lastDigit !== null && (lastDigit % 2 === 0 ? 'even' : 'odd')}</Text>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Trading Condition Controls */}
-                        <div className='smart-trader__trading-condition'>
-                            <Text size='s' weight='bold'>{localize('Trading Condition')}</Text>
-                            <div className='smart-trader__condition-row'>
-                                <label>{localize('If')}</label>
-                                <select
-                                    value={
-                                        tradeType === 'DIGITEVEN' ? 'Even Prob' :
-                                        tradeType === 'DIGITODD' ? 'Odd Prob' :
-                                        tradeType === 'CALL' || tradeType === 'CALLE' ? 'Rise Prob' :
-                                        tradeType === 'PUT' || tradeType === 'PUTE' ? 'Fall Prob' : '' // Default or handle other types
-                                    }
-                                    readOnly // Make it read-only as it reflects the trade type
-                                >
-                                    {/* Options are dynamically determined by tradeType */}
-                                    {(tradeType === 'DIGITEVEN' || tradeType === 'DIGITODD' || tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') && (
-                                        <>
-                                            <option value='even'>{localize('Even Prob')}</option>
-                                            <option value='odd'>{localize('Odd Prob')}</option>
-                                        </>
-                                    )}
-                                    {(tradeType === 'CALL' || tradeType === 'PUT' || tradeType === 'CALLE' || tradeType === 'PUTE') && (
-                                        <>
-                                            <option value='rise'>{localize('Rise Prob')}</option>
-                                            <option value='fall'>{localize('Fall Prob')}</option>
-                                        </>
-                                    )}
-                                </select>
-                                <span>{'>'}</span>
-                                <input
-                                    type='number'
-                                    value={probabilityThreshold}
-                                    onChange={e => setProbabilityThreshold(Number(e.target.value))}
-                                    min={50}
-                                    max={95}
-                                    step={1}
-                                />
-                                <span>%</span>
-                            </div>
-                            <div className='smart-trader__condition-action'>
-                                <span>{localize('Then')}</span>
-                                <span className='smart-trader__action-label'>
-                                    {tradeType === 'DIGITEVEN' ? 'Buy Even' :
-                                     tradeType === 'DIGITODD' ? 'Buy Odd' :
-                                     tradeType === 'CALL' || tradeType === 'CALLE' ? 'Buy Higher' :
-                                     tradeType === 'PUT' || tradeType === 'PUTE' ? 'Buy Lower' : 'Buy'}
-                                </span>
-                            </div>
-                        </div>
-
-
                         {/* Open Position Display for Higher/Lower */}
-                        {(tradeType === 'CALL' || tradeType === 'PUT' || tradeType === 'CALLE' || tradeType === 'PUTE') && run_panel.hasOpenContract && (
+                        {(tradeType === 'CALL' || tradeType === 'PUT') && run_panel.hasOpenContract && (
                             <div className='smart-trader__open-position'>
                                 <div className='smart-trader__position-header'>
                                     <Text size='s' weight='bold'>{localize('Open positions')}</Text>
@@ -1166,8 +974,8 @@ const SmartTrader = observer(() => {
                                                 {symbols.find(s => s.symbol === symbol)?.display_name || symbol}
                                             </Text>
                                             <div className='smart-trader__trade-direction'>
-                                                <span className={`smart-trader__direction-badge ${tradeType === 'CALL' || tradeType === 'CALLE' ? 'higher' : 'lower'}`}>
-                                                    {tradeType === 'CALL' || tradeType === 'CALLE' ? 'Higher' : 'Lower'}
+                                                <span className={`smart-trader__direction-badge ${tradeType === 'CALL' ? 'higher' : 'lower'}`}>
+                                                    {tradeType === 'CALL' ? 'Higher' : 'Lower'}
                                                 </span>
                                             </div>
                                         </div>
@@ -1208,7 +1016,7 @@ const SmartTrader = observer(() => {
                             </div>
                         )}
 
-                        {(tradeType !== 'CALL' && tradeType !== 'PUT' && tradeType !== 'CALLE' && tradeType !== 'PUTE') && (
+                        {(tradeType !== 'CALL' && tradeType !== 'PUT') && (
                             <div className='smart-trader__digits'>
                                 {digits.map((d, idx) => (
                                     <div
@@ -1224,12 +1032,12 @@ const SmartTrader = observer(() => {
                             <Text size='xs' color='general'>
                                 {localize('Ticks Processed:')} {ticksProcessed}
                             </Text>
-                            {(tradeType !== 'CALL' && tradeType !== 'PUT' && tradeType !== 'CALLE' && tradeType !== 'PUTE') && (
+                            {(tradeType !== 'CALL' && tradeType !== 'PUT') && (
                                 <Text size='xs' color='general'>
                                     {localize('Last Digit:')} {lastDigit ?? '-'}
                                 </Text>
                             )}
-                            {(tradeType === 'CALL' || tradeType === 'PUT' || tradeType === 'CALLE' || tradeType === 'PUTE') && (
+                            {(tradeType === 'CALL' || tradeType === 'PUT') && (
                                 <div className='smart-trader__hl-meta'>
                                     <Text size='xs' color='general'>
                                         {localize('Barrier:')} {barrier}
@@ -1241,22 +1049,19 @@ const SmartTrader = observer(() => {
                             )}
                         </div>
 
-                        {/* Trading Actions */}
                         <div className='smart-trader__actions'>
                             <button
-                                className={`smart-trader__auto-btn ${autoTrading ? 'smart-trader__auto-btn--active' : ''}`}
-                                onClick={() => setAutoTrading(!autoTrading)}
-                                disabled={is_running || !symbol}
+                                className='smart-trader__run'
+                                onClick={startTrading}
+                                disabled={is_running || !symbol || !apiRef.current}
                             >
-                                {autoTrading ? localize('Stop Auto Trading') : localize('Start Auto Trading')}
+                                {is_running ? localize('Running...') : localize('Start Trading')}
                             </button>
-                            <button
-                                className='smart-trader__manual-btn'
-                                onClick={purchaseOnce}
-                                disabled={is_running || !symbol}
-                            >
-                                {localize('Execute Manual Trade')}
-                            </button>
+                            {is_running && (
+                                <button className='smart-trader__stop' onClick={stopTrading}>
+                                    {localize('Stop')}
+                                </button>
+                            )}
                         </div>
 
                         {status && (
