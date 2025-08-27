@@ -286,10 +286,14 @@
 }
 
 @mixin flex-center($justify-content: center, $align-items: center) {
-    display: flex;
-    align-items: $align-items;
-    justify-content: $justify-content;
-    @content;
+    @include mobile-or-tablet-screen {
+        @content;
+    }
+    & {
+        display: flex;
+        align-items: $align-items;
+        justify-content: $justify-content;
+    }
 }
 
 /*

@@ -39,12 +39,97 @@ const LoadModal: React.FC = observer((): JSX.Element => {
         });
     };
 
+    // Register missing block definitions
+    const registerMissingBlocks = (missingTypes: string[]) => {
+        missingTypes.forEach(blockType => {
+            if (!window.Blockly.Blocks[blockType]) {
+                console.warn(`Registering fallback definition for missing block type: ${blockType}`);
+
+                // Register basic fallback block definitions
+                if (blockType === 'variable_sets') {
+                    window.Blockly.Blocks.variable_sets = {
+                        init: function() {
+                            this.appendValueInput('VALUE')
+                                .setCheck(null)
+                                .appendField('set')
+                                .appendField(new window.Blockly.FieldVariable('item'), 'VAR')
+                                .appendField('to');
+                            this.setPreviousStatement(true, null);
+                            this.setNextStatement(true, null);
+                            this.setColour(330);
+                            this.setTooltip('Set variable to a value');
+                            this.setHelpUrl('');
+                        }
+                    };
+
+                    // Also register the generator if needed
+                    if (window.Blockly.JavaScript && !window.Blockly.JavaScript[blockType]) {
+                        window.Blockly.JavaScript.variable_sets = function(block: any) {
+                            const varName = window.Blockly.JavaScript.nameDB_.getName(block.getFieldValue('VAR'), window.Blockly.Variables.NAME_TYPE);
+                            const value = window.Blockly.JavaScript.valueToCode(block, 'VALUE', window.Blockly.JavaScript.ORDER_ASSIGNMENT) || '0';
+                            return `${varName} = ${value};\n`;
+                        };
+                    }
+                } else if (blockType === 'variables_get') {
+                    window.Blockly.Blocks.variables_get = {
+                        init: function() {
+                            this.appendDummyInput()
+                                .appendField(new window.Blockly.FieldVariable('item'), 'VAR');
+                            this.setOutput(true, null);
+                            this.setColour(330);
+                            this.setTooltip('Returns the value of this variable');
+                            this.setHelpUrl('');
+                        }
+                    };
+
+                    if (window.Blockly.JavaScript && !window.Blockly.JavaScript[blockType]) {
+                        window.Blockly.JavaScript.variables_get = function(block: any) {
+                            const varName = window.Blockly.JavaScript.nameDB_.getName(block.getFieldValue('VAR'), window.Blockly.Variables.NAME_TYPE);
+                            return [varName, window.Blockly.JavaScript.ORDER_ATOMIC];
+                        };
+                    }
+                } else {
+                    // Generic fallback for unknown blocks
+                    window.Blockly.Blocks[blockType] = {
+                        init: function() {
+                            this.appendDummyInput()
+                                .appendField(`[${blockType}]`);
+                            this.setPreviousStatement(true, null);
+                            this.setNextStatement(true, null);
+                            this.setColour(160);
+                            this.setTooltip(`Fallback block for ${blockType}`);
+                            this.setHelpUrl('');
+                        }
+                    };
+                }
+
+                console.log(`Successfully registered fallback for block type: ${blockType}`);
+            }
+        });
+    };
+
     // Ensure loadFileFromContent is defined on load_modal
     load_modal.loadFileFromContent = async (xmlContent: string) => {
         try {
             console.log('Loading XML content:', xmlContent);
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
+
+            // Identify missing block types from the parsed XML
+            const missingTypes: string[] = [];
+            const blockElements = xmlDoc.querySelectorAll('block');
+            blockElements.forEach(blockElement => {
+                const type = blockElement.getAttribute('type');
+                if (type && !window.Blockly.Blocks[type]) {
+                    missingTypes.push(type);
+                }
+            });
+
+            // Register any missing blocks
+            if (missingTypes.length > 0) {
+                registerMissingBlocks(missingTypes);
+            }
+
             // Define the loadParsedXML method
             load_modal.loadParsedXML = (xmlDoc: Document) => {
                 // Clear the existing workspace

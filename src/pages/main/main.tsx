@@ -48,7 +48,11 @@ const ChartsIcon = () => (
 );
 
 const TutorialsIcon = () => (
-   <svg width="24px" height="24px" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg" fill="none"><path stroke="var(--text-general)" stroke-width="12" d="M170 96c0-45-4.962-49.999-50-50H72c-45.038.001-50 5-50 50s4.962 49.999 50 50h48c45.038-.001 50-5 50-50Z"/><path stroke="var(--text-general)" stroke-linecap="round" stroke-linejoin="round" stroke-width="12" d="m82 74 34 22-34 22"/></svg>
+   <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="var(--text-general)" strokeWidth="2" strokeLinejoin="round"/>
+<path d="M2 17L12 22L22 17" stroke="var(--text-general)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+<path d="M2 12L12 17L22 12" stroke="var(--text-general)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+</svg>
 );
 
 const AnalysisToolIcon = () => (
@@ -240,7 +244,7 @@ const AppWrapper = observer(() => {
                     let cleanedText = text;
                     // Fix common entity reference issues
                     cleanedText = cleanedText.replace(/&(?![a-zA-Z0-9#][a-zA-Z0-9]*;)/g, '&amp;');
-                    
+
                     const parser = new DOMParser();
                     const xml = parser.parseFromString(cleanedText, 'application/xml');
 
