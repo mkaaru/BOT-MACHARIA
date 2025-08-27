@@ -1,4 +1,158 @@
 .smart-trader {
+    .smart-trader__analysis {
+        margin: 1rem 0;
+        padding: 1rem;
+        background: var(--general-section-1);
+        border-radius: 4px;
+
+        &-section {
+            margin-bottom: 1rem;
+
+            &:last-child {
+                margin-bottom: 0;
+            }
+        }
+    }
+
+    .smart-trader__prob-bars {
+        margin-top: 0.5rem;
+    }
+
+    .smart-trader__prob-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        gap: 0.5rem;
+
+        span:first-child {
+            min-width: 40px;
+            font-size: 0.8rem;
+        }
+
+        span:last-child {
+            min-width: 45px;
+            text-align: right;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+    }
+
+    .smart-trader__prob-bar {
+        flex: 1;
+        height: 20px;
+        background: var(--general-section-2);
+        border-radius: 10px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .smart-trader__prob-fill {
+        height: 100%;
+        transition: width 0.3s ease;
+
+        &--rise, &--even {
+            background: linear-gradient(90deg, #4CAF50, #66BB6A);
+        }
+
+        &--fall, &--odd {
+            background: linear-gradient(90deg, #f44336, #ef5350);
+        }
+    }
+
+    .smart-trader__pattern {
+        margin-top: 0.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .smart-trader__trading-condition {
+        margin: 1rem 0;
+        padding: 1rem;
+        background: var(--general-section-1);
+        border-radius: 4px;
+    }
+
+    .smart-trader__condition-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0.5rem 0;
+        flex-wrap: wrap;
+
+        label, span {
+            font-size: 0.9rem;
+        }
+
+        select, input {
+            padding: 0.25rem;
+            border: 1px solid var(--border-normal);
+            border-radius: 4px;
+            background: var(--fill-normal);
+            color: var(--text-general);
+        }
+
+        input[type="number"] {
+            width: 60px;
+        }
+    }
+
+    .smart-trader__condition-action {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+
+        .smart-trader__action-label {
+            padding: 0.25rem 0.5rem;
+            background: var(--status-info);
+            color: white;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+    }
+
+    .smart-trader__barrier-controls {
+        margin: 1rem 0;
+    }
+
+    .smart-trader__auto-btn {
+        background: var(--status-success);
+        color: white;
+        padding: 0.75rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-right: 0.5rem;
+        transition: background 0.3s ease;
+
+        &--active {
+            background: var(--status-danger);
+        }
+
+        &:disabled {
+            background: var(--general-disabled);
+            cursor: not-allowed;
+        }
+    }
+
+    .smart-trader__manual-btn {
+        background: var(--status-info);
+        color: white;
+        padding: 0.75rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.3s ease;
+
+        &:disabled {
+            background: var(--general-disabled);
+            cursor: not-allowed;
+        }
+    }
+
+.smart-trader {
     height: 100%;
     width: 100%;
     display: flex;
