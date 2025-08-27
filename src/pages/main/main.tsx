@@ -171,32 +171,82 @@ const AppWrapper = observer(() => {
 
             for (const file of botFiles) {
                 try {
-                    const response = await fetch(`/${file}`);
-                    
-                    if (!response.ok) {
-                        console.warn(`Could not load bot file: ${file} - Status: ${response.status}`);
+                    // Try multiple fetch approaches for better compatibility
+                    let response;
+                    let text = null;
+
+                    // Try public directory with encoded URI
+                    try {
+                        const encodedFile = encodeURIComponent(file);
+                        response = await fetch(`/${encodedFile}`);
+                        if (response.ok) {
+                            text = await response.text();
+                        }
+                    } catch (e) {
+                        console.log(`Failed to fetch encoded: ${file}`);
+                    }
+
+                    // Try normal fetch if encoded didn't work
+                    if (!text) {
+                        try {
+                            response = await fetch(`/${file}`);
+                            if (response.ok) {
+                                text = await response.text();
+                            }
+                        } catch (e) {
+                            console.log(`Failed to fetch normal: ${file}`);
+                        }
+                    }
+
+                    // Try without leading slash
+                    if (!text) {
+                        try {
+                            response = await fetch(file);
+                            if (response.ok) {
+                                text = await response.text();
+                            }
+                        } catch (e) {
+                            console.log(`Failed to fetch without slash: ${file}`);
+                        }
+                    }
+
+                    if (!text) {
+                        console.warn(`Could not load bot file: ${file}`);
                         loadedBots.push({
                             title: file.replace('.xml', ''),
-                            description: 'Advanced trading bot strategy',
                             image: 'default_image_path',
                             filePath: file,
                             xmlContent: null,
-                            isPlaceholder: false // Set to false to stop loading animation
+                            isPlaceholder: true
                         });
                         continue;
                     }
-
-                    const text = await response.text();
 
                     // Validate XML content
                     if (!text.trim().startsWith('<xml') && !text.trim().startsWith('<?xml')) {
                         console.warn(`Invalid XML content for ${file}`);
                         loadedBots.push({
                             title: file.replace('.xml', ''),
-                            description: 'Advanced trading bot strategy',
                             image: 'default_image_path',
                             filePath: file,
                             xmlContent: null,
+                            isPlaceholder: true
+                        });
+                        continue;
+                    }
+
+                    const parser = new DOMParser();
+                    const xml = parser.parseFromString(text, 'application/xml');
+
+                    // Check if XML parsing was successful
+                    const parseError = xml.getElementsByTagName('parsererror')[0];
+                    if (parseError) {
+                        console.warn(`XML parsing error for ${file}:`, parseError.textContent);
+                        loadedBots.push({
+                            title: file.replace('.xml', ''),
+                            image: 'default_image_path',
+                            filePath: file,
+                            xmlContent: text, // Still include the content even if parsing failed
                             isPlaceholder: false
                         });
                         continue;
@@ -204,8 +254,7 @@ const AppWrapper = observer(() => {
 
                     loadedBots.push({
                         title: file.replace('.xml', ''),
-                        description: 'Advanced trading bot strategy',
-                        image: 'default_image_path',
+                        image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
                         filePath: file,
                         xmlContent: text,
                         isPlaceholder: false
@@ -217,11 +266,10 @@ const AppWrapper = observer(() => {
                     console.error(`Error loading bot ${file}:`, error);
                     loadedBots.push({
                         title: file.replace('.xml', ''),
-                        description: 'Advanced trading bot strategy',
                         image: 'default_image_path',
                         filePath: file,
                         xmlContent: null,
-                        isPlaceholder: false // Set to false to stop loading animation
+                        isPlaceholder: true
                     });
                 }
             }
@@ -1207,7 +1255,7 @@ if __name__ == "__main__":
                                                         </div>
                                                         <div className='free-bot-card__details'>
                                                             <h3 className='free-bot-card__title'>{bot.title}</h3>
-                                                            <p className='free-bot-card__description'>{bot.description || 'Advanced trading bot strategy'}</p>
+                                                            <p className='free-bot-card__description'>{bot.description}</p>
                                                             <p className='free-bot-card__action'>
                                                                 {bot.isPlaceholder ? 'Loading bot...' : 'Click to load this bot'}
                                                             </p>
