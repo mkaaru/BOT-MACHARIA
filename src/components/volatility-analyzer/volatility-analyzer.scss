@@ -1,3 +1,5 @@
+@use 'components/shared/styles/mixins' as *;
+
 .volatility-analyzer {
   display: flex;
   height: 100vh;
