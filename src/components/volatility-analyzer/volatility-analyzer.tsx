@@ -512,6 +512,7 @@ const VolatilityAnalyzer: React.FC = () => {
     
     if (connectionStatus !== 'connected') {
       console.error('Cannot trade: Not connected to API');
+      alert('Cannot trade: Not connected to API');
       return;
     }
 
@@ -521,6 +522,7 @@ const VolatilityAnalyzer: React.FC = () => {
       
       if (!data?.data) {
         console.error('No analysis data available for trading');
+        alert('No analysis data available for trading');
         return;
       }
 
@@ -529,8 +531,10 @@ const VolatilityAnalyzer: React.FC = () => {
         const shouldTrade = checkTradingConditions(strategyId, data.data, condition);
         if (!shouldTrade) {
           console.log(`Trading conditions not met for ${strategyId}`);
+          alert(`Trading conditions not met for ${strategyId}. Check your condition settings.`);
           return;
         }
+        console.log(`✅ Trading conditions met for ${strategyId}, proceeding with trade`);
       }
 
       // Initialize base stake for this strategy if not set
@@ -616,6 +620,17 @@ const VolatilityAnalyzer: React.FC = () => {
       // Use Smart Trader's trading method
       const buy_req = tradeOptionToBuy(contractType, trade_option);
       
+      console.log('Sending proposal request with params:', {
+        amount: effectiveStake,
+        basis: 'stake',
+        contract_type: contractType,
+        currency: 'USD',
+        symbol: selectedSymbol,
+        duration: ticksAmount,
+        duration_unit: 't',
+        ...(barrier !== undefined && { barrier })
+      });
+
       // Get proposal first
       const proposalResponse = await tradingEngine.getProposal({
         amount: effectiveStake,
@@ -629,7 +644,8 @@ const VolatilityAnalyzer: React.FC = () => {
       });
       
       if (proposalResponse.proposal) {
-        console.log('Proposal received:', proposalResponse.proposal);
+        console.log('✅ Proposal received:', proposalResponse.proposal);
+        alert(`Proposal received! Price: ${proposalResponse.proposal.ask_price}`);
         
         // Buy the contract
         const purchaseResponse = await tradingEngine.buyContract(
@@ -638,7 +654,8 @@ const VolatilityAnalyzer: React.FC = () => {
         );
         
         if (purchaseResponse.buy) {
-          console.log('Contract purchased successfully:', purchaseResponse.buy);
+          console.log('✅ Contract purchased successfully:', purchaseResponse.buy);
+          alert(`Contract purchased! ID: ${purchaseResponse.buy.contract_id}`);
           
           // Track the contract outcome for martingale logic
           const contractId = purchaseResponse.buy.contract_id;
@@ -700,14 +717,17 @@ const VolatilityAnalyzer: React.FC = () => {
           }
           
         } else {
-          console.error('Purchase failed:', purchaseResponse);
+          console.error('❌ Purchase failed:', purchaseResponse);
+          alert(`Purchase failed: ${purchaseResponse.error?.message || 'Unknown error'}`);
         }
       } else {
-        console.error('Proposal failed:', proposalResponse);
+        console.error('❌ Proposal failed:', proposalResponse);
+        alert(`Proposal failed: ${proposalResponse.error?.message || 'Unknown error'}`);
       }
 
     } catch (error) {
-      console.error('Error executing trade:', error);
+      console.error('❌ Error executing trade:', error);
+      alert(`Trade execution error: ${error.message}`);
       // On error, don't increment loss streak but mark as potential loss
       setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
     }
@@ -780,6 +800,12 @@ const VolatilityAnalyzer: React.FC = () => {
   const checkTradingConditions = (strategyId: string, data: any, condition: any) => {
     let currentValue = 0;
     
+    console.log('Checking trading conditions:', {
+      strategyId,
+      condition,
+      data: { riseRatio: data.riseRatio, fallRatio: data.fallRatio }
+    });
+    
     switch (condition.condition) {
       case 'Rise Prob':
         currentValue = parseFloat(data.riseRatio || '0');
@@ -806,19 +832,31 @@ const VolatilityAnalyzer: React.FC = () => {
         currentValue = 100 - parseFloat(data.mostFrequentProbability || '0');
         break;
       default:
+        console.log('Unknown condition type:', condition.condition);
         return false;
     }
 
-    switch (condition.operator) {
-      case '>':
-        return currentValue > condition.value;
-      case '<':
-        return currentValue < condition.value;
-      case '=':
-        return Math.abs(currentValue - condition.value) < 0.1;
-      default:
-        return false;
-    }
+    const result = (() => {
+      switch (condition.operator) {
+        case '>':
+          return currentValue > condition.value;
+        case '<':
+          return currentValue < condition.value;
+        case '=':
+          return Math.abs(currentValue - condition.value) < 0.1;
+        default:
+          return false;
+      }
+    })();
+
+    console.log('Condition result:', {
+      currentValue,
+      operator: condition.operator,
+      threshold: condition.value,
+      result
+    });
+
+    return result;
   };
 
   const renderProgressBar = (label: string, percentage: number, color: string) => {
