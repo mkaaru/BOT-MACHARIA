@@ -165,7 +165,6 @@ const AppWrapper = observer(() => {
                 'Super Elite.xml',
                 'AUTO C4 PRO Version.xml',
                 'Mkorean SV4.xml',
-                'Super Digit Differ Bot.xml',
             ];
 
             const loadedBots = [];
