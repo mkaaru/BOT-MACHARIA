@@ -83,10 +83,10 @@
       max-width: 1800px;
       overflow-y: auto;
       max-height: calc(100vh - 200px);
-      padding-bottom: 100px;
+      padding-bottom: 150px;
 
       @media (max-width: 768px) {
-        padding-bottom: 80px;
+        padding-bottom: 120px;
       }
 
       @media (min-width: 1600px) {
