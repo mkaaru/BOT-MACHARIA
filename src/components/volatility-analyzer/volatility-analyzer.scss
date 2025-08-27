@@ -45,32 +45,75 @@
 
   .analyzer-controls {
     display: flex;
-    gap: 20px;
-    margin-bottom: 30px;
+    gap: 12px;
+    margin-bottom: 20px;
+    align-items: end;
+    flex-wrap: wrap;
 
     .control-group {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 4px;
+      min-width: fit-content;
 
       label {
         font-weight: 500;
         color: var(--text-general);
-        font-size: 14px;
+        font-size: 12px;
+        margin: 0;
+        line-height: 1.2;
+        white-space: nowrap;
       }
 
       select,
       input {
-        padding: 8px 12px;
+        padding: 4px 8px;
         border: 1px solid var(--border-normal);
         border-radius: 4px;
         background-color: var(--fill-normal);
         color: var(--text-general);
-        font-size: 14px;
+        font-size: 12px;
+        min-width: 80px;
+        height: 28px;
 
         &:focus {
           outline: none;
           border-color: var(--brand-secondary);
+        }
+      }
+
+      select {
+        min-width: 120px;
+      }
+
+      input[type="number"] {
+        min-width: 60px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      gap: 8px;
+      
+      .control-group {
+        gap: 2px;
+        
+        label {
+          font-size: 11px;
+        }
+        
+        select,
+        input {
+          padding: 3px 6px;
+          font-size: 11px;
+          height: 26px;
+        }
+        
+        select {
+          min-width: 100px;
+        }
+        
+        input[type="number"] {
+          min-width: 50px;
         }
       }
     }
