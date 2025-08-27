@@ -192,11 +192,7 @@ export const load = async ({
     // Check if all block types in XML are allowed.
     const has_invalid_blocks = Array.from(blockly_xml).some(block => {
         const block_type = block.getAttribute('type');
-        const is_valid = Object.keys(window.Blockly.Blocks).includes(block_type);
-        if (!is_valid) {
-            console.warn(`Invalid block type found: ${block_type}`);
-        }
-        return !is_valid;
+        return !Object.keys(window.Blockly.Blocks).includes(block_type);
     });
     if (has_invalid_blocks) {
         return showInvalidStrategyError();
@@ -224,18 +220,6 @@ export const load = async ({
                 workspace.clearUndo();
                 workspace.current_strategy_id = strategy_id || window.Blockly.utils.idGenerator.genUid();
                 await saveWorkspaceToRecent(xml, from);
-                
-                // Ensure all blocks are rendered
-                workspace.getAllBlocks().forEach(block => {
-                    if (block.rendered) {
-                        block.render();
-                    }
-                });
-                
-                // Fit the workspace to show all blocks
-                setTimeout(() => {
-                    workspace.zoomToFit();
-                }, 100);
             }
         }
 
