@@ -364,8 +364,22 @@ const AppWrapper = observer(() => {
                     }
 
                     // Switch to Bot Builder tab after successful loading
+                    console.log("Switching to Bot Builder tab...");
                     setActiveTab(DBOT_TABS.BOT_BUILDER);
-                    
+
+                    // Wait a bit for the tab to render, then verify workspace
+                    setTimeout(() => {
+                        const workspace = window.Blockly?.derivWorkspace;
+                        if (workspace) {
+                            console.log("Workspace found after tab switch:", workspace);
+                            console.log("Workspace has blocks:", workspace.getAllBlocks?.()?.length || 0);
+                        } else {
+                            console.warn("Workspace not found after switching to Bot Builder");
+                        }
+                    }, 500);
+
+                    console.log("Bot loading completed successfully!");
+
                 } catch (loadError) {
                     console.error("Error in load_modal.loadFileFromContent:", loadError);
                 }
