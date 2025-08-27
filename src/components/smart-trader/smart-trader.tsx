@@ -3,23 +3,20 @@ import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
-// import { tradeOptionToBuy } from '@/external/bot-skeleton/services/tradeEngine/utils/helpers';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import './smart-trader.scss';
 
-// Minimal trade types we will support initially
-const TRADE_TYPES = [
-    { value: 'DIGITOVER', label: 'Digits Over' },
-    { value: 'DIGITUNDER', label: 'Digits Under' },
-    { value: 'DIGITEVEN', label: 'Even' },
-    { value: 'DIGITODD', label: 'Odd' },
-    { value: 'DIGITMATCH', label: 'Matches' },
-    { value: 'DIGITDIFF', label: 'Differs' },
-    { value: 'CALL', label: 'Higher' },
-    { value: 'PUT', label: 'Lower' },
-];
-// Safe version of tradeOptionToBuy without Blockly dependencies
+// Contract types for different trading strategies
+const CONTRACT_TYPES = {
+    RISE_FALL: { CALL: 'CALL', PUT: 'PUT' },
+    EVEN_ODD: { EVEN: 'DIGITEVEN', ODD: 'DIGITODD' },
+    HIGHER_LOWER: { CALL: 'CALL', PUT: 'PUT' },
+    OVER_UNDER: { OVER: 'DIGITOVER', UNDER: 'DIGITUNDER' },
+    MATCH_DIFF: { MATCH: 'DIGITMATCH', DIFF: 'DIGITDIFF' }
+};
+
+// Trade option builder
 const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     const buy = {
         buy: '1',
@@ -34,1048 +31,836 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
             symbol: trade_option.symbol,
         },
     };
+
     if (trade_option.prediction !== undefined) {
         buy.parameters.selected_tick = trade_option.prediction;
     }
-    if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
-        buy.parameters.barrier = trade_option.prediction;
-    }
+
     if (trade_option.barrier !== undefined) {
         buy.parameters.barrier = trade_option.barrier;
     }
+
     return buy;
 };
 
-const SmartTrader = observer(() => {
+const SmartTradingAnalytics = observer(() => {
     const store = useStore();
     const { run_panel, transactions } = store;
 
+    // API and connection state
     const apiRef = useRef<any>(null);
     const tickStreamIdRef = useRef<string | null>(null);
     const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
 
-    const lastOutcomeWasLossRef = useRef(false);
-
-    const [is_authorized, setIsAuthorized] = useState(false);
-    const [account_currency, setAccountCurrency] = useState<string>('USD');
+    // Authentication and symbols
+    const [isAuthorized, setIsAuthorized] = useState(false);
+    const [accountCurrency, setAccountCurrency] = useState<string>('USD');
     const [symbols, setSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
+    const [selectedSymbol, setSelectedSymbol] = useState<string>('R_10');
 
-    // Form state
-    const [symbol, setSymbol] = useState<string>('');
-    const [tradeType, setTradeType] = useState<string>('DIGITOVER');
-    const [ticks, setTicks] = useState<number>(1);
-    const [duration, setDuration] = useState<number>(46); // For time-based duration
-    const [durationType, setDurationType] = useState<string>('t'); // 't' for ticks, 's' for seconds, 'm' for minutes
-    const [stake, setStake] = useState<number>(0.5);
-    const [baseStake, setBaseStake] = useState<number>(0.5);
-    // Predictions
-    const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(5);
-    const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(5);
-    const [mdPrediction, setMdPrediction] = useState<number>(5); // for match/diff
-    // Higher/Lower barrier
-    const [barrier, setBarrier] = useState<string>('+0.37');
-    // Martingale/recovery
-    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.0);
+    // Tick data and analysis
+    const [tickCount, setTickCount] = useState<number>(120);
+    const [barrier, setBarrier] = useState<string>('5');
+    const [tickHistory, setTickHistory] = useState<number[]>([]);
+    const [lastDigits, setLastDigits] = useState<number[]>([]);
 
-    // Contract tracking state
-    const [currentProfit, setCurrentProfit] = useState<number>(0);
-    const [contractValue, setContractValue] = useState<number>(0);
-    const [potentialPayout, setPotentialPayout] = useState<number>(0);
-    const [contractDuration, setContractDuration] = useState<string>('00:00:00');
+    // Analysis results for different contract types
+    const [riseAnalysis, setRiseAnalysis] = useState({ rise: 50.0, fall: 50.0 });
+    const [evenOddAnalysis, setEvenOddAnalysis] = useState({ even: 50.0, odd: 50.0 });
+    const [evenOddPattern, setEvenOddPattern] = useState({ pattern: [], streak: 'Current streak: 1 even' });
 
-    // Live digits state
-    const [digits, setDigits] = useState<number[]>([]);
-    const [lastDigit, setLastDigit] = useState<number | null>(null);
-    const [ticksProcessed, setTicksProcessed] = useState<number>(0);
-
-    // Hull Moving Average trend analysis state
-    const [hullTrends, setHullTrends] = useState({
-        '15s': { trend: 'NEUTRAL', value: 0 },
-        '1m': { trend: 'NEUTRAL', value: 0 },
-        '5m': { trend: 'NEUTRAL', value: 0 },
-        '15m': { trend: 'NEUTRAL', value: 0 }
+    // Trading configuration for each strategy
+    const [tradingConfigs, setTradingConfigs] = useState({
+        risefall: {
+            condition: 'Rise Prob',
+            operator: '>',
+            threshold: 55,
+            action: 'Buy Rise',
+            stake: 0.5,
+            ticks: 1,
+            martingale: 1,
+            isRunning: false
+        },
+        evenodd: {
+            condition: 'Even Prob',
+            operator: '>',
+            threshold: 55,
+            action: 'Buy Even',
+            stake: 0.5,
+            ticks: 1,
+            martingale: 1,
+            isRunning: false
+        },
+        evenoddpattern: {
+            condition: 'Even Prob',
+            operator: '>',
+            threshold: 55,
+            action: 'Buy Even',
+            stake: 0.5,
+            ticks: 1,
+            martingale: 1,
+            isRunning: false
+        }
     });
-    const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
-    const [allVolatilitiesData, setAllVolatilitiesData] = useState<Record<string, Array<{ time: number, price: number, close: number }>>>({});
 
+    // Trading state
     const [status, setStatus] = useState<string>('');
-    const [is_running, setIsRunning] = useState(false);
-    const stopFlagRef = useRef<boolean>(false);
+    const stopFlags = useRef({ risefall: false, evenodd: false, evenoddpattern: false });
 
-    // --- New State Variables for Run Panel Integration ---
-    const [isTrading, setIsTrading] = useState(false); // Tracks if trading is active
-    const [isConnected, setIsConnected] = useState(false); // Tracks API connection status
-    const [websocket, setWebsocket] = useState<any>(null); // Stores websocket instance
-    const [autoExecute, setAutoExecute] = useState(false); // Flag for auto-execution
-    const [tickHistory, setTickHistory] = useState<Array<{ time: number, price: number }>>([]); // For tick history
-
-    // --- Helper Functions ---
-
-    const getHintClass = (d: number) => {
-        if (tradeType === 'DIGITEVEN') return d % 2 === 0 ? 'is-green' : 'is-red';
-        if (tradeType === 'DIGITODD') return d % 2 !== 0 ? 'is-green' : 'is-red';
-        if ((tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER')) {
-            const activePred = lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss;
-            if (tradeType === 'DIGITOVER') {
-                if (d > Number(activePred)) return 'is-green';
-                if (d < Number(activePred)) return 'is-red';
-                return 'is-neutral';
-            }
-            if (tradeType === 'DIGITUNDER') {
-                if (d < Number(activePred)) return 'is-green';
-                if (d > Number(activePred)) return 'is-red';
-                return 'is-neutral';
-            }
-        }
-        return '';
-    };
-
-    // Load historical data for all volatility indices
-    const loadAllVolatilitiesHistoricalData = async (volatilities: Array<{ symbol: string; display_name: string }>) => {
-        if (!apiRef.current) return;
-
-        setStatus('Loading historical data for all volatilities...');
-
-        try {
-            const allData: Record<string, Array<{ time: number, price: number, close: number }>> = {};
-
-            // Load historical data for each volatility in batches to avoid overwhelming the API
-            const batchSize = 3;
-            for (let i = 0; i < volatilities.length; i += batchSize) {
-                const batch = volatilities.slice(i, i + batchSize);
-
-                const batchPromises = batch.map(async (vol) => {
-                    try {
-                        const request = {
-                            ticks_history: vol.symbol,
-                            adjust_start_time: 1,
-                            count: 5000, // Maximum historical data
-                            end: "latest",
-                            start: 1,
-                            style: "ticks"
-                        };
-
-                        const response = await apiRef.current.send(request);
-
-                        if (response.error) {
-                            console.error(`Historical ticks fetch error for ${vol.symbol}:`, response.error);
-                            return;
-                        }
-
-                        if (response.history && response.history.prices && response.history.times) {
-                            const historicalData = response.history.prices.map((price: string, index: number) => ({
-                                time: response.history.times[index] * 1000, // Convert to milliseconds
-                                price: parseFloat(price),
-                                close: parseFloat(price)
-                            }));
-
-                            allData[vol.symbol] = historicalData;
-                            console.log(`Loaded ${historicalData.length} historical ticks for ${vol.symbol}`);
-                        }
-                    } catch (error) {
-                        console.error(`Error loading historical data for ${vol.symbol}:`, error);
-                    }
-                });
-
-                // Wait for current batch to complete before starting next batch
-                await Promise.all(batchPromises);
-
-                // Small delay between batches to be respectful to the API
-                if (i + batchSize < volatilities.length) {
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                }
-            }
-
-            setAllVolatilitiesData(allData);
-            setStatus(`Loaded historical data for ${Object.keys(allData).length} volatilities`);
-
-            console.log('All volatilities historical data loaded:', Object.keys(allData));
-
-        } catch (error) {
-            console.error('Error loading all volatilities historical data:', error);
-            setStatus('Failed to load historical data');
-        }
-    };
-
-    // Fetch historical tick data for Hull Moving Average analysis
-    const fetchHistoricalTicks = async (symbolToFetch: string) => {
-        try {
-            const request = {
-                ticks_history: symbolToFetch,
-                adjust_start_time: 1,
-                count: 1000, // Get more historical data for better HMA calculation
-                end: "latest",
-                start: 1,
-                style: "ticks"
-            };
-
-            const response = await apiRef.current.send(request);
-
-            if (response.error) {
-                console.error('Historical ticks fetch error:', response.error);
-                return;
-            }
-
-            if (response.history && response.history.prices && response.history.times) {
-                const historicalData = response.history.prices.map((price: string, index: number) => ({
-                    time: response.history.times[index] * 1000, // Convert to milliseconds
-                    price: parseFloat(price),
-                    close: parseFloat(price)
-                }));
-
-                setTickData(prev => {
-                    const combinedData = [...historicalData, ...prev];
-                    const uniqueData = combinedData.filter((tick, index, arr) =>
-                        arr.findIndex(t => t.time === tick.time) === index
-                    ).sort((a, b) => a.time - b.time);
-
-                    // Keep only last 2000 ticks to prevent memory issues
-                    const trimmedData = uniqueData.slice(-2000);
-
-                    // Update Hull trends with historical data
-                    if (tradeType === 'CALL' || tradeType === 'PUT') {
-                        updateHullTrends(trimmedData);
-                    }
-
-                    return trimmedData;
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching historical ticks:', error);
-        }
-    };
-
-    // Hull Moving Average calculation with Weighted Moving Average
-    const calculateHMA = (data: number[], period: number) => {
-        if (data.length < period) return null;
-
-        const calculateWMA = (values: number[], periods: number) => {
-            if (values.length < periods) return null;
-            const weights = Array.from({length: periods}, (_, i) => i + 1);
-            const weightSum = weights.reduce((sum, w) => sum + w, 0);
-            const recentValues = values.slice(-periods);
-            const weightedSum = recentValues.reduce((sum, val, i) => sum + val * weights[i], 0);
-            return weightedSum / weightSum;
-        };
-
-        const halfPeriod = Math.floor(period / 2);
-        const sqrtPeriod = Math.floor(Math.sqrt(period));
-
-        // Calculate WMA for half period and full period
-        const wmaHalf = calculateWMA(data, halfPeriod);
-        const wmaFull = calculateWMA(data, period);
-
-        if (wmaHalf === null || wmaFull === null) return null;
-
-        // Hull MA formula: WMA(2*WMA(n/2) - WMA(n), sqrt(n))
-        const rawHMA = 2 * wmaHalf - wmaFull;
-
-        // For a complete HMA calculation, we should apply WMA to the raw HMA values
-        // But for simplicity in real-time, we'll use the raw calculation
-        return rawHMA;
-    };
-
-    // Convert tick data to candles for better trend analysis
-    const ticksToCandles = (ticks: Array<{ time: number, price: number }>, timeframeSeconds: number) => {
-        if (ticks.length === 0) return [];
-
-        const candles = [];
-        const timeframeMsec = timeframeSeconds * 1000;
-
-        // Group ticks into timeframe buckets
-        const buckets = new Map();
-
-        ticks.forEach(tick => {
-            const bucketTime = Math.floor(tick.time / timeframeMsec) * timeframeMsec;
-            if (!buckets.has(bucketTime)) {
-                buckets.set(bucketTime, []);
-            }
-            buckets.get(bucketTime).push(tick.price);
-        });
-
-        // Convert buckets to OHLC candles
-        Array.from(buckets.entries()).sort((a, b) => a[0] - b[0]).forEach(([time, prices]) => {
-            if (prices.length > 0) {
-                candles.push({
-                    time,
-                    open: prices[0],
-                    high: Math.max(...prices),
-                    low: Math.min(...prices),
-                    close: prices[prices.length - 1]
-                });
-            }
-        });
-
-        return candles;
-    };
-
-    // Update Hull trends based on tick data with improved analysis
-    const updateHullTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
-        const newTrends = { ...hullTrends };
-
-        // Define timeframe periods in seconds
-        const timeframes = {
-            '15s': 15,
-            '1m': 60,
-            '5m': 300,
-            '15m': 900
-        };
-
-        Object.entries(timeframes).forEach(([timeframe, seconds]) => {
-            // Convert ticks to candles for this timeframe
-            const candles = ticksToCandles(newTickData, seconds);
-
-            if (candles.length >= 20) { // Need enough candles for meaningful HMA
-                const closePrices = candles.map(candle => candle.close);
-                const hmaValue = calculateHMA(closePrices, Math.min(14, closePrices.length));
-
-                if (hmaValue !== null && candles.length >= 3) {
-                    const currentCandle = candles[candles.length - 1];
-                    const previousCandle = candles[candles.length - 2];
-                    const prevPrevCandle = candles[candles.length - 3];
-
-                    let trend = 'NEUTRAL';
-
-                    // Enhanced trend detection using HMA and price action
-                    const hmaSlope = hmaValue - calculateHMA(closePrices.slice(0, -1), Math.min(14, closePrices.length - 1));
-                    const priceAboveHMA = currentCandle.close > hmaValue;
-                    const risingPrices = currentCandle.close > previousCandle.close && previousCandle.close > prevPrevCandle.close;
-                    const fallingPrices = currentCandle.close < previousCandle.close && previousCandle.close < prevPrevCandle.close;
-
-                    if (hmaSlope > 0 && priceAboveHMA && risingPrices) {
-                        trend = 'BULLISH';
-                    } else if (hmaSlope < 0 && !priceAboveHMA && fallingPrices) {
-                        trend = 'BEARISH';
-                    } else if (hmaSlope > 0 && priceAboveHMA) {
-                        trend = 'BULLISH';
-                    } else if (hmaSlope < 0 && !priceAboveHMA) {
-                        trend = 'BEARISH';
-                    }
-
-                    newTrends[timeframe as keyof typeof hullTrends] = {
-                        trend,
-                        value: Number(hmaValue.toFixed(5))
-                    };
-                }
-            }
-        });
-
-        setHullTrends(newTrends);
-    };
-
-    // --- Core Trading Logic ---
-
-    // Effect to initialize API connection and fetch active symbols
+    // Initialize API and fetch symbols
     useEffect(() => {
-        const api = generateDerivApiInstance();
-        apiRef.current = api;
-        const init = async () => {
+        const initializeAPI = async () => {
             try {
-                // Fetch active symbols (volatility indices)
-                const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
-                if (asErr) throw asErr;
-                const syn = (active_symbols || [])
+                const api = generateDerivApiInstance();
+                apiRef.current = api;
+
+                const { active_symbols, error } = await api.send({ active_symbols: 'brief' });
+                if (error) throw error;
+
+                const volatilitySymbols = (active_symbols || [])
                     .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol))
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
-                setSymbols(syn);
-                if (!symbol && syn[0]?.symbol) setSymbol(syn[0].symbol);
 
-                // Load historical data for all volatility indices for better Hull MA analysis
-                await loadAllVolatilitiesHistoricalData(syn);
-
-                if (syn[0]?.symbol) startTicks(syn[0].symbol);
-            } catch (e: any) {
-                // eslint-disable-next-line no-console
-                console.error('SmartTrader init error', e);
-                setStatus(e?.message || 'Failed to load symbols');
+                setSymbols(volatilitySymbols);
+                if (volatilitySymbols.length > 0) {
+                    setSelectedSymbol(volatilitySymbols[0].symbol);
+                    startTickStream(volatilitySymbols[0].symbol);
+                }
+            } catch (error: any) {
+                console.error('Failed to initialize API:', error);
+                setStatus(`Error: ${error.message || 'Failed to connect to API'}`);
             }
         };
-        init();
+
+        initializeAPI();
 
         return () => {
-            // Clean up streams and socket
-            try {
-                if (tickStreamIdRef.current) {
-                    apiRef.current?.forget({ forget: tickStreamIdRef.current });
-                    tickStreamIdRef.current = null;
-                }
-                if (messageHandlerRef.current) {
-                    apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
-                    messageHandlerRef.current = null;
-                }
-                api?.disconnect?.();
-            } catch { /* noop */ }
+            cleanup();
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Effect to use pre-loaded historical data when trade type changes to Higher/Lower
-    useEffect(() => {
-        if ((tradeType === 'CALL' || tradeType === 'PUT') && symbol) {
-            // Use pre-loaded historical data if available
-            if (allVolatilitiesData[symbol] && allVolatilitiesData[symbol].length > 0) {
-                setTickData(allVolatilitiesData[symbol]);
-                updateHullTrends(allVolatilitiesData[symbol]);
-                console.log(`Using pre-loaded data for ${symbol}: ${allVolatilitiesData[symbol].length} ticks`);
-            } else if (apiRef.current) {
-                // Fallback to fetching if not pre-loaded
-                fetchHistoricalTicks(symbol);
-            }
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tradeType, symbol, allVolatilitiesData]);
-
-    const authorizeIfNeeded = async () => {
-        if (is_authorized) return;
-        const token = V2GetActiveToken();
-        if (!token) {
-            setStatus('No token found. Please log in and select an account.');
-            throw new Error('No token');
-        }
-        const { authorize, error } = await apiRef.current.authorize(token);
-        if (error) {
-            setStatus(`Authorization error: ${error.message || error.code}`);
-            throw error;
-        }
-        setIsAuthorized(true);
-        const loginid = authorize?.loginid || V2GetActiveClientId();
-        setAccountCurrency(authorize?.currency || 'USD');
+    // Cleanup function
+    const cleanup = () => {
         try {
-            // Sync Smart Trader auth state into shared ClientStore so Transactions store keys correctly by account
-            store?.client?.setLoginId?.(loginid || '');
-            store?.client?.setCurrency?.(authorize?.currency || 'USD');
-            store?.client?.setIsLoggedIn?.(true);
-        } catch {}
-    };
-
-    const stopTicks = () => {
-        try {
-            if (tickStreamIdRef.current) {
-                apiRef.current?.forget({ forget: tickStreamIdRef.current });
+            if (tickStreamIdRef.current && apiRef.current) {
+                apiRef.current.forget({ forget: tickStreamIdRef.current });
                 tickStreamIdRef.current = null;
             }
-            if (messageHandlerRef.current) {
-                apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
+            if (messageHandlerRef.current && apiRef.current?.connection) {
+                apiRef.current.connection.removeEventListener('message', messageHandlerRef.current);
                 messageHandlerRef.current = null;
             }
-        } catch {}
+            if (apiRef.current?.disconnect) {
+                apiRef.current.disconnect();
+            }
+        } catch (error) {
+            console.error('Cleanup error:', error);
+        }
     };
 
-    const startTicks = async (sym: string) => {
-        stopTicks();
-        setDigits([]);
-        setLastDigit(null);
-        setTicksProcessed(0);
-
+    // Start tick stream
+    const startTickStream = async (symbol: string) => {
         try {
-            // Use pre-loaded historical data for Hull Moving Average analysis if available
-            if (tradeType === 'CALL' || tradeType === 'PUT') {
-                if (allVolatilitiesData[sym] && allVolatilitiesData[sym].length > 0) {
-                    setTickData(allVolatilitiesData[sym]);
-                    updateHullTrends(allVolatilitiesData[sym]);
-                } else {
-                    await fetchHistoricalTicks(sym);
-                }
+            // Stop existing stream
+            if (tickStreamIdRef.current) {
+                await apiRef.current.forget({ forget: tickStreamIdRef.current });
+                tickStreamIdRef.current = null;
             }
 
-            // Then start live tick subscription
-            const { subscription, error } = await apiRef.current.send({ ticks: sym, subscribe: 1 });
+            // Start new stream
+            const { subscription, error } = await apiRef.current.send({ 
+                ticks: symbol, 
+                subscribe: 1 
+            });
+
             if (error) throw error;
             if (subscription?.id) tickStreamIdRef.current = subscription.id;
 
-            // Listen for streaming ticks on the raw websocket
-            const onMsg = (evt: MessageEvent) => {
+            // Set up message handler
+            const onMessage = (evt: MessageEvent) => {
                 try {
-                    const data = JSON.parse(evt.data as any);
-                    if (data?.msg_type === 'tick' && data?.tick?.symbol === sym) {
-                        const quote = data.tick.quote;
-                        const digit = Number(String(quote).slice(-1));
-                        const tickTime = data.tick.epoch * 1000; // Use server time
-                        setTickHistory(prev => [...prev.slice(-500), { time: tickTime, price: quote }]); // Keep last 500 ticks for tick history
+                    const data = JSON.parse(evt.data);
+                    if (data?.msg_type === 'tick' && data?.tick?.symbol === symbol) {
+                        const quote = parseFloat(data.tick.quote);
+                        const digit = Math.floor(Math.abs(quote * 100000)) % 10;
 
-                        setLastDigit(digit);
-                        setDigits(prev => [...prev.slice(-8), digit]);
-                        setTicksProcessed(prev => prev + 1);
+                        setTickHistory(prev => {
+                            const newHistory = [...prev, quote].slice(-tickCount);
+                            analyzePatterns(newHistory);
+                            return newHistory;
+                        });
 
-                        // Update tick data for Hull Moving Average analysis
-                        setTickData(prev => {
-                            const newTickData = [...prev, {
-                                time: tickTime,
-                                price: quote,
-                                close: quote
-                            }];
-
-                            // Keep only last 2000 ticks to prevent memory issues
-                            const trimmedData = newTickData.slice(-2000);
-
-                            // Update Hull trends for Higher/Lower trades
-                            if (tradeType === 'CALL' || tradeType === 'PUT') {
-                                updateHullTrends(trimmedData);
-                            }
-
-                            return trimmedData;
+                        setLastDigits(prev => {
+                            const newDigits = [...prev, digit].slice(-20);
+                            analyzeEvenOddPatterns(newDigits);
+                            return newDigits;
                         });
                     }
-                    if (data?.forget?.id && data?.forget?.id === tickStreamIdRef.current) {
-                        // stopped
-                    }
-                } catch {}
+                } catch (error) {
+                    console.error('Message parsing error:', error);
+                }
             };
-            messageHandlerRef.current = onMsg;
-            apiRef.current?.connection?.addEventListener('message', onMsg);
 
-        } catch (e: any) {
-            // eslint-disable-next-line no-console
-            console.error('startTicks error', e);
+            messageHandlerRef.current = onMessage;
+            apiRef.current.connection.addEventListener('message', onMessage);
+
+        } catch (error: any) {
+            console.error('Failed to start tick stream:', error);
+            setStatus(`Error: ${error.message || 'Failed to start tick stream'}`);
         }
     };
 
-    const purchaseOnce = async () => {
-        return await purchaseOnceWithStake(stake);
+    // Analyze patterns for Rise/Fall
+    const analyzePatterns = (history: number[]) => {
+        if (history.length < 50) return;
+
+        try {
+            const recentTicks = history.slice(-50);
+            let riseCount = 0;
+
+            for (let i = 1; i < recentTicks.length; i++) {
+                if (recentTicks[i] > recentTicks[i - 1]) {
+                    riseCount++;
+                }
+            }
+
+            const riseProb = (riseCount / (recentTicks.length - 1)) * 100;
+            const fallProb = 100 - riseProb;
+
+            setRiseAnalysis({ rise: riseProb, fall: fallProb });
+
+            // Check trading conditions
+            checkTradingConditions('risefall', { riseProb, fallProb });
+
+        } catch (error) {
+            console.error('Pattern analysis error:', error);
+        }
     };
 
-    const purchaseOnceWithStake = async (stakeAmount: number) => {
-        await authorizeIfNeeded();
+    // Analyze Even/Odd patterns
+    const analyzeEvenOddPatterns = (digits: number[]) => {
+        if (digits.length < 10) return;
 
-        const trade_option: any = {
-            amount: Number(stakeAmount),
-            basis: 'stake',
-            contractTypes: [tradeType],
-            currency: account_currency,
-            duration: durationType === 't' ? Number(ticks) : Number(duration),
-            duration_unit: durationType,
-            symbol,
-        };
-        // Choose prediction based on trade type and last outcome
-        if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
-            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
-        } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
-            trade_option.prediction = Number(mdPrediction);
-        } else if (tradeType === 'CALL' || tradeType === 'PUT') {
-            trade_option.barrier = barrier;
+        try {
+            const recentDigits = digits.slice(-20);
+            const evenCount = recentDigits.filter(d => d % 2 === 0).length;
+            const oddCount = recentDigits.length - evenCount;
+
+            const evenProb = (evenCount / recentDigits.length) * 100;
+            const oddProb = (oddCount / recentDigits.length) * 100;
+
+            setEvenOddAnalysis({ even: evenProb, odd: oddProb });
+
+            // Analyze streak patterns
+            const streaks = [];
+            if (recentDigits.length > 0) {
+                let currentStreakType = recentDigits[0] % 2;
+                let streakLength = 1;
+
+                for (let i = 1; i < recentDigits.length; i++) {
+                    if (recentDigits[i] % 2 === currentStreakType) {
+                        streakLength++;
+                    } else {
+                        streaks.push(streakLength);
+                        currentStreakType = recentDigits[i] % 2;
+                        streakLength = 1;
+                    }
+                }
+
+                const avgStreak = streaks.length > 0 
+                    ? (streaks.reduce((a, b) => a + b, 0) / streaks.length).toFixed(1)
+                    : '---';
+
+                const lastDigit = recentDigits[recentDigits.length - 1];
+                const currentStreakType = lastDigit % 2 === 0 ? 'even' : 'odd';
+
+                setEvenOddPattern({
+                    pattern: recentDigits.slice(-10),
+                    streak: `Current streak: 1 ${currentStreakType}`
+                });
+            }
+
+            // Check trading conditions
+            checkTradingConditions('evenodd', { evenProb, oddProb });
+            checkTradingConditions('evenoddpattern', { evenProb, oddProb });
+
+        } catch (error) {
+            console.error('Even/Odd analysis error:', error);
+        }
+    };
+
+    // Check if trading conditions are met
+    const checkTradingConditions = (strategy: string, analysis: any) => {
+        const config = tradingConfigs[strategy as keyof typeof tradingConfigs];
+        if (!config || !config.isRunning) return;
+
+        try {
+            let shouldTrade = false;
+            let contractType = '';
+
+            switch (strategy) {
+                case 'risefall':
+                    if (config.condition === 'Rise Prob') {
+                        shouldTrade = config.operator === '>' 
+                            ? analysis.riseProb > config.threshold
+                            : analysis.riseProb < config.threshold;
+                        contractType = shouldTrade && config.action === 'Buy Rise' ? 'CALL' : 'PUT';
+                    }
+                    break;
+
+                case 'evenodd':
+                case 'evenoddpattern':
+                    if (config.condition === 'Even Prob') {
+                        shouldTrade = config.operator === '>' 
+                            ? analysis.evenProb > config.threshold
+                            : analysis.evenProb < config.threshold;
+                        contractType = shouldTrade && config.action === 'Buy Even' ? 'DIGITEVEN' : 'DIGITODD';
+                    }
+                    break;
+            }
+
+            if (shouldTrade && contractType) {
+                executeTrade(strategy, contractType);
+            }
+        } catch (error) {
+            console.error(`Trading condition check error for ${strategy}:`, error);
+        }
+    };
+
+    // Execute trade
+    const executeTrade = async (strategy: string, contractType: string) => {
+        try {
+            await authorizeIfNeeded();
+
+            const config = tradingConfigs[strategy as keyof typeof tradingConfigs];
+
+            const tradeOption = {
+                amount: config.stake,
+                basis: 'stake',
+                contract_type: contractType,
+                currency: accountCurrency,
+                duration: config.ticks,
+                duration_unit: 't',
+                symbol: selectedSymbol,
+            };
+
+            // Add prediction for digit-based contracts
+            if (['DIGITEVEN', 'DIGITODD', 'DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(contractType)) {
+                tradeOption.prediction = parseInt(barrier);
+            }
+
+            const buyRequest = tradeOptionToBuy(contractType, tradeOption);
+            const { buy, error } = await apiRef.current.buy(buyRequest);
+
+            if (error) throw error;
+
+            setStatus(`${strategy}: Purchased ${contractType} - ${buy?.longcode || 'Contract'}`);
+
+            // Add to transactions
+            const symbolDisplay = symbols.find(s => s.symbol === selectedSymbol)?.display_name || selectedSymbol;
+            transactions.onBotContractEvent({
+                contract_id: buy?.contract_id,
+                transaction_ids: { buy: buy?.transaction_id },
+                buy_price: buy?.buy_price,
+                currency: accountCurrency,
+                contract_type: contractType,
+                underlying: selectedSymbol,
+                display_name: symbolDisplay,
+                date_start: Math.floor(Date.now() / 1000),
+                status: 'open',
+            });
+
+            // Update run panel
+            run_panel.setHasOpenContract(true);
+            run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+
+        } catch (error: any) {
+            console.error(`Trade execution error for ${strategy}:`, error);
+            setStatus(`${strategy} Error: ${error.message || 'Trade failed'}`);
+        }
+    };
+
+    // Authorize if needed
+    const authorizeIfNeeded = async () => {
+        if (isAuthorized) return;
+
+        const token = V2GetActiveToken();
+        if (!token) {
+            throw new Error('No token found. Please log in and select an account.');
         }
 
-        const buy_req = tradeOptionToBuy(tradeType, trade_option);
-        const { buy, error } = await apiRef.current.buy(buy_req);
-        if (error) throw error;
-        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
-        return buy;
+        const { authorize, error } = await apiRef.current.authorize(token);
+        if (error) {
+            throw new Error(`Authorization error: ${error.message || error.code}`);
+        }
+
+        setIsAuthorized(true);
+        const loginid = authorize?.loginid || V2GetActiveClientId();
+        setAccountCurrency(authorize?.currency || 'USD');
+
+        // Sync with stores
+        try {
+            store?.client?.setLoginId?.(loginid || '');
+            store?.client?.setCurrency?.(authorize?.currency || 'USD');
+            store?.client?.setIsLoggedIn?.(true);
+        } catch (error) {
+            console.error('Store sync error:', error);
+        }
     };
 
-    const onRun = async () => {
-        setStatus('');
-        setIsRunning(true);
-        stopFlagRef.current = false;
+    // Start auto trading for a strategy
+    const startAutoTrading = (strategy: string) => {
+        setTradingConfigs(prev => ({
+            ...prev,
+            [strategy]: { ...prev[strategy as keyof typeof prev], isRunning: true }
+        }));
+        stopFlags.current[strategy as keyof typeof stopFlags.current] = false;
+
+        // Update run panel
         run_panel.toggleDrawer(true);
-        run_panel.setActiveTabIndex(1); // Transactions tab index in run panel tabs
-        run_panel.run_id = `smart-${Date.now()}`;
+        run_panel.setActiveTabIndex(1);
+        run_panel.run_id = `smart-${strategy}-${Date.now()}`;
         run_panel.setIsRunning(true);
         run_panel.setContractStage(contract_stages.STARTING);
 
-        try {
-            let lossStreak = 0;
-            let step = 0;
-            baseStake !== stake && setBaseStake(stake);
-            while (!stopFlagRef.current) {
-                // Adjust stake and prediction based on prior outcomes (simple martingale)
-                const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
-                
-                const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
-                if (isOU) {
-                    lastOutcomeWasLossRef.current = lossStreak > 0;
-                }
-
-                // Update UI stake display
-                setStake(effectiveStake);
-
-                const buy = await purchaseOnceWithStake(effectiveStake);
-
-                // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
-                try {
-                    const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
-                    transactions.onBotContractEvent({
-                        contract_id: buy?.contract_id,
-                        transaction_ids: { buy: buy?.transaction_id },
-                        buy_price: buy?.buy_price,
-                        currency: account_currency,
-                        contract_type: tradeType as any,
-                        underlying: symbol,
-                        display_name: symbol_display,
-                        date_start: Math.floor(Date.now() / 1000),
-                        status: 'open',
-                    } as any);
-                } catch {}
-
-                // Reflect stage immediately after successful buy
-                run_panel.setHasOpenContract(true);
-                run_panel.setContractStage(contract_stages.PURCHASE_SENT);
-
-                // subscribe to contract updates for this purchase and push to transactions
-                try {
-                    const res = await apiRef.current.send({
-                        proposal_open_contract: 1,
-                        contract_id: buy?.contract_id,
-                        subscribe: 1,
-                    });
-                    const { error, proposal_open_contract: pocInit, subscription } = res || {};
-                    if (error) throw error;
-
-                    let pocSubId: string | null = subscription?.id || null;
-                    const targetId = String(buy?.contract_id || '');
-
-                    // Push initial snapshot if present in the first response
-                    if (pocInit && String(pocInit?.contract_id || '') === targetId) {
-                        transactions.onBotContractEvent(pocInit);
-                        run_panel.setHasOpenContract(true);
-                    }
-
-                    // Listen for subsequent streaming updates
-                    const onMsg = (evt: MessageEvent) => {
-                        try {
-                            const data = JSON.parse(evt.data as any);
-                            if (data?.msg_type === 'proposal_open_contract') {
-                                const poc = data.proposal_open_contract;
-                                // capture subscription id for later forget
-                                if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
-                                if (String(poc?.contract_id || '') === targetId) {
-                                    transactions.onBotContractEvent(poc);
-                                    run_panel.setHasOpenContract(true);
-
-                                    // Update contract tracking values
-                                    setCurrentProfit(Number(poc?.profit || 0));
-                                    setContractValue(Number(poc?.bid_price || 0));
-                                    setPotentialPayout(Number(poc?.payout || 0));
-
-                                    // Calculate remaining time
-                                    if (poc?.date_expiry && !poc?.is_sold) {
-                                        const now = Math.floor(Date.now() / 1000);
-                                        const expiry = Number(poc.date_expiry);
-                                        const remaining = Math.max(0, expiry - now);
-                                        const hours = Math.floor(remaining / 3600);
-                                        const minutes = Math.floor((remaining % 3600) / 60);
-                                        const seconds = remaining % 60;
-                                        setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-                                    }
-
-                                    if (poc?.is_sold || poc?.status === 'sold') {
-                                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
-                                        run_panel.setHasOpenContract(false);
-                                        if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
-                                        apiRef.current?.connection?.removeEventListener('message', onMsg);
-                                        const profit = Number(poc?.profit || 0);
-                                        if (profit > 0) {
-                                            lastOutcomeWasLossRef.current = false;
-                                            lossStreak = 0;
-                                            step = 0;
-                                            // Reset to base stake on win
-                                            setStake(baseStake);
-                                        } else {
-                                            lastOutcomeWasLossRef.current = true;
-                                            lossStreak++;
-                                            step = Math.min(step + 1, 10); // Cap at 10 steps to prevent excessive stake
-                                        }
-                                        // Reset contract values
-                                        setCurrentProfit(0);
-                                        setContractValue(0);
-                                        setPotentialPayout(0);
-                                        setContractDuration('00:00:00');
-                                    }
-                                }
-                            }
-                        } catch {
-                            // noop
-                        }
-                    };
-                    apiRef.current?.connection?.addEventListener('message', onMsg);
-                } catch (subErr) {
-                    // eslint-disable-next-line no-console
-                    console.error('subscribe poc error', subErr);
-                }
-
-                // Wait minimally between purchases: we'll wait for ticks duration completion by polling poc completion
-                // Simple delay to prevent spamming if API rejects immediate buy loop
-                await new Promise(res => setTimeout(res, 500));
-            }
-        } catch (e: any) {
-            // eslint-disable-next-line no-console
-            console.error('SmartTrader run loop error', e);
-            const msg = e?.message || e?.error?.message || 'Something went wrong';
-            setStatus(`Error: ${msg}`);
-        } finally {
-            setIsRunning(false);
-            run_panel.setIsRunning(false);
-            run_panel.setHasOpenContract(false);
-            run_panel.setContractStage(contract_stages.NOT_RUNNING);
-
-        }
+        setStatus(`${strategy}: Auto trading started`);
     };
 
-    // --- Stop Trading Logic ---
-    const stopTrading = () => {
-        stopFlagRef.current = true;
-        setIsRunning(false);
-        setIsTrading(false);
-        // Cleanup live ticks
-        stopTicks();
-        // Update Run Panel state
-        run_panel.setIsRunning(false);
-        run_panel.setHasOpenContract(false);
-        run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        setStatus('Trading stopped');
+    // Stop auto trading for a strategy
+    const stopAutoTrading = (strategy: string) => {
+        setTradingConfigs(prev => ({
+            ...prev,
+            [strategy]: { ...prev[strategy as keyof typeof prev], isRunning: false }
+        }));
+        stopFlags.current[strategy as keyof typeof stopFlags.current] = true;
+
+        setStatus(`${strategy}: Auto trading stopped`);
     };
 
-    // Listen for Run Panel stop events
-    useEffect(() => {
-        const handleRunPanelStop = () => {
-            if (is_running) { // Only stop if currently trading
-                stopTrading();
-            }
-        };
-
-        // Register listener for Run Panel stop button
-        // Ensure run_panel and its observer are available before registering
-        if (run_panel?.dbot?.observer) {
-            run_panel.dbot.observer.register('bot.stop', handleRunPanelStop);
-            run_panel.dbot.observer.register('bot.click_stop', handleRunPanelStop);
-        }
-
-        return () => {
-            // Cleanup listeners if they were registered
-            if (run_panel?.dbot?.observer) {
-                run_panel.dbot.observer.unregisterAll('bot.stop');
-                run_panel.dbot.observer.unregisterAll('bot.click_stop');
-            }
-        };
-        // Depend on is_running and run_panel to ensure correct listener attachment/detachment
-    }, [is_running, run_panel]);
-
-
-    // --- Start Trading Logic ---
-    const startTrading = () => {
-        if (!apiRef.current) { // Check if API is initialized
-            setStatus('Please connect to API first');
-            return;
-        }
-
-        setIsTrading(true);
-        // Call the actual trading logic
-        onRun();
-    };
-
-    // Placeholder for executeNextTrade if it exists elsewhere or needs implementation
-    const executeNextTrade = () => {
-        // This function would typically trigger the purchase logic
-        // For now, it's a placeholder. Ensure it's defined if autoExecute is used.
-        console.log('Executing next trade...');
+    // Update trading config
+    const updateTradingConfig = (strategy: string, field: string, value: any) => {
+        setTradingConfigs(prev => ({
+            ...prev,
+            [strategy]: { ...prev[strategy as keyof typeof prev], [field]: value }
+        }));
     };
 
     return (
-        <div className='smart-trader'>
-            <div className='smart-trader__container'>
-
-                <div className='smart-trader__content'>
-                    <div className='smart-trader__card'>
-                        <div className='smart-trader__row smart-trader__row--two'>
-                            <div className='smart-trader__field'>
-                                <label htmlFor='st-symbol'>{localize('Volatility')}</label>
-                                <select
-                                    id='st-symbol'
-                                    value={symbol}
-                                    onChange={e => {
-                                        const v = e.target.value;
-                                        setSymbol(v);
-
-                                        // Use pre-loaded historical data if available
-                                        if (allVolatilitiesData[v] && (tradeType === 'CALL' || tradeType === 'PUT')) {
-                                            setTickData(allVolatilitiesData[v]);
-                                            updateHullTrends(allVolatilitiesData[v]);
-                                        }
-
-                                        startTicks(v);
-                                    }}
-                                >
-                                    {symbols.map(s => (
-                                        <option key={s.symbol} value={s.symbol}>
-                                            {s.display_name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className='smart-trader__field'>
-                                <label htmlFor='st-tradeType'>{localize('Trade type')}</label>
-                                <select
-                                    id='st-tradeType'
-                                    value={tradeType}
-                                    onChange={e => setTradeType(e.target.value)}
-                                >
-                                    {TRADE_TYPES.map(t => (
-                                        <option key={t.value} value={t.value}>
-                                            {t.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Duration Controls */}
-                        <div className='smart-trader__row smart-trader__row--two'>
-                            <div className='smart-trader__field'>
-                                <label htmlFor='st-duration-type'>{localize('Duration Type')}</label>
-                                <select
-                                    id='st-duration-type'
-                                    value={durationType}
-                                    onChange={e => setDurationType(e.target.value)}
-                                >
-                                    <option value='t'>{localize('Ticks')}</option>
-                                    <option value='s'>{localize('Seconds')}</option>
-                                    <option value='m'>{localize('Minutes')}</option>
-                                </select>
-                            </div>
-                            <div className='smart-trader__field'>
-                                <label htmlFor='st-duration'>{localize('Duration')}</label>
-                                {durationType === 't' ? (
-                                    <input
-                                        id='st-duration'
-                                        type='number'
-                                        min={1}
-                                        max={10}
-                                        value={ticks}
-                                        onChange={e => setTicks(Number(e.target.value))}
-                                    />
-                                ) : (
-                                    <input
-                                        id='st-duration'
-                                        type='number'
-                                        min={durationType === 's' ? 15 : 1}
-                                        max={durationType === 's' ? 86400 : 1440}
-                                        value={duration}
-                                        onChange={e => setDuration(Number(e.target.value))}
-                                    />
-                                )}
-                            </div>
-                        </div>
-
-                        <div className='smart-trader__row smart-trader__row--compact'>
-                            <div className='smart-trader__field'>
-                                <label htmlFor='st-stake'>{localize('Stake')}</label>
-                                <input
-                                    id='st-stake'
-                                    type='number'
-                                    step='0.01'
-                                    min={0.35}
-                                    value={stake}
-                                    onChange={e => setStake(Number(e.target.value))}
-                                />
-                            </div>
-
-                            {/* Strategy controls */}
-                            {(tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') ? (
-                                <div className='smart-trader__row smart-trader__row--two'>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-md-pred'>{localize('Match/Diff prediction digit')}</label>
-                                        <input id='st-md-pred' type='number' min={0} max={9} value={mdPrediction}
-                                            onChange={e => { const v = Math.max(0, Math.min(9, Number(e.target.value))); setMdPrediction(v); }} />
-                                    </div>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
-                                        <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
-                                            onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
-                                    </div>
-                                </div>
-                            ) : (tradeType !== 'CALL' && tradeType !== 'PUT') ? (
-                                <div className='smart-trader__row smart-trader__row--compact'>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-ou-pred-pre'>{localize('Over/Under prediction (pre-loss)')}</label>
-                                        <input id='st-ou-pred-pre' type='number' min={0} max={9} value={ouPredPreLoss}
-                                            onChange={e => setOuPredPreLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
-                                    </div>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-ou-pred-post'>{localize('Over/Under prediction (after loss)')}</label>
-                                        <input id='st-ou-pred-post' type='number' min={0} max={9} value={ouPredPostLoss}
-                                            onChange={e => setOuPredPostLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
-                                    </div>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
-                                        <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
-                                            onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
-                                    </div>
-                                </div>
-                            ) : null}
-
-                        </div>
-
-                        {/* Higher/Lower Barrier Controls */}
-                        {(tradeType === 'CALL' || tradeType === 'PUT') && (
-                            <div className='smart-trader__row smart-trader__row--two'>
-                                <div className='smart-trader__field'>
-                                    <label htmlFor='st-barrier'>{localize('Barrier')}</label>
-                                    <input
-                                        id='st-barrier'
-                                        type='text'
-                                        value={barrier}
-                                        onChange={e => setBarrier(e.target.value)}
-                                        placeholder='+0.37'
-                                    />
-                                </div>
-                                <div className='smart-trader__field'>
-                                    <label htmlFor='st-martingale-hl'>{localize('Martingale multiplier')}</label>
-                                    <input
-                                        id='st-martingale-hl'
-                                        type='number'
-                                        min={1}
-                                        step='0.1'
-                                        value={martingaleMultiplier}
-                                        onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Hull Moving Average Trend Analysis for Higher/Lower */}
-                        {(tradeType === 'CALL' || tradeType === 'PUT') && (
-                            <div className='smart-trader__hull-trends'>
-                                <div className='smart-trader__trends-header'>
-                                    <Text size='s' weight='bold'>{localize('Hull MA Trend Analysis')}</Text>
-                                </div>
-                                <div className='smart-trader__trends-grid'>
-                                    {Object.entries(hullTrends).map(([timeframe, data]) => (
-                                        <div key={timeframe} className='smart-trader__trend-item'>
-                                            <div className='smart-trader__timeframe'>
-                                                <Text size='xs' color='general'>{timeframe}</Text>
-                                            </div>
-                                            <div className={`smart-trader__trend-badge ${data.trend.toLowerCase()}`}>
-                                                <Text size='xs' weight='bold' color='prominent'>
-                                                    {data.trend === 'BULLISH' ? '📈 BULLISH' :
-                                                     data.trend === 'BEARISH' ? '📉 BEARISH' :
-                                                     '➡️ NEUTRAL'}
-                                                </Text>
-                                            </div>
-                                            <div className='smart-trader__trend-value'>
-                                                <Text size='xs' color='general'>
-                                                    {data.value.toFixed(5)}
-                                                </Text>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Open Position Display for Higher/Lower */}
-                        {(tradeType === 'CALL' || tradeType === 'PUT') && run_panel.hasOpenContract && (
-                            <div className='smart-trader__open-position'>
-                                <div className='smart-trader__position-header'>
-                                    <Text size='s' weight='bold'>{localize('Open positions')}</Text>
-                                </div>
-                                <div className='smart-trader__position-card'>
-                                    <div className='smart-trader__position-info'>
-                                        <div className='smart-trader__symbol-info'>
-                                            <Text size='xs' color='general'>
-                                                {symbols.find(s => s.symbol === symbol)?.display_name || symbol}
-                                            </Text>
-                                            <div className='smart-trader__trade-direction'>
-                                                <span className={`smart-trader__direction-badge ${tradeType === 'CALL' ? 'higher' : 'lower'}`}>
-                                                    {tradeType === 'CALL' ? 'Higher' : 'Lower'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className='smart-trader__duration-display'>
-                                            <Text size='xs' color='general'>{contractDuration}</Text>
-                                        </div>
-                                        <div className='smart-trader__contract-values'>
-                                            <div className='smart-trader__value-row'>
-                                                <div className='smart-trader__value-item'>
-                                                    <Text size='xs' color='general'>{localize('Total profit/loss:')}</Text>
-                                                    <Text size='xs' color={currentProfit >= 0 ? 'profit-success' : 'loss-danger'}>
-                                                        {currentProfit >= 0 ? '+' : ''}{currentProfit.toFixed(2)}
-                                                    </Text>
-                                                </div>
-                                                <div className='smart-trader__value-item'>
-                                                    <Text size='xs' color='general'>{localize('Contract value:')}</Text>
-                                                    <Text size='xs' color='prominent'>
-                                                        {contractValue.toFixed(2)}
-                                                    </Text>
-                                                </div>
-                                            </div>
-                                            <div className='smart-trader__value-row'>
-                                                <div className='smart-trader__value-item'>
-                                                    <Text size='xs' color='general'>{localize('Stake:')}</Text>
-                                                    <Text size='xs' color='prominent'>{stake.toFixed(2)}</Text>
-                                                </div>
-                                                <div className='smart-trader__value-item'>
-                                                    <Text size='xs' color='general'>{localize('Potential payout:')}</Text>
-                                                    <Text size='xs' color='prominent'>{potentialPayout.toFixed(2)}</Text>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button className='smart-trader__sell-button'>
-                                            {localize('Sell')}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {(tradeType !== 'CALL' && tradeType !== 'PUT') && (
-                            <div className='smart-trader__digits'>
-                                {digits.map((d, idx) => (
-                                    <div
-                                        key={`${idx}-${d}`}
-                                        className={`smart-trader__digit ${d === lastDigit ? 'is-current' : ''} ${getHintClass(d)}`}
-                                    >
-                                        {d}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        <div className='smart-trader__meta'>
-                            <Text size='xs' color='general'>
-                                {localize('Ticks Processed:')} {ticksProcessed}
-                            </Text>
-                            {(tradeType !== 'CALL' && tradeType !== 'PUT') && (
-                                <Text size='xs' color='general'>
-                                    {localize('Last Digit:')} {lastDigit ?? '-'}
-                                </Text>
-                            )}
-                            {(tradeType === 'CALL' || tradeType === 'PUT') && (
-                                <div className='smart-trader__hl-meta'>
-                                    <Text size='xs' color='general'>
-                                        {localize('Barrier:')} {barrier}
-                                    </Text>
-                                    <Text size='xs' color='general'>
-                                        {localize('Duration:')} {durationType === 't' ? `${ticks} ${localize('ticks')}` : `${duration} ${durationType === 's' ? localize('seconds') : localize('minutes')}`}
-                                    </Text>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className='smart-trader__actions'>
-                            <button
-                                className='smart-trader__run'
-                                onClick={startTrading}
-                                disabled={is_running || !symbol || !apiRef.current}
-                            >
-                                {is_running ? localize('Running...') : localize('Start Trading')}
-                            </button>
-                            {is_running && (
-                                <button className='smart-trader__stop' onClick={stopTrading}>
-                                    {localize('Stop')}
-                                </button>
-                            )}
-                        </div>
-
-                        {status && (
-                            <div className='smart-trader__status'>
-                                <Text size='xs' color={/error|fail/i.test(status) ? 'loss-danger' : 'prominent'}>
-                                    {status}
-                                </Text>
-                            </div>
-                        )}
-                    </div>
+        <div className="smart-trading-analytics">
+            <div className="smart-trading-analytics__header">
+                <Text as="h2" size="xl" weight="bold">
+                    {localize('Smart Trading Analytics')}
+                </Text>
+                <div className="connected-status">
+                    {localize('Connected')}
                 </div>
             </div>
+
+            <div className="smart-trading-analytics__controls">
+                <div className="control-group">
+                    <label>{localize('Symbol:')}</label>
+                    <select
+                        value={selectedSymbol}
+                        onChange={(e) => {
+                            setSelectedSymbol(e.target.value);
+                            startTickStream(e.target.value);
+                        }}
+                    >
+                        {symbols.map(symbol => (
+                            <option key={symbol.symbol} value={symbol.symbol}>
+                                {symbol.display_name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+                <div className="control-group">
+                    <label>{localize('Tick Count:')}</label>
+                    <input
+                        type="number"
+                        value={tickCount}
+                        onChange={(e) => setTickCount(parseInt(e.target.value))}
+                        min="50"
+                        max="1000"
+                    />
+                </div>
+                <div className="control-group">
+                    <label>{localize('Barrier:')}</label>
+                    <input
+                        type="text"
+                        value={barrier}
+                        onChange={(e) => setBarrier(e.target.value)}
+                    />
+                </div>
+            </div>
+
+            <div className="smart-trading-analytics__analysis-cards">
+                {/* Rise/Fall Analysis Card */}
+                <div className="smart-trading-analytics__card">
+                    <div className="card-header">
+                        <Text as="h3" size="m" weight="bold">{localize('Rise/Fall')}</Text>
+                    </div>
+
+                    <div className="probability-bars">
+                        <div className="probability-item">
+                            <span className="probability-label">{localize('Rise')}</span>
+                            <div className="probability-bar">
+                                <div 
+                                    className="probability-fill rise" 
+                                    style={{ width: `${riseAnalysis.rise}%` }}
+                                />
+                            </div>
+                            <span className="probability-value">{riseAnalysis.rise.toFixed(1)}%</span>
+                        </div>
+                        <div className="probability-item">
+                            <span className="probability-label">{localize('Fall')}</span>
+                            <div className="probability-bar">
+                                <div 
+                                    className="probability-fill fall" 
+                                    style={{ width: `${riseAnalysis.fall}%` }}
+                                />
+                            </div>
+                            <span className="probability-value">{riseAnalysis.fall.toFixed(1)}%</span>
+                        </div>
+                    </div>
+
+                    <div className="trading-condition">
+                        <div className="condition-row">
+                            <label>{localize('If')}</label>
+                            <select 
+                                value={tradingConfigs.risefall.condition}
+                                onChange={(e) => updateTradingConfig('risefall', 'condition', e.target.value)}
+                            >
+                                <option value="Rise Prob">{localize('Rise Prob')}</option>
+                                <option value="Fall Prob">{localize('Fall Prob')}</option>
+                            </select>
+                            <select
+                                value={tradingConfigs.risefall.operator}
+                                onChange={(e) => updateTradingConfig('risefall', 'operator', e.target.value)}
+                            >
+                                <option value=">">&gt;</option>
+                                <option value="<">&lt;</option>
+                            </select>
+                            <input
+                                type="number"
+                                value={tradingConfigs.risefall.threshold}
+                                onChange={(e) => updateTradingConfig('risefall', 'threshold', parseInt(e.target.value))}
+                                min="0"
+                                max="100"
+                            />
+                            <span>%</span>
+                        </div>
+                        <div className="condition-row">
+                            <label>{localize('Then')}</label>
+                            <select
+                                value={tradingConfigs.risefall.action}
+                                onChange={(e) => updateTradingConfig('risefall', 'action', e.target.value)}
+                            >
+                                <option value="Buy Rise">{localize('Buy Rise')}</option>
+                                <option value="Buy Fall">{localize('Buy Fall')}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="stake-inputs">
+                        <div className="input-group">
+                            <label>{localize('Stake')}</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                value={tradingConfigs.risefall.stake}
+                                onChange={(e) => updateTradingConfig('risefall', 'stake', parseFloat(e.target.value))}
+                                min="0.35"
+                            />
+                        </div>
+                        <div className="input-group">
+                            <label>{localize('Ticks')}</label>
+                            <input
+                                type="number"
+                                value={tradingConfigs.risefall.ticks}
+                                onChange={(e) => updateTradingConfig('risefall', 'ticks', parseInt(e.target.value))}
+                                min="1"
+                                max="10"
+                            />
+                        </div>
+                        <div className="input-group">
+                            <label>{localize('Martingale')}</label>
+                            <input
+                                type="number"
+                                step="0.1"
+                                value={tradingConfigs.risefall.martingale}
+                                onChange={(e) => updateTradingConfig('risefall', 'martingale', parseFloat(e.target.value))}
+                                min="1"
+                            />
+                        </div>
+                    </div>
+
+                    <button
+                        className={`auto-trading-button ${tradingConfigs.risefall.isRunning ? 'stop' : ''}`}
+                        onClick={() => tradingConfigs.risefall.isRunning 
+                            ? stopAutoTrading('risefall') 
+                            : startAutoTrading('risefall')
+                        }
+                    >
+                        {tradingConfigs.risefall.isRunning 
+                            ? localize('Stop Auto Trading') 
+                            : localize('Start Auto Trading')
+                        }
+                    </button>
+                </div>
+
+                {/* Even/Odd Analysis Card */}
+                <div className="smart-trading-analytics__card">
+                    <div className="card-header">
+                        <Text as="h3" size="m" weight="bold">{localize('Even/Odd')}</Text>
+                    </div>
+
+                    <div className="probability-bars">
+                        <div className="probability-item">
+                            <span className="probability-label">{localize('Even')}</span>
+                            <div className="probability-bar">
+                                <div 
+                                    className="probability-fill even" 
+                                    style={{ width: `${evenOddAnalysis.even}%` }}
+                                />
+                            </div>
+                            <span className="probability-value">{evenOddAnalysis.even.toFixed(1)}%</span>
+                        </div>
+                        <div className="probability-item">
+                            <span className="probability-label">{localize('Odd')}</span>
+                            <div className="probability-bar">
+                                <div 
+                                    className="probability-fill odd" 
+                                    style={{ width: `${evenOddAnalysis.odd}%` }}
+                                />
+                            </div>
+                            <span className="probability-value">{evenOddAnalysis.odd.toFixed(1)}%</span>
+                        </div>
+                    </div>
+
+                    <div className="trading-condition">
+                        <div className="condition-row">
+                            <label>{localize('If')}</label>
+                            <select 
+                                value={tradingConfigs.evenodd.condition}
+                                onChange={(e) => updateTradingConfig('evenodd', 'condition', e.target.value)}
+                            >
+                                <option value="Even Prob">{localize('Even Prob')}</option>
+                                <option value="Odd Prob">{localize('Odd Prob')}</option>
+                            </select>
+                            <select
+                                value={tradingConfigs.evenodd.operator}
+                                onChange={(e) => updateTradingConfig('evenodd', 'operator', e.target.value)}
+                            >
+                                <option value=">">&gt;</option>
+                                <option value="<">&lt;</option>
+                            </select>
+                            <input
+                                type="number"
+                                value={tradingConfigs.evenodd.threshold}
+                                onChange={(e) => updateTradingConfig('evenodd', 'threshold', parseInt(e.target.value))}
+                                min="0"
+                                max="100"
+                            />
+                            <span>%</span>
+                        </div>
+                        <div className="condition-row">
+                            <label>{localize('Then')}</label>
+                            <select
+                                value={tradingConfigs.evenodd.action}
+                                onChange={(e) => updateTradingConfig('evenodd', 'action', e.target.value)}
+                            >
+                                <option value="Buy Even">{localize('Buy Even')}</option>
+                                <option value="Buy Odd">{localize('Buy Odd')}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="stake-inputs">
+                        <div className="input-group">
+                            <label>{localize('Stake')}</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                value={tradingConfigs.evenodd.stake}
+                                onChange={(e) => updateTradingConfig('evenodd', 'stake', parseFloat(e.target.value))}
+                                min="0.35"
+                            />
+                        </div>
+                        <div className="input-group">
+                            <label>{localize('Ticks')}</label>
+                            <input
+                                type="number"
+                                value={tradingConfigs.evenodd.ticks}
+                                onChange={(e) => updateTradingConfig('evenodd', 'ticks', parseInt(e.target.value))}
+                                min="1"
+                                max="10"
+                            />
+                        </div>
+                        <div className="input-group">
+                            <label>{localize('Martingale')}</label>
+                            <input
+                                type="number"
+                                step="0.1"
+                                value={tradingConfigs.evenodd.martingale}
+                                onChange={(e) => updateTradingConfig('evenodd', 'martingale', parseFloat(e.target.value))}
+                                min="1"
+                            />
+                        </div>
+                    </div>
+
+                    <button
+                        className={`auto-trading-button ${tradingConfigs.evenodd.isRunning ? 'stop' : ''}`}
+                        onClick={() => tradingConfigs.evenodd.isRunning 
+                            ? stopAutoTrading('evenodd') 
+                            : startAutoTrading('evenodd')
+                        }
+                    >
+                        {tradingConfigs.evenodd.isRunning 
+                            ? localize('Stop Auto Trading') 
+                            : localize('Start Auto Trading')
+                        }
+                    </button>
+                </div>
+
+                {/* Even/Odd Pattern Analysis Card */}
+                <div className="smart-trading-analytics__card">
+                    <div className="card-header">
+                        <Text as="h3" size="m" weight="bold">{localize('Even/Odd Pattern')}</Text>
+                    </div>
+
+                    <div className="probability-bars">
+                        <div className="probability-item">
+                            <span className="probability-label">{localize('Even')}</span>
+                            <div className="probability-bar">
+                                <div 
+                                    className="probability-fill even" 
+                                    style={{ width: `${evenOddAnalysis.even}%` }}
+                                />
+                            </div>
+                            <span className="probability-value">{evenOddAnalysis.even.toFixed(1)}%</span>
+                        </div>
+                        <div className="probability-item">
+                            <span className="probability-label">{localize('Odd')}</span>
+                            <div className="probability-bar">
+                                <div 
+                                    className="probability-fill odd" 
+                                    style={{ width: `${evenOddAnalysis.odd}%` }}
+                                />
+                            </div>
+                            <span className="probability-value">{evenOddAnalysis.odd.toFixed(1)}%</span>
+                        </div>
+                    </div>
+
+                    <div className="pattern-display">
+                        <div className="pattern-title">{localize('Last 10 Digits Pattern:')}</div>
+                        <div className="digit-pattern">
+                            {evenOddPattern.pattern.map((digit, index) => (
+                                <div 
+                                    key={index} 
+                                    className={`digit ${digit % 2 === 0 ? 'even' : 'odd'}`}
+                                >
+                                    {digit}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="streak-info">{evenOddPattern.streak}</div>
+                    </div>
+
+                    <div className="trading-condition">
+                        <div className="condition-row">
+                            <label>{localize('If')}</label>
+                            <select 
+                                value={tradingConfigs.evenoddpattern.condition}
+                                onChange={(e) => updateTradingConfig('evenoddpattern', 'condition', e.target.value)}
+                            >
+                                <option value="Even Prob">{localize('Even Prob')}</option>
+                                <option value="Odd Prob">{localize('Odd Prob')}</option>
+                            </select>
+                            <select
+                                value={tradingConfigs.evenoddpattern.operator}
+                                onChange={(e) => updateTradingConfig('evenoddpattern', 'operator', e.target.value)}
+                            >
+                                <option value=">">&gt;</option>
+                                <option value="<">&lt;</option>
+                            </select>
+                            <input
+                                type="number"
+                                value={tradingConfigs.evenoddpattern.threshold}
+                                onChange={(e) => updateTradingConfig('evenoddpattern', 'threshold', parseInt(e.target.value))}
+                                min="0"
+                                max="100"
+                            />
+                            <span>%</span>
+                        </div>
+                        <div className="condition-row">
+                            <label>{localize('Then')}</label>
+                            <select
+                                value={tradingConfigs.evenoddpattern.action}
+                                onChange={(e) => updateTradingConfig('evenoddpattern', 'action', e.target.value)}
+                            >
+                                <option value="Buy Even">{localize('Buy Even')}</option>
+                                <option value="Buy Odd">{localize('Buy Odd')}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="stake-inputs">
+                        <div className="input-group">
+                            <label>{localize('Stake')}</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                value={tradingConfigs.evenoddpattern.stake}
+                                onChange={(e) => updateTradingConfig('evenoddpattern', 'stake', parseFloat(e.target.value))}
+                                min="0.35"
+                            />
+                        </div>
+                        <div className="input-group">
+                            <label>{localize('Ticks')}</label>
+                            <input
+                                type="number"
+                                value={tradingConfigs.evenoddpattern.ticks}
+                                onChange={(e) => updateTradingConfig('evenoddpattern', 'ticks', parseInt(e.target.value))}
+                                min="1"
+                                max="10"
+                            />
+                        </div>
+                        <div className="input-group">
+                            <label>{localize('Martingale')}</label>
+                            <input
+                                type="number"
+                                step="0.1"
+                                value={tradingConfigs.evenoddpattern.martingale}
+                                onChange={(e) => updateTradingConfig('evenoddpattern', 'martingale', parseFloat(e.target.value))}
+                                min="1"
+                            />
+                        </div>
+                    </div>
+
+                    <button
+                        className={`auto-trading-button ${tradingConfigs.evenoddpattern.isRunning ? 'stop' : ''}`}
+                        onClick={() => tradingConfigs.evenoddpattern.isRunning 
+                            ? stopAutoTrading('evenoddpattern') 
+                            : startAutoTrading('evenoddpattern')
+                        }
+                    >
+                        {tradingConfigs.evenoddpattern.isRunning 
+                            ? localize('Stop Auto Trading') 
+                            : localize('Start Auto Trading')
+                        }
+                    </button>
+                </div>
+            </div>
+
+            {status && (
+                <div className="smart-trading-analytics__status">
+                    <Text size="s" color={status.includes('Error') ? 'loss-danger' : 'prominent'}>
+                        {status}
+                    </Text>
+                </div>
+            )}
         </div>
     );
 });
 
-export default SmartTrader;
+export default SmartTradingAnalytics;

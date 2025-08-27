@@ -318,3 +318,264 @@
         font-family: 'IBM Plex Mono', monospace;
     }
 }
+
+.smart-trading-analytics {
+    padding: 2.4rem;
+    background: var(--general-main-1);
+    
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2.4rem;
+        
+        h2 {
+            margin: 0;
+            color: var(--text-prominent);
+        }
+        
+        .connected-status {
+            padding: 0.4rem 1.2rem;
+            background: var(--status-success);
+            color: white;
+            border-radius: 1.6rem;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+    }
+    
+    &__controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1.6rem;
+        margin-bottom: 2.4rem;
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            
+            label {
+                font-size: 1.2rem;
+                color: var(--text-less-prominent);
+                font-weight: bold;
+            }
+            
+            select, input {
+                padding: 0.8rem;
+                border: 1px solid var(--border-normal);
+                border-radius: 0.4rem;
+                background: var(--general-main-2);
+                color: var(--text-prominent);
+            }
+        }
+    }
+    
+    &__analysis-cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2.4rem;
+        margin-bottom: 2.4rem;
+        
+        @media (max-width: 1200px) {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    &__card {
+        background: var(--general-main-2);
+        border: 1px solid var(--border-normal);
+        border-radius: 0.8rem;
+        padding: 2.4rem;
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.6rem;
+            
+            h3 {
+                margin: 0;
+                color: var(--text-prominent);
+                font-size: 1.6rem;
+            }
+        }
+        
+        .probability-bars {
+            margin: 1.6rem 0;
+            
+            .probability-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.8rem;
+                
+                .probability-label {
+                    font-size: 1.4rem;
+                    font-weight: bold;
+                }
+                
+                .probability-value {
+                    font-size: 1.4rem;
+                    font-weight: bold;
+                }
+                
+                .probability-bar {
+                    flex: 1;
+                    height: 0.8rem;
+                    background: var(--border-normal);
+                    border-radius: 0.4rem;
+                    margin: 0 1.2rem;
+                    overflow: hidden;
+                    
+                    .probability-fill {
+                        height: 100%;
+                        transition: width 0.3s ease;
+                        
+                        &.rise { background: var(--status-success); }
+                        &.fall { background: var(--status-danger); }
+                        &.even { background: var(--status-success); }
+                        &.odd { background: var(--status-danger); }
+                        &.higher { background: var(--status-success); }
+                        &.lower { background: var(--status-danger); }
+                    }
+                }
+            }
+        }
+        
+        .trading-condition {
+            margin: 1.6rem 0;
+            padding: 1.2rem;
+            background: var(--general-main-1);
+            border-radius: 0.4rem;
+            
+            .condition-row {
+                display: flex;
+                align-items: center;
+                gap: 0.8rem;
+                margin-bottom: 0.8rem;
+                
+                &:last-child {
+                    margin-bottom: 0;
+                }
+                
+                label {
+                    font-size: 1.2rem;
+                    color: var(--text-less-prominent);
+                    min-width: 80px;
+                }
+                
+                select, input {
+                    flex: 1;
+                    padding: 0.4rem 0.8rem;
+                    border: 1px solid var(--border-normal);
+                    border-radius: 0.4rem;
+                    background: var(--general-main-2);
+                    color: var(--text-prominent);
+                }
+            }
+        }
+        
+        .stake-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1.2rem;
+            margin: 1.6rem 0;
+            
+            .input-group {
+                display: flex;
+                flex-direction: column;
+                gap: 0.4rem;
+                
+                label {
+                    font-size: 1.1rem;
+                    color: var(--text-less-prominent);
+                }
+                
+                input {
+                    padding: 0.6rem;
+                    border: 1px solid var(--border-normal);
+                    border-radius: 0.4rem;
+                    background: var(--general-main-1);
+                    color: var(--text-prominent);
+                    text-align: center;
+                }
+            }
+        }
+        
+        .auto-trading-button {
+            width: 100%;
+            padding: 1.2rem;
+            background: var(--status-success);
+            color: white;
+            border: none;
+            border-radius: 0.6rem;
+            font-size: 1.4rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            
+            &:hover {
+                background: var(--status-success-hover, #2e7d3e);
+            }
+            
+            &:disabled {
+                background: var(--border-normal);
+                cursor: not-allowed;
+            }
+            
+            &.stop {
+                background: var(--status-danger);
+                
+                &:hover {
+                    background: var(--status-danger-hover, #d32f2f);
+                }
+            }
+        }
+    }
+    
+    &__pattern-display {
+        margin: 1.6rem 0;
+        
+        .pattern-title {
+            font-size: 1.2rem;
+            color: var(--text-less-prominent);
+            margin-bottom: 0.8rem;
+        }
+        
+        .digit-pattern {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            
+            .digit {
+                width: 2.4rem;
+                height: 2.4rem;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 0.4rem;
+                font-size: 1.2rem;
+                font-weight: bold;
+                
+                &.even {
+                    background: rgba(76, 175, 80, 0.2);
+                    color: var(--status-success);
+                    border: 1px solid var(--status-success);
+                }
+                
+                &.odd {
+                    background: rgba(244, 67, 54, 0.2);
+                    color: var(--status-danger);
+                    border: 1px solid var(--status-danger);
+                }
+            }
+        }
+        
+        .streak-info {
+            margin-top: 0.8rem;
+            font-size: 1.1rem;
+            color: var(--text-general);
+        }
+    }
+}
