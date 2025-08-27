@@ -298,7 +298,6 @@ const AppWrapper = observer(() => {
     );
 
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
-        setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
             console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
 
@@ -337,13 +336,11 @@ const AppWrapper = observer(() => {
                     }
                 } catch (fetchError) {
                     console.error("Failed to load bot content:", fetchError);
-                    // Removed alert message
                     return;
                 }
             }
 
             if (!xmlContent || xmlContent.trim().length === 0) {
-                //Removed alert message
                 return;
             }
 
@@ -352,32 +349,33 @@ const AppWrapper = observer(() => {
 
             // Validate XML content
             if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
-                //Removed alert message
                 return;
             }
 
             if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
                 try {
+                    // Load the bot content first
                     await load_modal.loadFileFromContent(xmlContent);
                     console.log("Bot loaded successfully!");
 
-                    // Also update workspace name
+                    // Update workspace name
                     if (typeof updateWorkspaceName === 'function') {
                         updateWorkspaceName(xmlContent);
                     }
+
+                    // Switch to Bot Builder tab after successful loading
+                    setActiveTab(DBOT_TABS.BOT_BUILDER);
+                    
                 } catch (loadError) {
                     console.error("Error in load_modal.loadFileFromContent:", loadError);
-                    //Removed alert message
                 }
             } else {
                 console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
                 console.log("load_modal object:", load_modal);
-                //Removed alert message
             }
 
         } catch (error) {
             console.error("Error loading bot:", error);
-             //Removed alert message
         }
     }, [setActiveTab, load_modal]);
 
