@@ -296,7 +296,7 @@ const RunPanel = observer(() => {
         />
     );
 
-    const show_run_panel = [BOT_BUILDER, CHART, ANALYSIS_TOOL, SIGNALS, DBOT_TABS.AI_TRADER, DBOT_TABS.VOLATILITY_ANALYZER].includes(active_tab) || active_tour;
+    const show_run_panel = [BOT_BUILDER, CHART, ANALYSIS_TOOL, SIGNALS, DBOT_TABS.AI_TRADER].includes(active_tab) || active_tour;
     if ((!show_run_panel && isDesktop) || active_tour === 'bot_builder') return null;
 
     return (

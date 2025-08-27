@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { observer } from 'mobx-react-lite';
 import { Localize } from '@deriv-com/translations';
-import { useStore } from '@/hooks/useStore';
-import RunPanel from '@/components/run-panel';
 import './volatility-analyzer.scss';
 
 interface AnalysisData {
@@ -30,8 +27,7 @@ interface AnalysisData {
   };
 }
 
-const VolatilityAnalyzer: React.FC = observer(() => {
-  const { run_panel, transactions } = useStore();
+const VolatilityAnalyzer: React.FC = () => {
   const [selectedSymbol, setSelectedSymbol] = useState('R_100');
   const [tickCount, setTickCount] = useState(120);
   const [barrier, setBarrier] = useState(5);
@@ -811,38 +807,6 @@ const VolatilityAnalyzer: React.FC = observer(() => {
           prediction
         });
         
-        // Integrate with run panel and transactions
-        run_panel.setIsRunning(true);
-        run_panel.setHasOpenContract(true);
-        
-        // Create contract info for transaction store
-        const contractInfo = {
-          contract_id: buy.contract_id,
-          buy_price: effectiveStake,
-          currency: 'USD',
-          contract_type: contractType,
-          date_start: new Date().toISOString(),
-          underlying: selectedSymbol,
-          barrier: prediction?.toString() || '',
-          shortcode: buy.shortcode || '',
-          transaction_ids: {
-            buy: buy.transaction_id || buy.contract_id,
-            sell: 0
-          },
-          tick_count: ticksAmount,
-          is_completed: false,
-          profit: 0,
-          payout: 0,
-          display_name: `${contractType} ${selectedSymbol}`,
-          entry_tick: '',
-          entry_tick_time: '',
-          exit_tick: '',
-          exit_tick_time: ''
-        };
-        
-        // Add to transactions
-        transactions.onBotContractEvent(contractInfo);
-        
         // Only show alert for manual trades to avoid spam during auto trading
         if (tradeType === 'manual') {
           alert(`${contractType} contract purchased! ID: ${buy.contract_id}, Amount: ${effectiveStake}`);
@@ -877,34 +841,6 @@ const VolatilityAnalyzer: React.FC = observer(() => {
                 if (contract.is_sold || contract.status === 'sold') {
                   const profit = Number(contract.profit || 0);
                   const isWin = profit > 0;
-                  
-                  // Update transaction with final results
-                  const updatedContractInfo = {
-                    contract_id: contractId,
-                    buy_price: effectiveStake,
-                    currency: 'USD',
-                    contract_type: contractType,
-                    date_start: contract.date_start || new Date().toISOString(),
-                    underlying: selectedSymbol,
-                    barrier: prediction?.toString() || '',
-                    shortcode: contract.shortcode || '',
-                    transaction_ids: {
-                      buy: contract.transaction_ids?.buy || contractId,
-                      sell: contract.transaction_ids?.sell || 0
-                    },
-                    tick_count: ticksAmount,
-                    is_completed: true,
-                    profit: profit,
-                    payout: Number(contract.payout || 0),
-                    display_name: `${contractType} ${selectedSymbol}`,
-                    entry_tick: contract.entry_tick_display_value || '',
-                    entry_tick_time: contract.entry_tick_time || '',
-                    exit_tick: contract.exit_tick_display_value || '',
-                    exit_tick_time: contract.exit_tick_time || ''
-                  };
-                  
-                  transactions.onBotContractEvent(updatedContractInfo);
-                  run_panel.setHasOpenContract(false);
                   
                   if (isWin) {
                     setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: false }));
@@ -975,11 +911,6 @@ const VolatilityAnalyzer: React.FC = observer(() => {
       ...prev,
       [strategyId]: true
     }));
-
-    // Integrate with run panel
-    run_panel.setIsRunning(true);
-    run_panel.toggleDrawer(true);
-    run_panel.setActiveTabIndex(1); // Transactions tab
 
     // Determine interval based on volatility symbol - shorter intervals for continuous trading
     let intervalMs = 1500; // 1.5 seconds for faster response
@@ -1076,16 +1007,6 @@ const VolatilityAnalyzer: React.FC = observer(() => {
       ...prev,
       [strategyId]: false
     }));
-
-    // Check if all strategies are stopped
-    const allStopped = Object.values({
-      ...autoTradingStatus,
-      [strategyId]: false
-    }).every(status => !status);
-
-    if (allStopped) {
-      run_panel.setIsRunning(false);
-    }
 
     console.log(`Auto trading stopped for ${strategyId}`);
     alert(`Auto trading stopped for ${strategyId}`);
@@ -1518,65 +1439,61 @@ const VolatilityAnalyzer: React.FC = observer(() => {
 
   return (
     <div className="volatility-analyzer">
-      <div className="analyzer-main">
-        <div className="analyzer-header">
-          <h2>Smart Trading Analytics</h2>
-          <div className={`connection-status ${connectionStatus}`}>
-            {connectionStatus === 'connected' && '🟢 Connected'}
-            {connectionStatus === 'disconnected' && '🔴 Disconnected'}
-            {connectionStatus === 'error' && '⚠️ Error'}
-          </div>
-        </div>
-
-        <div className="analyzer-controls">
-          <div className="control-group">
-            <label>Symbol:</label>
-            <select
-              value={selectedSymbol}
-              onChange={(e) => updateSymbol(e.target.value)}
-            >
-              {volatilitySymbols.map((symbol) => (
-                <option key={symbol.value} value={symbol.value}>
-                  {symbol.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="control-group">
-            <label>Tick Count:</label>
-            <input
-              type="number"
-              min="10"
-              max="1000"
-              value={tickCount}
-              onChange={(e) => updateTickCount(parseInt(e.target.value))}
-            />
-          </div>
-
-          <div className="control-group">
-            <label>Barrier:</label>
-            <input
-              type="number"
-              value={barrier}
-              onChange={(e) => updateBarrier(parseInt(e.target.value))}
-            />
-          </div>
-        </div>
-
-        <div className="trading-cards-grid">
-          {renderTradingCard('Rise/Fall', 'rise-fall')}
-          {renderTradingCard('Even/Odd', 'even-odd')}
-          {renderTradingCard('Even/Odd Pattern', 'even-odd-2')}
-          {renderTradingCard('Over/Under', 'over-under')}
-          {renderTradingCard('Over/Under Pattern', 'over-under-2')}
-          {renderTradingCard('Matches/Differs', 'matches-differs')}
+      <div className="analyzer-header">
+        <h2>Smart Trading Analytics</h2>
+        <div className={`connection-status ${connectionStatus}`}>
+          {connectionStatus === 'connected' && '🟢 Connected'}
+          {connectionStatus === 'disconnected' && '🔴 Disconnected'}
+          {connectionStatus === 'error' && '⚠️ Error'}
         </div>
       </div>
 
-      <RunPanel />
+      <div className="analyzer-controls">
+        <div className="control-group">
+          <label>Symbol:</label>
+          <select
+            value={selectedSymbol}
+            onChange={(e) => updateSymbol(e.target.value)}
+          >
+            {volatilitySymbols.map((symbol) => (
+              <option key={symbol.value} value={symbol.value}>
+                {symbol.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="control-group">
+          <label>Tick Count:</label>
+          <input
+            type="number"
+            min="10"
+            max="1000"
+            value={tickCount}
+            onChange={(e) => updateTickCount(parseInt(e.target.value))}
+          />
+        </div>
+
+        <div className="control-group">
+          <label>Barrier:</label>
+          <input
+            type="number"
+            value={barrier}
+            onChange={(e) => updateBarrier(parseInt(e.target.value))}
+          />
+        </div>
+      </div>
+
+      <div className="trading-cards-grid">
+        {renderTradingCard('Rise/Fall', 'rise-fall')}
+        {renderTradingCard('Even/Odd', 'even-odd')}
+        {renderTradingCard('Even/Odd Pattern', 'even-odd-2')}
+        {renderTradingCard('Over/Under', 'over-under')}
+        {renderTradingCard('Over/Under Pattern', 'over-under-2')}
+        {renderTradingCard('Matches/Differs', 'matches-differs')}
+      </div>
     </div>
   );
-});
+};
 
 export default VolatilityAnalyzer;

@@ -1,28 +1,11 @@
-@use 'components/shared/styles/mixins' as *;
-
 .volatility-analyzer {
-  display: flex;
-  height: 100vh;
-  background: var(--general-main-1);
-  color: var(--text-general);
-
-  @include mobile-or-tablet-screen {
-    flex-direction: column;
-    height: 100vh;
-  }
-
-  .analyzer-main {
-    flex: 1;
-    padding: 2rem;
-    max-width: calc(100% - 366px);
-    overflow-y: auto;
-
-    @include mobile-or-tablet-screen {
-      max-width: 100%;
-      padding: 1rem;
-      flex: 1;
-    }
-  }
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+  min-height: 100vh;
+  height: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 
   .analyzer-header {
     display: flex;
@@ -110,25 +93,25 @@
 
     @media (max-width: 768px) {
       gap: 8px;
-
+      
       .control-group {
         gap: 2px;
-
+        
         label {
           font-size: 11px;
         }
-
+        
         select,
         input {
           padding: 3px 6px;
           font-size: 11px;
           height: 26px;
         }
-
+        
         select {
           min-width: 100px;
         }
-
+        
         input[type="number"] {
           min-width: 50px;
         }
@@ -138,15 +121,31 @@
 
   .trading-cards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-      gap: 2rem;
-      margin-top: 2rem;
-      padding-bottom: 2rem;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      max-width: 1800px;
+      overflow-y: auto;
+      max-height: calc(100vh - 200px);
+      padding-bottom: 150px;
 
-      @include mobile-or-tablet-screen {
+      @media (max-width: 768px) {
+        padding-bottom: 120px;
+      }
+
+      @media (min-width: 1600px) {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      @media (min-width: 1200px) and (max-width: 1599px) {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      @media (max-width: 1199px) {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      @media (max-width: 768px) {
         grid-template-columns: 1fr;
-        gap: 1.5rem;
-        padding-bottom: 1rem;
       }
     }
 
