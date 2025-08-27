@@ -11,17 +11,20 @@ export const tabs_title: TTabsTitle = Object.freeze({
     CHART: 'Chart',
 });
 
-export const DBOT_TABS = {
-    DASHBOARD: 0,
-    BOT_BUILDER: 1,
-    CHART: 2,
-    TUTORIAL: 3,
-    TRADING_HUB: 4,
-    FREE_BOTS: 5,
-    ANALYSIS_TOOL: 6,
-    SIGNALS: 7,
-    AI_TRADER: 8,
-} as const;
+export const DBOT_TABS = Object.freeze({
+    BOT_BUILDER: 'bot_builder',
+    CHART: 'chart',
+    DASHBOARD: 'dashboard',
+    TUTORIAL: 'tutorials',
+    SIGNALS: 'signals',
+    AI_TRADER: 'ai_trader',
+    ANALYSIS_TOOL: 'analysis_tool',
+    ML_TRADER: 'ml_trader',
+    SMART_TRADER: 'smart_trader',
+    SPEED_BOT: 'speed_bot',
+    PERCENTAGE_TOOL: 'percentage_tool',
+    VOLATILITY_ANALYZER: 'volatility_analyzer',
+});
 
 export const MAX_STRATEGIES = 10;
 
