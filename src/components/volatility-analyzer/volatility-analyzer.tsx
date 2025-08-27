@@ -528,21 +528,44 @@ const VolatilityAnalyzer: React.FC = () => {
         const api = generateDerivApiInstance();
         setTradingApi(api);
         
-        // Try to authorize if token is available
-        const token = V2GetActiveToken();
-        if (token) {
-          try {
-            const { authorize, error } = await api.authorize(token);
-            if (!error && authorize) {
-              setIsAuthorized(true);
-              console.log('✅ Trading API authorized successfully');
-            }
-          } catch (authError) {
-            console.log('Trading API not authorized yet, will authorize on first trade');
-          }
+        // Wait for API to be ready
+        if (api.connection && api.connection.readyState === WebSocket.OPEN) {
+          await authorizeApi(api);
+        } else {
+          // Wait for connection to open
+          api.connection.addEventListener('open', () => {
+            authorizeApi(api);
+          });
         }
       } catch (error) {
         console.error('Failed to initialize trading API:', error);
+        alert('Failed to initialize trading API. Please refresh the page and try again.');
+      }
+    };
+
+    const authorizeApi = async (api: any) => {
+      try {
+        const { V2GetActiveToken } = await import('@/external/bot-skeleton/services/api/appId');
+        const token = V2GetActiveToken();
+        console.log('🔑 Attempting to authorize with token:', token ? 'Available' : 'Missing');
+        
+        if (token) {
+          const { authorize, error } = await api.authorize(token);
+          if (error) {
+            console.error('❌ Authorization failed:', error);
+            alert(`Authorization failed: ${error.message || error.code}. Please ensure you're logged in.`);
+          } else if (authorize) {
+            setIsAuthorized(true);
+            console.log('✅ Trading API authorized successfully');
+            console.log('Account info:', authorize);
+          }
+        } else {
+          console.error('❌ No authentication token found');
+          alert('No authentication token found. Please log in to your Deriv account.');
+        }
+      } catch (authError) {
+        console.error('❌ Authorization error:', authError);
+        alert(`Authorization error: ${authError.message}. Please log in and try again.`);
       }
     };
 
@@ -550,41 +573,80 @@ const VolatilityAnalyzer: React.FC = () => {
   }, []);
 
   const authorizeIfNeeded = async () => {
-    if (isAuthorized || !tradingApi) return;
+    if (isAuthorized && tradingApi) {
+      console.log('✅ Already authorized');
+      return;
+    }
+    
+    if (!tradingApi) {
+      throw new Error('Trading API not initialized. Please refresh the page.');
+    }
     
     const { V2GetActiveToken } = await import('@/external/bot-skeleton/services/api/appId');
     const token = V2GetActiveToken();
+    
+    console.log('🔑 Checking authorization - Token available:', !!token);
+    console.log('🔗 API connection state:', tradingApi.connection?.readyState);
+    
     if (!token) {
-      throw new Error('No token found. Please log in and select an account.');
+      throw new Error('No authentication token found. Please log in to your Deriv account and select a trading account.');
     }
     
-    const { authorize, error } = await tradingApi.authorize(token);
-    if (error) {
-      throw new Error(`Authorization error: ${error.message || error.code}`);
+    if (tradingApi.connection?.readyState !== WebSocket.OPEN) {
+      throw new Error('API connection not ready. Please wait for connection to establish.');
     }
     
-    setIsAuthorized(true);
-    console.log('✅ Trading API authorized successfully');
+    try {
+      const { authorize, error } = await tradingApi.authorize(token);
+      if (error) {
+        console.error('❌ Authorization failed:', error);
+        throw new Error(`Authorization failed: ${error.message || error.code}. Please ensure you're logged in with a valid account.`);
+      }
+      
+      if (authorize) {
+        setIsAuthorized(true);
+        console.log('✅ Trading API authorized successfully');
+        console.log('📊 Account details:', {
+          loginid: authorize.loginid,
+          currency: authorize.currency,
+          balance: authorize.balance
+        });
+      } else {
+        throw new Error('Authorization response empty. Please try logging in again.');
+      }
+    } catch (authError) {
+      console.error('❌ Authorization error:', authError);
+      throw new Error(`Authorization error: ${authError.message || 'Unknown error'}. Please log in and try again.`);
+    }
   };
 
   const executeTrade = async (strategyId: string, tradeType: string) => {
-    console.log(`Executing ${tradeType} trade for ${strategyId}`);
+    console.log(`🚀 Starting ${tradeType} trade execution for ${strategyId}`);
     
+    // Pre-flight checks
     if (connectionStatus !== 'connected') {
-      console.error('Cannot trade: Not connected to API');
-      alert('Cannot trade: Not connected to API');
+      const errorMsg = 'Cannot trade: Not connected to market data API';
+      console.error('❌', errorMsg);
+      alert(errorMsg);
       return;
     }
 
     if (!tradingApi) {
-      console.error('Trading API not initialized');
-      alert('Trading API not initialized. Please refresh the page.');
+      const errorMsg = 'Trading API not initialized. Please refresh the page and try again.';
+      console.error('❌', errorMsg);
+      alert(errorMsg);
       return;
+    }
+
+    if (!isAuthorized) {
+      console.log('🔑 Not authorized yet, attempting authorization...');
     }
 
     try {
       // Authorize if needed
+      console.log('🔐 Checking authorization...');
       await authorizeIfNeeded();
+      console.log('✅ Authorization check complete');
 
       const data = analysisData[strategyId];
       const condition = tradingConditions[strategyId];
@@ -723,14 +785,25 @@ const VolatilityAnalyzer: React.FC = () => {
         }
       }
 
-      console.log('Executing trade with params:', {
+      console.log('📋 Trade execution parameters:', {
         strategy: strategyId,
         tradeType,
         contractType,
         effectiveStake,
         prediction,
-        lossStreak: currentStreak
+        lossStreak: currentStreak,
+        symbol: selectedSymbol,
+        duration: ticksAmount
       });
+
+      // Validate trade parameters
+      if (effectiveStake < 0.35) {
+        throw new Error(`Stake amount ${effectiveStake} is below minimum of 0.35`);
+      }
+
+      if (!selectedSymbol) {
+        throw new Error('No trading symbol selected');
+      }
 
       // Create proper trade option
       const trade_option: any = {
@@ -748,47 +821,66 @@ const VolatilityAnalyzer: React.FC = () => {
         trade_option.prediction = prediction;
       }
 
-      // Create buy request
+      console.log('📝 Trade option created:', trade_option);
+
+      // Create buy request with proper structure
       const buy_req = {
         buy: '1',
-        price: trade_option.amount,
+        price: effectiveStake,
         parameters: {
-          amount: trade_option.amount,
-          basis: trade_option.basis,
+          amount: effectiveStake,
+          basis: 'stake',
           contract_type: contractType,
-          currency: trade_option.currency,
-          duration: trade_option.duration,
-          duration_unit: trade_option.duration_unit,
-          symbol: trade_option.symbol,
+          currency: 'USD',
+          duration: ticksAmount,
+          duration_unit: 't',
+          symbol: selectedSymbol,
         },
       };
 
       // Add prediction parameters for digit contracts
-      if (trade_option.prediction !== undefined) {
-        if (!['TICKLOW', 'TICKHIGH'].includes(contractType)) {
-          buy_req.parameters.barrier = trade_option.prediction;
+      if (prediction !== undefined) {
+        if (['DIGITOVER', 'DIGITUNDER'].includes(contractType)) {
+          buy_req.parameters.barrier = prediction;
         }
-        buy_req.parameters.selected_tick = trade_option.prediction;
+        if (['DIGITMATCH', 'DIGITDIFF'].includes(contractType)) {
+          buy_req.parameters.barrier = prediction;
+        }
       }
 
-      console.log('Sending buy request:', buy_req);
+      console.log('📤 Sending buy request to Deriv API:', JSON.stringify(buy_req, null, 2));
 
       // Execute the trade
-      const { buy, error } = await tradingApi.buy(buy_req);
+      console.log('🎯 Calling tradingApi.buy...');
+      const response = await tradingApi.buy(buy_req);
+      console.log('📥 Raw API response:', response);
+      
+      const { buy, error } = response;
       
       if (error) {
         console.error('❌ Purchase failed:', error);
-        alert(`Purchase failed: ${error.message || 'Unknown error'}`);
+        const errorMsg = `Purchase failed: ${error.message || error.code || 'Unknown error'}`;
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        alert(errorMsg);
         setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
         return;
       }
 
-      if (buy) {
-        console.log('✅ Contract purchased successfully:', buy);
-        alert(`${contractType} contract purchased! ID: ${buy.contract_id}, Amount: ${effectiveStake}`);
-        
-        // Track the contract outcome for martingale logic
-        const contractId = buy.contract_id;
+      if (!buy) {
+        console.error('❌ No buy response received');
+        alert('No response received from trading API. Please try again.');
+        return;
+      }
+
+      console.log('✅ Contract purchased successfully!');
+      console.log('📊 Purchase details:', JSON.stringify(buy, null, 2));
+      
+      const successMsg = `✅ ${contractType} contract purchased!\nID: ${buy.contract_id}\nAmount: $${effectiveStake}\nSymbol: ${selectedSymbol}`;
+      console.log(successMsg);
+      alert(successMsg);
+      
+      // Track the contract outcome for martingale logic
+      const contractId = buy.contract_id;
         
         // Subscribe to contract updates to track win/loss
         try {
@@ -853,8 +945,18 @@ const VolatilityAnalyzer: React.FC = () => {
       }
 
     } catch (error) {
-      console.error('❌ Error executing trade:', error);
-      alert(`Trade execution error: ${error.message}`);
+      console.error('❌ Critical error executing trade:', error);
+      console.error('Error stack:', error.stack);
+      
+      let errorMessage = 'Trade execution failed: ';
+      if (error.message) {
+        errorMessage += error.message;
+      } else {
+        errorMessage += 'Unknown error occurred';
+      }
+      
+      console.error('Final error message:', errorMessage);
+      alert(errorMessage);
       setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
     }
   };
@@ -909,14 +1011,25 @@ const VolatilityAnalyzer: React.FC = () => {
       const conditionsMet = checkTradingConditions(strategyId, data.data, condition);
       
       if (conditionsMet) {
-        console.log(`Auto trading conditions met for ${strategyId}, executing trade`);
+        console.log(`🎯 Auto trading conditions met for ${strategyId}!`);
+        console.log(`🔄 Auth status: ${isAuthorized ? 'Authorized' : 'Not Authorized'}`);
+        console.log(`🔗 API status: ${tradingApi ? 'Available' : 'Not Available'}`);
+        
         try {
           await executeTrade(strategyId, 'auto');
         } catch (error) {
-          console.error(`Auto trade execution failed for ${strategyId}:`, error);
+          console.error(`❌ Auto trade execution failed for ${strategyId}:`, error);
+          // Don't alert on auto trading errors to avoid spam
         }
       } else {
-        console.log(`Auto trading conditions not met for ${strategyId}, waiting...`);
+        console.log(`⏳ Auto trading conditions not met for ${strategyId}, waiting...`);
+        console.log(`📊 Current condition values for debugging:`, {
+          strategy: strategyId,
+          condition: condition.condition,
+          operator: condition.operator,
+          threshold: condition.value,
+          actualData: data.data
+        });
       }
     }, intervalMs);
 
@@ -1382,10 +1495,15 @@ const VolatilityAnalyzer: React.FC = () => {
     <div className="volatility-analyzer">
       <div className="analyzer-header">
         <h2>Smart Trading Analytics</h2>
-        <div className={`connection-status ${connectionStatus}`}>
-          {connectionStatus === 'connected' && '🟢 Connected'}
-          {connectionStatus === 'disconnected' && '🔴 Disconnected'}
-          {connectionStatus === 'error' && '⚠️ Error'}
+        <div className="connection-status-group">
+          <div className={`connection-status ${connectionStatus}`}>
+            {connectionStatus === 'connected' && '🟢 Market Data Connected'}
+            {connectionStatus === 'disconnected' && '🔴 Market Data Disconnected'}
+            {connectionStatus === 'error' && '⚠️ Market Data Error'}
+          </div>
+          <div className={`trading-api-status ${isAuthorized ? 'authorized' : 'unauthorized'}`}>
+            {isAuthorized && tradingApi ? '🟢 Trading API Ready' : '🔴 Trading API Not Ready'}
+          </div>
         </div>
       </div>
 

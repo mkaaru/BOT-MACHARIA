@@ -20,25 +20,31 @@
       margin: 0;
     }
 
-    .connection-status {
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-weight: 500;
-      font-size: 14px;
+    .connection-status-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
 
-      &.connected {
-        background-color: var(--status-success);
-        color: white;
+    .connection-status, .trading-api-status {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+
+      &.connected, &.authorized {
+        background-color: rgba(76, 175, 80, 0.1);
+        color: #4CAF50;
       }
 
-      &.disconnected {
-        background-color: var(--status-danger);
-        color: white;
+      &.disconnected, &.unauthorized {
+        background-color: rgba(244, 67, 54, 0.1);
+        color: #F44336;
       }
 
       &.error {
-        background-color: var(--status-warning);
-        color: white;
+        background-color: rgba(255, 152, 0, 0.1);
+        color: #FF9800;
       }
     }
   }
@@ -93,25 +99,25 @@
 
     @media (max-width: 768px) {
       gap: 8px;
-      
+
       .control-group {
         gap: 2px;
-        
+
         label {
           font-size: 11px;
         }
-        
+
         select,
         input {
           padding: 3px 6px;
           font-size: 11px;
           height: 26px;
         }
-        
+
         select {
           min-width: 100px;
         }
-        
+
         input[type="number"] {
           min-width: 50px;
         }
