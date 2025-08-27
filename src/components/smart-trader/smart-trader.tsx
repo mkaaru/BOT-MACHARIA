@@ -579,7 +579,7 @@ const SmartTrader = observer(() => {
             while (!stopFlagRef.current) {
                 // Adjust stake and prediction based on prior outcomes (simple martingale)
                 const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
-                
+
                 const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
                 if (isOU) {
                     lastOutcomeWasLossRef.current = lossStreak > 0;
