@@ -551,7 +551,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
       // Determine contract type based on strategy and current analysis
       let contractType = '';
-      let barrier;
+      let barrier: number | undefined;
       
       switch (strategyId) {
         case 'rise-fall':
@@ -559,11 +559,9 @@ const VolatilityAnalyzer: React.FC = () => {
           break;
         case 'even-odd':
         case 'even-odd-2':
-          // Smart Trader logic: consider loss outcome for prediction adjustment
           const evenProb = parseFloat(data.data.evenProbability || '0');
           const oddProb = parseFloat(data.data.oddProbability || '0');
           if (lastOutcomeWasLoss[strategyId] && Math.abs(evenProb - oddProb) < 5) {
-            // Switch prediction after loss if probabilities are close
             contractType = evenProb > oddProb ? 'DIGITODD' : 'DIGITEVEN';
           } else {
             contractType = evenProb > oddProb ? 'DIGITEVEN' : 'DIGITODD';
@@ -573,10 +571,8 @@ const VolatilityAnalyzer: React.FC = () => {
         case 'over-under-2':
           const overProb = parseFloat(data.data.overProbability || '0');
           const underProb = parseFloat(data.data.underProbability || '0');
-          // Adjust barrier based on loss outcome (Smart Trader pattern)
           const baseBarrier = data.data.barrier || 5;
           if (lastOutcomeWasLoss[strategyId]) {
-            // Adjust barrier after loss
             barrier = overProb > underProb ? Math.max(0, baseBarrier - 1) : Math.min(9, baseBarrier + 1);
           } else {
             barrier = baseBarrier;
@@ -593,23 +589,7 @@ const VolatilityAnalyzer: React.FC = () => {
           return;
       }
 
-      // Create trade option with Smart Trader structure
-      const trade_option: any = {
-        amount: effectiveStake,
-        basis: 'stake',
-        contractTypes: [contractType],
-        currency: 'USD',
-        duration: ticksAmount,
-        duration_unit: 't',
-        symbol: selectedSymbol,
-      };
-
-      // Add prediction/barrier for digit contracts
-      if (barrier !== undefined) {
-        trade_option.prediction = barrier;
-      }
-
-      console.log('Executing trade with Smart Trader logic:', {
+      console.log('Executing trade with params:', {
         strategy: strategyId,
         contractType,
         effectiveStake,
@@ -617,31 +597,26 @@ const VolatilityAnalyzer: React.FC = () => {
         lossStreak: currentStreak
       });
 
-      // Use Smart Trader's trading method
-      const buy_req = tradeOptionToBuy(contractType, trade_option);
-      
-      console.log('Sending proposal request with params:', {
+      // Create proper proposal parameters
+      const proposalParams: any = {
         amount: effectiveStake,
         basis: 'stake',
         contract_type: contractType,
         currency: 'USD',
         symbol: selectedSymbol,
         duration: ticksAmount,
-        duration_unit: 't',
-        ...(barrier !== undefined && { barrier })
-      });
+        duration_unit: 't'
+      };
+
+      // Add barrier for digit contracts
+      if (barrier !== undefined) {
+        proposalParams.barrier = barrier;
+      }
+
+      console.log('Sending proposal request with params:', proposalParams);
 
       // Get proposal first
-      const proposalResponse = await tradingEngine.getProposal({
-        amount: effectiveStake,
-        basis: 'stake',
-        contract_type: contractType,
-        currency: 'USD',
-        symbol: selectedSymbol,
-        duration: ticksAmount,
-        duration_unit: 't',
-        ...(barrier !== undefined && { barrier })
-      });
+      const proposalResponse = await tradingEngine.getProposal(proposalParams);
       
       if (proposalResponse.proposal) {
         console.log('✅ Proposal received:', proposalResponse.proposal);
@@ -662,11 +637,7 @@ const VolatilityAnalyzer: React.FC = () => {
           
           // Subscribe to contract updates to track win/loss
           try {
-            const contractStream = await tradingEngine.ws?.send({
-              proposal_open_contract: 1,
-              contract_id: contractId,
-              subscribe: 1
-            });
+            const contractStream = await tradingEngine.subscribeToContract(contractId);
 
             if (contractStream && contractStream.subscription) {
               // Listen for contract completion
@@ -679,15 +650,13 @@ const VolatilityAnalyzer: React.FC = () => {
                     const isWin = profit > 0;
                     
                     if (isWin) {
-                      // Reset on win
                       setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: false }));
                       setLossStreaks(prev => ({ ...prev, [strategyId]: 0 }));
                     } else {
-                      // Increment loss streak
                       setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
                       setLossStreaks(prev => ({ 
                         ...prev, 
-                        [strategyId]: Math.min((prev[strategyId] || 0) + 1, 10) // Cap at 10
+                        [strategyId]: Math.min((prev[strategyId] || 0) + 1, 10)
                       }));
                     }
                     
@@ -701,16 +670,25 @@ const VolatilityAnalyzer: React.FC = () => {
               };
 
               // Add temporary listener for this contract
-              tradingEngine.ws?.addEventListener('message', (event) => {
-                try {
-                  const data = JSON.parse(event.data);
-                  if (data.msg_type === 'proposal_open_contract') {
-                    handleContractUpdate(data);
+              const ws = tradingEngine.getWebSocket();
+              if (ws) {
+                const messageListener = (event: MessageEvent) => {
+                  try {
+                    const data = JSON.parse(event.data);
+                    if (data.msg_type === 'proposal_open_contract') {
+                      handleContractUpdate(data);
+                    }
+                  } catch (error) {
+                    console.error('Error parsing contract update:', error);
                   }
-                } catch (error) {
-                  console.error('Error parsing contract update:', error);
-                }
-              });
+                };
+                ws.addEventListener('message', messageListener);
+                
+                // Clean up listener after 5 minutes
+                setTimeout(() => {
+                  ws.removeEventListener('message', messageListener);
+                }, 300000);
+              }
             }
           } catch (error) {
             console.error('Error subscribing to contract updates:', error);
@@ -728,7 +706,6 @@ const VolatilityAnalyzer: React.FC = () => {
     } catch (error) {
       console.error('❌ Error executing trade:', error);
       alert(`Trade execution error: ${error.message}`);
-      // On error, don't increment loss streak but mark as potential loss
       setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
     }
   };

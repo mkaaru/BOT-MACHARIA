@@ -60,8 +60,8 @@ class TradingEngine {
 
       const request = {
         proposal: 1,
-        ...params,
-        req_id: requestId
+        req_id: requestId,
+        ...params
       };
 
       console.log('Sending proposal request:', request);
@@ -70,7 +70,7 @@ class TradingEngine {
       this.messageHandlers.set(requestId, (data) => {
         if (data.error) {
           console.error('Proposal error:', data.error);
-          reject(data.error);
+          reject(new Error(data.error.message || 'Proposal failed'));
         } else {
           console.log('Proposal response:', data);
           resolve(data);
@@ -78,7 +78,12 @@ class TradingEngine {
       });
 
       // Send request
-      this.ws!.send(JSON.stringify(request));
+      try {
+        this.ws!.send(JSON.stringify(request));
+      } catch (error) {
+        this.messageHandlers.delete(requestId);
+        reject(error);
+      }
 
       // Timeout after 10 seconds
       setTimeout(() => {
@@ -107,14 +112,19 @@ class TradingEngine {
       // Set up message handler
       this.messageHandlers.set(requestId, (data) => {
         if (data.error) {
-          reject(data.error);
+          reject(new Error(data.error.message || 'Buy contract failed'));
         } else {
           resolve(data);
         }
       });
 
       // Send request
-      this.ws!.send(JSON.stringify(request));
+      try {
+        this.ws!.send(JSON.stringify(request));
+      } catch (error) {
+        this.messageHandlers.delete(requestId);
+        reject(error);
+      }
 
       // Timeout after 10 seconds
       setTimeout(() => {
