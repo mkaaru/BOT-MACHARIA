@@ -715,12 +715,17 @@ const VolatilityAnalyzer: React.FC = () => {
             const overProb = parseFloat(data.data.overProbability || '0');
             const underProb = parseFloat(data.data.underProbability || '0');
             const baseBarrier = data.data.barrier || 5;
-            if (lastOutcomeWasLoss[strategyId]) {
+            
+            // Enhanced logic for Over/Under strategies
+            if (lastOutcomeWasLoss[strategyId] && Math.abs(overProb - underProb) < 5) {
+              // If last trade was a loss and probabilities are close, use reverse logic
+              contractType = overProb > underProb ? 'DIGITUNDER' : 'DIGITOVER';
               prediction = overProb > underProb ? Math.max(0, baseBarrier - 1) : Math.min(9, baseBarrier + 1);
             } else {
+              // Normal logic based on higher probability
+              contractType = overProb > underProb ? 'DIGITOVER' : 'DIGITUNDER';
               prediction = baseBarrier;
             }
-            contractType = overProb > underProb ? 'DIGITOVER' : 'DIGITUNDER';
             break;
           case 'matches-differs':
             const matchProb = parseFloat(data.data.mostFrequentProbability || '0');
