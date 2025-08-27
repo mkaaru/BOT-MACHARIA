@@ -478,6 +478,35 @@ const VolatilityAnalyzer: React.FC = () => {
     'matches-differs': { condition: 'Matches Prob', operator: '>', value: 55 },
   });
 
+  // Enhanced trading logic with Smart Trader patterns
+  const [lastOutcomeWasLoss, setLastOutcomeWasLoss] = useState<Record<string, boolean>>({});
+  const [lossStreaks, setLossStreaks] = useState<Record<string, number>>({});
+  const [baseStakes, setBaseStakes] = useState<Record<string, number>>({});
+
+  // Safe version of tradeOptionToBuy without Blockly dependencies
+  const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
+    const buy = {
+      buy: '1',
+      price: trade_option.amount,
+      parameters: {
+        amount: trade_option.amount,
+        basis: trade_option.basis,
+        contract_type,
+        currency: trade_option.currency,
+        duration: trade_option.duration,
+        duration_unit: trade_option.duration_unit,
+        symbol: trade_option.symbol,
+      },
+    };
+    if (trade_option.prediction !== undefined) {
+      buy.parameters.selected_tick = trade_option.prediction;
+    }
+    if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
+      buy.parameters.barrier = trade_option.prediction;
+    }
+    return buy;
+  };
+
   const executeTrade = async (strategyId: string, tradeType: string) => {
     console.log(`Executing ${tradeType} trade for ${strategyId}`);
     
@@ -504,6 +533,18 @@ const VolatilityAnalyzer: React.FC = () => {
         }
       }
 
+      // Initialize base stake for this strategy if not set
+      if (!baseStakes[strategyId]) {
+        setBaseStakes(prev => ({ ...prev, [strategyId]: stakeAmount }));
+      }
+
+      // Calculate effective stake with martingale progression
+      const currentStreak = lossStreaks[strategyId] || 0;
+      const baseStake = baseStakes[strategyId] || stakeAmount;
+      const effectiveStake = currentStreak > 0 ? 
+        Number((baseStake * Math.pow(martingaleAmount, currentStreak)).toFixed(2)) : 
+        baseStake;
+
       // Determine contract type based on strategy and current analysis
       let contractType = '';
       let barrier;
@@ -514,15 +555,33 @@ const VolatilityAnalyzer: React.FC = () => {
           break;
         case 'even-odd':
         case 'even-odd-2':
-          contractType = parseFloat(data.data.evenProbability || '0') > parseFloat(data.data.oddProbability || '0') ? 'DIGITEVEN' : 'DIGITODD';
+          // Smart Trader logic: consider loss outcome for prediction adjustment
+          const evenProb = parseFloat(data.data.evenProbability || '0');
+          const oddProb = parseFloat(data.data.oddProbability || '0');
+          if (lastOutcomeWasLoss[strategyId] && Math.abs(evenProb - oddProb) < 5) {
+            // Switch prediction after loss if probabilities are close
+            contractType = evenProb > oddProb ? 'DIGITODD' : 'DIGITEVEN';
+          } else {
+            contractType = evenProb > oddProb ? 'DIGITEVEN' : 'DIGITODD';
+          }
           break;
         case 'over-under':
         case 'over-under-2':
-          contractType = parseFloat(data.data.overProbability || '0') > parseFloat(data.data.underProbability || '0') ? 'DIGITOVER' : 'DIGITUNDER';
-          barrier = data.data.barrier;
+          const overProb = parseFloat(data.data.overProbability || '0');
+          const underProb = parseFloat(data.data.underProbability || '0');
+          // Adjust barrier based on loss outcome (Smart Trader pattern)
+          const baseBarrier = data.data.barrier || 5;
+          if (lastOutcomeWasLoss[strategyId]) {
+            // Adjust barrier after loss
+            barrier = overProb > underProb ? Math.max(0, baseBarrier - 1) : Math.min(9, baseBarrier + 1);
+          } else {
+            barrier = baseBarrier;
+          }
+          contractType = overProb > underProb ? 'DIGITOVER' : 'DIGITUNDER';
           break;
         case 'matches-differs':
-          contractType = parseFloat(data.data.mostFrequentProbability || '0') > 15 ? 'DIGITMATCH' : 'DIGITDIFF';
+          const matchProb = parseFloat(data.data.mostFrequentProbability || '0');
+          contractType = matchProb > 15 ? 'DIGITMATCH' : 'DIGITDIFF';
           barrier = data.data.target;
           break;
         default:
@@ -530,31 +589,49 @@ const VolatilityAnalyzer: React.FC = () => {
           return;
       }
 
-      // Create proposal request
-      const proposalRequest = {
-        amount: stakeAmount,
+      // Create trade option with Smart Trader structure
+      const trade_option: any = {
+        amount: effectiveStake,
+        basis: 'stake',
+        contractTypes: [contractType],
+        currency: 'USD',
+        duration: ticksAmount,
+        duration_unit: 't',
+        symbol: selectedSymbol,
+      };
+
+      // Add prediction/barrier for digit contracts
+      if (barrier !== undefined) {
+        trade_option.prediction = barrier;
+      }
+
+      console.log('Executing trade with Smart Trader logic:', {
+        strategy: strategyId,
+        contractType,
+        effectiveStake,
+        barrier,
+        lossStreak: currentStreak
+      });
+
+      // Use Smart Trader's trading method
+      const buy_req = tradeOptionToBuy(contractType, trade_option);
+      
+      // Get proposal first
+      const proposalResponse = await tradingEngine.getProposal({
+        amount: effectiveStake,
         basis: 'stake',
         contract_type: contractType,
         currency: 'USD',
         symbol: selectedSymbol,
         duration: ticksAmount,
-        duration_unit: 't'
-      };
-
-      // Add barrier for digit contracts
-      if (barrier !== undefined) {
-        proposalRequest.barrier = barrier;
-      }
-
-      console.log('Sending proposal request:', proposalRequest);
-      
-      // Get proposal from Deriv API
-      const proposalResponse = await tradingEngine.getProposal(proposalRequest);
+        duration_unit: 't',
+        ...(barrier !== undefined && { barrier })
+      });
       
       if (proposalResponse.proposal) {
         console.log('Proposal received:', proposalResponse.proposal);
         
-        // Automatically buy the contract
+        // Buy the contract
         const purchaseResponse = await tradingEngine.buyContract(
           proposalResponse.proposal.id,
           proposalResponse.proposal.ask_price
@@ -563,11 +640,65 @@ const VolatilityAnalyzer: React.FC = () => {
         if (purchaseResponse.buy) {
           console.log('Contract purchased successfully:', purchaseResponse.buy);
           
-          // Apply martingale logic for next trade if this one loses
-          if (martingaleAmount > 1) {
-            // Store current stake for martingale progression
-            // This would be implemented based on your martingale strategy
+          // Track the contract outcome for martingale logic
+          const contractId = purchaseResponse.buy.contract_id;
+          
+          // Subscribe to contract updates to track win/loss
+          try {
+            const contractStream = await tradingEngine.ws?.send({
+              proposal_open_contract: 1,
+              contract_id: contractId,
+              subscribe: 1
+            });
+
+            if (contractStream && contractStream.subscription) {
+              // Listen for contract completion
+              const handleContractUpdate = (data: any) => {
+                if (data.proposal_open_contract && data.proposal_open_contract.contract_id === contractId) {
+                  const contract = data.proposal_open_contract;
+                  
+                  if (contract.is_sold || contract.status === 'sold') {
+                    const profit = Number(contract.profit || 0);
+                    const isWin = profit > 0;
+                    
+                    if (isWin) {
+                      // Reset on win
+                      setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: false }));
+                      setLossStreaks(prev => ({ ...prev, [strategyId]: 0 }));
+                    } else {
+                      // Increment loss streak
+                      setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
+                      setLossStreaks(prev => ({ 
+                        ...prev, 
+                        [strategyId]: Math.min((prev[strategyId] || 0) + 1, 10) // Cap at 10
+                      }));
+                    }
+                    
+                    console.log(`Contract ${contractId} completed:`, {
+                      profit,
+                      isWin,
+                      newStreak: isWin ? 0 : (lossStreaks[strategyId] || 0) + 1
+                    });
+                  }
+                }
+              };
+
+              // Add temporary listener for this contract
+              tradingEngine.ws?.addEventListener('message', (event) => {
+                try {
+                  const data = JSON.parse(event.data);
+                  if (data.msg_type === 'proposal_open_contract') {
+                    handleContractUpdate(data);
+                  }
+                } catch (error) {
+                  console.error('Error parsing contract update:', error);
+                }
+              });
+            }
+          } catch (error) {
+            console.error('Error subscribing to contract updates:', error);
           }
+          
         } else {
           console.error('Purchase failed:', purchaseResponse);
         }
@@ -577,6 +708,8 @@ const VolatilityAnalyzer: React.FC = () => {
 
     } catch (error) {
       console.error('Error executing trade:', error);
+      // On error, don't increment loss streak but mark as potential loss
+      setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
     }
   };
 
@@ -954,16 +1087,21 @@ const VolatilityAnalyzer: React.FC = () => {
             </div>
           </div>
 
-          {/* Trading Controls */}
+          {/* Enhanced Trading Controls with Smart Trader Logic */}
           <div className="trading-controls">
             <div className="control-group">
-              <label>Stake</label>
+              <label>Base Stake</label>
               <input 
                 type="number" 
                 value={stakeAmount}
-                onChange={(e) => setStakeAmount(parseFloat(e.target.value))}
-                step="0.1"
-                min="0.1"
+                onChange={(e) => {
+                  const newStake = parseFloat(e.target.value);
+                  setStakeAmount(newStake);
+                  // Update base stake for this strategy
+                  setBaseStakes(prev => ({ ...prev, [strategyId]: newStake }));
+                }}
+                step="0.01"
+                min="0.35"
               />
             </div>
             <div className="control-group">
@@ -973,6 +1111,7 @@ const VolatilityAnalyzer: React.FC = () => {
                 value={ticksAmount}
                 onChange={(e) => setTicksAmount(parseInt(e.target.value))}
                 min="1"
+                max="10"
               />
             </div>
             <div className="control-group">
@@ -983,7 +1122,25 @@ const VolatilityAnalyzer: React.FC = () => {
                 onChange={(e) => setMartingaleAmount(parseFloat(e.target.value))}
                 step="0.1"
                 min="1"
+                max="5"
               />
+            </div>
+          </div>
+
+          {/* Strategy Status Display */}
+          <div className="strategy-status">
+            <div className="status-item">
+              <span>Loss Streak: {lossStreaks[strategyId] || 0}</span>
+            </div>
+            <div className="status-item">
+              <span>Current Stake: {
+                (lossStreaks[strategyId] || 0) > 0 ? 
+                Number(((baseStakes[strategyId] || stakeAmount) * Math.pow(martingaleAmount, lossStreaks[strategyId] || 0)).toFixed(2)) :
+                (baseStakes[strategyId] || stakeAmount)
+              }</span>
+            </div>
+            <div className="status-item">
+              <span>Last Outcome: {lastOutcomeWasLoss[strategyId] ? '❌ Loss' : '✅ Win/None'}</span>
             </div>
           </div>
         </div>

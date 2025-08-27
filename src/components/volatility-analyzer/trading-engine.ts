@@ -64,11 +64,15 @@ class TradingEngine {
         req_id: requestId
       };
 
+      console.log('Sending proposal request:', request);
+
       // Set up message handler
       this.messageHandlers.set(requestId, (data) => {
         if (data.error) {
+          console.error('Proposal error:', data.error);
           reject(data.error);
         } else {
+          console.log('Proposal response:', data);
           resolve(data);
         }
       });
@@ -124,6 +128,47 @@ class TradingEngine {
 
   isEngineConnected(): boolean {
     return this.isConnected;
+  }
+
+  async subscribeToContract(contractId: string): Promise<any> {
+    if (!this.isConnected || !this.ws) {
+      throw new Error('Trading engine not connected');
+    }
+
+    return new Promise((resolve, reject) => {
+      const requestId = `contract_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      const request = {
+        proposal_open_contract: 1,
+        contract_id: contractId,
+        subscribe: 1,
+        req_id: requestId
+      };
+
+      // Set up message handler
+      this.messageHandlers.set(requestId, (data) => {
+        if (data.error) {
+          reject(data.error);
+        } else {
+          resolve(data);
+        }
+      });
+
+      // Send request
+      this.ws!.send(JSON.stringify(request));
+
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        if (this.messageHandlers.has(requestId)) {
+          this.messageHandlers.delete(requestId);
+          reject(new Error('Contract subscription timeout'));
+        }
+      }, 10000);
+    });
+  }
+
+  getWebSocket(): WebSocket | null {
+    return this.ws;
   }
 
   disconnect() {
