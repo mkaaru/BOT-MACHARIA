@@ -37,38 +37,34 @@ const DashboardIcon = () => (
 
 const BotBuilderIcon = () => (
    <svg fill="var(--text-general)" width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-  <path fillRule="evenodd" d="M20,9.85714286 L20,14.1428571 C20,15.2056811 19.0732946,16 18,16 L6,16 C4.92670537,16 4,15.2056811 4,14.1428571 L4,9.85714286 C4,8.79431889 4.92670537,8 6,8 L18,8 C19.0732946,8 20,8.79431889 20,9.85714286 Z M6,10 L6,14 L18,14 L18,10 L6,10 Z M2,19 L2,17 L22,17 L22,19 L2,19 Z M2,7 L2,5 L22,5 L22,7 L2,7 Z"/>
+  <path fill-rule="evenodd" d="M20,9.85714286 L20,14.1428571 C20,15.2056811 19.0732946,16 18,16 L6,16 C4.92670537,16 4,15.2056811 4,14.1428571 L4,9.85714286 C4,8.79431889 4.92670537,8 6,8 L18,8 C19.0732946,8 20,8.79431889 20,9.85714286 Z M6,10 L6,14 L18,14 L18,10 L6,10 Z M2,19 L2,17 L22,17 L22,19 L2,19 Z M2,7 L2,5 L22,5 L22,7 L2,7 Z"/>
 </svg>
 );
 
 const ChartsIcon = () => (
     <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M21 21H7.8C6.11984 21 5.27976 21 4.63803 20.673C4.07354 20.3854 3.6146 19.9265 3.32698 19.362C3 18.7202 3 17.8802 3 16.2V3M6 15L10 11L14 15L20 9M20 9V13M20 9H16" stroke="var(--text-general)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+<path d="M21 21H7.8C6.11984 21 5.27976 21 4.63803 20.673C4.07354 20.3854 3.6146 19.9265 3.32698 19.362C3 18.7202 3 17.8802 3 16.2V3M6 15L10 11L14 15L20 9M20 9V13M20 9H16" stroke="var(--text-general)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
 );
 
 const TutorialsIcon = () => (
-   <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="var(--text-general)" strokeWidth="2" strokeLinejoin="round"/>
-<path d="M2 17L12 22L22 17" stroke="var(--text-general)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-<path d="M2 12L12 17L22 12" stroke="var(--text-general)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-</svg>
+   <svg width="24px" height="24px" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg" fill="none"><path stroke="var(--text-general)" stroke-width="12" d="M170 96c0-45-4.962-49.999-50-50H72c-45.038.001-50 5-50 50s4.962 49.999 50 50h48c45.038-.001 50-5 50-50Z"/><path stroke="var(--text-general)" stroke-linecap="round" stroke-linejoin="round" stroke-width="12" d="m82 74 34 22-34 22"/></svg>
 );
 
 const AnalysisToolIcon = () => (
     <svg width="24px" height="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M7.5 3.5V6.5" stroke="var(--text-general)" strokeLinecap="round"/>
-<path d="M7.5 14.5V18.5" stroke="var(--text-general)" strokeLinecap="round"/>
+<path d="M7.5 3.5V6.5" stroke="var(--text-general)" stroke-linecap="round"/>
+<path d="M7.5 14.5V18.5" stroke="var(--text-general)" stroke-linecap="round"/>
 <path d="M6.8 6.5C6.08203 6.5 5.5 7.08203 5.5 7.8V13.2C5.5 13.918 6.08203 14.5 6.8 14.5H8.2C8.91797 14.5 9.5 13.918 9.5 13.2V7.8C9.5 7.08203 8.91797 6.5 8.2 6.5H6.8Z" stroke="var(--text-general)"/>
-<path d="M16.5 6.5V11.5" stroke="var(--text-general)" strokeLinecap="round"/>
-<path d="M16.5 16.5V20.5" stroke="var(--text-general)" strokeLinecap="round"/>
+<path d="M16.5 6.5V11.5" stroke="var(--text-general)" stroke-linecap="round"/>
+<path d="M16.5 16.5V20.5" stroke="var(--text-general)" stroke-linecap="round"/>
 <path d="M15.8 11.5C15.082 11.5 14.5 12.082 14.5 12.8V15.2C14.5 15.918 15.082 16.5 15.8 16.5H17.2C17.918 16.5 18.5 15.918 18.5 15.2V12.8C18.5 12.082 17.918 11.5 17.2 11.5H15.8Z" stroke="var(--text-general)"/>
 </svg>
 );
 
 const SignalsIcon = () => (
     <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M8 6.00067L21 6.00139M8 12.0007L21 12.0015M8 18.0007L21 18.0015M3.5 6H3.51M3.5 12H3.51M3.5 18H3.51M4 6C4 6.27614 3.77614 6.5 3.5 6.5C3.22386 6.5 3 6.27614 3 6C3 5.72386 3.22386 5.5 3.5 5.5C3.77614 5.5 4 5.72386 4 6ZM4 12C4 12.2761 3.77614 12.5 3.5 12.5C3.22386 12.5 3 12.2761 3 12C3 11.7239 3.22386 11.5 3.5 11.5C3.77614 11.5 4 11.7239 4 12ZM4 18C4 18.2761 3.77614 18.5 3.5 18.5C3.22386 18.5 3 18.2761 3 18C3 17.7239 3.22386 17.5 3.5 17.5C3.77614 17.5 4 17.7239 4 18Z" stroke="var(--text-general)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+<path d="M8 6.00067L21 6.00139M8 12.0007L21 12.0015M8 18.0007L21 18.0015M3.5 6H3.51M3.5 12H3.51M3.5 18H3.51M4 6C4 6.27614 3.77614 6.5 3.5 6.5C3.22386 6.5 3 6.27614 3 6C3 5.72386 3.22386 5.5 3.5 5.5C3.77614 5.5 4 5.72386 4 6ZM4 12C4 12.2761 3.77614 12.5 3.5 12.5C3.22386 12.5 3 12.2761 3 12C3 11.7239 3.22386 11.5 3.5 11.5C3.77614 11.5 4 11.7239 4 12ZM4 18C4 18.2761 3.77614 18.5 3.5 18.5C3.22386 18.5 3 18.2761 3 18C3 17.7239 3.22386 17.5 3.5 17.5C3.77614 17.5 4 17.7239 4 18Z" stroke="var(--text-general)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
 );
 
@@ -169,7 +165,6 @@ const AppWrapper = observer(() => {
                 'Super Elite.xml',
                 'AUTO C4 PRO Version.xml',
                 'Mkorean SV4.xml',
-                'Internet Money Glitch _70% Odd.xml',
             ];
 
             const loadedBots = [];
@@ -240,24 +235,18 @@ const AppWrapper = observer(() => {
                         continue;
                     }
 
-                    // Clean up XML content to fix common entity reference issues
-                    let cleanedText = text;
-                    // Fix common entity reference issues
-                    cleanedText = cleanedText.replace(/&(?![a-zA-Z0-9#][a-zA-Z0-9]*;)/g, '&amp;');
-
                     const parser = new DOMParser();
-                    const xml = parser.parseFromString(cleanedText, 'application/xml');
+                    const xml = parser.parseFromString(text, 'application/xml');
 
                     // Check if XML parsing was successful
                     const parseError = xml.getElementsByTagName('parsererror')[0];
                     if (parseError) {
                         console.warn(`XML parsing error for ${file}:`, parseError.textContent);
-                        // Try to load with original content anyway
                         loadedBots.push({
                             title: file.replace('.xml', ''),
                             image: 'default_image_path',
                             filePath: file,
-                            xmlContent: cleanedText, // Use cleaned version
+                            xmlContent: text, // Still include the content even if parsing failed
                             isPlaceholder: false
                         });
                         continue;
@@ -267,7 +256,7 @@ const AppWrapper = observer(() => {
                         title: file.replace('.xml', ''),
                         image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
                         filePath: file,
-                        xmlContent: cleanedText,
+                        xmlContent: text,
                         isPlaceholder: false
                     });
 
@@ -308,6 +297,7 @@ const AppWrapper = observer(() => {
     );
 
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
+        setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
             console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
 
@@ -346,11 +336,13 @@ const AppWrapper = observer(() => {
                     }
                 } catch (fetchError) {
                     console.error("Failed to load bot content:", fetchError);
+                    // Removed alert message
                     return;
                 }
             }
 
             if (!xmlContent || xmlContent.trim().length === 0) {
+                //Removed alert message
                 return;
             }
 
@@ -359,47 +351,32 @@ const AppWrapper = observer(() => {
 
             // Validate XML content
             if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
+                //Removed alert message
                 return;
             }
 
             if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
                 try {
-                    // Load the bot content first
                     await load_modal.loadFileFromContent(xmlContent);
                     console.log("Bot loaded successfully!");
 
-                    // Update workspace name
+                    // Also update workspace name
                     if (typeof updateWorkspaceName === 'function') {
                         updateWorkspaceName(xmlContent);
                     }
-
-                    // Switch to Bot Builder tab after successful loading
-                    console.log("Switching to Bot Builder tab...");
-                    setActiveTab(DBOT_TABS.BOT_BUILDER);
-
-                    // Wait a bit for the tab to render, then verify workspace
-                    setTimeout(() => {
-                        const workspace = window.Blockly?.derivWorkspace;
-                        if (workspace) {
-                            console.log("Workspace found after tab switch:", workspace);
-                            console.log("Workspace has blocks:", workspace.getAllBlocks?.()?.length || 0);
-                        } else {
-                            console.warn("Workspace not found after switching to Bot Builder");
-                        }
-                    }, 500);
-
-                    console.log("Bot loading completed successfully!");
-
                 } catch (loadError) {
                     console.error("Error in load_modal.loadFileFromContent:", loadError);
+                    //Removed alert message
                 }
             } else {
                 console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
                 console.log("load_modal object:", load_modal);
+                //Removed alert message
             }
 
         } catch (error) {
             console.error("Error loading bot:", error);
+             //Removed alert message
         }
     }, [setActiveTab, load_modal]);
 
