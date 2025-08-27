@@ -2,7 +2,8 @@
   padding: 20px;
   max-width: 1600px;
   margin: 0 auto;
-  height: 100vh;
+  min-height: 100vh;
+  height: auto;
   overflow-y: auto;
   overflow-x: hidden;
 
@@ -82,7 +83,11 @@
       max-width: 1800px;
       overflow-y: auto;
       max-height: calc(100vh - 200px);
-      padding-bottom: 20px;
+      padding-bottom: 100px;
+
+      @media (max-width: 768px) {
+        padding-bottom: 80px;
+      }
 
       @media (min-width: 1600px) {
         grid-template-columns: repeat(3, 1fr);
