@@ -585,17 +585,6 @@ const VolatilityAnalyzer: React.FC = () => {
         return;
       }
 
-      // For manual trades, check conditions; for auto trades, execute based on analysis
-      if (tradeType === 'manual') {
-        const shouldTrade = checkTradingConditions(strategyId, data.data, condition);
-        if (!shouldTrade) {
-          console.log(`Trading conditions not met for ${strategyId}`);
-          alert(`Trading conditions not met for ${strategyId}. Check your condition settings.`);
-          return;
-        }
-        console.log(`✅ Trading conditions met for ${strategyId}, proceeding with trade`);
-      }
-
       // Initialize base stake for this strategy if not set
       if (!baseStakes[strategyId]) {
         setBaseStakes(prev => ({ ...prev, [strategyId]: stakeAmount }));
@@ -608,55 +597,132 @@ const VolatilityAnalyzer: React.FC = () => {
         Number((baseStake * Math.pow(martingaleAmount, currentStreak)).toFixed(2)) : 
         baseStake;
 
-      // Determine contract type based on strategy and current analysis
+      // Determine contract type and prediction based on strategy and manual/auto mode
       let contractType = '';
       let prediction: number | undefined;
       
-      switch (strategyId) {
-        case 'rise-fall':
-          contractType = parseFloat(data.data.riseRatio || '0') > parseFloat(data.data.fallRatio || '0') ? 'CALL' : 'PUT';
-          break;
-        case 'even-odd':
-        case 'even-odd-2':
-          const evenProb = parseFloat(data.data.evenProbability || '0');
-          const oddProb = parseFloat(data.data.oddProbability || '0');
-          if (lastOutcomeWasLoss[strategyId] && Math.abs(evenProb - oddProb) < 5) {
-            contractType = evenProb > oddProb ? 'DIGITODD' : 'DIGITEVEN';
-          } else {
-            contractType = evenProb > oddProb ? 'DIGITEVEN' : 'DIGITODD';
-          }
-          break;
-        case 'over-under':
-        case 'over-under-2':
-          const overProb = parseFloat(data.data.overProbability || '0');
-          const underProb = parseFloat(data.data.underProbability || '0');
-          const baseBarrier = data.data.barrier || 5;
-          if (lastOutcomeWasLoss[strategyId]) {
-            prediction = overProb > underProb ? Math.max(0, baseBarrier - 1) : Math.min(9, baseBarrier + 1);
-          } else {
-            prediction = baseBarrier;
-          }
-          contractType = overProb > underProb ? 'DIGITOVER' : 'DIGITUNDER';
-          break;
-        case 'matches-differs':
-          const matchProb = parseFloat(data.data.mostFrequentProbability || '0');
-          contractType = matchProb > 15 ? 'DIGITMATCH' : 'DIGITDIFF';
-          prediction = data.data.target;
-          break;
-        default:
-          console.error('Unknown strategy type');
+      if (tradeType === 'manual') {
+        // For manual trades, use trading conditions to determine trade direction
+        const conditionMet = checkTradingConditions(strategyId, data.data, condition);
+        if (!conditionMet) {
+          console.log(`Trading conditions not met for ${strategyId}`);
+          alert(`Trading conditions not met for ${strategyId}. Check your condition settings.`);
           return;
+        }
+        
+        console.log(`✅ Trading conditions met for ${strategyId}, proceeding with manual trade`);
+        
+        // Determine trade based on the condition that was met
+        switch (strategyId) {
+          case 'rise-fall':
+            if (condition.condition === 'Rise Prob') {
+              contractType = 'CALL';
+            } else if (condition.condition === 'Fall Prob') {
+              contractType = 'PUT';
+            } else {
+              // Default based on current analysis
+              contractType = parseFloat(data.data.riseRatio || '0') > parseFloat(data.data.fallRatio || '0') ? 'CALL' : 'PUT';
+            }
+            break;
+            
+          case 'even-odd':
+          case 'even-odd-2':
+            if (condition.condition === 'Even Prob') {
+              contractType = 'DIGITEVEN';
+            } else if (condition.condition === 'Odd Prob') {
+              contractType = 'DIGITODD';
+            } else {
+              // Default based on current analysis
+              const evenProb = parseFloat(data.data.evenProbability || '0');
+              const oddProb = parseFloat(data.data.oddProbability || '0');
+              contractType = evenProb > oddProb ? 'DIGITEVEN' : 'DIGITODD';
+            }
+            break;
+            
+          case 'over-under':
+          case 'over-under-2':
+            const baseBarrier = data.data.barrier || 5;
+            prediction = baseBarrier;
+            
+            if (condition.condition === 'Over Prob') {
+              contractType = 'DIGITOVER';
+            } else if (condition.condition === 'Under Prob') {
+              contractType = 'DIGITUNDER';
+            } else {
+              // Default based on current analysis
+              const overProb = parseFloat(data.data.overProbability || '0');
+              const underProb = parseFloat(data.data.underProbability || '0');
+              contractType = overProb > underProb ? 'DIGITOVER' : 'DIGITUNDER';
+            }
+            break;
+            
+          case 'matches-differs':
+            prediction = data.data.target;
+            
+            if (condition.condition === 'Matches Prob') {
+              contractType = 'DIGITMATCH';
+            } else if (condition.condition === 'Differs Prob') {
+              contractType = 'DIGITDIFF';
+            } else {
+              // Default based on current analysis
+              const matchProb = parseFloat(data.data.mostFrequentProbability || '0');
+              contractType = matchProb > 15 ? 'DIGITMATCH' : 'DIGITDIFF';
+            }
+            break;
+            
+          default:
+            console.error('Unknown strategy type for manual trade');
+            return;
+        }
+      } else {
+        // For auto trades, use existing logic based on analysis
+        switch (strategyId) {
+          case 'rise-fall':
+            contractType = parseFloat(data.data.riseRatio || '0') > parseFloat(data.data.fallRatio || '0') ? 'CALL' : 'PUT';
+            break;
+          case 'even-odd':
+          case 'even-odd-2':
+            const evenProb = parseFloat(data.data.evenProbability || '0');
+            const oddProb = parseFloat(data.data.oddProbability || '0');
+            if (lastOutcomeWasLoss[strategyId] && Math.abs(evenProb - oddProb) < 5) {
+              contractType = evenProb > oddProb ? 'DIGITODD' : 'DIGITEVEN';
+            } else {
+              contractType = evenProb > oddProb ? 'DIGITEVEN' : 'DIGITODD';
+            }
+            break;
+          case 'over-under':
+          case 'over-under-2':
+            const overProb = parseFloat(data.data.overProbability || '0');
+            const underProb = parseFloat(data.data.underProbability || '0');
+            const baseBarrier = data.data.barrier || 5;
+            if (lastOutcomeWasLoss[strategyId]) {
+              prediction = overProb > underProb ? Math.max(0, baseBarrier - 1) : Math.min(9, baseBarrier + 1);
+            } else {
+              prediction = baseBarrier;
+            }
+            contractType = overProb > underProb ? 'DIGITOVER' : 'DIGITUNDER';
+            break;
+          case 'matches-differs':
+            const matchProb = parseFloat(data.data.mostFrequentProbability || '0');
+            contractType = matchProb > 15 ? 'DIGITMATCH' : 'DIGITDIFF';
+            prediction = data.data.target;
+            break;
+          default:
+            console.error('Unknown strategy type for auto trade');
+            return;
+        }
       }
 
       console.log('Executing trade with params:', {
         strategy: strategyId,
+        tradeType,
         contractType,
         effectiveStake,
         prediction,
         lossStreak: currentStreak
       });
 
-      // Create proper trade option using the smart trader format
+      // Create proper trade option
       const trade_option: any = {
         amount: effectiveStake,
         basis: 'stake',
@@ -672,7 +738,7 @@ const VolatilityAnalyzer: React.FC = () => {
         trade_option.prediction = prediction;
       }
 
-      // Create buy request using the smart trader format
+      // Create buy request
       const buy_req = {
         buy: '1',
         price: trade_option.amount,
@@ -709,7 +775,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
       if (buy) {
         console.log('✅ Contract purchased successfully:', buy);
-        alert(`Contract purchased! ID: ${buy.contract_id}`);
+        alert(`${contractType} contract purchased! ID: ${buy.contract_id}, Amount: ${effectiveStake}`);
         
         // Track the contract outcome for martingale logic
         const contractId = buy.contract_id;
