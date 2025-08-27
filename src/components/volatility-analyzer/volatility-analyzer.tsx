@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
-import { tradingEngine } from './trading-engine';
 import './volatility-analyzer.scss';
 
 interface AnalysisData {
@@ -507,6 +506,57 @@ const VolatilityAnalyzer: React.FC = () => {
     return buy;
   };
 
+  // Add API instance for proper trading
+  const [tradingApi, setTradingApi] = useState<any>(null);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  // Initialize trading API
+  useEffect(() => {
+    const initTradingApi = async () => {
+      try {
+        const { generateDerivApiInstance, V2GetActiveToken } = await import('@/external/bot-skeleton/services/api/appId');
+        const api = generateDerivApiInstance();
+        setTradingApi(api);
+        
+        // Try to authorize if token is available
+        const token = V2GetActiveToken();
+        if (token) {
+          try {
+            const { authorize, error } = await api.authorize(token);
+            if (!error && authorize) {
+              setIsAuthorized(true);
+              console.log('✅ Trading API authorized successfully');
+            }
+          } catch (authError) {
+            console.log('Trading API not authorized yet, will authorize on first trade');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to initialize trading API:', error);
+      }
+    };
+
+    initTradingApi();
+  }, []);
+
+  const authorizeIfNeeded = async () => {
+    if (isAuthorized || !tradingApi) return;
+    
+    const { V2GetActiveToken } = await import('@/external/bot-skeleton/services/api/appId');
+    const token = V2GetActiveToken();
+    if (!token) {
+      throw new Error('No token found. Please log in and select an account.');
+    }
+    
+    const { authorize, error } = await tradingApi.authorize(token);
+    if (error) {
+      throw new Error(`Authorization error: ${error.message || error.code}`);
+    }
+    
+    setIsAuthorized(true);
+    console.log('✅ Trading API authorized successfully');
+  };
+
   const executeTrade = async (strategyId: string, tradeType: string) => {
     console.log(`Executing ${tradeType} trade for ${strategyId}`);
     
@@ -516,7 +566,16 @@ const VolatilityAnalyzer: React.FC = () => {
       return;
     }
 
+    if (!tradingApi) {
+      console.error('Trading API not initialized');
+      alert('Trading API not initialized. Please refresh the page.');
+      return;
+    }
+
     try {
+      // Authorize if needed
+      await authorizeIfNeeded();
+
       const data = analysisData[strategyId];
       const condition = tradingConditions[strategyId];
       
@@ -551,7 +610,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
       // Determine contract type based on strategy and current analysis
       let contractType = '';
-      let barrier: number | undefined;
+      let prediction: number | undefined;
       
       switch (strategyId) {
         case 'rise-fall':
@@ -573,16 +632,16 @@ const VolatilityAnalyzer: React.FC = () => {
           const underProb = parseFloat(data.data.underProbability || '0');
           const baseBarrier = data.data.barrier || 5;
           if (lastOutcomeWasLoss[strategyId]) {
-            barrier = overProb > underProb ? Math.max(0, baseBarrier - 1) : Math.min(9, baseBarrier + 1);
+            prediction = overProb > underProb ? Math.max(0, baseBarrier - 1) : Math.min(9, baseBarrier + 1);
           } else {
-            barrier = baseBarrier;
+            prediction = baseBarrier;
           }
           contractType = overProb > underProb ? 'DIGITOVER' : 'DIGITUNDER';
           break;
         case 'matches-differs':
           const matchProb = parseFloat(data.data.mostFrequentProbability || '0');
           contractType = matchProb > 15 ? 'DIGITMATCH' : 'DIGITDIFF';
-          barrier = data.data.target;
+          prediction = data.data.target;
           break;
         default:
           console.error('Unknown strategy type');
@@ -593,114 +652,128 @@ const VolatilityAnalyzer: React.FC = () => {
         strategy: strategyId,
         contractType,
         effectiveStake,
-        barrier,
+        prediction,
         lossStreak: currentStreak
       });
 
-      // Create proper proposal parameters
-      const proposalParams: any = {
+      // Create proper trade option using the smart trader format
+      const trade_option: any = {
         amount: effectiveStake,
         basis: 'stake',
-        contract_type: contractType,
+        contractTypes: [contractType],
         currency: 'USD',
-        symbol: selectedSymbol,
         duration: ticksAmount,
-        duration_unit: 't'
+        duration_unit: 't',
+        symbol: selectedSymbol,
       };
 
-      // Add barrier for digit contracts
-      if (barrier !== undefined) {
-        proposalParams.barrier = barrier;
+      // Add prediction for digit contracts
+      if (prediction !== undefined) {
+        trade_option.prediction = prediction;
       }
 
-      console.log('Sending proposal request with params:', proposalParams);
+      // Create buy request using the smart trader format
+      const buy_req = {
+        buy: '1',
+        price: trade_option.amount,
+        parameters: {
+          amount: trade_option.amount,
+          basis: trade_option.basis,
+          contract_type: contractType,
+          currency: trade_option.currency,
+          duration: trade_option.duration,
+          duration_unit: trade_option.duration_unit,
+          symbol: trade_option.symbol,
+        },
+      };
 
-      // Get proposal first
-      const proposalResponse = await tradingEngine.getProposal(proposalParams);
-      
-      if (proposalResponse.proposal) {
-        console.log('✅ Proposal received:', proposalResponse.proposal);
-        alert(`Proposal received! Price: ${proposalResponse.proposal.ask_price}`);
-        
-        // Buy the contract
-        const purchaseResponse = await tradingEngine.buyContract(
-          proposalResponse.proposal.id,
-          proposalResponse.proposal.ask_price
-        );
-        
-        if (purchaseResponse.buy) {
-          console.log('✅ Contract purchased successfully:', purchaseResponse.buy);
-          alert(`Contract purchased! ID: ${purchaseResponse.buy.contract_id}`);
-          
-          // Track the contract outcome for martingale logic
-          const contractId = purchaseResponse.buy.contract_id;
-          
-          // Subscribe to contract updates to track win/loss
-          try {
-            const contractStream = await tradingEngine.subscribeToContract(contractId);
-
-            if (contractStream && contractStream.subscription) {
-              // Listen for contract completion
-              const handleContractUpdate = (data: any) => {
-                if (data.proposal_open_contract && data.proposal_open_contract.contract_id === contractId) {
-                  const contract = data.proposal_open_contract;
-                  
-                  if (contract.is_sold || contract.status === 'sold') {
-                    const profit = Number(contract.profit || 0);
-                    const isWin = profit > 0;
-                    
-                    if (isWin) {
-                      setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: false }));
-                      setLossStreaks(prev => ({ ...prev, [strategyId]: 0 }));
-                    } else {
-                      setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
-                      setLossStreaks(prev => ({ 
-                        ...prev, 
-                        [strategyId]: Math.min((prev[strategyId] || 0) + 1, 10)
-                      }));
-                    }
-                    
-                    console.log(`Contract ${contractId} completed:`, {
-                      profit,
-                      isWin,
-                      newStreak: isWin ? 0 : (lossStreaks[strategyId] || 0) + 1
-                    });
-                  }
-                }
-              };
-
-              // Add temporary listener for this contract
-              const ws = tradingEngine.getWebSocket();
-              if (ws) {
-                const messageListener = (event: MessageEvent) => {
-                  try {
-                    const data = JSON.parse(event.data);
-                    if (data.msg_type === 'proposal_open_contract') {
-                      handleContractUpdate(data);
-                    }
-                  } catch (error) {
-                    console.error('Error parsing contract update:', error);
-                  }
-                };
-                ws.addEventListener('message', messageListener);
-                
-                // Clean up listener after 5 minutes
-                setTimeout(() => {
-                  ws.removeEventListener('message', messageListener);
-                }, 300000);
-              }
-            }
-          } catch (error) {
-            console.error('Error subscribing to contract updates:', error);
-          }
-          
-        } else {
-          console.error('❌ Purchase failed:', purchaseResponse);
-          alert(`Purchase failed: ${purchaseResponse.error?.message || 'Unknown error'}`);
+      // Add prediction parameters for digit contracts
+      if (trade_option.prediction !== undefined) {
+        if (!['TICKLOW', 'TICKHIGH'].includes(contractType)) {
+          buy_req.parameters.barrier = trade_option.prediction;
         }
-      } else {
-        console.error('❌ Proposal failed:', proposalResponse);
-        alert(`Proposal failed: ${proposalResponse.error?.message || 'Unknown error'}`);
+        buy_req.parameters.selected_tick = trade_option.prediction;
+      }
+
+      console.log('Sending buy request:', buy_req);
+
+      // Execute the trade
+      const { buy, error } = await tradingApi.buy(buy_req);
+      
+      if (error) {
+        console.error('❌ Purchase failed:', error);
+        alert(`Purchase failed: ${error.message || 'Unknown error'}`);
+        setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
+        return;
+      }
+
+      if (buy) {
+        console.log('✅ Contract purchased successfully:', buy);
+        alert(`Contract purchased! ID: ${buy.contract_id}`);
+        
+        // Track the contract outcome for martingale logic
+        const contractId = buy.contract_id;
+        
+        // Subscribe to contract updates to track win/loss
+        try {
+          const { subscription, error: subError } = await tradingApi.send({
+            proposal_open_contract: 1,
+            contract_id: contractId,
+            subscribe: 1,
+          });
+
+          if (subError) {
+            console.error('Error subscribing to contract:', subError);
+            return;
+          }
+
+          // Listen for contract completion
+          const handleContractUpdate = (evt: MessageEvent) => {
+            try {
+              const data = JSON.parse(evt.data);
+              if (data.msg_type === 'proposal_open_contract' && 
+                  data.proposal_open_contract &&
+                  String(data.proposal_open_contract.contract_id) === String(contractId)) {
+                
+                const contract = data.proposal_open_contract;
+                
+                if (contract.is_sold || contract.status === 'sold') {
+                  const profit = Number(contract.profit || 0);
+                  const isWin = profit > 0;
+                  
+                  if (isWin) {
+                    setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: false }));
+                    setLossStreaks(prev => ({ ...prev, [strategyId]: 0 }));
+                    console.log(`✅ Win! Profit: ${profit}`);
+                  } else {
+                    setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
+                    setLossStreaks(prev => ({ 
+                      ...prev, 
+                      [strategyId]: Math.min((prev[strategyId] || 0) + 1, 10)
+                    }));
+                    console.log(`❌ Loss! Profit: ${profit}`);
+                  }
+                  
+                  // Clean up listener
+                  tradingApi?.connection?.removeEventListener('message', handleContractUpdate);
+                }
+              }
+            } catch (error) {
+              console.error('Error parsing contract update:', error);
+            }
+          };
+
+          // Add listener for contract updates
+          tradingApi?.connection?.addEventListener('message', handleContractUpdate);
+          
+          // Clean up listener after 5 minutes
+          setTimeout(() => {
+            tradingApi?.connection?.removeEventListener('message', handleContractUpdate);
+          }, 300000);
+
+        } catch (error) {
+          console.error('Error subscribing to contract updates:', error);
+        }
       }
 
     } catch (error) {
