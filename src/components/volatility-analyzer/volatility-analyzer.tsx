@@ -568,17 +568,24 @@ const VolatilityAnalyzer: React.FC = () => {
   };
 
   const executeTrade = async (strategyId: string, tradeType: string) => {
-    console.log(`Executing ${tradeType} trade for ${strategyId}`);
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`[${timestamp}] 🚀 Executing ${tradeType} trade for ${strategyId}`);
     
     if (connectionStatus !== 'connected') {
-      console.error('Cannot trade: Not connected to API');
-      alert('Cannot trade: Not connected to API');
+      const errorMsg = 'Cannot trade: Not connected to API';
+      console.error(`[${timestamp}] ❌ ${errorMsg}`);
+      if (tradeType === 'manual') {
+        alert(errorMsg);
+      }
       return;
     }
 
     if (!tradingApi) {
-      console.error('Trading API not initialized');
-      alert('Trading API not initialized. Please refresh the page.');
+      const errorMsg = 'Trading API not initialized';
+      console.error(`[${timestamp}] ❌ ${errorMsg}`);
+      if (tradeType === 'manual') {
+        alert(errorMsg + '. Please refresh the page.');
+      }
       return;
     }
 
@@ -590,8 +597,11 @@ const VolatilityAnalyzer: React.FC = () => {
       const condition = tradingConditions[strategyId];
       
       if (!data?.data) {
-        console.error('No analysis data available for trading');
-        alert('No analysis data available for trading');
+        const errorMsg = 'No analysis data available for trading';
+        console.error(`[${timestamp}] ❌ ${errorMsg}`);
+        if (tradeType === 'manual') {
+          alert(errorMsg);
+        }
         return;
       }
 
@@ -784,8 +794,18 @@ const VolatilityAnalyzer: React.FC = () => {
       }
 
       if (buy) {
-        console.log('✅ Contract purchased successfully:', buy);
-        alert(`${contractType} contract purchased! ID: ${buy.contract_id}, Amount: ${effectiveStake}`);
+        console.log(`[${timestamp}] ✅ Contract purchased successfully for ${strategyId}:`, {
+          contractId: buy.contract_id,
+          contractType,
+          amount: effectiveStake,
+          tradeType,
+          prediction
+        });
+        
+        // Only show alert for manual trades to avoid spam during auto trading
+        if (tradeType === 'manual') {
+          alert(`${contractType} contract purchased! ID: ${buy.contract_id}, Amount: ${effectiveStake}`);
+        }
         
         // Track the contract outcome for martingale logic
         const contractId = buy.contract_id;
@@ -853,9 +873,19 @@ const VolatilityAnalyzer: React.FC = () => {
       }
 
     } catch (error) {
-      console.error('❌ Error executing trade:', error);
-      alert(`Trade execution error: ${error.message}`);
+      console.error(`[${timestamp}] ❌ Error executing ${tradeType} trade for ${strategyId}:`, error);
+      
+      // Only show alert for manual trades to avoid spam during auto trading
+      if (tradeType === 'manual') {
+        alert(`Trade execution error: ${error.message}`);
+      }
+      
       setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
+      
+      // For auto trading, log the error but don't stop the auto trading
+      if (tradeType === 'auto') {
+        console.log(`[${timestamp}] 🔄 Auto trading will continue for ${strategyId} despite this error`);
+      }
     }
   };
 
@@ -877,46 +907,73 @@ const VolatilityAnalyzer: React.FC = () => {
       [strategyId]: true
     }));
 
-    // Determine interval based on volatility symbol
-    let intervalMs = 3000; // Default 3 seconds to avoid too frequent trades
+    // Determine interval based on volatility symbol - shorter intervals for continuous trading
+    let intervalMs = 1500; // 1.5 seconds for faster response
     
-    // For 1s volatilities, use slightly faster interval
+    // For 1s volatilities, use even faster interval
     if (selectedSymbol.includes('1HZ')) {
-      intervalMs = 2000; // 2 seconds for 1s volatilities
+      intervalMs = 1000; // 1 second for 1s volatilities
     }
 
     console.log(`Starting auto trading for ${strategyId} with ${intervalMs}ms interval`);
 
+    // Create a ref to track the last trade time to prevent duplicate rapid trades
+    let lastTradeTime = 0;
+    const minTimeBetweenTrades = 3000; // Minimum 3 seconds between trades
+
     // Create trading interval that checks conditions continuously
     const interval = setInterval(async () => {
-      // Get current auto trading status (since closure might have stale state)
-      const currentAutoStatus = autoTradingStatus[strategyId];
-      
-      // Check if auto trading is still active and connected
-      if (!currentAutoStatus || connectionStatus !== 'connected') {
-        return;
-      }
-
-      const data = analysisData[strategyId];
-      const condition = tradingConditions[strategyId];
-
-      if (!data?.data) {
-        console.log(`No analysis data available for ${strategyId}`);
-        return;
-      }
-
-      // Check if trading conditions are met
-      const conditionsMet = checkTradingConditions(strategyId, data.data, condition);
-      
-      if (conditionsMet) {
-        console.log(`Auto trading conditions met for ${strategyId}, executing trade`);
-        try {
-          await executeTrade(strategyId, 'auto');
-        } catch (error) {
-          console.error(`Auto trade execution failed for ${strategyId}:`, error);
+      try {
+        // Use refs to get current state instead of closure
+        const currentTime = Date.now();
+        
+        // Check if enough time has passed since last trade
+        if (currentTime - lastTradeTime < minTimeBetweenTrades) {
+          return;
         }
-      } else {
-        console.log(`Auto trading conditions not met for ${strategyId}, waiting...`);
+
+        // Get current state directly from DOM or use a more reliable state check
+        const autoTradingButton = document.querySelector(`[data-strategy="${strategyId}"] .start-trading-btn`);
+        const isAutoTradingActive = autoTradingButton?.textContent?.includes('Stop Auto Trading');
+        
+        // Check if auto trading is still active and connected
+        if (!isAutoTradingActive || connectionStatus !== 'connected') {
+          console.log(`Auto trading stopped for ${strategyId} - Button state: ${autoTradingButton?.textContent}, Connection: ${connectionStatus}`);
+          return;
+        }
+
+        const data = analysisData[strategyId];
+        const condition = tradingConditions[strategyId];
+
+        if (!data?.data) {
+          console.log(`No analysis data available for ${strategyId}`);
+          return;
+        }
+
+        // Check if trading conditions are met with more robust checking
+        const conditionsMet = checkTradingConditions(strategyId, data.data, condition);
+        
+        if (conditionsMet) {
+          console.log(`🔥 Auto trading conditions met for ${strategyId}, executing trade`);
+          lastTradeTime = currentTime;
+          
+          try {
+            await executeTrade(strategyId, 'auto');
+            console.log(`✅ Auto trade executed successfully for ${strategyId}`);
+          } catch (error) {
+            console.error(`❌ Auto trade execution failed for ${strategyId}:`, error);
+            // Don't stop auto trading on individual trade failures
+          }
+        } else {
+          console.log(`⏳ Auto trading conditions not met for ${strategyId} - Current values:`, {
+            condition: condition.condition,
+            operator: condition.operator,
+            threshold: condition.value,
+            availableData: data.data
+          });
+        }
+      } catch (error) {
+        console.error(`Error in auto trading loop for ${strategyId}:`, error);
       }
     }, intervalMs);
 
@@ -926,8 +983,8 @@ const VolatilityAnalyzer: React.FC = () => {
       [strategyId]: interval
     }));
 
-    console.log(`Auto trading started for ${strategyId}`);
-    alert(`Auto trading started for ${strategyId}. Will trade when conditions are met.`);
+    console.log(`✅ Auto trading started for ${strategyId}`);
+    alert(`Auto trading started for ${strategyId}. Will continuously trade when conditions are met.`);
   };
 
   const stopAutoTrading = (strategyId: string) => {
@@ -953,19 +1010,8 @@ const VolatilityAnalyzer: React.FC = () => {
   const checkTradingConditions = (strategyId: string, data: any, condition: any) => {
     let currentValue = 0;
     
-    console.log('Checking trading conditions:', {
-      strategyId,
-      condition,
-      availableData: {
-        riseRatio: data.riseRatio,
-        fallRatio: data.fallRatio,
-        evenProbability: data.evenProbability,
-        oddProbability: data.oddProbability,
-        overProbability: data.overProbability,
-        underProbability: data.underProbability,
-        mostFrequentProbability: data.mostFrequentProbability
-      }
-    });
+    // More detailed logging for debugging
+    const timestamp = new Date().toLocaleTimeString();
     
     switch (condition.condition) {
       case 'Rise Prob':
@@ -993,14 +1039,19 @@ const VolatilityAnalyzer: React.FC = () => {
         currentValue = 100 - parseFloat(data.mostFrequentProbability || '0');
         break;
       default:
-        console.log('Unknown condition type:', condition.condition);
+        console.warn(`[${timestamp}] Unknown condition type for ${strategyId}:`, condition.condition);
         return false;
     }
 
-    // Validate that we have meaningful data
-    if (isNaN(currentValue) || currentValue === 0) {
-      console.log(`Invalid or zero value for ${condition.condition}:`, currentValue);
+    // Validate that we have meaningful data - but be less strict about zero values for some conditions
+    if (isNaN(currentValue)) {
+      console.warn(`[${timestamp}] Invalid value for ${strategyId} ${condition.condition}:`, currentValue);
       return false;
+    }
+
+    // Allow zero values but log them
+    if (currentValue === 0) {
+      console.log(`[${timestamp}] Zero value for ${strategyId} ${condition.condition} - this might be normal for some conditions`);
     }
 
     const result = (() => {
@@ -1012,17 +1063,20 @@ const VolatilityAnalyzer: React.FC = () => {
         case '=':
           return Math.abs(currentValue - condition.value) < 0.1;
         default:
+          console.warn(`[${timestamp}] Unknown operator for ${strategyId}:`, condition.operator);
           return false;
       }
     })();
 
-    console.log('Condition result:', {
+    // Enhanced logging with color coding
+    const logStyle = result ? '🟢' : '🔴';
+    console.log(`[${timestamp}] ${logStyle} Condition check for ${strategyId}:`, {
       condition: condition.condition,
-      currentValue,
+      currentValue: currentValue.toFixed(2),
       operator: condition.operator,
       threshold: condition.value,
-      result,
-      strategyId
+      result: result ? 'MET ✅' : 'NOT MET ❌',
+      formula: `${currentValue.toFixed(2)} ${condition.operator} ${condition.value}`
     });
 
     return result;
@@ -1180,7 +1234,7 @@ const VolatilityAnalyzer: React.FC = () => {
     const tradeOptions = getTradeOptions(strategyId);
 
     return (
-      <div className="trading-card" key={strategyId}>
+      <div className="trading-card" key={strategyId} data-strategy={strategyId}>
         <div className="card-header">
           <h3>{title}</h3>
         </div>
