@@ -37,7 +37,7 @@ const DashboardIcon = () => (
 
 const BotBuilderIcon = () => (
    <svg fill="var(--text-general)" width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-  <path fill-rule="evenodd" d="M20,9.85714286 L20,14.1428571 C20,15.2056811 19.0732946,16 18,16 L6,16 C4.92670537,16 4,15.2056811 4,14.1428571 L4,9.85714286 C4,8.79431889 4.92670537,8 6,8 L18,8 C19.0732946,8 20,8.79431889 20,9.85714286 Z M6,10 L6,14 L18,14 L18,10 L6,10 Z M2,19 L2,17 L22,17 L22,19 L2,19 Z M2,7 L2,5 L22,5 L22,7 L2,7 Z"/>
+  <path fillRule="evenodd" d="M20,9.85714286 L20,14.1428571 C20,15.2056811 19.0732946,16 18,16 L6,16 C4.92670537,16 4,15.2056811 4,14.1428571 L4,9.85714286 C4,8.79431889 4.92670537,8 6,8 L18,8 C19.0732946,8 20,8.79431889 20,9.85714286 Z M6,10 L6,14 L18,14 L18,10 L6,10 Z M2,19 L2,17 L22,17 L22,19 L2,19 Z M2,7 L2,5 L22,5 L22,7 L2,7 Z"/>
 </svg>
 );
 
@@ -64,7 +64,7 @@ const AnalysisToolIcon = () => (
 
 const SignalsIcon = () => (
     <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M8 6.00067L21 6.00139M8 12.0007L21 12.0015M8 18.0007L21 18.0015M3.5 6H3.51M3.5 12H3.51M3.5 18H3.51M4 6C4 6.27614 3.77614 6.5 3.5 6.5C3.22386 6.5 3 6.27614 3 6C3 5.72386 3.22386 5.5 3.5 5.5C3.77614 5.5 4 5.72386 4 6ZM4 12C4 12.2761 3.77614 12.5 3.5 12.5C3.22386 12.5 3 12.2761 3 12C3 11.7239 3.22386 11.5 3.5 11.5C3.77614 11.5 4 11.7239 4 12ZM4 18C4 18.2761 3.77614 18.5 3.5 18.5C3.22386 18.5 3 18.2761 3 18C3 17.7239 3.22386 17.5 3.5 17.5C3.77614 17.5 4 17.7239 4 18Z" stroke="var(--text-general)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M8 6.00067L21 6.00139M8 12.0007L21 12.0015M8 18.0007L21 18.0015M3.5 6H3.51M3.5 12H3.51M3.5 18H3.51M4 6C4 6.27614 3.77614 6.5 3.5 6.5C3.22386 6.5 3 6.27614 3 6C3 5.72386 3.22386 5.5 3.5 5.5C3.77614 5.5 4 5.72386 4 6ZM4 12C4 12.2761 3.77614 12.5 3.5 12.5C3.22386 12.5 3 12.2761 3 12C3 11.7239 3.22386 11.5 3.5 11.5C3.77614 11.5 4 11.7239 4 12ZM4 18C4 18.2761 3.77614 18.5 3.5 18.5C3.22386 18.5 3 18.2761 3 18C3 17.7239 3.22386 17.5 3.5 17.5C3.77614 17.5 4 17.7239 4 18Z" stroke="var(--text-general)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
 </svg>
 );
 
@@ -236,18 +236,24 @@ const AppWrapper = observer(() => {
                         continue;
                     }
 
+                    // Clean up XML content to fix common entity reference issues
+                    let cleanedText = text;
+                    // Fix common entity reference issues
+                    cleanedText = cleanedText.replace(/&(?![a-zA-Z0-9#][a-zA-Z0-9]*;)/g, '&amp;');
+                    
                     const parser = new DOMParser();
-                    const xml = parser.parseFromString(text, 'application/xml');
+                    const xml = parser.parseFromString(cleanedText, 'application/xml');
 
                     // Check if XML parsing was successful
                     const parseError = xml.getElementsByTagName('parsererror')[0];
                     if (parseError) {
                         console.warn(`XML parsing error for ${file}:`, parseError.textContent);
+                        // Try to load with original content anyway
                         loadedBots.push({
                             title: file.replace('.xml', ''),
                             image: 'default_image_path',
                             filePath: file,
-                            xmlContent: text, // Still include the content even if parsing failed
+                            xmlContent: cleanedText, // Use cleaned version
                             isPlaceholder: false
                         });
                         continue;
@@ -257,7 +263,7 @@ const AppWrapper = observer(() => {
                         title: file.replace('.xml', ''),
                         image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
                         filePath: file,
-                        xmlContent: text,
+                        xmlContent: cleanedText,
                         isPlaceholder: false
                     });
 
