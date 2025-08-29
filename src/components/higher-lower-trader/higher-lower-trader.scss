@@ -1,6 +1,468 @@
-// Higher Lower Trader styles are now handled by Tailwind CSS classes
-// This file is kept for any custom overrides if needed in the future
+
+@use 'components/shared/styles/mixins' as *;
 
 .higher-lower-trader {
-  // Component styles handled by Tailwind CSS
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+    background: var(--general-main-1);
+    border-radius: 8px;
+    box-shadow: var(--shadow-menu);
+    overflow: hidden;
+
+    &__container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    &__header {
+        background: linear-gradient(135deg, var(--brand-secondary), var(--brand-blue));
+        color: var(--text-colored-background);
+        padding: 1.6rem;
+        text-align: center;
+    }
+
+    &__title {
+        @include typeface(--paragraph-center-bold-black);
+        color: var(--text-colored-background);
+        margin: 0;
+    }
+
+    &__active-contract {
+        padding: 1.6rem;
+        border-bottom: 1px solid var(--border-normal);
+        background: var(--general-section-1);
+    }
+
+    &__contract-header {
+        @include flex-center(space-between);
+        margin-bottom: 1.2rem;
+    }
+
+    &__stop-btn {
+        padding: 0.4rem 1.2rem;
+        background: var(--button-secondary);
+        color: var(--text-colored-background);
+        border: none;
+        border-radius: 4px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.2s;
+
+        &:hover {
+            background: var(--button-secondary-hover);
+        }
+    }
+
+    &__contract-status {
+        @include typeface(--small-normal-black);
+        color: var(--text-general);
+    }
+
+    &__contract-info {
+        @include flex-center(flex-start);
+        gap: 0.8rem;
+        margin-bottom: 1.2rem;
+    }
+
+    &__contract-icon {
+        width: 3.2rem;
+        height: 3.2rem;
+        border-radius: 50%;
+        background: var(--general-section-2);
+        @include flex-center;
+    }
+
+    &__icon {
+        width: 1.6rem;
+        height: 1.6rem;
+
+        &--up {
+            color: var(--text-profit-success);
+        }
+
+        &--down {
+            color: var(--text-loss-danger);
+        }
+    }
+
+    &__symbol {
+        @include typeface(--paragraph-left-normal-black);
+        font-weight: 600;
+    }
+
+    &__contract-type {
+        @include typeface(--small-center-normal-black);
+        background: var(--general-section-2);
+        padding: 0.2rem 0.8rem;
+        border-radius: 12px;
+        font-size: 1rem;
+    }
+
+    &__progress {
+        margin-bottom: 1.2rem;
+    }
+
+    &__time-remaining {
+        @include typeface(--small-left-normal-black);
+        color: var(--text-less-prominent);
+        margin-bottom: 0.4rem;
+    }
+
+    &__progress-bar {
+        width: 100%;
+        height: 8px;
+        background: var(--general-section-2);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    &__progress-fill {
+        height: 100%;
+        background: var(--brand-secondary);
+        transition: width 1s ease-in-out;
+        border-radius: 4px;
+    }
+
+    &__contract-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.2rem;
+        margin-bottom: 1.2rem;
+    }
+
+    &__stat {
+        text-align: left;
+    }
+
+    &__stat-label {
+        @include typeface(--small-left-normal-black);
+        color: var(--text-less-prominent);
+        margin-bottom: 0.2rem;
+    }
+
+    &__stat-value {
+        @include typeface(--small-left-bold-black);
+
+        &--positive {
+            color: var(--text-profit-success);
+        }
+
+        &--negative {
+            color: var(--text-loss-danger);
+        }
+    }
+
+    &__sell-btn {
+        width: 100%;
+        padding: 0.8rem;
+        background: var(--general-section-2);
+        color: var(--text-general);
+        border: none;
+        border-radius: 4px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+
+        &:hover {
+            background: var(--general-hover);
+        }
+    }
+
+    &__setup {
+        padding: 1.6rem;
+    }
+
+    &__form {
+        display: flex;
+        flex-direction: column;
+        gap: 1.6rem;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+    }
+
+    &__label {
+        @include typeface(--small-left-bold-black);
+        margin-bottom: 0.8rem;
+        @include flex-center(flex-start);
+        gap: 0.4rem;
+    }
+
+    &__label-icon {
+        width: 1.6rem;
+        height: 1.6rem;
+    }
+
+    &__label--small {
+        @include typeface(--extra-small-left-bold-black);
+        margin-bottom: 0.4rem;
+    }
+
+    &__contract-buttons {
+        display: flex;
+        gap: 0.8rem;
+    }
+
+    &__contract-btn {
+        flex: 1;
+        padding: 0.8rem 1.2rem;
+        border: none;
+        border-radius: 4px;
+        @include typeface(--small-center-bold-black);
+        cursor: pointer;
+        transition: all 0.2s;
+        @include flex-center;
+        gap: 0.4rem;
+
+        &--active {
+            &.higher-lower-trader__contract-btn--call {
+                background: var(--text-profit-success);
+                color: var(--text-colored-background);
+            }
+
+            &.higher-lower-trader__contract-btn--put {
+                background: var(--text-loss-danger);
+                color: var(--text-colored-background);
+            }
+        }
+
+        &--inactive {
+            background: var(--general-section-2);
+            color: var(--text-general);
+
+            &:hover {
+                background: var(--general-hover);
+            }
+        }
+    }
+
+    &__btn-icon {
+        width: 1.6rem;
+        height: 1.6rem;
+    }
+
+    &__input {
+        width: 100%;
+        padding: 0.8rem 1.2rem;
+        border: 1px solid var(--border-normal);
+        border-radius: 4px;
+        background: var(--general-main-1);
+        color: var(--text-general);
+        @include typeface(--paragraph-left-normal-black);
+
+        &:focus {
+            outline: none;
+            border-color: var(--brand-secondary);
+            box-shadow: 0 0 0 2px rgba(var(--brand-secondary-rgb), 0.2);
+        }
+
+        &--small {
+            padding: 0.4rem 0.8rem;
+            @include typeface(--small-left-normal-black);
+        }
+    }
+
+    &__duration-inputs {
+        display: flex;
+        gap: 0.8rem;
+    }
+
+    &__duration-field {
+        flex: 1;
+    }
+
+    &__duration-label {
+        @include typeface(--extra-small-left-normal-black);
+        color: var(--text-less-prominent);
+        margin-top: 0.4rem;
+    }
+
+    &__duration-total {
+        @include typeface(--extra-small-left-normal-black);
+        color: var(--text-general);
+        margin-top: 0.4rem;
+    }
+
+    &__field-help {
+        @include typeface(--extra-small-left-normal-black);
+        color: var(--text-less-prominent);
+        margin-top: 0.4rem;
+    }
+
+    &__profit-stop {
+        border: 1px solid var(--border-normal);
+        border-radius: 4px;
+        padding: 1.2rem;
+    }
+
+    &__checkbox-field {
+        @include flex-center(flex-start);
+        gap: 0.8rem;
+        margin-bottom: 0.8rem;
+    }
+
+    &__checkbox {
+        width: 1.6rem;
+        height: 1.6rem;
+        accent-color: var(--brand-secondary);
+    }
+
+    &__checkbox-label {
+        @include typeface(--small-left-bold-black);
+        margin: 0;
+    }
+
+    &__target-profit {
+        display: flex;
+        flex-direction: column;
+    }
+
+    &__start-btn {
+        width: 100%;
+        padding: 1.2rem;
+        background: var(--brand-secondary);
+        color: var(--text-colored-background);
+        border: none;
+        border-radius: 4px;
+        @include typeface(--paragraph-center-bold-black);
+        cursor: pointer;
+        transition: background-color 0.2s;
+        @include flex-center;
+        gap: 0.8rem;
+
+        &:hover:not(:disabled) {
+            background: var(--brand-secondary-hover);
+        }
+
+        &:disabled {
+            background: var(--general-section-2);
+            color: var(--text-less-prominent);
+            cursor: not-allowed;
+        }
+    }
+
+    &__stats {
+        padding: 1.6rem;
+        background: var(--general-section-1);
+        border-top: 1px solid var(--border-normal);
+    }
+
+    &__stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.2rem;
+        margin-bottom: 1.6rem;
+    }
+
+    &__stat-item {
+        text-align: center;
+    }
+
+    &__reset-btn {
+        width: 100%;
+        padding: 0.8rem;
+        background: var(--general-section-2);
+        color: var(--text-general);
+        border: none;
+        border-radius: 4px;
+        @include typeface(--small-center-bold-black);
+        cursor: pointer;
+        transition: background-color 0.2s;
+
+        &:hover {
+            background: var(--general-hover);
+        }
+    }
+
+    &__price-display {
+        padding: 1.6rem;
+        background: var(--general-main-1);
+        border-top: 1px solid var(--border-normal);
+    }
+
+    &__price-section {
+        text-align: center;
+    }
+
+    &__price-label {
+        @include typeface(--extra-small-center-normal-black);
+        color: var(--text-less-prominent);
+        margin-bottom: 0.4rem;
+    }
+
+    &__current-price {
+        @include typeface(--header-left-bold-black);
+        font-size: 2.4rem;
+        color: var(--text-general);
+        margin-bottom: 0.4rem;
+    }
+
+    &__barrier-price {
+        @include typeface(--extra-small-center-normal-black);
+        color: var(--text-general);
+    }
+
+    &__controls {
+        padding: 1.6rem;
+        border-top: 1px solid var(--border-normal);
+    }
+
+    &__control-buttons {
+        display: flex;
+        gap: 0.8rem;
+    }
+
+    &__control-btn {
+        flex: 1;
+        padding: 0.8rem 1.2rem;
+        border: none;
+        border-radius: 4px;
+        @include typeface(--small-center-bold-black);
+        cursor: pointer;
+        transition: background-color 0.2s;
+        @include flex-center;
+        gap: 0.4rem;
+
+        &--stop {
+            background: var(--button-secondary);
+            color: var(--text-colored-background);
+
+            &:hover {
+                background: var(--button-secondary-hover);
+            }
+        }
+
+        &--sell {
+            background: var(--status-warning);
+            color: var(--text-colored-background);
+
+            &:hover {
+                opacity: 0.9;
+            }
+        }
+    }
+
+    @include mobile-screen {
+        max-width: none;
+        border-radius: 0;
+
+        &__stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        &__contract-stats {
+            grid-template-columns: 1fr;
+            gap: 0.8rem;
+        }
+
+        &__duration-inputs {
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+    }
 }

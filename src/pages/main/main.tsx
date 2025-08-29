@@ -25,6 +25,7 @@ import PercentageTool from '@/components/percentage-tool/percentage-tool';
 import VolatilityAnalyzer from '@/components/volatility-analyzer';
 import SmartTrader from '@/components/smart-trader';
 import MLTrader from '@/components/ml-trader';
+import HigherLowerTrader from '@/components/higher-lower-trader';
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
@@ -1282,7 +1283,7 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                {/* Higher and Lower content cleared */}
+                                <HigherLowerTrader />
                             </div>
                         </div>
                         <div label={<><AITraderIcon /><Localize i18n_default_text='AI Trader' /></>} id='id-ai-trader'>
