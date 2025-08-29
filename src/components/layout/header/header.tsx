@@ -228,7 +228,7 @@ const AppHeader = observer(() => {
                     {isToggled ? 'ON' : 'OFF'}
                 </button>
                 <div className='app-header__menu-left'>
-                        <MenuItems />
+                        <MenuItems.TradershubLink />
                         <MenuItems.RiskRewardLink />
                     </div>
             </Wrapper>

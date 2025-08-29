@@ -36,6 +36,25 @@ export const MenuItems = observer(() => {
     );
 });
 
+import React from 'react';
+import { MenuItem, Text } from '@deriv-com/ui';
+import { localize } from '@deriv-com/translations';
+
+const TRADERS_HUB_LINK_CONFIG = {
+    href: 'https://app.deriv.com/appstore/traders-hub',
+    label: localize('Trader\'s Hub'),
+    icon: null
+};
+
+const MenuItems = () => {
+    return (
+        <>
+            <TradershubLink />
+            <RiskRewardLink />
+        </>
+    );
+};
+
 export const TradershubLink = () => (
     <MenuItem
         as='a'
@@ -55,7 +74,7 @@ export const RiskRewardLink = () => (
         href='/risk-reward'
         key='risk-reward'
     >
-        <Text>Risk Reward</Text>
+        <Text>{localize('Risk Reward')}</Text>
     </MenuItem>
 );
 
