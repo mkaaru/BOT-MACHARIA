@@ -564,14 +564,15 @@ const SmartTrader = observer(() => {
     };
 
     const onRun = async () => {
-        setStatus('');
-        setIsRunning(true);
-        stopFlagRef.current = false;
-        run_panel.toggleDrawer(true);
-        run_panel.setActiveTabIndex(1); // Transactions tab index in run panel tabs
-        run_panel.run_id = `smart-${Date.now()}`;
-        run_panel.setIsRunning(true);
-        run_panel.setContractStage(contract_stages.STARTING);
+        try {
+            setStatus('');
+            setIsRunning(true);
+            stopFlagRef.current = false;
+            run_panel.toggleDrawer(true);
+            run_panel.setActiveTabIndex(1); // Transactions tab index in run panel tabs
+            run_panel.run_id = `smart-${Date.now()}`;
+            run_panel.setIsRunning(true);
+            run_panel.setContractStage(contract_stages.STARTING);
 
         try {
             let lossStreak = 0;
@@ -595,18 +596,22 @@ const SmartTrader = observer(() => {
                 // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
                 try {
                     const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
-                    transactions.onBotContractEvent({
-                        contract_id: buy?.contract_id,
-                        transaction_ids: { buy: buy?.transaction_id },
-                        buy_price: buy?.buy_price,
-                        currency: account_currency,
-                        contract_type: tradeType as any,
-                        underlying: symbol,
-                        display_name: symbol_display,
-                        date_start: Math.floor(Date.now() / 1000),
-                        status: 'open',
-                    } as any);
-                } catch {}
+                    if (transactions && typeof transactions.onBotContractEvent === 'function') {
+                        transactions.onBotContractEvent({
+                            contract_id: buy?.contract_id,
+                            transaction_ids: { buy: buy?.transaction_id },
+                            buy_price: buy?.buy_price,
+                            currency: account_currency,
+                            contract_type: tradeType as any,
+                            underlying: symbol,
+                            display_name: symbol_display,
+                            date_start: Math.floor(Date.now() / 1000),
+                            status: 'open',
+                        } as any);
+                    }
+                } catch (transactionError) {
+                    console.error('Error creating initial transaction row:', transactionError);
+                }
 
                 // Reflect stage immediately after successful buy
                 run_panel.setHasOpenContract(true);
@@ -634,58 +639,85 @@ const SmartTrader = observer(() => {
                     // Listen for subsequent streaming updates
                     const onMsg = (evt: MessageEvent) => {
                         try {
-                            const data = JSON.JSON.parse(evt.data as any);
+                            const data = JSON.parse(evt.data as any);
                             if (data?.msg_type === 'proposal_open_contract') {
                                 const poc = data.proposal_open_contract;
                                 // capture subscription id for later forget
                                 if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
                                 if (String(poc?.contract_id || '') === targetId) {
-                                    transactions.onBotContractEvent(poc);
-                                    run_panel.setHasOpenContract(true);
+                                    // Safely update transactions
+                                    try {
+                                        if (transactions && typeof transactions.onBotContractEvent === 'function') {
+                                            transactions.onBotContractEvent(poc);
+                                        }
+                                        if (run_panel && typeof run_panel.setHasOpenContract === 'function') {
+                                            run_panel.setHasOpenContract(true);
+                                        }
+                                    } catch (transactionUpdateError) {
+                                        console.error('Error updating transaction:', transactionUpdateError);
+                                    }
 
-                                    // Update contract tracking values
-                                    setCurrentProfit(Number(poc?.profit || 0));
-                                    setContractValue(Number(poc?.bid_price || 0));
-                                    setPotentialPayout(Number(poc?.payout || 0));
+                                    // Safely update contract tracking values
+                                    try {
+                                        setCurrentProfit(Number(poc?.profit || 0));
+                                        setContractValue(Number(poc?.bid_price || 0));
+                                        setPotentialPayout(Number(poc?.payout || 0));
+                                    } catch (stateUpdateError) {
+                                        console.error('Error updating contract state:', stateUpdateError);
+                                    }
 
                                     // Calculate remaining time
-                                    if (poc?.date_expiry && !poc?.is_sold) {
-                                        const now = Math.floor(Date.now() / 1000);
-                                        const expiry = Number(poc.date_expiry);
-                                        const remaining = Math.max(0, expiry - now);
-                                        const hours = Math.floor(remaining / 3600);
-                                        const minutes = Math.floor((remaining % 3600) / 60);
-                                        const seconds = remaining % 60;
-                                        setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+                                    try {
+                                        if (poc?.date_expiry && !poc?.is_sold) {
+                                            const now = Math.floor(Date.now() / 1000);
+                                            const expiry = Number(poc.date_expiry);
+                                            const remaining = Math.max(0, expiry - now);
+                                            const hours = Math.floor(remaining / 3600);
+                                            const minutes = Math.floor((remaining % 3600) / 60);
+                                            const seconds = remaining % 60;
+                                            setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+                                        }
+                                    } catch (timeError) {
+                                        console.error('Error calculating remaining time:', timeError);
                                     }
 
                                     if (poc?.is_sold || poc?.status === 'sold') {
-                                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
-                                        run_panel.setHasOpenContract(false);
-                                        if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
-                                        apiRef.current?.connection?.removeEventListener('message', onMsg);
-                                        const profit = Number(poc?.profit || 0);
-                                        if (profit > 0) {
-                                            lastOutcomeWasLossRef.current = false;
-                                            lossStreak = 0;
-                                            step = 0;
-                                            // Reset to base stake on win
-                                            setStake(baseStake);
-                                        } else {
-                                            lastOutcomeWasLossRef.current = true;
-                                            lossStreak++;
-                                            step = Math.min(step + 1, 10); // Cap at 10 steps to prevent excessive stake
+                                        try {
+                                            if (run_panel && typeof run_panel.setContractStage === 'function') {
+                                                run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                                                run_panel.setHasOpenContract(false);
+                                            }
+                                            if (pocSubId && apiRef.current?.forget) {
+                                                apiRef.current.forget({ forget: pocSubId });
+                                            }
+                                            if (apiRef.current?.connection?.removeEventListener) {
+                                                apiRef.current.connection.removeEventListener('message', onMsg);
+                                            }
+                                            const profit = Number(poc?.profit || 0);
+                                            if (profit > 0) {
+                                                lastOutcomeWasLossRef.current = false;
+                                                lossStreak = 0;
+                                                step = 0;
+                                                // Reset to base stake on win
+                                                setStake(baseStake);
+                                            } else {
+                                                lastOutcomeWasLossRef.current = true;
+                                                lossStreak++;
+                                                step = Math.min(step + 1, 10); // Cap at 10 steps to prevent excessive stake
+                                            }
+                                            // Reset contract values
+                                            setCurrentProfit(0);
+                                            setContractValue(0);
+                                            setPotentialPayout(0);
+                                            setContractDuration('00:00:00');
+                                        } catch (cleanupError) {
+                                            console.error('Error during contract cleanup:', cleanupError);
                                         }
-                                        // Reset contract values
-                                        setCurrentProfit(0);
-                                        setContractValue(0);
-                                        setPotentialPayout(0);
-                                        setContractDuration('00:00:00');
                                     }
                                 }
                             }
-                        } catch {
-                            // noop
+                        } catch (messageError) {
+                            console.error('Error processing contract message:', messageError);
                         }
                     };
                     apiRef.current?.connection?.addEventListener('message', onMsg);
@@ -720,12 +752,25 @@ const SmartTrader = observer(() => {
             console.error('Trading error:', error);
             setStatus(`Trading error: ${error.message || 'Unknown error'}`);
         } finally {
-            setIsRunning(false);
-            run_panel.setIsRunning(false);
-            run_panel.setHasOpenContract(false);
-            run_panel.setContractStage(contract_stages.NOT_RUNNING);
-
+            try {
+                setIsRunning(false);
+                if (run_panel && typeof run_panel.setIsRunning === 'function') {
+                    run_panel.setIsRunning(false);
+                }
+                if (run_panel && typeof run_panel.setHasOpenContract === 'function') {
+                    run_panel.setHasOpenContract(false);
+                }
+                if (run_panel && typeof run_panel.setContractStage === 'function') {
+                    run_panel.setContractStage(contract_stages.NOT_RUNNING);
+                }
+            } catch (cleanupError) {
+                console.error('Error during final cleanup:', cleanupError);
+            }
         }
+    } catch (initError: any) {
+        console.error('Error initializing trading:', initError);
+        setStatus(`Initialization error: ${initError.message || 'Unknown error'}`);
+        setIsRunning(false);
     };
 
     // --- Stop Trading Logic ---
@@ -787,9 +832,10 @@ const SmartTrader = observer(() => {
         console.log('Executing next trade...');
     };
 
-    return (
-        <div className='smart-trader'>
-            <div className='smart-trader__container'>
+    try {
+        return (
+            <div className='smart-trader'>
+                <div className='smart-trader__container'>
 
                 <div className='smart-trader__content'>
                     <div className='smart-trader__card'>
@@ -1092,8 +1138,32 @@ const SmartTrader = observer(() => {
                     </div>
                 </div>
             </div>
-        </div>
-    );
+            </div>
+        );
+    } catch (renderError) {
+        console.error('Smart Trader render error:', renderError);
+        return (
+            <div className='smart-trader'>
+                <div className='smart-trader__container'>
+                    <div className='smart-trader__content'>
+                        <div className='smart-trader__card'>
+                            <div className='smart-trader__status'>
+                                <Text size='s' color='loss-danger'>
+                                    {localize('An error occurred. Please refresh the page and try again.')}
+                                </Text>
+                                <button 
+                                    className='smart-trader__run' 
+                                    onClick={() => window.location.reload()}
+                                >
+                                    {localize('Refresh Page')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 });
 
 export default SmartTrader;
