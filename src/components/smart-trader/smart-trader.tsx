@@ -428,45 +428,25 @@ const SmartTrader = observer(() => {
 
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
-        
         const token = V2GetActiveToken();
         if (!token) {
-            const errorMsg = 'No token found. Please log in and select an account.';
-            setStatus(errorMsg);
-            throw new Error(errorMsg);
+            setStatus('No token found. Please log in and select an account.');
+            throw new Error('No token');
         }
-
+        const { authorize, error } = await apiRef.current.authorize(token);
+        if (error) {
+            setStatus(`Authorization error: ${error.message || error.code}`);
+            throw error;
+        }
+        setIsAuthorized(true);
+        const loginid = authorize?.loginid || V2GetActiveClientId();
+        setAccountCurrency(authorize?.currency || 'USD');
         try {
-            const response = await apiRef.current.send({ authorize: token });
-            if (response.error) {
-                const errorMsg = `Authorization error: ${response.error.message || response.error.code}`;
-                setStatus(errorMsg);
-                throw new Error(errorMsg);
-            }
-
-            const authorize = response.authorize;
-            if (!authorize) {
-                throw new Error('No authorization response received');
-            }
-
-            setIsAuthorized(true);
-            const loginid = authorize?.loginid || V2GetActiveClientId();
-            setAccountCurrency(authorize?.currency || 'USD');
-            
-            try {
-                // Sync Smart Trader auth state into shared ClientStore so Transactions store keys correctly by account
-                store?.client?.setLoginId?.(loginid || '');
-                store?.client?.setCurrency?.(authorize?.currency || 'USD');
-                store?.client?.setIsLoggedIn?.(true);
-            } catch (storeError) {
-                console.warn('Store sync error:', storeError);
-            }
-        } catch (error: any) {
-            console.error('Authorization error:', error);
-            const errorMsg = `Authorization failed: ${error.message || 'Unknown error'}`;
-            setStatus(errorMsg);
-            throw new Error(errorMsg);
-        }
+            // Sync Smart Trader auth state into shared ClientStore so Transactions store keys correctly by account
+            store?.client?.setLoginId?.(loginid || '');
+            store?.client?.setCurrency?.(authorize?.currency || 'USD');
+            store?.client?.setIsLoggedIn?.(true);
+        } catch {}
     };
 
     const stopTicks = () => {
@@ -558,20 +538,15 @@ const SmartTrader = observer(() => {
     const purchaseOnceWithStake = async (stakeAmount: number) => {
         await authorizeIfNeeded();
 
-        // Validate minimum stake
-        if (stakeAmount < 0.35) {
-            throw new Error('Minimum stake is 0.35');
-        }
-
         const trade_option: any = {
-            amount: Number(stakeAmount.toFixed(2)),
+            amount: Number(stakeAmount),
             basis: 'stake',
+            contractTypes: [tradeType],
             currency: account_currency,
             duration: durationType === 't' ? Number(ticks) : Number(duration),
             duration_unit: durationType,
             symbol,
         };
-
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
@@ -581,49 +556,11 @@ const SmartTrader = observer(() => {
             trade_option.barrier = barrier;
         }
 
-        // Create the buy request using proper structure
-        const buy_req = {
-            buy: '1',
-            price: trade_option.amount,
-            parameters: {
-                amount: trade_option.amount,
-                basis: trade_option.basis,
-                contract_type: tradeType,
-                currency: trade_option.currency,
-                duration: trade_option.duration,
-                duration_unit: trade_option.duration_unit,
-                symbol: trade_option.symbol,
-            },
-        };
-
-        // Add prediction/barrier based on trade type
-        if (trade_option.prediction !== undefined) {
-            if (['DIGITOVER', 'DIGITUNDER'].includes(tradeType)) {
-                buy_req.parameters.barrier = trade_option.prediction;
-            } else if (['DIGITMATCH', 'DIGITDIFF'].includes(tradeType)) {
-                buy_req.parameters.selected_tick = trade_option.prediction;
-            }
-        }
-
-        if (tradeType === 'CALL' || tradeType === 'PUT') {
-            buy_req.parameters.barrier = trade_option.barrier;
-        }
-
-        try {
-            const response = await apiRef.current.send(buy_req);
-            if (response.error) {
-                throw new Error(response.error.message || `API Error: ${response.error.code}`);
-            }
-            const buy = response.buy;
-            if (!buy) {
-                throw new Error('No buy response received');
-            }
-            setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
-            return buy;
-        } catch (error: any) {
-            console.error('Purchase error:', error);
-            throw new Error(`Purchase failed: ${error.message || 'Unknown error'}`);
-        }
+        const buy_req = tradeOptionToBuy(tradeType, trade_option);
+        const { buy, error } = await apiRef.current.buy(buy_req);
+        if (error) throw error;
+        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
+        return buy;
     };
 
     const onRun = async () => {
@@ -833,60 +770,12 @@ const SmartTrader = observer(() => {
 
     // --- Start Trading Logic ---
     const startTrading = () => {
-        // Validate trading parameters before starting
-        if (!apiRef.current) {
-            setStatus('API not initialized. Please refresh the page.');
-            return;
-        }
-
-        if (!symbol) {
-            setStatus('Please select a symbol');
-            return;
-        }
-
-        if (stake < 0.35) {
-            setStatus('Minimum stake is 0.35');
-            return;
-        }
-
-        if (durationType === 't' && (ticks < 1 || ticks > 10)) {
-            setStatus('Ticks must be between 1 and 10');
-            return;
-        }
-
-        if (durationType === 's' && (duration < 15 || duration > 86400)) {
-            setStatus('Duration in seconds must be between 15 and 86400');
-            return;
-        }
-
-        if (durationType === 'm' && (duration < 1 || duration > 1440)) {
-            setStatus('Duration in minutes must be between 1 and 1440');
-            return;
-        }
-
-        // Validate predictions for digit contracts
-        if ((tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER')) {
-            if (ouPredPreLoss < 0 || ouPredPreLoss > 9 || ouPredPostLoss < 0 || ouPredPostLoss > 9) {
-                setStatus('Predictions must be between 0 and 9');
-                return;
-            }
-        }
-
-        if ((tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF')) {
-            if (mdPrediction < 0 || mdPrediction > 9) {
-                setStatus('Prediction must be between 0 and 9');
-                return;
-            }
-        }
-
-        // Validate barrier for Higher/Lower
-        if ((tradeType === 'CALL' || tradeType === 'PUT') && !barrier) {
-            setStatus('Please enter a barrier value');
+        if (!apiRef.current) { // Check if API is initialized
+            setStatus('Please connect to API first');
             return;
         }
 
         setIsTrading(true);
-        setStatus('Starting trading...');
         // Call the actual trading logic
         onRun();
     };
