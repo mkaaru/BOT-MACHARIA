@@ -12,27 +12,6 @@ export const MenuItems = observer(() => {
     if (!store) return null;
     const { is_logged_in } = store.client;
 
-    const menu_items_config = [
-        {
-            id: 'dt_reports_tab',
-            icon: <LabelPairedFileChartColumnSmIcon />,
-            text: localize('Reports'),
-            link_to: '/reports',
-        },
-        {
-            id: 'dt_cashier_tab',
-            icon: <LabelPairedCircleDollarSmIcon />,
-            text: localize('Cashier'),
-            link_to: '/cashier',
-        },
-        {
-            id: 'dt_higher_lower_tab',
-            icon: <LabelPairedArrowUpArrowDownSmIcon />,
-            text: localize('Higher and Lower'),
-            link_to: '/higher-lower',
-        },
-    ];
-
     return (
         <>
             {is_logged_in &&
