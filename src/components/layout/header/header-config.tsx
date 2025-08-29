@@ -87,4 +87,10 @@ export const MenuItems: MenuItemsConfig[] = [
         icon: <CashierLogo iconSize='xs' />,
         label: localize('Cashier'),
     },
+    {
+        as: 'a',
+        href: '/higher-lower',
+        icon: <ReportsLogo iconSize='xs' />,
+        label: localize('Higher and Lower'),
+    },
 ];
