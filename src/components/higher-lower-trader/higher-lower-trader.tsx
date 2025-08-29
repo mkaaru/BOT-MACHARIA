@@ -363,8 +363,38 @@ const HigherLowerTrader = observer(() => {
         throw new Error('API connection lost. Please reconnect before trading.');
       }
 
-      // Get contract proposal with timeout
+      // Validate current price exists
+      if (!currentPrice || currentPrice <= 0) {
+        throw new Error('No valid current price available. Please wait for market data.');
+      }
+
+      // Calculate and validate barrier
       const duration = durationMinutes * 60 + durationSeconds;
+      let calculatedBarrier;
+      
+      try {
+        const barrierOffset = parseFloat(barrier.replace(/[+\-]/, ''));
+        const isPositive = barrier.startsWith('+');
+        
+        if (isNaN(barrierOffset)) {
+          throw new Error('Invalid barrier format');
+        }
+        
+        calculatedBarrier = isPositive ? 
+          (currentPrice + barrierOffset).toFixed(5) : 
+          (currentPrice - barrierOffset).toFixed(5);
+          
+        // Validate barrier is reasonable
+        const barrierValue = parseFloat(calculatedBarrier);
+        if (barrierValue <= 0) {
+          throw new Error('Barrier calculation resulted in invalid value');
+        }
+        
+      } catch (error) {
+        console.error('Barrier calculation error:', error);
+        throw new Error(`Invalid barrier: ${barrier}. Please use format like +0.37 or -0.25`);
+      }
+
       const proposalRequest = {
         proposal: 1,
         amount: stake,
@@ -374,7 +404,7 @@ const HigherLowerTrader = observer(() => {
         duration: duration,
         duration_unit: 's',
         symbol: selectedSymbol,
-        barrier: barrier
+        barrier: calculatedBarrier
       };
 
       console.log('Sending proposal request:', proposalRequest);
@@ -382,16 +412,39 @@ const HigherLowerTrader = observer(() => {
       const proposalResponse = await Promise.race([
         apiRef.current.send(proposalRequest),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Proposal request timeout')), 10000)
+          setTimeout(() => reject(new Error('Proposal request timeout')), 15000)
         )
       ]);
 
       if (proposalResponse.error) {
         console.error('Proposal error:', proposalResponse.error);
+        
+        // Handle specific error cases
+        if (proposalResponse.error.code === 'InvalidBarrier') {
+          throw new Error(`Invalid barrier for current market conditions. Try adjusting the barrier value.`);
+        } else if (proposalResponse.error.code === 'InvalidContract') {
+          throw new Error(`Contract not available for ${selectedSymbol}. Try a different symbol or parameters.`);
+        } else if (proposalResponse.error.code === 'PricesMoved') {
+          console.log('Prices moved, retrying with current price...');
+          // Wait a moment and retry once
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return executeTrade();
+        }
+        
         throw new Error(`Proposal failed: ${proposalResponse.error.message}`);
       }
 
       const proposal = proposalResponse.proposal;
+      
+      if (!proposal || !proposal.id) {
+        throw new Error('Invalid proposal response received');
+      }
+      
+      // Validate proposal has required fields
+      if (!proposal.ask_price || proposal.ask_price <= 0) {
+        throw new Error('Invalid proposal price received');
+      }
+      
       console.log('Proposal received:', proposal);
       
       // Buy the contract with timeout
@@ -865,6 +918,25 @@ const HigherLowerTrader = observer(() => {
               />
               <div className="input-hint">
                 Use + or - followed by the offset (e.g., +0.37, -0.25)
+                {currentPrice > 0 && barrier && (
+                  <div className="barrier-preview">
+                    {(() => {
+                      try {
+                        const barrierOffset = parseFloat(barrier.replace(/[+\-]/, ''));
+                        const isPositive = barrier.startsWith('+');
+                        if (!isNaN(barrierOffset)) {
+                          const targetPrice = isPositive ? 
+                            (currentPrice + barrierOffset).toFixed(5) : 
+                            (currentPrice - barrierOffset).toFixed(5);
+                          return `Target: ${targetPrice}`;
+                        }
+                      } catch (error) {
+                        return 'Invalid barrier format';
+                      }
+                      return '';
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -922,7 +994,11 @@ const HigherLowerTrader = observer(() => {
                 !isAuthorized || 
                 isTrading || 
                 connectionStatus !== 'connected' ||
-                availableSymbols.length === 0
+                availableSymbols.length === 0 ||
+                !barrier ||
+                !barrier.match(/^[+\-]\d+(\.\d+)?$/) ||
+                currentPrice <= 0 ||
+                stake < 0.35
               }
               className="btn-start"
             >
