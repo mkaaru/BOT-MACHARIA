@@ -3,7 +3,6 @@ import { observer } from 'mobx-react-lite';
 import { Play, Square, TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
 import { localize } from '@deriv-com/translations';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
-import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import './higher-lower-trader.scss';
 
@@ -79,33 +78,18 @@ const HigherLowerTrader = observer(() => {
         
         // Wait for connection
         await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('Connection timeout')), 15000);
+          const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
           
           api.connection.addEventListener('open', () => {
             clearTimeout(timeout);
             setConnectionStatus('connected');
-            console.log('API connection established');
             resolve(null);
           });
           
           api.connection.addEventListener('error', (error) => {
             clearTimeout(timeout);
             setConnectionStatus('error');
-            console.error('API connection error:', error);
             reject(error);
-          });
-
-          api.connection.addEventListener('close', (event) => {
-            console.log('API connection closed:', event.code, event.reason);
-            setConnectionStatus('disconnected');
-            
-            // Auto-reconnect if not manually closed
-            if (!stopFlagRef.current && event.code !== 1000) {
-              setTimeout(() => {
-                console.log('Attempting to reconnect...');
-                initializeApi();
-              }, 3000);
-            }
           });
         });
 
@@ -304,11 +288,6 @@ const HigherLowerTrader = observer(() => {
 
   const startTrading = async () => {
     try {
-      // Verify connection before starting
-      if (connectionStatus !== 'connected') {
-        throw new Error('Not connected to API. Please check your connection and try again.');
-      }
-
       if (!isAuthorized) {
         await authorizeAccount();
       }
@@ -322,42 +301,18 @@ const HigherLowerTrader = observer(() => {
       run_panel.setIsRunning(true);
 
       while (!stopFlagRef.current) {
-        try {
-          await executeTrade();
-          
-          if (stopOnProfit && totalProfitLoss >= targetProfit) {
-            console.log('Target profit reached, stopping trading');
-            break;
-          }
-          
-          // Wait for current contract to finish before starting next trade
-          while (currentContract && !stopFlagRef.current) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-          
-          // Additional delay between trades
-          if (!stopFlagRef.current) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          }
-        } catch (tradeError) {
-          console.error('Individual trade error:', tradeError);
-          
-          // If it's a critical error, stop trading
-          if (tradeError.message.includes('connection') || 
-              tradeError.message.includes('Authorization') ||
-              tradeError.message.includes('refresh')) {
-            console.log('Critical error detected, stopping trading');
-            break;
-          }
-          
-          // For other errors, wait and continue
-          await new Promise(resolve => setTimeout(resolve, 5000));
+        await executeTrade();
+        
+        if (stopOnProfit && totalProfitLoss >= targetProfit) {
+          break;
         }
+        
+        // Wait before next trade
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
       
     } catch (error) {
-      console.error('Trading initialization error:', error);
-      alert(`Trading failed to start: ${error.message}`);
+      console.error('Trading error:', error);
     } finally {
       setIsTrading(false);
       run_panel.setIsRunning(false);
@@ -366,44 +321,8 @@ const HigherLowerTrader = observer(() => {
 
   const executeTrade = async () => {
     try {
-      // Ensure we're still connected before executing trade
-      if (connectionStatus !== 'connected' || !apiRef.current) {
-        throw new Error('API connection lost. Please reconnect before trading.');
-      }
-
-      // Validate current price exists
-      if (!currentPrice || currentPrice <= 0) {
-        throw new Error('No valid current price available. Please wait for market data.');
-      }
-
-      // Calculate and validate barrier
+      // Get contract proposal
       const duration = durationMinutes * 60 + durationSeconds;
-      let calculatedBarrier;
-      
-      try {
-        // For Higher/Lower, we need to use the barrier as a relative offset
-        let barrierOffset = parseFloat(barrier.replace(/[+\-]/, ''));
-        const isPositive = barrier.startsWith('+');
-        
-        if (isNaN(barrierOffset)) {
-          throw new Error('Invalid barrier format');
-        }
-        
-        // For very small barriers, treat as percentage of current price
-        if (barrierOffset < 1 && barrierOffset > 0) {
-          const percentageOffset = (currentPrice * barrierOffset) / 100;
-          calculatedBarrier = isPositive ? 
-            `+${percentageOffset.toFixed(5)}` : 
-            `-${percentageOffset.toFixed(5)}`;
-        } else {
-          calculatedBarrier = isPositive ? `+${barrierOffset}` : `-${barrierOffset}`;
-        }
-        
-      } catch (error) {
-        console.error('Barrier calculation error:', error);
-        throw new Error(`Invalid barrier: ${barrier}. Please use format like +0.37 or -0.25`);
-      }
-
       const proposalRequest = {
         proposal: 1,
         amount: stake,
@@ -413,73 +332,29 @@ const HigherLowerTrader = observer(() => {
         duration: duration,
         duration_unit: 's',
         symbol: selectedSymbol,
-        barrier: calculatedBarrier
+        barrier: barrier
       };
 
-      console.log('Sending proposal request:', proposalRequest);
-      
-      const proposalResponse = await Promise.race([
-        apiRef.current.send(proposalRequest),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Proposal request timeout')), 15000)
-        )
-      ]);
-
+      const proposalResponse = await apiRef.current.send(proposalRequest);
       if (proposalResponse.error) {
-        console.error('Proposal error:', proposalResponse.error);
-        
-        // Handle specific error cases
-        if (proposalResponse.error.code === 'InvalidBarrier') {
-          throw new Error(`Invalid barrier for current market conditions. Try adjusting the barrier value.`);
-        } else if (proposalResponse.error.code === 'InvalidContract') {
-          throw new Error(`Contract not available for ${selectedSymbol}. Try a different symbol or parameters.`);
-        } else if (proposalResponse.error.code === 'PricesMoved') {
-          console.log('Prices moved, retrying with current price...');
-          // Wait a moment and retry once
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          return executeTrade();
-        }
-        
-        throw new Error(`Proposal failed: ${proposalResponse.error.message}`);
+        throw proposalResponse.error;
       }
 
       const proposal = proposalResponse.proposal;
       
-      if (!proposal || !proposal.id) {
-        throw new Error('Invalid proposal response received');
-      }
-      
-      // Validate proposal has required fields
-      if (!proposal.ask_price || proposal.ask_price <= 0) {
-        throw new Error('Invalid proposal price received');
-      }
-      
-      console.log('Proposal received:', proposal);
-      
-      // Buy the contract with timeout
+      // Buy the contract
       const buyRequest = {
         buy: proposal.id,
         price: proposal.ask_price
       };
 
-      console.log('Sending buy request:', buyRequest);
-
-      const buyResponse = await Promise.race([
-        apiRef.current.send(buyRequest),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Buy request timeout')), 15000)
-        )
-      ]);
-
+      const buyResponse = await apiRef.current.send(buyRequest);
       if (buyResponse.error) {
-        console.error('Buy error:', buyResponse.error);
-        throw new Error(`Trade execution failed: ${buyResponse.error.message}`);
+        throw buyResponse.error;
       }
 
       const contract = buyResponse.buy;
       const contractId = contract.contract_id;
-      
-      console.log('Trade executed successfully:', contract);
 
       // Update statistics
       setTotalStake(prev => prev + stake);
@@ -502,10 +377,6 @@ const HigherLowerTrader = observer(() => {
       setCurrentContract(contractData);
       setTimeRemaining(duration);
       setContractProgress(0);
-
-      // Update run panel status
-      run_panel.setHasOpenContract(true);
-      run_panel.setContractStage(contract_stages.PURCHASE_SENT);
 
       // Add to transactions
       try {
@@ -534,22 +405,6 @@ const HigherLowerTrader = observer(() => {
 
     } catch (error) {
       console.error('Trade execution error:', error);
-      
-      // Check if it's a connection issue
-      if (error.message.includes('connection') || error.message.includes('timeout')) {
-        setConnectionStatus('error');
-        
-        // Try to reconnect
-        try {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          await authorizeAccount();
-          setConnectionStatus('connected');
-        } catch (reconnectError) {
-          console.error('Reconnection failed:', reconnectError);
-          throw new Error('Connection lost during trade execution. Please refresh and try again.');
-        }
-      }
-      
       throw error;
     }
   };
@@ -620,10 +475,8 @@ const HigherLowerTrader = observer(() => {
 
     if (profit > 0) {
       setContractsWon(prev => prev + 1);
-      console.log(`✅ Contract won! Profit: ${profit.toFixed(2)} ${accountCurrency}`);
     } else {
       setContractsLost(prev => prev + 1);
-      console.log(`❌ Contract lost! Loss: ${profit.toFixed(2)} ${accountCurrency}`);
     }
 
     // Clear contract state
@@ -641,10 +494,6 @@ const HigherLowerTrader = observer(() => {
       apiRef.current.forget({ forget: contractStreamIdRef.current });
       contractStreamIdRef.current = null;
     }
-
-    // Update run panel status
-    run_panel.setHasOpenContract(false);
-    run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
   };
 
   const stopTrading = () => {
@@ -788,15 +637,6 @@ const HigherLowerTrader = observer(() => {
                 {isAuthorized && (
                   <span className="auth-status">• Authorized ({accountCurrency})</span>
                 )}
-                {connectionStatus === 'error' && (
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="btn-reconnect"
-                    style={{ marginLeft: '10px', padding: '4px 8px', fontSize: '12px' }}
-                  >
-                    Refresh Page
-                  </button>
-                )}
               </div>
             </div>
 
@@ -937,29 +777,6 @@ const HigherLowerTrader = observer(() => {
               />
               <div className="input-hint">
                 Use + or - followed by the offset (e.g., +0.37, -0.25)
-                {currentPrice > 0 && barrier && (
-                  <div className="barrier-preview">
-                    {(() => {
-                      try {
-                        let barrierOffset = parseFloat(barrier.replace(/[+\-]/, ''));
-                        const isPositive = barrier.startsWith('+');
-                        if (!isNaN(barrierOffset)) {
-                          // For small barriers, treat as percentage
-                          if (barrierOffset < 1 && barrierOffset > 0) {
-                            barrierOffset = (currentPrice * barrierOffset) / 100;
-                          }
-                          const targetPrice = isPositive ? 
-                            (currentPrice + barrierOffset).toFixed(5) : 
-                            (currentPrice - barrierOffset).toFixed(5);
-                          return `Target: ${targetPrice}`;
-                        }
-                      } catch (error) {
-                        return 'Invalid barrier format';
-                      }
-                      return '';
-                    })()}
-                  </div>
-                )}
               </div>
             </div>
 
@@ -1017,11 +834,7 @@ const HigherLowerTrader = observer(() => {
                 !isAuthorized || 
                 isTrading || 
                 connectionStatus !== 'connected' ||
-                availableSymbols.length === 0 ||
-                !barrier ||
-                !barrier.match(/^[+\-]\d+(\.\d+)?$/) ||
-                currentPrice <= 0 ||
-                stake < 0.35
+                availableSymbols.length === 0
               }
               className="btn-start"
             >
