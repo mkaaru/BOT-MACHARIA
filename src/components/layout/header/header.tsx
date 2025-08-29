@@ -210,74 +210,76 @@ const AppHeader = observer(() => {
     };
 
     return (
-        <Header
-            className={clsx('app-header', {
-                'app-header--desktop': isDesktop,
-                'app-header--mobile': !isDesktop,
-            })}
-        >
-            <Wrapper variant='left'>
-                <AppLogo />
-                <MobileMenu />
-                <InfoIcon />
-                <button
-                    className="app-header__toggle"
-                    onClick={handleToggle}
-                    aria-pressed={isToggled}
-                >
-                    {isToggled ? 'ON' : 'OFF'}
-                </button>
-                <MenuItems />
-                <CustomNotifications />
-                {client.loginid?.startsWith('CR') && (
+        <>
+            <Header
+                className={clsx('app-header', {
+                    'app-header--desktop': isDesktop,
+                    'app-header--mobile': !isDesktop,
+                })}
+            >
+                <Wrapper variant='left'>
+                    <AppLogo />
+                    <MobileMenu />
+                    <InfoIcon />
                     <button
-                        className='header__user-management-btn'
-                        onClick={() => setIsUserManagementOpen(true)}
-                        title='User Management'
+                        className="app-header__toggle"
+                        onClick={handleToggle}
+                        aria-pressed={isToggled}
                     >
-                        👥
+                        {isToggled ? 'ON' : 'OFF'}
                     </button>
-                )}
-                <PlatformSwitcher />
-            </Wrapper>
-            <Wrapper variant='right'>{renderAccountSection()}</Wrapper>
-
-            {isModalOpen && (
-                <Modal
-                    is_open={isModalOpen}
-                    toggleModal={() => setIsModalOpen(false)}
-                    title="Select Stake and Martingale"
-                >
-                    <div className="modal-content">
-                        <label>
-                            Stake:
-                            <input
-                                type="number"
-                                value={stake}
-                                onChange={e => setStake(e.target.value)}
-                                placeholder="Enter stake"
-                            />
-                        </label>
-                        <label>
-                            Martingale:
-                            <input
-                                type="number"
-                                value={martingale}
-                                onChange={e => setMartingale(e.target.value)}
-                                placeholder="Enter martingale"
-                            />
-                        </label>
-                        <button onClick={handleProceed} className="proceed-button">
-                            Proceed
+                    <MenuItems />
+                    <CustomNotifications />
+                    {client.loginid?.startsWith('CR') && (
+                        <button
+                            className='header__user-management-btn'
+                            onClick={() => setIsUserManagementOpen(true)}
+                            title='User Management'
+                        >
+                            👥
                         </button>
-                    </div>
-                </Modal>
-            )}
-        </Header>
-        <UserManagementModal
-            is_open={isUserManagementOpen}
-            onClose={() => setIsUserManagementOpen(false)}
-        />
+                    )}
+                    <PlatformSwitcher />
+                </Wrapper>
+                <Wrapper variant='right'>{renderAccountSection()}</Wrapper>
+
+                {isModalOpen && (
+                    <Modal
+                        is_open={isModalOpen}
+                        toggleModal={() => setIsModalOpen(false)}
+                        title="Select Stake and Martingale"
+                    >
+                        <div className="modal-content">
+                            <label>
+                                Stake:
+                                <input
+                                    type="number"
+                                    value={stake}
+                                    onChange={e => setStake(e.target.value)}
+                                    placeholder="Enter stake"
+                                />
+                            </label>
+                            <label>
+                                Martingale:
+                                <input
+                                    type="number"
+                                    value={martingale}
+                                    onChange={e => setMartingale(e.target.value)}
+                                    placeholder="Enter martingale"
+                                />
+                            </label>
+                            <button onClick={handleProceed} className="proceed-button">
+                                Proceed
+                            </button>
+                        </div>
+                    </Modal>
+                )}
+            </Header>
+            <UserManagementModal
+                is_open={isUserManagementOpen}
+                onClose={() => setIsUserManagementOpen(false)}
+            />
+        </>
     );
 });
 

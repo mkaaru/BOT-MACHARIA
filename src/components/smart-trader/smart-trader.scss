@@ -318,3 +318,212 @@
         font-family: 'IBM Plex Mono', monospace;
     }
 }
+@use 'components/shared/styles/mixins' as *;
+
+.smart-trader {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem;
+    background: var(--general-main-1);
+
+    &__title {
+        @include typeface(--title-center-bold-black, none);
+        margin-bottom: 2rem;
+        color: var(--text-prominent);
+    }
+
+    &__content {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        flex: 1;
+    }
+
+    &__config {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+
+        label {
+            @include typeface(--small-left-normal-black, none);
+            color: var(--text-general);
+        }
+
+        select, input {
+            padding: 0.8rem;
+            border: 1px solid var(--border-normal);
+            border-radius: 4px;
+            background: var(--general-main-1);
+            color: var(--text-prominent);
+            
+            &:focus {
+                outline: none;
+                border-color: var(--brand-red-coral);
+            }
+        }
+    }
+
+    &__market-data {
+        background: var(--general-section-1);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    &__trends {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    &__trend-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.8rem;
+        background: var(--general-main-1);
+        border-radius: 4px;
+        border: 1px solid var(--border-normal);
+    }
+
+    &__trend-label {
+        @include typeface(--small-left-normal-black, none);
+        color: var(--text-general);
+    }
+
+    &__trend-value {
+        @include typeface(--small-right-bold-black, none);
+        color: var(--text-prominent);
+    }
+
+    &__actions {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        margin-top: 2rem;
+    }
+
+    &__run, &__stop {
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 4px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    }
+
+    &__run {
+        background: var(--brand-red-coral);
+        color: white;
+
+        &:hover:not(:disabled) {
+            background: var(--brand-red-coral-2);
+        }
+    }
+
+    &__stop {
+        background: var(--status-danger);
+        color: white;
+
+        &:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+    }
+
+    &__status {
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 4px;
+        background: var(--general-section-1);
+    }
+
+    &__active-trade {
+        background: var(--general-section-2);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-top: 1rem;
+        border: 1px solid var(--border-normal);
+    }
+
+    &__trade-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    &__trade-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+    }
+
+    &__trade-values {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    &__value-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    &__sell-button {
+        background: var(--status-danger);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 0.8rem 1.5rem;
+        cursor: pointer;
+        font-weight: bold;
+
+        &:hover {
+            opacity: 0.9;
+        }
+    }
+
+    @include mobile-or-tablet-screen {
+        padding: 1rem;
+
+        &__config {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        &__trends {
+            grid-template-columns: 1fr;
+        }
+
+        &__actions {
+            flex-direction: column;
+        }
+
+        &__run, &__stop {
+            width: 100%;
+        }
+
+        &__trade-content {
+            flex-direction: column;
+            gap: 1rem;
+            align-items: stretch;
+        }
+    }
+}
