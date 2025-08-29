@@ -27,8 +27,8 @@ const HigherLowerTrader = () => {
   const [totalProfitLoss, setTotalProfitLoss] = useState(0);
 
   // Current price simulation
-  const [currentPrice, setCurrentPrice] = useState(1.27);
-  const [priceHistory, setPriceHistory] = useState([1.27]);
+  const [currentPrice, setCurrentPrice] = useState(1.22317);
+  const [priceHistory, setPriceHistory] = useState([1.22317]);
   
   const intervalRef = useRef(null);
   const contractTimerRef = useRef(null);
@@ -37,7 +37,7 @@ const HigherLowerTrader = () => {
   useEffect(() => {
     const priceInterval = setInterval(() => {
       setCurrentPrice(prev => {
-        const change = (Math.random() - 0.5) * 0.02;
+        const change = (Math.random() - 0.5) * 0.002;
         const newPrice = Math.max(0.1, prev + change);
         setPriceHistory(history => [...history.slice(-50), newPrice]);
         return newPrice;
@@ -218,7 +218,7 @@ const HigherLowerTrader = () => {
               </div>
               <div className="higher-lower-trader__stat">
                 <div className="higher-lower-trader__stat-label">Contract value:</div>
-                <div className="higher-lower-trader__stat-value">{currentPrice.toFixed(2)}</div>
+                <div className="higher-lower-trader__stat-value">{currentPrice.toFixed(5)}</div>
               </div>
               <div className="higher-lower-trader__stat">
                 <div className="higher-lower-trader__stat-label">Stake:</div>
@@ -251,9 +251,9 @@ const HigherLowerTrader = () => {
                 <div className="higher-lower-trader__contract-buttons">
                   <button
                     onClick={() => setContractType('CALL')}
-                    className={`higher-lower-trader__contract-btn ${
+                    className={`higher-lower-trader__contract-btn higher-lower-trader__contract-btn--call ${
                       contractType === 'CALL' 
-                        ? 'higher-lower-trader__contract-btn--active higher-lower-trader__contract-btn--call' 
+                        ? 'higher-lower-trader__contract-btn--active' 
                         : 'higher-lower-trader__contract-btn--inactive'
                     }`}
                   >
@@ -262,9 +262,9 @@ const HigherLowerTrader = () => {
                   </button>
                   <button
                     onClick={() => setContractType('PUT')}
-                    className={`higher-lower-trader__contract-btn ${
+                    className={`higher-lower-trader__contract-btn higher-lower-trader__contract-btn--put ${
                       contractType === 'PUT' 
-                        ? 'higher-lower-trader__contract-btn--active higher-lower-trader__contract-btn--put' 
+                        ? 'higher-lower-trader__contract-btn--active' 
                         : 'higher-lower-trader__contract-btn--inactive'
                     }`}
                   >
@@ -305,8 +305,8 @@ const HigherLowerTrader = () => {
                       max="59"
                       value={durationMinutes}
                       onChange={(e) => setDurationMinutes(parseInt(e.target.value) || 0)}
-                      className="higher-lower-trader__input"
-                      placeholder="Minutes"
+                      className="higher-lower-trader__input higher-lower-trader__input--small"
+                      placeholder="0"
                     />
                     <div className="higher-lower-trader__duration-label">Minutes</div>
                   </div>
@@ -317,8 +317,8 @@ const HigherLowerTrader = () => {
                       max="3600"
                       value={durationSeconds}
                       onChange={(e) => setDurationSeconds(parseInt(e.target.value) || 15)}
-                      className="higher-lower-trader__input"
-                      placeholder="Seconds"
+                      className="higher-lower-trader__input higher-lower-trader__input--small"
+                      placeholder="60"
                     />
                     <div className="higher-lower-trader__duration-label">Seconds</div>
                   </div>
@@ -347,38 +347,40 @@ const HigherLowerTrader = () => {
               </div>
 
               {/* Stop on Profit */}
-              <div className="higher-lower-trader__profit-stop">
-                <div className="higher-lower-trader__checkbox-field">
-                  <input
-                    id="stopOnProfit"
-                    type="checkbox"
-                    checked={stopOnProfit}
-                    onChange={(e) => setStopOnProfit(e.target.checked)}
-                    className="higher-lower-trader__checkbox"
-                  />
-                  <label htmlFor="stopOnProfit" className="higher-lower-trader__checkbox-label">
-                    Stop when in profit
-                  </label>
-                </div>
-                {stopOnProfit && (
-                  <div className="higher-lower-trader__target-profit">
-                    <label htmlFor="targetProfit" className="higher-lower-trader__label higher-lower-trader__label--small">
-                      Target Profit (USD)
-                    </label>
+              <div className="higher-lower-trader__field">
+                <div className="higher-lower-trader__profit-stop">
+                  <div className="higher-lower-trader__checkbox-field">
                     <input
-                      id="targetProfit"
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={targetProfit}
-                      onChange={(e) => setTargetProfit(parseFloat(e.target.value) || 0)}
-                      className="higher-lower-trader__input higher-lower-trader__input--small"
+                      id="stopOnProfit"
+                      type="checkbox"
+                      checked={stopOnProfit}
+                      onChange={(e) => setStopOnProfit(e.target.checked)}
+                      className="higher-lower-trader__checkbox"
                     />
+                    <label htmlFor="stopOnProfit" className="higher-lower-trader__checkbox-label">
+                      Stop when in profit
+                    </label>
                   </div>
-                )}
+                  {stopOnProfit && (
+                    <div className="higher-lower-trader__target-profit">
+                      <label htmlFor="targetProfit" className="higher-lower-trader__label--small">
+                        Target Profit (USD)
+                      </label>
+                      <input
+                        id="targetProfit"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        value={targetProfit}
+                        onChange={(e) => setTargetProfit(parseFloat(e.target.value) || 0)}
+                        className="higher-lower-trader__input higher-lower-trader__input--small"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Start/Stop Button */}
+              {/* Start Button */}
               <button
                 onClick={startTrading}
                 disabled={getTotalDuration() < 15}
