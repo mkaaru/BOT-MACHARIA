@@ -578,18 +578,19 @@ const SmartTrader = observer(() => {
             let step = 0;
             baseStake !== stake && setBaseStake(stake);
             while (!stopFlagRef.current) {
-                // Adjust stake and prediction based on prior outcomes (simple martingale)
-                const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
+                try {
+                    // Adjust stake and prediction based on prior outcomes (simple martingale)
+                    const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
 
-                const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
-                if (isOU) {
-                    lastOutcomeWasLossRef.current = lossStreak > 0;
-                }
+                    const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
+                    if (isOU) {
+                        lastOutcomeWasLossRef.current = lossStreak > 0;
+                    }
 
-                // Update UI stake display
-                setStake(effectiveStake);
+                    // Update UI stake display
+                    setStake(effectiveStake);
 
-                const buy = await purchaseOnceWithStake(effectiveStake);
+                    const buy = await purchaseOnceWithStake(effectiveStake);
 
                 // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
                 try {
@@ -694,10 +695,10 @@ const SmartTrader = observer(() => {
                 }
 
                 // Wait minimally between purchases: we'll wait for ticks duration completion by polling poc completion
-                // Simple delay to prevent spamming if API rejects immediate buy loop
-                await new Promise(res => setTimeout(res, 500));
-            }
-        } catch (contractError: any) {
+                    // Simple delay to prevent spamming if API rejects immediate buy loop
+                    await new Promise(res => setTimeout(res, 500));
+
+                } catch (contractError: any) {
                     console.error('Contract execution error:', contractError);
                     setStatus(`Contract error: ${contractError.message || 'Failed to execute contract'}`);
 
@@ -711,9 +712,14 @@ const SmartTrader = observer(() => {
                         continue;
                     } else {
                         // For other errors, stop trading
-                        throw contractError;
+                        break;
                     }
-                } finally {
+                }
+            }
+        } catch (error: any) {
+            console.error('Trading error:', error);
+            setStatus(`Trading error: ${error.message || 'Unknown error'}`);
+        } finally {
             setIsRunning(false);
             run_panel.setIsRunning(false);
             run_panel.setHasOpenContract(false);
