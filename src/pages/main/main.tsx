@@ -23,7 +23,7 @@ import RunStrategy from '../dashboard/run-strategy';
 import AnalysistoolComponent from '@/components/analysistool/analysis';
 import PercentageTool from '@/components/percentage-tool/percentage-tool';
 import VolatilityAnalyzer from '@/components/volatility-analyzer';
-import SmartTrader from '@/components/smart-trader';
+import SmartTrader from '@/components/shared/smart-trader';
 import MLTrader from '@/components/ml-trader';
 
 const Chart = lazy(() => import('../chart'));
