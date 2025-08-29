@@ -61,11 +61,17 @@ const getDefaultServerURL = () => {
 };
 
 export const getDefaultAppIdAndUrl = () => {
-    const server_url = getDefaultServerURL();
-    const current_domain = getCurrentProductionDomain() ?? '';
-    const app_id = domain_app_ids[current_domain as keyof typeof domain_app_ids] ?? APP_IDS.LIVE;
+    const current_domain = getCurrentProductionDomain();
+    return {
+        app_id: getAppId(),
+        server_url: `wss://${current_domain}/websockets/v3?app_id=${getAppId()}&l=${getLanguage()}&brand=deriv`,
+    };
+};
 
-    return { app_id, server_url };
+export const getOAuthCallbackURL = () => {
+    const current_domain = getCurrentProductionDomain();
+    const protocol = window.location.protocol;
+    return `${protocol}//${current_domain}/callback`;
 };
 
 export const getAppId = () => {
@@ -132,3 +138,6 @@ export const generateOAuthURL = () => {
 
     return original_url.toString();
 };
+
+// Dummy getLanguage function to avoid build errors
+const getLanguage = () => 'en';
