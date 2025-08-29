@@ -78,18 +78,33 @@ const HigherLowerTrader = observer(() => {
         
         // Wait for connection
         await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
+          const timeout = setTimeout(() => reject(new Error('Connection timeout')), 15000);
           
           api.connection.addEventListener('open', () => {
             clearTimeout(timeout);
             setConnectionStatus('connected');
+            console.log('API connection established');
             resolve(null);
           });
           
           api.connection.addEventListener('error', (error) => {
             clearTimeout(timeout);
             setConnectionStatus('error');
+            console.error('API connection error:', error);
             reject(error);
+          });
+
+          api.connection.addEventListener('close', (event) => {
+            console.log('API connection closed:', event.code, event.reason);
+            setConnectionStatus('disconnected');
+            
+            // Auto-reconnect if not manually closed
+            if (!stopFlagRef.current && event.code !== 1000) {
+              setTimeout(() => {
+                console.log('Attempting to reconnect...');
+                initializeApi();
+              }, 3000);
+            }
           });
         });
 
@@ -288,6 +303,11 @@ const HigherLowerTrader = observer(() => {
 
   const startTrading = async () => {
     try {
+      // Verify connection before starting
+      if (connectionStatus !== 'connected') {
+        throw new Error('Not connected to API. Please check your connection and try again.');
+      }
+
       if (!isAuthorized) {
         await authorizeAccount();
       }
@@ -301,18 +321,35 @@ const HigherLowerTrader = observer(() => {
       run_panel.setIsRunning(true);
 
       while (!stopFlagRef.current) {
-        await executeTrade();
-        
-        if (stopOnProfit && totalProfitLoss >= targetProfit) {
-          break;
+        try {
+          await executeTrade();
+          
+          if (stopOnProfit && totalProfitLoss >= targetProfit) {
+            console.log('Target profit reached, stopping trading');
+            break;
+          }
+          
+          // Wait before next trade
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        } catch (tradeError) {
+          console.error('Individual trade error:', tradeError);
+          
+          // If it's a critical error, stop trading
+          if (tradeError.message.includes('connection') || 
+              tradeError.message.includes('Authorization') ||
+              tradeError.message.includes('refresh')) {
+            console.log('Critical error detected, stopping trading');
+            break;
+          }
+          
+          // For other errors, wait and continue
+          await new Promise(resolve => setTimeout(resolve, 5000));
         }
-        
-        // Wait before next trade
-        await new Promise(resolve => setTimeout(resolve, 2000));
       }
       
     } catch (error) {
-      console.error('Trading error:', error);
+      console.error('Trading initialization error:', error);
+      alert(`Trading failed to start: ${error.message}`);
     } finally {
       setIsTrading(false);
       run_panel.setIsRunning(false);
@@ -321,7 +358,12 @@ const HigherLowerTrader = observer(() => {
 
   const executeTrade = async () => {
     try {
-      // Get contract proposal
+      // Ensure we're still connected before executing trade
+      if (connectionStatus !== 'connected' || !apiRef.current) {
+        throw new Error('API connection lost. Please reconnect before trading.');
+      }
+
+      // Get contract proposal with timeout
       const duration = durationMinutes * 60 + durationSeconds;
       const proposalRequest = {
         proposal: 1,
@@ -335,26 +377,47 @@ const HigherLowerTrader = observer(() => {
         barrier: barrier
       };
 
-      const proposalResponse = await apiRef.current.send(proposalRequest);
+      console.log('Sending proposal request:', proposalRequest);
+      
+      const proposalResponse = await Promise.race([
+        apiRef.current.send(proposalRequest),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Proposal request timeout')), 10000)
+        )
+      ]);
+
       if (proposalResponse.error) {
-        throw proposalResponse.error;
+        console.error('Proposal error:', proposalResponse.error);
+        throw new Error(`Proposal failed: ${proposalResponse.error.message}`);
       }
 
       const proposal = proposalResponse.proposal;
+      console.log('Proposal received:', proposal);
       
-      // Buy the contract
+      // Buy the contract with timeout
       const buyRequest = {
         buy: proposal.id,
         price: proposal.ask_price
       };
 
-      const buyResponse = await apiRef.current.send(buyRequest);
+      console.log('Sending buy request:', buyRequest);
+
+      const buyResponse = await Promise.race([
+        apiRef.current.send(buyRequest),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Buy request timeout')), 15000)
+        )
+      ]);
+
       if (buyResponse.error) {
-        throw buyResponse.error;
+        console.error('Buy error:', buyResponse.error);
+        throw new Error(`Trade execution failed: ${buyResponse.error.message}`);
       }
 
       const contract = buyResponse.buy;
       const contractId = contract.contract_id;
+      
+      console.log('Trade executed successfully:', contract);
 
       // Update statistics
       setTotalStake(prev => prev + stake);
@@ -405,6 +468,22 @@ const HigherLowerTrader = observer(() => {
 
     } catch (error) {
       console.error('Trade execution error:', error);
+      
+      // Check if it's a connection issue
+      if (error.message.includes('connection') || error.message.includes('timeout')) {
+        setConnectionStatus('error');
+        
+        // Try to reconnect
+        try {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          await authorizeAccount();
+          setConnectionStatus('connected');
+        } catch (reconnectError) {
+          console.error('Reconnection failed:', reconnectError);
+          throw new Error('Connection lost during trade execution. Please refresh and try again.');
+        }
+      }
+      
       throw error;
     }
   };
@@ -636,6 +715,15 @@ const HigherLowerTrader = observer(() => {
                 </span>
                 {isAuthorized && (
                   <span className="auth-status">• Authorized ({accountCurrency})</span>
+                )}
+                {connectionStatus === 'error' && (
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="btn-reconnect"
+                    style={{ marginLeft: '10px', padding: '4px 8px', fontSize: '12px' }}
+                  >
+                    Refresh Page
+                  </button>
                 )}
               </div>
             </div>
