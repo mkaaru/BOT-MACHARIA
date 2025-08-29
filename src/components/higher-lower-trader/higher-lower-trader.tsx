@@ -937,6 +937,6 @@ const HigherLowerTrader = observer(() => {
       )}
     </div>
   );
-};
+});
 
 export default HigherLowerTrader;
