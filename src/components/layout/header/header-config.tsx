@@ -95,7 +95,7 @@ export const MenuItems: MenuItemsConfig[] = [
     {
         as: 'a',
         href: '/higher-lower',
-        icon: <ReportsLogo iconSize='xs' />,
+        icon: <LabelPairedArrowUpArrowDownSmIcon />,
         label: localize('Higher and Lower'),
     },
 ];
