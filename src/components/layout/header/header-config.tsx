@@ -12,7 +12,7 @@ import {
 } from '@deriv/quill-icons/Logo';
 import { localize } from '@deriv-com/translations';
 import {
-    LabelPairedArrowUpArrowDownSmIcon,
+    LabelPairedArrowUpArrowDownSmRegularIcon,
     LabelPairedCircleDollarSmIcon,
     LabelPairedFileChartColumnSmIcon,
 } from '@deriv/quill-icons';
@@ -95,7 +95,7 @@ export const MenuItems: MenuItemsConfig[] = [
     {
         as: 'a',
         href: '/higher-lower',
-        icon: <LabelPairedArrowUpArrowDownSmIcon />,
+        icon: <LabelPairedArrowUpArrowDownSmRegularIcon />,
         label: localize('Higher and Lower'),
     },
 ];
