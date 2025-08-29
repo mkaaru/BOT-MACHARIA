@@ -24,7 +24,7 @@ export const domain_app_ids = {
     'dbot.deriv.com': APP_IDS.PRODUCTION,
     'dbot.deriv.be': APP_IDS.PRODUCTION_BE,
     'dbot.deriv.me': APP_IDS.PRODUCTION_ME,
-    'bot.derivlite.com': APP_IDS.LIVE, // ✅ Added support for your domain
+    'www.tradecortex.site': APP_IDS.LIVE, // ✅ Updated to use www.tradecortex.site
 };
 
 export const getCurrentProductionDomain = () =>
