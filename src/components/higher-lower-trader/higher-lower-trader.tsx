@@ -1,599 +1,473 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { observer } from 'mobx-react-lite';
-import Text from '@/components/shared_ui/text';
-import { localize } from '@deriv-com/translations';
-import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
-import { contract_stages } from '@/constants/contract-stage';
-import { useStore } from '@/hooks/useStore';
-import './higher-lower-trader.scss';
+import { Play, Square, TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
 
-const HigherLowerTrader = observer(() => {
-    const store = useStore();
-    const { run_panel, transactions } = store;
+const HigherLowerTrader = () => {
+  // Trading parameters
+  const [stake, setStake] = useState(1.5);
+  const [durationMinutes, setDurationMinutes] = useState(0);
+  const [durationSeconds, setDurationSeconds] = useState(60);
+  const [barrier, setBarrier] = useState('+0.37');
+  const [contractType, setContractType] = useState('CALL'); // CALL for Higher, PUT for Lower
+  const [stopOnProfit, setStopOnProfit] = useState(false);
+  const [targetProfit, setTargetProfit] = useState(5.0);
 
-    const apiRef = useRef<any>(null);
-    const contractTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Trading state
+  const [isTrading, setIsTrading] = useState(false);
+  const [currentContract, setCurrentContract] = useState(null);
+  const [contractProgress, setContractProgress] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(0);
 
-    // Trading parameters
-    const [stake, setStake] = useState(1.5);
-    const [durationMinutes, setDurationMinutes] = useState(0);
-    const [durationSeconds, setDurationSeconds] = useState(60);
-    const [barrier, setBarrier] = useState('+0.37');
-    const [contractType, setContractType] = useState('CALL'); // CALL for Higher, PUT for Lower
-    const [stopOnProfit, setStopOnProfit] = useState(false);
-    const [targetProfit, setTargetProfit] = useState(5.0);
-    const [symbol, setSymbol] = useState('R_100'); // Volatility 100 Index
+  // Mock trading data
+  const [totalStake, setTotalStake] = useState(0);
+  const [totalPayout, setTotalPayout] = useState(0);
+  const [totalRuns, setTotalRuns] = useState(0);
+  const [contractsWon, setContractsWon] = useState(0);
+  const [contractsLost, setContractsLost] = useState(0);
+  const [totalProfitLoss, setTotalProfitLoss] = useState(0);
 
-    // Trading state
-    const [isTrading, setIsTrading] = useState(false);
-    const [currentContract, setCurrentContract] = useState<any>(null);
-    const [contractProgress, setContractProgress] = useState(0);
-    const [timeRemaining, setTimeRemaining] = useState(0);
+  // Current price simulation
+  const [currentPrice, setCurrentPrice] = useState(1.27);
+  const [priceHistory, setPriceHistory] = useState([1.27]);
 
-    // Authentication state
-    const [isAuthorized, setIsAuthorized] = useState(false);
-    const [accountCurrency, setAccountCurrency] = useState('USD');
+  const intervalRef = useRef(null);
+  const contractTimerRef = useRef(null);
 
-    // Statistics
-    const [totalStake, setTotalStake] = useState(0);
-    const [totalPayout, setTotalPayout] = useState(0);
-    const [totalRuns, setTotalRuns] = useState(0);
-    const [contractsWon, setContractsWon] = useState(0);
-    const [contractsLost, setContractsLost] = useState(0);
-    const [totalProfitLoss, setTotalProfitLoss] = useState(0);
+  // Simulate price movement
+  useEffect(() => {
+    const priceInterval = setInterval(() => {
+      setCurrentPrice(prev => {
+        const change = (Math.random() - 0.5) * 0.02;
+        const newPrice = Math.max(0.1, prev + change);
+        setPriceHistory(history => [...history.slice(-50), newPrice]);
+        return newPrice;
+      });
+    }, 1000);
 
-    // Current price
-    const [currentPrice, setCurrentPrice] = useState<number>(0);
-    const [priceHistory, setPriceHistory] = useState<number[]>([]);
+    return () => clearInterval(priceInterval);
+  }, []);
 
-    const [status, setStatus] = useState('Ready to trade');
+  const startTrading = () => {
+    setIsTrading(true);
+    setCurrentContract({
+      id: `contract_${Date.now()}`,
+      type: contractType,
+      stake: stake,
+      barrier: parseFloat(barrier),
+      entryPrice: currentPrice,
+      startTime: Date.now(),
+      duration: durationMinutes * 60 + durationSeconds,
+      status: 'active'
+    });
 
-    // Initialize API connection
-    useEffect(() => {
-        const api = generateDerivApiInstance();
-        apiRef.current = api;
+    // Start contract timer
+    const duration = durationMinutes * 60 + durationSeconds;
+    setTimeRemaining(duration);
+    setContractProgress(0);
 
-        // Subscribe to price updates
-        const subscribeTicks = async () => {
-            try {
-                const { subscription } = await api.send({ 
-                    ticks: symbol, 
-                    subscribe: 1 
-                });
-
-                const onMessage = (event: MessageEvent) => {
-                    try {
-                        const data = JSON.parse(event.data);
-                        if (data.tick && data.tick.symbol === symbol) {
-                            const price = parseFloat(data.tick.quote);
-                            setCurrentPrice(price);
-                            setPriceHistory(prev => [...prev.slice(-50), price]);
-                        }
-                    } catch (error) {
-                        console.error('Error parsing tick data:', error);
-                    }
-                };
-
-                api.connection?.addEventListener('message', onMessage);
-
-                return () => {
-                    api.connection?.removeEventListener('message', onMessage);
-                };
-            } catch (error) {
-                console.error('Error subscribing to ticks:', error);
-                setStatus('Failed to connect to price feed');
-            }
-        };
-
-        subscribeTicks();
-
-        return () => {
-            if (contractTimerRef.current) {
-                clearInterval(contractTimerRef.current);
-            }
-            api?.disconnect?.();
-        };
-    }, [symbol]);
-
-    const authorizeIfNeeded = async () => {
-        if (isAuthorized) return;
-        const token = V2GetActiveToken();
-        if (!token) {
-            setStatus('No token found. Please log in and select an account.');
-            throw new Error('No token');
+    contractTimerRef.current = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          // Contract expired
+          finishContract();
+          return 0;
         }
-        const { authorize, error } = await apiRef.current.authorize(token);
-        if (error) {
-            setStatus(`Authorization error: ${error.message || error.code}`);
-            throw error;
-        }
-        setIsAuthorized(true);
-        const loginid = authorize?.loginid || V2GetActiveClientId();
-        setAccountCurrency(authorize?.currency || 'USD');
+        const newRemaining = prev - 1;
+        setContractProgress(((duration - newRemaining) / duration) * 100);
+        return newRemaining;
+      });
+    }, 1000);
 
-        // Sync with store
-        try {
-            store?.client?.setLoginId?.(loginid || '');
-            store?.client?.setCurrency?.(authorize?.currency || 'USD');
-            store?.client?.setIsLoggedIn?.(true);
-        } catch {}
-    };
+    // Update stats
+    setTotalStake(prev => prev + stake);
+    setTotalRuns(prev => prev + 1);
+  };
 
-    const startTrading = async () => {
-        try {
-            await authorizeIfNeeded();
-            
-            setIsTrading(true);
-            run_panel.toggleDrawer(true);
-            run_panel.setActiveTabIndex(1);
-            run_panel.run_id = `higher-lower-${Date.now()}`;
-            run_panel.setIsRunning(true);
-            run_panel.setContractStage(contract_stages.STARTING);
+  const finishContract = () => {
+    if (!currentContract) return;
 
-            await executeContract();
-        } catch (error: any) {
-            console.error('Error starting trading:', error);
-            setStatus(`Error: ${error.message || 'Failed to start trading'}`);
-            setIsTrading(false);
-        }
-    };
+    const barrierPrice = currentContract.entryPrice + currentContract.barrier;
+    const isWin = currentContract.type === 'CALL' 
+      ? currentPrice > barrierPrice 
+      : currentPrice < barrierPrice;
 
-    const executeContract = async () => {
-        if (!isTrading || !apiRef.current) return;
+    const payout = isWin ? stake * 1.8 : 0; // 80% payout rate
+    const profit = payout - stake;
 
-        try {
-            // Calculate barrier value
-            const barrierValue = parseFloat(barrier.replace('+', '').replace('-', ''));
-            const isRelative = barrier.startsWith('+') || barrier.startsWith('-');
-            
-            // Prepare contract parameters
-            const contractParams = {
-                buy: 1,
-                price: stake,
-                parameters: {
-                    amount: stake,
-                    basis: 'stake',
-                    contract_type: contractType,
-                    currency: accountCurrency,
-                    duration: durationMinutes * 60 + durationSeconds,
-                    duration_unit: 's',
-                    symbol: symbol,
-                    barrier: barrier
-                }
-            };
+    setTotalPayout(prev => prev + payout);
+    setTotalProfitLoss(prev => prev + profit);
 
-            // Purchase contract
-            const { buy, error } = await apiRef.current.buy(contractParams);
-            if (error) {
-                throw new Error(error.message || 'Failed to purchase contract');
-            }
+    if (isWin) {
+      setContractsWon(prev => prev + 1);
+    } else {
+      setContractsLost(prev => prev + 1);
+    }
 
-            setStatus(`Contract purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
-            
-            // Create contract tracking
-            const contract = {
-                id: buy?.contract_id,
-                type: contractType,
-                stake: stake,
-                barrier: barrier,
-                entryPrice: currentPrice,
-                startTime: Date.now(),
-                duration: durationMinutes * 60 + durationSeconds,
-                status: 'active',
-                buy_price: buy?.buy_price
-            };
+    // Check profit target
+    if (stopOnProfit && totalProfitLoss + profit >= targetProfit) {
+      stopTrading();
+      return;
+    }
 
-            setCurrentContract(contract);
-            setTotalStake(prev => prev + stake);
-            setTotalRuns(prev => prev + 1);
+    // Clear current contract and start next one automatically
+    setCurrentContract(null);
+    setContractProgress(0);
+    if (contractTimerRef.current) {
+      clearInterval(contractTimerRef.current);
+    }
 
-            // Add to transactions
-            try {
-                transactions.onBotContractEvent({
-                    contract_id: buy?.contract_id,
-                    transaction_ids: { buy: buy?.transaction_id },
-                    buy_price: buy?.buy_price,
-                    currency: accountCurrency,
-                    contract_type: contractType as any,
-                    underlying: symbol,
-                    display_name: `Volatility ${symbol.replace('R_', '')} Index`,
-                    date_start: Math.floor(Date.now() / 1000),
-                    status: 'open',
-                });
-            } catch {}
+    // Auto-start next contract after brief delay
+    if (isTrading) {
+      setTimeout(() => {
+        if (isTrading) startTrading();
+      }, 2000);
+    }
+  };
 
-            run_panel.setHasOpenContract(true);
-            run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+  const stopTrading = () => {
+    setIsTrading(false);
+    setCurrentContract(null);
+    setContractProgress(0);
+    setTimeRemaining(0);
+    if (contractTimerRef.current) {
+      clearInterval(contractTimerRef.current);
+    }
+  };
 
-            // Start contract monitoring
-            monitorContract(buy?.contract_id, contract.duration);
+  const sellContract = () => {
+    if (currentContract) {
+      // Early exit with partial payout
+      const partialPayout = stake * 0.9; // 90% of stake for early exit
+      const profit = partialPayout - stake;
 
-        } catch (error: any) {
-            console.error('Error executing contract:', error);
-            setStatus(`Error: ${error.message || 'Failed to execute contract'}`);
-            stopTrading();
-        }
-    };
+      setTotalPayout(prev => prev + partialPayout);
+      setTotalProfitLoss(prev => prev + profit);
 
-    const monitorContract = async (contractId: string, duration: number) => {
-        try {
-            // Subscribe to contract updates
-            const { subscription } = await apiRef.current.send({
-                proposal_open_contract: 1,
-                contract_id: contractId,
-                subscribe: 1,
-            });
+      stopTrading();
+    }
+  };
 
-            setTimeRemaining(duration);
-            setContractProgress(0);
+  const resetStats = () => {
+    setTotalStake(0);
+    setTotalPayout(0);
+    setTotalRuns(0);
+    setContractsWon(0);
+    setContractsLost(0);
+    setTotalProfitLoss(0);
+  };
 
-            contractTimerRef.current = setInterval(() => {
-                setTimeRemaining(prev => {
-                    if (prev <= 1) {
-                        return 0;
-                    }
-                    const newRemaining = prev - 1;
-                    setContractProgress(((duration - newRemaining) / duration) * 100);
-                    return newRemaining;
-                });
-            }, 1000);
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
-            // Listen for contract updates
-            const onMessage = (event: MessageEvent) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    if (data.msg_type === 'proposal_open_contract' && 
-                        String(data.proposal_open_contract?.contract_id) === String(contractId)) {
-                        
-                        const poc = data.proposal_open_contract;
-                        transactions.onBotContractEvent(poc);
-                        
-                        if (poc?.is_sold || poc?.status === 'sold') {
-                            finishContract(poc);
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error processing contract update:', error);
-                }
-            };
+  const getTotalDuration = () => durationMinutes * 60 + durationSeconds;
 
-            apiRef.current?.connection?.addEventListener('message', onMessage);
+  return (
+    <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4">
+        <h2 className="text-lg font-semibold">Higher/Lower Trading</h2>
+      </div>
 
-        } catch (error: any) {
-            console.error('Error monitoring contract:', error);
-            setStatus(`Error monitoring contract: ${error.message}`);
-        }
-    };
+      {/* Active Contract View */}
+      {isTrading && currentContract && (
+        <div className="p-4 border-b bg-gray-50">
+          <div className="flex items-center justify-between mb-2">
+            <button
+              onClick={stopTrading}
+              className="px-3 py-1 bg-red-500 text-white rounded text-sm font-medium"
+            >
+              Stop
+            </button>
+            <span className="text-sm text-gray-600">Contract bought</span>
+          </div>
 
-    const finishContract = (poc: any) => {
-        const profit = Number(poc?.profit || 0);
-        const payout = Number(poc?.payout || 0);
-
-        setTotalPayout(prev => prev + payout);
-        setTotalProfitLoss(prev => prev + profit);
-
-        if (profit > 0) {
-            setContractsWon(prev => prev + 1);
-        } else {
-            setContractsLost(prev => prev + 1);
-        }
-
-        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
-        run_panel.setHasOpenContract(false);
-
-        // Clear timer
-        if (contractTimerRef.current) {
-            clearInterval(contractTimerRef.current);
-            contractTimerRef.current = null;
-        }
-
-        setCurrentContract(null);
-        setContractProgress(0);
-        setTimeRemaining(0);
-
-        // Check profit target
-        if (stopOnProfit && totalProfitLoss + profit >= targetProfit) {
-            stopTrading();
-            return;
-        }
-
-        // Auto-start next contract
-        if (isTrading) {
-            setTimeout(() => {
-                if (isTrading) executeContract();
-            }, 2000);
-        }
-    };
-
-    const stopTrading = () => {
-        setIsTrading(false);
-        setCurrentContract(null);
-        setContractProgress(0);
-        setTimeRemaining(0);
-        
-        if (contractTimerRef.current) {
-            clearInterval(contractTimerRef.current);
-            contractTimerRef.current = null;
-        }
-
-        run_panel.setIsRunning(false);
-        run_panel.setHasOpenContract(false);
-        run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        
-        setStatus('Trading stopped');
-    };
-
-    const resetStats = () => {
-        setTotalStake(0);
-        setTotalPayout(0);
-        setTotalRuns(0);
-        setContractsWon(0);
-        setContractsLost(0);
-        setTotalProfitLoss(0);
-        setStatus('Statistics reset');
-    };
-
-    const formatTime = (seconds: number) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    const getTotalDuration = () => durationMinutes * 60 + durationSeconds;
-
-    return (
-        <div className='higher-lower-trader'>
-            <div className='higher-lower-trader__container'>
-                <div className='higher-lower-trader__header'>
-                    <Text size='s' weight='bold'>{localize('Higher/Lower Trading')}</Text>
-                </div>
-
-                {/* Active Contract View */}
-                {isTrading && currentContract && (
-                    <div className='higher-lower-trader__active-contract'>
-                        <div className='higher-lower-trader__contract-header'>
-                            <button
-                                onClick={stopTrading}
-                                className='higher-lower-trader__stop-btn'
-                            >
-                                {localize('Stop')}
-                            </button>
-                            <Text size='xs' color='general'>{localize('Contract bought')}</Text>
-                        </div>
-
-                        <div className='higher-lower-trader__contract-info'>
-                            <div className='higher-lower-trader__contract-type'>
-                                <div className={`higher-lower-trader__type-badge ${contractType.toLowerCase()}`}>
-                                    <Text size='xs' weight='bold' color='prominent'>
-                                        {contractType === 'CALL' ? '📈 Higher' : '📉 Lower'}
-                                    </Text>
-                                </div>
-                                <Text size='xs' color='general'>Volatility {symbol.replace('R_', '')} Index</Text>
-                            </div>
-
-                            <div className='higher-lower-trader__progress'>
-                                <Text size='xs' color='general'>{formatTime(timeRemaining)}</Text>
-                                <div className='higher-lower-trader__progress-bar'>
-                                    <div 
-                                        className='higher-lower-trader__progress-fill'
-                                        style={{ width: `${contractProgress}%` }}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className='higher-lower-trader__contract-stats'>
-                                <div className='higher-lower-trader__stat'>
-                                    <Text size='xs' color='general'>{localize('Total profit/loss:')}</Text>
-                                    <Text size='xs' color={totalProfitLoss >= 0 ? 'profit-success' : 'loss-danger'}>
-                                        {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)}
-                                    </Text>
-                                </div>
-                                <div className='higher-lower-trader__stat'>
-                                    <Text size='xs' color='general'>{localize('Current price:')}</Text>
-                                    <Text size='xs' color='prominent'>{currentPrice.toFixed(5)}</Text>
-                                </div>
-                                <div className='higher-lower-trader__stat'>
-                                    <Text size='xs' color='general'>{localize('Stake:')}</Text>
-                                    <Text size='xs' color='prominent'>{stake.toFixed(2)}</Text>
-                                </div>
-                                <div className='higher-lower-trader__stat'>
-                                    <Text size='xs' color='general'>{localize('Potential payout:')}</Text>
-                                    <Text size='xs' color='profit-success'>{(stake * 1.8).toFixed(2)}</Text>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Setup Form */}
-                {!isTrading && (
-                    <div className='higher-lower-trader__form'>
-                        {/* Contract Type */}
-                        <div className='higher-lower-trader__field'>
-                            <Text size='xs' weight='bold'>{localize('Contract Type')}</Text>
-                            <div className='higher-lower-trader__contract-buttons'>
-                                <button
-                                    onClick={() => setContractType('CALL')}
-                                    className={`higher-lower-trader__contract-btn ${contractType === 'CALL' ? 'active higher' : ''}`}
-                                >
-                                    📈 {localize('Higher')}
-                                </button>
-                                <button
-                                    onClick={() => setContractType('PUT')}
-                                    className={`higher-lower-trader__contract-btn ${contractType === 'PUT' ? 'active lower' : ''}`}
-                                >
-                                    📉 {localize('Lower')}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Stake */}
-                        <div className='higher-lower-trader__field'>
-                            <label htmlFor='stake'>{localize('Stake')} ({accountCurrency})</label>
-                            <input
-                                id='stake'
-                                type='number'
-                                step='0.01'
-                                min='0.35'
-                                value={stake}
-                                onChange={(e) => setStake(parseFloat(e.target.value) || 0)}
-                                className='higher-lower-trader__input'
-                            />
-                        </div>
-
-                        {/* Duration */}
-                        <div className='higher-lower-trader__field'>
-                            <Text size='xs' weight='bold'>{localize('Duration')}</Text>
-                            <div className='higher-lower-trader__duration-inputs'>
-                                <div className='higher-lower-trader__duration-input'>
-                                    <input
-                                        type='number'
-                                        min='0'
-                                        max='59'
-                                        value={durationMinutes}
-                                        onChange={(e) => setDurationMinutes(parseInt(e.target.value) || 0)}
-                                        className='higher-lower-trader__input'
-                                        placeholder='Minutes'
-                                    />
-                                    <Text size='xs' color='general'>{localize('Minutes')}</Text>
-                                </div>
-                                <div className='higher-lower-trader__duration-input'>
-                                    <input
-                                        type='number'
-                                        min='15'
-                                        max='3600'
-                                        value={durationSeconds}
-                                        onChange={(e) => setDurationSeconds(parseInt(e.target.value) || 15)}
-                                        className='higher-lower-trader__input'
-                                        placeholder='Seconds'
-                                    />
-                                    <Text size='xs' color='general'>{localize('Seconds')}</Text>
-                                </div>
-                            </div>
-                            <Text size='xs' color='general'>
-                                {localize('Total')}: {formatTime(getTotalDuration())}
-                            </Text>
-                        </div>
-
-                        {/* Barrier */}
-                        <div className='higher-lower-trader__field'>
-                            <label htmlFor='barrier'>{localize('Barrier')}</label>
-                            <input
-                                id='barrier'
-                                type='text'
-                                value={barrier}
-                                onChange={(e) => setBarrier(e.target.value)}
-                                className='higher-lower-trader__input'
-                                placeholder='+0.37'
-                            />
-                            <Text size='xs' color='general'>
-                                {localize('Use + or - followed by the offset (e.g., +0.37, -0.25)')}
-                            </Text>
-                        </div>
-
-                        {/* Stop on Profit */}
-                        <div className='higher-lower-trader__field'>
-                            <div className='higher-lower-trader__checkbox-wrapper'>
-                                <input
-                                    id='stopOnProfit'
-                                    type='checkbox'
-                                    checked={stopOnProfit}
-                                    onChange={(e) => setStopOnProfit(e.target.checked)}
-                                    className='higher-lower-trader__checkbox'
-                                />
-                                <label htmlFor='stopOnProfit'>{localize('Stop when in profit')}</label>
-                            </div>
-                            {stopOnProfit && (
-                                <div className='higher-lower-trader__profit-target'>
-                                    <label htmlFor='targetProfit'>{localize('Target Profit')} ({accountCurrency})</label>
-                                    <input
-                                        id='targetProfit'
-                                        type='number'
-                                        step='0.01'
-                                        min='0.01'
-                                        value={targetProfit}
-                                        onChange={(e) => setTargetProfit(parseFloat(e.target.value) || 0)}
-                                        className='higher-lower-trader__input'
-                                    />
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Start Button */}
-                        <button
-                            onClick={startTrading}
-                            disabled={getTotalDuration() < 15 || !currentPrice}
-                            className='higher-lower-trader__start-btn'
-                        >
-                            {localize('Start Trading')}
-                        </button>
-                    </div>
-                )}
-
-                {/* Statistics */}
-                <div className='higher-lower-trader__stats'>
-                    <div className='higher-lower-trader__stats-grid'>
-                        <div className='higher-lower-trader__stat'>
-                            <Text size='xs' color='general'>{localize('Total stake')}</Text>
-                            <Text size='xs' weight='bold'>{totalStake.toFixed(2)}</Text>
-                        </div>
-                        <div className='higher-lower-trader__stat'>
-                            <Text size='xs' color='general'>{localize('Total payout')}</Text>
-                            <Text size='xs' weight='bold'>{totalPayout.toFixed(2)}</Text>
-                        </div>
-                        <div className='higher-lower-trader__stat'>
-                            <Text size='xs' color='general'>{localize('No. of runs')}</Text>
-                            <Text size='xs' weight='bold'>{totalRuns}</Text>
-                        </div>
-                        <div className='higher-lower-trader__stat'>
-                            <Text size='xs' color='general'>{localize('Contracts lost')}</Text>
-                            <Text size='xs' weight='bold' color='loss-danger'>{contractsLost}</Text>
-                        </div>
-                        <div className='higher-lower-trader__stat'>
-                            <Text size='xs' color='general'>{localize('Contracts won')}</Text>
-                            <Text size='xs' weight='bold' color='profit-success'>{contractsWon}</Text>
-                        </div>
-                        <div className='higher-lower-trader__stat'>
-                            <Text size='xs' color='general'>{localize('Total profit/loss')}</Text>
-                            <Text size='xs' weight='bold' color={totalProfitLoss >= 0 ? 'profit-success' : 'loss-danger'}>
-                                {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)}
-                            </Text>
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={resetStats}
-                        className='higher-lower-trader__reset-btn'
-                    >
-                        {localize('Reset Statistics')}
-                    </button>
-                </div>
-
-                {/* Current Price */}
-                {currentPrice > 0 && (
-                    <div className='higher-lower-trader__price-display'>
-                        <Text size='xs' color='general'>{localize('Current Price')}</Text>
-                        <Text size='l' weight='bold'>{currentPrice.toFixed(5)}</Text>
-                        {currentContract && (
-                            <Text size='xs' color='general'>
-                                {localize('Barrier')}: {barrier}
-                            </Text>
-                        )}
-                    </div>
-                )}
-
-                {/* Status */}
-                {status && (
-                    <div className='higher-lower-trader__status'>
-                        <Text size='xs' color={status.toLowerCase().includes('error') ? 'loss-danger' : 'general'}>
-                            {status}
-                        </Text>
-                    </div>
-                )}
+          <div className="flex items-center space-x-2 mb-3">
+            <div className="w-8 h-8 bg-purple-100 rounded flex items-center justify-center">
+              {contractType === 'CALL' ? (
+                <TrendingUp className="w-4 h-4 text-green-600" />
+              ) : (
+                <TrendingDown className="w-4 h-4 text-red-600" />
+              )}
             </div>
+            <span className="font-medium">Volatility 10 (1s) Index</span>
+            <span className="text-sm bg-purple-100 px-2 py-1 rounded">
+              {contractType === 'CALL' ? 'Higher' : 'Lower'}
+            </span>
+          </div>
+
+          <div className="mb-3">
+            <div className="text-xs text-gray-500 mb-1">{formatTime(timeRemaining)}</div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-purple-600 h-2 rounded-full transition-all duration-1000"
+                style={{ width: `${contractProgress}%` }}
+              ></div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+            <div>
+              <div className="text-gray-500">Total profit/loss:</div>
+              <div className={`font-semibold ${totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)} USD
+              </div>
+            </div>
+            <div>
+              <div className="text-gray-500">Contract value:</div>
+              <div className="font-semibold">{currentPrice.toFixed(2)}</div>
+            </div>
+            <div>
+              <div className="text-gray-500">Stake:</div>
+              <div className="font-semibold">{stake.toFixed(2)} USD</div>
+            </div>
+            <div>
+              <div className="text-gray-500">Potential payout:</div>
+              <div className="font-semibold text-green-600">{(stake * 1.8).toFixed(2)} USD</div>
+            </div>
+          </div>
+
+          <button
+            onClick={sellContract}
+            className="w-full py-2 bg-gray-600 text-white rounded font-medium hover:bg-gray-700 transition-colors"
+          >
+            Sell
+          </button>
         </div>
-    );
-});
+      )}
+
+      {/* Setup Form */}
+      {!isTrading && (
+        <div className="p-4">
+          <div className="space-y-4">
+            {/* Contract Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Contract Type
+              </label>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setContractType('CALL')}
+                  className={`flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${
+                    contractType === 'CALL' 
+                      ? 'bg-green-500 text-white' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  <TrendingUp className="w-4 h-4 inline mr-1" />
+                  Higher
+                </button>
+                <button
+                  onClick={() => setContractType('PUT')}
+                  className={`flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${
+                    contractType === 'PUT' 
+                      ? 'bg-red-500 text-white' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  <TrendingDown className="w-4 h-4 inline mr-1" />
+                  Lower
+                </button>
+              </div>
+            </div>
+
+            {/* Stake */}
+            <div>
+              <label htmlFor="stake" className="block text-sm font-medium text-gray-700 mb-2">
+                <DollarSign className="w-4 h-4 inline mr-1" />
+                Stake (USD)
+              </label>
+              <input
+                id="stake"
+                type="number"
+                step="0.01"
+                min="0.35"
+                value={stake}
+                onChange={(e) => setStake(parseFloat(e.target.value) || 0)}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Duration */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Clock className="w-4 h-4 inline mr-1" />
+                Duration
+              </label>
+              <div className="flex space-x-2">
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={durationMinutes}
+                    onChange={(e) => setDurationMinutes(parseInt(e.target.value) || 0)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="Minutes"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">Minutes</div>
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    min="15"
+                    max="3600"
+                    value={durationSeconds}
+                    onChange={(e) => setDurationSeconds(parseInt(e.target.value) || 15)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="Seconds"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">Seconds</div>
+                </div>
+              </div>
+              <div className="text-xs text-gray-600 mt-1">
+                Total: {formatTime(getTotalDuration())}
+              </div>
+            </div>
+
+            {/* Barrier */}
+            <div>
+              <label htmlFor="barrier" className="block text-sm font-medium text-gray-700 mb-2">
+                Barrier
+              </label>
+              <input
+                id="barrier"
+                type="text"
+                value={barrier}
+                onChange={(e) => setBarrier(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="+0.37"
+              />
+              <div className="text-xs text-gray-500 mt-1">
+                Use + or - followed by the offset (e.g., +0.37, -0.25)
+              </div>
+            </div>
+
+            {/* Stop on Profit */}
+            <div className="border border-gray-200 rounded p-3">
+              <div className="flex items-center space-x-2 mb-2">
+                <input
+                  id="stopOnProfit"
+                  type="checkbox"
+                  checked={stopOnProfit}
+                  onChange={(e) => setStopOnProfit(e.target.checked)}
+                  className="w-4 h-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                />
+                <label htmlFor="stopOnProfit" className="text-sm font-medium text-gray-700">
+                  Stop when in profit
+                </label>
+              </div>
+              {stopOnProfit && (
+                <div>
+                  <label htmlFor="targetProfit" className="block text-xs font-medium text-gray-600 mb-1">
+                    Target Profit (USD)
+                  </label>
+                  <input
+                    id="targetProfit"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={targetProfit}
+                    onChange={(e) => setTargetProfit(parseFloat(e.target.value) || 0)}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Start/Stop Button */}
+            <button
+              onClick={startTrading}
+              disabled={getTotalDuration() < 15}
+              className="w-full py-3 bg-purple-600 text-white rounded font-medium hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+            >
+              <Play className="w-4 h-4" />
+              <span>Start Trading</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Statistics */}
+      <div className="p-4 bg-gray-50 border-t">
+        <div className="grid grid-cols-3 gap-3 text-center text-sm mb-4">
+          <div>
+            <div className="text-gray-500">Total stake</div>
+            <div className="font-semibold">{totalStake.toFixed(2)} USD</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Total payout</div>
+            <div className="font-semibold">{totalPayout.toFixed(2)} USD</div>
+          </div>
+          <div>
+            <div className="text-gray-500">No. of runs</div>
+            <div className="font-semibold">{totalRuns}</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 text-center text-sm mb-4">
+          <div>
+            <div className="text-gray-500">Contracts lost</div>
+            <div className="font-semibold text-red-600">{contractsLost}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Contracts won</div>
+            <div className="font-semibold text-green-600">{contractsWon}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Total profit/loss</div>
+            <div className={`font-semibold ${totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)} USD
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={resetStats}
+          className="w-full py-2 bg-gray-400 text-white rounded text-sm font-medium hover:bg-gray-500 transition-colors"
+        >
+          Reset
+        </button>
+      </div>
+
+      {/* Current Price Display */}
+      <div className="p-4 border-t bg-white">
+        <div className="text-center">
+          <div className="text-xs text-gray-500 mb-1">Current Price</div>
+          <div className="text-2xl font-bold text-gray-800">{currentPrice.toFixed(5)}</div>
+          {currentContract && (
+            <div className="text-xs text-gray-600 mt-1">
+              Barrier: {(currentContract.entryPrice + currentContract.barrier).toFixed(5)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Trading Controls */}
+      {isTrading && (
+        <div className="p-4 border-t">
+          <div className="flex space-x-2">
+            <button
+              onClick={stopTrading}
+              className="flex-1 py-2 bg-red-500 text-white rounded font-medium hover:bg-red-600 transition-colors flex items-center justify-center space-x-1"
+            >
+              <Square className="w-4 h-4" />
+              <span>Stop Bot</span>
+            </button>
+            {currentContract && (
+              <button
+                onClick={sellContract}
+                className="flex-1 py-2 bg-orange-500 text-white rounded font-medium hover:bg-orange-600 transition-colors"
+              >
+                Sell Early
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default HigherLowerTrader;
