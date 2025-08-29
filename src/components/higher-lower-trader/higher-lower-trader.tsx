@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { Play, Square, TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
 import { localize } from '@deriv-com/translations';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
+import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import './higher-lower-trader.scss';
 
@@ -329,8 +330,15 @@ const HigherLowerTrader = observer(() => {
             break;
           }
           
-          // Wait before next trade
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          // Wait for current contract to finish before starting next trade
+          while (currentContract && !stopFlagRef.current) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+          
+          // Additional delay between trades
+          if (!stopFlagRef.current) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
         } catch (tradeError) {
           console.error('Individual trade error:', tradeError);
           
@@ -373,21 +381,22 @@ const HigherLowerTrader = observer(() => {
       let calculatedBarrier;
       
       try {
-        const barrierOffset = parseFloat(barrier.replace(/[+\-]/, ''));
+        // For Higher/Lower, we need to use the barrier as a relative offset
+        let barrierOffset = parseFloat(barrier.replace(/[+\-]/, ''));
         const isPositive = barrier.startsWith('+');
         
         if (isNaN(barrierOffset)) {
           throw new Error('Invalid barrier format');
         }
         
-        calculatedBarrier = isPositive ? 
-          (currentPrice + barrierOffset).toFixed(5) : 
-          (currentPrice - barrierOffset).toFixed(5);
-          
-        // Validate barrier is reasonable
-        const barrierValue = parseFloat(calculatedBarrier);
-        if (barrierValue <= 0) {
-          throw new Error('Barrier calculation resulted in invalid value');
+        // For very small barriers, treat as percentage of current price
+        if (barrierOffset < 1 && barrierOffset > 0) {
+          const percentageOffset = (currentPrice * barrierOffset) / 100;
+          calculatedBarrier = isPositive ? 
+            `+${percentageOffset.toFixed(5)}` : 
+            `-${percentageOffset.toFixed(5)}`;
+        } else {
+          calculatedBarrier = isPositive ? `+${barrierOffset}` : `-${barrierOffset}`;
         }
         
       } catch (error) {
@@ -493,6 +502,10 @@ const HigherLowerTrader = observer(() => {
       setCurrentContract(contractData);
       setTimeRemaining(duration);
       setContractProgress(0);
+
+      // Update run panel status
+      run_panel.setHasOpenContract(true);
+      run_panel.setContractStage(contract_stages.PURCHASE_SENT);
 
       // Add to transactions
       try {
@@ -607,8 +620,10 @@ const HigherLowerTrader = observer(() => {
 
     if (profit > 0) {
       setContractsWon(prev => prev + 1);
+      console.log(`✅ Contract won! Profit: ${profit.toFixed(2)} ${accountCurrency}`);
     } else {
       setContractsLost(prev => prev + 1);
+      console.log(`❌ Contract lost! Loss: ${profit.toFixed(2)} ${accountCurrency}`);
     }
 
     // Clear contract state
@@ -626,6 +641,10 @@ const HigherLowerTrader = observer(() => {
       apiRef.current.forget({ forget: contractStreamIdRef.current });
       contractStreamIdRef.current = null;
     }
+
+    // Update run panel status
+    run_panel.setHasOpenContract(false);
+    run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
   };
 
   const stopTrading = () => {
@@ -922,9 +941,13 @@ const HigherLowerTrader = observer(() => {
                   <div className="barrier-preview">
                     {(() => {
                       try {
-                        const barrierOffset = parseFloat(barrier.replace(/[+\-]/, ''));
+                        let barrierOffset = parseFloat(barrier.replace(/[+\-]/, ''));
                         const isPositive = barrier.startsWith('+');
                         if (!isNaN(barrierOffset)) {
+                          // For small barriers, treat as percentage
+                          if (barrierOffset < 1 && barrierOffset > 0) {
+                            barrierOffset = (currentPrice * barrierOffset) / 100;
+                          }
                           const targetPrice = isPositive ? 
                             (currentPrice + barrierOffset).toFixed(5) : 
                             (currentPrice - barrierOffset).toFixed(5);
