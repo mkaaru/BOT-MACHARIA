@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Square, TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
+import './higher-lower-trader.scss'; // Import the SCSS file
 
 const HigherLowerTrader = () => {
   // Trading parameters
@@ -165,73 +166,73 @@ const HigherLowerTrader = () => {
   const getTotalDuration = () => durationMinutes * 60 + durationSeconds;
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+    <div className="higher-lower-trader">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4">
-        <h2 className="text-lg font-semibold">Higher/Lower Trading</h2>
+      <div className="trader-header">
+        <h2>Higher/Lower Trading</h2>
       </div>
 
       {/* Active Contract View */}
       {isTrading && currentContract && (
-        <div className="p-4 border-b bg-gray-50">
-          <div className="flex items-center justify-between mb-2">
+        <div className="active-contract">
+          <div className="contract-controls">
             <button
               onClick={stopTrading}
-              className="px-3 py-1 bg-red-500 text-white rounded text-sm font-medium"
+              className="btn-stop"
             >
               Stop
             </button>
-            <span className="text-sm text-gray-600">Contract bought</span>
+            <span className="contract-status">Contract bought</span>
           </div>
 
-          <div className="flex items-center space-x-2 mb-3">
-            <div className="w-8 h-8 bg-purple-100 rounded flex items-center justify-center">
+          <div className="contract-info">
+            <div className="contract-icon">
               {contractType === 'CALL' ? (
-                <TrendingUp className="w-4 h-4 text-green-600" />
+                <TrendingUp className="icon-higher" />
               ) : (
-                <TrendingDown className="w-4 h-4 text-red-600" />
+                <TrendingDown className="icon-lower" />
               )}
             </div>
-            <span className="font-medium">Volatility 10 (1s) Index</span>
-            <span className="text-sm bg-purple-100 px-2 py-1 rounded">
+            <span className="contract-name">Volatility 10 (1s) Index</span>
+            <span className="contract-type">
               {contractType === 'CALL' ? 'Higher' : 'Lower'}
             </span>
           </div>
 
-          <div className="mb-3">
-            <div className="text-xs text-gray-500 mb-1">{formatTime(timeRemaining)}</div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="contract-timer">
+            <div className="timer-text">{formatTime(timeRemaining)}</div>
+            <div className="progress-bar">
               <div 
-                className="bg-purple-600 h-2 rounded-full transition-all duration-1000"
+                className="progress-fill"
                 style={{ width: `${contractProgress}%` }}
               ></div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 text-sm mb-3">
-            <div>
-              <div className="text-gray-500">Total profit/loss:</div>
-              <div className={`font-semibold ${totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <div className="contract-stats">
+            <div className="stat-item">
+              <div className="stat-label">Total profit/loss:</div>
+              <div className={`stat-value ${totalProfitLoss >= 0 ? 'profit' : 'loss'}`}>
                 {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)} USD
               </div>
             </div>
-            <div>
-              <div className="text-gray-500">Contract value:</div>
-              <div className="font-semibold">{currentPrice.toFixed(2)}</div>
+            <div className="stat-item">
+              <div className="stat-label">Contract value:</div>
+              <div className="stat-value">{currentPrice.toFixed(2)}</div>
             </div>
-            <div>
-              <div className="text-gray-500">Stake:</div>
-              <div className="font-semibold">{stake.toFixed(2)} USD</div>
+            <div className="stat-item">
+              <div className="stat-label">Stake:</div>
+              <div className="stat-value">{stake.toFixed(2)} USD</div>
             </div>
-            <div>
-              <div className="text-gray-500">Potential payout:</div>
-              <div className="font-semibold text-green-600">{(stake * 1.8).toFixed(2)} USD</div>
+            <div className="stat-item">
+              <div className="stat-label">Potential payout:</div>
+              <div className="stat-value profit">{(stake * 1.8).toFixed(2)} USD</div>
             </div>
           </div>
 
           <button
             onClick={sellContract}
-            className="w-full py-2 bg-gray-600 text-white rounded font-medium hover:bg-gray-700 transition-colors"
+            className="btn-sell"
           >
             Sell
           </button>
@@ -240,43 +241,35 @@ const HigherLowerTrader = () => {
 
       {/* Setup Form */}
       {!isTrading && (
-        <div className="p-4">
-          <div className="space-y-4">
+        <div className="setup-form">
+          <div className="form-content">
             {/* Contract Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="form-group">
+              <label className="form-label">
                 Contract Type
               </label>
-              <div className="flex space-x-2">
+              <div className="button-group">
                 <button
                   onClick={() => setContractType('CALL')}
-                  className={`flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${
-                    contractType === 'CALL' 
-                      ? 'bg-green-500 text-white' 
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+                  className={`btn-type ${contractType === 'CALL' ? 'btn-higher active' : 'btn-higher'}`}
                 >
-                  <TrendingUp className="w-4 h-4 inline mr-1" />
+                  <TrendingUp className="icon" />
                   Higher
                 </button>
                 <button
                   onClick={() => setContractType('PUT')}
-                  className={`flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${
-                    contractType === 'PUT' 
-                      ? 'bg-red-500 text-white' 
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+                  className={`btn-type ${contractType === 'PUT' ? 'btn-lower active' : 'btn-lower'}`}
                 >
-                  <TrendingDown className="w-4 h-4 inline mr-1" />
+                  <TrendingDown className="icon" />
                   Lower
                 </button>
               </div>
             </div>
 
             {/* Stake */}
-            <div>
-              <label htmlFor="stake" className="block text-sm font-medium text-gray-700 mb-2">
-                <DollarSign className="w-4 h-4 inline mr-1" />
+            <div className="form-group">
+              <label htmlFor="stake" className="form-label">
+                <DollarSign className="icon" />
                 Stake (USD)
               </label>
               <input
@@ -286,50 +279,50 @@ const HigherLowerTrader = () => {
                 min="0.35"
                 value={stake}
                 onChange={(e) => setStake(parseFloat(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="form-input"
               />
             </div>
 
             {/* Duration */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Clock className="w-4 h-4 inline mr-1" />
+            <div className="form-group">
+              <label className="form-label">
+                <Clock className="icon" />
                 Duration
               </label>
-              <div className="flex space-x-2">
-                <div className="flex-1">
+              <div className="input-group">
+                <div className="input-wrapper">
                   <input
                     type="number"
                     min="0"
                     max="59"
                     value={durationMinutes}
                     onChange={(e) => setDurationMinutes(parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="form-input"
                     placeholder="Minutes"
                   />
-                  <div className="text-xs text-gray-500 mt-1">Minutes</div>
+                  <div className="input-hint">Minutes</div>
                 </div>
-                <div className="flex-1">
+                <div className="input-wrapper">
                   <input
                     type="number"
                     min="15"
                     max="3600"
                     value={durationSeconds}
                     onChange={(e) => setDurationSeconds(parseInt(e.target.value) || 15)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="form-input"
                     placeholder="Seconds"
                   />
-                  <div className="text-xs text-gray-500 mt-1">Seconds</div>
+                  <div className="input-hint">Seconds</div>
                 </div>
               </div>
-              <div className="text-xs text-gray-600 mt-1">
+              <div className="duration-total">
                 Total: {formatTime(getTotalDuration())}
               </div>
             </div>
 
             {/* Barrier */}
-            <div>
-              <label htmlFor="barrier" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="form-group">
+              <label htmlFor="barrier" className="form-label">
                 Barrier
               </label>
               <input
@@ -337,31 +330,31 @@ const HigherLowerTrader = () => {
                 type="text"
                 value={barrier}
                 onChange={(e) => setBarrier(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="form-input"
                 placeholder="+0.37"
               />
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="input-hint">
                 Use + or - followed by the offset (e.g., +0.37, -0.25)
               </div>
             </div>
 
             {/* Stop on Profit */}
-            <div className="border border-gray-200 rounded p-3">
-              <div className="flex items-center space-x-2 mb-2">
+            <div className="form-option">
+              <div className="checkbox-group">
                 <input
                   id="stopOnProfit"
                   type="checkbox"
                   checked={stopOnProfit}
                   onChange={(e) => setStopOnProfit(e.target.checked)}
-                  className="w-4 h-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                  className="checkbox"
                 />
-                <label htmlFor="stopOnProfit" className="text-sm font-medium text-gray-700">
+                <label htmlFor="stopOnProfit" className="checkbox-label">
                   Stop when in profit
                 </label>
               </div>
               {stopOnProfit && (
-                <div>
-                  <label htmlFor="targetProfit" className="block text-xs font-medium text-gray-600 mb-1">
+                <div className="option-detail">
+                  <label htmlFor="targetProfit" className="option-label">
                     Target Profit (USD)
                   </label>
                   <input
@@ -371,7 +364,7 @@ const HigherLowerTrader = () => {
                     min="0.01"
                     value={targetProfit}
                     onChange={(e) => setTargetProfit(parseFloat(e.target.value) || 0)}
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="form-input small"
                   />
                 </div>
               )}
@@ -381,9 +374,9 @@ const HigherLowerTrader = () => {
             <button
               onClick={startTrading}
               disabled={getTotalDuration() < 15}
-              className="w-full py-3 bg-purple-600 text-white rounded font-medium hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+              className="btn-start"
             >
-              <Play className="w-4 h-4" />
+              <Play className="icon" />
               <span>Start Trading</span>
             </button>
           </div>
@@ -391,34 +384,34 @@ const HigherLowerTrader = () => {
       )}
 
       {/* Statistics */}
-      <div className="p-4 bg-gray-50 border-t">
-        <div className="grid grid-cols-3 gap-3 text-center text-sm mb-4">
-          <div>
-            <div className="text-gray-500">Total stake</div>
-            <div className="font-semibold">{totalStake.toFixed(2)} USD</div>
+      <div className="stats-panel">
+        <div className="stats-grid">
+          <div className="stat">
+            <div className="stat-title">Total stake</div>
+            <div className="stat-value">{totalStake.toFixed(2)} USD</div>
           </div>
-          <div>
-            <div className="text-gray-500">Total payout</div>
-            <div className="font-semibold">{totalPayout.toFixed(2)} USD</div>
+          <div className="stat">
+            <div className="stat-title">Total payout</div>
+            <div className="stat-value">{totalPayout.toFixed(2)} USD</div>
           </div>
-          <div>
-            <div className="text-gray-500">No. of runs</div>
-            <div className="font-semibold">{totalRuns}</div>
+          <div className="stat">
+            <div className="stat-title">No. of runs</div>
+            <div className="stat-value">{totalRuns}</div>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 text-center text-sm mb-4">
-          <div>
-            <div className="text-gray-500">Contracts lost</div>
-            <div className="font-semibold text-red-600">{contractsLost}</div>
+        <div className="stats-grid">
+          <div className="stat">
+            <div className="stat-title">Contracts lost</div>
+            <div className="stat-value loss">{contractsLost}</div>
           </div>
-          <div>
-            <div className="text-gray-500">Contracts won</div>
-            <div className="font-semibold text-green-600">{contractsWon}</div>
+          <div className="stat">
+            <div className="stat-title">Contracts won</div>
+            <div className="stat-value profit">{contractsWon}</div>
           </div>
-          <div>
-            <div className="text-gray-500">Total profit/loss</div>
-            <div className={`font-semibold ${totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <div className="stat">
+            <div className="stat-title">Total profit/loss</div>
+            <div className={`stat-value ${totalProfitLoss >= 0 ? 'profit' : 'loss'}`}>
               {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)} USD
             </div>
           </div>
@@ -426,19 +419,19 @@ const HigherLowerTrader = () => {
 
         <button
           onClick={resetStats}
-          className="w-full py-2 bg-gray-400 text-white rounded text-sm font-medium hover:bg-gray-500 transition-colors"
+          className="btn-reset"
         >
           Reset
         </button>
       </div>
 
       {/* Current Price Display */}
-      <div className="p-4 border-t bg-white">
-        <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">Current Price</div>
-          <div className="text-2xl font-bold text-gray-800">{currentPrice.toFixed(5)}</div>
+      <div className="price-display">
+        <div className="price-content">
+          <div className="price-label">Current Price</div>
+          <div className="price-value">{currentPrice.toFixed(5)}</div>
           {currentContract && (
-            <div className="text-xs text-gray-600 mt-1">
+            <div className="barrier-info">
               Barrier: {(currentContract.entryPrice + currentContract.barrier).toFixed(5)}
             </div>
           )}
@@ -447,19 +440,19 @@ const HigherLowerTrader = () => {
 
       {/* Trading Controls */}
       {isTrading && (
-        <div className="p-4 border-t">
-          <div className="flex space-x-2">
+        <div className="trading-controls">
+          <div className="controls-group">
             <button
               onClick={stopTrading}
-              className="flex-1 py-2 bg-red-500 text-white rounded font-medium hover:bg-red-600 transition-colors flex items-center justify-center space-x-1"
+              className="btn-stop-bot"
             >
-              <Square className="w-4 h-4" />
+              <Square className="icon" />
               <span>Stop Bot</span>
             </button>
             {currentContract && (
               <button
                 onClick={sellContract}
-                className="flex-1 py-2 bg-orange-500 text-white rounded font-medium hover:bg-orange-600 transition-colors"
+                className="btn-sell-early"
               >
                 Sell Early
               </button>
