@@ -12,7 +12,7 @@ type TOption = {
 const default_domain = 'binary.com';
 const host_map = {
     'bot.binary.com': 'www.binary.bot',
-    'www.tradecortex.site': 'www.tradecortex.site', // ✅ Updated to use www.tradecortex.site
+    'bot.derivlite.com': 'bot.derivlite.com', // ✅ Added support for your domain
     'developers.binary.com': 'developers.binary.com',
     'academy.binary.com': 'academy.binary.com',
     'blog.binary.com': 'blog.binary.com',

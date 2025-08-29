@@ -3,7 +3,6 @@ import ChunkLoader from '@/components/loader/chunk-loader';
 import { generateDerivApiInstance } from '@/external/bot-skeleton/services/api/appId';
 import { localize } from '@deriv-com/translations';
 import { URLUtils } from '@deriv-com/utils';
-import UserManagementStore from '@/stores/user-management-store';
 import App from './App';
 
 const setLocalStorageToken = async (loginInfo: URLUtils.LoginInfo[], paramsToDelete: string[]) => {
@@ -33,35 +32,15 @@ const setLocalStorageToken = async (loginInfo: URLUtils.LoginInfo[], paramsToDel
                     const firstId = authorize?.account_list[0]?.loginid;
                     const filteredTokens = loginInfo.filter(token => token.loginid === firstId);
                     if (filteredTokens.length) {
-                        // Check if user is blacklisted
-                        const userManagement = new UserManagementStore();
-                        try {
-                            userManagement.checkUserAccess(filteredTokens[0].loginid);
-                            localStorage.setItem('authToken', filteredTokens[0].token);
-                            localStorage.setItem('active_loginid', filteredTokens[0].loginid);
-                            return;
-                        } catch (error) {
-                            console.error('User access denied:', error);
-                            alert('Access denied: Your account has been restricted from using this application.');
-                            window.location.href = 'https://deriv.com';
-                            return;
-                        }
+                        localStorage.setItem('authToken', filteredTokens[0].token);
+                        localStorage.setItem('active_loginid', filteredTokens[0].loginid);
+                        return;
                     }
                 }
             }
 
-            // Final check for user access
-            const userManagement = new UserManagementStore();
-            try {
-                userManagement.checkUserAccess(loginInfo[0].loginid);
-                localStorage.setItem('authToken', loginInfo[0].token);
-                localStorage.setItem('active_loginid', loginInfo[0].loginid);
-            } catch (error) {
-                console.error('User access denied:', error);
-                alert('Access denied: Your account has been restricted from using this application.');
-                window.location.href = 'https://deriv.com';
-                return;
-            }
+            localStorage.setItem('authToken', loginInfo[0].token);
+            localStorage.setItem('active_loginid', loginInfo[0].loginid);
         } catch (error) {
             console.error('Error setting up login info:', error);
         }

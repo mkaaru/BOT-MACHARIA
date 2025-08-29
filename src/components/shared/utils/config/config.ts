@@ -24,7 +24,7 @@ export const domain_app_ids = {
     'dbot.deriv.com': APP_IDS.PRODUCTION,
     'dbot.deriv.be': APP_IDS.PRODUCTION_BE,
     'dbot.deriv.me': APP_IDS.PRODUCTION_ME,
-    'www.tradecortex.site': APP_IDS.LIVE, // ✅ Updated to use www.tradecortex.site
+    'bot.derivlite.com': APP_IDS.LIVE, // ✅ Added support for your domain
 };
 
 export const getCurrentProductionDomain = () =>
@@ -61,29 +61,23 @@ const getDefaultServerURL = () => {
 };
 
 export const getDefaultAppIdAndUrl = () => {
-    const current_domain = getCurrentProductionDomain();
-    return {
-        app_id: getAppId(),
-        server_url: `wss://${current_domain}/websockets/v3?app_id=${getAppId()}&l=${getLanguage()}&brand=deriv`,
-    };
-};
+    const server_url = getDefaultServerURL();
+    const current_domain = getCurrentProductionDomain() ?? '';
+    const app_id = domain_app_ids[current_domain as keyof typeof domain_app_ids] ?? APP_IDS.LIVE;
 
-export const getOAuthCallbackURL = () => {
-    const current_domain = getCurrentProductionDomain();
-    const protocol = window.location.protocol;
-    return `${protocol}//${current_domain}/callback`;
+    return { app_id, server_url };
 };
 
 export const getAppId = () => {
     let app_id = window.localStorage.getItem('config.app_id');
 
     if (!app_id || app_id === '69811' || app_id === '75771') {
-        console.warn('⚠️ App ID is invalid, forcing correct App ID...');
+        console.warn("⚠️ App ID is invalid, forcing correct App ID...");
         app_id = '75771'; // ✅ Corrected App ID for your domain
         window.localStorage.setItem('config.app_id', app_id);
     }
 
-    console.log('🔍 [config.ts] Using App ID:', app_id);
+    console.log("🔍 [config.ts] Using App ID:", app_id);
     return app_id;
 };
 
@@ -122,10 +116,10 @@ export const generateOAuthURL = () => {
     const app_id = getAppId();
     const oauth_url = getOauthURL();
     const original_url = new URL(oauth_url);
-
+    
     // Ensure we're using the correct app ID
     original_url.searchParams.set('app_id', app_id);
-
+    
     const configured_server_url =
         LocalStorageUtils.getValue(LocalStorageConstants.configServerURL) ||
         localStorage.getItem('config.server_url') ||
@@ -138,6 +132,3 @@ export const generateOAuthURL = () => {
 
     return original_url.toString();
 };
-
-// Dummy getLanguage function to avoid build errors
-const getLanguage = () => 'en';
