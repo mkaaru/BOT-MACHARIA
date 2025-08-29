@@ -48,5 +48,17 @@ export const TradershubLink = () => (
     </MenuItem>
 );
 
+export const RiskRewardLink = () => (
+    <MenuItem
+        as='a'
+        className='app-header__menu'
+        href='/risk-reward'
+        key='risk-reward'
+    >
+        <Text>Risk Reward</Text>
+    </MenuItem>
+);
+
 MenuItems.TradershubLink = TradershubLink;
+MenuItems.RiskRewardLink = RiskRewardLink;
 export default MenuItems;
