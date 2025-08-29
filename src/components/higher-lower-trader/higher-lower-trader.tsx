@@ -1,9 +1,42 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { observer } from 'mobx-react-lite';
 import { Play, Square, TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
-import './higher-lower-trader.scss'; // Import the SCSS file
+import { localize } from '@deriv-com/translations';
+import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
+import { useStore } from '@/hooks/useStore';
+import './higher-lower-trader.scss';
 
-const HigherLowerTrader = () => {
+// Volatility indices for Higher/Lower trading
+const VOLATILITY_INDICES = [
+  { value: 'R_10', label: 'Volatility 10 (1s) Index' },
+  { value: 'R_25', label: 'Volatility 25 (1s) Index' },
+  { value: 'R_50', label: 'Volatility 50 (1s) Index' },
+  { value: 'R_75', label: 'Volatility 75 (1s) Index' },
+  { value: 'R_100', label: 'Volatility 100 (1s) Index' },
+  { value: 'BOOM500', label: 'Boom 500 Index' },
+  { value: 'BOOM1000', label: 'Boom 1000 Index' },
+  { value: 'CRASH500', label: 'Crash 500 Index' },
+  { value: 'CRASH1000', label: 'Crash 1000 Index' },
+  { value: 'stpRNG', label: 'Step Index' },
+];
+
+const HigherLowerTrader = observer(() => {
+  const store = useStore();
+  const { run_panel, transactions, client } = store;
+
+  const apiRef = useRef<any>(null);
+  const tickStreamIdRef = useRef<string | null>(null);
+  const contractStreamIdRef = useRef<string | null>(null);
+  const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
+
+  // API and auth state
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [accountCurrency, setAccountCurrency] = useState('USD');
+  const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  const [availableSymbols, setAvailableSymbols] = useState([]);
+  
   // Trading parameters
+  const [selectedSymbol, setSelectedSymbol] = useState('R_10');
   const [stake, setStake] = useState(1.5);
   const [durationMinutes, setDurationMinutes] = useState(0);
   const [durationSeconds, setDurationSeconds] = useState(60);
@@ -18,7 +51,7 @@ const HigherLowerTrader = () => {
   const [contractProgress, setContractProgress] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(0);
 
-  // Mock trading data
+  // Trading statistics
   const [totalStake, setTotalStake] = useState(0);
   const [totalPayout, setTotalPayout] = useState(0);
   const [totalRuns, setTotalRuns] = useState(0);
@@ -26,50 +59,404 @@ const HigherLowerTrader = () => {
   const [contractsLost, setContractsLost] = useState(0);
   const [totalProfitLoss, setTotalProfitLoss] = useState(0);
 
-  // Current price simulation
-  const [currentPrice, setCurrentPrice] = useState(1.27);
-  const [priceHistory, setPriceHistory] = useState([1.27]);
+  // Current market data
+  const [currentPrice, setCurrentPrice] = useState(0);
+  const [priceHistory, setPriceHistory] = useState([]);
+  const [trend, setTrend] = useState('neutral');
 
-  const intervalRef = useRef(null);
   const contractTimerRef = useRef(null);
+  const stopFlagRef = useRef(false);
 
-  // Simulate price movement
+  // Initialize API connection and fetch symbols
   useEffect(() => {
-    const priceInterval = setInterval(() => {
-      setCurrentPrice(prev => {
-        const change = (Math.random() - 0.5) * 0.02;
-        const newPrice = Math.max(0.1, prev + change);
-        setPriceHistory(history => [...history.slice(-50), newPrice]);
-        return newPrice;
-      });
-    }, 1000);
+    const api = generateDerivApiInstance();
+    apiRef.current = api;
+    
+    const initializeApi = async () => {
+      try {
+        setConnectionStatus('connecting');
+        
+        // Wait for connection
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
+          
+          api.connection.addEventListener('open', () => {
+            clearTimeout(timeout);
+            setConnectionStatus('connected');
+            resolve(null);
+          });
+          
+          api.connection.addEventListener('error', (error) => {
+            clearTimeout(timeout);
+            setConnectionStatus('error');
+            reject(error);
+          });
+        });
 
-    return () => clearInterval(priceInterval);
+        // Set up global message handler for contract updates
+        const globalMessageHandler = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            // Handle tick updates
+            if (data.msg_type === 'tick' && data.tick?.symbol === selectedSymbol) {
+              const newPrice = parseFloat(data.tick.quote);
+              setCurrentPrice(newPrice);
+              
+              setPriceHistory(prev => {
+                const newHistory = [...prev.slice(-49), newPrice];
+                
+                // Calculate trend
+                if (newHistory.length >= 5) {
+                  const recent = newHistory.slice(-5);
+                  const avg = recent.reduce((sum, price) => sum + price, 0) / recent.length;
+                  const currentTrend = newPrice > avg ? 'bullish' : newPrice < avg ? 'bearish' : 'neutral';
+                  setTrend(currentTrend);
+                }
+                
+                return newHistory;
+              });
+            }
+
+            // Handle contract updates
+            if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract) {
+              handleContractUpdate(data.proposal_open_contract);
+            }
+          } catch (error) {
+            console.error('Error processing message:', error);
+          }
+        };
+
+        api.connection.addEventListener('message', globalMessageHandler);
+
+        // Fetch available symbols
+        const symbolsResponse = await api.send({ active_symbols: 'brief' });
+        if (symbolsResponse.error) {
+          throw symbolsResponse.error;
+        }
+
+        const filteredSymbols = (symbolsResponse.active_symbols || [])
+          .filter(symbol => 
+            symbol.market === 'synthetic_index' && 
+            (symbol.symbol.startsWith('R_') || 
+             symbol.symbol.startsWith('BOOM') || 
+             symbol.symbol.startsWith('CRASH') ||
+             symbol.symbol === 'stpRNG')
+          )
+          .map(symbol => ({
+            value: symbol.symbol,
+            label: symbol.display_name
+          }));
+
+        setAvailableSymbols(filteredSymbols);
+        
+        if (filteredSymbols.length > 0) {
+          setSelectedSymbol(filteredSymbols[0].value);
+          startTickStream(filteredSymbols[0].value);
+        }
+
+        // Try to authorize if token exists
+        const token = V2GetActiveToken();
+        if (token) {
+          await authorizeAccount();
+        }
+
+      } catch (error) {
+        console.error('API initialization failed:', error);
+        setConnectionStatus('error');
+      }
+    };
+
+    initializeApi();
+
+    return () => {
+      cleanup();
+    };
   }, []);
 
-  const startTrading = () => {
-    setIsTrading(true);
-    setCurrentContract({
-      id: `contract_${Date.now()}`,
-      type: contractType,
-      stake: stake,
-      barrier: parseFloat(barrier),
-      entryPrice: currentPrice,
-      startTime: Date.now(),
-      duration: durationMinutes * 60 + durationSeconds,
-      status: 'active'
-    });
+  const cleanup = () => {
+    try {
+      if (tickStreamIdRef.current) {
+        apiRef.current?.forget({ forget: tickStreamIdRef.current });
+        tickStreamIdRef.current = null;
+      }
+      if (contractStreamIdRef.current) {
+        apiRef.current?.forget({ forget: contractStreamIdRef.current });
+        contractStreamIdRef.current = null;
+      }
+      if (messageHandlerRef.current) {
+        apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
+        messageHandlerRef.current = null;
+      }
+      apiRef.current?.disconnect();
+    } catch (error) {
+      console.error('Cleanup error:', error);
+    }
+  };
 
-    // Start contract timer
-    const duration = durationMinutes * 60 + durationSeconds;
+  const authorizeAccount = async () => {
+    try {
+      const token = V2GetActiveToken();
+      if (!token) {
+        throw new Error('No authorization token found. Please log in.');
+      }
+
+      const response = await apiRef.current.authorize(token);
+      if (response.error) {
+        throw response.error;
+      }
+
+      setIsAuthorized(true);
+      setAccountCurrency(response.authorize?.currency || 'USD');
+      
+      // Update client store
+      const loginid = response.authorize?.loginid || V2GetActiveClientId();
+      client?.setLoginId(loginid);
+      client?.setCurrency(response.authorize?.currency || 'USD');
+      client?.setIsLoggedIn(true);
+
+    } catch (error) {
+      console.error('Authorization failed:', error);
+      setIsAuthorized(false);
+      throw error;
+    }
+  };
+
+  const startTickStream = async (symbol) => {
+    try {
+      // Stop existing stream
+      if (tickStreamIdRef.current) {
+        await apiRef.current.forget({ forget: tickStreamIdRef.current });
+        tickStreamIdRef.current = null;
+      }
+
+      // Remove existing message handler
+      if (messageHandlerRef.current) {
+        apiRef.current.connection.removeEventListener('message', messageHandlerRef.current);
+        messageHandlerRef.current = null;
+      }
+
+      // Start new tick stream
+      const response = await apiRef.current.send({ 
+        ticks: symbol, 
+        subscribe: 1 
+      });
+      
+      if (response.error) {
+        throw response.error;
+      }
+
+      if (response.subscription?.id) {
+        tickStreamIdRef.current = response.subscription.id;
+      }
+
+      // Set up message handler for tick updates
+      const messageHandler = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.msg_type === 'tick' && data.tick?.symbol === symbol) {
+            const newPrice = parseFloat(data.tick.quote);
+            setCurrentPrice(newPrice);
+            
+            setPriceHistory(prev => {
+              const newHistory = [...prev.slice(-49), newPrice];
+              
+              // Calculate trend
+              if (newHistory.length >= 5) {
+                const recent = newHistory.slice(-5);
+                const avg = recent.reduce((sum, price) => sum + price, 0) / recent.length;
+                const currentTrend = newPrice > avg ? 'bullish' : newPrice < avg ? 'bearish' : 'neutral';
+                setTrend(currentTrend);
+              }
+              
+              return newHistory;
+            });
+          }
+        } catch (error) {
+          console.error('Error processing tick data:', error);
+        }
+      };
+
+      messageHandlerRef.current = messageHandler;
+      apiRef.current.connection.addEventListener('message', messageHandler);
+
+    } catch (error) {
+      console.error('Failed to start tick stream:', error);
+    }
+  };
+
+  const startTrading = async () => {
+    try {
+      if (!isAuthorized) {
+        await authorizeAccount();
+      }
+
+      setIsTrading(true);
+      stopFlagRef.current = false;
+      
+      run_panel.toggleDrawer(true);
+      run_panel.setActiveTabIndex(1);
+      run_panel.run_id = `higher-lower-${Date.now()}`;
+      run_panel.setIsRunning(true);
+
+      while (!stopFlagRef.current) {
+        await executeTrade();
+        
+        if (stopOnProfit && totalProfitLoss >= targetProfit) {
+          break;
+        }
+        
+        // Wait before next trade
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      
+    } catch (error) {
+      console.error('Trading error:', error);
+    } finally {
+      setIsTrading(false);
+      run_panel.setIsRunning(false);
+    }
+  };
+
+  const executeTrade = async () => {
+    try {
+      // Get contract proposal
+      const duration = durationMinutes * 60 + durationSeconds;
+      const proposalRequest = {
+        proposal: 1,
+        amount: stake,
+        basis: 'stake',
+        contract_type: contractType, // 'CALL' for Higher, 'PUT' for Lower
+        currency: accountCurrency,
+        duration: duration,
+        duration_unit: 's',
+        symbol: selectedSymbol,
+        barrier: barrier
+      };
+
+      const proposalResponse = await apiRef.current.send(proposalRequest);
+      if (proposalResponse.error) {
+        throw proposalResponse.error;
+      }
+
+      const proposal = proposalResponse.proposal;
+      
+      // Buy the contract
+      const buyRequest = {
+        buy: proposal.id,
+        price: proposal.ask_price
+      };
+
+      const buyResponse = await apiRef.current.send(buyRequest);
+      if (buyResponse.error) {
+        throw buyResponse.error;
+      }
+
+      const contract = buyResponse.buy;
+      const contractId = contract.contract_id;
+
+      // Update statistics
+      setTotalStake(prev => prev + stake);
+      setTotalRuns(prev => prev + 1);
+
+      // Create contract object
+      const contractData = {
+        id: contractId,
+        type: contractType,
+        stake: stake,
+        barrier: parseFloat(barrier.replace(/[+\-]/, '')),
+        barrierValue: currentPrice + parseFloat(barrier),
+        entryPrice: currentPrice,
+        startTime: Date.now(),
+        duration: duration,
+        status: 'active',
+        longcode: contract.longcode
+      };
+
+      setCurrentContract(contractData);
+      setTimeRemaining(duration);
+      setContractProgress(0);
+
+      // Add to transactions
+      try {
+        const symbolDisplay = availableSymbols.find(s => s.value === selectedSymbol)?.label || selectedSymbol;
+        transactions.onBotContractEvent({
+          contract_id: contractId,
+          transaction_ids: { buy: contract.transaction_id },
+          buy_price: contract.buy_price,
+          currency: accountCurrency,
+          contract_type: contractType,
+          underlying: selectedSymbol,
+          display_name: symbolDisplay,
+          date_start: Math.floor(Date.now() / 1000),
+          status: 'open',
+          longcode: contract.longcode
+        });
+      } catch (error) {
+        console.error('Error adding to transactions:', error);
+      }
+
+      // Subscribe to contract updates
+      await subscribeToContract(contractId);
+
+      // Start countdown timer
+      startContractTimer(duration);
+
+    } catch (error) {
+      console.error('Trade execution error:', error);
+      throw error;
+    }
+  };
+
+  const subscribeToContract = async (contractId) => {
+    try {
+      const response = await apiRef.current.send({
+        proposal_open_contract: 1,
+        contract_id: contractId,
+        subscribe: 1
+      });
+
+      if (response.error) {
+        throw response.error;
+      }
+
+      if (response.subscription?.id) {
+        contractStreamIdRef.current = response.subscription.id;
+      }
+
+      // Handle initial contract state if present
+      if (response.proposal_open_contract) {
+        handleContractUpdate(response.proposal_open_contract);
+      }
+
+    } catch (error) {
+      console.error('Contract subscription error:', error);
+    }
+  };
+
+  const handleContractUpdate = (contractData) => {
+    try {
+      // Update transactions store
+      transactions.onBotContractEvent(contractData);
+
+      // Check if contract is finished
+      if (contractData.is_sold || contractData.status === 'sold') {
+        finishContract(contractData);
+      }
+    } catch (error) {
+      console.error('Contract update error:', error);
+    }
+  };
+
+  const startContractTimer = (duration) => {
     setTimeRemaining(duration);
     setContractProgress(0);
 
     contractTimerRef.current = setInterval(() => {
       setTimeRemaining(prev => {
         if (prev <= 1) {
-          // Contract expired
-          finishContract();
+          clearInterval(contractTimerRef.current);
           return 0;
         }
         const newRemaining = prev - 1;
@@ -77,73 +464,69 @@ const HigherLowerTrader = () => {
         return newRemaining;
       });
     }, 1000);
-
-    // Update stats
-    setTotalStake(prev => prev + stake);
-    setTotalRuns(prev => prev + 1);
   };
 
-  const finishContract = () => {
-    if (!currentContract) return;
-
-    const barrierPrice = currentContract.entryPrice + currentContract.barrier;
-    const isWin = currentContract.type === 'CALL' 
-      ? currentPrice > barrierPrice 
-      : currentPrice < barrierPrice;
-
-    const payout = isWin ? stake * 1.8 : 0; // 80% payout rate
-    const profit = payout - stake;
+  const finishContract = (contractData) => {
+    const profit = parseFloat(contractData.profit || 0);
+    const payout = parseFloat(contractData.sell_price || 0);
 
     setTotalPayout(prev => prev + payout);
     setTotalProfitLoss(prev => prev + profit);
 
-    if (isWin) {
+    if (profit > 0) {
       setContractsWon(prev => prev + 1);
     } else {
       setContractsLost(prev => prev + 1);
     }
 
-    // Check profit target
-    if (stopOnProfit && totalProfitLoss + profit >= targetProfit) {
-      stopTrading();
-      return;
-    }
-
-    // Clear current contract and start next one automatically
+    // Clear contract state
     setCurrentContract(null);
     setContractProgress(0);
+    setTimeRemaining(0);
+
     if (contractTimerRef.current) {
       clearInterval(contractTimerRef.current);
+      contractTimerRef.current = null;
     }
 
-    // Auto-start next contract after brief delay
-    if (isTrading) {
-      setTimeout(() => {
-        if (isTrading) startTrading();
-      }, 2000);
+    // Cleanup contract subscription
+    if (contractStreamIdRef.current) {
+      apiRef.current.forget({ forget: contractStreamIdRef.current });
+      contractStreamIdRef.current = null;
     }
   };
 
   const stopTrading = () => {
+    stopFlagRef.current = true;
     setIsTrading(false);
     setCurrentContract(null);
     setContractProgress(0);
     setTimeRemaining(0);
+
     if (contractTimerRef.current) {
       clearInterval(contractTimerRef.current);
+      contractTimerRef.current = null;
     }
+
+    run_panel.setIsRunning(false);
   };
 
-  const sellContract = () => {
-    if (currentContract) {
-      // Early exit with partial payout
-      const partialPayout = stake * 0.9; // 90% of stake for early exit
-      const profit = partialPayout - stake;
+  const sellContract = async () => {
+    if (!currentContract) return;
 
-      setTotalPayout(prev => prev + partialPayout);
-      setTotalProfitLoss(prev => prev + profit);
+    try {
+      const sellResponse = await apiRef.current.send({
+        sell: currentContract.id,
+        price: 0 // Market price
+      });
 
-      stopTrading();
+      if (sellResponse.error) {
+        throw sellResponse.error;
+      }
+
+      // Contract will be updated via the subscription
+    } catch (error) {
+      console.error('Sell contract error:', error);
     }
   };
 
@@ -242,6 +625,21 @@ const HigherLowerTrader = () => {
       {!isTrading && (
         <div className="setup-form">
           <div className="form-content">
+            {/* Connection Status */}
+            <div className="form-group">
+              <div className="connection-status">
+                <span className={`status-indicator ${connectionStatus}`}></span>
+                <span className="status-text">
+                  {connectionStatus === 'connected' ? 'Connected' : 
+                   connectionStatus === 'connecting' ? 'Connecting...' : 
+                   connectionStatus === 'error' ? 'Connection Error' : 'Disconnected'}
+                </span>
+                {isAuthorized && (
+                  <span className="auth-status">• Authorized ({accountCurrency})</span>
+                )}
+              </div>
+            </div>
+
             {/* Volatility Selection */}
             <div className="form-group">
               <label htmlFor="volatility-select" className="form-label">
@@ -250,17 +648,18 @@ const HigherLowerTrader = () => {
               <select
                 id="volatility-select"
                 className="form-select"
-                defaultValue="R_10"
+                value={selectedSymbol}
+                onChange={(e) => {
+                  setSelectedSymbol(e.target.value);
+                  startTickStream(e.target.value);
+                }}
+                disabled={isTrading}
               >
-                <option value="R_10">Volatility 10 Index</option>
-                <option value="R_25">Volatility 25 Index</option>
-                <option value="R_50">Volatility 50 Index</option>
-                <option value="R_75">Volatility 75 Index</option>
-                <option value="R_100">Volatility 100 Index</option>
-                <option value="BOOM500">Boom 500 Index</option>
-                <option value="BOOM1000">Boom 1000 Index</option>
-                <option value="CRASH500">Crash 500 Index</option>
-                <option value="CRASH1000">Crash 1000 Index</option>
+                {availableSymbols.map(symbol => (
+                  <option key={symbol.value} value={symbol.value}>
+                    {symbol.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -269,14 +668,18 @@ const HigherLowerTrader = () => {
               <div className="trend-placeholder">
                 <div className="trend-info">
                   <span className="trend-label">Market Trend:</span>
-                  <span className="trend-status neutral">Analyzing...</span>
+                  <span className={`trend-status ${trend}`}>
+                    {trend === 'bullish' ? 'Bullish 📈' : 
+                     trend === 'bearish' ? 'Bearish 📉' : 
+                     'Neutral ➡️'}
+                  </span>
                 </div>
                 <div className="trend-chart-placeholder">
                   <div className="chart-line"></div>
                   <div className="chart-dots">
-                    <span className="dot"></span>
-                    <span className="dot"></span>
-                    <span className="dot"></span>
+                    {priceHistory.slice(-3).map((_, index) => (
+                      <span key={index} className="dot active"></span>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -409,14 +812,36 @@ const HigherLowerTrader = () => {
               )}
             </div>
 
+            {/* Authorization Check */}
+            {!isAuthorized && (
+              <div className="auth-warning">
+                <p>⚠️ Please log in to start trading</p>
+                <button
+                  onClick={authorizeAccount}
+                  className="btn-auth"
+                  disabled={connectionStatus !== 'connected'}
+                >
+                  Authorize Account
+                </button>
+              </div>
+            )}
+
             {/* Start/Stop Button */}
             <button
               onClick={startTrading}
-              disabled={getTotalDuration() < 15}
+              disabled={
+                getTotalDuration() < 15 || 
+                !isAuthorized || 
+                isTrading || 
+                connectionStatus !== 'connected' ||
+                availableSymbols.length === 0
+              }
               className="btn-start"
             >
               <Play className="icon" />
-              <span>Start Trading</span>
+              <span>
+                {isTrading ? 'Trading...' : 'Start Trading'}
+              </span>
             </button>
           </div>
         </div>
@@ -467,13 +892,24 @@ const HigherLowerTrader = () => {
       {/* Current Price Display */}
       <div className="price-display">
         <div className="price-content">
-          <div className="price-label">Current Price</div>
-          <div className="price-value">{currentPrice.toFixed(5)}</div>
+          <div className="price-label">Current Price ({selectedSymbol})</div>
+          <div className="price-value">
+            {currentPrice ? currentPrice.toFixed(5) : '-.-----'}
+          </div>
           {currentContract && (
             <div className="barrier-info">
-              Barrier: {(currentContract.entryPrice + currentContract.barrier).toFixed(5)}
+              Entry: {currentContract.entryPrice.toFixed(5)} | 
+              Barrier: {barrier} | 
+              Target: {currentContract.barrierValue.toFixed(5)}
             </div>
           )}
+          <div className="price-history">
+            {priceHistory.slice(-10).map((price, index) => (
+              <span key={index} className="history-price">
+                {price.toFixed(3)}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
