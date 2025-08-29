@@ -11,6 +11,11 @@ import {
     PartnersProductBrandLightSmarttraderLogoWordmarkIcon as SmarttraderLogo,
 } from '@deriv/quill-icons/Logo';
 import { localize } from '@deriv-com/translations';
+import {
+    LabelPairedArrowUpArrowDownSmIcon,
+    LabelPairedCircleDollarSmIcon,
+    LabelPairedFileChartColumnSmIcon,
+} from '@deriv/quill-icons';
 
 export type PlatformsConfig = {
     active: boolean;
