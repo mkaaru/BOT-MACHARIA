@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Square, TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
 import './higher-lower-trader.scss'; // Import the SCSS file
@@ -30,7 +29,7 @@ const HigherLowerTrader = () => {
   // Current price simulation
   const [currentPrice, setCurrentPrice] = useState(1.27);
   const [priceHistory, setPriceHistory] = useState([1.27]);
-  
+
   const intervalRef = useRef(null);
   const contractTimerRef = useRef(null);
 
@@ -140,10 +139,10 @@ const HigherLowerTrader = () => {
       // Early exit with partial payout
       const partialPayout = stake * 0.9; // 90% of stake for early exit
       const profit = partialPayout - stake;
-      
+
       setTotalPayout(prev => prev + partialPayout);
       setTotalProfitLoss(prev => prev + profit);
-      
+
       stopTrading();
     }
   };
@@ -243,6 +242,46 @@ const HigherLowerTrader = () => {
       {!isTrading && (
         <div className="setup-form">
           <div className="form-content">
+            {/* Volatility Selection */}
+            <div className="form-group">
+              <label htmlFor="volatility-select" className="form-label">
+                Volatility Index
+              </label>
+              <select
+                id="volatility-select"
+                className="form-select"
+                defaultValue="R_10"
+              >
+                <option value="R_10">Volatility 10 Index</option>
+                <option value="R_25">Volatility 25 Index</option>
+                <option value="R_50">Volatility 50 Index</option>
+                <option value="R_75">Volatility 75 Index</option>
+                <option value="R_100">Volatility 100 Index</option>
+                <option value="BOOM500">Boom 500 Index</option>
+                <option value="BOOM1000">Boom 1000 Index</option>
+                <option value="CRASH500">Crash 500 Index</option>
+                <option value="CRASH1000">Crash 1000 Index</option>
+              </select>
+            </div>
+
+            {/* Trend Indicator */}
+            <div className="trend-indicator-section">
+              <div className="trend-placeholder">
+                <div className="trend-info">
+                  <span className="trend-label">Market Trend:</span>
+                  <span className="trend-status neutral">Analyzing...</span>
+                </div>
+                <div className="trend-chart-placeholder">
+                  <div className="chart-line"></div>
+                  <div className="chart-dots">
+                    <span className="dot"></span>
+                    <span className="dot"></span>
+                    <span className="dot"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Contract Type */}
             <div className="form-group">
               <label className="form-label">
