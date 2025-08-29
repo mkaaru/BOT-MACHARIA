@@ -487,7 +487,7 @@ const SmartTrader = observer(() => {
             // Listen for streaming ticks on the raw websocket
             const onMsg = (evt: MessageEvent) => {
                 try {
-                    const data = JSON.parse(evt.data as any);
+                    const data = JSON.JSON.parse(evt.data as any);
                     if (data?.msg_type === 'tick' && data?.tick?.symbol === sym) {
                         const quote = data.tick.quote;
                         const digit = Number(String(quote).slice(-1));
@@ -633,7 +633,7 @@ const SmartTrader = observer(() => {
                     // Listen for subsequent streaming updates
                     const onMsg = (evt: MessageEvent) => {
                         try {
-                            const data = JSON.parse(evt.data as any);
+                            const data = JSON.JSON.parse(evt.data as any);
                             if (data?.msg_type === 'proposal_open_contract') {
                                 const poc = data.proposal_open_contract;
                                 // capture subscription id for later forget
@@ -697,12 +697,23 @@ const SmartTrader = observer(() => {
                 // Simple delay to prevent spamming if API rejects immediate buy loop
                 await new Promise(res => setTimeout(res, 500));
             }
-        } catch (e: any) {
-            // eslint-disable-next-line no-console
-            console.error('SmartTrader run loop error', e);
-            const msg = e?.message || e?.error?.message || 'Something went wrong';
-            setStatus(`Error: ${msg}`);
-        } finally {
+        } catch (contractError: any) {
+                    console.error('Contract execution error:', contractError);
+                    setStatus(`Contract error: ${contractError.message || 'Failed to execute contract'}`);
+
+                    // For connection errors, try to reconnect
+                    if (contractError.message?.includes('connection') || contractError.message?.includes('timeout')) {
+                        setStatus('Connection issue detected, retrying...');
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+
+                        // Check if we should continue retrying
+                        if (stopFlagRef.current) break;
+                        continue;
+                    } else {
+                        // For other errors, stop trading
+                        throw contractError;
+                    }
+                } finally {
             setIsRunning(false);
             run_panel.setIsRunning(false);
             run_panel.setHasOpenContract(false);
