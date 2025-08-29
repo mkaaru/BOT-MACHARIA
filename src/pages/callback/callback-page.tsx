@@ -54,10 +54,7 @@ const CallbackPage = () => {
                 }
 
                 const query_param_currency = sessionStorage.getItem('query_param_currency');
-                const redirectUrl = query_param_currency 
-                    ? `/?account=${encodeURIComponent(query_param_currency)}` 
-                    : '/';
-                window.location.href = redirectUrl;
+                window.location.assign(query_param_currency ? `/?account=${query_param_currency}` : '/');
             }}
             renderReturnButton={() => {
                 return (
