@@ -708,7 +708,8 @@
     font-size: 0.9rem;
 
     &:hover:not(:disabled) {
-      background: darken(var(--brand-orange), 10%);
+      background: #e67e22;
+      opacity: 0.9;
     }
 
     &:disabled {
