@@ -3,17 +3,19 @@
 
 .higher-lower-trader {
     width: 100%;
-    max-width: 400px;
-    margin: 0 auto;
+    height: calc(100vh - 200px);
+    min-height: 600px;
     background: var(--general-main-1);
     border-radius: 8px;
     box-shadow: var(--shadow-menu);
     overflow: hidden;
+    margin: 1rem;
 
     &__container {
         display: flex;
         flex-direction: column;
         height: 100%;
+        overflow-y: auto;
     }
 
     &__header {
@@ -33,6 +35,7 @@
         padding: 1.6rem;
         border-bottom: 1px solid var(--border-normal);
         background: var(--general-section-1);
+        flex-shrink: 0;
     }
 
     &__contract-header {
@@ -173,6 +176,8 @@
 
     &__setup {
         padding: 1.6rem;
+        flex: 1;
+        overflow-y: auto;
     }
 
     &__form {
@@ -448,7 +453,8 @@
     }
 
     @include mobile-screen {
-        max-width: none;
+        margin: 0.5rem;
+        height: calc(100vh - 160px);
         border-radius: 0;
 
         &__stats-grid {
@@ -463,6 +469,14 @@
         &__duration-inputs {
             flex-direction: column;
             gap: 0.8rem;
+        }
+
+        &__container {
+            padding: 0;
+        }
+
+        &__header {
+            padding: 1.2rem;
         }
     }
 }

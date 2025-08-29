@@ -1282,7 +1282,13 @@ if __name__ == "__main__":
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })}>
+                            })} style={{ 
+                                height: '100%', 
+                                display: 'flex', 
+                                flexDirection: 'column',
+                                padding: 0,
+                                overflow: 'hidden'
+                            }}>
                                 <HigherLowerTrader />
                             </div>
                         </div>
