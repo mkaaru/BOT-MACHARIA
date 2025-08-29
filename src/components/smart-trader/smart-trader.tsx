@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
@@ -6,6 +6,7 @@ import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from 
 // import { tradeOptionToBuy } from '@/external/bot-skeleton/services/tradeEngine/utils/helpers';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
+import HigherLowerTrader from '@/components/higher-lower-trader';
 import './smart-trader.scss';
 
 // Minimal trade types we will support initially

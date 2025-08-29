@@ -1,3 +1,4 @@
+
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { useTranslations } from '@deriv-com/translations';
@@ -40,11 +41,10 @@ export const TradershubLink = () => (
     <MenuItem
         as='a'
         className='app-header__menu'
-        href={TRADERS_HUB_LINK_CONFIG.href}
-        key={TRADERS_HUB_LINK_CONFIG.label}
-        leftComponent={TRADERS_HUB_LINK_CONFIG.icon}
+        href='https://app.deriv.com/appstore/traders-hub'
+        key='traders-hub'
     >
-        <Text>{TRADERS_HUB_LINK_CONFIG.label}</Text>
+        <Text>{localize('Trader\'s Hub')}</Text>
     </MenuItem>
 );
 
@@ -55,10 +55,6 @@ export const RiskRewardLink = () => (
         href='/risk-reward'
         key='risk-reward'
     >
-        <Text>Risk Reward</Text>
+        <Text>{localize('Risk Reward')}</Text>
     </MenuItem>
 );
-
-MenuItems.TradershubLink = TradershubLink;
-MenuItems.RiskRewardLink = RiskRewardLink;
-export default MenuItems;
