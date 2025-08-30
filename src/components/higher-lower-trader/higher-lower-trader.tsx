@@ -352,34 +352,45 @@ const HigherLowerTrader = observer(() => {
         // Start the actual trading through the bot builder's run panel
         setIsTrading(true);
         
+        // Try to access run panel from stores
+        const { run_panel } = useStore();
+        
         // Automatically start the bot execution
         if (run_panel?.onRunButtonClick) {
           // Small delay to ensure workspace is fully loaded
           setTimeout(() => {
             run_panel.onRunButtonClick();
           }, 1000);
+        } else {
+          // Fallback: try to access run panel through global scope
+          setTimeout(() => {
+            try {
+              if (window.Blockly?.derivWorkspace) {
+                window.Blockly.derivWorkspace.run?.();
+              }
+            } catch (err) {
+              console.warn('Could not auto-start bot execution:', err);
+            }
+          }, 1000);
         }
 
-        // Update UI state
-        setCurrentStake(settings.stake);
-        setTimeLeft(settings.duration);
-
-        // Start the countdown timer for UI
+        // Start a simple countdown timer for UI feedback
         timerRef.current = setInterval(() => {
-          setTimeLeft(prev => {
+          setTimeRemaining(prev => {
             if (prev <= 1) {
-              return settings.duration;
+              return getTotalDuration();
             }
             return prev - 1;
           });
         }, 1000);
 
       } else {
-        throw new Error('Bot builder not available');
+        throw new Error('Bot builder not available. Please ensure the workspace is loaded.');
       }
 
     } catch (error) {
       console.error('Failed to load strategy into bot builder:', error);
+      alert(`Failed to start trading: ${error.message}`);
       setIsTrading(false);
     }
   };
@@ -667,8 +678,8 @@ const HigherLowerTrader = observer(() => {
 
   // Generate XML for Higher/Lower strategy based on current settings
   const generateHigherLowerXML = () => {
-    const contractType = contractType === 'CALL' ? 'CALL' : 'PUT'; // Corrected to use component state
-    const barrierValue = contractType === 'CALL' ? `+${barrier}` : `-${barrier}`; // Corrected to use component state
+    const currentContractType = contractType === 'CALL' ? 'CALL' : 'PUT';
+    const barrierValue = barrier.startsWith('+') || barrier.startsWith('-') ? barrier : `+${barrier}`;
 
     return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
@@ -684,7 +695,7 @@ const HigherLowerTrader = observer(() => {
       <block type="trade_definition_market" id="market_def" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
         <field name="SUBMARKET_LIST">random_index</field>
-        <field name="SYMBOL_LIST">${selectedSymbol}</field> {/* Use selectedSymbol */}
+        <field name="SYMBOL_LIST">${selectedSymbol}</field>
         <next>
           <block type="trade_definition_tradetype" id="tradetype_def" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">higherlower</field>
@@ -717,7 +728,7 @@ const HigherLowerTrader = observer(() => {
       <block type="text_print" id="init_print1">
         <value name="TEXT">
           <shadow type="text" id="init_text1">
-            <field name="TEXT">Higher/Lower Bot Starting - ${contractType} Strategy</field> {/* Use contractType */}
+            <field name="TEXT">Higher/Lower Bot Starting - ${currentContractType} Strategy</field>
           </shadow>
         </value>
         <next>
@@ -807,7 +818,7 @@ const HigherLowerTrader = observer(() => {
         </value>
         <statement name="DO0">
           <block type="purchase" id="purchase_block">
-            <field name="PURCHASE_LIST">${contractType}</field> {/* Use contractType */}
+            <field name="PURCHASE_LIST">${currentContractType}</field>
           </block>
         </statement>
       </block>
@@ -1304,7 +1315,7 @@ const HigherLowerTrader = observer(() => {
             </div>
 
             {/* Authorization Check */}
-            {!isAuthorized && !isMainAppAuthorized && (
+            {connectionStatus === 'connected' && !isAuthorized && !isMainAppAuthorized && (
               <div className="auth-warning">
                 <p>⚠️ Please log in to start trading</p>
                 <button
@@ -1324,9 +1335,9 @@ const HigherLowerTrader = observer(() => {
               disabled={
                 !isTrading && (
                   getTotalDuration() < 15 || 
-                  !(isAuthorized || isMainAppAuthorized) || 
                   connectionStatus !== 'connected' ||
-                  availableSymbols.length === 0
+                  availableSymbols.length === 0 ||
+                  !blockly_store
                 )
               }
             >
