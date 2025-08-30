@@ -1,8 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Play, Square, TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
 import { localize } from '@deriv-com/translations';
+import Text from '@/components/shared_ui/text';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
+import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import './higher-lower-trader.scss';
 
@@ -20,1433 +22,827 @@ const VOLATILITY_INDICES = [
   { value: 'stpRNG', label: 'Step Index' },
 ];
 
+// Safe version of tradeOptionToBuy without Blockly dependencies
+const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
+    const buy = {
+        buy: '1',
+        price: trade_option.amount,
+        parameters: {
+            amount: trade_option.amount,
+            basis: trade_option.basis,
+            contract_type,
+            currency: trade_option.currency,
+            duration: trade_option.duration,
+            duration_unit: trade_option.duration_unit,
+            symbol: trade_option.symbol,
+        },
+    };
+    if (trade_option.barrier !== undefined) {
+        buy.parameters.barrier = trade_option.barrier;
+    }
+    return buy;
+};
+
 const HigherLowerTrader = observer(() => {
-  const { dashboard, blockly_store } = useStore();
-  const { client: mainAppClient } = useStore(); // Access main app client store
+    const store = useStore();
+    const { run_panel, transactions } = store;
 
-  const [settings, setSettings] = useState({
-    symbol: 'R_10',
-    tradeType: 'Higher',
-    stake: 0.5,
-    barrier: 0.37,
-    duration: 60,
-    maxTrades: 100,
-    profitThreshold: 10,
-    lossThreshold: 5,
-    martingaleMultiplier: 2.2
-  });
+    const apiRef = useRef<any>(null);
+    const tickStreamIdRef = useRef<string | null>(null);
+    const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
 
-  // Trading parameters
-  const [selectedSymbol, setSelectedSymbol] = useState('R_10');
-  const [stake, setStake] = useState(1.5);
-  const [durationMinutes, setDurationMinutes] = useState(0);
-  const [durationSeconds, setDurationSeconds] = useState(60);
-  const [barrier, setBarrier] = useState('+0.37');
-  const [contractType, setContractType] = useState('CALL'); // CALL for Higher, PUT for Lower
-  const [stopOnProfit, setStopOnProfit] = useState(false);
-  const [targetProfit, setTargetProfit] = useState(5.0);
+    const [is_authorized, setIsAuthorized] = useState(false);
+    const [account_currency, setAccountCurrency] = useState<string>('USD');
+    const [symbols, setSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
 
-  // Trading state
-  const [isTrading, setIsTrading] = useState(false);
-  const [currentContract, setCurrentContract] = useState(null);
-  const [contractProgress, setContractProgress] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(0);
+    // Form state - Higher/Lower specific
+    const [symbol, setSymbol] = useState<string>('');
+    const [contractType, setContractType] = useState<string>('CALL'); // CALL for Higher, PUT for Lower
+    const [duration, setDuration] = useState<number>(60); // Duration in seconds
+    const [durationType, setDurationType] = useState<string>('s'); // 's' for seconds, 'm' for minutes
+    const [stake, setStake] = useState<number>(1.0);
+    const [baseStake, setBaseStake] = useState<number>(1.0);
+    const [barrier, setBarrier] = useState<string>('+0.37');
 
-  // Trading statistics
-  const [totalStake, setTotalStake] = useState(0);
-  const [totalPayout, setTotalPayout] = useState(0);
-  const [totalRuns, setTotalRuns] = useState(0);
-  const [contractsWon, setContractsWon] = useState(0);
-  const [contractsLost, setContractsLost] = useState(0);
-  const [totalProfitLoss, setTotalProfitLoss] = useState(0);
+    // Martingale/recovery
+    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
+    const [useStopOnProfit, setUseStopOnProfit] = useState<boolean>(false);
+    const [targetProfit, setTargetProfit] = useState<number>(10.0);
 
-  // Current market data
-  const [currentPrice, setCurrentPrice] = useState(0);
-  const [priceHistory, setPriceHistory] = useState([]);
-  const [trend, setTrend] = useState('neutral');
+    // Contract tracking state
+    const [currentProfit, setCurrentProfit] = useState<number>(0);
+    const [contractValue, setContractValue] = useState<number>(0);
+    const [potentialPayout, setPotentialPayout] = useState<number>(0);
+    const [contractDuration, setContractDuration] = useState<string>('00:00:00');
 
-  const apiRef = useRef<any>(null);
-  const tickStreamIdRef = useRef<string | null>(null);
-  const contractStreamIdRef = useRef<string | null>(null);
-  const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
-  const contractTimerRef = useRef(null);
-  const stopFlagRef = useRef(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+    // Live price state
+    const [currentPrice, setCurrentPrice] = useState<number>(0);
+    const [ticksProcessed, setTicksProcessed] = useState<number>(0);
 
-  // API and auth state
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [accountCurrency, setAccountCurrency] = useState('USD');
-  const [connectionStatus, setConnectionStatus] = useState('disconnected');
-  const [availableSymbols, setAvailableSymbols] = useState([]);
-  const [status, setStatus] = useState(''); // For displaying authorization status messages
+    // Hull Moving Average trend analysis state
+    const [hullTrends, setHullTrends] = useState({
+        '15s': { trend: 'NEUTRAL', value: 0 },
+        '1m': { trend: 'NEUTRAL', value: 0 },
+        '5m': { trend: 'NEUTRAL', value: 0 },
+        '15m': { trend: 'NEUTRAL', value: 0 }
+    });
+    const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
 
-  // Main app authorization state
-  const isMainAppAuthorized = mainAppClient?.isLoggedIn;
-  const mainAppCurrency = mainAppClient?.currency;
+    const [status, setStatus] = useState<string>('');
+    const [is_running, setIsRunning] = useState(false);
+    const stopFlagRef = useRef<boolean>(false);
+    const lastOutcomeWasLossRef = useRef(false);
 
-  // Initialize API connection and fetch symbols
-  useEffect(() => {
-    const api = generateDerivApiInstance();
-    apiRef.current = api;
+    // Trading statistics
+    const [totalStake, setTotalStake] = useState(0);
+    const [totalPayout, setTotalPayout] = useState(0);
+    const [totalRuns, setTotalRuns] = useState(0);
+    const [contractsWon, setContractsWon] = useState(0);
+    const [contractsLost, setContractsLost] = useState(0);
+    const [totalProfitLoss, setTotalProfitLoss] = useState(0);
 
-    const initializeApi = async () => {
-      try {
-        setConnectionStatus('connecting');
+    // --- Helper Functions ---
 
-        // Wait for connection
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('Connection timeout')), 15000);
+    // Hull Moving Average calculation with Weighted Moving Average
+    const calculateHMA = (data: number[], period: number) => {
+        if (data.length < period) return null;
 
-          api.connection.addEventListener('open', () => {
-            clearTimeout(timeout);
-            setConnectionStatus('connected');
-            console.log('API connection established');
-            resolve(null);
-          });
-
-          api.connection.addEventListener('error', (error) => {
-            clearTimeout(timeout);
-            setConnectionStatus('error');
-            console.error('API connection error:', error);
-            reject(error);
-          });
-
-          api.connection.addEventListener('close', (event) => {
-            console.log('API connection closed:', event.code, event.reason);
-            setConnectionStatus('disconnected');
-
-            // Auto-reconnect if not manually closed
-            if (!stopFlagRef.current && event.code !== 1000) {
-              setTimeout(() => {
-                console.log('Attempting to reconnect...');
-                initializeApi();
-              }, 3000);
-            }
-          });
-        });
-
-        // Set up global message handler for contract updates
-        const globalMessageHandler = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-
-            // Handle tick updates
-            if (data.msg_type === 'tick' && data.tick?.symbol === selectedSymbol) {
-              const newPrice = parseFloat(data.tick.quote);
-              setCurrentPrice(newPrice);
-
-              setPriceHistory(prev => {
-                const newHistory = [...prev.slice(-49), newPrice];
-
-                // Calculate trend
-                if (newHistory.length >= 5) {
-                  const recent = newHistory.slice(-5);
-                  const avg = recent.reduce((sum, price) => sum + price, 0) / recent.length;
-                  const currentTrend = newPrice > avg ? 'bullish' : newPrice < avg ? 'bearish' : 'neutral';
-                  setTrend(currentTrend);
-                }
-
-                return newHistory;
-              });
-            }
-
-            // Handle contract updates
-            if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract) {
-              handleContractUpdate(data.proposal_open_contract);
-            }
-          } catch (error) {
-            console.error('Error processing message:', error);
-          }
+        const calculateWMA = (values: number[], periods: number) => {
+            if (values.length < periods) return null;
+            const weights = Array.from({length: periods}, (_, i) => i + 1);
+            const weightSum = weights.reduce((sum, w) => sum + w, 0);
+            const recentValues = values.slice(-periods);
+            const weightedSum = recentValues.reduce((sum, val, i) => sum + val * weights[i], 0);
+            return weightedSum / weightSum;
         };
 
-        api.connection.addEventListener('message', globalMessageHandler);
+        const halfPeriod = Math.floor(period / 2);
+        const sqrtPeriod = Math.floor(Math.sqrt(period));
 
-        // Fetch available symbols
-        const symbolsResponse = await api.send({ active_symbols: 'brief' });
-        if (symbolsResponse.error) {
-          throw symbolsResponse.error;
-        }
+        const wmaHalf = calculateWMA(data, halfPeriod);
+        const wmaFull = calculateWMA(data, period);
 
-        const filteredSymbols = (symbolsResponse.active_symbols || [])
-          .filter(symbol => 
-            symbol.market === 'synthetic_index' && 
-            (symbol.symbol.startsWith('R_') || 
-             symbol.symbol.startsWith('BOOM') || 
-             symbol.symbol.startsWith('CRASH') ||
-             symbol.symbol === 'stpRNG')
-          )
-          .map(symbol => ({
-            value: symbol.symbol,
-            label: symbol.display_name
-          }));
+        if (wmaHalf === null || wmaFull === null) return null;
 
-        setAvailableSymbols(filteredSymbols);
-
-        if (filteredSymbols.length > 0) {
-          setSelectedSymbol(filteredSymbols[0].value);
-          startTickStream(filteredSymbols[0].value);
-        }
-
-        // Try to authorize if token exists or if main app is already authorized
-        authorizeIfNeeded();
-
-      } catch (error) {
-        console.error('API initialization failed:', error);
-        setConnectionStatus('error');
-      }
+        const rawHMA = 2 * wmaHalf - wmaFull;
+        return rawHMA;
     };
 
-    initializeApi();
+    // Convert tick data to candles for better trend analysis
+    const ticksToCandles = (ticks: Array<{ time: number, price: number }>, timeframeSeconds: number) => {
+        if (ticks.length === 0) return [];
 
-    return () => {
-      cleanup();
-    };
-  }, []);
+        const candles = [];
+        const timeframeMsec = timeframeSeconds * 1000;
+        const buckets = new Map();
 
-  const cleanup = () => {
-    try {
-      if (tickStreamIdRef.current) {
-        apiRef.current?.forget({ forget: tickStreamIdRef.current });
-        tickStreamIdRef.current = null;
-      }
-      if (contractStreamIdRef.current) {
-        apiRef.current?.forget({ forget: contractStreamIdRef.current });
-        contractStreamIdRef.current = null;
-      }
-      if (messageHandlerRef.current) {
-        apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
-        messageHandlerRef.current = null;
-      }
-      apiRef.current?.disconnect();
-    } catch (error) {
-      console.error('Cleanup error:', error);
-    }
-  };
-
-  // Authorization logic updated to check main app state
-  const authorizeIfNeeded = async () => {
-      try {
-        // Check if main app is already authorized
-        if (isMainAppAuthorized) {
-          setIsAuthorized(true);
-          setAccountCurrency(mainAppCurrency);
-          setStatus('Using main app authorization');
-          return;
-        }
-
-        if (isAuthorized) return;
-
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          setStatus('No authentication token found. Please log in.');
-          return;
-        }
-
-        setStatus('Authorizing...');
-        const { authorize, error } = await apiRef.current.authorize(token);
-
-        if (error) {
-          setStatus(`Authorization failed: ${error.message}`);
-          return;
-        }
-
-        setIsAuthorized(true);
-        setAccountCurrency(authorize?.currency || 'USD');
-        setStatus('Authorized successfully');
-
-        // Sync with main store if available
-        if (mainAppClient) {
-          mainAppClient.setLoginId(authorize?.loginid || '');
-          mainAppClient.setCurrency(authorize?.currency || 'USD');
-          mainAppClient.setIsLoggedIn(true);
-        }
-      } catch (err) {
-        setStatus(`Authorization error: ${err.message}`);
-      }
-    };
-
-  const startTickStream = async (symbol) => {
-    try {
-      // Stop existing stream
-      if (tickStreamIdRef.current) {
-        await apiRef.current.forget({ forget: tickStreamIdRef.current });
-        tickStreamIdRef.current = null;
-      }
-
-      // Remove existing message handler
-      if (messageHandlerRef.current) {
-        apiRef.current.connection.removeEventListener('message', messageHandlerRef.current);
-        messageHandlerRef.current = null;
-      }
-
-      // Start new tick stream
-      const response = await apiRef.current.send({ 
-        ticks: symbol, 
-        subscribe: 1 
-      });
-
-      if (response.error) {
-        throw response.error;
-      }
-
-      if (response.subscription?.id) {
-        tickStreamIdRef.current = response.subscription.id;
-      }
-
-      // Set up message handler for tick updates
-      const messageHandler = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          if (data.msg_type === 'tick' && data.tick?.symbol === symbol) {
-            const newPrice = parseFloat(data.tick.quote);
-            setCurrentPrice(newPrice);
-
-            setPriceHistory(prev => {
-              const newHistory = [...prev.slice(-49), newPrice];
-
-              // Calculate trend
-              if (newHistory.length >= 5) {
-                const recent = newHistory.slice(-5);
-                const avg = recent.reduce((sum, price) => sum + price, 0) / recent.length;
-                const currentTrend = newPrice > avg ? 'bullish' : newPrice < avg ? 'bearish' : 'neutral';
-                setTrend(currentTrend);
-              }
-
-              return newHistory;
-            });
-          }
-        } catch (error) {
-          console.error('Error processing tick data:', error);
-        }
-      };
-
-      messageHandlerRef.current = messageHandler;
-      apiRef.current.connection.addEventListener('message', messageHandler);
-
-    } catch (error) {
-      console.error('Failed to start tick stream:', error);
-    }
-  };
-
-  const startTrading = async () => {
-    if (isTrading) return;
-
-    try {
-      // Generate XML for the current settings
-      const xmlContent = generateHigherLowerXML();
-
-      // Load the XML into the bot builder workspace
-      if (blockly_store?.loadWorkspaceFromXmlString) {
-        await blockly_store.loadWorkspaceFromXmlString(xmlContent);
-
-        // Switch to bot builder tab if not already there
-        if (dashboard?.setActiveTab) {
-          dashboard.setActiveTab(1); // Bot Builder tab
-        }
-
-        // Show success notification
-        console.log('Higher/Lower strategy loaded into Bot Builder successfully');
-
-        // Start the actual trading through the bot builder's run panel
-        setIsTrading(true);
-        
-        // Try to access run panel from stores
-        const { run_panel } = useStore();
-        
-        // Automatically start the bot execution
-        if (run_panel?.onRunButtonClick) {
-          // Small delay to ensure workspace is fully loaded
-          setTimeout(() => {
-            run_panel.onRunButtonClick();
-          }, 1000);
-        } else {
-          // Fallback: try to access run panel through global scope
-          setTimeout(() => {
-            try {
-              if (window.Blockly?.derivWorkspace) {
-                window.Blockly.derivWorkspace.run?.();
-              }
-            } catch (err) {
-              console.warn('Could not auto-start bot execution:', err);
+        ticks.forEach(tick => {
+            const bucketTime = Math.floor(tick.time / timeframeMsec) * timeframeMsec;
+            if (!buckets.has(bucketTime)) {
+                buckets.set(bucketTime, []);
             }
-          }, 1000);
-        }
-
-        // Start a simple countdown timer for UI feedback
-        timerRef.current = setInterval(() => {
-          setTimeRemaining(prev => {
-            if (prev <= 1) {
-              return getTotalDuration();
-            }
-            return prev - 1;
-          });
-        }, 1000);
-
-      } else {
-        throw new Error('Bot builder not available. Please ensure the workspace is loaded.');
-      }
-
-    } catch (error) {
-      console.error('Failed to load strategy into bot builder:', error);
-      alert(`Failed to start trading: ${error.message}`);
-      setIsTrading(false);
-    }
-  };
-
-  const executeTrade = async () => {
-    try {
-      // Ensure we're still connected before executing trade
-      if (connectionStatus !== 'connected' || !apiRef.current) {
-        throw new Error('API connection lost. Please reconnect before trading.');
-      }
-
-      // Get contract proposal with timeout
-      const duration = durationMinutes * 60 + durationSeconds;
-      const proposalRequest = {
-        proposal: 1,
-        amount: stake,
-        basis: 'stake',
-        contract_type: contractType, // 'CALL' for Higher, 'PUT' for Lower
-        currency: accountCurrency,
-        duration: duration,
-        duration_unit: 's',
-        symbol: selectedSymbol,
-        barrier: barrier
-      };
-
-      console.log('Sending proposal request:', proposalRequest);
-
-      const proposalResponse = await Promise.race([
-        apiRef.current.send(proposalRequest),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Proposal request timeout')), 10000)
-        )
-      ]);
-
-      if (proposalResponse.error) {
-        console.error('Proposal error:', proposalResponse.error);
-        throw new Error(`Proposal failed: ${proposalResponse.error.message}`);
-      }
-
-      const proposal = proposalResponse.proposal;
-      console.log('Proposal received:', proposal);
-
-      // Buy the contract with timeout
-      const buyRequest = {
-        buy: proposal.id,
-        price: proposal.ask_price
-      };
-
-      console.log('Sending buy request:', buyRequest);
-
-      const buyResponse = await Promise.race([
-        apiRef.current.send(buyRequest),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Buy request timeout')), 15000)
-        )
-      ]);
-
-      if (buyResponse.error) {
-        console.error('Buy error:', buyResponse.error);
-        throw new Error(`Trade execution failed: ${buyResponse.error.message}`);
-      }
-
-      const contract = buyResponse.buy;
-      const contractId = contract.contract_id;
-
-      console.log('Trade executed successfully:', contract);
-
-      // Update statistics
-      setTotalStake(prev => prev + stake);
-      setTotalRuns(prev => prev + 1);
-
-      // Create contract object
-      const contractData = {
-        id: contractId,
-        type: contractType,
-        stake: stake,
-        barrier: parseFloat(barrier.replace(/[+\-]/, '')),
-        barrierValue: currentPrice + parseFloat(barrier),
-        entryPrice: currentPrice,
-        startTime: Date.now(),
-        duration: duration,
-        status: 'active',
-        longcode: contract.longcode
-      };
-
-      setCurrentContract(contractData);
-      setTimeRemaining(duration);
-      setContractProgress(0);
-
-      // Add to transactions
-      try {
-        const symbolDisplay = availableSymbols.find(s => s.value === selectedSymbol)?.label || selectedSymbol;
-        transactions.onBotContractEvent({
-          contract_id: contractId,
-          transaction_ids: { buy: contract.transaction_id },
-          buy_price: contract.buy_price,
-          currency: accountCurrency,
-          contract_type: contractType,
-          underlying: selectedSymbol,
-          display_name: symbolDisplay,
-          date_start: Math.floor(Date.now() / 1000),
-          status: 'open',
-          longcode: contract.longcode
+            buckets.get(bucketTime).push(tick.price);
         });
-      } catch (error) {
-        console.error('Error adding to transactions:', error);
-      }
 
-      // Subscribe to contract updates
-      await subscribeToContract(contractId);
+        Array.from(buckets.entries()).sort((a, b) => a[0] - b[0]).forEach(([time, prices]) => {
+            if (prices.length > 0) {
+                candles.push({
+                    time,
+                    open: prices[0],
+                    high: Math.max(...prices),
+                    low: Math.min(...prices),
+                    close: prices[prices.length - 1]
+                });
+            }
+        });
 
-      // Start countdown timer
-      startContractTimer(duration);
+        return candles;
+    };
 
-    } catch (error) {
-      console.error('Trade execution error:', error);
+    // Update Hull trends based on tick data
+    const updateHullTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
+        const newTrends = { ...hullTrends };
 
-      // Check if it's a connection issue
-      if (error.message.includes('connection') || error.message.includes('timeout')) {
-        setConnectionStatus('error');
+        const timeframes = {
+            '15s': 15,
+            '1m': 60,
+            '5m': 300,
+            '15m': 900
+        };
 
-        // Try to reconnect
+        Object.entries(timeframes).forEach(([timeframe, seconds]) => {
+            const candles = ticksToCandles(newTickData, seconds);
+
+            if (candles.length >= 20) {
+                const closePrices = candles.map(candle => candle.close);
+                const hmaValue = calculateHMA(closePrices, Math.min(14, closePrices.length));
+
+                if (hmaValue !== null && candles.length >= 3) {
+                    const currentCandle = candles[candles.length - 1];
+                    const previousCandle = candles[candles.length - 2];
+                    const prevPrevCandle = candles[candles.length - 3];
+
+                    let trend = 'NEUTRAL';
+
+                    const hmaSlope = hmaValue - calculateHMA(closePrices.slice(0, -1), Math.min(14, closePrices.length - 1));
+                    const priceAboveHMA = currentCandle.close > hmaValue;
+                    const risingPrices = currentCandle.close > previousCandle.close && previousCandle.close > prevPrevCandle.close;
+                    const fallingPrices = currentCandle.close < previousCandle.close && previousCandle.close < prevPrevCandle.close;
+
+                    if (hmaSlope > 0 && priceAboveHMA && risingPrices) {
+                        trend = 'BULLISH';
+                    } else if (hmaSlope < 0 && !priceAboveHMA && fallingPrices) {
+                        trend = 'BEARISH';
+                    } else if (hmaSlope > 0 && priceAboveHMA) {
+                        trend = 'BULLISH';
+                    } else if (hmaSlope < 0 && !priceAboveHMA) {
+                        trend = 'BEARISH';
+                    }
+
+                    newTrends[timeframe as keyof typeof hullTrends] = {
+                        trend,
+                        value: Number(hmaValue.toFixed(5))
+                    };
+                }
+            }
+        });
+
+        setHullTrends(newTrends);
+    };
+
+    // Fetch historical tick data for Hull Moving Average analysis
+    const fetchHistoricalTicks = async (symbolToFetch: string) => {
         try {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          await authorizeIfNeeded();
-          setConnectionStatus('connected');
-        } catch (reconnectError) {
-          console.error('Reconnection failed:', reconnectError);
-          throw new Error('Connection lost during trade execution. Please refresh and try again.');
+            const request = {
+                ticks_history: symbolToFetch,
+                adjust_start_time: 1,
+                count: 1000,
+                end: "latest",
+                start: 1,
+                style: "ticks"
+            };
+
+            const response = await apiRef.current.send(request);
+
+            if (response.error) {
+                console.error('Historical ticks fetch error:', response.error);
+                return;
+            }
+
+            if (response.history && response.history.prices && response.history.times) {
+                const historicalData = response.history.prices.map((price: string, index: number) => ({
+                    time: response.history.times[index] * 1000,
+                    price: parseFloat(price),
+                    close: parseFloat(price)
+                }));
+
+                setTickData(prev => {
+                    const combinedData = [...historicalData, ...prev];
+                    const uniqueData = combinedData.filter((tick, index, arr) =>
+                        arr.findIndex(t => t.time === tick.time) === index
+                    ).sort((a, b) => a.time - b.time);
+
+                    const trimmedData = uniqueData.slice(-2000);
+                    updateHullTrends(trimmedData);
+                    return trimmedData;
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching historical ticks:', error);
         }
-      }
+    };
 
-      throw error;
-    }
-  };
+    // Effect to initialize API connection and fetch active symbols
+    useEffect(() => {
+        const api = generateDerivApiInstance();
+        apiRef.current = api;
+        const init = async () => {
+            try {
+                const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
+                if (asErr) throw asErr;
+                const syn = (active_symbols || [])
+                    .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol))
+                    .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
+                setSymbols(syn);
+                if (!symbol && syn[0]?.symbol) {
+                    setSymbol(syn[0].symbol);
+                    await fetchHistoricalTicks(syn[0].symbol);
+                    startTicks(syn[0].symbol);
+                }
+            } catch (e: any) {
+                console.error('HigherLowerTrader init error', e);
+                setStatus(e?.message || 'Failed to load symbols');
+            }
+        };
+        init();
 
-  const subscribeToContract = async (contractId) => {
-    try {
-      const response = await apiRef.current.send({
-        proposal_open_contract: 1,
-        contract_id: contractId,
-        subscribe: 1
-      });
+        return () => {
+            try {
+                if (tickStreamIdRef.current) {
+                    apiRef.current?.forget({ forget: tickStreamIdRef.current });
+                    tickStreamIdRef.current = null;
+                }
+                if (messageHandlerRef.current) {
+                    apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
+                    messageHandlerRef.current = null;
+                }
+                api?.disconnect?.();
+            } catch { /* noop */ }
+        };
+    }, []);
 
-      if (response.error) {
-        throw response.error;
-      }
-
-      if (response.subscription?.id) {
-        contractStreamIdRef.current = response.subscription.id;
-      }
-
-      // Handle initial contract state if present
-      if (response.proposal_open_contract) {
-        handleContractUpdate(response.proposal_open_contract);
-      }
-
-    } catch (error) {
-      console.error('Contract subscription error:', error);
-    }
-  };
-
-  const handleContractUpdate = (contractData) => {
-    try {
-      // Update transactions store
-      transactions.onBotContractEvent(contractData);
-
-      // Check if contract is finished
-      if (contractData.is_sold || contractData.status === 'sold') {
-        finishContract(contractData);
-      }
-    } catch (error) {
-      console.error('Contract update error:', error);
-    }
-  };
-
-  const startContractTimer = (duration) => {
-    setTimeRemaining(duration);
-    setContractProgress(0);
-
-    contractTimerRef.current = setInterval(() => {
-      setTimeRemaining(prev => {
-        if (prev <= 1) {
-          clearInterval(contractTimerRef.current);
-          return 0;
+    // Effect to fetch historical data when symbol changes
+    useEffect(() => {
+        if (symbol && apiRef.current) {
+            fetchHistoricalTicks(symbol);
         }
-        const newRemaining = prev - 1;
-        setContractProgress(((duration - newRemaining) / duration) * 100);
-        return newRemaining;
-      });
-    }, 1000);
-  };
+    }, [symbol]);
 
-  const finishContract = (contractData) => {
-    const profit = parseFloat(contractData.profit || 0);
-    const payout = parseFloat(contractData.sell_price || 0);
+    const authorizeIfNeeded = async () => {
+        if (is_authorized) return;
+        const token = V2GetActiveToken();
+        if (!token) {
+            setStatus('No token found. Please log in and select an account.');
+            throw new Error('No token');
+        }
+        const { authorize, error } = await apiRef.current.authorize(token);
+        if (error) {
+            setStatus(`Authorization error: ${error.message || error.code}`);
+            throw error;
+        }
+        setIsAuthorized(true);
+        const loginid = authorize?.loginid || V2GetActiveClientId();
+        setAccountCurrency(authorize?.currency || 'USD');
+        try {
+            store?.client?.setLoginId?.(loginid || '');
+            store?.client?.setCurrency?.(authorize?.currency || 'USD');
+            store?.client?.setIsLoggedIn?.(true);
+        } catch {}
+    };
 
-    setTotalPayout(prev => prev + payout);
-    setTotalProfitLoss(prev => prev + profit);
+    const stopTicks = () => {
+        try {
+            if (tickStreamIdRef.current) {
+                apiRef.current?.forget({ forget: tickStreamIdRef.current });
+                tickStreamIdRef.current = null;
+            }
+            if (messageHandlerRef.current) {
+                apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
+                messageHandlerRef.current = null;
+            }
+        } catch {}
+    };
 
-    if (profit > 0) {
-      setContractsWon(prev => prev + 1);
-    } else {
-      setContractsLost(prev => prev + 1);
-    }
+    const startTicks = async (sym: string) => {
+        stopTicks();
+        setTicksProcessed(0);
 
-    // Clear contract state
-    setCurrentContract(null);
-    setContractProgress(0);
-    setTimeRemaining(0);
+        try {
+            const { subscription, error } = await apiRef.current.send({ ticks: sym, subscribe: 1 });
+            if (error) throw error;
+            if (subscription?.id) tickStreamIdRef.current = subscription.id;
 
-    if (contractTimerRef.current) {
-      clearInterval(contractTimerRef.current);
-      contractTimerRef.current = null;
-    }
+            const onMsg = (evt: MessageEvent) => {
+                try {
+                    const data = JSON.parse(evt.data as any);
+                    if (data?.msg_type === 'tick' && data?.tick?.symbol === sym) {
+                        const quote = data.tick.quote;
+                        const tickTime = data.tick.epoch * 1000;
 
-    // Cleanup contract subscription
-    if (contractStreamIdRef.current) {
-      apiRef.current.forget({ forget: contractStreamIdRef.current });
-      contractStreamIdRef.current = null;
-    }
-  };
+                        setCurrentPrice(quote);
+                        setTicksProcessed(prev => prev + 1);
 
-  const stopTrading = () => {
-    setIsTrading(false);
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-    setTimeLeft(0);
-    setCurrentContract(null);
+                        setTickData(prev => {
+                            const newTickData = [...prev, {
+                                time: tickTime,
+                                price: quote,
+                                close: quote
+                            }];
 
-    // Stop the bot if it's running in bot builder
-    try {
-      if (run_panel?.onStopButtonClick) {
-        run_panel.onStopButtonClick();
-      } else if (window.Blockly?.derivWorkspace) {
-        // Fallback method
-        window.Blockly.derivWorkspace.stop?.();
-      }
-    } catch (error) {
-      console.error('Error stopping bot execution:', error);
-    }
-  };
+                            const trimmedData = newTickData.slice(-2000);
+                            updateHullTrends(trimmedData);
+                            return trimmedData;
+                        });
+                    }
+                } catch {}
+            };
+            messageHandlerRef.current = onMsg;
+            apiRef.current?.connection?.addEventListener('message', onMsg);
 
-  const sellContract = async () => {
-    if (!currentContract) return;
+        } catch (e: any) {
+            console.error('startTicks error', e);
+        }
+    };
 
-    try {
-      const sellResponse = await apiRef.current.send({
-        sell: currentContract.id,
-        price: 0 // Market price
-      });
+    const purchaseOnceWithStake = async (stakeAmount: number) => {
+        await authorizeIfNeeded();
 
-      if (sellResponse.error) {
-        throw sellResponse.error;
-      }
+        const trade_option: any = {
+            amount: Number(stakeAmount),
+            basis: 'stake',
+            contractTypes: [contractType],
+            currency: account_currency,
+            duration: durationType === 's' ? Number(duration) : Number(duration * 60),
+            duration_unit: durationType,
+            symbol,
+            barrier: barrier
+        };
 
-      // Contract will be updated via the subscription
-    } catch (error) {
-      console.error('Sell contract error:', error);
-    }
-  };
+        const buy_req = tradeOptionToBuy(contractType, trade_option);
+        const { buy, error } = await apiRef.current.buy(buy_req);
+        if (error) throw error;
+        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
+        return buy;
+    };
 
-  const resetStats = () => {
-    setTotalStake(0);
-    setTotalPayout(0);
-    setTotalRuns(0);
-    setContractsWon(0);
-    setContractsLost(0);
-    setTotalProfitLoss(0);
-  };
+    const onRun = async () => {
+        setStatus('');
+        setIsRunning(true);
+        stopFlagRef.current = false;
+        run_panel.toggleDrawer(true);
+        run_panel.setActiveTabIndex(1);
+        run_panel.run_id = `higher-lower-${Date.now()}`;
+        run_panel.setIsRunning(true);
+        run_panel.setContractStage(contract_stages.STARTING);
 
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+        try {
+            let lossStreak = 0;
+            let step = 0;
+            baseStake !== stake && setBaseStake(stake);
 
-  const getTotalDuration = () => durationMinutes * 60 + durationSeconds;
+            while (!stopFlagRef.current) {
+                try {
+                    const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
+                    setStake(effectiveStake);
 
-  // Generate XML for Higher/Lower strategy based on current settings
-  const generateHigherLowerXML = () => {
-    const currentContractType = contractType === 'CALL' ? 'CALL' : 'PUT';
-    const barrierValue = barrier.startsWith('+') || barrier.startsWith('-') ? barrier : `+${barrier}`;
+                    const buy = await purchaseOnceWithStake(effectiveStake);
 
-    return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
-  <variables>
-    <variable id="hl:stake">hl:stake</variable>
-    <variable id="hl:totalProfit">hl:totalProfit</variable>
-    <variable id="hl:tradeCount">hl:tradeCount</variable>
-    <variable id="hl:multiplier">hl:multiplier</variable>
-    <variable id="hl:profit">hl:profit</variable>
-    <variable id="hl:resultIsWin">hl:resultIsWin</variable>
-  </variables>
-  <block type="trade_definition" id="trade_def_main" deletable="false" x="0" y="60">
-    <statement name="TRADE_OPTIONS">
-      <block type="trade_definition_market" id="market_def" deletable="false" movable="false">
-        <field name="MARKET_LIST">synthetic_index</field>
-        <field name="SUBMARKET_LIST">random_index</field>
-        <field name="SYMBOL_LIST">${selectedSymbol}</field>
-        <next>
-          <block type="trade_definition_tradetype" id="tradetype_def" deletable="false" movable="false">
-            <field name="TRADETYPECAT_LIST">higherlower</field>
-            <field name="TRADETYPE_LIST">callput</field>
-            <next>
-              <block type="trade_definition_contracttype" id="contract_def" deletable="false" movable="false">
-                <field name="TYPE_LIST">both</field>
-                <next>
-                  <block type="trade_definition_candleinterval" id="candle_def" deletable="false" movable="false">
-                    <field name="CANDLEINTERVAL_LIST">60</field>
-                    <next>
-                      <block type="trade_definition_restartbuysell" id="restart_def" deletable="false" movable="false">
-                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
-                        <next>
-                          <block type="trade_definition_restartonerror" id="error_def" deletable="false" movable="false">
-                            <field name="RESTARTONERROR">TRUE</field>
-                          </block>
-                        </next>
-                      </block>
-                    </next>
-                  </block>
-                </next>
-              </block>
-            </next>
-          </block>
-        </next>
-      </block>
-    </statement>
-    <statement name="INITIALIZATION">
-      <block type="text_print" id="init_print1">
-        <value name="TEXT">
-          <shadow type="text" id="init_text1">
-            <field name="TEXT">Higher/Lower Bot Starting - ${currentContractType} Strategy</field>
-          </shadow>
-        </value>
-        <next>
-          <block type="variables_set" id="init_stake">
-            <field name="VAR" id="hl:stake">hl:stake</field>
-            <value name="VALUE">
-              <block type="math_number" id="stake_value">
-                <field name="NUM">${stake}</field> {/* Use stake */}
-              </block>
-            </value>
-            <next>
-              <block type="variables_set" id="init_total">
-                <field name="VAR" id="hl:totalProfit">hl:totalProfit</field>
-                <value name="VALUE">
-                  <block type="math_number" id="total_value">
-                    <field name="NUM">0</field>
-                  </block>
-                </value>
-                <next>
-                  <block type="variables_set" id="init_count">
-                    <field name="VAR" id="hl:tradeCount">hl:tradeCount</field>
-                    <value name="VALUE">
-                      <block type="math_number" id="count_value">
-                        <field name="NUM">0</field>
-                      </block>
-                    </value>
-                    <next>
-                      <block type="variables_set" id="init_mult">
-                        <field name="VAR" id="hl:multiplier">hl:multiplier</field>
-                        <value name="VALUE">
-                          <block type="math_number" id="mult_value">
-                            <field name="NUM">${settings.martingaleMultiplier}</field> {/* Keep original setting for now */}
-                          </block>
-                        </value>
-                      </block>
-                    </next>
-                  </block>
-                </next>
-              </block>
-            </next>
-          </block>
-        </next>
-      </block>
-    </statement>
-    <statement name="SUBMARKET">
-      <block type="trade_definition_tradeoptions" id="trade_options">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="true" has_second_barrier="false" has_prediction="false"></mutation>
-        <field name="DURATIONTYPE_LIST">s</field>
-        <value name="DURATION">
-          <shadow type="math_number" id="duration_val">
-            <field name="NUM">${durationMinutes * 60 + durationSeconds}</field> {/* Calculate total duration */}
-          </shadow>
-        </value>
-        <value name="AMOUNT">
-          <shadow type="math_number" id="amount_val">
-            <field name="NUM">1</field>
-          </shadow>
-          <block type="variables_get" id="get_stake">
-            <field name="VAR" id="hl:stake">hl:stake</field>
-          </block>
-        </value>
-        <value name="BARRIEROFFSETVALUE">
-          <shadow type="text" id="barrier_val">
-            <field name="TEXT">${barrierValue}</field>
-          </shadow>
-        </value>
-      </block>
-    </statement>
-  </block>
-  <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="800">
-    <statement name="BEFOREPURCHASE_STACK">
-      <block type="controls_if" id="check_trade_count">
-        <value name="IF0">
-          <block type="logic_compare" id="count_compare">
-            <field name="OP">LT</field>
-            <value name="A">
-              <block type="variables_get" id="get_count">
-                <field name="VAR" id="hl:tradeCount">hl:tradeCount</field>
-              </block>
-            </value>
-            <value name="B">
-              <block type="math_number" id="max_trades">
-                <field name="NUM">${settings.maxTrades}</field> {/* Keep original setting for now */}
-              </block>
-            </value>
-          </block>
-        </value>
-        <statement name="DO0">
-          <block type="purchase" id="purchase_block">
-            <field name="PURCHASE_LIST">${currentContractType}</field>
-          </block>
-        </statement>
-      </block>
-    </statement>
-  </block>
-  <block type="after_purchase" id="after_purchase" x="600" y="60">
-    <statement name="AFTERPURCHASE_STACK">
-      <block type="math_change" id="increment_count">
-        <field name="VAR" id="hl:tradeCount">hl:tradeCount</field>
-        <value name="DELTA">
-          <shadow type="math_number" id="delta_one">
-            <field name="NUM">1</field>
-          </shadow>
-        </value>
-        <next>
-          <block type="variables_set" id="set_profit">
-            <field name="VAR" id="hl:profit">hl:profit</field>
-            <value name="VALUE">
-              <block type="read_details" id="read_profit">
-                <field name="DETAIL_INDEX">4</field>
-              </block>
-            </value>
-            <next>
-              <block type="variables_set" id="set_result">
-                <field name="VAR" id="hl:resultIsWin">hl:resultIsWin</field>
-                <value name="VALUE">
-                  <block type="contract_check_result" id="check_win">
-                    <field name="CHECK_RESULT">win</field>
-                  </block>
-                </value>
-                <next>
-                  <block type="math_change" id="add_profit">
-                    <field name="VAR" id="hl:totalProfit">hl:totalProfit</field>
-                    <value name="DELTA">
-                      <block type="variables_get" id="get_profit">
-                        <field name="VAR" id="hl:profit">hl:profit</field>
-                      </block>
-                    </value>
-                    <next>
-                      <block type="controls_if" id="check_result">
-                        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
-                        <value name="IF0">
-                          <block type="variables_get" id="get_result">
-                            <field name="VAR" id="hl:resultIsWin">hl:resultIsWin</field>
-                          </block>
-                        </value>
-                        <statement name="DO0">
-                          <block type="notify" id="win_notify">
-                            <field name="NOTIFICATION_TYPE">success</field>
-                            <field name="NOTIFICATION_SOUND">silent</field>
-                            <value name="MESSAGE">
-                              <shadow type="text" id="win_msg">
-                                <field name="TEXT">Trade Won! Profit: </field>
-                              </shadow>
-                            </value>
-                            <next>
-                              <block type="variables_set" id="reset_stake_win">
-                                <field name="VAR" id="hl:stake">hl:stake</field>
-                                <value name="VALUE">
-                                  <block type="math_number" id="base_stake_win">
-                                    <field name="NUM">${stake}</field> {/* Use component state stake */}
-                                  </block>
-                                </value>
-                              </block>
-                            </next>
-                          </block>
-                        </statement>
-                        <statement name="ELSE">
-                          <block type="notify" id="loss_notify">
-                            <field name="NOTIFICATION_TYPE">warn</field>
-                            <field name="NOTIFICATION_SOUND">silent</field>
-                            <value name="MESSAGE">
-                              <shadow type="text" id="loss_msg">
-                                <field name="TEXT">Trade Lost! Loss: </field>
-                              </shadow>
-                            </value>
-                            <next>
-                              <block type="variables_set" id="increase_stake">
-                                <field name="VAR" id="hl:stake">hl:stake</field>
-                                <value name="VALUE">
-                                  <block type="math_arithmetic" id="multiply_stake">
-                                    <field name="OP">MULTIPLY</field>
-                                    <value name="A">
-                                      <block type="variables_get" id="current_stake">
-                                        <field name="VAR" id="hl:stake">hl:stake</field>
-                                      </block>
-                                    </value>
-                                    <value name="B">
-                                      <block type="variables_get" id="get_multiplier">
-                                        <field name="VAR" id="hl:multiplier">hl:multiplier</field>
-                                      </block>
-                                    </value>
-                                  </block>
-                                </value>
-                              </block>
-                            </next>
-                          </block>
-                        </statement>
-                        <next>
-                          <block type="controls_if" id="check_thresholds">
-                            <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1"></mutation>
-                            <value name="IF0">
-                              <block type="logic_compare" id="profit_threshold">
-                                <field name="OP">GTE</field>
-                                <value name="A">
-                                  <block type="variables_get" id="total_profit_check">
-                                    <field name="VAR" id="hl:totalProfit">hl:totalProfit</field>
-                                  </block>
-                                </value>
-                                <value name="B">
-                                  <block type="math_number" id="profit_limit">
-                                    <field name="NUM">${stopOnProfit ? targetProfit : settings.profitThreshold}</field> {/* Use component state */}
-                                  </block>
-                                </value>
-                              </block>
-                            </value>
-                            <statement name="DO0">
-                              <block type="notify" id="profit_reached">
-                                <field name="NOTIFICATION_TYPE">success</field>
-                                <field name="NOTIFICATION_SOUND">silent</field>
-                                <value name="MESSAGE">
-                                  <shadow type="text" id="profit_reached_msg">
-                                    <field name="TEXT">Profit target reached! Stopping bot.</field>
-                                  </shadow>
-                                </value>
-                              </block>
-                            </statement>
-                            <value name="IF1">
-                              <block type="logic_compare" id="loss_threshold">
-                                <field name="OP">LTE</field>
-                                <value name="A">
-                                  <block type="variables_get" id="total_profit_check2">
-                                    <field name="VAR" id="hl:totalProfit">hl:totalProfit</field>
-                                  </block>
-                                </value>
-                                <value name="B">
-                                  <block type="math_single" id="neg_loss">
-                                    <field name="OP">NEG</field>
-                                    <value name="NUM">
-                                      <block type="math_number" id="loss_limit">
-                                        <field name="NUM">${settings.lossThreshold}</field> {/* Keep original setting for now */}
-                                      </block>
-                                    </value>
-                                  </block>
-                                </value>
-                              </block>
-                            </value>
-                            <statement name="DO1">
-                              <block type="notify" id="loss_reached">
-                                <field name="NOTIFICATION_TYPE">error</field>
-                                <field name="NOTIFICATION_SOUND">silent</field>
-                                <value name="MESSAGE">
-                                  <shadow type="text" id="loss_reached_msg">
-                                    <field name="TEXT">Loss limit reached! Stopping bot.</field>
-                                  </shadow>
-                                </value>
-                              </block>
-                            </statement>
-                            <next>
-                              <block type="controls_if" id="should_continue">
-                                <value name="IF0">
-                                  <block type="logic_operation" id="continue_logic">
-                                    <field name="OP">AND</field>
-                                    <value name="A">
-                                      <block type="logic_compare" id="profit_check">
-                                        <field name="OP">LT</field>
-                                        <value name="A">
-                                          <block type="variables_get" id="total_profit_cont">
-                                            <field name="VAR" id="hl:totalProfit">hl:totalProfit</field>
-                                          </block>
-                                        </value>
-                                        <value name="B">
-                                          <block type="math_number" id="profit_limit_cont">
-                                            <field name="NUM">${stopOnProfit ? targetProfit : settings.profitThreshold}</field> {/* Use component state */}
-                                          </block>
-                                        </value>
-                                      </block>
-                                    </value>
-                                    <value name="B">
-                                      <block type="logic_compare" id="loss_check">
-                                        <field name="OP">GT</field>
-                                        <value name="A">
-                                          <block type="variables_get" id="total_profit_cont2">
-                                            <field name="VAR" id="hl:totalProfit">hl:totalProfit</field>
-                                          </block>
-                                        </value>
-                                        <value name="B">
-                                          <block type="math_single" id="neg_loss_cont">
-                                            <field name="OP">NEG</field>
-                                            <value name="NUM">
-                                              <block type="math_number" id="loss_limit_cont">
-                                                <field name="NUM">${settings.lossThreshold}</field> {/* Keep original setting for now */}
-                                              </block>
-                                            </value>
-                                          </block>
-                                        </value>
-                                      </block>
-                                    </value>
-                                  </block>
-                                </value>
-                                <statement name="DO0">
-                                  <block type="trade_again" id="continue_trading"></block>
-                                </statement>
-                              </block>
-                            </next>
-                          </block>
-                        </next>
-                      </block>
-                    </next>
-                  </block>
-                </next>
-              </block>
-            </next>
-          </block>
-        </next>
-      </block>
-    </statement>
-  </block>
-</xml>`;
-  };
+                    // Update statistics
+                    setTotalStake(prev => prev + effectiveStake);
+                    setTotalRuns(prev => prev + 1);
 
-  return (
-    <div className="higher-lower-trader">
-      {/* Header */}
-      <div className="trader-header">
-        <h2>Higher/Lower Trading</h2>
-      </div>
+                    try {
+                        const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
+                        transactions.onBotContractEvent({
+                            contract_id: buy?.contract_id,
+                            transaction_ids: { buy: buy?.transaction_id },
+                            buy_price: buy?.buy_price,
+                            currency: account_currency,
+                            contract_type: contractType as any,
+                            underlying: symbol,
+                            display_name: symbol_display,
+                            date_start: Math.floor(Date.now() / 1000),
+                            status: 'open',
+                        } as any);
+                    } catch {}
 
-      {/* Active Contract View */}
-      {isTrading && currentContract && (
-        <div className="active-contract">
-          <div className="contract-controls">
-            <button
-              onClick={stopTrading}
-              className="btn-stop"
-            >
-              Stop
-            </button>
-            <span className="contract-status">Contract bought</span>
-          </div>
+                    run_panel.setHasOpenContract(true);
+                    run_panel.setContractStage(contract_stages.PURCHASE_SENT);
 
-          <div className="contract-info">
-            <div className="contract-icon">
-              {contractType === 'CALL' ? (
-                <TrendingUp className="icon-higher" />
-              ) : (
-                <TrendingDown className="icon-lower" />
-              )}
-            </div>
-            <span className="contract-name">Volatility 10 (1s) Index</span>
-            <span className="contract-type">
-              {contractType === 'CALL' ? 'Higher' : 'Lower'}
-            </span>
-          </div>
+                    try {
+                        const res = await apiRef.current.send({
+                            proposal_open_contract: 1,
+                            contract_id: buy?.contract_id,
+                            subscribe: 1,
+                        });
+                        const { error, proposal_open_contract: pocInit, subscription } = res || {};
+                        if (error) throw error;
 
-          <div className="contract-timer">
-            <div className="timer-text">{formatTime(timeRemaining)}</div>
-            <div className="progress-bar">
-              <div 
-                className="progress-fill"
-                style={{ width: `${contractProgress}%` }}
-              ></div>
-            </div>
-          </div>
+                        let pocSubId: string | null = subscription?.id || null;
+                        const targetId = String(buy?.contract_id || '');
 
-          <div className="contract-stats">
-            <div className="stat-item">
-              <div className="stat-label">Total profit/loss:</div>
-              <div className={`stat-value ${totalProfitLoss >= 0 ? 'profit' : 'loss'}`}>
-                {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)} USD
-              </div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-label">Contract value:</div>
-              <div className="stat-value">{currentPrice.toFixed(2)}</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-label">Stake:</div>
-              <div className="stat-value">{stake.toFixed(2)} USD</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-label">Potential payout:</div>
-              <div className="stat-value profit">{(stake * 1.8).toFixed(2)} USD</div>
-            </div>
-          </div>
+                        if (pocInit && String(pocInit?.contract_id || '') === targetId) {
+                            transactions.onBotContractEvent(pocInit);
+                            run_panel.setHasOpenContract(true);
+                        }
 
-          <button
-            onClick={sellContract}
-            className="btn-sell"
-          >
-            Sell
-          </button>
-        </div>
-      )}
+                        const onMsg = (evt: MessageEvent) => {
+                            try {
+                                const data = JSON.parse(evt.data as any);
+                                if (data?.msg_type === 'proposal_open_contract') {
+                                    const poc = data.proposal_open_contract;
+                                    if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
+                                    if (String(poc?.contract_id || '') === targetId) {
+                                        transactions.onBotContractEvent(poc);
+                                        run_panel.setHasOpenContract(true);
 
-      {/* Setup Form */}
-      {!isTrading && (
-        <div className="setup-form">
-          <div className="form-content">
-            {/* Connection Status */}
-            <div className="form-group">
-              <div className="connection-status">
-                <span className={`status-indicator ${connectionStatus}`}></span>
-                <span className="status-text">
-                  {connectionStatus === 'connected' ? 'Connected' : 
-                   connectionStatus === 'connecting' ? 'Connecting...' : 
-                   connectionStatus === 'error' ? 'Connection Error' : 'Disconnected'}
-                </span>
-                {(isAuthorized || isMainAppAuthorized) && (
-                  <span className="auth-status">• Authorized ({accountCurrency})</span>
-                )}
-                {connectionStatus === 'error' && (
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="btn-reconnect"
-                    style={{ marginLeft: '10px', padding: '4px 8px', fontSize: '12px' }}
-                  >
-                    Refresh Page
-                  </button>
-                )}
-              </div>
-            </div>
+                                        setCurrentProfit(Number(poc?.profit || 0));
+                                        setContractValue(Number(poc?.bid_price || 0));
+                                        setPotentialPayout(Number(poc?.payout || 0));
 
-            {/* Volatility Selection */}
-            <div className="form-group">
-              <label htmlFor="volatility-select" className="form-label">
-                Volatility Index
-              </label>
-              <select
-                id="volatility-select"
-                className="form-select"
-                value={selectedSymbol}
-                onChange={(e) => {
-                  setSelectedSymbol(e.target.value);
-                  startTickStream(e.target.value);
-                }}
-                disabled={isTrading}
-              >
-                {availableSymbols.map(symbol => (
-                  <option key={symbol.value} value={symbol.value}>
-                    {symbol.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+                                        if (poc?.date_expiry && !poc?.is_sold) {
+                                            const now = Math.floor(Date.now() / 1000);
+                                            const expiry = Number(poc.date_expiry);
+                                            const remaining = Math.max(0, expiry - now);
+                                            const hours = Math.floor(remaining / 3600);
+                                            const minutes = Math.floor((remaining % 3600) / 60);
+                                            const seconds = remaining % 60;
+                                            setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+                                        }
 
-            {/* Trend Indicator */}
-            <div className="trend-indicator-section">
-              <div className="trend-placeholder">
-                <div className="trend-info">
-                  <span className="trend-label">Market Trend:</span>
-                  <span className={`trend-status ${trend}`}>
-                    {trend === 'bullish' ? 'Bullish 📈' : 
-                     trend === 'bearish' ? 'Bearish 📉' : 
-                     'Neutral ➡️'}
-                  </span>
+                                        if (poc?.is_sold || poc?.status === 'sold') {
+                                            run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                                            run_panel.setHasOpenContract(false);
+                                            if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
+                                            apiRef.current?.connection?.removeEventListener('message', onMsg);
+
+                                            const profit = Number(poc?.profit || 0);
+                                            setTotalPayout(prev => prev + Number(poc?.sell_price || 0));
+                                            setTotalProfitLoss(prev => prev + profit);
+
+                                            if (profit > 0) {
+                                                setContractsWon(prev => prev + 1);
+                                                lastOutcomeWasLossRef.current = false;
+                                                lossStreak = 0;
+                                                step = 0;
+                                                setStake(baseStake);
+                                            } else {
+                                                setContractsLost(prev => prev + 1);
+                                                lastOutcomeWasLossRef.current = true;
+                                                lossStreak++;
+                                                step = Math.min(step + 1, 10);
+                                            }
+
+                                            setCurrentProfit(0);
+                                            setContractValue(0);
+                                            setPotentialPayout(0);
+                                            setContractDuration('00:00:00');
+
+                                            // Check stop conditions
+                                            if (useStopOnProfit && totalProfitLoss + profit >= targetProfit) {
+                                                setStatus('Target profit reached. Stopping trading.');
+                                                stopFlagRef.current = true;
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch {
+                                // noop
+                            }
+                        };
+                        apiRef.current?.connection?.addEventListener('message', onMsg);
+                    } catch (subErr) {
+                        console.error('subscribe poc error', subErr);
+                    }
+
+                    await new Promise(res => setTimeout(res, 500));
+
+                } catch (contractError: any) {
+                    console.error('Contract execution error:', contractError);
+                    setStatus(`Contract error: ${contractError.message || 'Failed to execute contract'}`);
+
+                    if (contractError.message?.includes('connection') || contractError.message?.includes('timeout')) {
+                        setStatus('Connection issue detected, retrying...');
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        if (stopFlagRef.current) break;
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        } catch (error: any) {
+            console.error('Trading error:', error);
+            setStatus(`Trading error: ${error.message || 'Unknown error'}`);
+        } finally {
+            setIsRunning(false);
+            run_panel.setIsRunning(false);
+            run_panel.setHasOpenContract(false);
+            run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        }
+    };
+
+    const stopTrading = () => {
+        stopFlagRef.current = true;
+        setIsRunning(false);
+        stopTicks();
+        run_panel.setIsRunning(false);
+        run_panel.setHasOpenContract(false);
+        run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        setStatus('Trading stopped');
+    };
+
+    const resetStats = () => {
+        setTotalStake(0);
+        setTotalPayout(0);
+        setTotalRuns(0);
+        setContractsWon(0);
+        setContractsLost(0);
+        setTotalProfitLoss(0);
+    };
+
+    // Auto contract type selection based on Hull trends
+    const getRecommendedContractType = () => {
+        const trends = Object.values(hullTrends);
+        const bullishCount = trends.filter(t => t.trend === 'BULLISH').length;
+        const bearishCount = trends.filter(t => t.trend === 'BEARISH').length;
+
+        if (bullishCount > bearishCount) return 'CALL';
+        if (bearishCount > bullishCount) return 'PUT';
+        return contractType; // Keep current if neutral
+    };
+
+    return (
+        <div className='higher-lower-trader'>
+            <div className='higher-lower-trader__container'>
+                <div className='higher-lower-trader__content'>
+                    <div className='higher-lower-trader__card'>
+                        <h3>{localize('Higher/Lower Trading')}</h3>
+
+                        {/* Connection Status */}
+                        <div className='form-group'>
+                            <div className='connection-status'>
+                                <span className={`status-indicator ${is_authorized ? 'connected' : 'disconnected'}`}></span>
+                                <span className='status-text'>
+                                    {is_authorized ? `Authorized (${account_currency})` : 'Not Authorized'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Trading Parameters */}
+                        <div className='higher-lower-trader__row higher-lower-trader__row--two'>
+                            <div className='higher-lower-trader__field'>
+                                <label htmlFor='hl-symbol'>{localize('Volatility')}</label>
+                                <select
+                                    id='hl-symbol'
+                                    value={symbol}
+                                    onChange={e => {
+                                        const v = e.target.value;
+                                        setSymbol(v);
+                                        fetchHistoricalTicks(v);
+                                        startTicks(v);
+                                    }}
+                                >
+                                    {symbols.map(s => (
+                                        <option key={s.symbol} value={s.symbol}>
+                                            {s.display_name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className='higher-lower-trader__field'>
+                                <label htmlFor='hl-contractType'>{localize('Contract Type')}</label>
+                                <select
+                                    id='hl-contractType'
+                                    value={contractType}
+                                    onChange={e => setContractType(e.target.value)}
+                                >
+                                    <option value='CALL'>{localize('Higher (Call)')}</option>
+                                    <option value='PUT'>{localize('Lower (Put)')}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Duration Controls */}
+                        <div className='higher-lower-trader__row higher-lower-trader__row--two'>
+                            <div className='higher-lower-trader__field'>
+                                <label htmlFor='hl-duration-type'>{localize('Duration Type')}</label>
+                                <select
+                                    id='hl-duration-type'
+                                    value={durationType}
+                                    onChange={e => setDurationType(e.target.value)}
+                                >
+                                    <option value='s'>{localize('Seconds')}</option>
+                                    <option value='m'>{localize('Minutes')}</option>
+                                </select>
+                            </div>
+                            <div className='higher-lower-trader__field'>
+                                <label htmlFor='hl-duration'>{localize('Duration')}</label>
+                                <input
+                                    id='hl-duration'
+                                    type='number'
+                                    min={durationType === 's' ? 15 : 1}
+                                    max={durationType === 's' ? 86400 : 1440}
+                                    value={duration}
+                                    onChange={e => setDuration(Number(e.target.value))}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Stake and Barrier */}
+                        <div className='higher-lower-trader__row higher-lower-trader__row--two'>
+                            <div className='higher-lower-trader__field'>
+                                <label htmlFor='hl-stake'>{localize('Stake')}</label>
+                                <input
+                                    id='hl-stake'
+                                    type='number'
+                                    step='0.01'
+                                    min={0.35}
+                                    value={stake}
+                                    onChange={e => setStake(Number(e.target.value))}
+                                />
+                            </div>
+                            <div className='higher-lower-trader__field'>
+                                <label htmlFor='hl-barrier'>{localize('Barrier')}</label>
+                                <input
+                                    id='hl-barrier'
+                                    type='text'
+                                    value={barrier}
+                                    onChange={e => setBarrier(e.target.value)}
+                                    placeholder='+0.37'
+                                />
+                            </div>
+                        </div>
+
+                        {/* Advanced Settings */}
+                        <div className='higher-lower-trader__row higher-lower-trader__row--two'>
+                            <div className='higher-lower-trader__field'>
+                                <label htmlFor='hl-martingale'>{localize('Martingale Multiplier')}</label>
+                                <input
+                                    id='hl-martingale'
+                                    type='number'
+                                    min={1}
+                                    step='0.1'
+                                    value={martingaleMultiplier}
+                                    onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
+                                />
+                            </div>
+                            <div className='higher-lower-trader__field'>
+                                <label>
+                                    <input
+                                        type='checkbox'
+                                        checked={useStopOnProfit}
+                                        onChange={e => setUseStopOnProfit(e.target.checked)}
+                                    />
+                                    {localize('Stop on Profit')}
+                                </label>
+                                {useStopOnProfit && (
+                                    <input
+                                        type='number'
+                                        step='0.01'
+                                        value={targetProfit}
+                                        onChange={e => setTargetProfit(Number(e.target.value))}
+                                        placeholder='Target profit'
+                                    />
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Live Price Display */}
+                        <div className='higher-lower-trader__price-display'>
+                            <h4>{localize('Live Price')}: {currentPrice.toFixed(5)}</h4>
+                            <p>{localize('Ticks Processed')}: {ticksProcessed}</p>
+                        </div>
+
+                        {/* Hull Moving Average Trends */}
+                        <div className='higher-lower-trader__trends'>
+                            <h4>{localize('Market Trends (Hull MA)')}</h4>
+                            <div className='trends-grid'>
+                                {Object.entries(hullTrends).map(([timeframe, data]) => (
+                                    <div key={timeframe} className={`trend-item trend-${data.trend.toLowerCase()}`}>
+                                        <span className='timeframe'>{timeframe}</span>
+                                        <span className='trend'>{data.trend}</span>
+                                        <span className='value'>{data.value.toFixed(5)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className='trend-recommendation'>
+                                <Text size='xs'>
+                                    {localize('Recommended')}: <strong>{getRecommendedContractType() === 'CALL' ? 'Higher' : 'Lower'}</strong>
+                                </Text>
+                            </div>
+                        </div>
+
+                        {/* Contract Info During Trading */}
+                        {is_running && (
+                            <div className='higher-lower-trader__contract-info'>
+                                <h4>{localize('Current Contract')}</h4>
+                                <div className='contract-stats'>
+                                    <div className='stat-item'>
+                                        <span>{localize('Profit/Loss')}: </span>
+                                        <span className={currentProfit >= 0 ? 'profit' : 'loss'}>
+                                            {currentProfit >= 0 ? '+' : ''}{currentProfit.toFixed(2)} {account_currency}
+                                        </span>
+                                    </div>
+                                    <div className='stat-item'>
+                                        <span>{localize('Contract Value')}: </span>
+                                        <span>{contractValue.toFixed(2)} {account_currency}</span>
+                                    </div>
+                                    <div className='stat-item'>
+                                        <span>{localize('Potential Payout')}: </span>
+                                        <span>{potentialPayout.toFixed(2)} {account_currency}</span>
+                                    </div>
+                                    <div className='stat-item'>
+                                        <span>{localize('Time Remaining')}: </span>
+                                        <span>{contractDuration}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Trading Statistics */}
+                        <div className='higher-lower-trader__stats'>
+                            <h4>{localize('Trading Statistics')}</h4>
+                            <div className='stats-grid'>
+                                <div className='stat-item'>
+                                    <span>{localize('Total Runs')}: </span>
+                                    <span>{totalRuns}</span>
+                                </div>
+                                <div className='stat-item'>
+                                    <span>{localize('Won')}: </span>
+                                    <span className='win'>{contractsWon}</span>
+                                </div>
+                                <div className='stat-item'>
+                                    <span>{localize('Lost')}: </span>
+                                    <span className='loss'>{contractsLost}</span>
+                                </div>
+                                <div className='stat-item'>
+                                    <span>{localize('Total Stake')}: </span>
+                                    <span>{totalStake.toFixed(2)} {account_currency}</span>
+                                </div>
+                                <div className='stat-item'>
+                                    <span>{localize('Total Payout')}: </span>
+                                    <span>{totalPayout.toFixed(2)} {account_currency}</span>
+                                </div>
+                                <div className='stat-item'>
+                                    <span>{localize('Total P&L')}: </span>
+                                    <span className={totalProfitLoss >= 0 ? 'profit' : 'loss'}>
+                                        {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)} {account_currency}
+                                    </span>
+                                </div>
+                            </div>
+                            <button
+                                onClick={resetStats}
+                                className='reset-stats-btn'
+                                disabled={is_running}
+                            >
+                                {localize('Reset Statistics')}
+                            </button>
+                        </div>
+
+                        {/* Control Buttons */}
+                        <div className='higher-lower-trader__buttons'>
+                            {!is_running ? (
+                                <button
+                                    onClick={onRun}
+                                    className='btn-start'
+                                    disabled={!is_authorized || symbols.length === 0}
+                                >
+                                    <Play className='icon' />
+                                    {localize('Start Trading')}
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={stopTrading}
+                                    className='btn-stop'
+                                >
+                                    <Square className='icon' />
+                                    {localize('Stop Trading')}
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Status Display */}
+                        {status && (
+                            <div className='higher-lower-trader__status'>
+                                <Text size='xs'>{status}</Text>
+                            </div>
+                        )}
+                    </div>
                 </div>
-                <div className="trend-chart-placeholder">
-                  <div className="chart-line"></div>
-                  <div className="chart-dots">
-                    {priceHistory.slice(-3).map((_, index) => (
-                      <span key={index} className="dot active"></span>
-                    ))}
-                  </div>
-                </div>
-              </div>
             </div>
-
-            {/* Contract Type */}
-            <div className="form-group">
-              <label className="form-label">
-                Contract Type
-              </label>
-              <div className="button-group">
-                <button
-                  onClick={() => setContractType('CALL')}
-                  className={`btn-type ${contractType === 'CALL' ? 'btn-higher active' : 'btn-higher'}`}
-                >
-                  <TrendingUp className="icon" />
-                  Higher
-                </button>
-                <button
-                  onClick={() => setContractType('PUT')}
-                  className={`btn-type ${contractType === 'PUT' ? 'btn-lower active' : 'btn-lower'}`}
-                >
-                  <TrendingDown className="icon" />
-                  Lower
-                </button>
-              </div>
-            </div>
-
-            {/* Stake */}
-            <div className="form-group">
-              <label htmlFor="stake" className="form-label">
-                <DollarSign className="icon" />
-                Stake (USD)
-              </label>
-              <input
-                id="stake"
-                type="number"
-                step="0.01"
-                min="0.35"
-                value={stake}
-                onChange={(e) => setStake(parseFloat(e.target.value) || 0)}
-                className="form-input"
-              />
-            </div>
-
-            {/* Duration */}
-            <div className="form-group">
-              <label className="form-label">
-                <Clock className="icon" />
-                Duration
-              </label>
-              <div className="input-group">
-                <div className="input-wrapper">
-                  <input
-                    type="number"
-                    min="0"
-                    max="59"
-                    value={durationMinutes}
-                    onChange={(e) => setDurationMinutes(parseInt(e.target.value) || 0)}
-                    className="form-input"
-                    placeholder="Minutes"
-                  />
-                  <div className="input-hint">Minutes</div>
-                </div>
-                <div className="input-wrapper">
-                  <input
-                    type="number"
-                    min="15"
-                    max="3600"
-                    value={durationSeconds}
-                    onChange={(e) => setDurationSeconds(parseInt(e.target.value) || 15)}
-                    className="form-input"
-                    placeholder="Seconds"
-                  />
-                  <div className="input-hint">Seconds</div>
-                </div>
-              </div>
-              <div className="duration-total">
-                Total: {formatTime(getTotalDuration())}
-              </div>
-            </div>
-
-            {/* Barrier */}
-            <div className="form-group">
-              <label htmlFor="barrier" className="form-label">
-                Barrier
-              </label>
-              <input
-                id="barrier"
-                type="text"
-                value={barrier}
-                onChange={(e) => setBarrier(e.target.value)}
-                className="form-input"
-                placeholder="+0.37"
-              />
-              <div className="input-hint">
-                Use + or - followed by the offset (e.g., +0.37, -0.25)
-              </div>
-            </div>
-
-            {/* Stop on Profit */}
-            <div className="form-option">
-              <div className="checkbox-group">
-                <input
-                  id="stopOnProfit"
-                  type="checkbox"
-                  checked={stopOnProfit}
-                  onChange={(e) => setStopOnProfit(e.target.checked)}
-                  className="checkbox"
-                />
-                <label htmlFor="stopOnProfit" className="checkbox-label">
-                  Stop when in profit
-                </label>
-              </div>
-              {stopOnProfit && (
-                <div className="option-detail">
-                  <label htmlFor="targetProfit" className="option-label">
-                    Target Profit (USD)
-                  </label>
-                  <input
-                    id="targetProfit"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    value={targetProfit}
-                    onChange={(e) => setTargetProfit(parseFloat(e.target.value) || 0)}
-                    className="form-input small"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Authorization Check */}
-            {connectionStatus === 'connected' && !isAuthorized && !isMainAppAuthorized && (
-              <div className="auth-warning">
-                <p>⚠️ Please log in to start trading</p>
-                <button
-                  onClick={authorizeIfNeeded}
-                  className="btn-auth"
-                  disabled={connectionStatus !== 'connected'}
-                >
-                  Authorize Account
-                </button>
-              </div>
-            )}
-
-            {/* Start/Stop Button */}
-            <button
-              onClick={isTrading ? stopTrading : startTrading}
-              className={`hl-trader__start-btn ${isTrading ? 'hl-trader__start-btn--running' : ''}`}
-              disabled={
-                !isTrading && (
-                  getTotalDuration() < 15 || 
-                  connectionStatus !== 'connected' ||
-                  availableSymbols.length === 0 ||
-                  !blockly_store
-                )
-              }
-            >
-              {isTrading ? (
-                <>
-                  <Square size={16} />
-                  Stop Trading
-                </>
-              ) : (
-                <>
-                  <Play size={16} />
-                  Start Trading
-                </>
-              )}
-            </button>
-          </div>
         </div>
-      )}
-
-      {/* Statistics */}
-      <div className="stats-panel">
-        <div className="stats-grid">
-          <div className="stat">
-            <div className="stat-title">Total stake</div>
-            <div className="stat-value">{totalStake.toFixed(2)} USD</div>
-          </div>
-          <div className="stat">
-            <div className="stat-title">Total payout</div>
-            <div className="stat-value">{totalPayout.toFixed(2)} USD</div>
-          </div>
-          <div className="stat">
-            <div className="stat-title">No. of runs</div>
-            <div className="stat-value">{totalRuns}</div>
-          </div>
-        </div>
-
-        <div className="stats-grid">
-          <div className="stat">
-            <div className="stat-title">Contracts lost</div>
-            <div className="stat-value loss">{contractsLost}</div>
-          </div>
-          <div className="stat">
-            <div className="stat-title">Contracts won</div>
-            <div className="stat-value profit">{contractsWon}</div>
-          </div>
-          <div className="stat">
-            <div className="stat-title">Total profit/loss</div>
-            <div className={`stat-value ${totalProfitLoss >= 0 ? 'profit' : 'loss'}`}>
-              {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)} USD
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={resetStats}
-          className="btn-reset"
-        >
-          Reset
-        </button>
-      </div>
-
-      {/* Current Price Display */}
-      <div className="price-display">
-        <div className="price-content">
-          <div className="price-label">Current Price ({selectedSymbol})</div>
-          <div className="price-value">
-            {currentPrice ? currentPrice.toFixed(5) : '-.-----'}
-          </div>
-          {currentContract && (
-            <div className="barrier-info">
-              Entry: {currentContract.entryPrice.toFixed(5)} | 
-              Barrier: {barrier} | 
-              Target: {currentContract.barrierValue.toFixed(5)}
-            </div>
-          )}
-          <div className="price-history">
-            {priceHistory.slice(-10).map((price, index) => (
-              <span key={index} className="history-price">
-                {price.toFixed(3)}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Trading Controls */}
-      {connectionStatus === 'connected' && (isAuthorized || isMainAppAuthorized) && (
-        <div className="trading-controls">
-          <div className="controls-group">
-            <button
-              onClick={stopTrading}
-              className="btn-stop-bot"
-            >
-              <Square className="icon" />
-              <span>Stop Bot</span>
-            </button>
-            {currentContract && (
-              <button
-                onClick={sellContract}
-                className="btn-sell-early"
-              >
-                Sell Early
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    );
 });
 
 export default HigherLowerTrader;
