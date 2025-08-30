@@ -21,20 +21,19 @@ const VOLATILITY_INDICES = [
 ];
 
 const HigherLowerTrader = observer(() => {
-  const store = useStore();
-  const { run_panel, transactions, client } = store;
+  const { dashboard, blockly_store } = useStore();
+  const [settings, setSettings] = useState({
+    symbol: 'R_10',
+    tradeType: 'Higher',
+    stake: 0.5,
+    barrier: 0.37,
+    duration: 60,
+    maxTrades: 100,
+    profitThreshold: 10,
+    lossThreshold: 5,
+    martingaleMultiplier: 2.2
+  });
 
-  const apiRef = useRef<any>(null);
-  const tickStreamIdRef = useRef<string | null>(null);
-  const contractStreamIdRef = useRef<string | null>(null);
-  const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
-
-  // API and auth state
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [accountCurrency, setAccountCurrency] = useState('USD');
-  const [connectionStatus, setConnectionStatus] = useState('disconnected');
-  const [availableSymbols, setAvailableSymbols] = useState([]);
-  
   // Trading parameters
   const [selectedSymbol, setSelectedSymbol] = useState('R_10');
   const [stake, setStake] = useState(1.5);
@@ -64,29 +63,39 @@ const HigherLowerTrader = observer(() => {
   const [priceHistory, setPriceHistory] = useState([]);
   const [trend, setTrend] = useState('neutral');
 
+  const apiRef = useRef<any>(null);
+  const tickStreamIdRef = useRef<string | null>(null);
+  const contractStreamIdRef = useRef<string | null>(null);
+  const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
   const contractTimerRef = useRef(null);
   const stopFlagRef = useRef(false);
+
+  // API and auth state
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [accountCurrency, setAccountCurrency] = useState('USD');
+  const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  const [availableSymbols, setAvailableSymbols] = useState([]);
 
   // Initialize API connection and fetch symbols
   useEffect(() => {
     const api = generateDerivApiInstance();
     apiRef.current = api;
-    
+
     const initializeApi = async () => {
       try {
         setConnectionStatus('connecting');
-        
+
         // Wait for connection
         await new Promise((resolve, reject) => {
           const timeout = setTimeout(() => reject(new Error('Connection timeout')), 15000);
-          
+
           api.connection.addEventListener('open', () => {
             clearTimeout(timeout);
             setConnectionStatus('connected');
             console.log('API connection established');
             resolve(null);
           });
-          
+
           api.connection.addEventListener('error', (error) => {
             clearTimeout(timeout);
             setConnectionStatus('error');
@@ -97,7 +106,7 @@ const HigherLowerTrader = observer(() => {
           api.connection.addEventListener('close', (event) => {
             console.log('API connection closed:', event.code, event.reason);
             setConnectionStatus('disconnected');
-            
+
             // Auto-reconnect if not manually closed
             if (!stopFlagRef.current && event.code !== 1000) {
               setTimeout(() => {
@@ -112,15 +121,15 @@ const HigherLowerTrader = observer(() => {
         const globalMessageHandler = (event) => {
           try {
             const data = JSON.parse(event.data);
-            
+
             // Handle tick updates
             if (data.msg_type === 'tick' && data.tick?.symbol === selectedSymbol) {
               const newPrice = parseFloat(data.tick.quote);
               setCurrentPrice(newPrice);
-              
+
               setPriceHistory(prev => {
                 const newHistory = [...prev.slice(-49), newPrice];
-                
+
                 // Calculate trend
                 if (newHistory.length >= 5) {
                   const recent = newHistory.slice(-5);
@@ -128,7 +137,7 @@ const HigherLowerTrader = observer(() => {
                   const currentTrend = newPrice > avg ? 'bullish' : newPrice < avg ? 'bearish' : 'neutral';
                   setTrend(currentTrend);
                 }
-                
+
                 return newHistory;
               });
             }
@@ -164,7 +173,7 @@ const HigherLowerTrader = observer(() => {
           }));
 
         setAvailableSymbols(filteredSymbols);
-        
+
         if (filteredSymbols.length > 0) {
           setSelectedSymbol(filteredSymbols[0].value);
           startTickStream(filteredSymbols[0].value);
@@ -173,7 +182,7 @@ const HigherLowerTrader = observer(() => {
         // Try to authorize if token exists
         const token = V2GetActiveToken();
         if (token) {
-          await authorizeAccount();
+          authorizeAccount();
         }
 
       } catch (error) {
@@ -223,7 +232,7 @@ const HigherLowerTrader = observer(() => {
 
       setIsAuthorized(true);
       setAccountCurrency(response.authorize?.currency || 'USD');
-      
+
       // Update client store
       const loginid = response.authorize?.loginid || V2GetActiveClientId();
       client?.setLoginId(loginid);
@@ -256,7 +265,7 @@ const HigherLowerTrader = observer(() => {
         ticks: symbol, 
         subscribe: 1 
       });
-      
+
       if (response.error) {
         throw response.error;
       }
@@ -269,14 +278,14 @@ const HigherLowerTrader = observer(() => {
       const messageHandler = (event) => {
         try {
           const data = JSON.parse(event.data);
-          
+
           if (data.msg_type === 'tick' && data.tick?.symbol === symbol) {
             const newPrice = parseFloat(data.tick.quote);
             setCurrentPrice(newPrice);
-            
+
             setPriceHistory(prev => {
               const newHistory = [...prev.slice(-49), newPrice];
-              
+
               // Calculate trend
               if (newHistory.length >= 5) {
                 const recent = newHistory.slice(-5);
@@ -284,7 +293,7 @@ const HigherLowerTrader = observer(() => {
                 const currentTrend = newPrice > avg ? 'bullish' : newPrice < avg ? 'bearish' : 'neutral';
                 setTrend(currentTrend);
               }
-              
+
               return newHistory;
             });
           }
@@ -302,57 +311,46 @@ const HigherLowerTrader = observer(() => {
   };
 
   const startTrading = async () => {
+    if (isTrading) return;
+
     try {
-      // Verify connection before starting
-      if (connectionStatus !== 'connected') {
-        throw new Error('Not connected to API. Please check your connection and try again.');
-      }
+      // Generate XML for the current settings
+      const xmlContent = generateHigherLowerXML();
 
-      if (!isAuthorized) {
-        await authorizeAccount();
-      }
+      // Load the XML into the bot builder workspace
+      if (blockly_store?.loadWorkspaceFromXmlString) {
+        await blockly_store.loadWorkspaceFromXmlString(xmlContent);
 
-      setIsTrading(true);
-      stopFlagRef.current = false;
-      
-      run_panel.toggleDrawer(true);
-      run_panel.setActiveTabIndex(1);
-      run_panel.run_id = `higher-lower-${Date.now()}`;
-      run_panel.setIsRunning(true);
-
-      while (!stopFlagRef.current) {
-        try {
-          await executeTrade();
-          
-          if (stopOnProfit && totalProfitLoss >= targetProfit) {
-            console.log('Target profit reached, stopping trading');
-            break;
-          }
-          
-          // Wait before next trade
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        } catch (tradeError) {
-          console.error('Individual trade error:', tradeError);
-          
-          // If it's a critical error, stop trading
-          if (tradeError.message.includes('connection') || 
-              tradeError.message.includes('Authorization') ||
-              tradeError.message.includes('refresh')) {
-            console.log('Critical error detected, stopping trading');
-            break;
-          }
-          
-          // For other errors, wait and continue
-          await new Promise(resolve => setTimeout(resolve, 5000));
+        // Switch to bot builder tab if not already there
+        if (dashboard?.setActiveTab) {
+          dashboard.setActiveTab(1); // Bot Builder tab
         }
+
+        // Show success notification
+        console.log('Higher/Lower strategy loaded into Bot Builder successfully');
+
+        // Start the actual trading through the bot builder
+        setIsTrading(true);
+        setCurrentStake(settings.stake);
+        setTimeLeft(settings.duration);
+
+        // Start the countdown timer for UI
+        timerRef.current = setInterval(() => {
+          setTimeLeft(prev => {
+            if (prev <= 1) {
+              return settings.duration;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+
+      } else {
+        throw new Error('Bot builder not available');
       }
-      
+
     } catch (error) {
-      console.error('Trading initialization error:', error);
-      alert(`Trading failed to start: ${error.message}`);
-    } finally {
+      console.error('Failed to load strategy into bot builder:', error);
       setIsTrading(false);
-      run_panel.setIsRunning(false);
     }
   };
 
@@ -378,7 +376,7 @@ const HigherLowerTrader = observer(() => {
       };
 
       console.log('Sending proposal request:', proposalRequest);
-      
+
       const proposalResponse = await Promise.race([
         apiRef.current.send(proposalRequest),
         new Promise((_, reject) => 
@@ -393,7 +391,7 @@ const HigherLowerTrader = observer(() => {
 
       const proposal = proposalResponse.proposal;
       console.log('Proposal received:', proposal);
-      
+
       // Buy the contract with timeout
       const buyRequest = {
         buy: proposal.id,
@@ -416,7 +414,7 @@ const HigherLowerTrader = observer(() => {
 
       const contract = buyResponse.buy;
       const contractId = contract.contract_id;
-      
+
       console.log('Trade executed successfully:', contract);
 
       // Update statistics
@@ -468,11 +466,11 @@ const HigherLowerTrader = observer(() => {
 
     } catch (error) {
       console.error('Trade execution error:', error);
-      
+
       // Check if it's a connection issue
       if (error.message.includes('connection') || error.message.includes('timeout')) {
         setConnectionStatus('error');
-        
+
         // Try to reconnect
         try {
           await new Promise(resolve => setTimeout(resolve, 2000));
@@ -483,7 +481,7 @@ const HigherLowerTrader = observer(() => {
           throw new Error('Connection lost during trade execution. Please refresh and try again.');
         }
       }
-      
+
       throw error;
     }
   };
@@ -576,18 +574,27 @@ const HigherLowerTrader = observer(() => {
   };
 
   const stopTrading = () => {
-    stopFlagRef.current = true;
     setIsTrading(false);
-    setCurrentContract(null);
-    setContractProgress(0);
-    setTimeRemaining(0);
-
-    if (contractTimerRef.current) {
-      clearInterval(contractTimerRef.current);
-      contractTimerRef.current = null;
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     }
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setTimeLeft(0);
+    setCurrentContract(null);
 
-    run_panel.setIsRunning(false);
+    // Stop the bot if it's running in bot builder
+    try {
+      if (window.Blockly?.derivWorkspace) {
+        // This will stop the bot execution
+        window.Blockly.derivWorkspace.stop?.();
+      }
+    } catch (error) {
+      console.error('Error stopping bot execution:', error);
+    }
   };
 
   const sellContract = async () => {
@@ -625,6 +632,370 @@ const HigherLowerTrader = observer(() => {
   };
 
   const getTotalDuration = () => durationMinutes * 60 + durationSeconds;
+
+  // Generate XML for Higher/Lower strategy based on current settings
+  const generateHigherLowerXML = () => {
+    const contractType = contractType === 'CALL' ? 'CALL' : 'PUT'; // Corrected to use component state
+    const barrierValue = contractType === 'CALL' ? `+${barrier}` : `-${barrier}`; // Corrected to use component state
+
+    return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <variables>
+    <variable id="hl:stake">hl:stake</variable>
+    <variable id="hl:totalProfit">hl:totalProfit</variable>
+    <variable id="hl:tradeCount">hl:tradeCount</variable>
+    <variable id="hl:multiplier">hl:multiplier</variable>
+    <variable id="hl:profit">hl:profit</variable>
+    <variable id="hl:resultIsWin">hl:resultIsWin</variable>
+  </variables>
+  <block type="trade_definition" id="trade_def_main" deletable="false" x="0" y="60">
+    <statement name="TRADE_OPTIONS">
+      <block type="trade_definition_market" id="market_def" deletable="false" movable="false">
+        <field name="MARKET_LIST">synthetic_index</field>
+        <field name="SUBMARKET_LIST">random_index</field>
+        <field name="SYMBOL_LIST">${selectedSymbol}</field> {/* Use selectedSymbol */}
+        <next>
+          <block type="trade_definition_tradetype" id="tradetype_def" deletable="false" movable="false">
+            <field name="TRADETYPECAT_LIST">higherlower</field>
+            <field name="TRADETYPE_LIST">callput</field>
+            <next>
+              <block type="trade_definition_contracttype" id="contract_def" deletable="false" movable="false">
+                <field name="TYPE_LIST">both</field>
+                <next>
+                  <block type="trade_definition_candleinterval" id="candle_def" deletable="false" movable="false">
+                    <field name="CANDLEINTERVAL_LIST">60</field>
+                    <next>
+                      <block type="trade_definition_restartbuysell" id="restart_def" deletable="false" movable="false">
+                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                        <next>
+                          <block type="trade_definition_restartonerror" id="error_def" deletable="false" movable="false">
+                            <field name="RESTARTONERROR">TRUE</field>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="INITIALIZATION">
+      <block type="text_print" id="init_print1">
+        <value name="TEXT">
+          <shadow type="text" id="init_text1">
+            <field name="TEXT">Higher/Lower Bot Starting - ${contractType} Strategy</field> {/* Use contractType */}
+          </shadow>
+        </value>
+        <next>
+          <block type="variables_set" id="init_stake">
+            <field name="VAR" id="hl:stake">hl:stake</field>
+            <value name="VALUE">
+              <block type="math_number" id="stake_value">
+                <field name="NUM">${stake}</field> {/* Use stake */}
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id="init_total">
+                <field name="VAR" id="hl:totalProfit">hl:totalProfit</field>
+                <value name="VALUE">
+                  <block type="math_number" id="total_value">
+                    <field name="NUM">0</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="init_count">
+                    <field name="VAR" id="hl:tradeCount">hl:tradeCount</field>
+                    <value name="VALUE">
+                      <block type="math_number" id="count_value">
+                        <field name="NUM">0</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set" id="init_mult">
+                        <field name="VAR" id="hl:multiplier">hl:multiplier</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="mult_value">
+                            <field name="NUM">${settings.martingaleMultiplier}</field> {/* Keep original setting for now */}
+                          </block>
+                        </value>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="SUBMARKET">
+      <block type="trade_definition_tradeoptions" id="trade_options">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="true" has_second_barrier="false" has_prediction="false"></mutation>
+        <field name="DURATIONTYPE_LIST">s</field>
+        <value name="DURATION">
+          <shadow type="math_number" id="duration_val">
+            <field name="NUM">${durationMinutes * 60 + durationSeconds}</field> {/* Calculate total duration */}
+          </shadow>
+        </value>
+        <value name="AMOUNT">
+          <shadow type="math_number" id="amount_val">
+            <field name="NUM">1</field>
+          </shadow>
+          <block type="variables_get" id="get_stake">
+            <field name="VAR" id="hl:stake">hl:stake</field>
+          </block>
+        </value>
+        <value name="BARRIEROFFSETVALUE">
+          <shadow type="text" id="barrier_val">
+            <field name="TEXT">${barrierValue}</field>
+          </shadow>
+        </value>
+      </block>
+    </statement>
+  </block>
+  <block type="before_purchase" id="before_purchase" deletable="false" x="0" y="800">
+    <statement name="BEFOREPURCHASE_STACK">
+      <block type="controls_if" id="check_trade_count">
+        <value name="IF0">
+          <block type="logic_compare" id="count_compare">
+            <field name="OP">LT</field>
+            <value name="A">
+              <block type="variables_get" id="get_count">
+                <field name="VAR" id="hl:tradeCount">hl:tradeCount</field>
+              </block>
+            </value>
+            <value name="B">
+              <block type="math_number" id="max_trades">
+                <field name="NUM">${settings.maxTrades}</field> {/* Keep original setting for now */}
+              </block>
+            </value>
+          </block>
+        </value>
+        <statement name="DO0">
+          <block type="purchase" id="purchase_block">
+            <field name="PURCHASE_LIST">${contractType}</field> {/* Use contractType */}
+          </block>
+        </statement>
+      </block>
+    </statement>
+  </block>
+  <block type="after_purchase" id="after_purchase" x="600" y="60">
+    <statement name="AFTERPURCHASE_STACK">
+      <block type="math_change" id="increment_count">
+        <field name="VAR" id="hl:tradeCount">hl:tradeCount</field>
+        <value name="DELTA">
+          <shadow type="math_number" id="delta_one">
+            <field name="NUM">1</field>
+          </shadow>
+        </value>
+        <next>
+          <block type="variables_set" id="set_profit">
+            <field name="VAR" id="hl:profit">hl:profit</field>
+            <value name="VALUE">
+              <block type="read_details" id="read_profit">
+                <field name="DETAIL_INDEX">4</field>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id="set_result">
+                <field name="VAR" id="hl:resultIsWin">hl:resultIsWin</field>
+                <value name="VALUE">
+                  <block type="contract_check_result" id="check_win">
+                    <field name="CHECK_RESULT">win</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="math_change" id="add_profit">
+                    <field name="VAR" id="hl:totalProfit">hl:totalProfit</field>
+                    <value name="DELTA">
+                      <block type="variables_get" id="get_profit">
+                        <field name="VAR" id="hl:profit">hl:profit</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="controls_if" id="check_result">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+                        <value name="IF0">
+                          <block type="variables_get" id="get_result">
+                            <field name="VAR" id="hl:resultIsWin">hl:resultIsWin</field>
+                          </block>
+                        </value>
+                        <statement name="DO0">
+                          <block type="notify" id="win_notify">
+                            <field name="NOTIFICATION_TYPE">success</field>
+                            <field name="NOTIFICATION_SOUND">silent</field>
+                            <value name="MESSAGE">
+                              <shadow type="text" id="win_msg">
+                                <field name="TEXT">Trade Won! Profit: </field>
+                              </shadow>
+                            </value>
+                            <next>
+                              <block type="variables_set" id="reset_stake_win">
+                                <field name="VAR" id="hl:stake">hl:stake</field>
+                                <value name="VALUE">
+                                  <block type="math_number" id="base_stake_win">
+                                    <field name="NUM">${stake}</field> {/* Use component state stake */}
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
+                          </block>
+                        </statement>
+                        <statement name="ELSE">
+                          <block type="notify" id="loss_notify">
+                            <field name="NOTIFICATION_TYPE">warn</field>
+                            <field name="NOTIFICATION_SOUND">silent</field>
+                            <value name="MESSAGE">
+                              <shadow type="text" id="loss_msg">
+                                <field name="TEXT">Trade Lost! Loss: </field>
+                              </shadow>
+                            </value>
+                            <next>
+                              <block type="variables_set" id="increase_stake">
+                                <field name="VAR" id="hl:stake">hl:stake</field>
+                                <value name="VALUE">
+                                  <block type="math_arithmetic" id="multiply_stake">
+                                    <field name="OP">MULTIPLY</field>
+                                    <value name="A">
+                                      <block type="variables_get" id="current_stake">
+                                        <field name="VAR" id="hl:stake">hl:stake</field>
+                                      </block>
+                                    </value>
+                                    <value name="B">
+                                      <block type="variables_get" id="get_multiplier">
+                                        <field name="VAR" id="hl:multiplier">hl:multiplier</field>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
+                          </block>
+                        </statement>
+                        <next>
+                          <block type="controls_if" id="check_thresholds">
+                            <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1"></mutation>
+                            <value name="IF0">
+                              <block type="logic_compare" id="profit_threshold">
+                                <field name="OP">GTE</field>
+                                <value name="A">
+                                  <block type="variables_get" id="total_profit_check">
+                                    <field name="VAR" id="hl:totalProfit">hl:totalProfit</field>
+                                  </block>
+                                </value>
+                                <value name="B">
+                                  <block type="math_number" id="profit_limit">
+                                    <field name="NUM">${stopOnProfit ? targetProfit : settings.profitThreshold}</field> {/* Use component state */}
+                                  </block>
+                                </value>
+                              </block>
+                            </value>
+                            <statement name="DO0">
+                              <block type="notify" id="profit_reached">
+                                <field name="NOTIFICATION_TYPE">success</field>
+                                <field name="NOTIFICATION_SOUND">silent</field>
+                                <value name="MESSAGE">
+                                  <shadow type="text" id="profit_reached_msg">
+                                    <field name="TEXT">Profit target reached! Stopping bot.</field>
+                                  </shadow>
+                                </value>
+                              </block>
+                            </statement>
+                            <value name="IF1">
+                              <block type="logic_compare" id="loss_threshold">
+                                <field name="OP">LTE</field>
+                                <value name="A">
+                                  <block type="variables_get" id="total_profit_check2">
+                                    <field name="VAR" id="hl:totalProfit">hl:totalProfit</field>
+                                  </block>
+                                </value>
+                                <value name="B">
+                                  <block type="math_single" id="neg_loss">
+                                    <field name="OP">NEG</field>
+                                    <value name="NUM">
+                                      <block type="math_number" id="loss_limit">
+                                        <field name="NUM">${settings.lossThreshold}</field> {/* Keep original setting for now */}
+                                      </block>
+                                    </value>
+                                  </block>
+                                </value>
+                              </block>
+                            </value>
+                            <statement name="DO1">
+                              <block type="notify" id="loss_reached">
+                                <field name="NOTIFICATION_TYPE">error</field>
+                                <field name="NOTIFICATION_SOUND">silent</field>
+                                <value name="MESSAGE">
+                                  <shadow type="text" id="loss_reached_msg">
+                                    <field name="TEXT">Loss limit reached! Stopping bot.</field>
+                                  </shadow>
+                                </value>
+                              </block>
+                            </statement>
+                            <next>
+                              <block type="controls_if" id="should_continue">
+                                <value name="IF0">
+                                  <block type="logic_operation" id="continue_logic">
+                                    <field name="OP">AND</field>
+                                    <value name="A">
+                                      <block type="logic_compare" id="profit_check">
+                                        <field name="OP">LT</field>
+                                        <value name="A">
+                                          <block type="variables_get" id="total_profit_cont">
+                                            <field name="VAR" id="hl:totalProfit">hl:totalProfit</field>
+                                          </block>
+                                        </value>
+                                        <value name="B">
+                                          <block type="math_number" id="profit_limit_cont">
+                                            <field name="NUM">${stopOnProfit ? targetProfit : settings.profitThreshold}</field> {/* Use component state */}
+                                          </block>
+                                        </value>
+                                      </block>
+                                    </value>
+                                    <value name="B">
+                                      <block type="logic_compare" id="loss_check">
+                                        <field name="OP">GT</field>
+                                        <value name="A">
+                                          <block type="variables_get" id="total_profit_cont2">
+                                            <field name="VAR" id="hl:totalProfit">hl:totalProfit</field>
+                                          </block>
+                                        </value>
+                                        <value name="B">
+                                          <block type="math_single" id="neg_loss_cont">
+                                            <field name="OP">NEG</field>
+                                            <value name="NUM">
+                                              <block type="math_number" id="loss_limit_cont">
+                                                <field name="NUM">${settings.lossThreshold}</field> {/* Keep original setting for now */}
+                                              </block>
+                                            </value>
+                                          </block>
+                                        </value>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </value>
+                                <statement name="DO0">
+                                  <block type="trade_again" id="continue_trading"></block>
+                                </statement>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+</xml>`;
+  };
 
   return (
     <div className="higher-lower-trader">
@@ -917,6 +1288,7 @@ const HigherLowerTrader = observer(() => {
             {/* Start/Stop Button */}
             <button
               onClick={startTrading}
+              className={`hl-trader__start-btn ${isTrading ? 'hl-trader__start-btn--running' : ''}`}
               disabled={
                 getTotalDuration() < 15 || 
                 !isAuthorized || 
@@ -924,12 +1296,9 @@ const HigherLowerTrader = observer(() => {
                 connectionStatus !== 'connected' ||
                 availableSymbols.length === 0
               }
-              className="btn-start"
             >
-              <Play className="icon" />
-              <span>
-                {isTrading ? 'Trading...' : 'Start Trading'}
-              </span>
+              <Play size={16} />
+              {isTrading ? 'Strategy Loaded...' : 'Load to Bot Builder'}
             </button>
           </div>
         </div>
