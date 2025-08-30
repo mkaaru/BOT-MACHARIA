@@ -71,6 +71,8 @@ const HigherLowerTrader = observer(() => {
   const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
   const contractTimerRef = useRef(null);
   const stopFlagRef = useRef(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   // API and auth state
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -347,8 +349,18 @@ const HigherLowerTrader = observer(() => {
         // Show success notification
         console.log('Higher/Lower strategy loaded into Bot Builder successfully');
 
-        // Start the actual trading through the bot builder
+        // Start the actual trading through the bot builder's run panel
         setIsTrading(true);
+        
+        // Automatically start the bot execution
+        if (run_panel?.onRunButtonClick) {
+          // Small delay to ensure workspace is fully loaded
+          setTimeout(() => {
+            run_panel.onRunButtonClick();
+          }, 1000);
+        }
+
+        // Update UI state
         setCurrentStake(settings.stake);
         setTimeLeft(settings.duration);
 
@@ -606,8 +618,10 @@ const HigherLowerTrader = observer(() => {
 
     // Stop the bot if it's running in bot builder
     try {
-      if (window.Blockly?.derivWorkspace) {
-        // This will stop the bot execution
+      if (run_panel?.onStopButtonClick) {
+        run_panel.onStopButtonClick();
+      } else if (window.Blockly?.derivWorkspace) {
+        // Fallback method
         window.Blockly.derivWorkspace.stop?.();
       }
     } catch (error) {
@@ -1305,18 +1319,28 @@ const HigherLowerTrader = observer(() => {
 
             {/* Start/Stop Button */}
             <button
-              onClick={startTrading}
+              onClick={isTrading ? stopTrading : startTrading}
               className={`hl-trader__start-btn ${isTrading ? 'hl-trader__start-btn--running' : ''}`}
               disabled={
-                getTotalDuration() < 15 || 
-                !(isAuthorized || isMainAppAuthorized) || 
-                isTrading || 
-                connectionStatus !== 'connected' ||
-                availableSymbols.length === 0
+                !isTrading && (
+                  getTotalDuration() < 15 || 
+                  !(isAuthorized || isMainAppAuthorized) || 
+                  connectionStatus !== 'connected' ||
+                  availableSymbols.length === 0
+                )
               }
             >
-              <Play size={16} />
-              {isTrading ? 'Strategy Loaded...' : 'Load to Bot Builder'}
+              {isTrading ? (
+                <>
+                  <Square size={16} />
+                  Stop Trading
+                </>
+              ) : (
+                <>
+                  <Play size={16} />
+                  Start Trading
+                </>
+              )}
             </button>
           </div>
         </div>
