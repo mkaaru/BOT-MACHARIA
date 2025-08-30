@@ -1,0 +1,190 @@
+
+.matrix-loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 400px;
+  background: #000;
+  border: 2px solid #00ff41;
+  border-radius: 8px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Courier New', monospace;
+  box-shadow: 0 0 30px rgba(0, 255, 65, 0.3);
+
+  .matrix-rain {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    opacity: 0.3;
+    border-radius: 6px;
+
+    .matrix-column {
+      position: absolute;
+      top: -50px;
+      font-size: 12px;
+      color: #00ff41;
+      white-space: nowrap;
+      animation: matrixFall linear infinite;
+
+      &:nth-child(odd) {
+        animation-duration: 3s;
+      }
+
+      &:nth-child(even) {
+        animation-duration: 4s;
+      }
+
+      &:nth-child(3n) {
+        animation-duration: 2.5s;
+      }
+    }
+  }
+
+  .loading-content {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    color: #00ff41;
+    padding: 2rem;
+
+    .scanning-text {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 1.5rem;
+      text-shadow: 0 0 20px #00ff41;
+      animation: pulse 2s infinite;
+      letter-spacing: 2px;
+    }
+
+    .scanning-lines {
+      margin-bottom: 1.5rem;
+      min-height: 120px;
+
+      .scan-line {
+        font-size: 0.9rem;
+        margin: 0.3rem 0;
+        opacity: 0.3;
+        transition: all 0.3s ease;
+
+        &.active {
+          opacity: 1;
+          color: #00ff41;
+          text-shadow: 0 0 10px #00ff41;
+        }
+      }
+    }
+
+    .progress-bar {
+      width: 250px;
+      height: 3px;
+      background: rgba(0, 255, 65, 0.2);
+      border-radius: 2px;
+      overflow: hidden;
+      margin: 1.5rem auto;
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #00ff41, #00cc33);
+        border-radius: 2px;
+        transition: width 0.3s ease;
+        box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+      }
+    }
+
+    .status-text {
+      font-size: 0.8rem;
+      opacity: 0.8;
+      animation: blink 1.5s infinite;
+      letter-spacing: 1px;
+    }
+  }
+
+  @keyframes matrixFall {
+    to {
+      transform: translateY(450px);
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(1.02);
+    }
+  }
+
+  @keyframes blink {
+    0%, 50% {
+      opacity: 1;
+    }
+    51%, 100% {
+      opacity: 0.5;
+    }
+  }
+
+  // Mobile responsiveness
+  @media (max-width: 768px) {
+    width: 90vw;
+    height: 350px;
+    
+    .loading-content {
+      padding: 1.5rem;
+      
+      .scanning-text {
+        font-size: 1.2rem;
+      }
+
+      .scanning-lines .scan-line {
+        font-size: 0.8rem;
+      }
+
+      .progress-bar {
+        width: 200px;
+      }
+
+      .status-text {
+        font-size: 0.7rem;
+      }
+    }
+
+    .matrix-rain .matrix-column {
+      font-size: 10px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    width: 95vw;
+    height: 300px;
+    
+    .loading-content {
+      padding: 1rem;
+      
+      .scanning-text {
+        font-size: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .scanning-lines {
+        min-height: 80px;
+        margin-bottom: 1rem;
+      }
+
+      .progress-bar {
+        width: 180px;
+        margin: 1rem auto;
+      }
+    }
+  }
+}
