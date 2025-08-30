@@ -22,6 +22,8 @@ const VOLATILITY_INDICES = [
 
 const HigherLowerTrader = observer(() => {
   const { dashboard, blockly_store } = useStore();
+  const { client: mainAppClient } = useStore(); // Access main app client store
+
   const [settings, setSettings] = useState({
     symbol: 'R_10',
     tradeType: 'Higher',
@@ -75,6 +77,11 @@ const HigherLowerTrader = observer(() => {
   const [accountCurrency, setAccountCurrency] = useState('USD');
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [availableSymbols, setAvailableSymbols] = useState([]);
+  const [status, setStatus] = useState(''); // For displaying authorization status messages
+
+  // Main app authorization state
+  const isMainAppAuthorized = mainAppClient?.isLoggedIn;
+  const mainAppCurrency = mainAppClient?.currency;
 
   // Initialize API connection and fetch symbols
   useEffect(() => {
@@ -179,11 +186,8 @@ const HigherLowerTrader = observer(() => {
           startTickStream(filteredSymbols[0].value);
         }
 
-        // Try to authorize if token exists
-        const token = V2GetActiveToken();
-        if (token) {
-          authorizeAccount();
-        }
+        // Try to authorize if token exists or if main app is already authorized
+        authorizeIfNeeded();
 
       } catch (error) {
         console.error('API initialization failed:', error);
@@ -218,33 +222,47 @@ const HigherLowerTrader = observer(() => {
     }
   };
 
-  const authorizeAccount = async () => {
-    try {
-      const token = V2GetActiveToken();
-      if (!token) {
-        throw new Error('No authorization token found. Please log in.');
+  // Authorization logic updated to check main app state
+  const authorizeIfNeeded = async () => {
+      try {
+        // Check if main app is already authorized
+        if (isMainAppAuthorized) {
+          setIsAuthorized(true);
+          setAccountCurrency(mainAppCurrency);
+          setStatus('Using main app authorization');
+          return;
+        }
+
+        if (isAuthorized) return;
+
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          setStatus('No authentication token found. Please log in.');
+          return;
+        }
+
+        setStatus('Authorizing...');
+        const { authorize, error } = await apiRef.current.authorize(token);
+
+        if (error) {
+          setStatus(`Authorization failed: ${error.message}`);
+          return;
+        }
+
+        setIsAuthorized(true);
+        setAccountCurrency(authorize?.currency || 'USD');
+        setStatus('Authorized successfully');
+
+        // Sync with main store if available
+        if (mainAppClient) {
+          mainAppClient.setLoginId(authorize?.loginid || '');
+          mainAppClient.setCurrency(authorize?.currency || 'USD');
+          mainAppClient.setIsLoggedIn(true);
+        }
+      } catch (err) {
+        setStatus(`Authorization error: ${err.message}`);
       }
-
-      const response = await apiRef.current.authorize(token);
-      if (response.error) {
-        throw response.error;
-      }
-
-      setIsAuthorized(true);
-      setAccountCurrency(response.authorize?.currency || 'USD');
-
-      // Update client store
-      const loginid = response.authorize?.loginid || V2GetActiveClientId();
-      client?.setLoginId(loginid);
-      client?.setCurrency(response.authorize?.currency || 'USD');
-      client?.setIsLoggedIn(true);
-
-    } catch (error) {
-      console.error('Authorization failed:', error);
-      setIsAuthorized(false);
-      throw error;
-    }
-  };
+    };
 
   const startTickStream = async (symbol) => {
     try {
@@ -474,7 +492,7 @@ const HigherLowerTrader = observer(() => {
         // Try to reconnect
         try {
           await new Promise(resolve => setTimeout(resolve, 2000));
-          await authorizeAccount();
+          await authorizeIfNeeded();
           setConnectionStatus('connected');
         } catch (reconnectError) {
           console.error('Reconnection failed:', reconnectError);
@@ -1084,7 +1102,7 @@ const HigherLowerTrader = observer(() => {
                    connectionStatus === 'connecting' ? 'Connecting...' : 
                    connectionStatus === 'error' ? 'Connection Error' : 'Disconnected'}
                 </span>
-                {isAuthorized && (
+                {(isAuthorized || isMainAppAuthorized) && (
                   <span className="auth-status">• Authorized ({accountCurrency})</span>
                 )}
                 {connectionStatus === 'error' && (
@@ -1272,11 +1290,11 @@ const HigherLowerTrader = observer(() => {
             </div>
 
             {/* Authorization Check */}
-            {!isAuthorized && (
+            {!isAuthorized && !isMainAppAuthorized && (
               <div className="auth-warning">
                 <p>⚠️ Please log in to start trading</p>
                 <button
-                  onClick={authorizeAccount}
+                  onClick={authorizeIfNeeded}
                   className="btn-auth"
                   disabled={connectionStatus !== 'connected'}
                 >
@@ -1291,7 +1309,7 @@ const HigherLowerTrader = observer(() => {
               className={`hl-trader__start-btn ${isTrading ? 'hl-trader__start-btn--running' : ''}`}
               disabled={
                 getTotalDuration() < 15 || 
-                !isAuthorized || 
+                !(isAuthorized || isMainAppAuthorized) || 
                 isTrading || 
                 connectionStatus !== 'connected' ||
                 availableSymbols.length === 0
@@ -1371,7 +1389,7 @@ const HigherLowerTrader = observer(() => {
       </div>
 
       {/* Trading Controls */}
-      {isTrading && (
+      {connectionStatus === 'connected' && (isAuthorized || isMainAppAuthorized) && (
         <div className="trading-controls">
           <div className="controls-group">
             <button
