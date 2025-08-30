@@ -11,6 +11,4 @@ import './multiplier_stop_loss';
 import './accumulator_take_profit';
 import './trade_definition_accumulator';
 import './trade_definition_multiplier';
-import './trade_definition_turbos';
-import './trade_definition_vanilla';
 import './trade_definition_higherlower';
