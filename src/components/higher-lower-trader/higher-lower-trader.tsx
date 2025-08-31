@@ -6,6 +6,7 @@ import Text from '@/components/shared_ui/text';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
+import { isEmptyObject } from '@/components/shared';
 import './higher-lower-trader.scss';
 
 // Volatility indices for Higher/Lower trading
@@ -45,7 +46,7 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
 
 const HigherLowerTrader = observer(() => {
     const store = useStore();
-    const { run_panel, transactions } = store;
+    const { run_panel, transactions, client, common } = store;
 
     const apiRef = useRef<any>(null);
     const tickStreamIdRef = useRef<string | null>(null);
@@ -100,6 +101,39 @@ const HigherLowerTrader = observer(() => {
     const [contractsWon, setContractsWon] = useState(0);
     const [contractsLost, setContractsLost] = useState(0);
     const [totalProfitLoss, setTotalProfitLoss] = useState(0);
+
+    // Check if user is authorized
+    const isAuthorized = client?.is_logged_in && !isEmptyObject(client?.accounts) && client?.loginid;
+
+    // Show loading state while checking authorization
+    if (!client || client.is_logging_out) {
+        return (
+            <div className='higher-lower-trader'>
+                <div className='higher-lower-trader__loading'>
+                    <div className='spinner'></div>
+                    <p>Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Show authorization message if not logged in
+    if (!isAuthorized) {
+        return (
+            <div className='higher-lower-trader'>
+                <div className='higher-lower-trader__unauthorized'>
+                    <h3>{localize('Authorization Required')}</h3>
+                    <p>{localize('Please log in to access the Higher/Lower trader.')}</p>
+                    <button
+                        className='higher-lower-trader__login-btn'
+                        onClick={() => window.location.href = 'https://app.deriv.com'}
+                    >
+                        {localize('Log In')}
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     // --- Helper Functions ---
 

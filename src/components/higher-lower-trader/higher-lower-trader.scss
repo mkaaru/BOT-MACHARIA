@@ -1,4 +1,3 @@
-
 .higher-lower-trader {
     height: 100%;
     width: 100%;
@@ -340,6 +339,68 @@
         border-radius: 4px;
         margin-top: 1rem;
     }
+
+    &__loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 20px;
+        text-align: center;
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e3e3e3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        p {
+            color: #666;
+            font-size: 16px;
+            margin: 0;
+        }
+    }
+
+    &__unauthorized {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 20px;
+        text-align: center;
+
+        h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+    }
+
+    &__login-btn {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+
+        &:hover {
+            background: #0056b3;
+        }
+    }
+
 
     // Mobile responsiveness
     @media (max-width: 768px) {
