@@ -396,9 +396,11 @@ const HigherLowerTrader = observer(() => {
     };
 
     const onRun = async () => {
-        setStatus('');
+        setStatus('Starting Higher/Lower trader...');
         setIsRunning(true);
         stopFlagRef.current = false;
+
+        // Set up run panel
         run_panel.toggleDrawer(true);
         run_panel.setActiveTabIndex(1);
         run_panel.run_id = `higher-lower-${Date.now()}`;
@@ -406,6 +408,10 @@ const HigherLowerTrader = observer(() => {
         run_panel.setContractStage(contract_stages.STARTING);
 
         try {
+            // Ensure authorization first
+            await authorizeIfNeeded();
+            setStatus('Authorization successful, starting trading...');
+
             let lossStreak = 0;
             let step = 0;
             baseStake !== stake && setBaseStake(stake);
@@ -415,140 +421,185 @@ const HigherLowerTrader = observer(() => {
                     const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
                     setStake(effectiveStake);
 
+                    setStatus(`Placing ${contractType === 'CALL' ? 'Higher' : 'Lower'} trade with stake ${effectiveStake} ${account_currency}...`);
+
                     const buy = await purchaseOnceWithStake(effectiveStake);
+
+                    if (!buy?.contract_id) {
+                        throw new Error('Failed to get contract ID from purchase');
+                    }
 
                     // Update statistics
                     setTotalStake(prev => prev + effectiveStake);
                     setTotalRuns(prev => prev + 1);
 
+                    // Notify transaction store
                     try {
                         const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
                         transactions.onBotContractEvent({
-                            contract_id: buy?.contract_id,
-                            transaction_ids: { buy: buy?.transaction_id },
-                            buy_price: buy?.buy_price,
-                            currency: account_currency,
-                            contract_type: contractType as any,
+                            contract_id: buy.contract_id,
+                            transaction_ids: { buy: buy.transaction_id },
+                            buy_price: buy.buy_price,
+                            longcode: buy.longcode,
+                            start_time: buy.start_time,
+                            shortcode: buy.shortcode,
                             underlying: symbol,
-                            display_name: symbol_display,
-                            date_start: Math.floor(Date.now() / 1000),
-                            status: 'open',
-                        } as any);
-                    } catch {}
-
-                    run_panel.setHasOpenContract(true);
-                    run_panel.setContractStage(contract_stages.PURCHASE_SENT);
-
-                    try {
-                        const res = await apiRef.current.send({
-                            proposal_open_contract: 1,
-                            contract_id: buy?.contract_id,
-                            subscribe: 1,
+                            contract_type: contractType,
+                            is_completed: false,
+                            profit: 0,
+                            profit_percentage: 0
                         });
-                        const { error, proposal_open_contract: pocInit, subscription } = res || {};
-                        if (error) throw error;
+                    } catch (e) {
+                        console.warn('Failed to notify transaction store:', e);
+                    }
 
-                        let pocSubId: string | null = subscription?.id || null;
-                        const targetId = String(buy?.contract_id || '');
+                    run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+                    run_panel.setHasOpenContract(true);
 
-                        if (pocInit && String(pocInit?.contract_id || '') === targetId) {
-                            transactions.onBotContractEvent(pocInit);
-                            run_panel.setHasOpenContract(true);
-                        }
+                    setStatus(`Contract ${buy.contract_id} purchased, waiting for result...`);
 
-                        const onMsg = (evt: MessageEvent) => {
+                    // Wait for contract completion
+                    const contractResult = await new Promise((resolve, reject) => {
+                        let pollCount = 0;
+                        const maxPolls = 300; // 5 minutes max
+
+                        const checkContract = async () => {
                             try {
-                                const data = JSON.parse(evt.data as any);
-                                if (data?.msg_type === 'proposal_open_contract') {
-                                    const poc = data.proposal_open_contract;
-                                    if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
-                                    if (String(poc?.contract_id || '') === targetId) {
-                                        transactions.onBotContractEvent(poc);
-                                        run_panel.setHasOpenContract(true);
-
-                                        setCurrentProfit(Number(poc?.profit || 0));
-                                        setContractValue(Number(poc?.bid_price || 0));
-                                        setPotentialPayout(Number(poc?.payout || 0));
-
-                                        if (poc?.date_expiry && !poc?.is_sold) {
-                                            const now = Math.floor(Date.now() / 1000);
-                                            const expiry = Number(poc.date_expiry);
-                                            const remaining = Math.max(0, expiry - now);
-                                            const hours = Math.floor(remaining / 3600);
-                                            const minutes = Math.floor((remaining % 3600) / 60);
-                                            const seconds = remaining % 60;
-                                            setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-                                        }
-
-                                        if (poc?.is_sold || poc?.status === 'sold') {
-                                            run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
-                                            run_panel.setHasOpenContract(false);
-                                            if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
-                                            apiRef.current?.connection?.removeEventListener('message', onMsg);
-
-                                            const profit = Number(poc?.profit || 0);
-                                            setTotalPayout(prev => prev + Number(poc?.sell_price || 0));
-                                            setTotalProfitLoss(prev => prev + profit);
-
-                                            if (profit > 0) {
-                                                setContractsWon(prev => prev + 1);
-                                                lastOutcomeWasLossRef.current = false;
-                                                lossStreak = 0;
-                                                step = 0;
-                                                setStake(baseStake);
-                                            } else {
-                                                setContractsLost(prev => prev + 1);
-                                                lastOutcomeWasLossRef.current = true;
-                                                lossStreak++;
-                                                step = Math.min(step + 1, 10);
-                                            }
-
-                                            setCurrentProfit(0);
-                                            setContractValue(0);
-                                            setPotentialPayout(0);
-                                            setContractDuration('00:00:00');
-
-                                            // Check stop conditions
-                                            if (useStopOnProfit && totalProfitLoss + profit >= targetProfit) {
-                                                setStatus('Target profit reached. Stopping trading.');
-                                                stopFlagRef.current = true;
-                                            }
-                                        }
-                                    }
+                                pollCount++;
+                                if (pollCount > maxPolls) {
+                                    throw new Error('Contract polling timeout');
                                 }
-                            } catch {
-                                // noop
+
+                                const response = await apiRef.current.send({
+                                    proposal_open_contract: 1,
+                                    contract_id: buy.contract_id
+                                });
+
+                                const contract = response.proposal_open_contract;
+                                if (!contract) {
+                                    throw new Error('Contract not found');
+                                }
+
+                                if (contract.is_sold) {
+                                    const profit = Number(contract.profit || 0);
+                                    const isWin = profit > 0;
+
+                                    resolve({
+                                        profit,
+                                        isWin,
+                                        sell_price: contract.sell_price,
+                                        sell_transaction_id: contract.transaction_ids?.sell
+                                    });
+                                } else {
+                                    // Contract still running - update UI
+                                    setContractValue(Number(contract.bid_price || 0));
+                                    setPotentialPayout(Number(contract.sell_price || 0));
+                                    setCurrentProfit(Number(contract.profit || 0));
+
+                                    const duration_left = (contract.date_expiry || 0) - Date.now() / 1000;
+                                    if (duration_left > 0) {
+                                        const hours = Math.floor(duration_left / 3600);
+                                        const minutes = Math.floor((duration_left % 3600) / 60);
+                                        const seconds = Math.floor(duration_left % 60);
+                                        setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+                                    }
+
+                                    // Continue polling
+                                    setTimeout(checkContract, 1000);
+                                }
+                            } catch (error) {
+                                console.error('Contract polling error:', error);
+                                reject(error);
                             }
                         };
-                        apiRef.current?.connection?.addEventListener('message', onMsg);
-                    } catch (subErr) {
-                        console.error('subscribe poc error', subErr);
+
+                        // Start polling after a short delay
+                        setTimeout(checkContract, 2000);
+                    });
+
+                    // Process contract result
+                    const { profit, isWin, sell_price, sell_transaction_id } = contractResult as any;
+
+                    setTotalPayout(prev => prev + Number(sell_price || 0));
+                    setTotalProfitLoss(prev => prev + profit);
+
+                    if (isWin) {
+                        setContractsWon(prev => prev + 1);
+                        lossStreak = 0;
+                        step = 0;
+                        lastOutcomeWasLossRef.current = false;
+                        setStatus(`✅ Contract WON! Profit: +${profit.toFixed(2)} ${account_currency}`);
+                    } else {
+                        setContractsLost(prev => prev + 1);
+                        lossStreak++;
+                        if (lossStreak >= 1) {
+                            step = Math.min(step + 1, 10);
+                        }
+                        lastOutcomeWasLossRef.current = true;
+                        setStatus(`❌ Contract LOST. Loss: ${profit.toFixed(2)} ${account_currency}. Next stake: ${(baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)}`);
                     }
 
-                    await new Promise(res => setTimeout(res, 500));
+                    // Update transaction store with final result
+                    try {
+                        transactions.onBotContractEvent({
+                            contract_id: buy.contract_id,
+                            transaction_ids: { 
+                                buy: buy.transaction_id, 
+                                sell: sell_transaction_id 
+                            },
+                            buy_price: buy.buy_price,
+                            sell_price: sell_price,
+                            profit,
+                            longcode: buy.longcode,
+                            shortcode: buy.shortcode,
+                            underlying: symbol,
+                            contract_type: contractType,
+                            is_completed: true,
+                            profit_percentage: Number(((profit / buy.buy_price) * 100).toFixed(2))
+                        });
+                    } catch (e) {
+                        console.warn('Failed to update transaction store:', e);
+                    }
 
-                } catch (contractError: any) {
-                    console.error('Contract execution error:', contractError);
-                    setStatus(`Contract error: ${contractError.message || 'Failed to execute contract'}`);
+                    run_panel.setHasOpenContract(false);
 
-                    if (contractError.message?.includes('connection') || contractError.message?.includes('timeout')) {
-                        setStatus('Connection issue detected, retrying...');
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        if (stopFlagRef.current) break;
-                        continue;
-                    } else {
+                    // Check stop conditions
+                    const newTotalProfit = totalProfitLoss + profit;
+                    if (useStopOnProfit && newTotalProfit >= targetProfit) {
+                        setStatus(`🎯 Target profit reached: ${newTotalProfit.toFixed(2)} ${account_currency}. Stopping bot.`);
+                        stopFlagRef.current = true;
                         break;
                     }
+
+                    // Wait between trades (only if continuing)
+                    if (!stopFlagRef.current) {
+                        setStatus(`Waiting 3 seconds before next trade...`);
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                    }
+
+                } catch (error: any) {
+                    console.error('Trade execution error:', error);
+                    setStatus(`❌ Trade error: ${error.message || 'Unknown error'}`);
+
+                    if (error.code === 'AuthorizationRequired' || error.message?.includes('authorization')) {
+                        setIsAuthorized(false);
+                        setStatus('❌ Authorization lost. Please refresh and try again.');
+                        break;
+                    }
+
+                    // Wait before retrying
+                    await new Promise(resolve => setTimeout(resolve, 5000));
                 }
             }
         } catch (error: any) {
-            console.error('Trading error:', error);
-            setStatus(`Trading error: ${error.message || 'Unknown error'}`);
+            console.error('Higher/Lower trader error:', error);
+            setStatus(`❌ Trading error: ${error.message || 'Unknown error'}`);
         } finally {
             setIsRunning(false);
             run_panel.setIsRunning(false);
             run_panel.setHasOpenContract(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
+            setStatus('Higher/Lower trader stopped.');
         }
     };
 
