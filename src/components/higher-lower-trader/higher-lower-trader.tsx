@@ -183,7 +183,7 @@ const HigherLowerTrader = observer(() => {
 
             if (candles.length >= minCandles) {
                 const closePrices = candles.map(candle => candle.close);
-                
+
                 // Use adaptive HMA period based on available data
                 const hmaPeriod = Math.min(14, Math.floor(closePrices.length * 0.7));
                 const hmaValue = calculateHMA(closePrices, hmaPeriod);
@@ -198,14 +198,14 @@ const HigherLowerTrader = observer(() => {
                     // Calculate HMA slope for trend direction
                     const prevHMA = calculateHMA(closePrices.slice(0, -1), Math.min(hmaPeriod, closePrices.length - 1));
                     const hmaSlope = prevHMA !== null ? hmaValue - prevHMA : 0;
-                    
+
                     const priceAboveHMA = currentCandle.close > hmaValue;
                     const risingPrices = currentCandle.close > previousCandle.close && previousCandle.close > prevPrevCandle.close;
                     const fallingPrices = currentCandle.close < previousCandle.close && previousCandle.close < prevPrevCandle.close;
 
                     // Enhanced trend detection with adaptive thresholds
                     const slopeThreshold = timeframe === '15s' || timeframe === '1m' ? 0.0001 : 0.0005;
-                    
+
                     if (hmaSlope > slopeThreshold && priceAboveHMA && risingPrices) {
                         trend = 'BULLISH';
                     } else if (hmaSlope < -slopeThreshold && !priceAboveHMA && fallingPrices) {
@@ -281,10 +281,10 @@ const HigherLowerTrader = observer(() => {
     const preloadAllVolatilityData = async (api: any) => {
         setIsPreloading(true);
         setStatus('Preloading historical data for trend analysis...');
-        
+
         const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'BOOM500', 'BOOM1000', 'CRASH500', 'CRASH1000', 'stpRNG'];
         const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>} = {};
-        
+
         try {
             // Fetch 5000 ticks for each volatility index
             const promises = volatilitySymbols.map(async (sym) => {
@@ -343,10 +343,10 @@ const HigherLowerTrader = observer(() => {
                     .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol))
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
                 setSymbols(syn);
-                
+
                 // Preload historical data for all volatility indices
                 await preloadAllVolatilityData(api);
-                
+
                 if (!symbol && syn[0]?.symbol) {
                     setSymbol(syn[0].symbol);
                     // Use preloaded data if available
@@ -559,7 +559,7 @@ const HigherLowerTrader = observer(() => {
                     });
 
                     setStatus(`📈 ${contractType} contract started with barrier ${barrier} for $${effectiveStake}`);
-                    
+
                     // Initialize contract display values
                     setContractValue(effectiveStake);
                     setPotentialPayout(buy.payout ? Number(buy.payout) : effectiveStake * 1.95); // Estimate based on typical payout ratio
@@ -611,12 +611,12 @@ const HigherLowerTrader = observer(() => {
                                     // Contract still running - update UI
                                     const currentBidPrice = Number(contract.bid_price || 0);
                                     const currentProfit = Number(contract.profit || 0);
-                                    
+
                                     // Calculate potential payout based on current contract value
                                     const potentialPayout = contract.payout ? Number(contract.payout) : 
                                                           (currentBidPrice > 0 ? currentBidPrice : 
                                                            (effectiveStake + currentProfit));
-                                    
+
                                     setContractValue(currentBidPrice);
                                     setPotentialPayout(potentialPayout);
                                     setCurrentProfit(currentProfit);
@@ -879,7 +879,8 @@ const HigherLowerTrader = observer(() => {
                                     type='text'
                                     value={barrier}
                                     onChange={e => setBarrier(e.target.value)}
-                                    placeholder='+0.37'
+                                    placeholder='0.00 = current price, +0.37, -0.25'
+                                    title='Set to 0.00 to use current price as barrier'
                                 />
                             </div>
                         </div>
@@ -940,9 +941,9 @@ const HigherLowerTrader = observer(() => {
                                         '5m': 300,
                                         '15m': 900
                                     }[timeframe] || 60;
-                                    
+
                                     const candles = ticksToCandles(tickData, timeframeSeconds);
-                                    
+
                                     return (
                                         <div key={timeframe} className={`trend-item trend-${data.trend.toLowerCase()}`}>
                                             <span className='timeframe'>{timeframe}</span>
