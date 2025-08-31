@@ -62,7 +62,7 @@ const HigherLowerTrader = observer(() => {
     const [durationType, setDurationType] = useState<string>('s'); // 's' for seconds, 'm' for minutes
     const [stake, setStake] = useState<number>(1.0);
     const [baseStake, setBaseStake] = useState<number>(1.0);
-    const [barrier, setBarrier] = useState<string>('0.00'); // Default barrier set to 0.00
+    const [barrier, setBarrier] = useState<string>('+0.37');
 
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
@@ -540,56 +540,37 @@ const HigherLowerTrader = observer(() => {
 
                     console.log('Contract completed:', contract_result);
 
-                    const profitLoss = parseFloat(contract_result.profit || '0');
+                    const profit = parseFloat(contract_result.profit || '0');
                     const payout = parseFloat(contract_result.payout || '0');
-                    const outcome = profitLoss >= 0 ? 'won' : 'lost';
 
-                    // Create completed contract transaction
+                    // Update completed contract info
                     const completedContract = {
-                        contract_id: contract_result.contract_id || buy.contract_id,
-                        transaction_ids: { 
-                            buy: buy.transaction_id,
-                            sell: contract_result.sell_transaction_id 
-                        },
-                        buy_price: Number(effectiveStake),
-                        sell_price: Number(contract_result.sell_price || (effectiveStake + profitLoss)),
-                        currency: account_currency,
-                        contract_type: contractType,
-                        longcode: buy.longcode,
-                        shortcode: buy.shortcode,
-                        symbol,
-                        date_start: buy.start_time,
-                        date_expiry: contract_result.exit_tick_time,
+                        ...contractInfo,
                         is_completed: true,
-                        profit: profitLoss,
-                        payout: Number(contract_result.sell_price || (effectiveStake + profitLoss)),
-                        run_id: run_panel.run_id,
-                        entry_tick_display_value: contract_result.entry_tick_display_value,
-                        entry_tick_time: contract_result.entry_tick_time,
+                        profit,
+                        payout: payout || contractInfo.buy_price + profit,
                         exit_tick_display_value: contract_result.exit_tick_display_value,
                         exit_tick_time: contract_result.exit_tick_time,
-                        is_won: profitLoss > 0
+                        entry_tick_display_value: contract_result.entry_tick_display_value,
+                        entry_tick_time: contract_result.entry_tick_time
                     };
 
-                    // Push completed transaction to store
+                    // Update transaction with final results
                     transactions.pushTransaction(completedContract);
 
-                    // Also notify the transactions store with contract event
-                    transactions.onBotContractEvent(completedContract);
-
                     setTotalPayout(prev => prev + payout);
-                    setTotalProfitLoss(prev => prev + profitLoss);
+                    setTotalProfitLoss(prev => prev + profit);
 
-                    if (profitLoss > 0) {
+                    if (profit > 0) {
                         setContractsWon(prev => prev + 1);
                         lossStreak = 0;
                         lastOutcomeWasLossRef.current = false;
-                        setStatus(`✅ Contract WON! Profit: ${profitLoss} ${account_currency} - Resetting stake to base amount`);
+                        setStatus(`✅ Contract WON! Profit: ${profit} ${account_currency} - Resetting stake to base amount`);
                     } else {
                         setContractsLost(prev => prev + 1);
                         lossStreak++;
                         lastOutcomeWasLossRef.current = true;
-                        setStatus(`❌ Contract LOST! Loss: ${profitLoss} ${account_currency} - Loss streak: ${lossStreak}`);
+                        setStatus(`❌ Contract LOST! Loss: ${profit} ${account_currency} - Loss streak: ${lossStreak}`);
                     }
 
                     // Update summary card with live statistics
@@ -611,20 +592,8 @@ const HigherLowerTrader = observer(() => {
                         data: completedContract // Use completedContract for more details
                     });
 
-                    // Update run panel with contract completion
-                    run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
-
-                    // Update summary card with final results
-                    store.summary_card.onBotContractEvent({
-                        id: transaction.contract_id,
-                        profit: profitLoss,
-                        is_sold: true,
-                        sell_price: effectiveStake + profitLoss,
-                        contract_type: contractType
-                    });
-
                     // Check stop conditions
-                    const newTotalProfit = totalProfitLoss + profitLoss;
+                    const newTotalProfit = totalProfitLoss + profit;
                     if (useStopOnProfit && newTotalProfit >= targetProfit) {
                         setStatus(`🎯 Target profit reached: ${newTotalProfit.toFixed(2)} ${account_currency}. Stopping bot.`);
                         stopFlagRef.current = true;
@@ -793,7 +762,7 @@ const HigherLowerTrader = observer(() => {
                                     type='text'
                                     value={barrier}
                                     onChange={e => setBarrier(e.target.value)}
-                                    placeholder='0.00'
+                                    placeholder='+0.37'
                                 />
                             </div>
                         </div>
