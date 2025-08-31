@@ -868,7 +868,13 @@ const HigherLowerTrader = observer(() => {
         
         if (alignedTrend === 'BULLISH') return 'CALL';
         if (alignedTrend === 'BEARISH') return 'PUT';
-        return contractType; // Keep current if neutral
+        return null; // No recommendation when trend is neutral
+    };
+
+    // Check if trading should be allowed based on trend alignment
+    const isTradingAllowed = () => {
+        const alignedTrend = getAlignedTrend();
+        return alignedTrend !== 'NEUTRAL';
     };
 
     // Check if user is authorized - check if balance is available and user is logged in
@@ -1072,9 +1078,16 @@ const HigherLowerTrader = observer(() => {
                                     </Text>
                                 </div>
                                 <Text size='xs'>
-                                    {localize('Recommended')}: <strong>{getRecommendedContractType() === 'CALL' ? 'Higher' : 'Lower'}</strong>
+                                    {localize('Recommended')}: <strong>
+                                        {getRecommendedContractType() === 'CALL' ? 'Higher' : 
+                                         getRecommendedContractType() === 'PUT' ? 'Lower' : 
+                                         'Wait for Trend Alignment'}
+                                    </strong>
                                     {getAlignedTrend() !== 'NEUTRAL' && (
                                         <span className='confidence-indicator'> (High Confidence)</span>
+                                    )}
+                                    {getAlignedTrend() === 'NEUTRAL' && (
+                                        <span className='neutral-indicator'> (No Clear Trend)</span>
                                     )}
                                 </Text>
                             </div>
@@ -1151,12 +1164,20 @@ const HigherLowerTrader = observer(() => {
                         <div className='higher-lower-trader__buttons'>
                             {!is_running ? (
                                 <button
-                                    onClick={onRun}
+                                    onClick={() => {
+                                        // Auto-set contract type based on aligned trend before starting
+                                        const recommendedType = getRecommendedContractType();
+                                        if (recommendedType) {
+                                            setContractType(recommendedType);
+                                        }
+                                        onRun();
+                                    }}
                                     className='btn-start'
-                                    disabled={!isAuthorized || symbols.length === 0}
+                                    disabled={!isAuthorized || symbols.length === 0 || !isTradingAllowed()}
+                                    title={!isTradingAllowed() ? 'Wait for 3+ timeframes to align before trading' : ''}
                                 >
                                     <Play className='icon' />
-                                    {localize('Start Trading')}
+                                    {isTradingAllowed() ? localize('Start Trading') : localize('Waiting for Trend Alignment')}
                                 </button>
                             ) : (
                                 <button
