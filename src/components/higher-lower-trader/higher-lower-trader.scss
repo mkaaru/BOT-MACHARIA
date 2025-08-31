@@ -215,10 +215,36 @@
     }
 
         .trend-recommendation {
-            text-align: center;
+            margin-top: 0.8rem;
             padding: 0.5rem;
-            background: var(--general-main-1);
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 4px;
+            text-align: center;
+
+            .trend-alignment {
+                margin-bottom: 0.3rem;
+
+                .trend-bullish {
+                    color: #4CAF50;
+                    font-weight: bold;
+                }
+
+                .trend-bearish {
+                    color: #f44336;
+                    font-weight: bold;
+                }
+
+                .trend-neutral {
+                    color: #9e9e9e;
+                    font-weight: bold;
+                }
+            }
+
+            .confidence-indicator {
+                color: #2196F3;
+                font-weight: bold;
+                font-size: 0.9em;
+            }
         }
     }
 

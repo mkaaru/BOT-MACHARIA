@@ -253,6 +253,24 @@ const HigherLowerTrader = observer(() => {
                             tickCount: tickPrices.length
                         });
                     }
+                    
+                    // Log trend alignment after all timeframes are processed
+                    if (timeframe === '15m') {
+                        setTimeout(() => {
+                            const trends = Object.entries(hullTrends).map(([tf, data]) => ({ timeframe: tf, trend: data.trend }));
+                            const bullish = trends.filter(t => t.trend === 'BULLISH').length;
+                            const bearish = trends.filter(t => t.trend === 'BEARISH').length;
+                            const aligned = bullish >= 3 ? 'BULLISH' : bearish >= 3 ? 'BEARISH' : 'NEUTRAL';
+                            
+                            console.log('Trend Alignment Analysis:', {
+                                trends,
+                                bullishCount: bullish,
+                                bearishCount: bearish,
+                                alignedTrend: aligned,
+                                isAligned: aligned !== 'NEUTRAL'
+                            });
+                        }, 100);
+                    }
 
                     // Apply trend persistence filter
                     const currentTrendData = hullTrends[timeframe as keyof typeof hullTrends];
@@ -832,14 +850,24 @@ const HigherLowerTrader = observer(() => {
         setTotalProfitLoss(0);
     };
 
-    // Auto contract type selection based on Hull trends
-    const getRecommendedContractType = () => {
+    // Determine aligned trend when 3+ timeframes agree
+    const getAlignedTrend = () => {
         const trends = Object.values(hullTrends);
         const bullishCount = trends.filter(t => t.trend === 'BULLISH').length;
         const bearishCount = trends.filter(t => t.trend === 'BEARISH').length;
+        
+        // Require at least 3 timeframes to align for a confirmed trend
+        if (bullishCount >= 3) return 'BULLISH';
+        if (bearishCount >= 3) return 'BEARISH';
+        return 'NEUTRAL';
+    };
 
-        if (bullishCount > bearishCount) return 'CALL';
-        if (bearishCount > bullishCount) return 'PUT';
+    // Auto contract type selection based on aligned trends
+    const getRecommendedContractType = () => {
+        const alignedTrend = getAlignedTrend();
+        
+        if (alignedTrend === 'BULLISH') return 'CALL';
+        if (alignedTrend === 'BEARISH') return 'PUT';
         return contractType; // Keep current if neutral
     };
 
@@ -1036,8 +1064,18 @@ const HigherLowerTrader = observer(() => {
                                 })}
                             </div>
                             <div className='trend-recommendation'>
+                                <div className='trend-alignment'>
+                                    <Text size='xs'>
+                                        {localize('Aligned Trend')}: <strong className={`trend-${getAlignedTrend().toLowerCase()}`}>
+                                            {getAlignedTrend()}
+                                        </strong>
+                                    </Text>
+                                </div>
                                 <Text size='xs'>
                                     {localize('Recommended')}: <strong>{getRecommendedContractType() === 'CALL' ? 'Higher' : 'Lower'}</strong>
+                                    {getAlignedTrend() !== 'NEUTRAL' && (
+                                        <span className='confidence-indicator'> (High Confidence)</span>
+                                    )}
                                 </Text>
                             </div>
                         </div>
