@@ -174,7 +174,7 @@ const HigherLowerTrader = observer(() => {
         Object.entries(timeframeTickCounts).forEach(([timeframe, tickCount]) => {
             // Use the most recent ticks for this timeframe
             const recentTicks = newTickData.slice(-tickCount);
-            
+
             if (recentTicks.length >= Math.min(50, tickCount)) { // Minimum 50 ticks required
                 const tickPrices = recentTicks.map(tick => tick.price);
 
@@ -199,14 +199,14 @@ const HigherLowerTrader = observer(() => {
                     // Get recent price movements
                     const currentPrice = tickPrices[tickPrices.length - 1];
                     const priceAboveHMA = currentPrice > hmaValue;
-                    
+
                     // Analyze recent price momentum (last 10% of ticks)
                     const momentumLength = Math.max(5, Math.floor(tickPrices.length * 0.1));
                     const recentPrices = tickPrices.slice(-momentumLength);
                     const priceStart = recentPrices[0];
                     const priceEnd = recentPrices[recentPrices.length - 1];
                     const priceMomentum = priceEnd - priceStart;
-                    
+
                     // Calculate price volatility for adaptive thresholds
                     const priceRange = Math.max(...recentPrices) - Math.min(...recentPrices);
                     const adaptiveThreshold = priceRange * 0.1; // 10% of recent price range
@@ -647,8 +647,8 @@ const HigherLowerTrader = observer(() => {
                                     const currentProfit = Number(contract.profit || 0);
 
                                     // Calculate potential payout based on current contract value
-                                    const potentialPayout = contract.payout ? Number(contract.payout) : 
-                                                          (currentBidPrice > 0 ? currentBidPrice : 
+                                    const potentialPayout = contract.payout ? Number(contract.payout) :
+                                                          (currentBidPrice > 0 ? currentBidPrice :
                                                            (effectiveStake + currentProfit));
 
                                     setContractValue(currentBidPrice);
@@ -773,14 +773,20 @@ const HigherLowerTrader = observer(() => {
         }
     };
 
+    // --- Stop Trading Logic ---
     const stopTrading = () => {
         stopFlagRef.current = true;
         setIsRunning(false);
-        stopTicks();
+
+        // Update Run Panel state
         run_panel.setIsRunning(false);
         run_panel.setHasOpenContract(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        setStatus('Trading stopped');
+
+        setStatus('Trading stopped - Trends analysis continues');
+
+        // Keep tick stream running for trend analysis - don't call stopTicks()
+        // The tick stream should continue to update trends even when not trading
     };
 
     const resetStats = () => {
@@ -827,7 +833,7 @@ const HigherLowerTrader = observer(() => {
                         <div className='higher-lower-trader__row higher-lower-trader__row--two'>
                             <div className='higher-lower-trader__field'>
                                 <label htmlFor='hl-symbol'>
-                                    {localize('Volatility')} 
+                                    {localize('Volatility')}
                                     {isPreloading && <span className='loading-indicator'> (Loading...)</span>}
                                 </label>
                                 <select
@@ -1081,6 +1087,17 @@ const HigherLowerTrader = observer(() => {
                                 >
                                     <Square className='icon' />
                                     {localize('Stop Trading')}
+                                </button>
+                            )}
+
+                            {!is_running && (
+                                <button
+                                    className='control-button restart-ticks-button'
+                                    onClick={() => symbol && startTicks(symbol)}
+                                    disabled={!symbol || !apiRef.current}
+                                >
+                                    <Clock size={16} />
+                                    Restart Ticks
                                 </button>
                             )}
                         </div>
