@@ -87,7 +87,6 @@ const HigherLowerTrader = observer(() => {
         '15m': { trend: 'NEUTRAL', value: 0 }
     });
     const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
-    const [isUserInteracting, setIsUserInteracting] = useState(false);
 
     const [status, setStatus] = useState<string>('');
     const [is_running, setIsRunning] = useState(false);
@@ -378,14 +377,6 @@ const HigherLowerTrader = observer(() => {
         };
         init();
 
-        // Set up periodic trend refresh every 1 minute
-        const trendRefreshInterval = setInterval(() => {
-            if (tickData.length > 0 && !isUserInteracting) {
-                console.log('Refreshing Hull trends (1-minute interval)');
-                updateHullTrends(tickData);
-            }
-        }, 60000); // 60 seconds = 1 minute
-
         return () => {
             try {
                 if (tickStreamIdRef.current) {
@@ -396,11 +387,10 @@ const HigherLowerTrader = observer(() => {
                     apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
                     messageHandlerRef.current = null;
                 }
-                clearInterval(trendRefreshInterval);
                 api?.disconnect?.();
             } catch { /* noop */ }
         };
-    }, [tickData]);
+    }, []);
 
     // Effect to fetch historical data when symbol changes
     useEffect(() => {
@@ -821,14 +811,9 @@ const HigherLowerTrader = observer(() => {
                                 <select
                                     id='hl-symbol'
                                     value={symbol}
-                                    onFocus={() => setIsUserInteracting(true)}
-                                    onBlur={() => setIsUserInteracting(false)}
-                                    onMouseDown={() => setIsUserInteracting(true)}
-                                    onMouseUp={() => setTimeout(() => setIsUserInteracting(false), 1000)}
                                     onChange={e => {
                                         const v = e.target.value;
                                         setSymbol(v);
-                                        setIsUserInteracting(false);
                                         // Use preloaded data if available
                                         if (preloadedData[v] && preloadedData[v].length > 0) {
                                             setTickData(preloadedData[v]);
@@ -852,14 +837,7 @@ const HigherLowerTrader = observer(() => {
                                 <select
                                     id='hl-contractType'
                                     value={contractType}
-                                    onFocus={() => setIsUserInteracting(true)}
-                                    onBlur={() => setIsUserInteracting(false)}
-                                    onMouseDown={() => setIsUserInteracting(true)}
-                                    onMouseUp={() => setTimeout(() => setIsUserInteracting(false), 1000)}
-                                    onChange={e => {
-                                        setContractType(e.target.value);
-                                        setIsUserInteracting(false);
-                                    }}
+                                    onChange={e => setContractType(e.target.value)}
                                 >
                                     <option value='CALL'>{localize('Higher (Call)')}</option>
                                     <option value='PUT'>{localize('Lower (Put)')}</option>
@@ -874,14 +852,7 @@ const HigherLowerTrader = observer(() => {
                                 <select
                                     id='hl-duration-type'
                                     value={durationType}
-                                    onFocus={() => setIsUserInteracting(true)}
-                                    onBlur={() => setIsUserInteracting(false)}
-                                    onMouseDown={() => setIsUserInteracting(true)}
-                                    onMouseUp={() => setTimeout(() => setIsUserInteracting(false), 1000)}
-                                    onChange={e => {
-                                        setDurationType(e.target.value);
-                                        setIsUserInteracting(false);
-                                    }}
+                                    onChange={e => setDurationType(e.target.value)}
                                 >
                                     <option value='s'>{localize('Seconds')}</option>
                                     <option value='m'>{localize('Minutes')}</option>
@@ -895,12 +866,7 @@ const HigherLowerTrader = observer(() => {
                                     min={durationType === 's' ? 15 : 1}
                                     max={durationType === 's' ? 86400 : 1440}
                                     value={duration}
-                                    onFocus={() => setIsUserInteracting(true)}
-                                    onBlur={() => setIsUserInteracting(false)}
-                                    onChange={e => {
-                                        setDuration(Number(e.target.value));
-                                        setIsUserInteracting(false);
-                                    }}
+                                    onChange={e => setDuration(Number(e.target.value))}
                                 />
                             </div>
                         </div>
@@ -915,12 +881,7 @@ const HigherLowerTrader = observer(() => {
                                     step='0.01'
                                     min={0.35}
                                     value={stake}
-                                    onFocus={() => setIsUserInteracting(true)}
-                                    onBlur={() => setIsUserInteracting(false)}
-                                    onChange={e => {
-                                        setStake(Number(e.target.value));
-                                        setIsUserInteracting(false);
-                                    }}
+                                    onChange={e => setStake(Number(e.target.value))}
                                 />
                             </div>
                             <div className='higher-lower-trader__field'>
@@ -929,12 +890,7 @@ const HigherLowerTrader = observer(() => {
                                     id='hl-barrier'
                                     type='text'
                                     value={barrier}
-                                    onFocus={() => setIsUserInteracting(true)}
-                                    onBlur={() => setIsUserInteracting(false)}
-                                    onChange={e => {
-                                        setBarrier(e.target.value);
-                                        setIsUserInteracting(false);
-                                    }}
+                                    onChange={e => setBarrier(e.target.value)}
                                     placeholder='0.00 = current price, +0.37, -0.25'
                                     title='Set to 0.00 to use current price as barrier'
                                 />
@@ -951,12 +907,7 @@ const HigherLowerTrader = observer(() => {
                                     min={1}
                                     step='0.1'
                                     value={martingaleMultiplier}
-                                    onFocus={() => setIsUserInteracting(true)}
-                                    onBlur={() => setIsUserInteracting(false)}
-                                    onChange={e => {
-                                        setMartingaleMultiplier(Math.max(1, Number(e.target.value)));
-                                        setIsUserInteracting(false);
-                                    }}
+                                    onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
                                 />
                             </div>
                             <div className='higher-lower-trader__field'>
@@ -973,12 +924,7 @@ const HigherLowerTrader = observer(() => {
                                         type='number'
                                         step='0.01'
                                         value={targetProfit}
-                                        onFocus={() => setIsUserInteracting(true)}
-                                        onBlur={() => setIsUserInteracting(false)}
-                                        onChange={e => {
-                                            setTargetProfit(Number(e.target.value));
-                                            setIsUserInteracting(false);
-                                        }}
+                                        onChange={e => setTargetProfit(Number(e.target.value))}
                                         placeholder='Target profit'
                                     />
                                 )}
