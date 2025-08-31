@@ -56,7 +56,11 @@ export default class TransactionsStore {
     is_transaction_details_modal_open = false;
 
     get transactions(): TTransaction[] {
-        if (this.core?.client?.loginid) return this.elements[this.core?.client?.loginid] ?? [];
+        if (this.core?.client?.loginid) {
+            const transactions = this.elements[this.core?.client?.loginid] ?? [];
+            // Ensure we return all transactions, both winning and losing
+            return transactions;
+        }
         return [];
     }
 
