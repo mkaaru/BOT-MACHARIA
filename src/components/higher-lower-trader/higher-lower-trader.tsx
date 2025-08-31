@@ -87,6 +87,7 @@ const HigherLowerTrader = observer(() => {
         '15m': { trend: 'NEUTRAL', value: 0 }
     });
     const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
+    const [isUserInteracting, setIsUserInteracting] = useState(false);
 
     const [status, setStatus] = useState<string>('');
     const [is_running, setIsRunning] = useState(false);
@@ -379,7 +380,7 @@ const HigherLowerTrader = observer(() => {
 
         // Set up periodic trend refresh every 1 minute
         const trendRefreshInterval = setInterval(() => {
-            if (tickData.length > 0) {
+            if (tickData.length > 0 && !isUserInteracting) {
                 console.log('Refreshing Hull trends (1-minute interval)');
                 updateHullTrends(tickData);
             }
@@ -820,9 +821,14 @@ const HigherLowerTrader = observer(() => {
                                 <select
                                     id='hl-symbol'
                                     value={symbol}
+                                    onFocus={() => setIsUserInteracting(true)}
+                                    onBlur={() => setIsUserInteracting(false)}
+                                    onMouseDown={() => setIsUserInteracting(true)}
+                                    onMouseUp={() => setTimeout(() => setIsUserInteracting(false), 1000)}
                                     onChange={e => {
                                         const v = e.target.value;
                                         setSymbol(v);
+                                        setIsUserInteracting(false);
                                         // Use preloaded data if available
                                         if (preloadedData[v] && preloadedData[v].length > 0) {
                                             setTickData(preloadedData[v]);
