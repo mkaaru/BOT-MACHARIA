@@ -159,7 +159,7 @@ const HigherLowerTrader = observer(() => {
         return candles;
     };
 
-    // Update Hull trends based on tick data
+    // Update Hull trends based on tick data with adaptive requirements
     const updateHullTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
         const newTrends = { ...hullTrends };
 
@@ -173,9 +173,20 @@ const HigherLowerTrader = observer(() => {
         Object.entries(timeframes).forEach(([timeframe, seconds]) => {
             const candles = ticksToCandles(newTickData, seconds);
 
-            if (candles.length >= 20) {
+            // Use adaptive minimum candle requirements based on timeframe
+            const minCandles = {
+                '15s': 10,
+                '1m': 8,
+                '5m': 5,   // Reduced from 20 to get faster updates
+                '15m': 3   // Reduced from 20 to get faster updates
+            }[timeframe] || 10;
+
+            if (candles.length >= minCandles) {
                 const closePrices = candles.map(candle => candle.close);
-                const hmaValue = calculateHMA(closePrices, Math.min(14, closePrices.length));
+                
+                // Use adaptive HMA period based on available data
+                const hmaPeriod = Math.min(14, Math.floor(closePrices.length * 0.7));
+                const hmaValue = calculateHMA(closePrices, hmaPeriod);
 
                 if (hmaValue !== null && candles.length >= 3) {
                     const currentCandle = candles[candles.length - 1];
@@ -184,18 +195,28 @@ const HigherLowerTrader = observer(() => {
 
                     let trend = 'NEUTRAL';
 
-                    const hmaSlope = hmaValue - calculateHMA(closePrices.slice(0, -1), Math.min(14, closePrices.length - 1));
+                    // Calculate HMA slope for trend direction
+                    const prevHMA = calculateHMA(closePrices.slice(0, -1), Math.min(hmaPeriod, closePrices.length - 1));
+                    const hmaSlope = prevHMA !== null ? hmaValue - prevHMA : 0;
+                    
                     const priceAboveHMA = currentCandle.close > hmaValue;
                     const risingPrices = currentCandle.close > previousCandle.close && previousCandle.close > prevPrevCandle.close;
                     const fallingPrices = currentCandle.close < previousCandle.close && previousCandle.close < prevPrevCandle.close;
 
-                    if (hmaSlope > 0 && priceAboveHMA && risingPrices) {
+                    // Enhanced trend detection with adaptive thresholds
+                    const slopeThreshold = timeframe === '15s' || timeframe === '1m' ? 0.0001 : 0.0005;
+                    
+                    if (hmaSlope > slopeThreshold && priceAboveHMA && risingPrices) {
                         trend = 'BULLISH';
-                    } else if (hmaSlope < 0 && !priceAboveHMA && fallingPrices) {
+                    } else if (hmaSlope < -slopeThreshold && !priceAboveHMA && fallingPrices) {
                         trend = 'BEARISH';
-                    } else if (hmaSlope > 0 && priceAboveHMA) {
+                    } else if (hmaSlope > slopeThreshold && priceAboveHMA) {
                         trend = 'BULLISH';
-                    } else if (hmaSlope < 0 && !priceAboveHMA) {
+                    } else if (hmaSlope < -slopeThreshold && !priceAboveHMA) {
+                        trend = 'BEARISH';
+                    } else if (risingPrices && priceAboveHMA) {
+                        trend = 'BULLISH';
+                    } else if (fallingPrices && !priceAboveHMA) {
                         trend = 'BEARISH';
                     }
 
@@ -912,13 +933,25 @@ const HigherLowerTrader = observer(() => {
                         <div className='higher-lower-trader__trends'>
                             <h4>{localize('Market Trends (Hull MA)')}</h4>
                             <div className='trends-grid'>
-                                {Object.entries(hullTrends).map(([timeframe, data]) => (
-                                    <div key={timeframe} className={`trend-item trend-${data.trend.toLowerCase()}`}>
-                                        <span className='timeframe'>{timeframe}</span>
-                                        <span className='trend'>{data.trend}</span>
-                                        <span className='value'>{data.value.toFixed(5)}</span>
-                                    </div>
-                                ))}
+                                {Object.entries(hullTrends).map(([timeframe, data]) => {
+                                    const timeframeSeconds = {
+                                        '15s': 15,
+                                        '1m': 60,
+                                        '5m': 300,
+                                        '15m': 900
+                                    }[timeframe] || 60;
+                                    
+                                    const candles = ticksToCandles(tickData, timeframeSeconds);
+                                    
+                                    return (
+                                        <div key={timeframe} className={`trend-item trend-${data.trend.toLowerCase()}`}>
+                                            <span className='timeframe'>{timeframe}</span>
+                                            <span className='trend'>{data.trend}</span>
+                                            <span className='value'>{data.value.toFixed(5)}</span>
+                                            <span className='candle-count'>({candles.length} candles)</span>
+                                        </div>
+                                    );
+                                })}
                             </div>
                             <div className='trend-recommendation'>
                                 <Text size='xs'>

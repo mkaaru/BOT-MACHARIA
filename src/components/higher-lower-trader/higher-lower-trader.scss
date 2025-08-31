@@ -3,13 +3,13 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    
+
     .loading-indicator {
         color: var(--text-colored-background);
         font-size: 0.9em;
         font-weight: normal;
     }
-    
+
     .preload-info {
         color: var(--text-general);
         font-size: 0.8em;
@@ -160,42 +160,59 @@
         }
 
         .trend-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 0.75rem;
-            border-radius: 4px;
-            background: var(--general-main-1);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 8px;
+        border-radius: 4px;
+        margin: 4px;
+        background: var(--general-section-2);
 
-            .timeframe {
-                font-size: 0.8rem;
-                font-weight: 600;
-                color: var(--text-general);
-            }
-
+        &.trend-bullish {
+            border-left: 3px solid var(--status-success);
             .trend {
-                font-size: 0.9rem;
-                font-weight: 500;
-                margin: 0.25rem 0;
-            }
-
-            .value {
-                font-size: 0.8rem;
-                color: var(--text-less-prominent);
-            }
-
-            &.trend-bullish .trend {
-                color: var(--text-profit-success);
-            }
-
-            &.trend-bearish .trend {
-                color: var(--text-loss-danger);
-            }
-
-            &.trend-neutral .trend {
-                color: var(--text-general);
+                color: var(--status-success);
+                font-weight: bold;
             }
         }
+
+        &.trend-bearish {
+            border-left: 3px solid var(--status-danger);
+            .trend {
+                color: var(--status-danger);
+                font-weight: bold;
+            }
+        }
+
+        &.trend-neutral {
+            border-left: 3px solid var(--text-disabled);
+            .trend {
+                color: var(--text-disabled);
+            }
+        }
+
+        .timeframe {
+            font-size: 0.7rem;
+            font-weight: bold;
+            color: var(--text-general);
+        }
+
+        .trend {
+            font-size: 0.6rem;
+            margin: 2px 0;
+        }
+
+        .value {
+            font-size: 0.5rem;
+            color: var(--text-less-prominent);
+        }
+
+        .candle-count {
+            font-size: 0.45rem;
+            color: var(--text-disabled);
+            margin-top: 2px;
+        }
+    }
 
         .trend-recommendation {
             text-align: center;
