@@ -159,65 +159,77 @@ const HigherLowerTrader = observer(() => {
         return candles;
     };
 
-    // Update Hull trends based on tick data with adaptive requirements
+    // Update Hull trends based on tick data directly (no candle conversion)
     const updateHullTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
         const newTrends = { ...hullTrends };
 
-        const timeframes = {
-            '15s': 15,
-            '1m': 60,
-            '5m': 300,
-            '15m': 900
+        // Define tick count requirements for different timeframe analysis
+        const timeframeTickCounts = {
+            '15s': 30,   // ~30 ticks for 15-second analysis
+            '1m': 120,   // ~120 ticks for 1-minute analysis
+            '5m': 300,   // ~300 ticks for 5-minute analysis
+            '15m': 600   // ~600 ticks for 15-minute analysis
         };
 
-        Object.entries(timeframes).forEach(([timeframe, seconds]) => {
-            const candles = ticksToCandles(newTickData, seconds);
+        Object.entries(timeframeTickCounts).forEach(([timeframe, tickCount]) => {
+            // Use the most recent ticks for this timeframe
+            const recentTicks = newTickData.slice(-tickCount);
+            
+            if (recentTicks.length >= Math.min(50, tickCount)) { // Minimum 50 ticks required
+                const tickPrices = recentTicks.map(tick => tick.price);
 
-            // Use adaptive minimum candle requirements based on timeframe
-            const minCandles = {
-                '15s': 10,
-                '1m': 8,
-                '5m': 5,   // Reduced from 20 to get faster updates
-                '15m': 3   // Reduced from 20 to get faster updates
-            }[timeframe] || 10;
+                // Use adaptive HMA period based on timeframe
+                const hmaPeriods = {
+                    '15s': Math.min(14, Math.floor(tickPrices.length * 0.3)),
+                    '1m': Math.min(20, Math.floor(tickPrices.length * 0.4)),
+                    '5m': Math.min(30, Math.floor(tickPrices.length * 0.5)),
+                    '15m': Math.min(50, Math.floor(tickPrices.length * 0.6))
+                };
 
-            if (candles.length >= minCandles) {
-                const closePrices = candles.map(candle => candle.close);
+                const hmaPeriod = hmaPeriods[timeframe as keyof typeof hmaPeriods] || 14;
+                const hmaValue = calculateHMA(tickPrices, hmaPeriod);
 
-                // Use adaptive HMA period based on available data
-                const hmaPeriod = Math.min(14, Math.floor(closePrices.length * 0.7));
-                const hmaValue = calculateHMA(closePrices, hmaPeriod);
-
-                if (hmaValue !== null && candles.length >= 3) {
-                    const currentCandle = candles[candles.length - 1];
-                    const previousCandle = candles[candles.length - 2];
-                    const prevPrevCandle = candles[candles.length - 3];
-
+                if (hmaValue !== null && tickPrices.length >= 10) {
                     let trend = 'NEUTRAL';
 
                     // Calculate HMA slope for trend direction
-                    const prevHMA = calculateHMA(closePrices.slice(0, -1), Math.min(hmaPeriod, closePrices.length - 1));
+                    const prevHMA = calculateHMA(tickPrices.slice(0, -5), Math.min(hmaPeriod, tickPrices.length - 5));
                     const hmaSlope = prevHMA !== null ? hmaValue - prevHMA : 0;
 
-                    const priceAboveHMA = currentCandle.close > hmaValue;
-                    const risingPrices = currentCandle.close > previousCandle.close && previousCandle.close > prevPrevCandle.close;
-                    const fallingPrices = currentCandle.close < previousCandle.close && previousCandle.close < prevPrevCandle.close;
+                    // Get recent price movements
+                    const currentPrice = tickPrices[tickPrices.length - 1];
+                    const priceAboveHMA = currentPrice > hmaValue;
+                    
+                    // Analyze recent price momentum (last 10% of ticks)
+                    const momentumLength = Math.max(5, Math.floor(tickPrices.length * 0.1));
+                    const recentPrices = tickPrices.slice(-momentumLength);
+                    const priceStart = recentPrices[0];
+                    const priceEnd = recentPrices[recentPrices.length - 1];
+                    const priceMomentum = priceEnd - priceStart;
+                    
+                    // Calculate price volatility for adaptive thresholds
+                    const priceRange = Math.max(...recentPrices) - Math.min(...recentPrices);
+                    const adaptiveThreshold = priceRange * 0.1; // 10% of recent price range
 
-                    // Enhanced trend detection with adaptive thresholds
-                    const slopeThreshold = timeframe === '15s' || timeframe === '1m' ? 0.0001 : 0.0005;
+                    // Enhanced trend detection with tick-based analysis
+                    const slopeThreshold = {
+                        '15s': Math.max(0.00005, adaptiveThreshold * 0.5),
+                        '1m': Math.max(0.0001, adaptiveThreshold * 0.7),
+                        '5m': Math.max(0.0002, adaptiveThreshold * 1.0),
+                        '15m': Math.max(0.0005, adaptiveThreshold * 1.5)
+                    }[timeframe] || 0.0001;
 
-                    if (hmaSlope > slopeThreshold && priceAboveHMA && risingPrices) {
+                    // Determine trend based on HMA slope, price position, and momentum
+                    if (hmaSlope > slopeThreshold && priceAboveHMA && priceMomentum > 0) {
                         trend = 'BULLISH';
-                    } else if (hmaSlope < -slopeThreshold && !priceAboveHMA && fallingPrices) {
+                    } else if (hmaSlope < -slopeThreshold && !priceAboveHMA && priceMomentum < 0) {
                         trend = 'BEARISH';
                     } else if (hmaSlope > slopeThreshold && priceAboveHMA) {
                         trend = 'BULLISH';
                     } else if (hmaSlope < -slopeThreshold && !priceAboveHMA) {
                         trend = 'BEARISH';
-                    } else if (risingPrices && priceAboveHMA) {
-                        trend = 'BULLISH';
-                    } else if (fallingPrices && !priceAboveHMA) {
-                        trend = 'BEARISH';
+                    } else if (Math.abs(priceMomentum) > adaptiveThreshold) {
+                        trend = priceMomentum > 0 ? 'BULLISH' : 'BEARISH';
                     }
 
                     newTrends[timeframe as keyof typeof hullTrends] = {
@@ -932,24 +944,25 @@ const HigherLowerTrader = observer(() => {
 
                         {/* Hull Moving Average Trends */}
                         <div className='higher-lower-trader__trends'>
-                            <h4>{localize('Market Trends (Hull MA)')}</h4>
+                            <h4>{localize('Market Trends (Hull MA from Ticks)')}</h4>
                             <div className='trends-grid'>
                                 {Object.entries(hullTrends).map(([timeframe, data]) => {
-                                    const timeframeSeconds = {
-                                        '15s': 15,
-                                        '1m': 60,
+                                    const tickCounts = {
+                                        '15s': 30,
+                                        '1m': 120,
                                         '5m': 300,
-                                        '15m': 900
-                                    }[timeframe] || 60;
+                                        '15m': 600
+                                    };
 
-                                    const candles = ticksToCandles(tickData, timeframeSeconds);
+                                    const maxTicks = tickCounts[timeframe as keyof typeof tickCounts] || 120;
+                                    const actualTicks = Math.min(tickData.length, maxTicks);
 
                                     return (
                                         <div key={timeframe} className={`trend-item trend-${data.trend.toLowerCase()}`}>
                                             <span className='timeframe'>{timeframe}</span>
                                             <span className='trend'>{data.trend}</span>
                                             <span className='value'>{data.value.toFixed(5)}</span>
-                                            <span className='candle-count'>({candles.length} candles)</span>
+                                            <span className='tick-count'>({actualTicks} ticks)</span>
                                         </div>
                                     );
                                 })}
