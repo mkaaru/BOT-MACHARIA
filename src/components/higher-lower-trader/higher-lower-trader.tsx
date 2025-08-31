@@ -970,13 +970,13 @@ const HigherLowerTrader = observer(() => {
                             <div className='trends-grid'>
                                 {Object.entries(hullTrends).map(([timeframe, data]) => {
                                     const tickCounts = {
-                                        '15s': 30,
-                                        '1m': 120,
-                                        '5m': 300,
-                                        '15m': 600
+                                        '15s': 600,
+                                        '1m': 1000,
+                                        '5m': 2000,
+                                        '15m': 4500
                                     };
 
-                                    const maxTicks = tickCounts[timeframe as keyof typeof tickCounts] || 120;
+                                    const maxTicks = tickCounts[timeframe as keyof typeof tickCounts] || 600;
                                     const actualTicks = Math.min(tickData.length, maxTicks);
 
                                     return (
