@@ -582,8 +582,8 @@ const HigherLowerTrader = observer(() => {
         return contractType; // Keep current if neutral
     };
 
-    // Check if user is authorized - simplified to check if balance is available
-    const isAuthorized = client?.balance !== undefined && client?.balance !== null;
+    // Check if user is authorized - check if balance is available and user is logged in
+    const isAuthorized = client?.balance !== undefined && client?.balance !== null && client?.is_logged_in;
 
     return (
         <div className='higher-lower-trader'>
@@ -595,9 +595,9 @@ const HigherLowerTrader = observer(() => {
                         {/* Connection Status */}
                         <div className='form-group'>
                             <div className='connection-status'>
-                                <span className={`status-indicator ${is_authorized ? 'connected' : 'disconnected'}`}></span>
+                                <span className={`status-indicator ${isAuthorized ? 'connected' : 'disconnected'}`}></span>
                                 <span className='status-text'>
-                                    {is_authorized ? `Authorized (${account_currency})` : 'Not Authorized'}
+                                    {isAuthorized ? `Authorized (${client?.currency || account_currency}) - Balance: ${client?.balance}` : 'Not Authorized - Please ensure you are logged in'}
                                 </span>
                             </div>
                         </div>
@@ -819,7 +819,7 @@ const HigherLowerTrader = observer(() => {
                                 <button
                                     onClick={onRun}
                                     className='btn-start'
-                                    disabled={!is_authorized || symbols.length === 0}
+                                    disabled={!isAuthorized || symbols.length === 0}
                                 >
                                     <Play className='icon' />
                                     {localize('Start Trading')}
