@@ -212,24 +212,46 @@ const HigherLowerTrader = observer(() => {
                     const adaptiveThreshold = priceRange * 0.1; // 10% of recent price range
 
                     // Enhanced trend detection with tick-based analysis
-                    const slopeThreshold = {
-                        '15s': Math.max(0.00005, adaptiveThreshold * 0.5),
-                        '1m': Math.max(0.0001, adaptiveThreshold * 0.7),
-                        '5m': Math.max(0.0002, adaptiveThreshold * 1.0),
-                        '15m': Math.max(0.0005, adaptiveThreshold * 1.5)
-                    }[timeframe] || 0.0001;
+                    const baseSlopeThreshold = {
+                        '15s': 0.00002,
+                        '1m': 0.00005,
+                        '5m': 0.0001,
+                        '15m': 0.0002
+                    }[timeframe] || 0.00005;
 
-                    // Determine trend based on HMA slope, price position, and momentum
-                    if (hmaSlope > slopeThreshold && priceAboveHMA && priceMomentum > 0) {
-                        trend = 'BULLISH';
-                    } else if (hmaSlope < -slopeThreshold && !priceAboveHMA && priceMomentum < 0) {
-                        trend = 'BEARISH';
-                    } else if (hmaSlope > slopeThreshold && priceAboveHMA) {
-                        trend = 'BULLISH';
-                    } else if (hmaSlope < -slopeThreshold && !priceAboveHMA) {
-                        trend = 'BEARISH';
-                    } else if (Math.abs(priceMomentum) > adaptiveThreshold) {
+                    const slopeThreshold = Math.max(baseSlopeThreshold, adaptiveThreshold * 0.3);
+                    const momentumThreshold = adaptiveThreshold * 0.5;
+
+                    // More sensitive trend detection
+                    if (hmaSlope > slopeThreshold) {
+                        if (priceAboveHMA || priceMomentum > momentumThreshold) {
+                            trend = 'BULLISH';
+                        }
+                    } else if (hmaSlope < -slopeThreshold) {
+                        if (!priceAboveHMA || priceMomentum < -momentumThreshold) {
+                            trend = 'BEARISH';
+                        }
+                    } else if (Math.abs(priceMomentum) > momentumThreshold) {
+                        // Pure momentum-based detection when HMA is flat
                         trend = priceMomentum > 0 ? 'BULLISH' : 'BEARISH';
+                    } else if (Math.abs(hmaSlope) > baseSlopeThreshold * 0.5) {
+                        // Weak trend detection
+                        trend = hmaSlope > 0 ? 'BULLISH' : 'BEARISH';
+                    }
+
+                    // Debug logging for trend analysis
+                    if (timeframe === '15s') {
+                        console.log(`Trend Analysis - ${timeframe}:`, {
+                            hmaValue: hmaValue.toFixed(6),
+                            hmaSlope: hmaSlope.toFixed(6),
+                            slopeThreshold: slopeThreshold.toFixed(6),
+                            currentPrice: currentPrice.toFixed(5),
+                            priceAboveHMA,
+                            priceMomentum: priceMomentum.toFixed(6),
+                            momentumThreshold: momentumThreshold.toFixed(6),
+                            trend,
+                            tickCount: tickPrices.length
+                        });
                     }
 
                     newTrends[timeframe as keyof typeof hullTrends] = {
