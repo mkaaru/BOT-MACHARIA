@@ -377,6 +377,14 @@ const HigherLowerTrader = observer(() => {
         };
         init();
 
+        // Set up periodic trend refresh every 1 minute
+        const trendRefreshInterval = setInterval(() => {
+            if (tickData.length > 0) {
+                console.log('Refreshing Hull trends (1-minute interval)');
+                updateHullTrends(tickData);
+            }
+        }, 60000); // 60 seconds = 1 minute
+
         return () => {
             try {
                 if (tickStreamIdRef.current) {
@@ -387,10 +395,11 @@ const HigherLowerTrader = observer(() => {
                     apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
                     messageHandlerRef.current = null;
                 }
+                clearInterval(trendRefreshInterval);
                 api?.disconnect?.();
             } catch { /* noop */ }
         };
-    }, []);
+    }, [tickData]);
 
     // Effect to fetch historical data when symbol changes
     useEffect(() => {
