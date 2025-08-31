@@ -10,11 +10,48 @@ import './higher-lower-trader.scss';
 
 // Volatility indices for Higher/Lower trading
 const VOLATILITY_INDICES = [
+  // 1-second volatilities
   { value: 'R_10', label: 'Volatility 10 (1s) Index' },
   { value: 'R_25', label: 'Volatility 25 (1s) Index' },
   { value: 'R_50', label: 'Volatility 50 (1s) Index' },
   { value: 'R_75', label: 'Volatility 75 (1s) Index' },
   { value: 'R_100', label: 'Volatility 100 (1s) Index' },
+  
+  // New volatilities
+  { value: 'V10_1S', label: 'Volatility 10 (1s) Index' },
+  { value: 'V25_1S', label: 'Volatility 25 (1s) Index' },
+  { value: 'V50_1S', label: 'Volatility 50 (1s) Index' },
+  { value: 'V75_1S', label: 'Volatility 75 (1s) Index' },
+  { value: 'V100_1S', label: 'Volatility 100 (1s) Index' },
+  { value: 'V150_1S', label: 'Volatility 150 (1s) Index' },
+  { value: 'V200_1S', label: 'Volatility 200 (1s) Index' },
+  { value: 'V250_1S', label: 'Volatility 250 (1s) Index' },
+  
+  // Newly added volatilities (15, 30, etc.)
+  { value: 'V15_1S', label: 'Volatility 15 (1s) Index' },
+  { value: 'V30_1S', label: 'Volatility 30 (1s) Index' },
+  
+  // Step indices
+  { value: 'STEPINDEX', label: 'Step Index' },
+  
+  // Boom and Crash indices
+  { value: 'BOOM1000', label: 'Boom 1000 Index' },
+  { value: 'BOOM500', label: 'Boom 500 Index' },
+  { value: 'BOOM300', label: 'Boom 300 Index' },
+  { value: 'CRASH1000', label: 'Crash 1000 Index' },
+  { value: 'CRASH500', label: 'Crash 500 Index' },
+  { value: 'CRASH300', label: 'Crash 300 Index' },
+  
+  // Jump indices
+  { value: 'JD10', label: 'Jump 10 Index' },
+  { value: 'JD25', label: 'Jump 25 Index' },
+  { value: 'JD50', label: 'Jump 50 Index' },
+  { value: 'JD75', label: 'Jump 75 Index' },
+  { value: 'JD100', label: 'Jump 100 Index' },
+  
+  // Bear Market and Bull Market indices
+  { value: 'BEAR', label: 'Bear Market Index' },
+  { value: 'BULL', label: 'Bull Market Index' },
 ];
 
 // Safe version of tradeOptionToBuy without Blockly dependencies

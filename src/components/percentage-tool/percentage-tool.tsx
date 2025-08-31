@@ -100,13 +100,36 @@ const PercentageTool: React.FC = () => {
   });
 
   const [volatilitySignals, setVolatilitySignals] = useState([
+    // Original volatilities
     { name: 'Volatility 10 Index', price: '6267.87300', signal: 'EVEN', strength: 87, volume: '2.4K', change: 2.3, lastUpdate: Date.now() },
     { name: 'Volatility 25 Index', price: '4521.33421', signal: 'ODD', strength: 73, volume: '1.8K', change: -1.2, lastUpdate: Date.now() },
     { name: 'Volatility 50 Index', price: '3987.12456', signal: 'MATCH', strength: 91, volume: '3.1K', change: 4.1, lastUpdate: Date.now() },
     { name: 'Volatility 75 Index', price: '5432.87654', signal: 'EVEN', strength: 65, volume: '1.5K', change: -0.8, lastUpdate: Date.now() },
     { name: 'Volatility 100 Index', price: '7845.23198', signal: 'ODD', strength: 82, volume: '2.9K', change: 3.7, lastUpdate: Date.now() },
+    
+    // New volatilities
+    { name: 'Volatility 15 Index', price: '4234.56789', signal: 'EVEN', strength: 79, volume: '2.1K', change: 1.8, lastUpdate: Date.now() },
+    { name: 'Volatility 30 Index', price: '5876.23145', signal: 'ODD', strength: 86, volume: '2.7K', change: 2.9, lastUpdate: Date.now() },
+    { name: 'Volatility 150 Index', price: '8765.43210', signal: 'MATCH', strength: 92, volume: '3.5K', change: 4.2, lastUpdate: Date.now() },
+    { name: 'Volatility 200 Index', price: '9543.21098', signal: 'EVEN', strength: 88, volume: '3.2K', change: 3.1, lastUpdate: Date.now() },
+    { name: 'Volatility 250 Index', price: '1098.76543', signal: 'ODD', strength: 90, volume: '3.8K', change: 5.1, lastUpdate: Date.now() },
+    
+    // Boom and Crash indices
     { name: 'Boom 1000 Index', price: '9876.54321', signal: 'MATCH', strength: 78, volume: '2.2K', change: 1.5, lastUpdate: Date.now() },
+    { name: 'Boom 500 Index', price: '7654.32109', signal: 'EVEN', strength: 81, volume: '2.0K', change: 2.2, lastUpdate: Date.now() },
+    { name: 'Boom 300 Index', price: '6543.21098', signal: 'ODD', strength: 75, volume: '1.8K', change: 1.9, lastUpdate: Date.now() },
     { name: 'Crash 1000 Index', price: '1234.56789', signal: 'EVEN', strength: 69, volume: '1.7K', change: -2.1, lastUpdate: Date.now() },
+    { name: 'Crash 500 Index', price: '2345.67890', signal: 'MATCH', strength: 72, volume: '1.9K', change: -1.8, lastUpdate: Date.now() },
+    { name: 'Crash 300 Index', price: '3456.78901', signal: 'ODD', strength: 74, volume: '2.1K', change: -1.5, lastUpdate: Date.now() },
+    
+    // Jump indices
+    { name: 'Jump 10 Index', price: '4567.89012', signal: 'EVEN', strength: 83, volume: '2.3K', change: 2.7, lastUpdate: Date.now() },
+    { name: 'Jump 25 Index', price: '5678.90123', signal: 'MATCH', strength: 85, volume: '2.5K', change: 3.0, lastUpdate: Date.now() },
+    { name: 'Jump 50 Index', price: '6789.01234', signal: 'ODD', strength: 87, volume: '2.8K', change: 3.3, lastUpdate: Date.now() },
+    { name: 'Jump 75 Index', price: '7890.12345', signal: 'EVEN', strength: 89, volume: '3.0K', change: 3.6, lastUpdate: Date.now() },
+    { name: 'Jump 100 Index', price: '8901.23456', signal: 'MATCH', strength: 91, volume: '3.2K', change: 3.9, lastUpdate: Date.now() },
+    
+    // Other indices
     { name: 'Step Index', price: '5555.55555', signal: 'ODD', strength: 84, volume: '2.6K', change: 2.8, lastUpdate: Date.now() },
     { name: 'Bear Market Index', price: '3333.33333', signal: 'MATCH', strength: 76, volume: '1.9K', change: 0.9, lastUpdate: Date.now() },
     { name: 'Bull Market Index', price: '7777.77777', signal: 'EVEN', strength: 88, volume: '3.3K', change: 3.4, lastUpdate: Date.now() }
