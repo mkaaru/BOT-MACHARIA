@@ -81,10 +81,10 @@ const HigherLowerTrader = observer(() => {
 
     // Hull Moving Average trend analysis state
     const [hullTrends, setHullTrends] = useState({
-        '15s': { trend: 'NEUTRAL', value: 0 },
-        '1m': { trend: 'NEUTRAL', value: 0 },
-        '5m': { trend: 'NEUTRAL', value: 0 },
-        '15m': { trend: 'NEUTRAL', value: 0 }
+        '15s': { trend: 'NEUTRAL', value: 0, confirmationCount: 0 },
+        '1m': { trend: 'NEUTRAL', value: 0, confirmationCount: 0 },
+        '5m': { trend: 'NEUTRAL', value: 0, confirmationCount: 0 },
+        '15m': { trend: 'NEUTRAL', value: 0, confirmationCount: 0 }
     });
     const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
 
@@ -178,12 +178,12 @@ const HigherLowerTrader = observer(() => {
             if (recentTicks.length >= Math.min(50, tickCount)) { // Minimum 50 ticks required
                 const tickPrices = recentTicks.map(tick => tick.price);
 
-                // Use adaptive HMA period based on timeframe
+                // Use longer HMA periods for more sustained trends
                 const hmaPeriods = {
-                    '15s': Math.min(14, Math.floor(tickPrices.length * 0.3)),
-                    '1m': Math.min(20, Math.floor(tickPrices.length * 0.4)),
-                    '5m': Math.min(30, Math.floor(tickPrices.length * 0.5)),
-                    '15m': Math.min(50, Math.floor(tickPrices.length * 0.6))
+                    '15s': Math.min(50, Math.floor(tickPrices.length * 0.4)),
+                    '1m': Math.min(80, Math.floor(tickPrices.length * 0.5)),
+                    '5m': Math.min(120, Math.floor(tickPrices.length * 0.6)),
+                    '15m': Math.min(200, Math.floor(tickPrices.length * 0.7))
                 };
 
                 const hmaPeriod = hmaPeriods[timeframe as keyof typeof hmaPeriods] || 14;
@@ -211,33 +211,33 @@ const HigherLowerTrader = observer(() => {
                     const priceRange = Math.max(...recentPrices) - Math.min(...recentPrices);
                     const adaptiveThreshold = priceRange * 0.1; // 10% of recent price range
 
-                    // Enhanced trend detection with tick-based analysis
+                    // Enhanced trend detection with higher thresholds for sustained trends
                     const baseSlopeThreshold = {
-                        '15s': 0.00002,
-                        '1m': 0.00005,
-                        '5m': 0.0001,
-                        '15m': 0.0002
-                    }[timeframe] || 0.00005;
+                        '15s': 0.00008,  // Increased from 0.00002
+                        '1m': 0.00015,   // Increased from 0.00005
+                        '5m': 0.0003,    // Increased from 0.0001
+                        '15m': 0.0006    // Increased from 0.0002
+                    }[timeframe] || 0.00015;
 
-                    const slopeThreshold = Math.max(baseSlopeThreshold, adaptiveThreshold * 0.3);
-                    const momentumThreshold = adaptiveThreshold * 0.5;
+                    const slopeThreshold = Math.max(baseSlopeThreshold, adaptiveThreshold * 0.6); // Increased from 0.3
+                    const momentumThreshold = adaptiveThreshold * 0.8; // Increased from 0.5
 
-                    // More sensitive trend detection
-                    if (hmaSlope > slopeThreshold) {
-                        if (priceAboveHMA || priceMomentum > momentumThreshold) {
+                    // Calculate trend confirmation using multiple criteria
+                    const confirmationPeriod = Math.floor(hmaPeriod * 0.3);
+                    const confirmationPrices = tickPrices.slice(-confirmationPeriod);
+                    const confirmationTrend = confirmationPrices[confirmationPrices.length - 1] - confirmationPrices[0];
+
+                    // Require both HMA slope AND price confirmation for trend signals
+                    if (hmaSlope > slopeThreshold && confirmationTrend > 0) {
+                        if (priceAboveHMA && priceMomentum > momentumThreshold) {
                             trend = 'BULLISH';
                         }
-                    } else if (hmaSlope < -slopeThreshold) {
-                        if (!priceAboveHMA || priceMomentum < -momentumThreshold) {
+                    } else if (hmaSlope < -slopeThreshold && confirmationTrend < 0) {
+                        if (!priceAboveHMA && priceMomentum < -momentumThreshold) {
                             trend = 'BEARISH';
                         }
-                    } else if (Math.abs(priceMomentum) > momentumThreshold) {
-                        // Pure momentum-based detection when HMA is flat
-                        trend = priceMomentum > 0 ? 'BULLISH' : 'BEARISH';
-                    } else if (Math.abs(hmaSlope) > baseSlopeThreshold * 0.5) {
-                        // Weak trend detection
-                        trend = hmaSlope > 0 ? 'BULLISH' : 'BEARISH';
                     }
+                    // Remove weak trend detection to avoid frequent changes
 
                     // Debug logging for trend analysis
                     if (timeframe === '15s') {
@@ -254,9 +254,43 @@ const HigherLowerTrader = observer(() => {
                         });
                     }
 
+                    // Apply trend persistence filter
+                    const currentTrendData = hullTrends[timeframe as keyof typeof hullTrends];
+                    const requiredConfirmations = {
+                        '15s': 3,  // Need 3 consecutive confirmations
+                        '1m': 4,   // Need 4 consecutive confirmations
+                        '5m': 5,   // Need 5 consecutive confirmations  
+                        '15m': 6   // Need 6 consecutive confirmations
+                    }[timeframe] || 3;
+
+                    let finalTrend = currentTrendData.trend;
+                    let confirmationCount = currentTrendData.confirmationCount || 0;
+
+                    if (trend === currentTrendData.trend) {
+                        // Same trend - increase confirmation
+                        confirmationCount = Math.min(confirmationCount + 1, requiredConfirmations);
+                    } else if (trend !== 'NEUTRAL') {
+                        // New trend detected - start confirmation process
+                        if (confirmationCount >= requiredConfirmations) {
+                            // Only change trend if we have enough confirmations and new trend is strong
+                            finalTrend = trend;
+                            confirmationCount = 1;
+                        } else {
+                            // Not enough confirmations yet - keep current trend
+                            confirmationCount = 1;
+                        }
+                    } else {
+                        // Neutral trend - reduce confirmation count
+                        confirmationCount = Math.max(0, confirmationCount - 1);
+                        if (confirmationCount === 0) {
+                            finalTrend = 'NEUTRAL';
+                        }
+                    }
+
                     newTrends[timeframe as keyof typeof hullTrends] = {
-                        trend,
-                        value: Number(hmaValue.toFixed(5))
+                        trend: finalTrend,
+                        value: Number(hmaValue.toFixed(5)),
+                        confirmationCount
                     };
                 }
             }
@@ -985,11 +1019,17 @@ const HigherLowerTrader = observer(() => {
                                     const maxTicks = tickCounts[timeframe as keyof typeof tickCounts] || 600;
                                     const actualTicks = Math.min(tickData.length, maxTicks);
 
+                                    const confirmationBars = '█'.repeat(data.confirmationCount || 0) + 
+                                                               '░'.repeat(Math.max(0, (tickCounts[timeframe as keyof typeof tickCounts] === 600 ? 3 : 
+                                                                                           tickCounts[timeframe as keyof typeof tickCounts] === 1000 ? 4 :
+                                                                                           tickCounts[timeframe as keyof typeof tickCounts] === 2000 ? 5 : 6) - (data.confirmationCount || 0)));
+
                                     return (
                                         <div key={timeframe} className={`trend-item trend-${data.trend.toLowerCase()}`}>
                                             <span className='timeframe'>{timeframe}</span>
                                             <span className='trend'>{data.trend}</span>
                                             <span className='value'>{data.value.toFixed(5)}</span>
+                                            <span className='confirmation'>{confirmationBars}</span>
                                             <span className='tick-count'>({actualTicks} ticks)</span>
                                         </div>
                                     );
