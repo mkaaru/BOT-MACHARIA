@@ -6,7 +6,6 @@ import Text from '@/components/shared_ui/text';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
-import { isEmptyObject } from '@/components/shared';
 import './higher-lower-trader.scss';
 
 // Volatility indices for Higher/Lower trading
@@ -46,14 +45,14 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
 
 const HigherLowerTrader = observer(() => {
     const store = useStore();
-    const { run_panel, transactions, client, common } = store;
+    const { run_panel, transactions } = store;
 
     const apiRef = useRef<any>(null);
     const tickStreamIdRef = useRef<string | null>(null);
     const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
 
-    const [is_authorized, setIsAuthorized] = useState(isAuthorized);
-    const [account_currency, setAccountCurrency] = useState<string>(client?.currency || 'USD');
+    const [is_authorized, setIsAuthorized] = useState(false);
+    const [account_currency, setAccountCurrency] = useState<string>('USD');
     const [symbols, setSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
 
     // Form state - Higher/Lower specific
@@ -101,33 +100,6 @@ const HigherLowerTrader = observer(() => {
     const [contractsWon, setContractsWon] = useState(0);
     const [contractsLost, setContractsLost] = useState(0);
     const [totalProfitLoss, setTotalProfitLoss] = useState(0);
-
-    // Check if user is authorized - user is considered authorized if logged in with balance
-    const isAuthorized = client?.is_logged_in && !isEmptyObject(client?.accounts) && client?.loginid && client?.balance;
-
-    // Show loading state while checking authorization
-    if (!client || client.is_logging_out) {
-        return (
-            <div className='higher-lower-trader'>
-                <div className='higher-lower-trader__loading'>
-                    <div className='spinner'></div>
-                    <p>Loading...</p>
-                </div>
-            </div>
-        );
-    }
-
-    // Show authorization message if not logged in
-    if (!isAuthorized) {
-        return (
-            <div className='higher-lower-trader'>
-                <div className='higher-lower-trader__unauthorized'>
-                    <h3>{localize('Please log in to continue')}</h3>
-                    <p>{localize('You need to be logged in with an active account to use the Higher/Lower trader.')}</p>
-                </div>
-            </div>
-        );
-    }
 
     // --- Helper Functions ---
 
@@ -330,7 +302,7 @@ const HigherLowerTrader = observer(() => {
         if (is_authorized) return;
         const token = V2GetActiveToken();
         if (!token) {
-            setStatus('Authorization required. Please ensure you are logged in.');
+            setStatus('No token found. Please log in and select an account.');
             throw new Error('No token');
         }
         const { authorize, error } = await apiRef.current.authorize(token);
@@ -340,7 +312,7 @@ const HigherLowerTrader = observer(() => {
         }
         setIsAuthorized(true);
         const loginid = authorize?.loginid || V2GetActiveClientId();
-        setAccountCurrency(authorize?.currency || client?.currency || 'USD');
+        setAccountCurrency(authorize?.currency || 'USD');
         try {
             store?.client?.setLoginId?.(loginid || '');
             store?.client?.setCurrency?.(authorize?.currency || 'USD');
@@ -620,9 +592,9 @@ const HigherLowerTrader = observer(() => {
                         {/* Connection Status */}
                         <div className='form-group'>
                             <div className='connection-status'>
-                                <span className={`status-indicator ${isAuthorized ? 'connected' : 'disconnected'}`}></span>
+                                <span className={`status-indicator ${is_authorized ? 'connected' : 'disconnected'}`}></span>
                                 <span className='status-text'>
-                                    {isAuthorized ? `Authorized (${client?.currency || account_currency}) - Balance: ${client?.balance || '0'}` : 'Not Authorized'}
+                                    {is_authorized ? `Authorized (${account_currency})` : 'Not Authorized'}
                                 </span>
                             </div>
                         </div>
@@ -844,7 +816,7 @@ const HigherLowerTrader = observer(() => {
                                 <button
                                     onClick={onRun}
                                     className='btn-start'
-                                    disabled={!isAuthorized || symbols.length === 0}
+                                    disabled={!is_authorized || symbols.length === 0}
                                 >
                                     <Play className='icon' />
                                     {localize('Start Trading')}
