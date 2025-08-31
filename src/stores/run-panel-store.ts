@@ -62,6 +62,7 @@ export default class RunPanelStore {
             onCloseDialog: action,
             stopMyBot: action,
             closeMultiplierContract: action,
+            showStopMultiplierContractDialog: action,
             showLoginDialog: action,
             showRealAccountDialog: action,
             showClearStatDialog: action,
@@ -700,23 +701,21 @@ export default class RunPanelStore {
         observer.register('client.invalid_token', this.handleInvalidToken);
     };
 
-    onUnmount() {
-        this.disposeReactionsFn();
-        this.unregisterBotListeners();
-    }
+    onUnmount = () => {
+        const { journal, summary_card, transactions } = this.root_store;
 
-    updateRealTimeStats = (stats: {
-        total_stake: number;
-        total_payout: number;
-        total_profit_loss: number;
-        number_of_runs: number;
-        contracts_won: number;
-        contracts_lost: number;
-    }) => {
-        const { summary_card } = this.root_store;
-        if (summary_card && summary_card.updateSummary) {
-            summary_card.updateSummary(stats);
+        if (!this.is_running) {
+            this.unregisterBotListeners();
+            this.disposeReactionsFn();
+            journal.disposeReactionsFn();
+            summary_card.disposeReactionsFn();
+            transactions.disposeReactionsFn();
         }
+
+        observer.unregisterAll('ui.log.error');
+        observer.unregisterAll('ui.log.notify');
+        observer.unregisterAll('ui.log.success');
+        observer.unregisterAll('client.invalid_token');
     };
 
     handleInvalidToken = async () => {

@@ -429,46 +429,43 @@ const HigherLowerTrader = observer(() => {
                         throw new Error('Failed to get contract ID from purchase');
                     }
 
-                    const contractData = {
-                        contract_id: buy.contract_id,
-                        transaction_ids: { buy: buy.transaction_id },
-                        longcode: buy.longcode,
-                        start_time: buy.start_time,
-                        shortcode: buy.shortcode,
-                        date_start: buy.start_time,
-                        date_expiry: buy.date_expiry, // Assuming this is available from the buy response
-                        payout: buy.buy_price, // Placeholder, will be updated on sale
-                        profit: 0 // Placeholder
-                    };
-
-                    // --- START: Updated section for transaction and summary integration ---
                     // Update statistics
-                    setTotalStake(prev => prev + Number(effectiveStake));
+                    setTotalStake(prev => prev + effectiveStake);
                     setTotalRuns(prev => prev + 1);
 
-                    // Create contract data for run panel integration
-                    const contractInfo = {
-                        contract_id: contractData.contract_id,
-                        transaction_ids: contractData.transaction_ids,
-                        buy_price: Number(effectiveStake),
-                        currency: account_currency,
-                        contract_type: contractType,
-                        longcode: contractData.longcode,
-                        shortcode: contractData.shortcode,
-                        symbol,
-                        date_start: contractData.date_start,
-                        date_expiry: contractData.date_expiry,
-                        is_completed: false,
-                        profit: 0,
-                        payout: 0,
-                        run_id: run_panel.run_id
-                    };
+                    // Notify transaction store
+                    try {
+                        const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
+                        transactions.onBotContractEvent({
+                            contract_id: buy.contract_id,
+                            transaction_ids: { buy: buy.transaction_id },
+                            buy_price: buy.buy_price,
+                            longcode: buy.longcode,
+                            start_time: buy.start_time,
+                            shortcode: buy.shortcode,
+                            underlying: symbol,
+                            contract_type: contractType,
+                            is_completed: false,
+                            profit: 0,
+                            profit_percentage: 0
+                        });
+                    } catch (e) {
+                        console.warn('Failed to notify transaction store:', e);
+                    }
 
-                    // Push initial contract to transactions
-                    transactions.pushTransaction(contractInfo);
+                    run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+                    run_panel.setHasOpenContract(true);
+
+                    // Notify contract purchase sent
+                    run_panel.onContractStatusEvent({
+                        id: 'contract.purchase_sent',
+                        data: effectiveStake
+                    });
+
+                    setStatus(`📈 ${contractType} contract started with barrier ${barrier} for $${effectiveStake}`);
 
                     // Wait for contract completion
-                    const contract_result = await new Promise((resolve, reject) => {
+                    const contractResult = await new Promise((resolve, reject) => {
                         let pollCount = 0;
                         const maxPolls = 300; // 5 minutes max
 
@@ -507,9 +504,7 @@ const HigherLowerTrader = observer(() => {
                                         underlying: symbol,
                                         entry_tick_display_value: contract.entry_tick_display_value,
                                         exit_tick_display_value: contract.exit_tick_display_value,
-                                        payout: contract.sell_price,
-                                        entry_tick_time: contract.entry_tick_time,
-                                        exit_tick_time: contract.exit_tick_time,
+                                        payout: contract.sell_price
                                     });
                                 } else {
                                     // Contract still running - update UI
@@ -538,58 +533,61 @@ const HigherLowerTrader = observer(() => {
                         setTimeout(checkContract, 2000);
                     });
 
-                    console.log('Contract completed:', contract_result);
+                    // Process contract result
+                    const { profit, isWin, sell_price, sell_transaction_id } = contractResult as any;
 
-                    const profit = parseFloat(contract_result.profit || '0');
-                    const payout = parseFloat(contract_result.payout || '0');
-
-                    // Update completed contract info
-                    const completedContract = {
-                        ...contractInfo,
-                        is_completed: true,
-                        profit,
-                        payout: payout || contractInfo.buy_price + profit,
-                        exit_tick_display_value: contract_result.exit_tick_display_value,
-                        exit_tick_time: contract_result.exit_tick_time,
-                        entry_tick_display_value: contract_result.entry_tick_display_value,
-                        entry_tick_time: contract_result.entry_tick_time
-                    };
-
-                    // Update transaction with final results
-                    transactions.pushTransaction(completedContract);
-
-                    setTotalPayout(prev => prev + payout);
+                    setTotalPayout(prev => prev + Number(sell_price || 0));
                     setTotalProfitLoss(prev => prev + profit);
 
-                    if (profit > 0) {
+                    // Update transaction record
+                    const transactionData = {
+                        ...contractResult,
+                        profit: contractResult.profit || 0,
+                        buy_price: effectiveStake,
+                        contract_type: contractType,
+                        currency: account_currency,
+                        is_completed: true,
+                        run_id: run_panel.run_id,
+                        contract_id: contractResult.contract_id || Date.now(),
+                        transaction_ids: {
+                            buy: contractResult.transaction_id || Date.now(),
+                            sell: sell_transaction_id
+                        },
+                        date_start: buy.start_time,
+                        entry_tick_display_value: contractResult.entry_tick_display_value,
+                        exit_tick_display_value: contractResult.exit_tick_display_value,
+                        shortcode: buy.shortcode,
+                        longcode: buy.longcode,
+                        underlying: symbol
+                    };
+
+                    // Notify transaction store
+                    transactions.onBotContractEvent(transactionData);
+
+                    // Update run panel with contract event
+                    run_panel.onBotContractEvent(transactionData);
+
+                    // Update statistics
+                    setTotalRuns(prev => prev + 1);
+                    setTotalStake(prev => prev + effectiveStake);
+                    setTotalPayout(prev => prev + (contractResult.payout || 0));
+
+                    if (contractResult.profit > 0) {
                         setContractsWon(prev => prev + 1);
-                        lossStreak = 0;
-                        lastOutcomeWasLossRef.current = false;
-                        setStatus(`✅ Contract WON! Profit: ${profit} ${account_currency} - Resetting stake to base amount`);
+                        setTotalProfitLoss(prev => prev + contractResult.profit);
+                        setStatus(`✅ Contract won! Profit: $${contractResult.profit.toFixed(2)}`);
                     } else {
                         setContractsLost(prev => prev + 1);
-                        lossStreak++;
-                        lastOutcomeWasLossRef.current = true;
-                        setStatus(`❌ Contract LOST! Loss: ${profit} ${account_currency} - Loss streak: ${lossStreak}`);
+                        setTotalProfitLoss(prev => prev + contractResult.profit);
+                        setStatus(`❌ Contract lost! Loss: $${Math.abs(contractResult.profit).toFixed(2)}`);
                     }
-
-                    // Update summary card with live statistics
-                    run_panel.updateRealTimeStats({
-                        total_stake: totalStake,
-                        total_payout: totalPayout,
-                        total_profit_loss: totalProfitLoss,
-                        number_of_runs: totalRuns,
-                        contracts_won: contractsWon,
-                        contracts_lost: contractsLost
-                    });
-                    // --- END: Updated section ---
 
                     run_panel.setHasOpenContract(false);
 
                     // Notify contract completion
                     run_panel.onContractStatusEvent({
                         id: 'contract.sold',
-                        data: completedContract // Use completedContract for more details
+                        data: transactionData
                     });
 
                     // Check stop conditions
