@@ -58,11 +58,11 @@ const HigherLowerTrader = observer(() => {
     // Form state - Higher/Lower specific
     const [symbol, setSymbol] = useState<string>('');
     const [contractType, setContractType] = useState<string>('CALL'); // CALL for Higher, PUT for Lower
-    const [duration, setDuration] = useState<number>(60); // Duration in seconds
+    const [duration, setDuration] = useState<number>(15); // Duration in seconds - default to 15s
     const [durationType, setDurationType] = useState<string>('s'); // 's' for seconds, 'm' for minutes
     const [stake, setStake] = useState<number>(1.0);
     const [baseStake, setBaseStake] = useState<number>(1.0);
-    const [barrier, setBarrier] = useState<string>('+0.37');
+    const [barrier, setBarrier] = useState<string>('0.00'); // Default barrier to current price
 
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
@@ -363,6 +363,167 @@ const HigherLowerTrader = observer(() => {
     const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
     const [isPreloading, setIsPreloading] = useState(false);
 
+    // Background volatility scanning state
+    const [volatilityTrends, setVolatilityTrends] = useState<{[key: string]: {
+        alignedTrend: string;
+        bullishCount: number;
+        bearishCount: number;
+        timeframes: {[key: string]: string};
+        recommendation: string;
+        confidence: number;
+    }}>({});
+    const [recommendedVolatility, setRecommendedVolatility] = useState<string>('');
+    const [isScanning, setIsScanning] = useState(false);
+
+    // Analyze trend for a specific volatility
+    const analyzeVolatilityTrend = (symbolData: Array<{ time: number, price: number, close: number }>) => {
+        const trends = {
+            '15s': { trend: 'NEUTRAL', value: 0 },
+            '1m': { trend: 'NEUTRAL', value: 0 },
+            '5m': { trend: 'NEUTRAL', value: 0 },
+            '15m': { trend: 'NEUTRAL', value: 0 }
+        };
+
+        // Define tick count requirements for different timeframe analysis
+        const timeframeTickCounts = {
+            '15s': 600,
+            '1m': 1000,
+            '5m': 2000,
+            '15m': 4500
+        };
+
+        Object.entries(timeframeTickCounts).forEach(([timeframe, tickCount]) => {
+            const recentTicks = symbolData.slice(-tickCount);
+
+            if (recentTicks.length >= Math.min(50, tickCount)) {
+                const tickPrices = recentTicks.map(tick => tick.price);
+
+                const hmaPeriods = {
+                    '15s': Math.min(50, Math.floor(tickPrices.length * 0.4)),
+                    '1m': Math.min(80, Math.floor(tickPrices.length * 0.5)),
+                    '5m': Math.min(120, Math.floor(tickPrices.length * 0.6)),
+                    '15m': Math.min(200, Math.floor(tickPrices.length * 0.7))
+                };
+
+                const hmaPeriod = hmaPeriods[timeframe as keyof typeof hmaPeriods] || 14;
+                const hmaValue = calculateHMA(tickPrices, hmaPeriod);
+
+                if (hmaValue !== null && tickPrices.length >= 10) {
+                    let trend = 'NEUTRAL';
+
+                    const prevHMA = calculateHMA(tickPrices.slice(0, -5), Math.min(hmaPeriod, tickPrices.length - 5));
+                    const hmaSlope = prevHMA !== null ? hmaValue - prevHMA : 0;
+
+                    const currentPrice = tickPrices[tickPrices.length - 1];
+                    const priceAboveHMA = currentPrice > hmaValue;
+
+                    const momentumLength = Math.max(5, Math.floor(tickPrices.length * 0.1));
+                    const recentPrices = tickPrices.slice(-momentumLength);
+                    const priceStart = recentPrices[0];
+                    const priceEnd = recentPrices[recentPrices.length - 1];
+                    const priceMomentum = priceEnd - priceStart;
+
+                    const priceRange = Math.max(...recentPrices) - Math.min(...recentPrices);
+                    const adaptiveThreshold = priceRange * 0.1;
+
+                    const baseSlopeThreshold = {
+                        '15s': 0.00008,
+                        '1m': 0.00015,
+                        '5m': 0.0003,
+                        '15m': 0.0006
+                    }[timeframe] || 0.00015;
+
+                    const slopeThreshold = Math.max(baseSlopeThreshold, adaptiveThreshold * 0.6);
+                    const momentumThreshold = adaptiveThreshold * 0.8;
+
+                    const confirmationPeriod = Math.floor(hmaPeriod * 0.3);
+                    const confirmationPrices = tickPrices.slice(-confirmationPeriod);
+                    const confirmationTrend = confirmationPrices[confirmationPrices.length - 1] - confirmationPrices[0];
+
+                    if (hmaSlope > slopeThreshold && confirmationTrend > 0) {
+                        if (priceAboveHMA && priceMomentum > momentumThreshold) {
+                            trend = 'BULLISH';
+                        }
+                    } else if (hmaSlope < -slopeThreshold && confirmationTrend < 0) {
+                        if (!priceAboveHMA && priceMomentum < -momentumThreshold) {
+                            trend = 'BEARISH';
+                        }
+                    }
+
+                    trends[timeframe as keyof typeof trends] = {
+                        trend,
+                        value: Number(hmaValue.toFixed(5))
+                    };
+                }
+            }
+        });
+
+        // Calculate alignment
+        const trendValues = Object.values(trends);
+        const bullishCount = trendValues.filter(t => t.trend === 'BULLISH').length;
+        const bearishCount = trendValues.filter(t => t.trend === 'BEARISH').length;
+
+        let alignedTrend = 'NEUTRAL';
+        let recommendation = 'No clear trend';
+        let confidence = 0;
+
+        if (bullishCount >= 3) {
+            alignedTrend = 'BULLISH';
+            recommendation = 'Higher (Call)';
+            confidence = Math.round((bullishCount / 4) * 100);
+        } else if (bearishCount >= 3) {
+            alignedTrend = 'BEARISH';
+            recommendation = 'Lower (Put)';
+            confidence = Math.round((bearishCount / 4) * 100);
+        }
+
+        return {
+            alignedTrend,
+            bullishCount,
+            bearishCount,
+            timeframes: Object.fromEntries(Object.entries(trends).map(([tf, data]) => [tf, data.trend])),
+            recommendation,
+            confidence
+        };
+    };
+
+    // Background scanning of all volatilities
+    const scanAllVolatilities = () => {
+        if (Object.keys(preloadedData).length === 0) return;
+
+        setIsScanning(true);
+        const volatilityAnalysis: {[key: string]: any} = {};
+        let bestVolatility = '';
+        let bestConfidence = 0;
+
+        // Analyze each volatility index
+        VOLATILITY_INDICES.forEach(vol => {
+            if (preloadedData[vol.value] && preloadedData[vol.value].length > 0) {
+                const analysis = analyzeVolatilityTrend(preloadedData[vol.value]);
+                volatilityAnalysis[vol.value] = {
+                    ...analysis,
+                    displayName: vol.label
+                };
+
+                // Find the volatility with the highest confidence strong trend
+                if (analysis.confidence > bestConfidence && analysis.alignedTrend !== 'NEUTRAL') {
+                    bestConfidence = analysis.confidence;
+                    bestVolatility = vol.value;
+                }
+            }
+        });
+
+        setVolatilityTrends(volatilityAnalysis);
+        setRecommendedVolatility(bestVolatility);
+        setIsScanning(false);
+
+        console.log('Volatility Scan Results:', {
+            volatilityAnalysis,
+            recommendedVolatility: bestVolatility,
+            bestConfidence
+        });
+    };
+
     // Preload historical data for all volatility indices
     const preloadAllVolatilityData = async (api: any) => {
         setIsPreloading(true);
@@ -409,6 +570,21 @@ const HigherLowerTrader = observer(() => {
             await Promise.all(promises);
             setPreloadedData(preloadedDataMap);
             setStatus(`Preloaded historical data for ${Object.keys(preloadedDataMap).length} volatility indices`);
+            
+            // Start background scanning after preloading
+            setTimeout(() => {
+                scanAllVolatilities();
+                // Scan every 30 seconds
+                const scanInterval = setInterval(() => {
+                    if (!is_running) { // Only scan when not actively trading
+                        scanAllVolatilities();
+                    }
+                }, 30000);
+                
+                // Cleanup interval on unmount
+                return () => clearInterval(scanInterval);
+            }, 2000);
+            
         } catch (error) {
             console.error('Error during preloading:', error);
             setStatus('Failed to preload some historical data, but continuing...');
@@ -603,7 +779,23 @@ const HigherLowerTrader = observer(() => {
                     const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
                     setStake(effectiveStake);
 
-                    setStatus(`Placing ${contractType === 'CALL' ? 'Higher' : 'Lower'} trade with stake ${effectiveStake} ${account_currency}...`);
+                    // Check if current trend allows trading
+                    const alignedTrend = getAlignedTrend();
+                    if (alignedTrend === 'NEUTRAL') {
+                        setStatus('⏸️ Waiting for trend alignment before trading...');
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                        continue; // Skip this iteration and wait for trend
+                    }
+
+                    // Auto-adjust contract type based on trend
+                    const recommendedType = getRecommendedContractType();
+                    if (recommendedType && recommendedType !== contractType) {
+                        setContractType(recommendedType);
+                        setStatus(`📊 Auto-adjusted to ${recommendedType === 'CALL' ? 'Higher' : 'Lower'} based on trend alignment`);
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+
+                    setStatus(`Placing ${contractType === 'CALL' ? 'Higher' : 'Lower'} trade with stake ${effectiveStake} ${account_currency} (${alignedTrend} trend)...`);
 
                     const buy = await purchaseOnceWithStake(effectiveStake);
 
@@ -897,12 +1089,48 @@ const HigherLowerTrader = observer(() => {
                             </div>
                         </div>
 
+                        {/* Volatility Recommendation */}
+                        {recommendedVolatility && volatilityTrends[recommendedVolatility] && (
+                            <div className='higher-lower-trader__recommendation'>
+                                <div className='recommendation-header'>
+                                    <h4>🎯 {localize('Recommended Volatility')}</h4>
+                                    <button 
+                                        className='recommendation-apply-btn'
+                                        onClick={() => {
+                                            setSymbol(recommendedVolatility);
+                                            const analysis = volatilityTrends[recommendedVolatility];
+                                            setContractType(analysis.recommendation === 'Higher (Call)' ? 'CALL' : 'PUT');
+                                            if (preloadedData[recommendedVolatility]) {
+                                                setTickData(preloadedData[recommendedVolatility]);
+                                                updateHullTrends(preloadedData[recommendedVolatility]);
+                                            }
+                                            startTicks(recommendedVolatility);
+                                        }}
+                                    >
+                                        {localize('Apply')}
+                                    </button>
+                                </div>
+                                <div className='recommendation-details'>
+                                    <span className='volatility-name'>
+                                        {VOLATILITY_INDICES.find(v => v.value === recommendedVolatility)?.label}
+                                    </span>
+                                    <span className={`trend-${volatilityTrends[recommendedVolatility].alignedTrend.toLowerCase()}`}>
+                                        {volatilityTrends[recommendedVolatility].alignedTrend} ({volatilityTrends[recommendedVolatility].confidence}% confidence)
+                                    </span>
+                                    <span className='recommendation-action'>
+                                        → {volatilityTrends[recommendedVolatility].recommendation}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Trading Parameters */}
                         <div className='higher-lower-trader__row higher-lower-trader__row--two'>
                             <div className='higher-lower-trader__field'>
                                 <label htmlFor='hl-symbol'>
                                     {localize('Volatility')}
                                     {isPreloading && <span className='loading-indicator'> (Loading...)</span>}
+                                    {isScanning && <span className='scanning-indicator'> (Scanning...)</span>}
                                 </label>
                                 <select
                                     id='hl-symbol'
@@ -921,11 +1149,19 @@ const HigherLowerTrader = observer(() => {
                                     }}
                                     disabled={isPreloading}
                                 >
-                                    {symbols.map(s => (
-                                        <option key={s.symbol} value={s.symbol}>
-                                            {s.display_name} {preloadedData[s.symbol] ? `(${preloadedData[s.symbol].length} ticks)` : ''}
-                                        </option>
-                                    ))}
+                                    {symbols.map(s => {
+                                        const trendInfo = volatilityTrends[s.symbol];
+                                        const isRecommended = s.symbol === recommendedVolatility;
+                                        const displayText = trendInfo ? 
+                                            `${s.display_name} ${trendInfo.alignedTrend !== 'NEUTRAL' ? `(${trendInfo.alignedTrend} ${trendInfo.confidence}%)` : ''}${isRecommended ? ' ⭐' : ''}` :
+                                            `${s.display_name} ${preloadedData[s.symbol] ? `(${preloadedData[s.symbol].length} ticks)` : ''}`;
+                                        
+                                        return (
+                                            <option key={s.symbol} value={s.symbol}>
+                                                {displayText}
+                                            </option>
+                                        );
+                                    })}
                                 </select>
                             </div>
                             <div className='higher-lower-trader__field'>
@@ -1036,6 +1272,20 @@ const HigherLowerTrader = observer(() => {
                                     {localize('Historical Data')}: {preloadedData[symbol].length} ticks preloaded
                                 </p>
                             )}
+                            <div className='volatility-scanner-controls'>
+                                <button 
+                                    className='scan-volatilities-btn'
+                                    onClick={scanAllVolatilities}
+                                    disabled={isScanning || Object.keys(preloadedData).length === 0}
+                                >
+                                    {isScanning ? 'Scanning...' : 'Refresh Volatility Scan'}
+                                </button>
+                                <span className='scan-status'>
+                                    {Object.keys(volatilityTrends).length > 0 && 
+                                        `Analyzed ${Object.keys(volatilityTrends).length} volatilities`
+                                    }
+                                </span>
+                            </div>
                         </div>
 
                         {/* Hull Moving Average Trends */}
