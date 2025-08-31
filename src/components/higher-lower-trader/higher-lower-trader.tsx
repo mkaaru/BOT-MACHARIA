@@ -45,7 +45,7 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
 
 const HigherLowerTrader = observer(() => {
     const store = useStore();
-    const { run_panel, transactions } = store;
+    const { run_panel, transactions, client } = store;
 
     const apiRef = useRef<any>(null);
     const tickStreamIdRef = useRef<string | null>(null);
@@ -581,6 +581,9 @@ const HigherLowerTrader = observer(() => {
         if (bearishCount > bullishCount) return 'PUT';
         return contractType; // Keep current if neutral
     };
+
+    // Check if user is authorized - simplified to check if balance is available
+    const isAuthorized = client?.balance !== undefined && client?.balance !== null;
 
     return (
         <div className='higher-lower-trader'>
