@@ -58,12 +58,11 @@ const HigherLowerTrader = observer(() => {
     // Form state - Higher/Lower specific
     const [symbol, setSymbol] = useState<string>('');
     const [contractType, setContractType] = useState<string>('CALL'); // CALL for Higher, PUT for Lower
-    const [duration, setDuration] = useState<number>(15); // Duration in seconds
+    const [duration, setDuration] = useState<number>(60); // Duration in seconds
     const [durationType, setDurationType] = useState<string>('s'); // 's' for seconds, 'm' for minutes
     const [stake, setStake] = useState<number>(1.0);
     const [baseStake, setBaseStake] = useState<number>(1.0);
-    const [barrier, setBarrier] = useState<string>('0.00');
-    const [maType, setMaType] = useState<string>('HMA'); // 'HMA' for Hull MA, 'EMA' for Exponential MA
+    const [barrier, setBarrier] = useState<string>('+0.37');
 
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
@@ -129,27 +128,6 @@ const HigherLowerTrader = observer(() => {
         return rawHMA;
     };
 
-    // Exponential Moving Average calculation
-    const calculateEMA = (data: number[], period: number) => {
-        if (data.length < period) return null;
-
-        const k = 2 / (period + 1);
-        let ema = data[0]; // Start with first value
-
-        // Calculate initial SMA for the first 'period' values
-        if (data.length >= period) {
-            const initialSMA = data.slice(0, period).reduce((sum, val) => sum + val, 0) / period;
-            ema = initialSMA;
-
-            // Apply EMA formula for remaining values
-            for (let i = period; i < data.length; i++) {
-                ema = data[i] * k + ema * (1 - k);
-            }
-        }
-
-        return ema;
-    };
-
     // Convert tick data to candles for better trend analysis
     const ticksToCandles = (ticks: Array<{ time: number, price: number }>, timeframeSeconds: number) => {
         if (ticks.length === 0) return [];
@@ -201,28 +179,26 @@ const HigherLowerTrader = observer(() => {
                 const tickPrices = recentTicks.map(tick => tick.price);
 
                 // Use longer HMA periods for more sustained trends
-                const maPeriods = {
+                const hmaPeriods = {
                     '15s': Math.min(50, Math.floor(tickPrices.length * 0.4)),
                     '1m': Math.min(80, Math.floor(tickPrices.length * 0.5)),
                     '5m': Math.min(120, Math.floor(tickPrices.length * 0.6)),
                     '15m': Math.min(200, Math.floor(tickPrices.length * 0.7))
                 };
 
-                const maPeriod = maPeriods[timeframe as keyof typeof maPeriods] || 14;
-                const maValue = maType === 'EMA' ? calculateEMA(tickPrices, maPeriod) : calculateHMA(tickPrices, maPeriod);
+                const hmaPeriod = hmaPeriods[timeframe as keyof typeof hmaPeriods] || 14;
+                const hmaValue = calculateHMA(tickPrices, hmaPeriod);
 
-                if (maValue !== null && tickPrices.length >= 10) {
+                if (hmaValue !== null && tickPrices.length >= 10) {
                     let trend = 'NEUTRAL';
 
-                    // Calculate MA slope for trend direction
-                    const prevMA = maType === 'EMA' ? 
-                        calculateEMA(tickPrices.slice(0, -5), Math.min(maPeriod, tickPrices.length - 5)) : 
-                        calculateHMA(tickPrices.slice(0, -5), Math.min(maPeriod, tickPrices.length - 5));
-                    const maSlope = prevMA !== null ? maValue - prevMA : 0;
+                    // Calculate HMA slope for trend direction
+                    const prevHMA = calculateHMA(tickPrices.slice(0, -5), Math.min(hmaPeriod, tickPrices.length - 5));
+                    const hmaSlope = prevHMA !== null ? hmaValue - prevHMA : 0;
 
                     // Get recent price movements
                     const currentPrice = tickPrices[tickPrices.length - 1];
-                    const priceAboveMA = currentPrice > maValue;
+                    const priceAboveHMA = currentPrice > hmaValue;
 
                     // Analyze recent price momentum (last 10% of ticks)
                     const momentumLength = Math.max(5, Math.floor(tickPrices.length * 0.1));
@@ -251,13 +227,13 @@ const HigherLowerTrader = observer(() => {
                     const confirmationPrices = tickPrices.slice(-confirmationPeriod);
                     const confirmationTrend = confirmationPrices[confirmationPrices.length - 1] - confirmationPrices[0];
 
-                    // Require both MA slope AND price confirmation for trend signals
-                    if (maSlope > slopeThreshold && confirmationTrend > 0) {
-                        if (priceAboveMA && priceMomentum > momentumThreshold) {
+                    // Require both HMA slope AND price confirmation for trend signals
+                    if (hmaSlope > slopeThreshold && confirmationTrend > 0) {
+                        if (priceAboveHMA && priceMomentum > momentumThreshold) {
                             trend = 'BULLISH';
                         }
-                    } else if (maSlope < -slopeThreshold && confirmationTrend < 0) {
-                        if (!priceAboveMA && priceMomentum < -momentumThreshold) {
+                    } else if (hmaSlope < -slopeThreshold && confirmationTrend < 0) {
+                        if (!priceAboveHMA && priceMomentum < -momentumThreshold) {
                             trend = 'BEARISH';
                         }
                     }
@@ -265,12 +241,12 @@ const HigherLowerTrader = observer(() => {
 
                     // Debug logging for trend analysis
                     if (timeframe === '15s') {
-                        console.log(`Trend Analysis - ${timeframe} (${maType}):`, {
-                            maValue: maValue.toFixed(6),
-                            maSlope: maSlope.toFixed(6),
+                        console.log(`Trend Analysis - ${timeframe}:`, {
+                            hmaValue: hmaValue.toFixed(6),
+                            hmaSlope: hmaSlope.toFixed(6),
                             slopeThreshold: slopeThreshold.toFixed(6),
                             currentPrice: currentPrice.toFixed(5),
-                            priceAboveMA,
+                            priceAboveHMA,
                             priceMomentum: priceMomentum.toFixed(6),
                             momentumThreshold: momentumThreshold.toFixed(6),
                             trend,
@@ -331,7 +307,7 @@ const HigherLowerTrader = observer(() => {
 
                     newTrends[timeframe as keyof typeof hullTrends] = {
                         trend: finalTrend,
-                        value: Number(maValue.toFixed(5)),
+                        value: Number(hmaValue.toFixed(5)),
                         confirmationCount
                     };
                 }
@@ -985,29 +961,6 @@ const HigherLowerTrader = observer(() => {
                             </div>
                         </div>
 
-                        {/* Moving Average Type Selection */}
-                        <div className='higher-lower-trader__row higher-lower-trader__row--two'>
-                            <div className='higher-lower-trader__field'>
-                                <label htmlFor='hl-ma-type'>{localize('Moving Average Type')}</label>
-                                <select
-                                    id='hl-ma-type'
-                                    value={maType}
-                                    onChange={e => setMaType(e.target.value)}
-                                >
-                                    <option value='HMA'>{localize('Hull Moving Average (HMA)')}</option>
-                                    <option value='EMA'>{localize('Exponential Moving Average (EMA)')}</option>
-                                </select>
-                            </div>
-                            <div className='higher-lower-trader__field'>
-                                <Text size='xs' color='general'>
-                                    {maType === 'HMA' ? 
-                                        localize('Hull MA reduces lag and smooths price action') : 
-                                        localize('EMA responds quickly to recent price changes')
-                                    }
-                                </Text>
-                            </div>
-                        </div>
-
                         {/* Stake and Barrier */}
                         <div className='higher-lower-trader__row higher-lower-trader__row--two'>
                             <div className='higher-lower-trader__field'>
@@ -1079,9 +1032,9 @@ const HigherLowerTrader = observer(() => {
                             )}
                         </div>
 
-                        {/* Moving Average Trends */}
+                        {/* Hull Moving Average Trends */}
                         <div className='higher-lower-trader__trends'>
-                            <h4>{localize(`Market Trends (${maType} from Ticks)`)}</h4>
+                            <h4>{localize('Market Trends (Hull MA from Ticks)')}</h4>
                             <div className='trends-grid'>
                                 {Object.entries(hullTrends).map(([timeframe, data]) => {
                                     const tickCounts = {
