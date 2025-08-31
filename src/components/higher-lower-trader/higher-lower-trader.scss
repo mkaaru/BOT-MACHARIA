@@ -3,6 +3,19 @@
     width: 100%;
     display: flex;
     flex-direction: column;
+    
+    .loading-indicator {
+        color: var(--text-colored-background);
+        font-size: 0.9em;
+        font-weight: normal;
+    }
+    
+    .preload-info {
+        color: var(--text-general);
+        font-size: 0.8em;
+        margin-top: 0.5rem;
+        opacity: 0.8;
+    }
 
     &__container {
         height: 100%;

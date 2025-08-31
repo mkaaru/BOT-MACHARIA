@@ -252,6 +252,64 @@ const HigherLowerTrader = observer(() => {
         }
     };
 
+    // State to store preloaded data for all volatilities
+    const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
+    const [isPreloading, setIsPreloading] = useState(false);
+
+    // Preload historical data for all volatility indices
+    const preloadAllVolatilityData = async (api: any) => {
+        setIsPreloading(true);
+        setStatus('Preloading historical data for trend analysis...');
+        
+        const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'BOOM500', 'BOOM1000', 'CRASH500', 'CRASH1000', 'stpRNG'];
+        const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>} = {};
+        
+        try {
+            // Fetch 5000 ticks for each volatility index
+            const promises = volatilitySymbols.map(async (sym) => {
+                try {
+                    const request = {
+                        ticks_history: sym,
+                        adjust_start_time: 1,
+                        count: 5000, // Maximum allowed by Deriv
+                        end: "latest",
+                        start: 1,
+                        style: "ticks"
+                    };
+
+                    const response = await api.send(request);
+
+                    if (response.error) {
+                        console.warn(`Error fetching data for ${sym}:`, response.error);
+                        return;
+                    }
+
+                    if (response.history && response.history.prices && response.history.times) {
+                        const historicalData = response.history.prices.map((price: string, index: number) => ({
+                            time: response.history.times[index] * 1000,
+                            price: parseFloat(price),
+                            close: parseFloat(price)
+                        }));
+
+                        preloadedDataMap[sym] = historicalData;
+                        console.log(`Preloaded ${historicalData.length} ticks for ${sym}`);
+                    }
+                } catch (error) {
+                    console.warn(`Failed to preload data for ${sym}:`, error);
+                }
+            });
+
+            await Promise.all(promises);
+            setPreloadedData(preloadedDataMap);
+            setStatus(`Preloaded historical data for ${Object.keys(preloadedDataMap).length} volatility indices`);
+        } catch (error) {
+            console.error('Error during preloading:', error);
+            setStatus('Failed to preload some historical data, but continuing...');
+        } finally {
+            setIsPreloading(false);
+        }
+    };
+
     // Effect to initialize API connection and fetch active symbols
     useEffect(() => {
         const api = generateDerivApiInstance();
@@ -264,9 +322,19 @@ const HigherLowerTrader = observer(() => {
                     .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol))
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
                 setSymbols(syn);
+                
+                // Preload historical data for all volatility indices
+                await preloadAllVolatilityData(api);
+                
                 if (!symbol && syn[0]?.symbol) {
                     setSymbol(syn[0].symbol);
-                    await fetchHistoricalTicks(syn[0].symbol);
+                    // Use preloaded data if available
+                    if (preloadedData[syn[0].symbol]) {
+                        setTickData(preloadedData[syn[0].symbol]);
+                        updateHullTrends(preloadedData[syn[0].symbol]);
+                    } else {
+                        await fetchHistoricalTicks(syn[0].symbol);
+                    }
                     startTicks(syn[0].symbol);
                 }
             } catch (e: any) {
@@ -294,9 +362,16 @@ const HigherLowerTrader = observer(() => {
     // Effect to fetch historical data when symbol changes
     useEffect(() => {
         if (symbol && apiRef.current) {
-            fetchHistoricalTicks(symbol);
+            // Use preloaded data if available, otherwise fetch
+            if (preloadedData[symbol] && preloadedData[symbol].length > 0) {
+                setTickData(preloadedData[symbol]);
+                updateHullTrends(preloadedData[symbol]);
+                console.log(`Using preloaded data for ${symbol}: ${preloadedData[symbol].length} ticks`);
+            } else {
+                fetchHistoricalTicks(symbol);
+            }
         }
-    }, [symbol]);
+    }, [symbol, preloadedData]);
 
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
@@ -696,20 +771,30 @@ const HigherLowerTrader = observer(() => {
                         {/* Trading Parameters */}
                         <div className='higher-lower-trader__row higher-lower-trader__row--two'>
                             <div className='higher-lower-trader__field'>
-                                <label htmlFor='hl-symbol'>{localize('Volatility')}</label>
+                                <label htmlFor='hl-symbol'>
+                                    {localize('Volatility')} 
+                                    {isPreloading && <span className='loading-indicator'> (Loading...)</span>}
+                                </label>
                                 <select
                                     id='hl-symbol'
                                     value={symbol}
                                     onChange={e => {
                                         const v = e.target.value;
                                         setSymbol(v);
-                                        fetchHistoricalTicks(v);
+                                        // Use preloaded data if available
+                                        if (preloadedData[v] && preloadedData[v].length > 0) {
+                                            setTickData(preloadedData[v]);
+                                            updateHullTrends(preloadedData[v]);
+                                        } else {
+                                            fetchHistoricalTicks(v);
+                                        }
                                         startTicks(v);
                                     }}
+                                    disabled={isPreloading}
                                 >
                                     {symbols.map(s => (
                                         <option key={s.symbol} value={s.symbol}>
-                                            {s.display_name}
+                                            {s.display_name} {preloadedData[s.symbol] ? `(${preloadedData[s.symbol].length} ticks)` : ''}
                                         </option>
                                     ))}
                                 </select>
@@ -816,6 +901,11 @@ const HigherLowerTrader = observer(() => {
                         <div className='higher-lower-trader__price-display'>
                             <h4>{localize('Live Price')}: {currentPrice.toFixed(5)}</h4>
                             <p>{localize('Ticks Processed')}: {ticksProcessed}</p>
+                            {preloadedData[symbol] && (
+                                <p className='preload-info'>
+                                    {localize('Historical Data')}: {preloadedData[symbol].length} ticks preloaded
+                                </p>
+                            )}
                         </div>
 
                         {/* Hull Moving Average Trends */}
