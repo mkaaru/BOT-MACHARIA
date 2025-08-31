@@ -463,6 +463,11 @@ const HigherLowerTrader = observer(() => {
                     });
 
                     setStatus(`📈 ${contractType} contract started with barrier ${barrier} for $${effectiveStake}`);
+                    
+                    // Initialize contract display values
+                    setContractValue(effectiveStake);
+                    setPotentialPayout(buy.payout ? Number(buy.payout) : effectiveStake * 1.95); // Estimate based on typical payout ratio
+                    setCurrentProfit(0);
 
                     // Wait for contract completion
                     const contractResult = await new Promise((resolve, reject) => {
@@ -508,9 +513,17 @@ const HigherLowerTrader = observer(() => {
                                     });
                                 } else {
                                     // Contract still running - update UI
-                                    setContractValue(Number(contract.bid_price || 0));
-                                    setPotentialPayout(Number(contract.sell_price || 0));
-                                    setCurrentProfit(Number(contract.profit || 0));
+                                    const currentBidPrice = Number(contract.bid_price || 0);
+                                    const currentProfit = Number(contract.profit || 0);
+                                    
+                                    // Calculate potential payout based on current contract value
+                                    const potentialPayout = contract.payout ? Number(contract.payout) : 
+                                                          (currentBidPrice > 0 ? currentBidPrice : 
+                                                           (effectiveStake + currentProfit));
+                                    
+                                    setContractValue(currentBidPrice);
+                                    setPotentialPayout(potentialPayout);
+                                    setCurrentProfit(currentProfit);
 
                                     const duration_left = (contract.date_expiry || 0) - Date.now() / 1000;
                                     if (duration_left > 0) {
