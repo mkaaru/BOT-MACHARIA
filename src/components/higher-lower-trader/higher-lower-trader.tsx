@@ -62,7 +62,7 @@ const HigherLowerTrader = observer(() => {
     const [durationType, setDurationType] = useState<string>('s'); // 's' for seconds, 'm' for minutes
     const [stake, setStake] = useState<number>(1.0);
     const [baseStake, setBaseStake] = useState<number>(1.0);
-    const [barrier, setBarrier] = useState<string>('+0.37');
+    const [barrier, setBarrier] = useState<string>('0.00'); // Default barrier set to 0.00
 
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
@@ -540,15 +540,44 @@ const HigherLowerTrader = observer(() => {
 
                     console.log('Contract completed:', contract_result);
 
-                    const profit = parseFloat(contract_result.profit || '0');
+                    const profitLoss = parseFloat(contract_result.profit || '0');
                     const payout = parseFloat(contract_result.payout || '0');
+                    const outcome = profitLoss >= 0 ? 'won' : 'lost';
+
+                    // Add transaction record
+                    const transaction = {
+                        type: contractType === 'CALL' ? 'higher' : 'lower',
+                        amount: effectiveStake,
+                        profit: profitLoss,
+                        contract_id: contract_result.contract_id || `sim-${Date.now()}`,
+                        timestamp: Date.now(),
+                        symbol,
+                        duration,
+                        barrier: parseFloat(barrier) + currentPrice, // Combine barrier with currentPrice for display if needed, or just use barrier as entered
+                        result: outcome,
+                        entry_spot: contract_result.entry_tick_display_value,
+                        exit_spot: contract_result.exit_tick_display_value,
+                        run_id: run_panel.run_id
+                    };
+
+                    // Add to transactions store
+                    transactions.onBotContractEvent({
+                        ...transaction,
+                        id: transaction.contract_id,
+                        is_completed: true,
+                        contract_type: contractType,
+                        buy_price: effectiveStake,
+                        sell_price: effectiveStake + profitLoss,
+                        profit: profitLoss,
+                        is_won: outcome === 'won'
+                    });
 
                     // Update completed contract info
                     const completedContract = {
                         ...contractInfo,
                         is_completed: true,
-                        profit,
-                        payout: payout || contractInfo.buy_price + profit,
+                        profit: profitLoss,
+                        payout: payout || contractInfo.buy_price + profitLoss,
                         exit_tick_display_value: contract_result.exit_tick_display_value,
                         exit_tick_time: contract_result.exit_tick_time,
                         entry_tick_display_value: contract_result.entry_tick_display_value,
@@ -559,18 +588,18 @@ const HigherLowerTrader = observer(() => {
                     transactions.pushTransaction(completedContract);
 
                     setTotalPayout(prev => prev + payout);
-                    setTotalProfitLoss(prev => prev + profit);
+                    setTotalProfitLoss(prev => prev + profitLoss);
 
-                    if (profit > 0) {
+                    if (profitLoss > 0) {
                         setContractsWon(prev => prev + 1);
                         lossStreak = 0;
                         lastOutcomeWasLossRef.current = false;
-                        setStatus(`✅ Contract WON! Profit: ${profit} ${account_currency} - Resetting stake to base amount`);
+                        setStatus(`✅ Contract WON! Profit: ${profitLoss} ${account_currency} - Resetting stake to base amount`);
                     } else {
                         setContractsLost(prev => prev + 1);
                         lossStreak++;
                         lastOutcomeWasLossRef.current = true;
-                        setStatus(`❌ Contract LOST! Loss: ${profit} ${account_currency} - Loss streak: ${lossStreak}`);
+                        setStatus(`❌ Contract LOST! Loss: ${profitLoss} ${account_currency} - Loss streak: ${lossStreak}`);
                     }
 
                     // Update summary card with live statistics
@@ -592,8 +621,20 @@ const HigherLowerTrader = observer(() => {
                         data: completedContract // Use completedContract for more details
                     });
 
+                    // Update run panel with contract completion
+                    run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+
+                    // Update summary card with final results
+                    store.summary_card.onBotContractEvent({
+                        id: transaction.contract_id,
+                        profit: profitLoss,
+                        is_sold: true,
+                        sell_price: effectiveStake + profitLoss,
+                        contract_type: contractType
+                    });
+
                     // Check stop conditions
-                    const newTotalProfit = totalProfitLoss + profit;
+                    const newTotalProfit = totalProfitLoss + profitLoss;
                     if (useStopOnProfit && newTotalProfit >= targetProfit) {
                         setStatus(`🎯 Target profit reached: ${newTotalProfit.toFixed(2)} ${account_currency}. Stopping bot.`);
                         stopFlagRef.current = true;
@@ -762,7 +803,7 @@ const HigherLowerTrader = observer(() => {
                                     type='text'
                                     value={barrier}
                                     onChange={e => setBarrier(e.target.value)}
-                                    placeholder='+0.37'
+                                    placeholder='0.00'
                                 />
                             </div>
                         </div>
