@@ -544,48 +544,38 @@ const HigherLowerTrader = observer(() => {
                     const payout = parseFloat(contract_result.payout || '0');
                     const outcome = profitLoss >= 0 ? 'won' : 'lost';
 
-                    // Add transaction record
-                    const transaction = {
-                        type: contractType === 'CALL' ? 'higher' : 'lower',
-                        amount: effectiveStake,
-                        profit: profitLoss,
-                        contract_id: contract_result.contract_id || `sim-${Date.now()}`,
-                        timestamp: Date.now(),
-                        symbol,
-                        duration,
-                        barrier: parseFloat(barrier) + currentPrice, // Combine barrier with currentPrice for display if needed, or just use barrier as entered
-                        result: outcome,
-                        entry_spot: contract_result.entry_tick_display_value,
-                        exit_spot: contract_result.exit_tick_display_value,
-                        run_id: run_panel.run_id
-                    };
-
-                    // Add to transactions store
-                    transactions.onBotContractEvent({
-                        ...transaction,
-                        id: transaction.contract_id,
-                        is_completed: true,
-                        contract_type: contractType,
-                        buy_price: effectiveStake,
-                        sell_price: effectiveStake + profitLoss,
-                        profit: profitLoss,
-                        is_won: outcome === 'won'
-                    });
-
-                    // Update completed contract info
+                    // Create completed contract transaction
                     const completedContract = {
-                        ...contractInfo,
+                        contract_id: contract_result.contract_id || buy.contract_id,
+                        transaction_ids: { 
+                            buy: buy.transaction_id,
+                            sell: contract_result.sell_transaction_id 
+                        },
+                        buy_price: Number(effectiveStake),
+                        sell_price: Number(contract_result.sell_price || (effectiveStake + profitLoss)),
+                        currency: account_currency,
+                        contract_type: contractType,
+                        longcode: buy.longcode,
+                        shortcode: buy.shortcode,
+                        symbol,
+                        date_start: buy.start_time,
+                        date_expiry: contract_result.exit_tick_time,
                         is_completed: true,
                         profit: profitLoss,
-                        payout: payout || contractInfo.buy_price + profitLoss,
+                        payout: Number(contract_result.sell_price || (effectiveStake + profitLoss)),
+                        run_id: run_panel.run_id,
+                        entry_tick_display_value: contract_result.entry_tick_display_value,
+                        entry_tick_time: contract_result.entry_tick_time,
                         exit_tick_display_value: contract_result.exit_tick_display_value,
                         exit_tick_time: contract_result.exit_tick_time,
-                        entry_tick_display_value: contract_result.entry_tick_display_value,
-                        entry_tick_time: contract_result.entry_tick_time
+                        is_won: profitLoss > 0
                     };
 
-                    // Update transaction with final results
+                    // Push completed transaction to store
                     transactions.pushTransaction(completedContract);
+
+                    // Also notify the transactions store with contract event
+                    transactions.onBotContractEvent(completedContract);
 
                     setTotalPayout(prev => prev + payout);
                     setTotalProfitLoss(prev => prev + profitLoss);
