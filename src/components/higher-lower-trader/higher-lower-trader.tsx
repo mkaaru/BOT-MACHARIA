@@ -165,10 +165,10 @@ const HigherLowerTrader = observer(() => {
 
         // Define tick count requirements for different timeframe analysis
         const timeframeTickCounts = {
-            '15s': 30,   // ~30 ticks for 15-second analysis
-            '1m': 120,   // ~120 ticks for 1-minute analysis
-            '5m': 300,   // ~300 ticks for 5-minute analysis
-            '15m': 600   // ~600 ticks for 15-minute analysis
+            '15s': 600,   // 600 ticks for 15-second analysis
+            '1m': 1000,   // 1000 ticks for 1-minute analysis
+            '5m': 2000,   // 2000 ticks for 5-minute analysis
+            '15m': 4500   // 4500 ticks for 15-minute analysis
         };
 
         Object.entries(timeframeTickCounts).forEach(([timeframe, tickCount]) => {
