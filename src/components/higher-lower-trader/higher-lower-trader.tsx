@@ -205,10 +205,10 @@ const HigherLowerTrader = observer(() => {
         const recentVolatility = Math.sqrt(recent.reduce((sum, p) => sum + Math.pow(p - recentAvg, 2), 0) / recent.length);
         const previousVolatility = Math.sqrt(previous.reduce((sum, p) => sum + Math.pow(p - previousAvg, 2), 0) / previous.length);
 
-        const volatilityChange = (recentVolatility - previousVolatility) / previousVolatility;
+        const volatilityChange = (previousVolatility - recentVolatility) / previousVolatility; // Changed order to detect acceleration
 
-        if (volatilityChange > 0.1) return 'ACCELERATING';
-        if (volatilityChange < -0.1) return 'DECELERATING';
+        if (volatilityChange > 0.1) return 'ACCELERATING'; // Price is becoming more volatile
+        if (volatilityChange < -0.1) return 'DECELERATING'; // Price is becoming less volatile
         return 'NEUTRAL';
     };
 
@@ -991,19 +991,19 @@ const HigherLowerTrader = observer(() => {
         // More flexible alignment - consider trend strength and momentum
         if (bullishCount >= 3) return 'BULLISH';
         if (bearishCount >= 3) return 'BEARISH';
-        
+
         // If we have 2 strong trends and high strength, consider it aligned
         if (trendStrength > 50) {
             if (bullishCount >= 2 && neutralCount <= 2) return 'BULLISH';
             if (bearishCount >= 2 && neutralCount <= 2) return 'BEARISH';
         }
-        
+
         // Very strong signals override alignment requirement
         if (trendStrength > 70) {
             if (bullishCount >= 1 && bearishCount === 0) return 'BULLISH';
             if (bearishCount >= 1 && bullishCount === 0) return 'BEARISH';
         }
-        
+
         return 'NEUTRAL';
     };
 
@@ -1374,66 +1374,46 @@ const HigherLowerTrader = observer(() => {
                             )}
                         </div>
 
-                        {/* Enhanced Market Trends */}
-                        <div className='higher-lower-trader__trends'>
-                            <h4>{localize('Market Trends')} ({trendMethod === 'HULL' ? 'Hull MA' : trendMethod === 'EMA' ? 'EMA+MACD' : 'Hybrid Analysis'})</h4>
-
-                            {/* Trend Method Information */}
-                            <div className='trend-method-info'>
-                                {trendMethod === 'HYBRID' && (
-                                    <Text size='xs' className='method-description'>
-                                        {localize('Combining Hull MA, EMA crossovers, MACD signals, and price momentum for optimal accuracy')}
-                                    </Text>
-                                )}
-                                {trendMethod === 'EMA' && (
-                                    <Text size='xs' className='method-description'>
-                                        {localize('Using EMA')} {emaConfig.fast}/{emaConfig.slow} {localize('crossover with MACD')} ({emaConfig.signal}) {localize('confirmation')}
-                                    </Text>
-                                )}
-                                {trendMethod === 'HULL' && (
-                                    <Text size='xs' className='method-description'>
-                                        {localize('Hull Moving Average with adaptive periods for noise reduction')}
-                                    </Text>
-                                )}
+                        {/* Enhanced Market Trends with Confidence Metrics */}
+                        <div className='higher-lower-trader__market-trends'>
+                            <h4>Market Trends - {trendMethod} Analysis ({tickData.length} ticks)</h4>
+                            <div className='higher-lower-trader__market-summary'>
+                                <span>Method: {trendMethod} {trendMethod === 'EMA' ? `(${emaConfig.fast}/${emaConfig.slow}/${emaConfig.signal})` : trendMethod === 'HULL' ? 'Moving Average' : 'Multi-Indicator'}</span>
+                                <span>Data: {new Date(tickData[tickData.length - 1]?.time || 0).toLocaleTimeString()}</span>
                             </div>
-
-                            <div className='trends-grid'>
-                                {Object.entries(hullTrends).map(([timeframe, data]) => {
-                                    const tickCounts = {
-                                        '15s': 600,
-                                        '1m': 1000,
-                                        '5m': 2000,
-                                        '15m': 4500
-                                    };
-
-                                    const maxTicks = tickCounts[timeframe as keyof typeof tickCounts] || 600;
-                                    const actualTicks = Math.min(tickData.length, maxTicks);
-
-                                    const requiredConfirmations = {
-                                        '15s': 3,
-                                        '1m': 4,
-                                        '5m': 5,
-                                        '15m': 6
-                                    }[timeframe] || 3;
-
-                                    const confirmationBars = '█'.repeat(data.confirmationCount || 0) + 
-                                                               '░'.repeat(Math.max(0, requiredConfirmations - (data.confirmationCount || 0)));
-
-                                    // Calculate confidence based on confirmations and trend strength
-                                    const confidence = Math.min(100, ((data.confirmationCount || 0) / requiredConfirmations) * 100 + (trendStrength * 0.3));
-
+                            <div className='higher-lower-trader__trends-grid'>
+                                {Object.entries(hullTrends).map(([timeframe, trendData]) => {
+                                    // Correctly access confidence from trendData if it's not directly available
+                                    const confidence = (trendData as any).confidence !== undefined ? (trendData as any).confidence : 0; 
+                                    
                                     return (
-                                        <div key={timeframe} className={`trend-item trend-${data.trend.toLowerCase()}`}>
-                                            <span className='timeframe'>{timeframe}</span>
-                                            <span className='trend'>{data.trend}</span>
-                                            <span className='value'>{data.value.toFixed(5)}</span>
-                                            <span className='confirmation'>{confirmationBars}</span>
-                                            <span className='confidence'>{confidence.toFixed(0)}%</span>
-                                            <span className='tick-count'>({actualTicks} ticks)</span>
+                                        <div key={timeframe} className='higher-lower-trader__trend-item'>
+                                            <div className='trend-timeframe'>{timeframe}</div>
+                                            <div className={`trend-indicator trend-indicator--${trendData.trend.toLowerCase()}`}>
+                                                {trendData.trend === 'BULLISH' ? '🔺' : 
+                                                 trendData.trend === 'BEARISH' ? '🔻' : '⚫'}
+                                                <span className='trend-text'>{trendData.trend}</span>
+                                            </div>
+                                            <div className='trend-confidence'>
+                                                <div className={`confidence-bar confidence-${confidence > 70 ? 'high' : confidence > 40 ? 'medium' : 'low'}`}>
+                                                    <div 
+                                                        className='confidence-fill' 
+                                                        style={{ width: `${confidence}%` }}
+                                                    ></div>
+                                                </div>
+                                                <span className='confidence-text'>{confidence.toFixed(0)}%</span>
+                                            </div>
+                                            <div className='trend-value'>{trendData.value}</div>
+                                            <div className='trend-confirmations'>
+                                                {Array.from({length: Math.min(5, trendData.confirmationCount || 0)}, (_, i) => (
+                                                    <span key={i} className={`confirmation-dot ${i < (trendData.confirmationCount || 0) ? 'active' : ''}`}>●</span>
+                                                ))}
+                                            </div>
                                         </div>
                                     );
                                 })}
                             </div>
+                        </div>
 
                             <div className="trend-recommendation">
                                     <div className="trend-alignment">

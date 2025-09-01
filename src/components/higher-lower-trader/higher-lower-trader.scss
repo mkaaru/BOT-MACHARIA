@@ -159,92 +159,147 @@
             margin-bottom: 1rem;
         }
 
-        .trend-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 8px;
+        &__trend-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 8px;
+            border: 1px solid var(--border-normal);
+            border-radius: 6px;
+            background: var(--fill-normal);
+            min-height: 120px;
+            position: relative;
+
+            .trend-timeframe {
+                font-weight: bold;
+                font-size: 11px;
+                color: var(--text-prominent);
+                margin-bottom: 6px;
+                text-align: center;
+            }
+
+            .trend-indicator {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                margin: 4px 0;
+                font-size: 14px;
+
+                .trend-text {
+                    font-size: 9px;
+                    font-weight: bold;
+                    margin-top: 2px;
+                    text-align: center;
+                }
+
+                &--bullish {
+                    color: var(--text-profit-success);
+                }
+
+                &--bearish {
+                    color: var(--text-loss-danger);
+                }
+
+                &--neutral {
+                    color: var(--text-general);
+                }
+            }
+
+            .trend-confidence {
+                width: 100%;
+                margin: 6px 0;
+
+                .confidence-bar {
+                    width: 100%;
+                    height: 8px;
+                    background: var(--fill-normal);
+                    border-radius: 4px;
+                    overflow: hidden;
+                    border: 1px solid var(--border-normal);
+
+                    .confidence-fill {
+                        height: 100%;
+                        transition: width 0.3s ease;
+                    }
+
+                    &.confidence-high .confidence-fill {
+                        background: linear-gradient(90deg, var(--text-profit-success), #4ade80);
+                    }
+
+                    &.confidence-medium .confidence-fill {
+                        background: linear-gradient(90deg, #fbbf24, #f59e0b);
+                    }
+
+                    &.confidence-low .confidence-fill {
+                        background: linear-gradient(90deg, var(--text-loss-danger), #ef4444);
+                    }
+                }
+
+                .confidence-text {
+                    font-size: 9px;
+                    color: var(--text-less-prominent);
+                    text-align: center;
+                    display: block;
+                    margin-top: 2px;
+                }
+            }
+
+            .trend-value {
+                font-size: 9px;
+                color: var(--text-less-prominent);
+                margin: 2px 0;
+                text-align: center;
+                font-family: monospace;
+            }
+
+            .trend-confirmations {
+                display: flex;
+                gap: 2px;
+                margin-top: 4px;
+                justify-content: center;
+
+                .confirmation-dot {
+                    font-size: 6px;
+                    color: var(--border-normal);
+                    transition: color 0.2s ease;
+
+                    &.active {
+                        color: var(--text-profit-success);
+                    }
+                }
+            }
+        }
+
+    .trend-recommendation {
+        margin-top: 0.8rem;
+        padding: 0.5rem;
+        background: rgba(255, 255, 255, 0.05);
         border-radius: 4px;
-        margin: 4px;
-        background: var(--general-section-2);
+        text-align: center;
 
-        &.trend-bullish {
-            border-left: 3px solid var(--status-success);
-            .trend {
-                color: var(--status-success);
+        .trend-alignment {
+            margin-bottom: 0.3rem;
+
+            .trend-bullish {
+                color: #4CAF50;
+                font-weight: bold;
+            }
+
+            .trend-bearish {
+                color: #f44336;
+                font-weight: bold;
+            }
+
+            .trend-neutral {
+                color: #9e9e9e;
                 font-weight: bold;
             }
         }
 
-        &.trend-bearish {
-            border-left: 3px solid var(--status-danger);
-            .trend {
-                color: var(--status-danger);
-                font-weight: bold;
-            }
-        }
-
-        &.trend-neutral {
-            border-left: 3px solid var(--text-disabled);
-            .trend {
-                color: var(--text-disabled);
-            }
-        }
-
-        .timeframe {
-            font-size: 0.7rem;
+        .confidence-indicator {
+            color: #2196F3;
             font-weight: bold;
-            color: var(--text-general);
-        }
-
-        .trend {
-            font-size: 0.6rem;
-            margin: 2px 0;
-        }
-
-        .value {
-            font-size: 0.5rem;
-            color: var(--text-less-prominent);
-        }
-
-        .candle-count {
-            font-size: 0.45rem;
-            color: var(--text-disabled);
-            margin-top: 2px;
-        }
-    }
-
-        .trend-recommendation {
-            margin-top: 0.8rem;
-            padding: 0.5rem;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-            text-align: center;
-
-            .trend-alignment {
-                margin-bottom: 0.3rem;
-
-                .trend-bullish {
-                    color: #4CAF50;
-                    font-weight: bold;
-                }
-
-                .trend-bearish {
-                    color: #f44336;
-                    font-weight: bold;
-                }
-
-                .trend-neutral {
-                    color: #9e9e9e;
-                    font-weight: bold;
-                }
-            }
-
-            .confidence-indicator {
-                color: #2196F3;
-                font-weight: bold;
-                font-size: 0.9em;
-            }
+            font-size: 0.9em;
         }
     }
 
