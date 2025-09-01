@@ -1339,30 +1339,46 @@ const HigherLowerTrader = observer(() => {
                         </div>
 
                         {/* Duration Controls */}
-                        <div className='higher-lower-trader__row higher-lower-trader__row--two'>
-                            <div className='higher-lower-trader__field'>
-                                <label htmlFor='hl-duration-type'>{localize('Duration Type')}</label>
-                                <select
-                                    id='hl-duration-type'
-                                    value={durationType}
-                                    onChange={e => setDurationType(e.target.value)}
-                                >
-                                    <option value='s'>{localize('Seconds')}</option>
-                                    <option value='m'>{localize('Minutes')}</option>
-                                </select>
+                        {tradingMode === 'HIGHER_LOWER' && (
+                            <div className="higher-lower-trader__field">
+                                <label>
+                                    Duration ({duration} {durationType === 's' ? 'seconds' : 'minutes'})
+                                </label>
+                                <div className="higher-lower-trader__row">
+                                    <input
+                                        type="number"
+                                        value={duration}
+                                        onChange={(e) => setDuration(Number(e.target.value))}
+                                        min="1"
+                                        max={durationType === 's' ? 3600 : 60}
+                                    />
+                                    <select
+                                        value={durationType}
+                                        onChange={(e) => setDurationType(e.target.value)}
+                                    >
+                                        <option value="s">Seconds</option>
+                                        <option value="m">Minutes</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div className='higher-lower-trader__field'>
-                                <label htmlFor='hl-duration'>{localize('Duration')}</label>
-                                <input
-                                    id='hl-duration'
-                                    type='number'
-                                    min={durationType === 's' ? 15 : 1}
-                                    max={durationType === 's' ? 86400 : 1440}
-                                    value={duration}
-                                    onChange={e => setDuration(Number(e.target.value))}
-                                />
+                        )}
+
+                        {tradingMode === 'RISE_FALL' && (
+                            <div className="higher-lower-trader__field">
+                                <label>Contract Duration</label>
+                                <div style={{ 
+                                    padding: '0.75rem', 
+                                    background: 'var(--general-section-2)', 
+                                    borderRadius: '4px',
+                                    border: '1px solid var(--border-normal)'
+                                }}>
+                                    <strong>Next Tick</strong>
+                                    <small className="field-description" style={{ display: 'block', marginTop: '0.25rem' }}>
+                                        Rise/Fall contracts expire on the next tick after purchase. Entry spot is the current price.
+                                    </small>
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Stake and Barrier/Entry Spot */}
                         <div className='higher-lower-trader__row higher-lower-trader__row--two'>
@@ -1377,30 +1393,37 @@ const HigherLowerTrader = observer(() => {
                                     onChange={e => setStake(Number(e.target.value))}
                                 />
                             </div>
-                            {tradingMode === 'HIGHER_LOWER' ? (
-                                <div className='higher-lower-trader__field'>
-                                    <label htmlFor='hlt-barrier'>{localize('Barrier')}</label>
+                            {tradingMode === 'HIGHER_LOWER' && (
+                                <div className="higher-lower-trader__field">
+                                    <label>Barrier</label>
                                     <input
-                                        id='hlt-barrier'
-                                        type='text'
+                                        type="text"
                                         value={barrier}
-                                        onChange={e => setBarrier(e.target.value)}
-                                        placeholder='+0.37'
+                                        onChange={(e) => setBarrier(e.target.value)}
+                                        placeholder="+0.37"
                                     />
+                                    <small className="field-description">
+                                        Price level for Higher/Lower prediction
+                                    </small>
                                 </div>
-                            ) : (
-                                <div className='higher-lower-trader__field'>
-                                    <label htmlFor='hlt-entry-spot'>{localize('Entry Spot (Live Price)')}</label>
+                            )}
+
+                            {tradingMode === 'RISE_FALL' && (
+                                <div className="higher-lower-trader__field">
+                                    <label>
+                                        Entry Spot (Live Price)
+                                        <span className="higher-lower-trader__entry-note">
+                                            Current: {currentPrice.toFixed(5)}
+                                        </span>
+                                    </label>
                                     <input
-                                        id='hlt-entry-spot'
-                                        type='text'
-                                        value={entrySpot.toFixed(5)}
-                                        readOnly
-                                        className='higher-lower-trader__live-price'
-                                        title='Live market price - updates automatically'
+                                        type="text"
+                                        value={currentPrice.toFixed(5)}
+                                        disabled
+                                        className="higher-lower-trader__live-price"
                                     />
-                                    <small className='higher-lower-trader__entry-note'>
-                                        {localize('Entry spot will be the market price when contract is purchased')}
+                                    <small className="field-description">
+                                        Entry spot is automatically set to the current price when contract is purchased
                                     </small>
                                 </div>
                             )}
