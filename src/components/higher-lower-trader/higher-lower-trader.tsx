@@ -661,9 +661,9 @@ const HigherLowerTrader = observer(() => {
                 duration_unit: 't'
             }
         };
-        
+
         setStatus(`Purchasing ${apiContractType === 'CALL' ? 'Rise' : 'Fall'} contract for ${stake} ${account_currency}...`);
-        
+
         const response = await apiRef.current.send(buy_request);
         if (response.error) {
             console.error('Purchase error:', response.error);
@@ -691,7 +691,7 @@ const HigherLowerTrader = observer(() => {
         if (tradingMode === 'RISE_FALL') {
             // For Rise/Fall, use the correct API contract types
             if (contractType === 'CALL') apiContractType = 'CALL'; // Rise
-            else if (contractType === 'PUT') apiContractType = 'PUT'; // Fall  
+            else if (contractType === 'PUT') apiContractType = 'PUT'; // Fall
             else if (contractType === 'CALLE') apiContractType = 'CALLE'; // Rise with equals
             else if (contractType === 'PUTE') apiContractType = 'PUTE'; // Fall with equals
         }
@@ -851,7 +851,7 @@ const HigherLowerTrader = observer(() => {
                                         // Contract still running
                                         const currentProfit = Number(contract.profit || 0);
                                         setCurrentProfit(currentProfit);
-                                        
+
                                         if (contract.entry_tick_display_value) {
                                             setStatus(`⏱️ Rise/Fall contract running - Entry: ${contract.entry_tick_display_value}, Current: ${contract.current_spot_display_value || currentPrice}`);
                                         } else {
