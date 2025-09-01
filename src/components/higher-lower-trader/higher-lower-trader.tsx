@@ -101,9 +101,6 @@ const HigherLowerTrader = observer(() => {
     const [contractsLost, setContractsLost] = useState(0);
     const [totalProfitLoss, setTotalProfitLoss] = useState(0);
 
-    // Sync with global run panel runs
-    const globalRuns = run_panel?.statistics?.number_of_runs || 0;
-
     // --- Helper Functions ---
 
     // Hull Moving Average calculation with Weighted Moving Average
@@ -530,9 +527,6 @@ const HigherLowerTrader = observer(() => {
                     setTotalStake(prev => prev + effectiveStake);
                     setTotalRuns(prev => prev + 1);
 
-                    // Sync with global run panel
-                    run_panel.onStatisticUpdate();
-
                     // Notify transaction store
                     try {
                         const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
@@ -760,13 +754,6 @@ const HigherLowerTrader = observer(() => {
         setContractsWon(0);
         setContractsLost(0);
         setTotalProfitLoss(0);
-
-        // Also reset global run panel statistics
-        try {
-            run_panel?.onClearStatistics?.();
-        } catch (e) {
-            console.warn('Failed to reset global statistics:', e);
-        }
     };
 
     // Get trading recommendation based on Hull trends
@@ -803,15 +790,6 @@ const HigherLowerTrader = observer(() => {
 
     // Check if user is authorized - check if balance is available and user is logged in
     const isAuthorized = client?.balance !== undefined && client?.balance !== null && client?.is_logged_in;
-
-    // Sync with run panel statistics
-    useEffect(() => {
-        // Update run panel state when trading starts/stops
-        if (run_panel) {
-            run_panel.setIsRunning(is_running);
-            run_panel.setHasOpenContract(!!contractValue && contractValue > 0);
-        }
-    }, [is_running, contractValue, run_panel]);
 
     return (
         <div className='higher-lower-trader'>
@@ -1030,7 +1008,7 @@ const HigherLowerTrader = observer(() => {
                             <div className='stats-grid'>
                                 <div className='stat-item'>
                                     <span>{localize('Total Runs')}: </span>
-                                    <span>{Math.max(totalRuns, globalRuns)}</span>
+                                    <span>{totalRuns}</span>
                                 </div>
                                 <div className='stat-item'>
                                     <span>{localize('Won')}: </span>
