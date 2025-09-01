@@ -108,6 +108,9 @@ const HigherLowerTrader = observer(() => {
     const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
     const [isPreloading, setIsPreloading] = useState<boolean>(false);
 
+    // Trading mode state (Higher/Lower or Rise/Fall)
+    const [tradingMode, setTradingMode] = useState<'HIGHER_LOWER' | 'RISE_FALL'>('HIGHER_LOWER');
+
 
     // --- Helper Functions ---
 
@@ -996,8 +999,8 @@ const HigherLowerTrader = observer(() => {
     // Auto contract type selection based on Hull trends
     const getRecommendedContractType = () => {
         const { recommendation } = getTradingRecommendation();
-        if (recommendation === 'HIGHER') return 'CALL';
-        if (recommendation === 'LOWER') return 'PUT';
+        if (recommendation === 'HIGHER') return 'CALL'; // CALL for Higher
+        if (recommendation === 'LOWER') return 'PUT'; // PUT for Lower
         return contractType; // Keep current if neutral
     };
 
@@ -1128,7 +1131,9 @@ const HigherLowerTrader = observer(() => {
 
     const selectVolatilityFromRecommendation = (rec: any) => {
         setSymbol(rec.symbol);
+        // Set contract type based on recommendation, mapping 'HIGHER' to 'CALL' and 'LOWER' to 'PUT'
         setContractType(rec.recommendation === 'HIGHER' ? 'CALL' : 'PUT');
+        setTradingMode('HIGHER_LOWER'); // Default to Higher/Lower mode
 
         // Use the data if available
         if (preloadedData[rec.symbol]) {
@@ -1150,6 +1155,7 @@ const HigherLowerTrader = observer(() => {
         { value: 'R_50', label: 'Volatility 50 Index' },
         { value: 'R_75', label: 'Volatility 75 Index' },
         { value: 'R_100', label: 'Volatility 100 Index' },
+        // Rise/Fall specific symbols (can be added here if needed, or handled by API filtering)
         { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
         { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
         { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
@@ -1163,6 +1169,20 @@ const HigherLowerTrader = observer(() => {
         { value: 'CRASH1000', label: 'Crash 1000 Index' },
       ];
 
+    // Function to handle contract type change, considering trading mode
+    const handleContractTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const newContractType = e.target.value;
+        setContractType(newContractType);
+
+        // If in Rise/Fall mode, map 'Rise' to 'CALL' and 'Fall' to 'PUT'
+        if (tradingMode === 'RISE_FALL') {
+            if (newContractType === 'Rise') setContractType('CALL');
+            else if (newContractType === 'Fall') setContractType('PUT');
+            // Add logic for 'Allow Equals' if needed, mapping to 'PUTE' and 'CALLE'
+        } else {
+            setContractType(newContractType); // Higher/Lower mode uses CALL/PUT directly
+        }
+    };
 
     return (
         <div className="higher-lower-trader">
@@ -1170,7 +1190,25 @@ const HigherLowerTrader = observer(() => {
                 <div className="higher-lower-trader__content">
                     {/* Main Trading Form */}
                     <div className="higher-lower-trader__card">
-                        <h3>{localize('Higher/Lower Trading')}</h3>
+                        <h3>{localize(tradingMode === 'RISE_FALL' ? 'Rise/Fall Trading' : 'Higher/Lower Trading')}</h3>
+
+                        {/* Trading Mode Selection */}
+                        <div className='form-group'>
+                            <label>{localize('Trading Mode')}</label>
+                            <select
+                                value={tradingMode}
+                                onChange={(e) => {
+                                    const newMode = e.target.value as 'HIGHER_LOWER' | 'RISE_FALL';
+                                    setTradingMode(newMode);
+                                    // Reset contract type and barrier when mode changes
+                                    setContractType(newMode === 'RISE_FALL' ? 'CALL' : 'CALL'); // Default to CALL (Rise) or Higher
+                                    setBarrier(newMode === 'RISE_FALL' ? '' : '+0.37'); // Reset barrier for Rise/Fall
+                                }}
+                            >
+                                <option value='HIGHER_LOWER'>{localize('Higher/Lower')}</option>
+                                <option value='RISE_FALL'>{localize('Rise/Fall')}</option>
+                            </select>
+                        </div>
 
                         {/* Connection Status */}
                         <div className='form-group'>
@@ -1214,14 +1252,24 @@ const HigherLowerTrader = observer(() => {
                                 </select>
                             </div>
                             <div className='higher-lower-trader__field'>
-                                <label htmlFor='hl-contractType'>{localize('Contract Type')}</label>
+                                <label htmlFor='hl-contractType'>{localize(tradingMode === 'RISE_FALL' ? 'Trade Type' : 'Contract Type')}</label>
                                 <select
                                     id='hl-contractType'
-                                    value={contractType}
-                                    onChange={e => setContractType(e.target.value)}
+                                    value={tradingMode === 'RISE_FALL' ? (contractType === 'CALL' ? 'Rise' : (contractType === 'PUT' ? 'Fall' : contractType)) : contractType}
+                                    onChange={handleContractTypeChange}
                                 >
-                                    <option value='CALL'>{localize('Higher (Call)')}</option>
-                                    <option value='PUT'>{localize('Lower (Put)')}</option>
+                                    {tradingMode === 'HIGHER_LOWER' ? (
+                                        <>
+                                            <option value='CALL'>{localize('Higher (Call)')}</option>
+                                            <option value='PUT'>{localize('Lower (Put)')}</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option value='Rise'>{localize('Rise')}</option>
+                                            <option value='Fall'>{localize('Fall')}</option>
+                                            <option value='RiseEquals'>{localize('Rise/Fall equals')}</option>
+                                        </>
+                                    )}
                                 </select>
                             </div>
                         </div>
@@ -1266,14 +1314,15 @@ const HigherLowerTrader = observer(() => {
                                 />
                             </div>
                             <div className='higher-lower-trader__field'>
-                                <label htmlFor='hl-barrier'>{localize('Barrier')}</label>
+                                <label htmlFor='hl-barrier'>{localize(tradingMode === 'RISE_FALL' ? 'Barrier Offset' : 'Barrier')}</label>
                                 <input
                                     id='hl-barrier'
                                     type='text'
                                     value={barrier}
                                     onChange={e => setBarrier(e.target.value)}
-                                    placeholder='0.00 = current price, +0.37, -0.25'
-                                    title='Set to 0.00 to use current price as barrier'
+                                    placeholder={tradingMode === 'RISE_FALL' ? '0.00 = current price, +0.0001, -0.0001' : '0.00 = current price, +0.37, -0.25'}
+                                    title={tradingMode === 'RISE_FALL' ? 'Set to 0.00 for barrier equal to entry price' : 'Set to 0.00 to use current price as barrier'}
+                                    disabled={tradingMode === 'RISE_FALL'} // Barrier not applicable for Rise/Fall in this context
                                 />
                             </div>
                         </div>
@@ -1365,11 +1414,17 @@ const HigherLowerTrader = observer(() => {
                                                 <button
                                                     className={`btn-auto-select ${recommendation.recommendation.toLowerCase()}`}
                                                     onClick={() => {
-                                                        setContractType(getRecommendedContractType());
-                                                        setStatus(`Auto-selected ${getRecommendedContractType()} based on trend analysis`);
+                                                        const recommendedType = getRecommendedContractType();
+                                                        setContractType(recommendedType);
+                                                        const displayText = tradingMode === 'RISE_FALL' ?
+                                                            (recommendedType === 'CALL' ? 'Rise' : 'Fall') :
+                                                            recommendedType;
+                                                        setStatus(`Auto-selected ${displayText} based on trend analysis`);
                                                     }}
                                                 >
-                                                    {localize('Use Recommendation')} ({recommendation.recommendation === 'HIGHER' ? 'CALL' : 'PUT'})
+                                                    {localize('Use Recommendation')} ({tradingMode === 'RISE_FALL' ?
+                                                        (recommendation.recommendation === 'HIGHER' ? 'Rise' : 'Fall') :
+                                                        (recommendation.recommendation === 'HIGHER' ? 'CALL' : 'PUT')})
                                                 </button>
                                             </div>
                                         )}
