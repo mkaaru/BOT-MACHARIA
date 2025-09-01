@@ -51,11 +51,6 @@ const HigherLowerTrader = observer(() => {
     const tickStreamIdRef = useRef<string | null>(null);
     const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
 
-    // State for tracking current contract details
-    const [currentContract, setCurrentContract] = useState<any>(null); // Stores the active contract object
-    const contractStreamIdRef = useRef<string | null>(null); // Ref for contract stream ID
-    const contractTimerRef = useRef<NodeJS.Timeout | null>(null); // Ref for contract timer
-
     const [is_authorized, setIsAuthorized] = useState(false);
     const [account_currency, setAccountCurrency] = useState<string>('USD');
     const [symbols, setSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
@@ -491,21 +486,6 @@ const HigherLowerTrader = observer(() => {
         const { buy, error } = await apiRef.current.buy(buy_req);
         if (error) throw error;
         setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
-
-        // Set current contract details
-        setCurrentContract({
-            contract_id: buy.contract_id,
-            symbol: symbol,
-            contract_type: contractType,
-            stake: stakeAmount,
-            barrier: barrier,
-            entry_tick_display_value: buy.entry_tick_display_value,
-            payout: buy.payout,
-            start_time: buy.start_time,
-            longcode: buy.longcode,
-            shortcode: buy.shortcode
-        });
-
         return buy;
     };
 
@@ -676,14 +656,16 @@ const HigherLowerTrader = observer(() => {
                         is_completed: true,
                         run_id: run_panel.run_id,
                         contract_id: contractResult.contract_id || Date.now(),
-                        transaction_id: contractResult.transaction_id || Date.now(),
-                        buy_price: buy.buy_price,
-                        longcode: buy.longcode,
-                        start_time: buy.start_time,
-                        shortcode: buy.shortcode,
-                        underlying: symbol,
+                        transaction_ids: {
+                            buy: contractResult.transaction_id || Date.now(),
+                            sell: sell_transaction_id
+                        },
+                        date_start: buy.start_time,
                         entry_tick_display_value: contractResult.entry_tick_display_value,
                         exit_tick_display_value: contractResult.exit_tick_display_value,
+                        shortcode: buy.shortcode,
+                        longcode: buy.longcode,
+                        underlying: symbol
                     };
 
                     // Notify transaction store
@@ -755,94 +737,15 @@ const HigherLowerTrader = observer(() => {
         }
     };
 
-    // --- Stop Trading Logic ---
-    const stopTrading = async () => {
-        try {
-            setStatus('Stopping trading...');
-            
-            // Set stop flag first
-            stopFlagRef.current = true;
-            setIsRunning(false);
-
-            // Cancel any active contract if exists
-            if (currentContract?.contract_id) {
-                try {
-                    setStatus('Attempting to sell active contract...');
-                    
-                    if (apiRef.current?.sell) {
-                        const sellResponse = await apiRef.current.sell({
-                            sell: currentContract.contract_id,
-                            price: 0 // Market price
-                        });
-
-                        if (sellResponse?.sell) {
-                            setStatus(`Contract sold at market price: ${sellResponse.sell.sold_for}`);
-                        } else {
-                            setStatus('Contract sale request sent');
-                        }
-                    }
-                } catch (sellError: any) {
-                    console.warn('Failed to sell contract:', sellError);
-                    setStatus('Failed to sell active contract - it may have already expired');
-                }
-            }
-
-            // Cleanup contract subscriptions safely
-            if (contractStreamIdRef.current && apiRef.current?.forget) {
-                try {
-                    await apiRef.current.forget({ forget: contractStreamIdRef.current });
-                } catch (forgetError) {
-                    console.warn('Failed to forget contract subscription:', forgetError);
-                }
-                contractStreamIdRef.current = null;
-            }
-
-            // Clear any contract timers safely
-            if (contractTimerRef.current) {
-                clearInterval(contractTimerRef.current);
-                contractTimerRef.current = null;
-            }
-
-            // Cleanup live ticks safely
-            try {
-                stopTicks();
-            } catch (tickError) {
-                console.warn('Error stopping ticks:', tickError);
-            }
-
-            // Update Run Panel state safely
-            try {
-                run_panel.setIsRunning(false);
-                run_panel.setHasOpenContract(false);
-                run_panel.setContractStage(contract_stages.NOT_RUNNING);
-            } catch (runPanelError) {
-                console.warn('Error updating run panel state:', runPanelError);
-            }
-
-            // Reset contract state
-            setCurrentContract(null);
-            setContractValue(0);
-            setPotentialPayout(0);
-            setCurrentProfit(0);
-            setContractDuration('00:00:00');
-
-            setStatus('Trading stopped successfully');
-
-        } catch (error: any) {
-            console.error('Error during stop trading:', error);
-            setStatus(`Error stopping trading: ${error.message || 'Unknown error'}`);
-            
-            // Ensure we still set the basic stopped state even if there are errors
-            stopFlagRef.current = true;
-            setIsRunning(false);
-            setCurrentContract(null);
-            setContractValue(0);
-            setPotentialPayout(0);
-            setCurrentProfit(0);
-            setContractDuration('00:00:00');
-        }
+    const stopTrading = () => {
+        stopFlagRef.current = true;
+        setIsRunning(false);
+        stopTicks();
+        run_panel.setIsRunning(false);
+        run_panel.setHasOpenContract(false);
+        run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        setStatus('Trading stopped');
     };
-
 
     const resetStats = () => {
         setTotalStake(0);
@@ -1153,11 +1056,10 @@ const HigherLowerTrader = observer(() => {
                             ) : (
                                 <button
                                     onClick={stopTrading}
-                                    disabled={!is_running}
-                                    className='stop-button'
+                                    className='btn-stop'
                                 >
-                                    <Square size={16} />
-                                    {currentContract ? 'Stop & Cancel Contract' : 'Stop Trading'}
+                                    <Square className='icon' />
+                                    {localize('Stop Trading')}
                                 </button>
                             )}
                         </div>
