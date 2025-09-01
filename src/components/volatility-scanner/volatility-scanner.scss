@@ -1,0 +1,320 @@
+
+.volatility-scanner {
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+  min-height: 100vh;
+  height: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  .scanner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+
+    h2 {
+      font-size: 24px;
+      font-weight: bold;
+      color: var(--text-prominent);
+      margin: 0;
+    }
+
+    .connection-status {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 14px;
+
+      &.connected {
+        background-color: var(--status-success);
+        color: white;
+      }
+
+      &.disconnected {
+        background-color: var(--status-danger);
+        color: white;
+      }
+
+      &.error {
+        background-color: var(--status-warning);
+        color: white;
+      }
+    }
+  }
+
+  .scanner-controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    align-items: end;
+    flex-wrap: wrap;
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: fit-content;
+
+      label {
+        font-weight: 500;
+        color: var(--text-general);
+        font-size: 12px;
+        margin: 0;
+        line-height: 1.2;
+        white-space: nowrap;
+      }
+
+      select,
+      input {
+        padding: 4px 8px;
+        border: 1px solid var(--border-normal);
+        border-radius: 4px;
+        background-color: var(--fill-normal);
+        color: var(--text-general);
+        font-size: 12px;
+        min-width: 80px;
+        height: 28px;
+
+        &:focus {
+          outline: none;
+          border-color: var(--brand-secondary);
+        }
+      }
+
+      select {
+        min-width: 120px;
+      }
+
+      input[type="number"] {
+        min-width: 60px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      gap: 8px;
+      
+      .control-group {
+        gap: 2px;
+        
+        label {
+          font-size: 11px;
+        }
+        
+        select,
+        input {
+          padding: 3px 6px;
+          font-size: 11px;
+          height: 26px;
+        }
+        
+        select {
+          min-width: 100px;
+        }
+        
+        input[type="number"] {
+          min-width: 50px;
+        }
+      }
+    }
+  }
+
+  .volatility-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    max-width: 1800px;
+    overflow-y: auto;
+    max-height: calc(100vh - 200px);
+    padding-bottom: 150px;
+
+    @media (max-width: 768px) {
+      padding-bottom: 120px;
+      grid-template-columns: 1fr;
+    }
+
+    @media (min-width: 1600px) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    @media (min-width: 1200px) and (max-width: 1599px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: 1199px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .volatility-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+
+    .card-header {
+      margin-bottom: 16px;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 12px;
+
+      h3 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+      }
+
+      .market-info {
+        font-size: 12px;
+        color: #666;
+        margin-top: 4px;
+      }
+    }
+
+    .card-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+
+      .trend-info {
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 12px;
+
+        .trend-label {
+          font-size: 12px;
+          color: #666;
+          margin-bottom: 8px;
+          font-weight: 500;
+        }
+
+        .trend-value {
+          font-size: 14px;
+          font-weight: 600;
+          margin-bottom: 4px;
+
+          &.bullish {
+            color: #4caf50;
+          }
+
+          &.bearish {
+            color: #f44336;
+          }
+
+          &.neutral {
+            color: #ff9800;
+          }
+        }
+
+        .trend-confidence {
+          font-size: 12px;
+          color: #666;
+        }
+      }
+
+      .market-data {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        font-size: 12px;
+
+        .data-item {
+          display: flex;
+          justify-content: space-between;
+          padding: 4px 0;
+
+          .label {
+            color: #666;
+          }
+
+          .value {
+            font-weight: 500;
+            color: #333;
+          }
+        }
+      }
+    }
+
+    .card-footer {
+      margin-top: 16px;
+      border-top: 1px solid #e0e0e0;
+      padding-top: 12px;
+
+      .action-buttons {
+        display: flex;
+        gap: 8px;
+
+        button {
+          flex: 1;
+          padding: 8px 12px;
+          border: none;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+
+          &.primary {
+            background: #2196f3;
+            color: white;
+
+            &:hover {
+              background: #1976d2;
+            }
+          }
+
+          &.secondary {
+            background: #e0e0e0;
+            color: #333;
+
+            &:hover {
+              background: #d0d0d0;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+    font-size: 16px;
+    color: var(--text-general);
+  }
+
+  .error {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+    font-size: 16px;
+    color: var(--status-danger);
+    text-align: center;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(33, 150, 243, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(33, 150, 243, 0);
+  }
+}
