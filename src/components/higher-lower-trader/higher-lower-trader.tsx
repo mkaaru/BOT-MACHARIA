@@ -81,10 +81,10 @@ const HigherLowerTrader = observer(() => {
 
     // Hull Moving Average trend analysis state
     const [hullTrends, setHullTrends] = useState({
-        '15s': { trend: 'NEUTRAL', value: 0 },
-        '1m': { trend: 'NEUTRAL', value: 0 },
-        '5m': { trend: 'NEUTRAL', value: 0 },
-        '15m': { trend: 'NEUTRAL', value: 0 }
+        '60': { trend: 'NEUTRAL', value: 0 },
+        '120': { trend: 'NEUTRAL', value: 0 },
+        '600': { trend: 'NEUTRAL', value: 0 },
+        '2000': { trend: 'NEUTRAL', value: 0 }
     });
     const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
 
@@ -164,97 +164,61 @@ const HigherLowerTrader = observer(() => {
         const newTrends = { ...hullTrends };
 
         // Define tick count requirements for different timeframe analysis
-        const timeframeTickCounts = {
-            '15s': 600,   // 600 ticks for 15-second analysis
-            '1m': 1000,   // 1000 ticks for 1-minute analysis
-            '5m': 2000,   // 2000 ticks for 5-minute analysis
-            '15m': 4500   // 4500 ticks for 15-minute analysis
+        const tickCounts = {
+            '60': 60,
+            '120': 120,
+            '600': 600,
+            '2000': 2000
         };
 
-        Object.entries(timeframeTickCounts).forEach(([timeframe, tickCount]) => {
-            // Use the most recent ticks for this timeframe
-            const recentTicks = newTickData.slice(-tickCount);
-            
-            if (recentTicks.length >= Math.min(50, tickCount)) { // Minimum 50 ticks required
+        Object.entries(tickCounts).forEach(([tickCountStr, requiredTicks]) => {
+            const tickCount = Number(tickCountStr);
+            const recentTicks = newTickData.slice(-requiredTicks);
+
+            if (recentTicks.length >= Math.min(10, requiredTicks)) { // Minimum 10 ticks required
                 const tickPrices = recentTicks.map(tick => tick.price);
 
-                // Use adaptive HMA period based on timeframe
-                const hmaPeriods = {
-                    '15s': Math.min(14, Math.floor(tickPrices.length * 0.3)),
-                    '1m': Math.min(20, Math.floor(tickPrices.length * 0.4)),
-                    '5m': Math.min(30, Math.floor(tickPrices.length * 0.5)),
-                    '15m': Math.min(50, Math.floor(tickPrices.length * 0.6))
-                };
+                // Use adaptive HMA period based on tick count
+                const hmaPeriod = Math.max(5, Math.min(Math.floor(tickPrices.length * 0.5), 50)); // Period between 5 and 50
 
-                const hmaPeriod = hmaPeriods[timeframe as keyof typeof hmaPeriods] || 14;
                 const hmaValue = calculateHMA(tickPrices, hmaPeriod);
 
-                if (hmaValue !== null && tickPrices.length >= 10) {
+                if (hmaValue !== null) {
                     let trend = 'NEUTRAL';
 
                     // Calculate HMA slope for trend direction
-                    const prevHMA = calculateHMA(tickPrices.slice(0, -5), Math.min(hmaPeriod, tickPrices.length - 5));
+                    const prevHMA = calculateHMA(tickPrices.slice(0, -1), Math.min(hmaPeriod, tickPrices.length - 1)); // Use previous tick for slope
                     const hmaSlope = prevHMA !== null ? hmaValue - prevHMA : 0;
 
                     // Get recent price movements
                     const currentPrice = tickPrices[tickPrices.length - 1];
                     const priceAboveHMA = currentPrice > hmaValue;
-                    
-                    // Analyze recent price momentum (last 10% of ticks)
-                    const momentumLength = Math.max(5, Math.floor(tickPrices.length * 0.1));
-                    const recentPrices = tickPrices.slice(-momentumLength);
-                    const priceStart = recentPrices[0];
-                    const priceEnd = recentPrices[recentPrices.length - 1];
-                    const priceMomentum = priceEnd - priceStart;
-                    
+
                     // Calculate price volatility for adaptive thresholds
-                    const priceRange = Math.max(...recentPrices) - Math.min(...recentPrices);
+                    const priceRange = Math.max(...tickPrices) - Math.min(...tickPrices);
                     const adaptiveThreshold = priceRange * 0.1; // 10% of recent price range
 
+                    const slopeThreshold = Math.max(0.00001, adaptiveThreshold * 0.3); // Minimum slope threshold
+                    const momentumThreshold = adaptiveThreshold * 0.5; // Minimum momentum threshold
+
                     // Enhanced trend detection with tick-based analysis
-                    const baseSlopeThreshold = {
-                        '15s': 0.00002,
-                        '1m': 0.00005,
-                        '5m': 0.0001,
-                        '15m': 0.0002
-                    }[timeframe] || 0.00005;
-
-                    const slopeThreshold = Math.max(baseSlopeThreshold, adaptiveThreshold * 0.3);
-                    const momentumThreshold = adaptiveThreshold * 0.5;
-
-                    // More sensitive trend detection
                     if (hmaSlope > slopeThreshold) {
-                        if (priceAboveHMA || priceMomentum > momentumThreshold) {
+                        if (priceAboveHMA || (tickPrices.slice(-5).reduce((sum, p) => sum + p, 0) / 5 - hmaValue) > slopeThreshold) {
                             trend = 'BULLISH';
                         }
                     } else if (hmaSlope < -slopeThreshold) {
-                        if (!priceAboveHMA || priceMomentum < -momentumThreshold) {
+                        if (!priceAboveHMA || (tickPrices.slice(-5).reduce((sum, p) => sum + p, 0) / 5 - hmaValue) < -slopeThreshold) {
                             trend = 'BEARISH';
                         }
-                    } else if (Math.abs(priceMomentum) > momentumThreshold) {
+                    } else if (Math.abs(tickPrices[tickPrices.length - 1] - tickPrices[tickPrices.length - 5]) > momentumThreshold) {
                         // Pure momentum-based detection when HMA is flat
-                        trend = priceMomentum > 0 ? 'BULLISH' : 'BEARISH';
-                    } else if (Math.abs(hmaSlope) > baseSlopeThreshold * 0.5) {
-                        // Weak trend detection
+                        trend = tickPrices[tickPrices.length - 1] > tickPrices[tickPrices.length - 5] ? 'BULLISH' : 'BEARISH';
+                    } else if (Math.abs(hmaSlope) > 0.000005) {
+                        // Weak trend detection if HMA slope is slightly positive or negative
                         trend = hmaSlope > 0 ? 'BULLISH' : 'BEARISH';
                     }
 
-                    // Debug logging for trend analysis
-                    if (timeframe === '15s') {
-                        console.log(`Trend Analysis - ${timeframe}:`, {
-                            hmaValue: hmaValue.toFixed(6),
-                            hmaSlope: hmaSlope.toFixed(6),
-                            slopeThreshold: slopeThreshold.toFixed(6),
-                            currentPrice: currentPrice.toFixed(5),
-                            priceAboveHMA,
-                            priceMomentum: priceMomentum.toFixed(6),
-                            momentumThreshold: momentumThreshold.toFixed(6),
-                            trend,
-                            tickCount: tickPrices.length
-                        });
-                    }
-
-                    newTrends[timeframe as keyof typeof hullTrends] = {
+                    newTrends[tickCountStr as keyof typeof hullTrends] = {
                         trend,
                         value: Number(hmaValue.toFixed(5))
                     };
@@ -271,7 +235,7 @@ const HigherLowerTrader = observer(() => {
             const request = {
                 ticks_history: symbolToFetch,
                 adjust_start_time: 1,
-                count: 1000,
+                count: 2000, // Fetch enough ticks for the longest analysis
                 end: "latest",
                 start: 1,
                 style: "ticks"
@@ -297,7 +261,7 @@ const HigherLowerTrader = observer(() => {
                         arr.findIndex(t => t.time === tick.time) === index
                     ).sort((a, b) => a.time - b.time);
 
-                    const trimmedData = uniqueData.slice(-2000);
+                    const trimmedData = uniqueData.slice(-2000); // Keep only the most recent 2000 ticks
                     updateHullTrends(trimmedData);
                     return trimmedData;
                 });
@@ -320,13 +284,13 @@ const HigherLowerTrader = observer(() => {
         const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>} = {};
 
         try {
-            // Fetch 5000 ticks for each volatility index
+            // Fetch 2000 ticks for each volatility index for trend analysis
             const promises = volatilitySymbols.map(async (sym) => {
                 try {
                     const request = {
                         ticks_history: sym,
                         adjust_start_time: 1,
-                        count: 5000, // Maximum allowed by Deriv
+                        count: 2000, // Fetch enough for the longest trend analysis
                         end: "latest",
                         start: 1,
                         style: "ticks"
@@ -374,7 +338,7 @@ const HigherLowerTrader = observer(() => {
                 const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
                 if (asErr) throw asErr;
                 const syn = (active_symbols || [])
-                    .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol))
+                    .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol) || s.symbol.startsWith('BOOM') || s.symbol.startsWith('CRASH') || s.symbol === 'stpRNG')
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
                 setSymbols(syn);
 
@@ -384,7 +348,7 @@ const HigherLowerTrader = observer(() => {
                 if (!symbol && syn[0]?.symbol) {
                     setSymbol(syn[0].symbol);
                     // Use preloaded data if available
-                    if (preloadedData[syn[0].symbol]) {
+                    if (preloadedData[syn[0].symbol] && preloadedData[syn[0].symbol].length > 0) {
                         setTickData(preloadedData[syn[0].symbol]);
                         updateHullTrends(preloadedData[syn[0].symbol]);
                     } else {
@@ -792,14 +756,35 @@ const HigherLowerTrader = observer(() => {
         setTotalProfitLoss(0);
     };
 
+    // Get trading recommendation based on Hull trends
+    const getTradingRecommendation = () => {
+        const trends = Object.entries(hullTrends);
+        const bullishCount = trends.filter(([_, data]) => data.trend === 'BULLISH').length;
+        const bearishCount = trends.filter(([_, data]) => data.trend === 'BEARISH').length;
+        const totalTrends = trends.length;
+
+        let recommendation = 'NEUTRAL';
+        let confidence = 0;
+
+        if (bullishCount > bearishCount) {
+            recommendation = 'HIGHER';
+            confidence = totalTrends > 0 ? bullishCount / totalTrends : 0;
+        } else if (bearishCount > bullishCount) {
+            recommendation = 'LOWER';
+            confidence = totalTrends > 0 ? bearishCount / totalTrends : 0;
+        } else {
+            recommendation = 'NEUTRAL';
+            confidence = 0.5; // Neutral confidence if counts are equal
+        }
+
+        return { recommendation, confidence };
+    };
+
     // Auto contract type selection based on Hull trends
     const getRecommendedContractType = () => {
-        const trends = Object.values(hullTrends);
-        const bullishCount = trends.filter(t => t.trend === 'BULLISH').length;
-        const bearishCount = trends.filter(t => t.trend === 'BEARISH').length;
-
-        if (bullishCount > bearishCount) return 'CALL';
-        if (bearishCount > bullishCount) return 'PUT';
+        const { recommendation } = getTradingRecommendation();
+        if (recommendation === 'HIGHER') return 'CALL';
+        if (recommendation === 'LOWER') return 'PUT';
         return contractType; // Keep current if neutral
     };
 
@@ -968,32 +953,26 @@ const HigherLowerTrader = observer(() => {
                         <div className='higher-lower-trader__trends'>
                             <h4>{localize('Market Trends (Hull MA from Ticks)')}</h4>
                             <div className='trends-grid'>
-                                {Object.entries(hullTrends).map(([timeframe, data]) => {
-                                    const tickCounts = {
-                                        '15s': 30,
-                                        '1m': 120,
-                                        '5m': 300,
-                                        '15m': 600
-                                    };
+                                {Object.entries(hullTrends).map(([tickCount, data]) => (
+                                    <div key={tickCount} className={`trend-item trend-${data.trend.toLowerCase()}`}>
+                                        <div className="trend-timeframe">{tickCount} ticks</div>
+                                        <div className="trend-status">{data.trend}</div>
+                                        <div className="trend-value">{data.value.toFixed(5)}</div>
+                                    </div>
+                                ))}
+                            </div>
 
-                                    const maxTicks = tickCounts[timeframe as keyof typeof tickCounts] || 120;
-                                    const actualTicks = Math.min(tickData.length, maxTicks);
-
-                                    return (
-                                        <div key={timeframe} className={`trend-item trend-${data.trend.toLowerCase()}`}>
-                                            <span className='timeframe'>{timeframe}</span>
-                                            <span className='trend'>{data.trend}</span>
-                                            <span className='value'>{data.value.toFixed(5)}</span>
-                                            <span className='tick-count'>({actualTicks} ticks)</span>
+                            {(() => {
+                                const recommendation = getTradingRecommendation();
+                                return (
+                                    <div className={`recommendation ${recommendation.recommendation.toLowerCase()}`}>
+                                        <h5>📈 Recommended: {recommendation.recommendation}</h5>
+                                        <div className="confidence">
+                                            Confidence: {(recommendation.confidence * 100).toFixed(0)}%
                                         </div>
-                                    );
-                                })}
-                            </div>
-                            <div className='trend-recommendation'>
-                                <Text size='xs'>
-                                    {localize('Recommended')}: <strong>{getRecommendedContractType() === 'CALL' ? 'Higher' : 'Lower'}</strong>
-                                </Text>
-                            </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Contract Info During Trading */}
