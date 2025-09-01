@@ -27,6 +27,7 @@ import SmartTrader from '@/components/smart-trader';
 import MLTrader from '@/components/ml-trader';
 import HigherLowerTrader from '@/components/higher-lower-trader';
 import VolatilityScanner from '@/components/volatility-scanner';
+import { TrendingUp } from '@deriv-com/ui/dist/icons';
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
