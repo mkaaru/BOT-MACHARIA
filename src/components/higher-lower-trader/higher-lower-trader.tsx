@@ -966,7 +966,7 @@ const HigherLowerTrader = observer(() => {
         const minAlignedTrends = 3;
 
         for (const volatility of VOLATILITY_INDICES) {
-            const symbolData = preloadedData[volatility.symbol];
+            const symbolData = preloadedData[volatility.value];
             if (symbolData && symbolData.length >= 1000) { // Ensure enough data for analysis
                 // Temporarily update hullTrends for this symbol to get its recommendation
                 const tempHullTrends: { [key: string]: { trend: string; value: number } } = {};
@@ -1061,7 +1061,8 @@ const HigherLowerTrader = observer(() => {
 
                 if (recommendation !== 'NEUTRAL') {
                     recommendations.push({
-                        ...volatility,
+                        symbol: volatility.value,
+                        label: volatility.label,
                         recommendation,
                         confidence,
                         alignedTrends: Math.max(bullishCount, bearishCount),
@@ -1070,7 +1071,7 @@ const HigherLowerTrader = observer(() => {
                     });
                 }
             } else {
-                console.log(`Not enough data for ${volatility.symbol} to perform scan.`);
+                console.log(`Not enough data for ${volatility.value} to perform scan.`);
             }
         }
 
@@ -1342,7 +1343,7 @@ const HigherLowerTrader = observer(() => {
                                                     <div className="card-header">
                                                         <div className="symbol-info">
                                                             <strong>{rec.symbol}</strong>
-                                                            <small>{rec.display_name}</small>
+                                                            <small>{rec.label}</small>
                                                         </div>
                                                         <div className={`rec-badge ${rec.recommendation.toLowerCase()}`}>
                                                             {rec.recommendation}
