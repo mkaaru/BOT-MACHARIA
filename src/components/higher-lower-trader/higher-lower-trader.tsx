@@ -574,44 +574,69 @@ const HigherLowerTrader = observer(() => {
 
 
     const authorizeIfNeeded = async () => {
-        // If already authorized, just return
-        if (is_authorized) {
-            setStatus('Already authorized');
-            return;
-        }
-
         const token = V2GetActiveToken();
         if (!token) {
-            setStatus('No token found. Please log in and select an account.');
-            throw new Error('No token');
+            const errorMessage = 'No authentication token found. Please log in to your Deriv account first.';
+            setStatus(errorMessage);
+            throw new Error(errorMessage);
         }
 
         try {
+            // Check if API connection is available
+            if (!apiRef.current) {
+                throw new Error('API connection not available');
+            }
+
+            setStatus('Authorizing with Deriv API...');
+            
             // Try to authorize or re-authorize
-            const { authorize, error } = await apiRef.current.authorize(token);
-            if (error) {
-                setStatus(`Authorization error: ${error.message || error.code}`);
-                throw error;
+            const response = await apiRef.current.authorize(token);
+            
+            if (response.error) {
+                const errorMessage = `Authorization failed: ${response.error.message || response.error.code}`;
+                setStatus(errorMessage);
+                throw new Error(errorMessage);
+            }
+
+            const { authorize } = response;
+            if (!authorize) {
+                throw new Error('Authorization response is empty');
             }
 
             setIsAuthorized(true);
-            const loginid = authorize?.loginid || V2GetActiveClientId();
-            setAccountCurrency(authorize?.currency || 'USD');
+            const loginid = authorize.loginid || V2GetActiveClientId();
+            const currency = authorize.currency || 'USD';
+            setAccountCurrency(currency);
             
             // Sync auth state with store
             try {
                 store?.client?.setLoginId?.(loginid || '');
-                store?.client?.setCurrency?.(authorize?.currency || 'USD');
+                store?.client?.setCurrency?.(currency);
                 store?.client?.setIsLoggedIn?.(true);
             } catch (syncError) {
                 console.warn('Failed to sync auth state with store:', syncError);
             }
 
-            setStatus(`Authorized as ${loginid} (${authorize?.currency || 'USD'})`);
+            setStatus(`✅ Authorized as ${loginid} (${currency})`);
+            return authorize;
         } catch (authError) {
             console.error('Authorization failed:', authError);
             setIsAuthorized(false);
-            throw authError;
+            
+            // Provide user-friendly error messages
+            let userMessage = 'Authorization failed. ';
+            if (authError.message?.includes('InvalidToken')) {
+                userMessage += 'Your session has expired. Please log out and log back in.';
+            } else if (authError.message?.includes('SelfExclusion')) {
+                userMessage += 'Your account is currently self-excluded from trading.';
+            } else if (authError.message?.includes('AccountSuspended')) {
+                userMessage += 'Your account is suspended. Please contact support.';
+            } else {
+                userMessage += authError.message || 'Please refresh the page and try again.';
+            }
+            
+            setStatus(`❌ ${userMessage}`);
+            throw new Error(userMessage);
         }
     };
 
@@ -674,21 +699,20 @@ const HigherLowerTrader = observer(() => {
 
     // Rise/Fall mode - tick-based contracts
     const purchaseRiseFallContract = async () => {
-        await authorizeIfNeeded();
+        // Ensure we're authorized before making purchase
+        if (!is_authorized) {
+            await authorizeIfNeeded();
+        }
 
         // Map contract types correctly for Rise/Fall
         let apiContractType = contractType;
         if (contractType === 'CALL') apiContractType = 'CALL'; // Rise
         else if (contractType === 'PUT') apiContractType = 'PUT'; // Fall
 
-        const trade_option: any = {
-            amount: Number(stake),
-            basis: 'stake',
-            currency: account_currency,
-            symbol,
-            duration: 1, // 1 tick duration for Rise/Fall
-            duration_unit: 't', // tick unit
-        };
+        // Validate inputs
+        if (!symbol || !stake || stake <= 0) {
+            throw new Error('Invalid trading parameters. Please check symbol and stake amount.');
+        }
 
         // Use direct API call for Rise/Fall contracts
         const buy_request = {
@@ -707,23 +731,49 @@ const HigherLowerTrader = observer(() => {
 
         setStatus(`Purchasing ${apiContractType === 'CALL' ? 'Rise' : 'Fall'} contract for ${stake} ${account_currency}...`);
 
-        const response = await apiRef.current.send(buy_request);
-        if (response.error) {
-            console.error('Purchase error:', response.error);
-            throw response.error;
+        try {
+            const response = await apiRef.current.send(buy_request);
+            
+            if (response.error) {
+                let errorMessage = 'Purchase failed: ';
+                
+                // Handle specific error codes
+                if (response.error.code === 'InsufficientBalance') {
+                    errorMessage += 'Insufficient account balance.';
+                } else if (response.error.code === 'InvalidContract') {
+                    errorMessage += 'Invalid contract parameters.';
+                } else if (response.error.code === 'MarketIsClosed') {
+                    errorMessage += 'Market is currently closed.';
+                } else if (response.error.code === 'AuthorizationRequired') {
+                    errorMessage += 'Authorization required. Please log in again.';
+                    setIsAuthorized(false);
+                } else {
+                    errorMessage += response.error.message || 'Unknown error occurred.';
+                }
+                
+                console.error('Purchase error:', response.error);
+                throw new Error(errorMessage);
+            }
+
+            const buy = response.buy;
+            if (!buy || !buy.contract_id) {
+                throw new Error('Invalid purchase response - no contract ID received.');
+            }
+
+            setStatus(`${apiContractType === 'CALL' ? 'Rise' : 'Fall'} contract purchased: ${buy?.longcode || apiContractType}`);
+            setTotalStake(prev => prev + Number(stake));
+            setTotalRuns(prev => prev + 1);
+
+            // Store entry spot for Rise/Fall comparison
+            if (buy?.entry_spot) {
+                setEntrySpot(Number(buy.entry_spot));
+            }
+
+            return buy;
+        } catch (apiError) {
+            console.error('API call failed:', apiError);
+            throw apiError;
         }
-
-        const buy = response.buy;
-        setStatus(`${apiContractType === 'CALL' ? 'Rise' : 'Fall'} contract purchased: ${buy?.longcode || apiContractType}`);
-        setTotalStake(prev => prev + Number(stake));
-        setTotalRuns(prev => prev + 1);
-
-        // Store entry spot for Rise/Fall comparison
-        if (buy?.entry_spot) {
-            setEntrySpot(Number(buy.entry_spot));
-        }
-
-        return buy;
     };
 
     const purchaseOnceWithStake = async (stakeAmount: number) => {
@@ -806,9 +856,22 @@ const HigherLowerTrader = observer(() => {
         run_panel.setContractStage(contract_stages.STARTING);
 
         try {
-            // Ensure authorization first
-            await authorizeIfNeeded();
-            setStatus('Authorization successful, starting trading...');
+            // Check authorization status before starting
+            if (!is_authorized) {
+                setStatus('Checking authorization...');
+                try {
+                    await authorizeIfNeeded();
+                    setStatus('Authorization successful, starting trading...');
+                } catch (authError) {
+                    setStatus('❌ Authorization failed. Please ensure you are logged in with a valid account.');
+                    setIsRunning(false);
+                    run_panel.setIsRunning(false);
+                    run_panel.setContractStage(contract_stages.NOT_RUNNING);
+                    return;
+                }
+            } else {
+                setStatus('Already authorized, starting trading...');
+            }
 
             let lossStreak = 0;
             let step = 0;
