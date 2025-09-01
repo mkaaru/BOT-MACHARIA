@@ -101,6 +101,9 @@ const HigherLowerTrader = observer(() => {
     const [contractsLost, setContractsLost] = useState(0);
     const [totalProfitLoss, setTotalProfitLoss] = useState(0);
 
+    // Sync with global run panel runs
+    const globalRuns = run_panel?.statistics?.number_of_runs || 0;
+
     // --- Helper Functions ---
 
     // Hull Moving Average calculation with Weighted Moving Average
@@ -526,6 +529,9 @@ const HigherLowerTrader = observer(() => {
                     // Update statistics
                     setTotalStake(prev => prev + effectiveStake);
                     setTotalRuns(prev => prev + 1);
+                    
+                    // Sync with global run panel
+                    run_panel.onStatisticUpdate();
 
                     // Notify transaction store
                     try {
@@ -754,6 +760,13 @@ const HigherLowerTrader = observer(() => {
         setContractsWon(0);
         setContractsLost(0);
         setTotalProfitLoss(0);
+        
+        // Also reset global run panel statistics
+        try {
+            run_panel?.onClearStatistics?.();
+        } catch (e) {
+            console.warn('Failed to reset global statistics:', e);
+        }
     };
 
     // Get trading recommendation based on Hull trends
@@ -1008,7 +1021,7 @@ const HigherLowerTrader = observer(() => {
                             <div className='stats-grid'>
                                 <div className='stat-item'>
                                     <span>{localize('Total Runs')}: </span>
-                                    <span>{totalRuns}</span>
+                                    <span>{Math.max(totalRuns, globalRuns)}</span>
                                 </div>
                                 <div className='stat-item'>
                                     <span>{localize('Won')}: </span>
