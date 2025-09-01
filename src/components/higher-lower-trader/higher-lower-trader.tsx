@@ -128,6 +128,144 @@ const HigherLowerTrader = observer(() => {
         return rawHMA;
     };
 
+    // Advanced EMA calculation for multiple timeframes
+    const calculateEMA = (data: number[], period: number) => {
+        if (data.length === 0) return null;
+        
+        const k = 2 / (period + 1);
+        let ema = data[0];
+        
+        for (let i = 1; i < data.length; i++) {
+            ema = data[i] * k + ema * (1 - k);
+        }
+        
+        return ema;
+    };
+
+    // MACD calculation for momentum analysis
+    const calculateMACD = (data: number[], fast = 12, slow = 26, signal = 9) => {
+        if (data.length < slow) return null;
+
+        const fastEMA = calculateEMA(data, fast);
+        const slowEMA = calculateEMA(data, slow);
+        
+        if (fastEMA === null || slowEMA === null) return null;
+        
+        const macdLine = fastEMA - slowEMA;
+        
+        // Calculate signal line (EMA of MACD)
+        const macdHistory = [];
+        for (let i = slow - 1; i < data.length; i++) {
+            const subset = data.slice(0, i + 1);
+            const fEMA = calculateEMA(subset, fast);
+            const sEMA = calculateEMA(subset, slow);
+            if (fEMA && sEMA) {
+                macdHistory.push(fEMA - sEMA);
+            }
+        }
+        
+        const signalLine = calculateEMA(macdHistory, signal);
+        const histogram = signalLine ? macdLine - signalLine : 0;
+        
+        return { macdLine, signalLine, histogram };
+    };
+
+    // Enhanced trend strength calculation
+    const calculateTrendStrength = (prices: number[], period = 20) => {
+        if (prices.length < period) return 0;
+        
+        const recentPrices = prices.slice(-period);
+        const firstPrice = recentPrices[0];
+        const lastPrice = recentPrices[recentPrices.length - 1];
+        
+        // Calculate price movement as percentage
+        const priceChange = ((lastPrice - firstPrice) / firstPrice) * 100;
+        
+        // Calculate volatility (standard deviation)
+        const mean = recentPrices.reduce((sum, price) => sum + price, 0) / recentPrices.length;
+        const variance = recentPrices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / recentPrices.length;
+        const volatility = Math.sqrt(variance);
+        
+        // Trend strength = price change / volatility (normalized)
+        const strength = Math.abs(priceChange) / (volatility / mean * 100);
+        
+        return Math.min(strength * 10, 100); // Scale to 0-100
+    };
+
+    // Advanced market momentum detection
+    const detectMarketMomentum = (prices: number[], period = 14) => {
+        if (prices.length < period * 2) return 'NEUTRAL';
+        
+        const recent = prices.slice(-period);
+        const previous = prices.slice(-period * 2, -period);
+        
+        const recentAvg = recent.reduce((sum, p) => sum + p, 0) / recent.length;
+        const previousAvg = previous.reduce((sum, p) => sum + p, 0) / previous.length;
+        
+        const recentVolatility = Math.sqrt(recent.reduce((sum, p) => sum + Math.pow(p - recentAvg, 2), 0) / recent.length);
+        const previousVolatility = Math.sqrt(previous.reduce((sum, p) => sum + Math.pow(p - previousAvg, 2), 0) / previous.length);
+        
+        const volatilityChange = (recentVolatility - previousVolatility) / previousVolatility;
+        
+        if (volatilityChange > 0.1) return 'ACCELERATING';
+        if (volatilityChange < -0.1) return 'DECELERATING';
+        return 'NEUTRAL';
+    };
+
+    // Hybrid trend determination combining multiple indicators
+    const getHybridTrend = (prices: number[]) => {
+        if (prices.length < 50) return 'NEUTRAL';
+        
+        const hma21 = calculateHMA(prices, 21);
+        const ema12 = calculateEMA(prices, 12);
+        const ema26 = calculateEMA(prices, 26);
+        const macd = calculateMACD(prices, 12, 26, 9);
+        
+        if (!hma21 || !ema12 || !ema26 || !macd) return 'NEUTRAL';
+        
+        const currentPrice = prices[prices.length - 1];
+        const previousPrice = prices[prices.length - 2];
+        
+        // Scoring system for trend determination
+        let bullishScore = 0;
+        let bearishScore = 0;
+        
+        // HMA trend
+        if (currentPrice > hma21) bullishScore += 2;
+        else bearishScore += 2;
+        
+        // EMA crossover
+        if (ema12 > ema26) bullishScore += 2;
+        else bearishScore += 2;
+        
+        // MACD signals
+        if (macd.macdLine > macd.signalLine) bullishScore += 1;
+        else bearishScore += 1;
+        
+        if (macd.histogram > 0) bullishScore += 1;
+        else bearishScore += 1;
+        
+        // Price momentum
+        if (currentPrice > previousPrice) bullishScore += 1;
+        else bearishScore += 1;
+        
+        // Recent price action (last 5 ticks)
+        const recentPrices = prices.slice(-5);
+        const upMoves = recentPrices.filter((price, i) => i > 0 && price > recentPrices[i - 1]).length;
+        
+        if (upMoves >= 3) bullishScore += 1;
+        else if (upMoves <= 1) bearishScore += 1;
+        
+        // Determine trend with confidence threshold
+        const scoreDifference = Math.abs(bullishScore - bearishScore);
+        
+        if (scoreDifference >= 3) {
+            return bullishScore > bearishScore ? 'BULLISH' : 'BEARISH';
+        }
+        
+        return 'NEUTRAL';
+    };
+
     // Convert tick data to candles for better trend analysis
     const ticksToCandles = (ticks: Array<{ time: number, price: number }>, timeframeSeconds: number) => {
         if (ticks.length === 0) return [];
@@ -159,9 +297,17 @@ const HigherLowerTrader = observer(() => {
         return candles;
     };
 
-    // Update Hull trends based on tick data directly (no candle conversion)
+    // Enhanced trend analysis with hybrid methodology
     const updateHullTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
         const newTrends = { ...hullTrends };
+        const tickPrices = newTickData.map(tick => tick.price);
+
+        // Calculate trend strength and momentum
+        const strength = calculateTrendStrength(tickPrices);
+        const momentum = detectMarketMomentum(tickPrices);
+        
+        setTrendStrength(strength);
+        setMarketMomentum(momentum);
 
         // Define tick count requirements for different timeframe analysis
         const timeframeTickCounts = {
@@ -177,139 +323,112 @@ const HigherLowerTrader = observer(() => {
 
             if (recentTicks.length >= Math.min(50, tickCount)) { // Minimum 50 ticks required
                 const tickPrices = recentTicks.map(tick => tick.price);
+                let trend = 'NEUTRAL';
 
-                // Use longer HMA periods for more sustained trends
-                const hmaPeriods = {
-                    '15s': Math.min(50, Math.floor(tickPrices.length * 0.4)),
-                    '1m': Math.min(80, Math.floor(tickPrices.length * 0.5)),
-                    '5m': Math.min(120, Math.floor(tickPrices.length * 0.6)),
-                    '15m': Math.min(200, Math.floor(tickPrices.length * 0.7))
-                };
+                // Apply selected trend method
+                if (trendMethod === 'HULL') {
+                    const hmaPeriods = {
+                        '15s': Math.min(50, Math.floor(tickPrices.length * 0.4)),
+                        '1m': Math.min(80, Math.floor(tickPrices.length * 0.5)),
+                        '5m': Math.min(120, Math.floor(tickPrices.length * 0.6)),
+                        '15m': Math.min(200, Math.floor(tickPrices.length * 0.7))
+                    };
 
-                const hmaPeriod = hmaPeriods[timeframe as keyof typeof hmaPeriods] || 14;
-                const hmaValue = calculateHMA(tickPrices, hmaPeriod);
+                    const hmaPeriod = hmaPeriods[timeframe as keyof typeof hmaPeriods] || 14;
+                    const hmaValue = calculateHMA(tickPrices, hmaPeriod);
 
-                if (hmaValue !== null && tickPrices.length >= 10) {
-                    let trend = 'NEUTRAL';
+                    if (hmaValue !== null && tickPrices.length >= 10) {
+                        const prevHMA = calculateHMA(tickPrices.slice(0, -5), Math.min(hmaPeriod, tickPrices.length - 5));
+                        const hmaSlope = prevHMA !== null ? hmaValue - prevHMA : 0;
+                        const currentPrice = tickPrices[tickPrices.length - 1];
+                        
+                        const slopeThreshold = {
+                            '15s': 0.00008,
+                            '1m': 0.00015,
+                            '5m': 0.0003,
+                            '15m': 0.0006
+                        }[timeframe] || 0.00015;
 
-                    // Calculate HMA slope for trend direction
-                    const prevHMA = calculateHMA(tickPrices.slice(0, -5), Math.min(hmaPeriod, tickPrices.length - 5));
-                    const hmaSlope = prevHMA !== null ? hmaValue - prevHMA : 0;
-
-                    // Get recent price movements
-                    const currentPrice = tickPrices[tickPrices.length - 1];
-                    const priceAboveHMA = currentPrice > hmaValue;
-
-                    // Analyze recent price momentum (last 10% of ticks)
-                    const momentumLength = Math.max(5, Math.floor(tickPrices.length * 0.1));
-                    const recentPrices = tickPrices.slice(-momentumLength);
-                    const priceStart = recentPrices[0];
-                    const priceEnd = recentPrices[recentPrices.length - 1];
-                    const priceMomentum = priceEnd - priceStart;
-
-                    // Calculate price volatility for adaptive thresholds
-                    const priceRange = Math.max(...recentPrices) - Math.min(...recentPrices);
-                    const adaptiveThreshold = priceRange * 0.1; // 10% of recent price range
-
-                    // Enhanced trend detection with higher thresholds for sustained trends
-                    const baseSlopeThreshold = {
-                        '15s': 0.00008,  // Increased from 0.00002
-                        '1m': 0.00015,   // Increased from 0.00005
-                        '5m': 0.0003,    // Increased from 0.0001
-                        '15m': 0.0006    // Increased from 0.0002
-                    }[timeframe] || 0.00015;
-
-                    const slopeThreshold = Math.max(baseSlopeThreshold, adaptiveThreshold * 0.6); // Increased from 0.3
-                    const momentumThreshold = adaptiveThreshold * 0.8; // Increased from 0.5
-
-                    // Calculate trend confirmation using multiple criteria
-                    const confirmationPeriod = Math.floor(hmaPeriod * 0.3);
-                    const confirmationPrices = tickPrices.slice(-confirmationPeriod);
-                    const confirmationTrend = confirmationPrices[confirmationPrices.length - 1] - confirmationPrices[0];
-
-                    // Require both HMA slope AND price confirmation for trend signals
-                    if (hmaSlope > slopeThreshold && confirmationTrend > 0) {
-                        if (priceAboveHMA && priceMomentum > momentumThreshold) {
+                        if (hmaSlope > slopeThreshold && currentPrice > hmaValue) {
                             trend = 'BULLISH';
-                        }
-                    } else if (hmaSlope < -slopeThreshold && confirmationTrend < 0) {
-                        if (!priceAboveHMA && priceMomentum < -momentumThreshold) {
+                        } else if (hmaSlope < -slopeThreshold && currentPrice < hmaValue) {
                             trend = 'BEARISH';
                         }
                     }
-                    // Remove weak trend detection to avoid frequent changes
-
-                    // Debug logging for trend analysis
-                    if (timeframe === '15s') {
-                        console.log(`Trend Analysis - ${timeframe}:`, {
-                            hmaValue: hmaValue.toFixed(6),
-                            hmaSlope: hmaSlope.toFixed(6),
-                            slopeThreshold: slopeThreshold.toFixed(6),
-                            currentPrice: currentPrice.toFixed(5),
-                            priceAboveHMA,
-                            priceMomentum: priceMomentum.toFixed(6),
-                            momentumThreshold: momentumThreshold.toFixed(6),
-                            trend,
-                            tickCount: tickPrices.length
-                        });
-                    }
+                } else if (trendMethod === 'EMA') {
+                    const emaFast = calculateEMA(tickPrices, emaConfig.fast);
+                    const emaSlow = calculateEMA(tickPrices, emaConfig.slow);
+                    const macd = calculateMACD(tickPrices, emaConfig.fast, emaConfig.slow, emaConfig.signal);
                     
-                    // Log trend alignment after all timeframes are processed
-                    if (timeframe === '15m') {
-                        setTimeout(() => {
-                            const trends = Object.entries(hullTrends).map(([tf, data]) => ({ timeframe: tf, trend: data.trend }));
-                            const bullish = trends.filter(t => t.trend === 'BULLISH').length;
-                            const bearish = trends.filter(t => t.trend === 'BEARISH').length;
-                            const aligned = bullish >= 3 ? 'BULLISH' : bearish >= 3 ? 'BEARISH' : 'NEUTRAL';
-                            
-                            console.log('Trend Alignment Analysis:', {
-                                trends,
-                                bullishCount: bullish,
-                                bearishCount: bearish,
-                                alignedTrend: aligned,
-                                isAligned: aligned !== 'NEUTRAL'
-                            });
-                        }, 100);
-                    }
-
-                    // Apply trend persistence filter
-                    const currentTrendData = hullTrends[timeframe as keyof typeof hullTrends];
-                    const requiredConfirmations = {
-                        '15s': 3,  // Need 3 consecutive confirmations
-                        '1m': 4,   // Need 4 consecutive confirmations
-                        '5m': 5,   // Need 5 consecutive confirmations  
-                        '15m': 6   // Need 6 consecutive confirmations
-                    }[timeframe] || 3;
-
-                    let finalTrend = currentTrendData.trend;
-                    let confirmationCount = currentTrendData.confirmationCount || 0;
-
-                    if (trend === currentTrendData.trend) {
-                        // Same trend - increase confirmation
-                        confirmationCount = Math.min(confirmationCount + 1, requiredConfirmations);
-                    } else if (trend !== 'NEUTRAL') {
-                        // New trend detected - start confirmation process
-                        if (confirmationCount >= requiredConfirmations) {
-                            // Only change trend if we have enough confirmations and new trend is strong
-                            finalTrend = trend;
-                            confirmationCount = 1;
-                        } else {
-                            // Not enough confirmations yet - keep current trend
-                            confirmationCount = 1;
+                    if (emaFast && emaSlow && macd) {
+                        const currentPrice = tickPrices[tickPrices.length - 1];
+                        
+                        // EMA crossover with MACD confirmation
+                        if (emaFast > emaSlow && macd.macdLine > macd.signalLine && currentPrice > emaFast) {
+                            trend = 'BULLISH';
+                        } else if (emaFast < emaSlow && macd.macdLine < macd.signalLine && currentPrice < emaFast) {
+                            trend = 'BEARISH';
                         }
+                    }
+                } else if (trendMethod === 'HYBRID') {
+                    trend = getHybridTrend(tickPrices);
+                }
+
+                // Enhanced trend persistence with market conditions
+                const currentTrendData = hullTrends[timeframe as keyof typeof hullTrends];
+                const baseConfirmations = {
+                    '15s': 3,
+                    '1m': 4,
+                    '5m': 5,
+                    '15m': 6
+                }[timeframe] || 3;
+
+                // Adjust confirmations based on market momentum
+                const requiredConfirmations = momentum === 'ACCELERATING' ? 
+                    Math.max(2, baseConfirmations - 1) : 
+                    momentum === 'DECELERATING' ? baseConfirmations + 1 : baseConfirmations;
+
+                let finalTrend = currentTrendData.trend;
+                let confirmationCount = currentTrendData.confirmationCount || 0;
+
+                if (trend === currentTrendData.trend) {
+                    confirmationCount = Math.min(confirmationCount + 1, requiredConfirmations);
+                    if (confirmationCount >= requiredConfirmations) {
+                        finalTrend = trend;
+                    }
+                } else if (trend !== 'NEUTRAL') {
+                    // New trend detected
+                    if (strength > 50 && momentum === 'ACCELERATING') {
+                        // Strong trend with acceleration - faster confirmation
+                        finalTrend = trend;
+                        confirmationCount = Math.min(2, requiredConfirmations);
                     } else {
-                        // Neutral trend - reduce confirmation count
-                        confirmationCount = Math.max(0, confirmationCount - 1);
-                        if (confirmationCount === 0) {
-                            finalTrend = 'NEUTRAL';
-                        }
+                        confirmationCount = 1;
                     }
+                } else {
+                    confirmationCount = Math.max(0, confirmationCount - 1);
+                    if (confirmationCount === 0) {
+                        finalTrend = 'NEUTRAL';
+                    }
+                }
 
-                    newTrends[timeframe as keyof typeof hullTrends] = {
+                newTrends[timeframe as keyof typeof hullTrends] = {
+                    trend: finalTrend,
+                    value: Number(tickPrices[tickPrices.length - 1].toFixed(5)),
+                    confirmationCount
+                };
+
+                // Advanced logging for 15s timeframe
+                if (timeframe === '15s') {
+                    console.log(`Enhanced Trend Analysis - ${timeframe}:`, {
+                        method: trendMethod,
                         trend: finalTrend,
-                        value: Number(hmaValue.toFixed(5)),
-                        confirmationCount
-                    };
+                        strength: strength.toFixed(2),
+                        momentum,
+                        confirmations: confirmationCount,
+                        required: requiredConfirmations,
+                        tickCount: tickPrices.length
+                    });
                 }
             }
         });
@@ -362,6 +481,12 @@ const HigherLowerTrader = observer(() => {
     // State to store preloaded data for all volatilities
     const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
     const [isPreloading, setIsPreloading] = useState(false);
+
+    // Enhanced trend analysis state
+    const [trendMethod, setTrendMethod] = useState<'HULL' | 'EMA' | 'HYBRID'>('HYBRID');
+    const [emaConfig, setEmaConfig] = useState({ fast: 12, slow: 26, signal: 9 });
+    const [trendStrength, setTrendStrength] = useState(0);
+    const [marketMomentum, setMarketMomentum] = useState<'ACCELERATING' | 'DECELERATING' | 'NEUTRAL'>('NEUTRAL');
 
     // Preload historical data for all volatility indices
     const preloadAllVolatilityData = async (api: any) => {
@@ -862,13 +987,48 @@ const HigherLowerTrader = observer(() => {
         return 'NEUTRAL';
     };
 
-    // Auto contract type selection based on aligned trends
+    // Enhanced auto-recommendation system
     const getRecommendedContractType = () => {
         const alignedTrend = getAlignedTrend();
         
-        if (alignedTrend === 'BULLISH') return 'CALL';
-        if (alignedTrend === 'BEARISH') return 'PUT';
-        return contractType; // Keep current if neutral
+        // Strong trend with high confidence
+        if (alignedTrend === 'BULLISH' && trendStrength > 50) return 'CALL';
+        if (alignedTrend === 'BEARISH' && trendStrength > 50) return 'PUT';
+        
+        // Medium confidence - check momentum
+        if (alignedTrend === 'BULLISH' && marketMomentum === 'ACCELERATING') return 'CALL';
+        if (alignedTrend === 'BEARISH' && marketMomentum === 'ACCELERATING') return 'PUT';
+        
+        return contractType; // Keep current if unclear
+    };
+
+    // Get recommended entry timing
+    const getEntryTiming = () => {
+        const alignedTrend = getAlignedTrend();
+        
+        if (alignedTrend !== 'NEUTRAL' && trendStrength > 70) return 'IMMEDIATE';
+        if (alignedTrend !== 'NEUTRAL' && trendStrength > 40 && marketMomentum === 'ACCELERATING') return 'SOON';
+        if (trendStrength < 30) return 'WAIT';
+        return 'MONITOR';
+    };
+
+    // Auto-update contract type based on trends (optional feature)
+    const [autoSelectContract, setAutoSelectContract] = useState(false);
+    
+    useEffect(() => {
+        if (autoSelectContract && !is_running) {
+            const recommended = getRecommendedContractType();
+            if (recommended !== contractType && getAlignedTrend() !== 'NEUTRAL' && trendStrength > 60) {
+                setContractType(recommended);
+            }
+        }
+    }, [hullTrends, trendStrength, autoSelectContract, is_running]);
+
+    // Optimal duration recommendation based on trend strength
+    const getRecommendedDuration = () => {
+        if (trendStrength > 80) return 15; // Strong trends - shorter duration
+        if (trendStrength > 50) return 30; // Medium trends - medium duration  
+        return 60; // Weak trends - longer duration for development
     };
 
     // Check if user is authorized - check if balance is available and user is logged in
@@ -987,6 +1147,73 @@ const HigherLowerTrader = observer(() => {
                             </div>
                         </div>
 
+                        {/* Trend Analysis Method */}
+                        <div className='higher-lower-trader__row higher-lower-trader__row--two'>
+                            <div className='higher-lower-trader__field'>
+                                <label htmlFor='hl-trend-method'>{localize('Trend Analysis Method')}</label>
+                                <select
+                                    id='hl-trend-method'
+                                    value={trendMethod}
+                                    onChange={e => setTrendMethod(e.target.value as 'HULL' | 'EMA' | 'HYBRID')}
+                                >
+                                    <option value='HYBRID'>{localize('Hybrid (Recommended)')}</option>
+                                    <option value='HULL'>{localize('Hull Moving Average')}</option>
+                                    <option value='EMA'>{localize('EMA + MACD')}</option>
+                                </select>
+                            </div>
+                            <div className='higher-lower-trader__field'>
+                                <label>{localize('Trend Strength')}: {trendStrength.toFixed(1)}%</label>
+                                <div className='trend-strength-bar'>
+                                    <div 
+                                        className={`trend-strength-fill ${trendStrength > 70 ? 'strong' : trendStrength > 40 ? 'medium' : 'weak'}`}
+                                        style={{ width: `${Math.min(trendStrength, 100)}%` }}
+                                    ></div>
+                                </div>
+                                <span className={`momentum-indicator momentum-${marketMomentum.toLowerCase()}`}>
+                                    {marketMomentum}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* EMA Configuration (when EMA method is selected) */}
+                        {trendMethod === 'EMA' && (
+                            <div className='higher-lower-trader__row higher-lower-trader__row--three'>
+                                <div className='higher-lower-trader__field'>
+                                    <label htmlFor='ema-fast'>{localize('Fast EMA')}</label>
+                                    <input
+                                        id='ema-fast'
+                                        type='number'
+                                        min={5}
+                                        max={50}
+                                        value={emaConfig.fast}
+                                        onChange={e => setEmaConfig({...emaConfig, fast: Number(e.target.value)})}
+                                    />
+                                </div>
+                                <div className='higher-lower-trader__field'>
+                                    <label htmlFor='ema-slow'>{localize('Slow EMA')}</label>
+                                    <input
+                                        id='ema-slow'
+                                        type='number'
+                                        min={10}
+                                        max={100}
+                                        value={emaConfig.slow}
+                                        onChange={e => setEmaConfig({...emaConfig, slow: Number(e.target.value)})}
+                                    />
+                                </div>
+                                <div className='higher-lower-trader__field'>
+                                    <label htmlFor='ema-signal'>{localize('Signal Line')}</label>
+                                    <input
+                                        id='ema-signal'
+                                        type='number'
+                                        min={5}
+                                        max={20}
+                                        value={emaConfig.signal}
+                                        onChange={e => setEmaConfig({...emaConfig, signal: Number(e.target.value)})}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         {/* Advanced Settings */}
                         <div className='higher-lower-trader__row higher-lower-trader__row--two'>
                             <div className='higher-lower-trader__field'>
@@ -1032,9 +1259,29 @@ const HigherLowerTrader = observer(() => {
                             )}
                         </div>
 
-                        {/* Hull Moving Average Trends */}
+                        {/* Enhanced Market Trends */}
                         <div className='higher-lower-trader__trends'>
-                            <h4>{localize('Market Trends (Hull MA from Ticks)')}</h4>
+                            <h4>{localize('Market Trends')} ({trendMethod === 'HULL' ? 'Hull MA' : trendMethod === 'EMA' ? 'EMA+MACD' : 'Hybrid Analysis'})</h4>
+                            
+                            {/* Trend Method Information */}
+                            <div className='trend-method-info'>
+                                {trendMethod === 'HYBRID' && (
+                                    <Text size='xs' className='method-description'>
+                                        {localize('Combining Hull MA, EMA crossovers, MACD signals, and price momentum for optimal accuracy')}
+                                    </Text>
+                                )}
+                                {trendMethod === 'EMA' && (
+                                    <Text size='xs' className='method-description'>
+                                        {localize('Using EMA')} {emaConfig.fast}/{emaConfig.slow} {localize('crossover with MACD')} ({emaConfig.signal}) {localize('confirmation')}
+                                    </Text>
+                                )}
+                                {trendMethod === 'HULL' && (
+                                    <Text size='xs' className='method-description'>
+                                        {localize('Hull Moving Average with adaptive periods for noise reduction')}
+                                    </Text>
+                                )}
+                            </div>
+
                             <div className='trends-grid'>
                                 {Object.entries(hullTrends).map(([timeframe, data]) => {
                                     const tickCounts = {
@@ -1046,11 +1293,19 @@ const HigherLowerTrader = observer(() => {
 
                                     const maxTicks = tickCounts[timeframe as keyof typeof tickCounts] || 600;
                                     const actualTicks = Math.min(tickData.length, maxTicks);
+                                    
+                                    const requiredConfirmations = {
+                                        '15s': 3,
+                                        '1m': 4,
+                                        '5m': 5,
+                                        '15m': 6
+                                    }[timeframe] || 3;
 
                                     const confirmationBars = '█'.repeat(data.confirmationCount || 0) + 
-                                                               '░'.repeat(Math.max(0, (tickCounts[timeframe as keyof typeof tickCounts] === 600 ? 3 : 
-                                                                                           tickCounts[timeframe as keyof typeof tickCounts] === 1000 ? 4 :
-                                                                                           tickCounts[timeframe as keyof typeof tickCounts] === 2000 ? 5 : 6) - (data.confirmationCount || 0)));
+                                                               '░'.repeat(Math.max(0, requiredConfirmations - (data.confirmationCount || 0)));
+
+                                    // Calculate confidence based on confirmations and trend strength
+                                    const confidence = Math.min(100, ((data.confirmationCount || 0) / requiredConfirmations) * 100 + (trendStrength * 0.3));
 
                                     return (
                                         <div key={timeframe} className={`trend-item trend-${data.trend.toLowerCase()}`}>
@@ -1058,25 +1313,83 @@ const HigherLowerTrader = observer(() => {
                                             <span className='trend'>{data.trend}</span>
                                             <span className='value'>{data.value.toFixed(5)}</span>
                                             <span className='confirmation'>{confirmationBars}</span>
+                                            <span className='confidence'>{confidence.toFixed(0)}%</span>
                                             <span className='tick-count'>({actualTicks} ticks)</span>
                                         </div>
                                     );
                                 })}
                             </div>
+                            
                             <div className='trend-recommendation'>
                                 <div className='trend-alignment'>
                                     <Text size='xs'>
                                         {localize('Aligned Trend')}: <strong className={`trend-${getAlignedTrend().toLowerCase()}`}>
                                             {getAlignedTrend()}
                                         </strong>
+                                        <span className='trend-strength-badge'>
+                                            {trendStrength > 70 ? '🔥 STRONG' : trendStrength > 40 ? '⚡ MEDIUM' : '💭 WEAK'}
+                                        </span>
                                     </Text>
                                 </div>
                                 <Text size='xs'>
                                     {localize('Recommended')}: <strong>{getRecommendedContractType() === 'CALL' ? 'Higher' : 'Lower'}</strong>
-                                    {getAlignedTrend() !== 'NEUTRAL' && (
-                                        <span className='confidence-indicator'> (High Confidence)</span>
+                                    {getAlignedTrend() !== 'NEUTRAL' && trendStrength > 50 && (
+                                        <span className='confidence-indicator'> (High Confidence - {marketMomentum})</span>
                                     )}
                                 </Text>
+                                
+                                {/* Trading Signals */}
+                                <div className='trading-signals'>
+                                    {getAlignedTrend() === 'BULLISH' && trendStrength > 60 && (
+                                        <span className='signal signal-buy'>🟢 STRONG BUY SIGNAL</span>
+                                    )}
+                                    {getAlignedTrend() === 'BEARISH' && trendStrength > 60 && (
+                                        <span className='signal signal-sell'>🔴 STRONG SELL SIGNAL</span>
+                                    )}
+                                    {trendStrength < 30 && (
+                                        <span className='signal signal-wait'>⏳ WAIT FOR CLEARER SIGNAL</span>
+                                    )}
+                                </div>
+
+                                {/* Entry Timing and Recommendations */}
+                                <div className='entry-recommendations'>
+                                    <Text size='xs'>
+                                        {localize('Entry Timing')}: <strong className={`timing-${getEntryTiming().toLowerCase()}`}>
+                                            {getEntryTiming()}
+                                        </strong>
+                                    </Text>
+                                    <Text size='xs'>
+                                        {localize('Recommended Duration')}: <strong>{getRecommendedDuration()}s</strong>
+                                        {trendStrength > 70 && <span className='duration-reason'> (Strong trend - quick resolution)</span>}
+                                        {trendStrength < 40 && <span className='duration-reason'> (Weak trend - needs time to develop)</span>}
+                                    </Text>
+                                </div>
+
+                                {/* Auto-recommendation controls */}
+                                <div className='auto-controls'>
+                                    <label>
+                                        <input
+                                            type='checkbox'
+                                            checked={autoSelectContract}
+                                            onChange={e => setAutoSelectContract(e.target.checked)}
+                                            disabled={is_running}
+                                        />
+                                        {localize('Auto-select contract type based on trends')}
+                                    </label>
+                                    
+                                    {autoSelectContract && (
+                                        <button
+                                            className='apply-recommendations-btn'
+                                            onClick={() => {
+                                                setContractType(getRecommendedContractType());
+                                                setDuration(getRecommendedDuration());
+                                            }}
+                                            disabled={is_running}
+                                        >
+                                            {localize('Apply All Recommendations')}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
