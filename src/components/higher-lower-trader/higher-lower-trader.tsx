@@ -1,848 +1,490 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Play, Square, TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
-import { localize } from '@deriv-com/translations';
-import Text from '@/components/shared_ui/text';
-import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
-import { contract_stages } from '@/constants/contract-stage';
-import { useStore } from '@/hooks/useStore';
+import { Play, Square, TrendingUp, TrendingDown, BarChart3, Settings, RefreshCw } from 'lucide-react';
 import './higher-lower-trader.scss';
 
-// Volatility indices for Higher/Lower trading
-const VOLATILITY_INDICES = [
-  { value: 'R_10', label: 'Volatility 10 (1s) Index' },
-  { value: 'R_25', label: 'Volatility 25 (1s) Index' },
-  { value: 'R_50', label: 'Volatility 50 (1s) Index' },
-  { value: 'R_75', label: 'Volatility 75 (1s) Index' },
-  { value: 'R_100', label: 'Volatility 100 (1s) Index' },
-  { value: 'BOOM500', label: 'Boom 500 Index' },
-  { value: 'BOOM1000', label: 'Boom 1000 Index' },
-  { value: 'CRASH500', label: 'Crash 500 Index' },
-  { value: 'CRASH1000', label: 'Crash 1000 Index' },
-  { value: 'stpRNG', label: 'Step Index' },
-];
+interface TickData {
+    epoch: number;
+    quote: number;
+    symbol: string;
+}
 
-// Safe version of tradeOptionToBuy without Blockly dependencies
-const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
-    const buy = {
-        buy: '1',
-        price: trade_option.amount,
-        parameters: {
-            amount: trade_option.amount,
-            basis: trade_option.basis,
-            contract_type,
-            currency: trade_option.currency,
-            duration: trade_option.duration,
-            duration_unit: trade_option.duration_unit,
-            symbol: trade_option.symbol,
-        },
+interface HMAData {
+    value: number;
+    trend: 'up' | 'down' | 'neutral';
+    strength: number;
+}
+
+interface TradingSignal {
+    direction: 'higher' | 'lower';
+    confidence: number;
+    reasoning: string;
+    timestamp: number;
+}
+
+const HigherLowerTrader: React.FC = observer(() => {
+    const [isConnected, setIsConnected] = useState(false);
+    const [isTrading, setIsTrading] = useState(false);
+    const [currentSymbol, setCurrentSymbol] = useState('R_10'); // Volatility 10 Index
+    const [tickHistory, setTickHistory] = useState<TickData[]>([]);
+    const [hmaData, setHmaData] = useState<HMAData | null>(null);
+    const [tradingSignal, setTradingSignal] = useState<TradingSignal | null>(null);
+    const [stats, setStats] = useState({
+        totalTrades: 0,
+        wins: 0,
+        losses: 0,
+        winRate: 0,
+        currentStreak: 0
+    });
+    const [settings, setSettings] = useState({
+        hmaPeriod: 21,
+        tickCount: 5000,
+        minConfidence: 0.7,
+        autoTrade: false
+    });
+
+    const wsRef = useRef<WebSocket | null>(null);
+    const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Hull Moving Average calculation
+    const calculateHMA = (prices: number[], period: number): number | null => {
+        if (prices.length < period) return null;
+
+        const wma1 = calculateWMA(prices.slice(-period), period);
+        const wma2 = calculateWMA(prices.slice(-Math.floor(period/2)), Math.floor(period/2));
+
+        if (wma1 === null || wma2 === null) return null;
+
+        const rawHMA = 2 * wma2 - wma1;
+        const sqrtPeriod = Math.floor(Math.sqrt(period));
+
+        // For final HMA calculation, we need more data points
+        if (prices.length < sqrtPeriod) return rawHMA;
+
+        const hmaArray = [];
+        for (let i = 0; i < sqrtPeriod; i++) {
+            const idx = prices.length - sqrtPeriod + i;
+            if (idx >= 0) {
+                const wma1_i = calculateWMA(prices.slice(0, idx + 1).slice(-period), period);
+                const wma2_i = calculateWMA(prices.slice(0, idx + 1).slice(-Math.floor(period/2)), Math.floor(period/2));
+                if (wma1_i !== null && wma2_i !== null) {
+                    hmaArray.push(2 * wma2_i - wma1_i);
+                }
+            }
+        }
+
+        return calculateWMA(hmaArray, sqrtPeriod);
     };
-    if (trade_option.barrier !== undefined) {
-        buy.parameters.barrier = trade_option.barrier;
-    }
-    return buy;
-};
 
-const HigherLowerTrader = observer(() => {
-    const store = useStore();
+    // Weighted Moving Average calculation
+    const calculateWMA = (prices: number[], period: number): number | null => {
+        if (prices.length < period) return null;
 
-    // Safe store access with fallbacks
-    const run_panel = store?.run_panel || {
-        toggleDrawer: () => {},
-        setActiveTabIndex: () => {},
-        setIsRunning: () => {},
-        setHasOpenContract: () => {},
-        setContractStage: () => {},
-        onContractStatusEvent: () => {},
-        onBotContractEvent: () => {},
-        run_id: null
+        const weights = Array.from({ length: period }, (_, i) => i + 1);
+        const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
+
+        let weightedSum = 0;
+        for (let i = 0; i < period; i++) {
+            weightedSum += prices[prices.length - period + i] * weights[i];
+        }
+
+        return weightedSum / weightSum;
     };
 
-    const transactions = store?.transactions || {
-        onBotContractEvent: () => {}
-    };
+    // Analyze HMA trend and generate trading signals
+    const analyzeHMATrend = (tickData: TickData[]): { hma: HMAData | null, signal: TradingSignal | null } => {
+        if (tickData.length < settings.hmaPeriod + 10) {
+            return { hma: null, signal: null };
+        }
 
-    const client = store?.client || {
-        balance: null,
-        is_logged_in: false
-    };
+        const prices = tickData.map(tick => tick.quote);
+        const currentHMA = calculateHMA(prices, settings.hmaPeriod);
 
-    const apiRef = useRef<any>(null);
-    const tickStreamIdRef = useRef<string | null>(null);
-    const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
+        if (currentHMA === null) {
+            return { hma: null, signal: null };
+        }
 
-    const [is_authorized, setIsAuthorized] = useState(false);
-    const [account_currency, setAccountCurrency] = useState<string>('USD');
-    const [symbols, setSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
+        // Calculate previous HMA values for trend analysis
+        const prevHMA = calculateHMA(prices.slice(0, -1), settings.hmaPeriod);
+        const prevHMA2 = calculateHMA(prices.slice(0, -2), settings.hmaPeriod);
 
-    // Form state - Higher/Lower specific
-    const [symbol, setSymbol] = useState<string>('R_10');
-    const [contractType, setContractType] = useState<string>('CALL'); // CALL for Higher, PUT for Lower
-    const [duration, setDuration] = useState<number>(60); // Duration in seconds
-    const [durationType, setDurationType] = useState<string>('s'); // 's' for seconds, 'm' for minutes
-    const [stake, setStake] = useState<number>(1.0);
-    const [baseStake, setBaseStake] = useState<number>(1.0);
-    const [barrier, setBarrier] = useState<string>('+0.37');
+        if (prevHMA === null || prevHMA2 === null) {
+            return { hma: null, signal: null };
+        }
 
-    // Martingale/recovery
-    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
-    const [useStopOnProfit, setUseStopOnProfit] = useState<boolean>(false);
-    const [targetProfit, setTargetProfit] = useState<number>(10.0);
+        // Determine trend direction and strength
+        const currentPrice = prices[prices.length - 1];
+        const priceVsHMA = currentPrice - currentHMA;
+        const hmaSlope = currentHMA - prevHMA;
+        const hmaAcceleration = (currentHMA - prevHMA) - (prevHMA - prevHMA2);
 
-    // Contract tracking state
-    const [currentProfit, setCurrentProfit] = useState<number>(0);
-    const [contractValue, setContractValue] = useState<number>(0);
-    const [potentialPayout, setPotentialPayout] = useState<number>(0);
-    const [contractDuration, setContractDuration] = useState<string>('00:00:00');
+        let trend: 'up' | 'down' | 'neutral';
+        let strength: number;
 
-    // Live price state
-    const [currentPrice, setCurrentPrice] = useState<number>(0);
-    const [ticksProcessed, setTicksProcessed] = useState<number>(0);
+        if (hmaSlope > 0 && priceVsHMA > 0) {
+            trend = 'up';
+            strength = Math.min(Math.abs(hmaSlope) * 1000, 1);
+        } else if (hmaSlope < 0 && priceVsHMA < 0) {
+            trend = 'down';
+            strength = Math.min(Math.abs(hmaSlope) * 1000, 1);
+        } else {
+            trend = 'neutral';
+            strength = 0;
+        }
 
-    // Basic trend analysis state
-    const [trendDirection, setTrendDirection] = useState<'BULLISH' | 'BEARISH' | 'NEUTRAL'>('NEUTRAL');
-    const [trendStrength, setTrendStrength] = useState<number>(0);
+        // Generate trading signal based on HMA analysis
+        let signal: TradingSignal | null = null;
 
-    const [status, setStatus] = useState<string>('Initializing...');
-    const [is_running, setIsRunning] = useState(false);
-    const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
-    const stopFlagRef = useRef<boolean>(false);
+        if (strength >= settings.minConfidence) {
+            const volatilityFactor = calculateVolatility(prices.slice(-20));
+            const momentumFactor = Math.abs(hmaAcceleration) * 10000;
 
-    // Trading statistics
-    const [totalStake, setTotalStake] = useState(0);
-    const [totalPayout, setTotalPayout] = useState(0);
-    const [totalRuns, setTotalRuns] = useState(0);
-    const [contractsWon, setContractsWon] = useState(0);
-    const [contractsLost, setContractsLost] = useState(0);
-    const [totalProfitLoss, setTotalProfitLoss] = useState(0);
+            let confidence = strength * 0.7 + volatilityFactor * 0.2 + momentumFactor * 0.1;
+            confidence = Math.min(confidence, 0.95);
 
-    // Simple trend calculation
-    const calculateSimpleTrend = useCallback((prices: number[]) => {
-        if (prices.length < 20) return { direction: 'NEUTRAL', strength: 0 };
-
-        const recent = prices.slice(-10);
-        const previous = prices.slice(-20, -10);
-
-        const recentAvg = recent.reduce((sum, p) => sum + p, 0) / recent.length;
-        const previousAvg = previous.reduce((sum, p) => sum + p, 0) / previous.length;
-
-        const change = ((recentAvg - previousAvg) / previousAvg) * 100;
-        const strength = Math.min(Math.abs(change) * 10, 100);
+            if (confidence >= settings.minConfidence) {
+                signal = {
+                    direction: trend === 'up' ? 'higher' : 'lower',
+                    confidence,
+                    reasoning: `HMA ${trend === 'up' ? 'bullish' : 'bearish'} trend with ${(confidence * 100).toFixed(1)}% confidence. Slope: ${hmaSlope.toFixed(5)}, Acceleration: ${hmaAcceleration.toFixed(5)}`,
+                    timestamp: Date.now()
+                };
+            }
+        }
 
         return {
-            direction: change > 0.1 ? 'BULLISH' : change < -0.1 ? 'BEARISH' : 'NEUTRAL',
-            strength
+            hma: { value: currentHMA, trend, strength },
+            signal
         };
-    }, []);
-
-    // Effect to initialize API connection
-    useEffect(() => {
-        let isMounted = true;
-
-        const initializeAPI = async () => {
-            try {
-                setStatus('Connecting to API...');
-                const api = generateDerivApiInstance();
-                apiRef.current = api;
-
-                // Wait for connection
-                await new Promise((resolve, reject) => {
-                    const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
-
-                    api.onOpen = () => {
-                        clearTimeout(timeout);
-                        if (isMounted) {
-                            setConnectionStatus('connected');
-                            setStatus('Connected successfully');
-                            resolve(true);
-                        }
-                    };
-
-                    api.onClose = () => {
-                        if (isMounted) {
-                            setConnectionStatus('disconnected');
-                            setStatus('Connection lost');
-                        }
-                    };
-
-                    api.onError = (error: any) => {
-                        clearTimeout(timeout);
-                        if (isMounted) {
-                            setConnectionStatus('disconnected');
-                            setStatus(`Connection error: ${error.message || 'Unknown error'}`);
-                            reject(error);
-                        }
-                    };
-                });
-
-                if (!isMounted) return;
-
-                // Fetch active symbols
-                try {
-                    const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
-                    if (asErr) throw asErr;
-
-                    const volatilitySymbols = (active_symbols || [])
-                        .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol) || /^(BOOM|CRASH|stpRNG)/.test(s.symbol))
-                        .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
-
-                    if (isMounted) {
-                        setSymbols(volatilitySymbols);
-                        setStatus('Ready to trade');
-                    }
-                } catch (symbolError) {
-                    console.warn('Failed to fetch symbols:', symbolError);
-                    if (isMounted) {
-                        setSymbols(VOLATILITY_INDICES.map(vi => ({ symbol: vi.value, display_name: vi.label })));
-                        setStatus('Using default symbols');
-                    }
-                }
-
-            } catch (error: any) {
-                console.error('API initialization error:', error);
-                if (isMounted) {
-                    setConnectionStatus('disconnected');
-                    setStatus(`Failed to connect: ${error.message || 'Unknown error'}`);
-                }
-            }
-        };
-
-        initializeAPI();
-
-        return () => {
-            isMounted = false;
-            try {
-                if (tickStreamIdRef.current && apiRef.current) {
-                    apiRef.current.forget({ forget: tickStreamIdRef.current });
-                    tickStreamIdRef.current = null;
-                }
-                if (messageHandlerRef.current && apiRef.current?.connection) {
-                    apiRef.current.connection.removeEventListener('message', messageHandlerRef.current);
-                    messageHandlerRef.current = null;
-                }
-                if (apiRef.current?.disconnect) {
-                    apiRef.current.disconnect();
-                }
-            } catch (error) {
-                console.warn('Cleanup error:', error);
-            }
-        };
-    }, []);
-
-    const authorizeIfNeeded = async () => {
-        if (is_authorized) return;
-
-        const token = V2GetActiveToken();
-        if (!token) {
-            setStatus('No token found. Please log in and select an account.');
-            throw new Error('No token');
-        }
-
-        const { authorize, error } = await apiRef.current.authorize(token);
-        if (error) {
-            setStatus(`Authorization error: ${error.message || error.code}`);
-            throw error;
-        }
-
-        setIsAuthorized(true);
-        const loginid = authorize?.loginid || V2GetActiveClientId();
-        setAccountCurrency(authorize?.currency || 'USD');
-
-        // Safely update client store if available
-        try {
-            if (store?.client) {
-                store.client.setLoginId?.(loginid || '');
-                store.client.setCurrency?.(authorize?.currency || 'USD');
-                store.client.setIsLoggedIn?.(true);
-            }
-        } catch (error) {
-            console.warn('Store update error:', error);
-        }
     };
 
-    const startTicks = async (sym: string) => {
-        if (!apiRef.current) return;
+    // Calculate price volatility
+    const calculateVolatility = (prices: number[]): number => {
+        if (prices.length < 2) return 0;
+
+        const returns = [];
+        for (let i = 1; i < prices.length; i++) {
+            returns.push((prices[i] - prices[i-1]) / prices[i-1]);
+        }
+
+        const mean = returns.reduce((sum, ret) => sum + ret, 0) / returns.length;
+        const variance = returns.reduce((sum, ret) => sum + Math.pow(ret - mean, 2), 0) / returns.length;
+
+        return Math.sqrt(variance);
+    };
+
+    // WebSocket connection management
+    const connectWebSocket = () => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
         try {
-            // Stop existing tick stream
-            if (tickStreamIdRef.current) {
-                await apiRef.current.forget({ forget: tickStreamIdRef.current });
-                tickStreamIdRef.current = null;
-            }
+            wsRef.current = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
 
-            setTicksProcessed(0);
-            const tickHistory: number[] = [];
-
-            const { subscription, error } = await apiRef.current.send({ ticks: sym, subscribe: 1 });
-            if (error) throw error;
-
-            if (subscription?.id) {
-                tickStreamIdRef.current = subscription.id;
-            }
-
-            const onMsg = (evt: MessageEvent) => {
-                try {
-                    const data = JSON.parse(evt.data as any);
-                    if (data?.msg_type === 'tick' && data?.tick?.symbol === sym) {
-                        const quote = data.tick.quote;
-
-                        setCurrentPrice(quote);
-                        setTicksProcessed(prev => prev + 1);
-
-                        // Update trend analysis
-                        tickHistory.push(quote);
-                        if (tickHistory.length > 50) {
-                            tickHistory.shift();
-                        }
-
-                        if (tickHistory.length >= 20) {
-                            const trend = calculateSimpleTrend(tickHistory);
-                            setTrendDirection(trend.direction as any);
-                            setTrendStrength(trend.strength);
-                        }
-                    }
-                } catch (error) {
-                    console.warn('Tick processing error:', error);
-                }
+            wsRef.current.onopen = () => {
+                console.log('WebSocket connected');
+                setIsConnected(true);
+                requestTickHistory();
             };
 
-            messageHandlerRef.current = onMsg;
-            apiRef.current?.connection?.addEventListener('message', onMsg);
+            wsRef.current.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
 
-        } catch (e: any) {
-            console.error('startTicks error', e);
-            setStatus(`Tick stream error: ${e.message || 'Unknown error'}`);
+            wsRef.current.onclose = () => {
+                console.log('WebSocket disconnected');
+                setIsConnected(false);
+                scheduleReconnect();
+            };
+
+            wsRef.current.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                setIsConnected(false);
+            };
+        } catch (error) {
+            console.error('Failed to connect WebSocket:', error);
+            scheduleReconnect();
         }
     };
 
-    const purchaseContract = async (stakeAmount: number) => {
-        await authorizeIfNeeded();
+    const scheduleReconnect = () => {
+        if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+        }
 
-        const trade_option: any = {
-            amount: Number(stakeAmount),
-            basis: 'stake',
-            contractTypes: [contractType],
-            currency: account_currency,
-            duration: durationType === 's' ? Number(duration) : Number(duration * 60),
-            duration_unit: durationType,
-            symbol,
-            barrier: barrier
+        reconnectTimeoutRef.current = setTimeout(() => {
+            connectWebSocket();
+        }, 3000);
+    };
+
+    const requestTickHistory = () => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+
+        const request = {
+            ticks_history: currentSymbol,
+            adjust_start_time: 1,
+            count: settings.tickCount,
+            end: 'latest',
+            style: 'ticks'
         };
 
-        const buy_req = tradeOptionToBuy(contractType, trade_option);
-        const { buy, error } = await apiRef.current.buy(buy_req);
-        if (error) throw error;
-
-        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
-        return buy;
+        wsRef.current.send(JSON.stringify(request));
     };
 
-    const onRun = async () => {
-        if (!apiRef.current || connectionStatus !== 'connected') {
-            setStatus('Please wait for connection before starting');
-            return;
-        }
+    const subscribeToTicks = () => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
-        setStatus('Starting Higher/Lower trader...');
-        setIsRunning(true);
-        stopFlagRef.current = false;
+        const request = {
+            ticks: currentSymbol,
+            subscribe: 1
+        };
 
-        // Set up run panel safely
-        try {
-            run_panel.toggleDrawer(true);
-            run_panel.setActiveTabIndex(1);
-            run_panel.run_id = `higher-lower-${Date.now()}`;
-            run_panel.setIsRunning(true);
-            run_panel.setContractStage(contract_stages.STARTING);
-        } catch (error) {
-            console.warn('Run panel setup error:', error);
-        }
+        wsRef.current.send(JSON.stringify(request));
+    };
 
-        try {
-            await authorizeIfNeeded();
-            setStatus('Authorization successful, starting trading...');
+    const handleWebSocketMessage = (data: any) => {
+        if (data.msg_type === 'history') {
+            const prices = data.history.prices || [];
+            const times = data.history.times || [];
 
-            let step = 0;
-            if (baseStake !== stake) setBaseStake(stake);
+            const newTickHistory = times.map((time: number, index: number) => ({
+                epoch: time,
+                quote: parseFloat(prices[index]),
+                symbol: currentSymbol
+            }));
 
-            while (!stopFlagRef.current) {
-                try {
-                    const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
-                    setStake(effectiveStake);
+            setTickHistory(newTickHistory);
+            subscribeToTicks();
+        } else if (data.msg_type === 'tick') {
+            const newTick: TickData = {
+                epoch: data.tick.epoch,
+                quote: data.tick.quote,
+                symbol: data.tick.symbol
+            };
 
-                    setStatus(`Placing ${contractType === 'CALL' ? 'Higher' : 'Lower'} trade with stake ${effectiveStake} ${account_currency}...`);
+            setTickHistory(prev => {
+                const updated = [...prev, newTick].slice(-settings.tickCount);
 
-                    const buy = await purchaseContract(effectiveStake);
+                // Analyze HMA and generate signals
+                const analysis = analyzeHMATrend(updated);
+                setHmaData(analysis.hma);
 
-                    if (!buy?.contract_id) {
-                        throw new Error('Failed to get contract ID from purchase');
-                    }
-
-                    // Update statistics
-                    setTotalStake(prev => prev + effectiveStake);
-                    setTotalRuns(prev => prev + 1);
-
-                    // Safely notify transaction store
-                    try {
-                        const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
-                        transactions.onBotContractEvent({
-                            contract_id: buy.contract_id,
-                            transaction_ids: { buy: buy.transaction_id },
-                            buy_price: buy.buy_price,
-                            longcode: buy.longcode,
-                            start_time: buy.start_time,
-                            shortcode: buy.shortcode,
-                            underlying: symbol,
-                            contract_type: contractType,
-                            is_completed: false,
-                            profit: 0,
-                            profit_percentage: 0
-                        });
-                    } catch (e) {
-                        console.warn('Failed to notify transaction store:', e);
-                    }
-
-                    run_panel.setContractStage(contract_stages.PURCHASE_SENT);
-                    run_panel.setHasOpenContract(true);
-
-                    setStatus(`📈 ${contractType} contract started with barrier ${barrier} for $${effectiveStake}`);
-
-                    // Initialize contract display values
-                    setContractValue(effectiveStake);
-                    setPotentialPayout(buy.payout ? Number(buy.payout) : effectiveStake * 1.95);
-                    setCurrentProfit(0);
-
-                    // Wait for contract completion
-                    const contractResult = await new Promise((resolve, reject) => {
-                        let pollCount = 0;
-                        const maxPolls = 300;
-
-                        const checkContract = async () => {
-                            try {
-                                pollCount++;
-                                if (pollCount > maxPolls) {
-                                    throw new Error('Contract polling timeout');
-                                }
-
-                                const response = await apiRef.current.send({
-                                    proposal_open_contract: 1,
-                                    contract_id: buy.contract_id
-                                });
-
-                                const contract = response.proposal_open_contract;
-                                if (!contract) {
-                                    throw new Error('Contract not found');
-                                }
-
-                                if (contract.is_sold) {
-                                    const profit = Number(contract.profit || 0);
-                                    const isWin = profit > 0;
-
-                                    resolve({
-                                        profit,
-                                        isWin,
-                                        sell_price: contract.sell_price,
-                                        sell_transaction_id: contract.transaction_ids?.sell,
-                                        contract_id: buy.contract_id,
-                                        transaction_id: buy.transaction_id,
-                                        buy_price: buy.buy_price,
-                                        longcode: buy.longcode,
-                                        start_time: buy.start_time,
-                                        shortcode: buy.shortcode,
-                                        underlying: symbol,
-                                        entry_tick_display_value: contract.entry_tick_display_value,
-                                        exit_tick_display_value: contract.exit_tick_display_value,
-                                        payout: contract.sell_price
-                                    });
-                                } else {
-                                    // Contract still running - update UI
-                                    const currentBidPrice = Number(contract.bid_price || 0);
-                                    const currentProfit = Number(contract.profit || 0);
-                                    const potentialPayout = contract.payout ? Number(contract.payout) :
-                                                          (currentBidPrice > 0 ? currentBidPrice :
-                                                           (effectiveStake + currentProfit));
-
-                                    setContractValue(currentBidPrice);
-                                    setPotentialPayout(potentialPayout);
-                                    setCurrentProfit(currentProfit);
-
-                                    const duration_left = (contract.date_expiry || 0) - Date.now() / 1000;
-                                    if (duration_left > 0) {
-                                        const hours = Math.floor(duration_left / 3600);
-                                        const minutes = Math.floor((duration_left % 3600) / 60);
-                                        const seconds = Math.floor(duration_left % 60);
-                                        setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-                                    }
-
-                                    setTimeout(checkContract, 1000);
-                                }
-                            } catch (error) {
-                                console.error('Contract polling error:', error);
-                                reject(error);
-                            }
-                        };
-
-                        setTimeout(checkContract, 2000);
-                    });
-
-                    // Process contract result
-                    const { profit, isWin } = contractResult as any;
-
-                    setTotalPayout(prev => prev + Number((contractResult as any).sell_price || 0));
-                    setTotalProfitLoss(prev => prev + profit);
-
-                    // Update statistics
-                    if (profit > 0) {
-                        setContractsWon(prev => prev + 1);
-                        setStatus(`✅ Contract won! Profit: $${profit.toFixed(2)}`);
-                        step = 0; // Reset martingale
-                    } else {
-                        setContractsLost(prev => prev + 1);
-                        setStatus(`❌ Contract lost! Loss: $${Math.abs(profit).toFixed(2)}`);
-                        step++; // Increase martingale step
-                    }
-
-                    run_panel.setHasOpenContract(false);
-
-                    // Check stop conditions
-                    const newTotalProfit = totalProfitLoss + profit;
-                    if (useStopOnProfit && newTotalProfit >= targetProfit) {
-                        setStatus(`🎯 Target profit reached: ${newTotalProfit.toFixed(2)} ${account_currency}. Stopping bot.`);
-                        stopFlagRef.current = true;
-                        break;
-                    }
-
-                    // Wait between trades
-                    if (!stopFlagRef.current) {
-                        setStatus(`Waiting 3 seconds before next trade...`);
-                        await new Promise(resolve => setTimeout(resolve, 3000));
-                    }
-
-                } catch (error: any) {
-                    console.error('Trade execution error:', error);
-                    setStatus(`❌ Trade error: ${error.message || 'Unknown error'}`);
-
-                    if (error.code === 'AuthorizationRequired' || error.message?.includes('authorization')) {
-                        setIsAuthorized(false);
-                        setStatus('❌ Authorization lost. Please refresh and try again.');
-                        break;
-                    }
-
-                    await new Promise(resolve => setTimeout(resolve, 5000));
+                if (analysis.signal) {
+                    setTradingSignal(analysis.signal);
                 }
-            }
-        } catch (error: any) {
-            console.error('Higher/Lower trader error:', error);
-            setStatus(`❌ Trading error: ${error.message || 'Unknown error'}`);
-        } finally {
-            setIsRunning(false);
-            run_panel.setIsRunning(false);
-            run_panel.setHasOpenContract(false);
-            run_panel.setContractStage(contract_stages.NOT_RUNNING);
-            setStatus('Higher/Lower trader stopped.');
+
+                return updated;
+            });
         }
     };
 
-    const stopTrading = () => {
-        stopFlagRef.current = true;
-        setIsRunning(false);
-        run_panel.setIsRunning(false);
-        run_panel.setHasOpenContract(false);
-        run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        setStatus('Trading stopped');
+    // Start/Stop trading
+    const toggleTrading = () => {
+        if (!isTrading) {
+            connectWebSocket();
+        }
+        setIsTrading(!isTrading);
     };
 
-    const resetStats = () => {
-        setTotalStake(0);
-        setTotalPayout(0);
-        setTotalRuns(0);
-        setContractsWon(0);
-        setContractsLost(0);
-        setTotalProfitLoss(0);
+    // Manual refresh
+    const handleRefresh = () => {
+        setTickHistory([]);
+        setHmaData(null);
+        setTradingSignal(null);
+        if (isConnected) {
+            requestTickHistory();
+        } else {
+            connectWebSocket();
+        }
     };
 
-    // Start tick stream when symbol changes
     useEffect(() => {
-        if (symbol && connectionStatus === 'connected') {
-            startTicks(symbol);
-        }
-    }, [symbol, connectionStatus]);
-
-    const getTrendIcon = () => {
-        switch (trendDirection) {
-            case 'BULLISH': return <TrendingUp className="trend-icon bullish" />;
-            case 'BEARISH': return <TrendingDown className="trend-icon bearish" />;
-            default: return <Clock className="trend-icon neutral" />;
-        }
-    };
-
-    const getRecommendation = () => {
-        if (trendStrength < 30) return 'Wait for stronger signal';
-        if (trendDirection === 'BULLISH') return 'Consider HIGHER contract';
-        if (trendDirection === 'BEARISH') return 'Consider LOWER contract';
-        return 'No clear recommendation';
-    };
+        return () => {
+            if (wsRef.current) {
+                wsRef.current.close();
+            }
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current);
+            }
+        };
+    }, []);
 
     return (
         <div className="higher-lower-trader">
-            <div className="higher-lower-trader__container">
-                <div className="higher-lower-trader__content">
+            <div className="trader-header">
+                <h2>Higher/Lower Trader - HMA Analysis</h2>
+                <div className="connection-status">
+                    <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`} />
+                    <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
+                </div>
+            </div>
 
-                    {/* Connection Status */}
-                    <div className="connection-status">
-                        <div className={`status-indicator ${connectionStatus}`}></div>
-                        <span className="status-text">
-                            Status: {connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-                        </span>
-                    </div>
+            <div className="trading-controls">
+                <div className="symbol-selector">
+                    <label>Symbol:</label>
+                    <select 
+                        value={currentSymbol} 
+                        onChange={(e) => setCurrentSymbol(e.target.value)}
+                        disabled={isTrading}
+                    >
+                        <option value="R_10">Volatility 10 Index</option>
+                        <option value="R_25">Volatility 25 Index</option>
+                        <option value="R_50">Volatility 50 Index</option>
+                        <option value="R_75">Volatility 75 Index</option>
+                        <option value="R_100">Volatility 100 Index</option>
+                    </select>
+                </div>
 
-                    {/* Trading Parameters */}
-                    <div className="higher-lower-trader__card">
-                        <h3>Trading Parameters</h3>
+                <div className="action-buttons">
+                    <button 
+                        className={`trade-button ${isTrading ? 'stop' : 'start'}`}
+                        onClick={toggleTrading}
+                    >
+                        {isTrading ? <Square size={16} /> : <Play size={16} />}
+                        {isTrading ? 'Stop' : 'Start'} Trading
+                    </button>
 
-                        <div className="higher-lower-trader__row">
-                            <div className="higher-lower-trader__field">
-                                <label>Symbol</label>
-                                <select
-                                    value={symbol}
-                                    onChange={(e) => setSymbol(e.target.value)}
-                                    disabled={is_running}
-                                >
-                                    {symbols.length > 0 ? symbols.map((sym) => (
-                                        <option key={sym.symbol} value={sym.symbol}>
-                                            {sym.display_name}
-                                        </option>
-                                    )) : VOLATILITY_INDICES.map((vi) => (
-                                        <option key={vi.value} value={vi.value}>
-                                            {vi.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
+                    <button className="refresh-button" onClick={handleRefresh}>
+                        <RefreshCw size={16} />
+                        Refresh
+                    </button>
+                </div>
+            </div>
 
-                        <div className="higher-lower-trader__row--two">
-                            <div className="higher-lower-trader__field">
-                                <label>Trade Type</label>
-                                <select
-                                    value={contractType}
-                                    onChange={(e) => setContractType(e.target.value)}
-                                    disabled={is_running}
-                                >
-                                    <option value="CALL">Higher</option>
-                                    <option value="PUT">Lower</option>
-                                </select>
-                            </div>
-                            <div className="higher-lower-trader__field">
-                                <label>Barrier</label>
-                                <input
-                                    type="text"
-                                    value={barrier}
-                                    onChange={(e) => setBarrier(e.target.value)}
-                                    disabled={is_running}
-                                    placeholder="+0.37"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="higher-lower-trader__row--two">
-                            <div className="higher-lower-trader__field">
-                                <label>Duration</label>
-                                <input
-                                    type="number"
-                                    value={duration}
-                                    onChange={(e) => setDuration(Number(e.target.value))}
-                                    disabled={is_running}
-                                    min="5"
-                                    max="3600"
-                                />
-                            </div>
-                            <div className="higher-lower-trader__field">
-                                <label>Duration Type</label>
-                                <select
-                                    value={durationType}
-                                    onChange={(e) => setDurationType(e.target.value)}
-                                    disabled={is_running}
-                                >
-                                    <option value="s">Seconds</option>
-                                    <option value="m">Minutes</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="higher-lower-trader__row--two">
-                            <div className="higher-lower-trader__field">
-                                <label>Stake ({account_currency})</label>
-                                <input
-                                    type="number"
-                                    value={stake}
-                                    onChange={(e) => setStake(Number(e.target.value))}
-                                    disabled={is_running}
-                                    min="0.35"
-                                    step="0.01"
-                                />
-                            </div>
-                            <div className="higher-lower-trader__field">
-                                <label>Martingale Multiplier</label>
-                                <input
-                                    type="number"
-                                    value={martingaleMultiplier}
-                                    onChange={(e) => setMartingaleMultiplier(Number(e.target.value))}
-                                    disabled={is_running}
-                                    min="1.01"
-                                    max="10"
-                                    step="0.01"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="higher-lower-trader__row">
-                            <div className="higher-lower-trader__field">
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        checked={useStopOnProfit}
-                                        onChange={(e) => setUseStopOnProfit(e.target.checked)}
-                                        disabled={is_running}
-                                    />
-                                    Stop on Target Profit
-                                </label>
-                                {useStopOnProfit && (
-                                    <input
-                                        type="number"
-                                        value={targetProfit}
-                                        onChange={(e) => setTargetProfit(Number(e.target.value))}
-                                        disabled={is_running}
-                                        min="1"
-                                        step="0.01"
-                                        placeholder="Target profit"
-                                    />
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Current Price Display */}
-                    {currentPrice > 0 && (
-                        <div className="higher-lower-trader__price-display">
-                            <h4>Live Price: {currentPrice.toFixed(5)}</h4>
-                            <p>Ticks processed: {ticksProcessed}</p>
-                        </div>
-                    )}
-
-                    {/* Simple Trend Analysis */}
-                    <div className="higher-lower-trader__card">
-                        <h4>
-                            {getTrendIcon()}
-                            Market Trend Analysis
-                        </h4>
-                        <div className="trend-info">
-                            <p><strong>Direction:</strong> <span className={`trend-${trendDirection.toLowerCase()}`}>{trendDirection}</span></p>
-                            <p><strong>Strength:</strong> {trendStrength.toFixed(1)}%</p>
-                            <p><strong>Recommendation:</strong> {getRecommendation()}</p>
-                        </div>
-                    </div>
-
-                    {/* Contract Information */}
-                    {is_running && (
-                        <div className="higher-lower-trader__contract-info">
-                            <h4>Current Contract</h4>
-                            <div className="contract-stats">
-                                <div className="stat-item">
-                                    <span>Stake:</span>
-                                    <span>${stake.toFixed(2)}</span>
+            <div className="trading-dashboard">
+                <div className="hma-analysis">
+                    <h3>HMA Analysis</h3>
+                    <div className="hma-data">
+                        {hmaData ? (
+                            <>
+                                <div className="hma-value">
+                                    <span>HMA Value: {hmaData.value.toFixed(5)}</span>
                                 </div>
-                                <div className="stat-item">
-                                    <span>Current Value:</span>
-                                    <span>${contractValue.toFixed(2)}</span>
+                                <div className={`trend-indicator trend-${hmaData.trend}`}>
+                                    {hmaData.trend === 'up' ? <TrendingUp size={20} /> : 
+                                     hmaData.trend === 'down' ? <TrendingDown size={20} /> : 
+                                     <BarChart3 size={20} />}
+                                    <span>Trend: {hmaData.trend.toUpperCase()}</span>
                                 </div>
-                                <div className="stat-item">
-                                    <span>Potential Payout:</span>
-                                    <span>${potentialPayout.toFixed(2)}</span>
+                                <div className="strength-meter">
+                                    <span>Strength: {(hmaData.strength * 100).toFixed(1)}%</span>
+                                    <div className="strength-bar">
+                                        <div 
+                                            className="strength-fill" 
+                                            style={{ width: `${hmaData.strength * 100}%` }}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="stat-item">
-                                    <span>Current P&L:</span>
-                                    <span className={currentProfit >= 0 ? 'profit' : 'loss'}>
-                                        ${currentProfit.toFixed(2)}
-                                    </span>
-                                </div>
-                                <div className="stat-item">
-                                    <span>Time Remaining:</span>
-                                    <span>{contractDuration}</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Trading Statistics */}
-                    <div className="higher-lower-trader__stats">
-                        <h4>Trading Statistics</h4>
-                        <div className="stats-grid">
-                            <div className="stat-item">
-                                <span>Total Runs:</span>
-                                <span>{totalRuns}</span>
-                            </div>
-                            <div className="stat-item">
-                                <span>Contracts Won:</span>
-                                <span className="win">{contractsWon}</span>
-                            </div>
-                            <div className="stat-item">
-                                <span>Contracts Lost:</span>
-                                <span className="loss">{contractsLost}</span>
-                            </div>
-                            <div className="stat-item">
-                                <span>Total Stake:</span>
-                                <span>${totalStake.toFixed(2)}</span>
-                            </div>
-                            <div className="stat-item">
-                                <span>Total Payout:</span>
-                                <span>${totalPayout.toFixed(2)}</span>
-                            </div>
-                            <div className="stat-item">
-                                <span>Net P&L:</span>
-                                <span className={totalProfitLoss >= 0 ? 'profit' : 'loss'}>
-                                    ${totalProfitLoss.toFixed(2)}
-                                </span>
-                            </div>
-                        </div>
-                        <button
-                            className="reset-stats-btn"
-                            onClick={resetStats}
-                            disabled={is_running}
-                        >
-                            Reset Statistics
-                        </button>
-                    </div>
-
-                    {/* Trading Controls */}
-                    <div className="higher-lower-trader__buttons">
-                        {!is_running ? (
-                            <button
-                                className="btn-start"
-                                onClick={onRun}
-                                disabled={connectionStatus !== 'connected'}
-                            >
-                                <Play className="icon" />
-                                Start Trading
-                            </button>
+                            </>
                         ) : (
-                            <button
-                                className="btn-stop"
-                                onClick={stopTrading}
-                            >
-                                <Square className="icon" />
-                                Stop Trading
-                            </button>
+                            <div className="no-data">Waiting for sufficient data...</div>
                         )}
                     </div>
+                </div>
 
-                    {/* Status Display */}
-                    <div className="higher-lower-trader__status">
-                        <Text size="s" color="general">
-                            {status}
-                        </Text>
+                <div className="trading-signal">
+                    <h3>Current Signal</h3>
+                    {tradingSignal ? (
+                        <div className={`signal-card signal-${tradingSignal.direction}`}>
+                            <div className="signal-direction">
+                                <strong>{tradingSignal.direction.toUpperCase()}</strong>
+                            </div>
+                            <div className="signal-confidence">
+                                Confidence: {(tradingSignal.confidence * 100).toFixed(1)}%
+                            </div>
+                            <div className="signal-reasoning">
+                                {tradingSignal.reasoning}
+                            </div>
+                            <div className="signal-time">
+                                {new Date(tradingSignal.timestamp).toLocaleTimeString()}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="no-signal">No trading signal available</div>
+                    )}
+                </div>
+
+                <div className="market-data">
+                    <h3>Market Data</h3>
+                    <div className="data-stats">
+                        <div className="stat">
+                            <span>Ticks Received:</span>
+                            <span>{tickHistory.length}</span>
+                        </div>
+                        <div className="stat">
+                            <span>Current Price:</span>
+                            <span>{tickHistory.length > 0 ? tickHistory[tickHistory.length - 1].quote.toFixed(5) : 'N/A'}</span>
+                        </div>
+                        <div className="stat">
+                            <span>HMA Period:</span>
+                            <span>{settings.hmaPeriod}</span>
+                        </div>
                     </div>
                 </div>
+
+                <div className="trading-stats">
+                    <h3>Trading Statistics</h3>
+                    <div className="stats-grid">
+                        <div className="stat-item">
+                            <span>Total Trades:</span>
+                            <span>{stats.totalTrades}</span>
+                        </div>
+                        <div className="stat-item">
+                            <span>Wins:</span>
+                            <span className="wins">{stats.wins}</span>
+                        </div>
+                        <div className="stat-item">
+                            <span>Losses:</span>
+                            <span className="losses">{stats.losses}</span>
+                        </div>
+                        <div className="stat-item">
+                            <span>Win Rate:</span>
+                            <span>{stats.winRate.toFixed(1)}%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="settings-panel">
+                <details>
+                    <summary>
+                        <Settings size={16} />
+                        Advanced Settings
+                    </summary>
+                    <div className="settings-content">
+                        <div className="setting-group">
+                            <label>HMA Period:</label>
+                            <input
+                                type="number"
+                                min="5"
+                                max="100"
+                                value={settings.hmaPeriod}
+                                onChange={(e) => setSettings(prev => ({ ...prev, hmaPeriod: parseInt(e.target.value) }))}
+                            />
+                        </div>
+                        <div className="setting-group">
+                            <label>Tick Count:</label>
+                            <input
+                                type="number"
+                                min="1000"
+                                max="10000"
+                                value={settings.tickCount}
+                                onChange={(e) => setSettings(prev => ({ ...prev, tickCount: parseInt(e.target.value) }))}
+                            />
+                        </div>
+                        <div className="setting-group">
+                            <label>Min Confidence:</label>
+                            <input
+                                type="number"
+                                min="0.1"
+                                max="0.95"
+                                step="0.05"
+                                value={settings.minConfidence}
+                                onChange={(e) => setSettings(prev => ({ ...prev, minConfidence: parseFloat(e.target.value) }))}
+                            />
+                        </div>
+                    </div>
+                </details>
             </div>
         </div>
     );
