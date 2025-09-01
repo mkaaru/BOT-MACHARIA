@@ -449,6 +449,29 @@ const HigherLowerTrader = observer(() => {
         apiRef.current = api;
         const init = async () => {
             try {
+                // Check if we're already authorized by attempting to get account info
+                const token = V2GetActiveToken();
+                if (token) {
+                    try {
+                        const { authorize, error: authErr } = await api.authorize(token);
+                        if (!authErr && authorize) {
+                            setIsAuthorized(true);
+                            setAccountCurrency(authorize?.currency || 'USD');
+                            // Sync auth state with store
+                            try {
+                                const loginid = authorize?.loginid || V2GetActiveClientId();
+                                store?.client?.setLoginId?.(loginid || '');
+                                store?.client?.setCurrency?.(authorize?.currency || 'USD');
+                                store?.client?.setIsLoggedIn?.(true);
+                            } catch {}
+                            setStatus('Connected and authorized');
+                        }
+                    } catch (authError) {
+                        console.warn('Authorization check failed:', authError);
+                        setStatus('Please ensure you are logged in');
+                    }
+                }
+
                 const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
                 if (asErr) throw asErr;
                 const syn = (active_symbols || [])
@@ -551,25 +574,45 @@ const HigherLowerTrader = observer(() => {
 
 
     const authorizeIfNeeded = async () => {
-        if (is_authorized) return;
+        // If already authorized, just return
+        if (is_authorized) {
+            setStatus('Already authorized');
+            return;
+        }
+
         const token = V2GetActiveToken();
         if (!token) {
             setStatus('No token found. Please log in and select an account.');
             throw new Error('No token');
         }
-        const { authorize, error } = await apiRef.current.authorize(token);
-        if (error) {
-            setStatus(`Authorization error: ${error.message || error.code}`);
-            throw error;
-        }
-        setIsAuthorized(true);
-        const loginid = authorize?.loginid || V2GetActiveClientId();
-        setAccountCurrency(authorize?.currency || 'USD');
+
         try {
-            store?.client?.setLoginId?.(loginid || '');
-            store?.client?.setCurrency?.(authorize?.currency || 'USD');
-            store?.client?.setIsLoggedIn?.(true);
-        } catch {}
+            // Try to authorize or re-authorize
+            const { authorize, error } = await apiRef.current.authorize(token);
+            if (error) {
+                setStatus(`Authorization error: ${error.message || error.code}`);
+                throw error;
+            }
+
+            setIsAuthorized(true);
+            const loginid = authorize?.loginid || V2GetActiveClientId();
+            setAccountCurrency(authorize?.currency || 'USD');
+            
+            // Sync auth state with store
+            try {
+                store?.client?.setLoginId?.(loginid || '');
+                store?.client?.setCurrency?.(authorize?.currency || 'USD');
+                store?.client?.setIsLoggedIn?.(true);
+            } catch (syncError) {
+                console.warn('Failed to sync auth state with store:', syncError);
+            }
+
+            setStatus(`Authorized as ${loginid} (${authorize?.currency || 'USD'})`);
+        } catch (authError) {
+            console.error('Authorization failed:', authError);
+            setIsAuthorized(false);
+            throw authError;
+        }
     };
 
     const stopTicks = () => {
