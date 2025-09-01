@@ -1121,8 +1121,6 @@ const HigherLowerTrader = observer(() => {
         };
     };
 
-    const recommendation = getMarketRecommendation();
-
     const applyRecommendations = () => {
         const recommendation = getMarketRecommendation();
 
