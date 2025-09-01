@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Play, Square, TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
 import { localize } from '@deriv-com/translations';
@@ -87,6 +87,7 @@ const HigherLowerTrader = observer(() => {
         '4000': { trend: 'NEUTRAL', value: 0 }
     });
     const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
+    const [tradeHistory, setTradeHistory] = useState<Array<any>>([]);
 
     const [status, setStatus] = useState<string>('');
     const [is_running, setIsRunning] = useState(false);
@@ -178,7 +179,7 @@ const HigherLowerTrader = observer(() => {
     // Ehlers Super Smoother Filter to remove aliasing noise
     const applySuperSmoother = (prices: number[], period: number = 10) => {
         if (prices.length < period) return prices;
-        
+
         const smoothed = [...prices];
         const a1 = Math.exp(-1.414 * Math.PI / period);
         const b1 = 2 * a1 * Math.cos(1.414 * Math.PI / period);
@@ -196,7 +197,7 @@ const HigherLowerTrader = observer(() => {
     // Ehlers Decycler to remove market noise
     const applyDecycler = (prices: number[], period: number = 20) => {
         if (prices.length < 3) return prices;
-        
+
         const decycled = [...prices];
         const alpha = (Math.cos(0.707 * 2 * Math.PI / period) + Math.sin(0.707 * 2 * Math.PI / period) - 1) /
                       Math.cos(0.707 * 2 * Math.PI / period);
@@ -231,7 +232,7 @@ const HigherLowerTrader = observer(() => {
 
         Object.entries(timeframeConfigs).forEach(([tickCountStr, config]) => {
             const currentCounter = trendUpdateCounters[tickCountStr as keyof typeof trendUpdateCounters];
-            
+
             // Only update if it's time for this timeframe
             if (currentCounter % config.updateEvery !== 0) {
                 return; // Skip this update cycle
@@ -254,7 +255,7 @@ const HigherLowerTrader = observer(() => {
                 if (hmaValue !== null) {
                     // Get previous values for smoothing
                     const prevData = previousTrends[tickCountStr as keyof typeof previousTrends];
-                    
+
                     // Apply exponential smoothing to HMA value
                     const smoothingFactor = 0.3; // Adjust between 0.1 (more smoothing) and 0.5 (less smoothing)
                     const smoothedHMA = prevData.smoothedValue === 0 ? hmaValue : 
@@ -274,7 +275,7 @@ const HigherLowerTrader = observer(() => {
                     // Calculate adaptive thresholds based on timeframe
                     const priceRange = Math.max(...decycledPrices.slice(-Math.min(50, decycledPrices.length))) - 
                                      Math.min(...decycledPrices.slice(-Math.min(50, decycledPrices.length)));
-                    
+
                     // Larger timeframes need bigger thresholds to avoid noise
                     const timeframeMultiplier = config.requiredTicks / 60;
                     const adaptiveThreshold = priceRange * (0.05 + timeframeMultiplier * 0.02);
@@ -702,7 +703,8 @@ const HigherLowerTrader = observer(() => {
                                         underlying: symbol,
                                         entry_tick_display_value: contract.entry_tick_display_value,
                                         exit_tick_display_value: contract.exit_tick_display_value,
-                                        payout: contract.sell_price
+                                        payout: contract.sell_price,
+                                        stake: effectiveStake // Add stake for stat calculation
                                     });
                                 } else {
                                     // Contract still running - update UI
@@ -740,8 +742,28 @@ const HigherLowerTrader = observer(() => {
                     });
 
                     // Process contract result
-                    const { profit, isWin, sell_price, sell_transaction_id } = contractResult as any;
+                    const { profit, isWin, sell_price, sell_transaction_id, stake: contractStake } = contractResult as any;
 
+                    // Add to trade history for statistics
+                    setTradeHistory(prev => [...prev, {
+                        result: isWin ? 'win' : 'loss',
+                        stake: contractStake,
+                        payout: Number(sell_price || 0),
+                        profit: profit,
+                        buy_price: buy.buy_price,
+                        longcode: buy.longcode,
+                        start_time: buy.start_time,
+                        shortcode: buy.shortcode,
+                        underlying: symbol,
+                        contract_type: contractType,
+                        contract_id: contractResult.contract_id,
+                        transaction_id: buy.transaction_id,
+                        sell_transaction_id: sell_transaction_id,
+                        entry_tick_display_value: contractResult.entry_tick_display_value,
+                        exit_tick_display_value: contractResult.exit_tick_display_value,
+                    }]);
+
+                    // Update statistics
                     setTotalPayout(prev => prev + Number(sell_price || 0));
                     setTotalProfitLoss(prev => prev + profit);
 
@@ -776,7 +798,7 @@ const HigherLowerTrader = observer(() => {
                     // Update statistics
                     setTotalRuns(prev => prev + 1);
                     setTotalStake(prev => prev + effectiveStake);
-                    setTotalPayout(prev => prev + (contractResult.payout || 0));
+                    // setTotalPayout(prev => prev + (contractResult.payout || 0)); // Already updated above
 
                     if (contractResult.profit > 0) {
                         setContractsWon(prev => prev + 1);
@@ -846,6 +868,40 @@ const HigherLowerTrader = observer(() => {
         setStatus('Trading stopped');
     };
 
+    // Calculate statistics
+    const calculateStats = useCallback(() => {
+        const totalTrades = tradeHistory.length;
+        const wins = tradeHistory.filter(trade => trade.result === 'win').length;
+        const losses = tradeHistory.filter(trade => trade.result === 'loss').length;
+        const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
+
+        const totalStake = tradeHistory.reduce((sum, trade) => sum + trade.stake, 0);
+        const totalPayout = tradeHistory.reduce((sum, trade) => {
+          return sum + (trade.result === 'win' ? trade.payout : 0);
+        }, 0);
+
+        // Calculate net profit/loss correctly
+        const totalProfit = tradeHistory.reduce((sum, trade) => {
+          if (trade.result === 'win') {
+            return sum + (trade.payout - trade.stake); // Only profit portion
+          } else {
+            return sum - trade.stake; // Loss of stake
+          }
+        }, 0);
+
+        return {
+          totalTrades,
+          wins,
+          losses,
+          winRate: Math.round(winRate * 100) / 100,
+          totalStake: Math.round(totalStake * 100) / 100,
+          totalPayout: Math.round(totalPayout * 100) / 100,
+          totalProfit: Math.round(totalProfit * 100) / 100
+        };
+      }, [tradeHistory]);
+
+    const stats = useMemo(() => calculateStats(), [calculateStats, tradeHistory]);
+
     const resetStats = () => {
         setTotalStake(0);
         setTotalPayout(0);
@@ -853,6 +909,7 @@ const HigherLowerTrader = observer(() => {
         setContractsWon(0);
         setContractsLost(0);
         setTotalProfitLoss(0);
+        setTradeHistory([]);
     };
 
     // Get trading recommendation based on Hull trends - requires at least 3 trends to align
@@ -1074,7 +1131,7 @@ const HigherLowerTrader = observer(() => {
                             {(() => {
                                 const recommendation = getTradingRecommendation();
                                 const isAligned = recommendation.alignedTrends >= recommendation.requiredAlignment;
-                                
+
                                 return (
                                     <div className={`recommendation ${recommendation.recommendation.toLowerCase()} ${!isAligned ? 'insufficient-alignment' : ''}`}>
                                         <h5>📈 Recommended: {recommendation.recommendation}</h5>
@@ -1123,28 +1180,28 @@ const HigherLowerTrader = observer(() => {
                             <div className='stats-grid'>
                                 <div className='stat-item'>
                                     <span>{localize('Total Runs')}: </span>
-                                    <span>{totalRuns}</span>
+                                    <span>{stats.totalRuns}</span>
                                 </div>
                                 <div className='stat-item'>
-                                    <span>{localize('Won')}: </span>
-                                    <span className='win'>{contractsWon}</span>
+                                    <span>{localize('Wins/Losses')}: </span>
+                                    <span className='stat-value'>{stats.wins}/{stats.losses}</span>
                                 </div>
                                 <div className='stat-item'>
-                                    <span>{localize('Lost')}: </span>
-                                    <span className='loss'>{contractsLost}</span>
+                                    <span>{localize('Win Rate')}: </span>
+                                    <span className='stat-value'>{stats.winRate.toFixed(1)}%</span>
                                 </div>
                                 <div className='stat-item'>
                                     <span>{localize('Total Stake')}: </span>
-                                    <span>{totalStake.toFixed(2)} {account_currency}</span>
+                                    <span className='stat-value'>${stats.totalStake.toFixed(2)}</span>
                                 </div>
                                 <div className='stat-item'>
                                     <span>{localize('Total Payout')}: </span>
-                                    <span>{totalPayout.toFixed(2)} {account_currency}</span>
+                                    <span className='stat-value'>${stats.totalPayout.toFixed(2)}</span>
                                 </div>
                                 <div className='stat-item'>
-                                    <span>{localize('Total P&L')}: </span>
-                                    <span className={totalProfitLoss >= 0 ? 'profit' : 'loss'}>
-                                        {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)} {account_currency}
+                                    <span>{localize('Net P&L')}: </span>
+                                    <span className={`stat-value ${stats.totalProfit >= 0 ? 'profit' : 'loss'}`}>
+                                        {stats.totalProfit >= 0 ? '+' : ''}${stats.totalProfit.toFixed(2)}
                                     </span>
                                 </div>
                             </div>
