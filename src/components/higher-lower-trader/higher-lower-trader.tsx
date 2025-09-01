@@ -105,6 +105,9 @@ const HigherLowerTrader = observer(() => {
     // Volatility scanner state
     const [isScanning, setIsScanning] = useState(false);
     const [volatilityRecommendations, setVolatilityRecommendations] = useState<any[]>([]);
+    const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
+    const [isPreloading, setIsPreloading] = useState<boolean>(false);
+
 
     // --- Helper Functions ---
 
@@ -955,7 +958,7 @@ const HigherLowerTrader = observer(() => {
     };
 
     // Scan all volatilities for recommendations
-    const scanAllVolatilities = async () => {
+    const scanVolatilities = async () => {
         setIsScanning(true);
         setStatus('Scanning volatilities for trend alignment...');
 
@@ -1078,15 +1081,29 @@ const HigherLowerTrader = observer(() => {
             : 'Scan complete. No significant opportunities found.');
     };
 
+    const selectVolatilityFromRecommendation = (rec: any) => {
+        setSymbol(rec.symbol);
+        setContractType(rec.recommendation === 'HIGHER' ? 'CALL' : 'PUT');
+
+        // Use the data if available
+        if (preloadedData[rec.symbol]) {
+            setTickData(preloadedData[rec.symbol]);
+            updateEhlersTrends(preloadedData[rec.symbol]);
+        }
+
+        startTicks(rec.symbol);
+        setStatus(`Selected ${rec.symbol} with ${rec.recommendation} recommendation`);
+    };
 
     // Check if user is authorized - check if balance is available and user is logged in
     const isAuthorized = client?.balance !== undefined && client?.balance !== null && client?.is_logged_in;
 
     return (
-        <div className='higher-lower-trader'>
-            <div className='higher-lower-trader__container'>
-                <div className='higher-lower-trader__content'>
-                    <div className='higher-lower-trader__card'>
+        <div className="higher-lower-trader">
+            <div className="higher-lower-trader__container">
+                <div className="higher-lower-trader__content">
+                    {/* Main Trading Form */}
+                    <div className="higher-lower-trader__card">
                         <h3>{localize('Higher/Lower Trading')}</h3>
 
                         {/* Connection Status */}
@@ -1305,7 +1322,7 @@ const HigherLowerTrader = observer(() => {
                                     <h4>{localize('Volatility Opportunities Scanner')}</h4>
                                     <button
                                         className="btn-scan"
-                                        onClick={scanAllVolatilities}
+                                        onClick={scanVolatilities}
                                         disabled={isScanning || isPreloading}
                                     >
                                         {isScanning ? localize('Scanning...') : localize('Scan All Volatilities')}
@@ -1335,7 +1352,9 @@ const HigherLowerTrader = observer(() => {
                                                     <div className="card-stats">
                                                         <div className="stat">
                                                             <span className="label">{localize('Aligned')}:</span>
-                                                            <span className="value strong">{rec.alignedTrends}/4</span>
+                                                            <span className={`value ${rec.confidence === 'HIGH' ? 'strong' : ''}`}>
+                                                                {rec.alignedTrends}/4
+                                                            </span>
                                                         </div>
                                                         <div className="stat">
                                                             <span className="label">{localize('Confidence')}:</span>
@@ -1354,19 +1373,8 @@ const HigherLowerTrader = observer(() => {
 
                                                     <button
                                                         className={`btn-select-volatility ${rec.recommendation.toLowerCase()}`}
-                                                        onClick={() => {
-                                                            setSymbol(rec.symbol);
-                                                            setContractType(rec.recommendation === 'HIGHER' ? 'CALL' : 'PUT');
-
-                                                            // Use the data if available
-                                                            if (preloadedData[rec.symbol]) {
-                                                                setTickData(preloadedData[rec.symbol]);
-                                                                updateEhlersTrends(preloadedData[rec.symbol]);
-                                                            }
-
-                                                            startTicks(rec.symbol);
-                                                            setStatus(`Selected ${rec.symbol} with ${rec.recommendation} recommendation`);
-                                                        }}
+                                                        onClick={() => selectVolatilityFromRecommendation(rec)}
+                                                        disabled={is_running}
                                                     >
                                                         {localize('Select & Trade')} {rec.recommendation}
                                                     </button>
