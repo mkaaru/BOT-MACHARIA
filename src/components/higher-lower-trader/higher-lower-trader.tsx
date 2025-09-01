@@ -51,6 +51,11 @@ const HigherLowerTrader = observer(() => {
     const tickStreamIdRef = useRef<string | null>(null);
     const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
 
+    // State for tracking current contract details
+    const [currentContract, setCurrentContract] = useState<any>(null); // Stores the active contract object
+    const contractStreamIdRef = useRef<string | null>(null); // Ref for contract stream ID
+    const contractTimerRef = useRef<NodeJS.Timeout | null>(null); // Ref for contract timer
+
     const [is_authorized, setIsAuthorized] = useState(false);
     const [account_currency, setAccountCurrency] = useState<string>('USD');
     const [symbols, setSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
@@ -486,6 +491,21 @@ const HigherLowerTrader = observer(() => {
         const { buy, error } = await apiRef.current.buy(buy_req);
         if (error) throw error;
         setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
+
+        // Set current contract details
+        setCurrentContract({
+            contract_id: buy.contract_id,
+            symbol: symbol,
+            contract_type: contractType,
+            stake: stakeAmount,
+            barrier: barrier,
+            entry_tick_display_value: buy.entry_tick_display_value,
+            payout: buy.payout,
+            start_time: buy.start_time,
+            longcode: buy.longcode,
+            shortcode: buy.shortcode
+        });
+
         return buy;
     };
 
@@ -656,16 +676,14 @@ const HigherLowerTrader = observer(() => {
                         is_completed: true,
                         run_id: run_panel.run_id,
                         contract_id: contractResult.contract_id || Date.now(),
-                        transaction_ids: {
-                            buy: contractResult.transaction_id || Date.now(),
-                            sell: sell_transaction_id
-                        },
-                        date_start: buy.start_time,
+                        transaction_id: contractResult.transaction_id || Date.now(),
+                        buy_price: buy.buy_price,
+                        longcode: buy.longcode,
+                        start_time: buy.start_time,
+                        shortcode: buy.shortcode,
+                        underlying: symbol,
                         entry_tick_display_value: contractResult.entry_tick_display_value,
                         exit_tick_display_value: contractResult.exit_tick_display_value,
-                        shortcode: buy.shortcode,
-                        longcode: buy.longcode,
-                        underlying: symbol
                     };
 
                     // Notify transaction store
@@ -737,15 +755,74 @@ const HigherLowerTrader = observer(() => {
         }
     };
 
-    const stopTrading = () => {
+    // --- Stop Trading Logic ---
+    const stopTrading = async () => {
         stopFlagRef.current = true;
         setIsRunning(false);
+        // setIsTrading(false); // This state is not defined in the original code, assuming it's a typo or removed
+
+        setStatus('Stopping trading and canceling contracts...');
+
+        try {
+            // Cancel any active contract if exists
+            if (currentContract) {
+                try {
+                    const { sell } = await apiRef.current.sell({
+                        sell: currentContract.contract_id,
+                        price: 0 // Market price
+                    });
+
+                    if (sell) {
+                        setStatus(`Contract sold at market price: ${sell.sold_for}`);
+                        setCurrentContract(null);
+                        setContractValue(0);
+                        setPotentialPayout(0);
+                        setContractDuration('00:00:00');
+                    }
+                } catch (sellError: any) {
+                    console.warn('Failed to sell contract:', sellError);
+                    setStatus('Failed to sell active contract - it may have already expired');
+                }
+            }
+
+            // Cleanup contract subscriptions
+            if (contractStreamIdRef.current) {
+                try {
+                    await apiRef.current.forget({ forget: contractStreamIdRef.current });
+                    contractStreamIdRef.current = null;
+                } catch (forgetError) {
+                    console.warn('Failed to forget contract subscription:', forgetError);
+                }
+            }
+
+            // Clear any contract timers
+            if (contractTimerRef.current) {
+                clearInterval(contractTimerRef.current);
+                contractTimerRef.current = null;
+            }
+
+        } catch (error: any) {
+            console.error('Error during stop trading:', error);
+            setStatus(`Error stopping trading: ${error.message || 'Unknown error'}`);
+        }
+
+        // Cleanup live ticks
         stopTicks();
+
+        // Update Run Panel state
         run_panel.setIsRunning(false);
         run_panel.setHasOpenContract(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        setStatus('Trading stopped');
+
+        // Reset contract state
+        setCurrentContract(null);
+        setContractValue(0);
+        setPotentialPayout(0);
+        setContractDuration('00:00:00');
+
+        setStatus('Trading stopped - all contracts canceled');
     };
+
 
     const resetStats = () => {
         setTotalStake(0);
@@ -1056,10 +1133,11 @@ const HigherLowerTrader = observer(() => {
                             ) : (
                                 <button
                                     onClick={stopTrading}
-                                    className='btn-stop'
+                                    disabled={!is_running}
+                                    className='stop-button'
                                 >
-                                    <Square className='icon' />
-                                    {localize('Stop Trading')}
+                                    <Square size={16} />
+                                    {currentContract ? 'Stop & Cancel Contract' : 'Stop Trading'}
                                 </button>
                             )}
                         </div>
