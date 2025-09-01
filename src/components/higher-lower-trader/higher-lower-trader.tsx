@@ -311,43 +311,44 @@ const HigherLowerTrader = observer(() => {
 
         // Define tick count requirements for different timeframe analysis
         const timeframeTickCounts = {
-            '15s': 600,   // 600 ticks for 15-second analysis
-            '1m': 1000,   // 1000 ticks for 1-minute analysis
-            '5m': 2000,   // 2000 ticks for 5-minute analysis
-            '15m': 4500   // 4500 ticks for 15-minute analysis
+            '15s': 150,   // Reduced for faster updates
+            '1m': 300,    // Reduced for faster updates
+            '5m': 600,    // Reduced for faster updates
+            '15m': 1200   // Reduced for faster updates
         };
 
         Object.entries(timeframeTickCounts).forEach(([timeframe, tickCount]) => {
             // Use the most recent ticks for this timeframe
             const recentTicks = newTickData.slice(-tickCount);
 
-            if (recentTicks.length >= Math.min(50, tickCount)) { // Minimum 50 ticks required
+            if (recentTicks.length >= 20) { // Reduced minimum requirement
                 const tickPrices = recentTicks.map(tick => tick.price);
                 let trend = 'NEUTRAL';
 
                 // Apply selected trend method
                 if (trendMethod === 'HULL') {
                     const hmaPeriods = {
-                        '15s': Math.min(50, Math.floor(tickPrices.length * 0.4)),
-                        '1m': Math.min(80, Math.floor(tickPrices.length * 0.5)),
-                        '5m': Math.min(120, Math.floor(tickPrices.length * 0.6)),
-                        '15m': Math.min(200, Math.floor(tickPrices.length * 0.7))
+                        '15s': Math.min(21, Math.floor(tickPrices.length * 0.3)),
+                        '1m': Math.min(34, Math.floor(tickPrices.length * 0.4)),
+                        '5m': Math.min(55, Math.floor(tickPrices.length * 0.5)),
+                        '15m': Math.min(89, Math.floor(tickPrices.length * 0.6))
                     };
 
                     const hmaPeriod = hmaPeriods[timeframe as keyof typeof hmaPeriods] || 14;
                     const hmaValue = calculateHMA(tickPrices, hmaPeriod);
 
                     if (hmaValue !== null && tickPrices.length >= 10) {
-                        const prevHMA = calculateHMA(tickPrices.slice(0, -5), Math.min(hmaPeriod, tickPrices.length - 5));
+                        const prevHMA = calculateHMA(tickPrices.slice(0, -3), Math.min(hmaPeriod, tickPrices.length - 3));
                         const hmaSlope = prevHMA !== null ? hmaValue - prevHMA : 0;
                         const currentPrice = tickPrices[tickPrices.length - 1];
 
+                        // More sensitive thresholds for faster response
                         const slopeThreshold = {
-                            '15s': 0.00008,
-                            '1m': 0.00015,
-                            '5m': 0.0003,
-                            '15m': 0.0006
-                        }[timeframe] || 0.00015;
+                            '15s': 0.00005,
+                            '1m': 0.0001,
+                            '5m': 0.0002,
+                            '15m': 0.0004
+                        }[timeframe] || 0.0001;
 
                         if (hmaSlope > slopeThreshold && currentPrice > hmaValue) {
                             trend = 'BULLISH';
@@ -374,38 +375,43 @@ const HigherLowerTrader = observer(() => {
                     trend = getHybridTrend(tickPrices);
                 }
 
-                // Enhanced trend persistence with market conditions
+                // Simplified trend persistence - faster response
                 const currentTrendData = hullTrends[timeframe as keyof typeof hullTrends];
                 const baseConfirmations = {
-                    '15s': 3,
-                    '1m': 4,
-                    '5m': 5,
-                    '15m': 6
-                }[timeframe] || 3;
+                    '15s': 2,
+                    '1m': 2,
+                    '5m': 3,
+                    '15m': 3
+                }[timeframe] || 2;
 
-                // Adjust confirmations based on market momentum
-                const requiredConfirmations = momentum === 'ACCELERATING' ? 
-                    Math.max(2, baseConfirmations - 1) : 
-                    momentum === 'DECELERATING' ? baseConfirmations + 1 : baseConfirmations;
+                // Adjust confirmations based on market momentum and strength
+                let requiredConfirmations = baseConfirmations;
+                if (momentum === 'ACCELERATING' && strength > 40) {
+                    requiredConfirmations = Math.max(1, baseConfirmations - 1);
+                } else if (strength > 70) {
+                    requiredConfirmations = Math.max(1, baseConfirmations - 1);
+                }
 
                 let finalTrend = currentTrendData.trend;
                 let confirmationCount = currentTrendData.confirmationCount || 0;
 
-                if (trend === currentTrendData.trend) {
+                if (trend === currentTrendData.trend && trend !== 'NEUTRAL') {
                     confirmationCount = Math.min(confirmationCount + 1, requiredConfirmations);
                     if (confirmationCount >= requiredConfirmations) {
                         finalTrend = trend;
                     }
-                } else if (trend !== 'NEUTRAL') {
-                    // New trend detected
-                    if (strength > 50 && momentum === 'ACCELERATING') {
-                        // Strong trend with acceleration - faster confirmation
+                } else if (trend !== 'NEUTRAL' && trend !== currentTrendData.trend) {
+                    // New trend detected - immediate update for strong signals
+                    if (strength > 60 || (strength > 40 && momentum === 'ACCELERATING')) {
                         finalTrend = trend;
-                        confirmationCount = Math.min(2, requiredConfirmations);
+                        confirmationCount = requiredConfirmations;
                     } else {
                         confirmationCount = 1;
+                        if (confirmationCount >= requiredConfirmations) {
+                            finalTrend = trend;
+                        }
                     }
-                } else {
+                } else if (trend === 'NEUTRAL') {
                     confirmationCount = Math.max(0, confirmationCount - 1);
                     if (confirmationCount === 0) {
                         finalTrend = 'NEUTRAL';
@@ -418,15 +424,15 @@ const HigherLowerTrader = observer(() => {
                     confirmationCount
                 };
 
-                // Advanced logging for 15s timeframe
+                // Enhanced logging for debugging
                 if (timeframe === '15s') {
-                    console.log(`Enhanced Trend Analysis - ${timeframe}:`, {
+                    console.log(`Trend Update - ${timeframe}:`, {
                         method: trendMethod,
-                        trend: finalTrend,
+                        detected: trend,
+                        final: finalTrend,
                         strength: strength.toFixed(2),
                         momentum,
-                        confirmations: confirmationCount,
-                        required: requiredConfirmations,
+                        confirmations: `${confirmationCount}/${requiredConfirmations}`,
                         tickCount: tickPrices.length
                     });
                 }
@@ -975,15 +981,29 @@ const HigherLowerTrader = observer(() => {
         setTotalProfitLoss(0);
     };
 
-    // Determine aligned trend when 3+ timeframes agree
+    // Determine aligned trend - more responsive approach
     const getAlignedTrend = () => {
         const trends = Object.values(hullTrends);
         const bullishCount = trends.filter(t => t.trend === 'BULLISH').length;
         const bearishCount = trends.filter(t => t.trend === 'BEARISH').length;
+        const neutralCount = trends.filter(t => t.trend === 'NEUTRAL').length;
 
-        // Require at least 3 timeframes to align for a confirmed trend
+        // More flexible alignment - consider trend strength and momentum
         if (bullishCount >= 3) return 'BULLISH';
         if (bearishCount >= 3) return 'BEARISH';
+        
+        // If we have 2 strong trends and high strength, consider it aligned
+        if (trendStrength > 50) {
+            if (bullishCount >= 2 && neutralCount <= 2) return 'BULLISH';
+            if (bearishCount >= 2 && neutralCount <= 2) return 'BEARISH';
+        }
+        
+        // Very strong signals override alignment requirement
+        if (trendStrength > 70) {
+            if (bullishCount >= 1 && bearishCount === 0) return 'BULLISH';
+            if (bearishCount >= 1 && bullishCount === 0) return 'BEARISH';
+        }
+        
         return 'NEUTRAL';
     };
 
@@ -1046,7 +1066,7 @@ const HigherLowerTrader = observer(() => {
         let recommendedAction = 'WAIT';
         let recommendedContractType = 'CALL'; // Default
 
-        // Check for 3+ timeframe alignment
+        // More responsive recommendation logic
         if (bullishCount >= 3) {
             alignment = 'BULLISH';
             recommendedAction = 'HIGHER';
@@ -1057,23 +1077,35 @@ const HigherLowerTrader = observer(() => {
             recommendedAction = 'LOWER';
             recommendedContractType = 'PUT';
             confidence = bearishCount === 4 ? 'VERY_STRONG' : 'STRONG';
-        } else if (bullishCount === 2 && neutralCount <= 1) {
+        } else if (bullishCount >= 2 && bearishCount === 0) {
+            alignment = 'BULLISH';
+            recommendedAction = 'HIGHER';
+            recommendedContractType = 'CALL';
+            confidence = trendStrength > 50 ? 'STRONG' : 'MODERATE';
+        } else if (bearishCount >= 2 && bullishCount === 0) {
+            alignment = 'BEARISH';
+            recommendedAction = 'LOWER';
+            recommendedContractType = 'PUT';
+            confidence = trendStrength > 50 ? 'STRONG' : 'MODERATE';
+        } else if (bullishCount >= 1 && bearishCount === 0 && trendStrength > 60) {
             alignment = 'BULLISH';
             recommendedAction = 'HIGHER';
             recommendedContractType = 'CALL';
             confidence = 'MODERATE';
-        } else if (bearishCount === 2 && neutralCount <= 1) {
+        } else if (bearishCount >= 1 && bullishCount === 0 && trendStrength > 60) {
             alignment = 'BEARISH';
             recommendedAction = 'LOWER';
             recommendedContractType = 'PUT';
             confidence = 'MODERATE';
         }
 
-        // Consider trend strength and momentum for confidence adjustment
+        // Boost confidence based on trend strength and momentum
         const avgStrength = trendStrength;
-        if (avgStrength > 70 && confidence !== 'WEAK') {
-            confidence = confidence === 'MODERATE' ? 'STRONG' : 
-                       confidence === 'STRONG' ? 'VERY_STRONG' : confidence;
+        if (avgStrength > 80 && marketMomentum === 'ACCELERATING') {
+            if (confidence === 'MODERATE') confidence = 'STRONG';
+            else if (confidence === 'STRONG') confidence = 'VERY_STRONG';
+        } else if (avgStrength > 70) {
+            if (confidence === 'MODERATE') confidence = 'STRONG';
         }
 
         return {
