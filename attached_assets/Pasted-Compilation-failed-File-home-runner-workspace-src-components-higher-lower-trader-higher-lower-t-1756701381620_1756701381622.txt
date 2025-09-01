@@ -1,0 +1,188 @@
+Compilation failed
+
+File: /home/runner/workspace/src/components/higher-lower-trader/higher-lower-trader.tsx:1:1
+  × Module build failed:
+  ╰─▶   ×   × the name `autoSelectContract` is defined multiple times
+        │       ╭─[/home/runner/workspace/src/components/higher-lower-trader/higher-lower-trader.tsx:1016:1]
+        │  1013 │     };
+        │  1014 │
+        │  1015 │     // Auto-update contract type based on trends (optional feature)
+        │  1016 │     const [autoSelectContract, setAutoSelectContract] = useState(false);
+        │       ·            ─────────┬────────
+        │       ·                     ╰── previous definition of `autoSelectContract` here
+        │  1017 │
+        │  1018 │     useEffect(() => {
+        │  1019 │         if (autoSelectContract && !is_running) {
+        │  1020 │             const recommended = getRecommendedContractType();
+        │  1021 │             if (recommended !== contractType && getAlignedTrend() !== 'NEUTRAL' && trendStrength > 60) {
+        │  1022 │                 setContractType(recommended);
+        │  1023 │             }
+        │  1024 │         }
+        │  1025 │     }, [hullTrends, trendStrength, autoSelectContract, is_running]);
+        │  1026 │
+        │  1027 │     // Optimal duration recommendation based on trend strength
+        │  1028 │     const getRecommendedDuration = () => {
+        │  1029 │         if (trendStrength > 80) return 15; // Strong trends - shorter duration
+        │  1030 │         if (trendStrength > 50) return 30; // Medium trends - medium duration
+        │  1031 │         return 60; // Weak trends - longer duration for development
+        │  1032 │     };
+        │  1033 │
+        │  1034 │     // Check if user is authorized - check if balance is available and user is logged in
+        │  1035 │     const isAuthorized = client?.balance !== undefined && client?.balance !== null && client?.is_logged_in;
+        │  1036 │
+        │  1037 │     // Enhanced market trends analysis with hybrid methodology
+        │  1038 │     const getMarketRecommendation = () => {
+        │  1039 │         const trends = Object.values(hullTrends);
+        │  1040 │         const bullishCount = trends.filter(t => t.trend === 'BULLISH').length;
+        │  1041 │         const bearishCount = trends.filter(t => t.trend === 'BEARISH').length;
+        │  1042 │         const neutralCount = trends.filter(t => t.trend === 'NEUTRAL').length;
+        │  1043 │
+        │  1044 │         let alignment = 'NEUTRAL';
+        │  1045 │         let confidence = 'WEAK';
+        │  1046 │         let recommendedAction = 'WAIT';
+        │  1047 │         let recommendedContractType = 'CALL'; // Default
+        │  1048 │
+        │  1049 │         // Check for 3+ timeframe alignment
+        │  1050 │         if (bullishCount >= 3) {
+        │  1051 │             alignment = 'BULLISH';
+        │  1052 │             recommendedAction = 'HIGHER';
+        │  1053 │             recommendedContractType = 'CALL';
+        │  1054 │             confidence = bullishCount === 4 ? 'VERY_STRONG' : 'STRONG';
+        │  1055 │         } else if (bearishCount >= 3) {
+        │  1056 │             alignment = 'BEARISH';
+        │  1057 │             recommendedAction = 'LOWER';
+        │  1058 │             recommendedContractType = 'PUT';
+        │  1059 │             confidence = bearishCount === 4 ? 'VERY_STRONG' : 'STRONG';
+        │  1060 │         } else if (bullishCount === 2 && neutralCount <= 1) {
+        │  1061 │             alignment = 'BULLISH';
+        │  1062 │             recommendedAction = 'HIGHER';
+        │  1063 │             recommendedContractType = 'CALL';
+        │  1064 │             confidence = 'MODERATE';
+        │  1065 │         } else if (bearishCount === 2 && neutralCount <= 1) {
+        │  1066 │             alignment = 'BEARISH';
+        │  1067 │             recommendedAction = 'LOWER';
+        │  1068 │             recommendedContractType = 'PUT';
+        │  1069 │             confidence = 'MODERATE';
+        │  1070 │         }
+        │  1071 │
+        │  1072 │         // Consider trend strength and momentum for confidence adjustment
+        │  1073 │         const avgStrength = trendStrength;
+        │  1074 │         if (avgStrength > 70 && confidence !== 'WEAK') {
+        │  1075 │             confidence = confidence === 'MODERATE' ? 'STRONG' :
+        │  1076 │                        confidence === 'STRONG' ? 'VERY_STRONG' : confidence;
+        │  1077 │         }
+        │  1078 │
+        │  1079 │         return {
+        │  1080 │             alignment,
+        │  1081 │             confidence,
+        │  1082 │             recommendedAction,
+        │  1083 │             recommendedContractType,
+        │  1084 │             bullishCount,
+        │  1085 │             bearishCount,
+        │  1086 │             neutralCount,
+        │  1087 │             strength: avgStrength,
+        │  1088 │             momentum: marketMomentum
+        │  1089 │         };
+        │  1090 │     };
+        │  1091 │
+        │  1092 │     const [autoSelectContract, setAutoSelectContract] = useState(false);
+        │       ·            ─────────┬────────
+        │       ·                     ╰── `autoSelectContract` redefined here
+        │  1093 │     const recommendation = getMarketRecommendation();
+        │  1094 │
+        │  1095 │     const applyRecommendations = () => {
+        │       ╰────
+        │   × the name `setAutoSelectContract` is defined multiple times
+        │       ╭─[/home/runner/workspace/src/components/higher-lower-trader/higher-lower-trader.tsx:1016:1]
+        │  1013 │     };
+        │  1014 │
+        │  1015 │     // Auto-update contract type based on trends (optional feature)
+        │  1016 │     const [autoSelectContract, setAutoSelectContract] = useState(false);
+        │       ·                                ──────────┬──────────
+        │       ·                                          ╰── previous definition of `setAutoSelectContract` here
+        │  1017 │
+        │  1018 │     useEffect(() => {
+        │  1019 │         if (autoSelectContract && !is_running) {
+        │  1020 │             const recommended = getRecommendedContractType();
+        │  1021 │             if (recommended !== contractType && getAlignedTrend() !== 'NEUTRAL' && trendStrength > 60) {
+        │  1022 │                 setContractType(recommended);
+        │  1023 │             }
+        │  1024 │         }
+        │  1025 │     }, [hullTrends, trendStrength, autoSelectContract, is_running]);
+        │  1026 │
+        │  1027 │     // Optimal duration recommendation based on trend strength
+        │  1028 │     const getRecommendedDuration = () => {
+        │  1029 │         if (trendStrength > 80) return 15; // Strong trends - shorter duration
+        │  1030 │         if (trendStrength > 50) return 30; // Medium trends - medium duration
+        │  1031 │         return 60; // Weak trends - longer duration for development
+        │  1032 │     };
+        │  1033 │
+        │  1034 │     // Check if user is authorized - check if balance is available and user is logged in
+        │  1035 │     const isAuthorized = client?.balance !== undefined && client?.balance !== null && client?.is_logged_in;
+        │  1036 │
+        │  1037 │     // Enhanced market trends analysis with hybrid methodology
+        │  1038 │     const getMarketRecommendation = () => {
+        │  1039 │         const trends = Object.values(hullTrends);
+        │  1040 │         const bullishCount = trends.filter(t => t.trend === 'BULLISH').length;
+        │  1041 │         const bearishCount = trends.filter(t => t.trend === 'BEARISH').length;
+        │  1042 │         const neutralCount = trends.filter(t => t.trend === 'NEUTRAL').length;
+        │  1043 │
+        │  1044 │         let alignment = 'NEUTRAL';
+        │  1045 │         let confidence = 'WEAK';
+        │  1046 │         let recommendedAction = 'WAIT';
+        │  1047 │         let recommendedContractType = 'CALL'; // Default
+        │  1048 │
+        │  1049 │         // Check for 3+ timeframe alignment
+        │  1050 │         if (bullishCount >= 3) {
+        │  1051 │             alignment = 'BULLISH';
+        │  1052 │             recommendedAction = 'HIGHER';
+        │  1053 │             recommendedContractType = 'CALL';
+        │  1054 │             confidence = bullishCount === 4 ? 'VERY_STRONG' : 'STRONG';
+        │  1055 │         } else if (bearishCount >= 3) {
+        │  1056 │             alignment = 'BEARISH';
+        │  1057 │             recommendedAction = 'LOWER';
+        │  1058 │             recommendedContractType = 'PUT';
+        │  1059 │             confidence = bearishCount === 4 ? 'VERY_STRONG' : 'STRONG';
+        │  1060 │         } else if (bullishCount === 2 && neutralCount <= 1) {
+        │  1061 │             alignment = 'BULLISH';
+        │  1062 │             recommendedAction = 'HIGHER';
+        │  1063 │             recommendedContractType = 'CALL';
+        │  1064 │             confidence = 'MODERATE';
+        │  1065 │         } else if (bearishCount === 2 && neutralCount <= 1) {
+        │  1066 │             alignment = 'BEARISH';
+        │  1067 │             recommendedAction = 'LOWER';
+        │  1068 │             recommendedContractType = 'PUT';
+        │  1069 │             confidence = 'MODERATE';
+        │  1070 │         }
+        │  1071 │
+        │  1072 │         // Consider trend strength and momentum for confidence adjustment
+        │  1073 │         const avgStrength = trendStrength;
+        │  1074 │         if (avgStrength > 70 && confidence !== 'WEAK') {
+        │  1075 │             confidence = confidence === 'MODERATE' ? 'STRONG' :
+        │  1076 │                        confidence === 'STRONG' ? 'VERY_STRONG' : confidence;
+        │  1077 │         }
+        │  1078 │
+        │  1079 │         return {
+        │  1080 │             alignment,
+        │  1081 │             confidence,
+        │  1082 │             recommendedAction,
+        │  1083 │             recommendedContractType,
+        │  1084 │             bullishCount,
+        │  1085 │             bearishCount,
+        │  1086 │             neutralCount,
+        │  1087 │             strength: avgStrength,
+        │  1088 │             momentum: marketMomentum
+        │  1089 │         };
+        │  1090 │     };
+        │  1091 │
+        │  1092 │     const [autoSelectContract, setAutoSelectContract] = useState(false);
+        │       ·                                ──────────┬──────────
+        │       ·                                          ╰── `setAutoSelectContract` redefined here
+        │  1093 │     const recommendation = getMarketRecommendation();
+        │  1094 │
+        │  1095 │     const applyRecommendations = () => {
+        │       ╰────
+        │
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
