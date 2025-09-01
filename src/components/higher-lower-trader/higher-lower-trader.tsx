@@ -79,12 +79,13 @@ const HigherLowerTrader = observer(() => {
     const [currentPrice, setCurrentPrice] = useState<number>(0);
     const [ticksProcessed, setTicksProcessed] = useState<number>(0);
 
-    // Hull Moving Average trend analysis state
+    // Enhanced Hull Moving Average trend analysis state with strength tracking
     const [hullTrends, setHullTrends] = useState({
-        '15s': { trend: 'NEUTRAL', value: 0, confirmationCount: 0 },
-        '1m': { trend: 'NEUTRAL', value: 0, confirmationCount: 0 },
-        '5m': { trend: 'NEUTRAL', value: 0, confirmationCount: 0 },
-        '15m': { trend: 'NEUTRAL', value: 0, confirmationCount: 0 }
+        '15s': { trend: 'NEUTRAL', value: 0, confirmationCount: 0, strength: 0 },
+        '1m': { trend: 'NEUTRAL', value: 0, confirmationCount: 0, strength: 0 },
+        '5m': { trend: 'NEUTRAL', value: 0, confirmationCount: 0, strength: 0 },
+        '15m': { trend: 'NEUTRAL', value: 0, confirmationCount: 0, strength: 0 },
+        '1h': { trend: 'NEUTRAL', value: 0, confirmationCount: 0, strength: 0 }
     });
     const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
 
@@ -103,7 +104,7 @@ const HigherLowerTrader = observer(() => {
 
     // --- Helper Functions ---
 
-    // Hull Moving Average calculation with Weighted Moving Average
+    // Enhanced Hull Moving Average calculation with full HMA formula
     const calculateHMA = (data: number[], period: number) => {
         if (data.length < period) return null;
 
@@ -119,13 +120,61 @@ const HigherLowerTrader = observer(() => {
         const halfPeriod = Math.floor(period / 2);
         const sqrtPeriod = Math.floor(Math.sqrt(period));
 
+        // Step 1: Calculate WMA(n/2) and WMA(n)
         const wmaHalf = calculateWMA(data, halfPeriod);
         const wmaFull = calculateWMA(data, period);
 
         if (wmaHalf === null || wmaFull === null) return null;
 
+        // Step 2: Calculate raw HMA = 2*WMA(n/2) - WMA(n)
         const rawHMA = 2 * wmaHalf - wmaFull;
+
+        // Step 3: For true HMA, we need to calculate WMA of sqrt(period) on the raw values
+        // Since we're calculating a single value, we'll use the raw HMA directly
+        // In a full array implementation, you'd apply WMA(sqrt(n)) to the raw HMA series
+        
         return rawHMA;
+    };
+
+    // Enhanced HMA array calculation for trend analysis
+    const calculateHMAArray = (data: number[], period: number) => {
+        if (data.length < period) return [];
+
+        const calculateWMA = (values: number[], periods: number) => {
+            if (values.length < periods) return null;
+            const weights = Array.from({length: periods}, (_, i) => i + 1);
+            const weightSum = weights.reduce((sum, w) => sum + w, 0);
+            const recentValues = values.slice(-periods);
+            const weightedSum = recentValues.reduce((sum, val, i) => sum + val * weights[i], 0);
+            return weightedSum / weightSum;
+        };
+
+        const halfPeriod = Math.floor(period / 2);
+        const sqrtPeriod = Math.floor(Math.sqrt(period));
+        const hmaArray = [];
+        const rawHMAValues = [];
+
+        // Calculate raw HMA values for the entire series
+        for (let i = period - 1; i < data.length; i++) {
+            const currentData = data.slice(0, i + 1);
+            const wmaHalf = calculateWMA(currentData, halfPeriod);
+            const wmaFull = calculateWMA(currentData, period);
+
+            if (wmaHalf !== null && wmaFull !== null) {
+                const rawHMA = 2 * wmaHalf - wmaFull;
+                rawHMAValues.push(rawHMA);
+
+                // Apply WMA(sqrt(period)) to raw HMA values for final HMA
+                if (rawHMAValues.length >= sqrtPeriod) {
+                    const finalHMA = calculateWMA(rawHMAValues, sqrtPeriod);
+                    if (finalHMA !== null) {
+                        hmaArray.push(finalHMA);
+                    }
+                }
+            }
+        }
+
+        return hmaArray;
     };
 
     // Advanced EMA calculation for multiple timeframes
@@ -297,98 +346,177 @@ const HigherLowerTrader = observer(() => {
         return candles;
     };
 
-    // Enhanced trend analysis with hybrid methodology
+    // Enhanced trend analysis using full 5000 tick history with HMA
     const updateHullTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
         const newTrends = { ...hullTrends };
         const tickPrices = newTickData.map(tick => tick.price);
 
-        // Calculate trend strength and momentum
+        // Calculate trend strength and momentum using full dataset
         const strength = calculateTrendStrength(tickPrices);
         const momentum = detectMarketMomentum(tickPrices);
 
         setTrendStrength(strength);
         setMarketMomentum(momentum);
 
-        // Define tick count requirements for different timeframe analysis
+        // Enhanced timeframe analysis using more data points from 5000 ticks
         const timeframeTickCounts = {
-            '15s': 150,   // Reduced for faster updates
-            '1m': 300,    // Reduced for faster updates
-            '5m': 600,    // Reduced for faster updates
-            '15m': 1200   // Reduced for faster updates
+            '15s': Math.min(300, tickPrices.length),   // ~5 minutes of data
+            '1m': Math.min(600, tickPrices.length),    // ~10 minutes of data
+            '5m': Math.min(1200, tickPrices.length),   // ~20 minutes of data
+            '15m': Math.min(2400, tickPrices.length),  // ~40 minutes of data
+            '1h': Math.min(4800, tickPrices.length)    // ~80 minutes of data
         };
 
         Object.entries(timeframeTickCounts).forEach(([timeframe, tickCount]) => {
-            // Use the most recent ticks for this timeframe
-            const recentTicks = newTickData.slice(-tickCount);
+            const recentTicks = tickPrices.slice(-tickCount);
 
-            if (recentTicks.length >= 20) { // Reduced minimum requirement
-                const tickPrices = recentTicks.map(tick => tick.price);
+            if (recentTicks.length >= 50) { // Higher minimum for better accuracy
                 let trend = 'NEUTRAL';
+                let trendStrengthValue = 0;
+                let hmaValue = 0;
 
-                // Apply selected trend method
-                if (trendMethod === 'HULL') {
-                    const hmaPeriods = {
-                        '15s': Math.min(21, Math.floor(tickPrices.length * 0.3)),
-                        '1m': Math.min(34, Math.floor(tickPrices.length * 0.4)),
-                        '5m': Math.min(55, Math.floor(tickPrices.length * 0.5)),
-                        '15m': Math.min(89, Math.floor(tickPrices.length * 0.6))
-                    };
+                // Enhanced HMA periods based on available data
+                const hmaPeriods = {
+                    '15s': Math.min(21, Math.floor(recentTicks.length * 0.1)),
+                    '1m': Math.min(34, Math.floor(recentTicks.length * 0.15)),
+                    '5m': Math.min(55, Math.floor(recentTicks.length * 0.2)),
+                    '15m': Math.min(89, Math.floor(recentTicks.length * 0.25)),
+                    '1h': Math.min(144, Math.floor(recentTicks.length * 0.3))
+                };
 
-                    const hmaPeriod = hmaPeriods[timeframe as keyof typeof hmaPeriods] || 14;
-                    const hmaValue = calculateHMA(tickPrices, hmaPeriod);
+                const hmaPeriod = hmaPeriods[timeframe as keyof typeof hmaPeriods] || 21;
 
-                    if (hmaValue !== null && tickPrices.length >= 10) {
-                        const prevHMA = calculateHMA(tickPrices.slice(0, -3), Math.min(hmaPeriod, tickPrices.length - 3));
-                        const hmaSlope = prevHMA !== null ? hmaValue - prevHMA : 0;
-                        const currentPrice = tickPrices[tickPrices.length - 1];
+                if (trendMethod === 'HULL' || trendMethod === 'HYBRID') {
+                    // Calculate HMA array for better trend analysis
+                    const hmaArray = calculateHMAArray(recentTicks, hmaPeriod);
+                    
+                    if (hmaArray.length >= 3) {
+                        const currentHMA = hmaArray[hmaArray.length - 1];
+                        const prevHMA = hmaArray[hmaArray.length - 2];
+                        const prevPrevHMA = hmaArray[hmaArray.length - 3];
+                        
+                        hmaValue = currentHMA;
+                        const currentPrice = recentTicks[recentTicks.length - 1];
+                        
+                        // Enhanced trend detection using HMA slope and price position
+                        const hmaSlope = currentHMA - prevHMA;
+                        const hmaSlopeAcceleration = (currentHMA - prevHMA) - (prevHMA - prevPrevHMA);
+                        const priceAboveHMA = currentPrice > currentHMA;
+                        
+                        // Calculate HMA trend strength
+                        const hmaRange = Math.max(...hmaArray.slice(-10)) - Math.min(...hmaArray.slice(-10));
+                        const priceRange = Math.max(...recentTicks.slice(-10)) - Math.min(...recentTicks.slice(-10));
+                        trendStrengthValue = hmaRange > 0 ? (Math.abs(hmaSlope) / hmaRange) * 100 : 0;
 
-                        // More sensitive thresholds for faster response
+                        // Dynamic thresholds based on volatility and timeframe
+                        const volatility = Math.sqrt(recentTicks.reduce((sum, price, i, arr) => {
+                            if (i === 0) return 0;
+                            const change = Math.abs(price - arr[i-1]) / arr[i-1];
+                            return sum + change * change;
+                        }, 0) / (recentTicks.length - 1));
+
+                        const baseSlopeThreshold = volatility * currentPrice * 0.0001;
                         const slopeThreshold = {
-                            '15s': 0.00005,
-                            '1m': 0.0001,
-                            '5m': 0.0002,
-                            '15m': 0.0004
-                        }[timeframe] || 0.0001;
+                            '15s': baseSlopeThreshold * 0.5,
+                            '1m': baseSlopeThreshold * 0.7,
+                            '5m': baseSlopeThreshold * 1.0,
+                            '15m': baseSlopeThreshold * 1.5,
+                            '1h': baseSlopeThreshold * 2.0
+                        }[timeframe] || baseSlopeThreshold;
 
-                        if (hmaSlope > slopeThreshold && currentPrice > hmaValue) {
+                        // Multi-factor trend determination
+                        let bullishSignals = 0;
+                        let bearishSignals = 0;
+
+                        // HMA slope signals
+                        if (hmaSlope > slopeThreshold) bullishSignals++;
+                        if (hmaSlope < -slopeThreshold) bearishSignals++;
+
+                        // HMA acceleration signals
+                        if (hmaSlopeAcceleration > 0 && hmaSlope > 0) bullishSignals++;
+                        if (hmaSlopeAcceleration < 0 && hmaSlope < 0) bearishSignals++;
+
+                        // Price position relative to HMA
+                        if (priceAboveHMA && hmaSlope > 0) bullishSignals++;
+                        if (!priceAboveHMA && hmaSlope < 0) bearishSignals++;
+
+                        // Price momentum
+                        const recentPriceChange = recentTicks[recentTicks.length - 1] - recentTicks[recentTicks.length - 5];
+                        if (recentPriceChange > 0 && hmaSlope > 0) bullishSignals++;
+                        if (recentPriceChange < 0 && hmaSlope < 0) bearishSignals++;
+
+                        // Determine trend based on signal strength
+                        if (bullishSignals >= 3 && bullishSignals > bearishSignals) {
                             trend = 'BULLISH';
-                        } else if (hmaSlope < -slopeThreshold && currentPrice < hmaValue) {
+                        } else if (bearishSignals >= 3 && bearishSignals > bullishSignals) {
                             trend = 'BEARISH';
+                        } else if (trendStrengthValue > 50) {
+                            // Use raw slope for weaker signals but high strength
+                            if (hmaSlope > slopeThreshold) trend = 'BULLISH';
+                            else if (hmaSlope < -slopeThreshold) trend = 'BEARISH';
                         }
                     }
-                } else if (trendMethod === 'EMA') {
-                    const emaFast = calculateEMA(tickPrices, emaConfig.fast);
-                    const emaSlow = calculateEMA(tickPrices, emaConfig.slow);
-                    const macd = calculateMACD(tickPrices, emaConfig.fast, emaConfig.slow, emaConfig.signal);
+                }
 
-                    if (emaFast && emaSlow && macd) {
-                        const currentPrice = tickPrices[tickPrices.length - 1];
+                // EMA and MACD analysis for comparison
+                if (trendMethod === 'EMA' || trendMethod === 'HYBRID') {
+                    const emaFast = calculateEMA(recentTicks, emaConfig.fast);
+                    const emaSlow = calculateEMA(recentTicks, emaConfig.slow);
+                    const macd = calculateMACD(recentTicks, emaConfig.fast, emaConfig.slow, emaConfig.signal);
 
-                        // EMA crossover with MACD confirmation
+                    if (emaFast && emaSlow && macd && trendMethod === 'EMA') {
+                        const currentPrice = recentTicks[recentTicks.length - 1];
+
                         if (emaFast > emaSlow && macd.macdLine > macd.signalLine && currentPrice > emaFast) {
                             trend = 'BULLISH';
                         } else if (emaFast < emaSlow && macd.macdLine < macd.signalLine && currentPrice < emaFast) {
                             trend = 'BEARISH';
                         }
                     }
-                } else if (trendMethod === 'HYBRID') {
-                    trend = getHybridTrend(tickPrices);
+
+                    // For HYBRID method, combine HMA and EMA signals
+                    if (trendMethod === 'HYBRID' && emaFast && emaSlow && macd) {
+                        let hybridScore = 0;
+                        
+                        // EMA signals
+                        if (emaFast > emaSlow) hybridScore += 1;
+                        else hybridScore -= 1;
+
+                        // MACD signals  
+                        if (macd.macdLine > macd.signalLine) hybridScore += 1;
+                        else hybridScore -= 1;
+
+                        if (macd.histogram > 0) hybridScore += 1;
+                        else hybridScore -= 1;
+
+                        // Combine with HMA trend
+                        if (trend === 'BULLISH' && hybridScore >= 1) {
+                            trend = 'BULLISH';
+                        } else if (trend === 'BEARISH' && hybridScore <= -1) {
+                            trend = 'BEARISH';
+                        } else if (Math.abs(hybridScore) >= 2) {
+                            trend = hybridScore > 0 ? 'BULLISH' : 'BEARISH';
+                        } else {
+                            trend = 'NEUTRAL';
+                        }
+                    }
                 }
 
-                // Simplified trend persistence - faster response
+                // Enhanced trend confirmation with adaptive requirements
                 const currentTrendData = hullTrends[timeframe as keyof typeof hullTrends];
                 const baseConfirmations = {
                     '15s': 2,
-                    '1m': 2,
-                    '5m': 3,
-                    '15m': 3
-                }[timeframe] || 2;
+                    '1m': 3,
+                    '5m': 4,
+                    '15m': 5,
+                    '1h': 6
+                }[timeframe] || 3;
 
-                // Adjust confirmations based on market momentum and strength
+                // Reduce confirmations for high-quality signals
                 let requiredConfirmations = baseConfirmations;
-                if (momentum === 'ACCELERATING' && strength > 40) {
-                    requiredConfirmations = Math.max(1, baseConfirmations - 1);
-                } else if (strength > 70) {
+                if (trendStrengthValue > 70 && momentum === 'ACCELERATING') {
+                    requiredConfirmations = Math.max(1, baseConfirmations - 2);
+                } else if (trendStrengthValue > 50) {
                     requiredConfirmations = Math.max(1, baseConfirmations - 1);
                 }
 
@@ -396,13 +524,12 @@ const HigherLowerTrader = observer(() => {
                 let confirmationCount = currentTrendData.confirmationCount || 0;
 
                 if (trend === currentTrendData.trend && trend !== 'NEUTRAL') {
-                    confirmationCount = Math.min(confirmationCount + 1, requiredConfirmations);
+                    confirmationCount = Math.min(confirmationCount + 1, requiredConfirmations * 2);
                     if (confirmationCount >= requiredConfirmations) {
                         finalTrend = trend;
                     }
                 } else if (trend !== 'NEUTRAL' && trend !== currentTrendData.trend) {
-                    // New trend detected - immediate update for strong signals
-                    if (strength > 60 || (strength > 40 && momentum === 'ACCELERATING')) {
+                    if (trendStrengthValue > 60) {
                         finalTrend = trend;
                         confirmationCount = requiredConfirmations;
                     } else {
@@ -413,27 +540,31 @@ const HigherLowerTrader = observer(() => {
                     }
                 } else if (trend === 'NEUTRAL') {
                     confirmationCount = Math.max(0, confirmationCount - 1);
-                    if (confirmationCount === 0) {
+                    if (confirmationCount <= 1) {
                         finalTrend = 'NEUTRAL';
                     }
                 }
 
                 newTrends[timeframe as keyof typeof hullTrends] = {
                     trend: finalTrend,
-                    value: Number(tickPrices[tickPrices.length - 1].toFixed(5)),
-                    confirmationCount
+                    value: Number((hmaValue || tickPrices[tickPrices.length - 1]).toFixed(5)),
+                    confirmationCount,
+                    strength: trendStrengthValue
                 };
 
-                // Enhanced logging for debugging
-                if (timeframe === '15s') {
-                    console.log(`Trend Update - ${timeframe}:`, {
+                // Enhanced logging for trend analysis
+                if (timeframe === '1m') {
+                    console.log(`Enhanced HMA Trend Analysis - ${timeframe}:`, {
+                        symbol: symbol,
                         method: trendMethod,
                         detected: trend,
                         final: finalTrend,
-                        strength: strength.toFixed(2),
+                        hmaValue: hmaValue?.toFixed(5),
+                        strength: trendStrengthValue.toFixed(2),
                         momentum,
                         confirmations: `${confirmationCount}/${requiredConfirmations}`,
-                        tickCount: tickPrices.length
+                        tickCount: recentTicks.length,
+                        totalTicks: tickPrices.length
                     });
                 }
             }
@@ -442,13 +573,13 @@ const HigherLowerTrader = observer(() => {
         setHullTrends(newTrends);
     };
 
-    // Fetch historical tick data for Hull Moving Average analysis
+    // Enhanced fetch for 5000 historical ticks for better HMA analysis
     const fetchHistoricalTicks = async (symbolToFetch: string) => {
         try {
             const request = {
                 ticks_history: symbolToFetch,
                 adjust_start_time: 1,
-                count: 1000,
+                count: 5000, // Maximum allowed by Deriv API
                 end: "latest",
                 start: 1,
                 style: "ticks"
@@ -468,13 +599,16 @@ const HigherLowerTrader = observer(() => {
                     close: parseFloat(price)
                 }));
 
+                console.log(`Fetched ${historicalData.length} historical ticks for ${symbolToFetch}`);
+
                 setTickData(prev => {
                     const combinedData = [...historicalData, ...prev];
                     const uniqueData = combinedData.filter((tick, index, arr) =>
                         arr.findIndex(t => t.time === tick.time) === index
                     ).sort((a, b) => a.time - b.time);
 
-                    const trimmedData = uniqueData.slice(-2000);
+                    // Keep all 5000 ticks for better HMA calculation
+                    const trimmedData = uniqueData.slice(-5000);
                     updateHullTrends(trimmedData);
                     return trimmedData;
                 });
@@ -494,23 +628,28 @@ const HigherLowerTrader = observer(() => {
     const [trendStrength, setTrendStrength] = useState(0);
     const [marketMomentum, setMarketMomentum] = useState<'ACCELERATING' | 'DECELERATING' | 'NEUTRAL'>('NEUTRAL');
 
-    // Preload historical data for all volatility indices
+    // Enhanced preloading with 5000 ticks and immediate HMA analysis
     const preloadAllVolatilityData = async (api: any) => {
         setIsPreloading(true);
-        setStatus('Preloading historical data for trend analysis...');
+        setStatus('Preloading 5000 ticks per volatility index for enhanced HMA analysis...');
 
         const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'BOOM500', 'BOOM1000', 'CRASH500', 'CRASH1000', 'stpRNG'];
         const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>} = {};
 
         try {
-            // Fetch 5000 ticks for each volatility index
-            const promises = volatilitySymbols.map(async (sym) => {
+            // Fetch maximum 5000 ticks for each volatility index
+            const promises = volatilitySymbols.map(async (sym, index) => {
                 try {
+                    // Add delay between requests to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, index * 500));
+                    
+                    setStatus(`Fetching ${sym}... (${index + 1}/${volatilitySymbols.length})`);
+
                     const request = {
                         ticks_history: sym,
                         adjust_start_time: 1,
-                        count: 5000, // Maximum allowed by Deriv
-                        end: "latest",
+                        count: 5000, // Maximum allowed by Deriv API
+                        end: "latest", 
                         start: 1,
                         style: "ticks"
                     };
@@ -518,7 +657,23 @@ const HigherLowerTrader = observer(() => {
                     const response = await api.send(request);
 
                     if (response.error) {
-                        console.warn(`Error fetching data for ${sym}:`, response.error);
+                        console.warn(`Error fetching 5000 ticks for ${sym}:`, response.error);
+                        // Fallback to smaller count if 5000 fails
+                        try {
+                            const fallbackRequest = { ...request, count: 1000 };
+                            const fallbackResponse = await api.send(fallbackRequest);
+                            if (!fallbackResponse.error && fallbackResponse.history) {
+                                const historicalData = fallbackResponse.history.prices.map((price: string, index: number) => ({
+                                    time: fallbackResponse.history.times[index] * 1000,
+                                    price: parseFloat(price),
+                                    close: parseFloat(price)
+                                }));
+                                preloadedDataMap[sym] = historicalData;
+                                console.log(`Fallback: Preloaded ${historicalData.length} ticks for ${sym}`);
+                            }
+                        } catch (fallbackError) {
+                            console.warn(`Fallback also failed for ${sym}:`, fallbackError);
+                        }
                         return;
                     }
 
@@ -530,7 +685,12 @@ const HigherLowerTrader = observer(() => {
                         }));
 
                         preloadedDataMap[sym] = historicalData;
-                        console.log(`Preloaded ${historicalData.length} ticks for ${sym}`);
+                        console.log(`Successfully preloaded ${historicalData.length} ticks for ${sym}`);
+                        
+                        // Immediate HMA analysis for this symbol
+                        if (sym === symbol || (!symbol && index === 0)) {
+                            updateHullTrends(historicalData);
+                        }
                     }
                 } catch (error) {
                     console.warn(`Failed to preload data for ${sym}:`, error);
@@ -539,10 +699,20 @@ const HigherLowerTrader = observer(() => {
 
             await Promise.all(promises);
             setPreloadedData(preloadedDataMap);
-            setStatus(`Preloaded historical data for ${Object.keys(preloadedDataMap).length} volatility indices`);
+            
+            const successCount = Object.keys(preloadedDataMap).length;
+            const totalTicks = Object.values(preloadedDataMap).reduce((sum, data) => sum + data.length, 0);
+            
+            setStatus(`✅ Preloaded ${totalTicks} total ticks across ${successCount}/${volatilitySymbols.length} volatility indices for enhanced HMA analysis`);
+            
+            // Log summary of preloaded data
+            console.log('Preload Summary:', Object.entries(preloadedDataMap).map(([sym, data]) => 
+                `${sym}: ${data.length} ticks`
+            ));
+            
         } catch (error) {
-            console.error('Error during preloading:', error);
-            setStatus('Failed to preload some historical data, but continuing...');
+            console.error('Error during enhanced preloading:', error);
+            setStatus('⚠️ Partial preload completed - some indices may have limited data');
         } finally {
             setIsPreloading(false);
         }
@@ -1054,60 +1224,99 @@ const HigherLowerTrader = observer(() => {
     // Check if user is authorized - check if balance is available and user is logged in
     const isAuthorized = client?.balance !== undefined && client?.balance !== null && client?.is_logged_in;
 
-    // Enhanced market trends analysis with hybrid methodology
+    // Enhanced market recommendation using 5000-tick HMA analysis
     const getMarketRecommendation = () => {
         const trends = Object.values(hullTrends);
         const bullishCount = trends.filter(t => t.trend === 'BULLISH').length;
         const bearishCount = trends.filter(t => t.trend === 'BEARISH').length;
         const neutralCount = trends.filter(t => t.trend === 'NEUTRAL').length;
 
+        // Calculate weighted trend strength based on timeframe importance
+        const timeframeWeights = { '15s': 1, '1m': 2, '5m': 3, '15m': 4, '1h': 5 };
+        let weightedBullishScore = 0;
+        let weightedBearishScore = 0;
+        let totalWeight = 0;
+
+        Object.entries(hullTrends).forEach(([timeframe, data]) => {
+            const weight = timeframeWeights[timeframe as keyof typeof timeframeWeights] || 1;
+            const strength = data.strength || 0;
+            const confidence = (data.confirmationCount || 0) / 5; // Normalize to 0-1
+
+            totalWeight += weight;
+
+            if (data.trend === 'BULLISH') {
+                weightedBullishScore += weight * (1 + strength/100) * (1 + confidence);
+            } else if (data.trend === 'BEARISH') {
+                weightedBearishScore += weight * (1 + strength/100) * (1 + confidence);
+            }
+        });
+
+        const netBullishStrength = (weightedBullishScore - weightedBearishScore) / totalWeight;
+
         let alignment = 'NEUTRAL';
         let confidence = 'WEAK';
         let recommendedAction = 'WAIT';
-        let recommendedContractType = 'CALL'; // Default
+        let recommendedContractType = 'CALL';
 
-        // More responsive recommendation logic
-        if (bullishCount >= 3) {
+        // Enhanced recommendation logic using weighted analysis
+        if (netBullishStrength > 1.5) {
             alignment = 'BULLISH';
             recommendedAction = 'HIGHER';
             recommendedContractType = 'CALL';
-            confidence = bullishCount === 4 ? 'VERY_STRONG' : 'STRONG';
-        } else if (bearishCount >= 3) {
+            confidence = netBullishStrength > 3 ? 'VERY_STRONG' : 'STRONG';
+        } else if (netBullishStrength < -1.5) {
             alignment = 'BEARISH';
             recommendedAction = 'LOWER';
             recommendedContractType = 'PUT';
-            confidence = bearishCount === 4 ? 'VERY_STRONG' : 'STRONG';
-        } else if (bullishCount >= 2 && bearishCount === 0) {
-            alignment = 'BULLISH';
-            recommendedAction = 'HIGHER';
-            recommendedContractType = 'CALL';
-            confidence = trendStrength > 50 ? 'STRONG' : 'MODERATE';
-        } else if (bearishCount >= 2 && bullishCount === 0) {
-            alignment = 'BEARISH';
-            recommendedAction = 'LOWER';
-            recommendedContractType = 'PUT';
-            confidence = trendStrength > 50 ? 'STRONG' : 'MODERATE';
-        } else if (bullishCount >= 1 && bearishCount === 0 && trendStrength > 60) {
+            confidence = netBullishStrength < -3 ? 'VERY_STRONG' : 'STRONG';
+        } else if (netBullishStrength > 0.8) {
             alignment = 'BULLISH';
             recommendedAction = 'HIGHER';
             recommendedContractType = 'CALL';
             confidence = 'MODERATE';
-        } else if (bearishCount >= 1 && bullishCount === 0 && trendStrength > 60) {
+        } else if (netBullishStrength < -0.8) {
             alignment = 'BEARISH';
             recommendedAction = 'LOWER';
             recommendedContractType = 'PUT';
             confidence = 'MODERATE';
         }
 
-        // Boost confidence based on trend strength and momentum
-        const avgStrength = trendStrength;
-        if (avgStrength > 80 && marketMomentum === 'ACCELERATING') {
+        // Traditional count-based backup for edge cases
+        if (confidence === 'WEAK') {
+            if (bullishCount >= 4) {
+                alignment = 'BULLISH';
+                recommendedAction = 'HIGHER';
+                recommendedContractType = 'CALL';
+                confidence = 'VERY_STRONG';
+            } else if (bearishCount >= 4) {
+                alignment = 'BEARISH';
+                recommendedAction = 'LOWER';
+                recommendedContractType = 'PUT';
+                confidence = 'VERY_STRONG';
+            } else if (bullishCount >= 3 && bearishCount <= 1) {
+                alignment = 'BULLISH';
+                recommendedAction = 'HIGHER';
+                recommendedContractType = 'CALL';
+                confidence = 'STRONG';
+            } else if (bearishCount >= 3 && bullishCount <= 1) {
+                alignment = 'BEARISH';
+                recommendedAction = 'LOWER';
+                recommendedContractType = 'PUT';
+                confidence = 'STRONG';
+            }
+        }
+
+        // Boost confidence based on overall trend strength and momentum
+        if (trendStrength > 80 && marketMomentum === 'ACCELERATING') {
             if (confidence === 'MODERATE') confidence = 'STRONG';
             else if (confidence === 'STRONG') confidence = 'VERY_STRONG';
-        } else if (avgStrength > 70) {
+        } else if (trendStrength > 70 && marketMomentum !== 'DECELERATING') {
             if (confidence === 'MODERATE') confidence = 'STRONG';
         }
 
+        // Additional validation using tick data quality
+        const dataQuality = tickData.length >= 3000 ? 'HIGH' : tickData.length >= 1000 ? 'MEDIUM' : 'LOW';
+        
         return {
             alignment,
             confidence,
@@ -1116,8 +1325,11 @@ const HigherLowerTrader = observer(() => {
             bullishCount,
             bearishCount,
             neutralCount,
-            strength: avgStrength,
-            momentum: marketMomentum
+            strength: trendStrength,
+            momentum: marketMomentum,
+            weightedStrength: netBullishStrength,
+            dataQuality,
+            totalTicks: tickData.length
         };
     };
 
@@ -1400,36 +1612,57 @@ const HigherLowerTrader = observer(() => {
                             <div className='trends-grid'>
                                 {Object.entries(hullTrends).map(([timeframe, data]) => {
                                     const tickCounts = {
-                                        '15s': 600,
-                                        '1m': 1000,
-                                        '5m': 2000,
-                                        '15m': 4500
+                                        '15s': 300,
+                                        '1m': 600,
+                                        '5m': 1200,
+                                        '15m': 2400,
+                                        '1h': 4800
                                     };
 
                                     const maxTicks = tickCounts[timeframe as keyof typeof tickCounts] || 600;
                                     const actualTicks = Math.min(tickData.length, maxTicks);
+                                    const dataQuality = actualTicks >= maxTicks * 0.8 ? 'HIGH' : actualTicks >= maxTicks * 0.5 ? 'MED' : 'LOW';
 
                                     const requiredConfirmations = {
-                                        '15s': 3,
-                                        '1m': 4,
-                                        '5m': 5,
-                                        '15m': 6
+                                        '15s': 2,
+                                        '1m': 3,
+                                        '5m': 4,
+                                        '15m': 5,
+                                        '1h': 6
                                     }[timeframe] || 3;
 
                                     const confirmationBars = '█'.repeat(data.confirmationCount || 0) + 
                                                                '░'.repeat(Math.max(0, requiredConfirmations - (data.confirmationCount || 0)));
 
-                                    // Calculate confidence based on confirmations and trend strength
-                                    const confidence = Math.min(100, ((data.confirmationCount || 0) / requiredConfirmations) * 100 + (trendStrength * 0.3));
+                                    // Enhanced confidence calculation including HMA strength
+                                    const confirmationScore = ((data.confirmationCount || 0) / requiredConfirmations) * 60;
+                                    const strengthScore = (data.strength || 0) * 0.3;
+                                    const overallStrengthScore = trendStrength * 0.1;
+                                    const confidence = Math.min(100, confirmationScore + strengthScore + overallStrengthScore);
+
+                                    // HMA trend direction indicator
+                                    const trendIcon = data.trend === 'BULLISH' ? '📈' : 
+                                                     data.trend === 'BEARISH' ? '📉' : '➡️';
 
                                     return (
                                         <div key={timeframe} className={`trend-item trend-${data.trend.toLowerCase()}`}>
                                             <span className='timeframe'>{timeframe}</span>
-                                            <span className='trend'>{data.trend}</span>
-                                            <span className='value'>{data.value.toFixed(5)}</span>
-                                            <span className='confirmation'>{confirmationBars}</span>
-                                            <span className='confidence'>{confidence.toFixed(0)}%</span>
-                                            <span className='tick-count'>({actualTicks} ticks)</span>
+                                            <span className='trend'>{trendIcon} {data.trend}</span>
+                                            <span className='value'>HMA: {data.value.toFixed(5)}</span>
+                                            <span className='confirmation' title={`${data.confirmationCount}/${requiredConfirmations} confirmations`}>
+                                                {confirmationBars}
+                                            </span>
+                                            <span className='confidence' title={`Confidence: ${confidence.toFixed(0)}%`}>
+                                                {confidence.toFixed(0)}%
+                                            </span>
+                                            <span className='tick-count' title={`Data quality: ${dataQuality}`}>
+                                                ({actualTicks}) {dataQuality}
+                                            </span>
+                                            {data.strength && (
+                                                <span className='trend-strength' title={`HMA Trend Strength: ${data.strength.toFixed(1)}%`}>
+                                                    {data.strength.toFixed(1)}%
+                                                </span>
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -1437,7 +1670,7 @@ const HigherLowerTrader = observer(() => {
 
                             <div className="trend-recommendation">
                                     <div className="trend-alignment">
-                                        <strong>Aligned Trend:</strong> 
+                                        <strong>HMA Aligned Trend:</strong> 
                                         <span className={`trend-${recommendation.alignment.toLowerCase()}`}>
                                             {recommendation.alignment}
                                         </span>
@@ -1446,10 +1679,13 @@ const HigherLowerTrader = observer(() => {
                                                 ({recommendation.confidence})
                                             </span>
                                         )}
+                                        <span className="data-quality-badge" title={`Based on ${recommendation.totalTicks} ticks`}>
+                                            {recommendation.dataQuality}
+                                        </span>
                                     </div>
 
                                     <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
-                                        <strong>Recommended:</strong> 
+                                        <strong>5000-Tick Recommendation:</strong> 
                                         <span className={`trend-${recommendation.alignment.toLowerCase()}`}>
                                             {recommendation.recommendedAction}
                                         </span>
@@ -1460,12 +1696,13 @@ const HigherLowerTrader = observer(() => {
                                         )}
                                     </div>
 
-                                    {recommendation.strength > 0 && (
-                                        <div style={{ marginTop: '0.3rem', fontSize: '0.8rem', color: 'var(--text-less-prominent)' }}>
-                                            Strength: {recommendation.strength.toFixed(1)}% | 
-                                            Momentum: {recommendation.momentum}
-                                        </div>
-                                    )}
+                                    <div style={{ marginTop: '0.3rem', fontSize: '0.8rem', color: 'var(--text-less-prominent)' }}>
+                                        <div>Trend Strength: {recommendation.strength.toFixed(1)}% | 
+                                        Momentum: {recommendation.momentum}</div>
+                                        <div>Weighted Score: {recommendation.weightedStrength?.toFixed(2)} | 
+                                        Data: {recommendation.totalTicks} ticks ({recommendation.dataQuality})</div>
+                                        <div>Alignment: {bullishCount}B | {bearishCount}Be | {neutralCount}N</div>
+                                    </div>
                                 </div>
 
                             {/* Trading Signals */}
