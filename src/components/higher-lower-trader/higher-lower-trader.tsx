@@ -1034,6 +1034,90 @@ const HigherLowerTrader = observer(() => {
     // Check if user is authorized - check if balance is available and user is logged in
     const isAuthorized = client?.balance !== undefined && client?.balance !== null && client?.is_logged_in;
 
+    // Enhanced market trends analysis with hybrid methodology
+    const getMarketRecommendation = () => {
+        const trends = Object.values(hullTrends);
+        const bullishCount = trends.filter(t => t.trend === 'BULLISH').length;
+        const bearishCount = trends.filter(t => t.trend === 'BEARISH').length;
+        const neutralCount = trends.filter(t => t.trend === 'NEUTRAL').length;
+
+        let alignment = 'NEUTRAL';
+        let confidence = 'WEAK';
+        let recommendedAction = 'WAIT';
+        let recommendedContractType = 'CALL'; // Default
+
+        // Check for 3+ timeframe alignment
+        if (bullishCount >= 3) {
+            alignment = 'BULLISH';
+            recommendedAction = 'HIGHER';
+            recommendedContractType = 'CALL';
+            confidence = bullishCount === 4 ? 'VERY_STRONG' : 'STRONG';
+        } else if (bearishCount >= 3) {
+            alignment = 'BEARISH';
+            recommendedAction = 'LOWER';
+            recommendedContractType = 'PUT';
+            confidence = bearishCount === 4 ? 'VERY_STRONG' : 'STRONG';
+        } else if (bullishCount === 2 && neutralCount <= 1) {
+            alignment = 'BULLISH';
+            recommendedAction = 'HIGHER';
+            recommendedContractType = 'CALL';
+            confidence = 'MODERATE';
+        } else if (bearishCount === 2 && neutralCount <= 1) {
+            alignment = 'BEARISH';
+            recommendedAction = 'LOWER';
+            recommendedContractType = 'PUT';
+            confidence = 'MODERATE';
+        }
+
+        // Consider trend strength and momentum for confidence adjustment
+        const avgStrength = trendStrength;
+        if (avgStrength > 70 && confidence !== 'WEAK') {
+            confidence = confidence === 'MODERATE' ? 'STRONG' : 
+                       confidence === 'STRONG' ? 'VERY_STRONG' : confidence;
+        }
+
+        return {
+            alignment,
+            confidence,
+            recommendedAction,
+            recommendedContractType,
+            bullishCount,
+            bearishCount,
+            neutralCount,
+            strength: avgStrength,
+            momentum: marketMomentum
+        };
+    };
+
+    const [autoSelectContract, setAutoSelectContract] = useState(false);
+    const recommendation = getMarketRecommendation();
+
+    const applyRecommendations = () => {
+        const recommendation = getMarketRecommendation();
+
+        if (recommendation.recommendedAction === 'HIGHER') {
+            setContractType('CALL');
+            setDuration(60); // Conservative 1-minute duration
+            setBarrier('+0.37'); // Small positive barrier
+            setStatus(`📈 Applied HIGHER (CALL) recommendation based on ${recommendation.bullishCount}/4 bullish trends`);
+        } else if (recommendation.recommendedAction === 'LOWER') {
+            setContractType('PUT');
+            setDuration(60); // Conservative 1-minute duration  
+            setBarrier('-0.37'); // Small negative barrier
+            setStatus(`📉 Applied LOWER (PUT) recommendation based on ${recommendation.bearishCount}/4 bearish trends`);
+        } else {
+            setStatus('⏸️ No clear trend alignment - waiting for better signal');
+            return;
+        }
+
+        // Adjust duration based on confidence
+        if (recommendation.confidence === 'VERY_STRONG') {
+            setDuration(120); // 2 minutes for very strong signals
+        } else if (recommendation.confidence === 'WEAK') {
+            setDuration(30); // 30 seconds for weak signals
+        }
+    };
+
     return (
         <div className='higher-lower-trader'>
             <div className='higher-lower-trader__container'>
@@ -1320,50 +1404,38 @@ const HigherLowerTrader = observer(() => {
                                 })}
                             </div>
 
-                            <div className='trend-recommendation'>
-                                <div className='trend-alignment'>
-                                    <strong>Hybrid Analysis: </strong>
-                                    <span className={`trend-${getHybridTrend(tickData.map(tick => tick.price)).toLowerCase()}`}>
-                                        {getHybridTrend(tickData.map(tick => tick.price))}
-                                    </span>
-                                    <span className='trend-strength-badge'>
-                                        ({trendStrength.toFixed(0)}% strength)
-                                    </span>
-                                    <span className={`momentum-indicator momentum-${marketMomentum.toLowerCase()}`}>
-                                        {marketMomentum}
-                                    </span>
-                                </div>
-
-                                <div className='trend-alignment'>
-                                    <strong>Aligned Trend: </strong>
-                                    <span className={`trend-${getAlignedTrend().toLowerCase()}`}>
-                                        {getAlignedTrend()}
-                                    </span>
-                                    <span className='confidence'>
-                                        ({Object.values(hullTrends).filter(t => t.trend !== 'NEUTRAL').length}/4 timeframes)
-                                    </span>
-                                </div>
-
-                                <div className='confidence-indicator'>
-                                    <strong>Recommended: {getRecommendedContractType() === 'CALL' ? 'Higher (Call)' : 'Lower (Put)'}</strong>
-                                    <span className='hybrid-basis'> - Based on Hybrid Analysis</span>
-                                </div>
-
-                                <div className='entry-recommendations'>
-                                    <div>
-                                        <strong>Entry Timing: </strong>
-                                        <span className={`timing-${getEntryTiming().toLowerCase()}`}>
-                                            {getEntryTiming()}
+                            <div className="trend-recommendation">
+                                    <div className="trend-alignment">
+                                        <strong>Aligned Trend:</strong> 
+                                        <span className={`trend-${recommendation.alignment.toLowerCase()}`}>
+                                            {recommendation.alignment}
                                         </span>
+                                        {recommendation.confidence !== 'WEAK' && (
+                                            <span className="confidence-indicator">
+                                                ({recommendation.confidence})
+                                            </span>
+                                        )}
                                     </div>
-                                    <div className='duration-reason'>
-                                        Optimal Duration: {getRecommendedDuration()}s 
-                                        {trendStrength > 80 ? ' (Strong trend - short duration)' : 
-                                         trendStrength > 50 ? ' (Medium trend - balanced duration)' : 
-                                         ' (Weak trend - longer duration)'}
+
+                                    <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                                        <strong>Recommended:</strong> 
+                                        <span className={`trend-${recommendation.alignment.toLowerCase()}`}>
+                                            {recommendation.recommendedAction}
+                                        </span>
+                                        {recommendation.recommendedAction !== 'WAIT' && (
+                                            <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: 'var(--text-less-prominent)' }}>
+                                                ({recommendation.recommendedContractType})
+                                            </span>
+                                        )}
                                     </div>
+
+                                    {recommendation.strength > 0 && (
+                                        <div style={{ marginTop: '0.3rem', fontSize: '0.8rem', color: 'var(--text-less-prominent)' }}>
+                                            Strength: {recommendation.strength.toFixed(1)}% | 
+                                            Momentum: {recommendation.momentum}
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
 
                             {/* Trading Signals */}
                             <div className='trading-signals'>
@@ -1393,30 +1465,23 @@ const HigherLowerTrader = observer(() => {
                             </div>
 
                             {/* Auto-recommendation controls */}
-                            <div className='auto-controls'>
-                                <label>
-                                    <input
-                                        type='checkbox'
-                                        checked={autoSelectContract}
-                                        onChange={e => setAutoSelectContract(e.target.checked)}
-                                    />
-                                    Auto-select contract type based on hybrid analysis
-                                </label>
-
-                                <button 
-                                    className='apply-recommendations-btn'
-                                    onClick={() => {
-                                        const recommended = getRecommendedContractType();
-                                        const optimalDuration = getRecommendedDuration();
-                                        setContractType(recommended);
-                                        setDuration(optimalDuration);
-                                        setBarrier('+0.37'); // Reset barrier to optimal default
-                                    }}
-                                    disabled={is_running}
-                                >
-                                    Apply Hybrid Recommendations
-                                </button>
-                            </div>
+                            <div className="auto-controls">
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={autoSelectContract}
+                                    onChange={(e) => setAutoSelectContract(e.target.checked)}
+                                />
+                                Auto-apply trend recommendations
+                            </label>
+                            <button
+                                className="apply-recommendations-btn"
+                                onClick={applyRecommendations}
+                                disabled={!recommendation || recommendation.recommendedAction === 'WAIT'}
+                            >
+                                Apply Recommendation: {recommendation?.recommendedAction || 'WAIT'}
+                            </button>
+                        </div>
                         </div>
 
                         {/* Contract Info During Trading */}
