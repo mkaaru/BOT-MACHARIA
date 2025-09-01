@@ -159,8 +159,8 @@ const HigherLowerTrader = observer(() => {
         return candles;
     };
 
-    // Update Hull trends based on tick data directly (no candle conversion)
-    const updateHullTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
+    // Update Ehlers trends based on tick data directly (no candle conversion)
+    const updateEhlersTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
         const newTrends = { ...hullTrends };
 
         // Define tick count requirements for different timeframe analysis
@@ -262,7 +262,7 @@ const HigherLowerTrader = observer(() => {
                     ).sort((a, b) => a.time - b.time);
 
                     const trimmedData = uniqueData.slice(-2000); // Keep only the most recent 2000 ticks
-                    updateHullTrends(trimmedData);
+                    updateEhlersTrends(trimmedData);
                     return trimmedData;
                 });
             }
@@ -350,7 +350,7 @@ const HigherLowerTrader = observer(() => {
                     // Use preloaded data if available
                     if (preloadedData[syn[0].symbol] && preloadedData[syn[0].symbol].length > 0) {
                         setTickData(preloadedData[syn[0].symbol]);
-                        updateHullTrends(preloadedData[syn[0].symbol]);
+                        updateEhlersTrends(preloadedData[syn[0].symbol]);
                     } else {
                         await fetchHistoricalTicks(syn[0].symbol);
                     }
@@ -384,7 +384,7 @@ const HigherLowerTrader = observer(() => {
             // Use preloaded data if available, otherwise fetch
             if (preloadedData[symbol] && preloadedData[symbol].length > 0) {
                 setTickData(preloadedData[symbol]);
-                updateHullTrends(preloadedData[symbol]);
+                updateEhlersTrends(preloadedData[symbol]);
                 console.log(`Using preloaded data for ${symbol}: ${preloadedData[symbol].length} ticks`);
             } else {
                 fetchHistoricalTicks(symbol);
@@ -454,7 +454,7 @@ const HigherLowerTrader = observer(() => {
                             }];
 
                             const trimmedData = newTickData.slice(-2000);
-                            updateHullTrends(trimmedData);
+                            updateEhlersTrends(trimmedData);
                             return trimmedData;
                         });
                     }
@@ -611,8 +611,8 @@ const HigherLowerTrader = observer(() => {
                                     const currentProfit = Number(contract.profit || 0);
 
                                     // Calculate potential payout based on current contract value
-                                    const potentialPayout = contract.payout ? Number(contract.payout) : 
-                                                          (currentBidPrice > 0 ? currentBidPrice : 
+                                    const potentialPayout = contract.payout ? Number(contract.payout) :
+                                                          (currentBidPrice > 0 ? currentBidPrice :
                                                            (effectiveStake + currentProfit));
 
                                     setContractValue(currentBidPrice);
@@ -812,7 +812,7 @@ const HigherLowerTrader = observer(() => {
                         <div className='higher-lower-trader__row higher-lower-trader__row--two'>
                             <div className='higher-lower-trader__field'>
                                 <label htmlFor='hl-symbol'>
-                                    {localize('Volatility')} 
+                                    {localize('Volatility')}
                                     {isPreloading && <span className='loading-indicator'> (Loading...)</span>}
                                 </label>
                                 <select
@@ -824,7 +824,7 @@ const HigherLowerTrader = observer(() => {
                                         // Use preloaded data if available
                                         if (preloadedData[v] && preloadedData[v].length > 0) {
                                             setTickData(preloadedData[v]);
-                                            updateHullTrends(preloadedData[v]);
+                                            updateEhlersTrends(preloadedData[v]);
                                         } else {
                                             fetchHistoricalTicks(v);
                                         }

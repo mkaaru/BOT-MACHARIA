@@ -427,44 +427,62 @@
     }
 
     .trend-item {
-        padding: 0.5rem;
-        background-color: white;
+        display: flex;
+        flex-direction: column;
+        padding: 8px;
         border-radius: 4px;
-        border: 1px solid #dee2e6;
         text-align: center;
-        font-size: 0.875rem;
+        font-size: 12px;
 
-        &.bullish {
-            border-color: #28a745;
-            background-color: #d4edda;
+        &.trend-bullish {
+            background-color: rgba(0, 255, 0, 0.1);
+            border: 1px solid #00ff00;
+            color: #00ff00;
         }
 
-        &.bearish {
-            border-color: #dc3545;
-            background-color: #f8d7da;
+        &.trend-bearish {
+            background-color: rgba(255, 0, 0, 0.1);
+            border: 1px solid #ff0000;
+            color: #ff0000;
         }
 
-        &.neutral {
-            border-color: #6c757d;
-            background-color: #e2e3e5;
+        &.trend-neutral {
+            background-color: rgba(255, 255, 0, 0.1);
+            border: 1px solid #ffff00;
+            color: #ffff00;
         }
 
         .trend-timeframe {
             font-weight: bold;
-            margin-bottom: 0.25rem;
-            font-size: 0.8rem;
+            margin-bottom: 4px;
         }
 
         .trend-status {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            margin-bottom: 0.25rem;
+            font-size: 11px;
+            margin-bottom: 2px;
         }
 
         .trend-value {
-            font-family: monospace;
-            font-size: 0.7rem;
-            color: #6c757d;
+            font-size: 10px;
+            opacity: 0.8;
+            margin-bottom: 2px;
+        }
+
+        .trend-confidence {
+            font-size: 9px;
+            opacity: 0.7;
+            margin-bottom: 1px;
+        }
+
+        .market-state {
+            font-size: 8px;
+            opacity: 0.6;
+            margin-bottom: 1px;
+        }
+
+        .trend-strength {
+            font-size: 8px;
+            opacity: 0.6;
         }
     }
 
@@ -501,8 +519,16 @@
         }
 
         .confidence {
-            font-size: 0.9rem;
+            font-size: 14px;
+            margin-top: 5px;
             opacity: 0.8;
+        }
+
+        .analysis-note {
+            font-size: 11px;
+            margin-top: 5px;
+            opacity: 0.6;
+            font-style: italic;
         }
     }
 }
