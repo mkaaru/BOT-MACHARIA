@@ -982,9 +982,9 @@ const HigherLowerTrader = observer(() => {
                         });
 
                         if (tradingMode === 'RISE_FALL') {
-                            setStatus(`📈 ${contractType === 'CALL' ? 'Rise' : 'Fall'} contract started for $${effectiveStake} - will sell immediately when available`);
+                            setStatus(`Purchased: ${contractType === 'CALL' ? 'Rise' : 'Fall'} contract for $${effectiveStake} - will sell immediately when available`);
                         } else {
-                            setStatus(`📈 ${contractType === 'CALL' ? 'Higher' : 'Lower'} contract started with barrier ${barrier} for $${effectiveStake}`);
+                            setStatus(`Purchased: ${contractType === 'CALL' ? 'Higher' : 'Lower'} contract with barrier ${barrier} for $${effectiveStake}`);
                         }
 
                         // Initialize contract display values
@@ -1241,7 +1241,11 @@ const HigherLowerTrader = observer(() => {
             }
         } catch (error: any) {
             console.error('Higher/Lower trader error:', error);
-            setStatus(`❌ Trading error: ${error.message || 'Unknown error'}`);
+            setStatus(`❌ Trading error: ${error?.message || error?.error?.message || 'Unknown error occurred'}`);
+            setIsRunning(false);
+            stopFlagRef.current = true;
+            run_panel.setIsRunning(false);
+            run_panel.setContractStage(contract_stages.STOPPING);
         } finally {
             setIsRunning(false);
             run_panel.setIsRunning(false);
@@ -1655,6 +1659,7 @@ const HigherLowerTrader = observer(() => {
                 // Stop trading on critical errors
                 stopFlagRef.current = true;
                 setIsRunning(false);
+                run_panel.setIsRunning(false);
             } catch (stateError) {
                 console.error('Error updating state after runtime error:', stateError);
             }
@@ -1662,14 +1667,14 @@ const HigherLowerTrader = observer(() => {
 
         const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
             console.error('Unhandled promise rejection:', event.reason);
-            try {
-                setStatus(`Promise error: ${event.reason?.message || 'Unknown promise error'}`);
-                // Stop trading on promise rejections
-                stopFlagRef.current = true;
+            if (is_running) {
+                setStatus(`Unhandled error: ${event.reason?.message || 'Unknown error'}`);
                 setIsRunning(false);
-            } catch (stateError) {
-                console.error('Error updating state after promise rejection:', stateError);
+                stopFlagRef.current = true;
+                run_panel.setIsRunning(false);
             }
+            // Prevent the error from being logged to console again
+            event.preventDefault();
         };
 
         // Add global error listeners
@@ -1681,7 +1686,7 @@ const HigherLowerTrader = observer(() => {
             window.removeEventListener('error', handleError);
             window.removeEventListener('unhandledrejection', handleUnhandledRejection);
         };
-    }, []);
+    }, [is_running, run_panel]);
 
     // Safer start trading function with validation
     const startTrading = async () => {
@@ -1744,6 +1749,10 @@ const HigherLowerTrader = observer(() => {
             setIsRunning(false);
         }
     };
+
+    // Renamed onRun to executeContract for clarity
+    const executeContract = onRun;
+    const onStop = stopTrading;
 
     return (
         <div className="higher-lower-trader">
@@ -2195,24 +2204,23 @@ const HigherLowerTrader = observer(() => {
 
                         {/* Control Buttons */}
                         <div className='higher-lower-trader__buttons'>
-                            {!is_running ? (
-                                <button
-                                    onClick={startTrading}
-                                    className='btn-start'
-                                    disabled={!isAuthorized || symbols.length === 0}
-                                >
-                                    <Play className='icon' />
-                                    {localize('Start Trading')}
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={stopTrading}
-                                    className='btn-stop'
-                                >
-                                    <Square className='icon' />
-                                    {localize('Stop Trading')}
-                                </button>
-                            )}
+                            <button
+                                onClick={is_running ? onStop : startTrading}
+                                disabled={!symbol || stake <= 0}
+                                className={`btn-higher-lower-start ${is_running ? 'running' : ''}`}
+                            >
+                                {is_running ? (
+                                    <>
+                                        <Square className="icon" />
+                                        <span>Stop Trading</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Play className="icon" />
+                                        <span>Start Trading</span>
+                                    </>
+                                )}
+                            </button>
                         </div>
 
                         {/* Status Display */}
