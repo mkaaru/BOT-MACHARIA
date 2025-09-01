@@ -79,12 +79,12 @@ const HigherLowerTrader = observer(() => {
     const [currentPrice, setCurrentPrice] = useState<number>(0);
     const [ticksProcessed, setTicksProcessed] = useState<number>(0);
 
-    // Hull Moving Average trend analysis state
+    // Hull Moving Average trend analysis state - using 1000 tick increments for stability
     const [hullTrends, setHullTrends] = useState({
-        '60': { trend: 'NEUTRAL', value: 0 },
-        '120': { trend: 'NEUTRAL', value: 0 },
-        '600': { trend: 'NEUTRAL', value: 0 },
-        '2000': { trend: 'NEUTRAL', value: 0 }
+        '1000': { trend: 'NEUTRAL', value: 0 },
+        '2000': { trend: 'NEUTRAL', value: 0 },
+        '3000': { trend: 'NEUTRAL', value: 0 },
+        '4000': { trend: 'NEUTRAL', value: 0 }
     });
     const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
 
@@ -161,18 +161,18 @@ const HigherLowerTrader = observer(() => {
 
     // State to track trend update counters for independent timing
     const [trendUpdateCounters, setTrendUpdateCounters] = useState({
-        '60': 0,
-        '120': 0,
-        '600': 0,
-        '2000': 0
+        '1000': 0,
+        '2000': 0,
+        '3000': 0,
+        '4000': 0
     });
 
     // State to store previous trend values for smoothing
     const [previousTrends, setPreviousTrends] = useState({
-        '60': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
-        '120': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
-        '600': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
-        '2000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 }
+        '1000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
+        '2000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
+        '3000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
+        '4000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 }
     });
 
     // Ehlers Super Smoother Filter to remove aliasing noise
@@ -212,20 +212,21 @@ const HigherLowerTrader = observer(() => {
     const updateEhlersTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
         // Update counters
         setTrendUpdateCounters(prev => ({
-            '60': prev['60'] + 1,
-            '120': prev['120'] + 1,
-            '600': prev['600'] + 1,
-            '2000': prev['2000'] + 1
+            '1000': prev['1000'] + 1,
+            '2000': prev['2000'] + 1,
+            '3000': prev['3000'] + 1,
+            '4000': prev['4000'] + 1
         }));
 
         const newTrends = { ...hullTrends };
 
         // Define tick count requirements and update frequencies for different timeframes
+        // Using 1000 tick increments for more stable trend detection
         const timeframeConfigs = {
-            '60': { requiredTicks: 60, updateEvery: 1, smoothingPeriod: 5 },     // Update every tick (fastest)
-            '120': { requiredTicks: 120, updateEvery: 2, smoothingPeriod: 7 },   // Update every 2 ticks
-            '600': { requiredTicks: 600, updateEvery: 5, smoothingPeriod: 10 },  // Update every 5 ticks
-            '2000': { requiredTicks: 2000, updateEvery: 10, smoothingPeriod: 15 } // Update every 10 ticks (slowest)
+            '1000': { requiredTicks: 1000, updateEvery: 10, smoothingPeriod: 20 },  // Update every 10 ticks
+            '2000': { requiredTicks: 2000, updateEvery: 15, smoothingPeriod: 25 },  // Update every 15 ticks
+            '3000': { requiredTicks: 3000, updateEvery: 20, smoothingPeriod: 30 },  // Update every 20 ticks
+            '4000': { requiredTicks: 4000, updateEvery: 25, smoothingPeriod: 35 }   // Update every 25 ticks (most stable)
         };
 
         Object.entries(timeframeConfigs).forEach(([tickCountStr, config]) => {
@@ -333,7 +334,7 @@ const HigherLowerTrader = observer(() => {
             const request = {
                 ticks_history: symbolToFetch,
                 adjust_start_time: 1,
-                count: 2000, // Fetch enough ticks for the longest analysis
+                count: 4000, // Fetch enough ticks for the longest analysis (4000 tick timeframe)
                 end: "latest",
                 start: 1,
                 style: "ticks"
@@ -359,7 +360,7 @@ const HigherLowerTrader = observer(() => {
                         arr.findIndex(t => t.time === tick.time) === index
                     ).sort((a, b) => a.time - b.time);
 
-                    const trimmedData = uniqueData.slice(-2000); // Keep only the most recent 2000 ticks
+                    const trimmedData = uniqueData.slice(-4000); // Keep only the most recent 4000 ticks
                     updateEhlersTrends(trimmedData);
                     return trimmedData;
                 });
@@ -382,13 +383,13 @@ const HigherLowerTrader = observer(() => {
         const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>} = {};
 
         try {
-            // Fetch 2000 ticks for each volatility index for trend analysis
+            // Fetch 4000 ticks for each volatility index for trend analysis
             const promises = volatilitySymbols.map(async (sym) => {
                 try {
                     const request = {
                         ticks_history: sym,
                         adjust_start_time: 1,
-                        count: 2000, // Fetch enough for the longest trend analysis
+                        count: 4000, // Fetch enough for the longest trend analysis (4000 tick timeframe)
                         end: "latest",
                         start: 1,
                         style: "ticks"
@@ -551,7 +552,7 @@ const HigherLowerTrader = observer(() => {
                                 close: quote
                             }];
 
-                            const trimmedData = newTickData.slice(-2000);
+                            const trimmedData = newTickData.slice(-4000);
                             updateEhlersTrends(trimmedData);
                             return trimmedData;
                         });
