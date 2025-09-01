@@ -956,4 +956,28 @@
             }
         }
     }
+    &__live-metrics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background: var(--general-section-2);
+        border-radius: 4px;
+    }
+
+    &__live-price {
+        background: #e8f5e8 !important;
+        color: #2e7d32 !important;
+        font-weight: bold;
+        cursor: not-allowed;
+    }
+
+    &__entry-note {
+        display: block;
+        margin-top: 0.25rem;
+        color: var(--text-less-prominent);
+        font-size: 0.75rem;
+        font-style: italic;
+    }
 }

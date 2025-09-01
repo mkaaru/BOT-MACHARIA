@@ -37,7 +37,7 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
             symbol: trade_option.symbol,
         },
     };
-    
+
     // For Rise/Fall contracts, barrier handling is different
     if (contract_type === 'CALL' || contract_type === 'PUT') {
         // Higher/Lower contracts need barrier
@@ -48,7 +48,7 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
         // Rise/Fall with equals - barrier typically set to entry price (0)
         buy.parameters.barrier = trade_option.barrier || '0';
     }
-    
+
     return buy;
 };
 
@@ -86,6 +86,7 @@ const HigherLowerTrader = observer(() => {
 
     // Live price state
     const [currentPrice, setCurrentPrice] = useState<number>(0);
+    const [entrySpot, setEntrySpot] = useState<number>(0); // For Rise/Fall mode
     const [ticksProcessed, setTicksProcessed] = useState<number>(0);
 
     // Hull Moving Average trend analysis state - using 1000 tick increments for stability
@@ -603,6 +604,9 @@ const HigherLowerTrader = observer(() => {
                         const tickTime = data.tick.epoch * 1000;
 
                         setCurrentPrice(quote);
+                        if (tradingMode === 'RISE_FALL') {
+                            setEntrySpot(quote); // Update entry spot for Rise/Fall
+                        }
                         setTicksProcessed(prev => prev + 1);
 
                         setTickData(prev => {
@@ -636,8 +640,8 @@ const HigherLowerTrader = observer(() => {
             // For Rise/Fall, use the correct API contract types
             if (contractType === 'CALL') apiContractType = 'CALL'; // Rise
             else if (contractType === 'PUT') apiContractType = 'PUT'; // Fall  
-            else if (contractType === 'PUTE') apiContractType = 'PUTE'; // Rise with equals
-            else if (contractType === 'CALLE') apiContractType = 'CALLE'; // Fall with equals
+            else if (contractType === 'CALLE') apiContractType = 'CALLE'; // Rise with equals
+            else if (contractType === 'PUTE') apiContractType = 'PUTE'; // Fall with equals
         }
 
         const trade_option: any = {
@@ -661,14 +665,14 @@ const HigherLowerTrader = observer(() => {
         const buy_req = tradeOptionToBuy(apiContractType, trade_option);
         const { buy, error } = await apiRef.current.buy(buy_req);
         if (error) throw error;
-        
+
         const contractTypeDisplay = tradingMode === 'RISE_FALL' ? 
             (apiContractType === 'CALL' ? 'Rise' : 
              apiContractType === 'PUT' ? 'Fall' :
-             apiContractType === 'PUTE' ? 'Rise (Allow Equals)' :
-             apiContractType === 'CALLE' ? 'Fall (Allow Equals)' : apiContractType) :
+             apiContractType === 'CALLE' ? 'Rise (Allow Equals)' :
+             apiContractType === 'PUTE' ? 'Fall (Allow Equals)' : apiContractType) :
             (apiContractType === 'CALL' ? 'Higher' : 'Lower');
-            
+
         setStatus(`Purchased: ${contractTypeDisplay} - ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
         return buy;
     };
@@ -1230,8 +1234,8 @@ const HigherLowerTrader = observer(() => {
         if (tradingMode === 'RISE_FALL') {
             if (newContractType === 'Rise') setContractType('CALL');
             else if (newContractType === 'Fall') setContractType('PUT');
-            else if (newContractType === 'RiseEquals') setContractType('PUTE'); // Rise with equals
-            else if (newContractType === 'FallEquals') setContractType('CALLE'); // Fall with equals
+            else if (newContractType === 'RiseEquals') setContractType('CALLE'); // Rise with equals
+            else if (newContractType === 'FallEquals') setContractType('PUTE'); // Fall with equals
             else setContractType(newContractType);
         } else {
             // Higher/Lower mode uses CALL/PUT directly
@@ -1251,19 +1255,26 @@ const HigherLowerTrader = observer(() => {
                         <div className='form-group'>
                             <label>{localize('Trading Mode')}</label>
                             <select
+                                id='hlt-trading-mode'
                                 value={tradingMode}
-                                onChange={(e) => {
+                                onChange={e => {
                                     const newMode = e.target.value as 'HIGHER_LOWER' | 'RISE_FALL';
                                     setTradingMode(newMode);
                                     // Reset contract type and barrier when mode changes
-                                    setContractType('CALL'); // Default to CALL (Rise/Higher)
-                                    setBarrier(newMode === 'RISE_FALL' ? '0' : '+0.37'); // Set barrier to 0 for Rise/Fall (entry price)
+                                    if (newMode === 'RISE_FALL') {
+                                        setContractType('CALL'); // Default to Rise
+                                        setBarrier('0'); // Default barrier to 0 for Rise/Fall
+                                    } else {
+                                        setContractType('CALL'); // Default to Higher
+                                        setBarrier('+0.37'); // Default barrier for Higher/Lower
+                                    }
                                 }}
                             >
                                 <option value='HIGHER_LOWER'>{localize('Higher/Lower')}</option>
                                 <option value='RISE_FALL'>{localize('Rise/Fall')}</option>
                             </select>
                         </div>
+
 
                         {/* Connection Status */}
                         <div className='form-group'>
@@ -1278,12 +1289,9 @@ const HigherLowerTrader = observer(() => {
                         {/* Trading Parameters */}
                         <div className='higher-lower-trader__row higher-lower-trader__row--two'>
                             <div className='higher-lower-trader__field'>
-                                <label htmlFor='hl-symbol'>
-                                    {localize('Volatility')}
-                                    {isPreloading && <span className='loading-indicator'> (Loading...)</span>}
-                                </label>
+                                <label htmlFor='hlt-symbol'>{localize('Volatility')}</label>
                                 <select
-                                    id='hl-symbol'
+                                    id='hlt-symbol'
                                     value={symbol}
                                     onChange={e => {
                                         const v = e.target.value;
@@ -1307,29 +1315,23 @@ const HigherLowerTrader = observer(() => {
                                 </select>
                             </div>
                             <div className='higher-lower-trader__field'>
-                                <label htmlFor='hl-contractType'>{localize(tradingMode === 'RISE_FALL' ? 'Trade Type' : 'Contract Type')}</label>
+                                <label htmlFor='hlt-contract-type'>{localize('Contract Type')}</label>
                                 <select
-                                    id='hl-contractType'
-                                    value={tradingMode === 'RISE_FALL' ? 
-                                        (contractType === 'CALL' ? 'Rise' : 
-                                         contractType === 'PUT' ? 'Fall' : 
-                                         contractType === 'PUTE' ? 'RiseEquals' :
-                                         contractType === 'CALLE' ? 'FallEquals' : 
-                                         contractType) : 
-                                        contractType}
+                                    id='hlt-contract-type'
+                                    value={contractType}
                                     onChange={handleContractTypeChange}
                                 >
                                     {tradingMode === 'HIGHER_LOWER' ? (
                                         <>
-                                            <option value='CALL'>{localize('Higher (Call)')}</option>
-                                            <option value='PUT'>{localize('Lower (Put)')}</option>
+                                            <option value='CALL'>{localize('Higher')}</option>
+                                            <option value='PUT'>{localize('Lower')}</option>
                                         </>
                                     ) : (
                                         <>
-                                            <option value='Rise'>{localize('Rise')}</option>
-                                            <option value='Fall'>{localize('Fall')}</option>
-                                            <option value='RiseEquals'>{localize('Rise (Allow Equals)')}</option>
-                                            <option value='FallEquals'>{localize('Fall (Allow Equals)')}</option>
+                                            <option value='CALL'>{localize('Rise')}</option>
+                                            <option value='PUT'>{localize('Fall')}</option>
+                                            <option value='CALLE'>{localize('Rise (Allow Equals)')}</option>
+                                            <option value='PUTE'>{localize('Fall (Allow Equals)')}</option>
                                         </>
                                     )}
                                 </select>
@@ -1362,7 +1364,7 @@ const HigherLowerTrader = observer(() => {
                             </div>
                         </div>
 
-                        {/* Stake and Barrier */}
+                        {/* Stake and Barrier/Entry Spot */}
                         <div className='higher-lower-trader__row higher-lower-trader__row--two'>
                             <div className='higher-lower-trader__field'>
                                 <label htmlFor='hl-stake'>{localize('Stake')}</label>
@@ -1375,17 +1377,33 @@ const HigherLowerTrader = observer(() => {
                                     onChange={e => setStake(Number(e.target.value))}
                                 />
                             </div>
-                            <div className='higher-lower-trader__field'>
-                                <label htmlFor='hl-barrier'>{localize(tradingMode === 'RISE_FALL' ? 'Entry Spot Offset' : 'Barrier')}</label>
-                                <input
-                                    id='hl-barrier'
-                                    type='text'
-                                    value={barrier}
-                                    onChange={e => setBarrier(e.target.value)}
-                                    placeholder={tradingMode === 'RISE_FALL' ? '0 = entry price, +0.0001, -0.0001' : '0.00 = current price, +0.37, -0.25'}
-                                    title={tradingMode === 'RISE_FALL' ? 'For Rise/Fall, usually set to 0 (entry price)' : 'Set to 0.00 to use current price as barrier'}
-                                />
-                            </div>
+                            {tradingMode === 'HIGHER_LOWER' ? (
+                                <div className='higher-lower-trader__field'>
+                                    <label htmlFor='hlt-barrier'>{localize('Barrier')}</label>
+                                    <input
+                                        id='hlt-barrier'
+                                        type='text'
+                                        value={barrier}
+                                        onChange={e => setBarrier(e.target.value)}
+                                        placeholder='+0.37'
+                                    />
+                                </div>
+                            ) : (
+                                <div className='higher-lower-trader__field'>
+                                    <label htmlFor='hlt-entry-spot'>{localize('Entry Spot (Live Price)')}</label>
+                                    <input
+                                        id='hlt-entry-spot'
+                                        type='text'
+                                        value={entrySpot.toFixed(5)}
+                                        readOnly
+                                        className='higher-lower-trader__live-price'
+                                        title='Live market price - updates automatically'
+                                    />
+                                    <small className='higher-lower-trader__entry-note'>
+                                        {localize('Entry spot will be the market price when contract is purchased')}
+                                    </small>
+                                </div>
+                            )}
                         </div>
 
                         {/* Advanced Settings */}
@@ -1478,7 +1496,7 @@ const HigherLowerTrader = observer(() => {
                                                         const recommendedType = getRecommendedContractType();
                                                         setContractType(recommendedType);
                                                         const displayText = tradingMode === 'RISE_FALL' ?
-                                                            (recommendedType === 'CALL' ? 'Rise' : 'Fall') :
+                                                            (recommendation.recommendation === 'HIGHER' ? 'Rise' : 'Fall') :
                                                             recommendedType;
                                                         setStatus(`Auto-selected ${displayText} based on trend analysis`);
                                                     }}
