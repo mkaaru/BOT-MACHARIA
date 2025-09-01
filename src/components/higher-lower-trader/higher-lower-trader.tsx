@@ -36,7 +36,7 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
         },
     };
 
-    // Add duration for both Higher/Lower and Rise/Fall modes
+    // Add duration
     if (trade_option.duration !== undefined && trade_option.duration_unit !== undefined) {
         buy.parameters.duration = trade_option.duration;
         buy.parameters.duration_unit = trade_option.duration_unit;
@@ -640,23 +640,37 @@ const HigherLowerTrader = observer(() => {
 
         const trade_option: any = {
             amount: Number(stake),
-            basis: 'stake', // Use stake basis for Rise/Fall
+            basis: 'stake',
             currency: account_currency,
             symbol,
             duration: 1, // 1 tick duration for Rise/Fall
             duration_unit: 't', // tick unit
         };
 
-        const buy_req = tradeOptionToBuy(apiContractType, trade_option);
+        // Use direct API call for Rise/Fall contracts
+        const buy_request = {
+            buy: '1',
+            price: Number(stake),
+            parameters: {
+                amount: Number(stake),
+                basis: 'stake',
+                contract_type: apiContractType,
+                currency: account_currency,
+                symbol: symbol,
+                duration: 1,
+                duration_unit: 't'
+            }
+        };
         
         setStatus(`Purchasing ${apiContractType === 'CALL' ? 'Rise' : 'Fall'} contract for ${stake} ${account_currency}...`);
         
-        const { buy, error } = await apiRef.current.buy(buy_req);
-        if (error) {
-            console.error('Purchase error:', error);
-            throw error;
+        const response = await apiRef.current.send(buy_request);
+        if (response.error) {
+            console.error('Purchase error:', response.error);
+            throw response.error;
         }
 
+        const buy = response.buy;
         setStatus(`${apiContractType === 'CALL' ? 'Rise' : 'Fall'} contract purchased: ${buy?.longcode || apiContractType}`);
         setTotalStake(prev => prev + Number(stake));
         setTotalRuns(prev => prev + 1);
@@ -682,35 +696,49 @@ const HigherLowerTrader = observer(() => {
             else if (contractType === 'PUTE') apiContractType = 'PUTE'; // Fall with equals
         }
 
-        const trade_option: any = {
-            amount: Number(stakeAmount),
-            basis: 'stake',
-            contractTypes: [apiContractType],
-            currency: account_currency,
-            symbol,
-        };
+        let buy_request;
 
-        // Add duration only for Higher/Lower mode
-        if (tradingMode === 'HIGHER_LOWER') {
-            trade_option.duration = durationType === 's' ? Number(duration) : Number(duration * 60);
-            trade_option.duration_unit = durationType;
+        if (tradingMode === 'RISE_FALL') {
+            // Direct API call for Rise/Fall contracts
+            buy_request = {
+                buy: '1',
+                price: Number(stakeAmount),
+                parameters: {
+                    amount: Number(stakeAmount),
+                    basis: 'stake',
+                    contract_type: apiContractType,
+                    currency: account_currency,
+                    symbol: symbol,
+                    duration: 1,
+                    duration_unit: 't'
+                }
+            };
+        } else {
+            // Higher/Lower contracts
+            const trade_option: any = {
+                amount: Number(stakeAmount),
+                basis: 'stake',
+                currency: account_currency,
+                symbol,
+                duration: durationType === 's' ? Number(duration) : Number(duration * 60),
+                duration_unit: durationType,
+            };
 
             // Add barrier for Higher/Lower
             if (barrier && barrier !== '0') {
                 trade_option.barrier = barrier;
             }
-        } else if (tradingMode === 'RISE_FALL') {
-            // For Rise/Fall, no duration is needed - contracts are tick-based
-            // Add barrier only for equals versions
-            if (apiContractType === 'PUTE' || apiContractType === 'CALLE') {
-                trade_option.barrier = barrier || '0';
-            }
+
+            buy_request = tradeOptionToBuy(apiContractType, trade_option);
         }
 
-        const buy_req = tradeOptionToBuy(apiContractType, trade_option);
-        const { buy, error } = await apiRef.current.buy(buy_req);
-        if (error) throw error;
+        const response = await apiRef.current.send(buy_request);
+        if (response.error) {
+            console.error('Purchase error:', response.error);
+            throw response.error;
+        }
 
+        const buy = response.buy || response;
         const contractTypeDisplay = tradingMode === 'RISE_FALL' ?
             (apiContractType === 'CALL' ? 'Rise' :
              apiContractType === 'PUT' ? 'Fall' :
