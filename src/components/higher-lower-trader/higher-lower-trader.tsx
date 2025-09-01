@@ -1089,7 +1089,6 @@ const HigherLowerTrader = observer(() => {
         };
     };
 
-    const [autoSelectContract, setAutoSelectContract] = useState(false);
     const recommendation = getMarketRecommendation();
 
     const applyRecommendations = () => {
