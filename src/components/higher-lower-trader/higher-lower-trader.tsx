@@ -855,38 +855,28 @@ const HigherLowerTrader = observer(() => {
         setTotalProfitLoss(0);
     };
 
-    // Get trading recommendation based on Hull trends - requires at least 3 trends to align
+    // Get trading recommendation based on Hull trends
     const getTradingRecommendation = () => {
         const trends = Object.entries(hullTrends);
         const bullishCount = trends.filter(([_, data]) => data.trend === 'BULLISH').length;
         const bearishCount = trends.filter(([_, data]) => data.trend === 'BEARISH').length;
-        const neutralCount = trends.filter(([_, data]) => data.trend === 'NEUTRAL').length;
         const totalTrends = trends.length;
 
         let recommendation = 'NEUTRAL';
         let confidence = 0;
 
-        // Only provide recommendation when at least 3 trends align
-        const minAlignedTrends = 3;
-
-        if (bullishCount >= minAlignedTrends) {
+        if (bullishCount > bearishCount) {
             recommendation = 'HIGHER';
             confidence = totalTrends > 0 ? bullishCount / totalTrends : 0;
-        } else if (bearishCount >= minAlignedTrends) {
+        } else if (bearishCount > bullishCount) {
             recommendation = 'LOWER';
             confidence = totalTrends > 0 ? bearishCount / totalTrends : 0;
         } else {
-            // Not enough aligned trends - remain neutral
             recommendation = 'NEUTRAL';
-            confidence = 0.5;
+            confidence = 0.5; // Neutral confidence if counts are equal
         }
 
-        return { 
-            recommendation, 
-            confidence,
-            alignedTrends: Math.max(bullishCount, bearishCount),
-            requiredAlignment: minAlignedTrends
-        };
+        return { recommendation, confidence };
     };
 
     // Auto contract type selection based on Hull trends
@@ -1073,17 +1063,11 @@ const HigherLowerTrader = observer(() => {
 
                             {(() => {
                                 const recommendation = getTradingRecommendation();
-                                const isAligned = recommendation.alignedTrends >= recommendation.requiredAlignment;
-                                
                                 return (
-                                    <div className={`recommendation ${recommendation.recommendation.toLowerCase()} ${!isAligned ? 'insufficient-alignment' : ''}`}>
+                                    <div className={`recommendation ${recommendation.recommendation.toLowerCase()}`}>
                                         <h5>📈 Recommended: {recommendation.recommendation}</h5>
                                         <div className="confidence">
                                             Confidence: {(recommendation.confidence * 100).toFixed(0)}%
-                                        </div>
-                                        <div className="alignment-status">
-                                            Aligned Trends: {recommendation.alignedTrends}/{recommendation.requiredAlignment} 
-                                            {!isAligned && <span className="warning"> (Need {recommendation.requiredAlignment - recommendation.alignedTrends} more)</span>}
                                         </div>
                                     </div>
                                 );
