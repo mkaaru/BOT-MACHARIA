@@ -783,7 +783,7 @@ const HigherLowerTrader = observer(() => {
                             throw new Error('Failed to get contract ID from Rise/Fall purchase');
                         }
 
-                        // Seed transaction row
+                        // Notify transaction store
                         try {
                             const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
                             transactions.onBotContractEvent({
@@ -796,13 +796,19 @@ const HigherLowerTrader = observer(() => {
                                 display_name: symbol_display,
                                 date_start: Math.floor(Date.now() / 1000),
                                 status: 'open',
-                            } as any);
-                        } catch {}
+                                is_completed: false,
+                                profit: 0,
+                                payout: 0,
+                                run_id: run_panel.run_id || `higher-lower-${Date.now()}`,
+                            });
+                        } catch (e) {
+                            console.warn('Failed to notify transaction store:', e);
+                        }
 
                         run_panel.setHasOpenContract(true);
                         run_panel.setContractStage(contract_stages.PURCHASE_SENT);
 
-                        setStatus(`📈 ${contractType === 'CALL' ? 'Rise' : 'Fall'} contract purchased for $${effectiveStake}`);
+                        setStatus(`Purchased: ${contractType === 'CALL' ? 'Rise' : 'Fall'} contract for $${effectiveStake}`);
 
                         // Wait for contract completion - Rise/Fall contracts are typically very short
                         const contractResult = await new Promise((resolve, reject) => {
@@ -900,14 +906,28 @@ const HigherLowerTrader = observer(() => {
                             contract_type: contractType,
                             currency: account_currency,
                             is_completed: true,
-                            run_id: run_panel.run_id,
+                            run_id: run_panel.run_id || `higher-lower-${Date.now()}`,
                         };
 
-                        transactions.onBotContractEvent(transactionData);
-                        run_panel.onBotContractEvent(transactionData);
+                        // Update transaction record
+                        try {
+                            transactions?.onBotContractEvent?.(transactionData);
+                        } catch (e) {
+                            console.warn('Failed to update transaction record:', e);
+                        }
 
-                        run_panel.setHasOpenContract(false);
-                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                        try {
+                            run_panel?.onBotContractEvent?.(transactionData);
+                        } catch (e) {
+                            console.warn('Failed to update run panel contract event:', e);
+                        }
+
+                        try {
+                            run_panel?.setHasOpenContract?.(false);
+                            run_panel?.setContractStage?.(contract_stages.CONTRACT_CLOSED);
+                        } catch (e) {
+                            console.warn('Failed to update run panel state:', e);
+                        }
 
                         // Check if we should stop on profit target
                         if (useStopOnProfit && totalProfitLoss >= targetProfit) {
@@ -930,25 +950,23 @@ const HigherLowerTrader = observer(() => {
                             throw new Error('Failed to get contract ID from purchase');
                         }
 
-                        // Update statistics
-                        setTotalStake(prev => prev + effectiveStake);
-                        setTotalRuns(prev => prev + 1);
-
                         // Notify transaction store
                         try {
                             const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
-                            transactions.onBotContractContractEvent({
+                            transactions.onBotContractEvent({
                                 contract_id: buy.contract_id,
                                 transaction_ids: { buy: buy.transaction_id },
                                 buy_price: buy.buy_price,
-                                longcode: buy.longcode,
-                                start_time: buy.start_time,
-                                shortcode: buy.shortcode,
+                                currency: account_currency,
+                                contract_type: contractType as any,
                                 underlying: symbol,
-                                contract_type: contractType,
+                                display_name: symbol_display,
+                                date_start: Math.floor(Date.now() / 1000),
+                                status: 'open',
                                 is_completed: false,
                                 profit: 0,
-                                profit_percentage: 0
+                                payout: 0,
+                                run_id: run_panel.run_id || `higher-lower-${Date.now()}`,
                             });
                         } catch (e) {
                             console.warn('Failed to notify transaction store:', e);
@@ -1144,7 +1162,7 @@ const HigherLowerTrader = observer(() => {
                             contract_type: contractType,
                             currency: account_currency,
                             is_completed: true,
-                            run_id: run_panel.run_id,
+                            run_id: run_panel.run_id || `higher-lower-${Date.now()}`,
                             contract_id: contractResult.contract_id || Date.now(),
                             transaction_ids: {
                                 buy: contractResult.transaction_id || Date.now(),
