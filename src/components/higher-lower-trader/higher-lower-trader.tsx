@@ -395,7 +395,7 @@ const HigherLowerTrader = observer(() => {
         setStatus('Preloading historical data for trend analysis...');
 
         const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'BOOM500', 'BOOM1000', 'CRASH500', 'CRASH1000', 'stpRNG'];
-        const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>}= {};
+        const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>} = {};
 
         try {
             // Fetch 4000 ticks for each volatility index for trend analysis
@@ -449,29 +449,6 @@ const HigherLowerTrader = observer(() => {
         apiRef.current = api;
         const init = async () => {
             try {
-                // Check if we're already authorized by attempting to get account info
-                const token = V2GetActiveToken();
-                if (token) {
-                    try {
-                        const { authorize, error: authErr } = await api.authorize(token);
-                        if (!authErr && authorize) {
-                            setIsAuthorized(true);
-                            setAccountCurrency(authorize?.currency || 'USD');
-                            // Sync auth state with store
-                            try {
-                                const loginid = authorize?.loginid || V2GetActiveClientId();
-                                store?.client?.setLoginId?.(loginid || '');
-                                store?.client?.setCurrency?.(authorize?.currency || 'USD');
-                                store?.client?.setIsLoggedIn?.(true);
-                            } catch {}
-                            setStatus('Connected and authorized');
-                        }
-                    } catch (authError) {
-                        console.warn('Authorization check failed:', authError);
-                        setStatus('Please ensure you are logged in');
-                    }
-                }
-
                 const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
                 if (asErr) throw asErr;
                 const syn = (active_symbols || [])
@@ -574,70 +551,25 @@ const HigherLowerTrader = observer(() => {
 
 
     const authorizeIfNeeded = async () => {
+        if (is_authorized) return;
         const token = V2GetActiveToken();
         if (!token) {
-            const errorMessage = 'No authentication token found. Please log in to your Deriv account first.';
-            setStatus(errorMessage);
-            throw new Error(errorMessage);
+            setStatus('No token found. Please log in and select an account.');
+            throw new Error('No token');
         }
-
+        const { authorize, error } = await apiRef.current.authorize(token);
+        if (error) {
+            setStatus(`Authorization error: ${error.message || error.code}`);
+            throw error;
+        }
+        setIsAuthorized(true);
+        const loginid = authorize?.loginid || V2GetActiveClientId();
+        setAccountCurrency(authorize?.currency || 'USD');
         try {
-            // Check if API connection is available
-            if (!apiRef.current) {
-                throw new Error('API connection not available');
-            }
-
-            setStatus('Authorizing with Deriv API...');
-            
-            // Try to authorize or re-authorize
-            const response = await apiRef.current.authorize(token);
-            
-            if (response.error) {
-                const errorMessage = `Authorization failed: ${response.error.message || response.error.code}`;
-                setStatus(errorMessage);
-                throw new Error(errorMessage);
-            }
-
-            const { authorize } = response;
-            if (!authorize) {
-                throw new Error('Authorization response is empty');
-            }
-
-            setIsAuthorized(true);
-            const loginid = authorize.loginid || V2GetActiveClientId();
-            const currency = authorize.currency || 'USD';
-            setAccountCurrency(currency);
-            
-            // Sync auth state with store
-            try {
-                store?.client?.setLoginId?.(loginid || '');
-                store?.client?.setCurrency?.(currency);
-                store?.client?.setIsLoggedIn?.(true);
-            } catch (syncError) {
-                console.warn('Failed to sync auth state with store:', syncError);
-            }
-
-            setStatus(`✅ Authorized as ${loginid} (${currency})`);
-            return authorize;
-        } catch (authError) {
-            console.error('Authorization failed:', authError);
-            setIsAuthorized(false);
-            
-            // Provide user-friendly error messages
-            let userMessage = 'Authorization failed. ';
-            if (authError.message?.includes('InvalidToken')) {
-                userMessage += 'Your session has expired. Please log out and log back in.';
-            } else if (authError.message?.includes('SelfExclusion')) {
-                userMessage += 'Your account is currently self-excluded from trading.';
-            } else if (authError.message?.includes('AccountSuspended')) {
-                userMessage += 'Your account is suspended. Please contact support.';
-            } else {
-                userMessage += authError.message || 'Please refresh the page and try again.';
-            }
-            
-            setStatus(`❌ ${userMessage}`);
-            throw new Error(userMessage);
-        }
+            store?.client?.setLoginId?.(loginid || '');
+            store?.client?.setCurrency?.(authorize?.currency || 'USD');
+            store?.client?.setIsLoggedIn?.(true);
+        } catch {}
     };
 
     const stopTicks = () => {
@@ -699,20 +631,21 @@ const HigherLowerTrader = observer(() => {
 
     // Rise/Fall mode - tick-based contracts
     const purchaseRiseFallContract = async () => {
-        // Ensure we're authorized before making purchase
-        if (!is_authorized) {
-            await authorizeIfNeeded();
-        }
+        await authorizeIfNeeded();
 
         // Map contract types correctly for Rise/Fall
         let apiContractType = contractType;
         if (contractType === 'CALL') apiContractType = 'CALL'; // Rise
         else if (contractType === 'PUT') apiContractType = 'PUT'; // Fall
 
-        // Validate inputs
-        if (!symbol || !stake || stake <= 0) {
-            throw new Error('Invalid trading parameters. Please check symbol and stake amount.');
-        }
+        const trade_option: any = {
+            amount: Number(stake),
+            basis: 'stake',
+            currency: account_currency,
+            symbol,
+            duration: 1, // 1 tick duration for Rise/Fall
+            duration_unit: 't', // tick unit
+        };
 
         // Use direct API call for Rise/Fall contracts
         const buy_request = {
@@ -728,52 +661,26 @@ const HigherLowerTrader = observer(() => {
                 duration_unit: 't'
             }
         };
-
+        
         setStatus(`Purchasing ${apiContractType === 'CALL' ? 'Rise' : 'Fall'} contract for ${stake} ${account_currency}...`);
-
-        try {
-            const response = await apiRef.current.send(buy_request);
-            
-            if (response.error) {
-                let errorMessage = 'Purchase failed: ';
-                
-                // Handle specific error codes
-                if (response.error.code === 'InsufficientBalance') {
-                    errorMessage += 'Insufficient account balance.';
-                } else if (response.error.code === 'InvalidContract') {
-                    errorMessage += 'Invalid contract parameters.';
-                } else if (response.error.code === 'MarketIsClosed') {
-                    errorMessage += 'Market is currently closed.';
-                } else if (response.error.code === 'AuthorizationRequired') {
-                    errorMessage += 'Authorization required. Please log in again.';
-                    setIsAuthorized(false);
-                } else {
-                    errorMessage += response.error.message || 'Unknown error occurred.';
-                }
-                
-                console.error('Purchase error:', response.error);
-                throw new Error(errorMessage);
-            }
-
-            const buy = response.buy;
-            if (!buy || !buy.contract_id) {
-                throw new Error('Invalid purchase response - no contract ID received.');
-            }
-
-            setStatus(`${apiContractType === 'CALL' ? 'Rise' : 'Fall'} contract purchased: ${buy?.longcode || apiContractType}`);
-            setTotalStake(prev => prev + Number(stake));
-            setTotalRuns(prev => prev + 1);
-
-            // Store entry spot for Rise/Fall comparison
-            if (buy?.entry_spot) {
-                setEntrySpot(Number(buy.entry_spot));
-            }
-
-            return buy;
-        } catch (apiError) {
-            console.error('API call failed:', apiError);
-            throw apiError;
+        
+        const response = await apiRef.current.send(buy_request);
+        if (response.error) {
+            console.error('Purchase error:', response.error);
+            throw response.error;
         }
+
+        const buy = response.buy;
+        setStatus(`${apiContractType === 'CALL' ? 'Rise' : 'Fall'} contract purchased: ${buy?.longcode || apiContractType}`);
+        setTotalStake(prev => prev + Number(stake));
+        setTotalRuns(prev => prev + 1);
+
+        // Store entry spot for Rise/Fall comparison
+        if (buy?.entry_spot) {
+            setEntrySpot(Number(buy.entry_spot));
+        }
+
+        return buy;
     };
 
     const purchaseOnceWithStake = async (stakeAmount: number) => {
@@ -784,7 +691,7 @@ const HigherLowerTrader = observer(() => {
         if (tradingMode === 'RISE_FALL') {
             // For Rise/Fall, use the correct API contract types
             if (contractType === 'CALL') apiContractType = 'CALL'; // Rise
-            else if (contractType === 'PUT') apiContractType = 'PUT'; // Fall
+            else if (contractType === 'PUT') apiContractType = 'PUT'; // Fall  
             else if (contractType === 'CALLE') apiContractType = 'CALLE'; // Rise with equals
             else if (contractType === 'PUTE') apiContractType = 'PUTE'; // Fall with equals
         }
@@ -856,22 +763,9 @@ const HigherLowerTrader = observer(() => {
         run_panel.setContractStage(contract_stages.STARTING);
 
         try {
-            // Check authorization status before starting
-            if (!is_authorized) {
-                setStatus('Checking authorization...');
-                try {
-                    await authorizeIfNeeded();
-                    setStatus('Authorization successful, starting trading...');
-                } catch (authError) {
-                    setStatus('❌ Authorization failed. Please ensure you are logged in with a valid account.');
-                    setIsRunning(false);
-                    run_panel.setIsRunning(false);
-                    run_panel.setContractStage(contract_stages.NOT_RUNNING);
-                    return;
-                }
-            } else {
-                setStatus('Already authorized, starting trading...');
-            }
+            // Ensure authorization first
+            await authorizeIfNeeded();
+            setStatus('Authorization successful, starting trading...');
 
             let lossStreak = 0;
             let step = 0;
@@ -889,7 +783,7 @@ const HigherLowerTrader = observer(() => {
                             throw new Error('Failed to get contract ID from Rise/Fall purchase');
                         }
 
-                        // Notify transaction store
+                        // Seed transaction row
                         try {
                             const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
                             transactions.onBotContractEvent({
@@ -902,19 +796,13 @@ const HigherLowerTrader = observer(() => {
                                 display_name: symbol_display,
                                 date_start: Math.floor(Date.now() / 1000),
                                 status: 'open',
-                                is_completed: false,
-                                profit: 0,
-                                payout: 0,
-                                run_id: run_panel.run_id || `higher-lower-${Date.now()}`,
-                            });
-                        } catch (e) {
-                            console.warn('Failed to notify transaction store:', e);
-                        }
+                            } as any);
+                        } catch {}
 
                         run_panel.setHasOpenContract(true);
                         run_panel.setContractStage(contract_stages.PURCHASE_SENT);
 
-                        setStatus(`Purchased: ${contractType === 'CALL' ? 'Rise' : 'Fall'} contract for $${effectiveStake}`);
+                        setStatus(`📈 ${contractType === 'CALL' ? 'Rise' : 'Fall'} contract purchased for $${effectiveStake}`);
 
                         // Wait for contract completion - Rise/Fall contracts are typically very short
                         const contractResult = await new Promise((resolve, reject) => {
@@ -963,7 +851,7 @@ const HigherLowerTrader = observer(() => {
                                         // Contract still running
                                         const currentProfit = Number(contract.profit || 0);
                                         setCurrentProfit(currentProfit);
-
+                                        
                                         if (contract.entry_tick_display_value) {
                                             setStatus(`⏱️ Rise/Fall contract running - Entry: ${contract.entry_tick_display_value}, Current: ${contract.current_spot_display_value || currentPrice}`);
                                         } else {
@@ -1012,28 +900,14 @@ const HigherLowerTrader = observer(() => {
                             contract_type: contractType,
                             currency: account_currency,
                             is_completed: true,
-                            run_id: run_panel.run_id || `higher-lower-${Date.now()}`,
+                            run_id: run_panel.run_id,
                         };
 
-                        // Update transaction record
-                        try {
-                            transactions?.onBotContractEvent?.(transactionData);
-                        } catch (e) {
-                            console.warn('Failed to update transaction record:', e);
-                        }
+                        transactions.onBotContractEvent(transactionData);
+                        run_panel.onBotContractEvent(transactionData);
 
-                        try {
-                            run_panel?.onBotContractEvent?.(transactionData);
-                        } catch (e) {
-                            console.warn('Failed to update run panel contract event:', e);
-                        }
-
-                        try {
-                            run_panel?.setHasOpenContract?.(false);
-                            run_panel?.setContractStage?.(contract_stages.CONTRACT_CLOSED);
-                        } catch (e) {
-                            console.warn('Failed to update run panel state:', e);
-                        }
+                        run_panel.setHasOpenContract(false);
+                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
 
                         // Check if we should stop on profit target
                         if (useStopOnProfit && totalProfitLoss >= targetProfit) {
@@ -1056,23 +930,25 @@ const HigherLowerTrader = observer(() => {
                             throw new Error('Failed to get contract ID from purchase');
                         }
 
+                        // Update statistics
+                        setTotalStake(prev => prev + effectiveStake);
+                        setTotalRuns(prev => prev + 1);
+
                         // Notify transaction store
                         try {
                             const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
-                            transactions.onBotContractEvent({
+                            transactions.onBotContractContractEvent({
                                 contract_id: buy.contract_id,
                                 transaction_ids: { buy: buy.transaction_id },
                                 buy_price: buy.buy_price,
-                                currency: account_currency,
-                                contract_type: contractType as any,
+                                longcode: buy.longcode,
+                                start_time: buy.start_time,
+                                shortcode: buy.shortcode,
                                 underlying: symbol,
-                                display_name: symbol_display,
-                                date_start: Math.floor(Date.now() / 1000),
-                                status: 'open',
+                                contract_type: contractType,
                                 is_completed: false,
                                 profit: 0,
-                                payout: 0,
-                                run_id: run_panel.run_id || `higher-lower-${Date.now()}`,
+                                profit_percentage: 0
                             });
                         } catch (e) {
                             console.warn('Failed to notify transaction store:', e);
@@ -1088,9 +964,9 @@ const HigherLowerTrader = observer(() => {
                         });
 
                         if (tradingMode === 'RISE_FALL') {
-                            setStatus(`Purchased: ${contractType === 'CALL' ? 'Rise' : 'Fall'} contract for $${effectiveStake} - will sell immediately when available`);
+                            setStatus(`📈 ${contractType === 'CALL' ? 'Rise' : 'Fall'} contract started for $${effectiveStake} - will sell immediately when available`);
                         } else {
-                            setStatus(`Purchased: ${contractType === 'CALL' ? 'Higher' : 'Lower'} contract with barrier ${barrier} for $${effectiveStake}`);
+                            setStatus(`📈 ${contractType === 'CALL' ? 'Higher' : 'Lower'} contract started with barrier ${barrier} for $${effectiveStake}`);
                         }
 
                         // Initialize contract display values
@@ -1268,7 +1144,7 @@ const HigherLowerTrader = observer(() => {
                             contract_type: contractType,
                             currency: account_currency,
                             is_completed: true,
-                            run_id: run_panel.run_id || `higher-lower-${Date.now()}`,
+                            run_id: run_panel.run_id,
                             contract_id: contractResult.contract_id || Date.now(),
                             transaction_ids: {
                                 buy: contractResult.transaction_id || Date.now(),
@@ -1314,7 +1190,7 @@ const HigherLowerTrader = observer(() => {
                         // Check stop conditions
                         const newTotalProfit = totalProfitLoss + profit;
                         if (useStopOnProfit && newTotalProfit >= targetProfit) {
-                            setStatus(`🎯 Target profit of ${targetProfit} ${account_currency} reached! Stopping bot.`);
+                            setStatus(`🎯 Target profit reached: ${newTotalProfit.toFixed(2)} ${account_currency}. Stopping bot.`);
                             stopFlagRef.current = true;
                             break;
                         }
@@ -1347,11 +1223,7 @@ const HigherLowerTrader = observer(() => {
             }
         } catch (error: any) {
             console.error('Higher/Lower trader error:', error);
-            setStatus(`❌ Trading error: ${error?.message || error?.error?.message || 'Unknown error occurred'}`);
-            setIsRunning(false);
-            stopFlagRef.current = true;
-            run_panel.setIsRunning(false);
-            run_panel.setContractStage(contract_stages.STOPPING);
+            setStatus(`❌ Trading error: ${error.message || 'Unknown error'}`);
         } finally {
             setIsRunning(false);
             run_panel.setIsRunning(false);
@@ -1362,45 +1234,13 @@ const HigherLowerTrader = observer(() => {
     };
 
     const stopTrading = () => {
-        try {
-            // Set stop flag immediately
-            stopFlagRef.current = true;
-
-            // Update state safely
-            try {
-                setIsRunning(false);
-                setStatus('Stopping...');
-            } catch (stateError) {
-                console.error('Error updating state when stopping:', stateError);
-            }
-
-            // Clean up with error handling
-            try {
-                cleanup();
-            } catch (cleanupError) {
-                console.error('Error during cleanup when stopping:', cleanupError);
-            }
-
-            // Final status update
-            setTimeout(() => {
-                try {
-                    setStatus('Trading stopped');
-                } catch (stateError) {
-                    console.error('Error setting final stop status:', stateError);
-                }
-            }, 100);
-
-        } catch (error) {
-            console.error('Error stopping trading:', error);
-            // Force stop even if there are errors
-            stopFlagRef.current = true;
-            try {
-                setIsRunning(false);
-                setStatus('Force stopped due to error');
-            } catch (stateError) {
-                console.error('Error in force stop:', stateError);
-            }
-        }
+        stopFlagRef.current = true;
+        setIsRunning(false);
+        stopTicks();
+        run_panel.setIsRunning(false);
+        run_panel.setHasOpenContract(false);
+        run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        setStatus('Trading stopped');
     };
 
     // Calculate statistics
@@ -1690,175 +1530,6 @@ const HigherLowerTrader = observer(() => {
             setContractType(newContractType);
         }
     };
-
-    // Enhanced cleanup function with comprehensive error handling
-    const cleanup = useCallback(() => {
-        try {
-            // Set stop flag immediately
-            stopFlagRef.current = true;
-
-            // Clean up tick stream
-            if (tickStreamIdRef.current && apiRef.current) {
-                try {
-                    apiRef.current.send({ forget: tickStreamIdRef.current });
-                } catch (error) {
-                    console.error('Error cleaning up tick stream:', error);
-                }
-                tickStreamIdRef.current = null;
-            }
-
-            // Clean up message handler
-            if (messageHandlerRef.current && apiRef.current?.ws) {
-                try {
-                    apiRef.current.ws.removeEventListener('message', messageHandlerRef.current);
-                } catch (error) {
-                    console.error('Error removing message handler:', error);
-                }
-                messageHandlerRef.current = null;
-            }
-
-            // Reset states safely
-            try {
-                setIsRunning(false);
-                setStatus('Stopped');
-            } catch (stateError) {
-                console.error('Error updating state during cleanup:', stateError);
-            }
-        } catch (error) {
-            console.error('Critical error during cleanup:', error);
-        }
-    }, []);
-
-    // Enhanced component lifecycle management with error boundaries
-    useEffect(() => {
-        // Component mount effect
-        let isMounted = true;
-
-        // Initialize component safely
-        try {
-            if (isMounted) {
-                // Any initialization logic here
-            }
-        } catch (error) {
-            console.error('Error during component initialization:', error);
-        }
-
-        return () => {
-            // Set mounted flag to false
-            isMounted = false;
-
-            // Comprehensive cleanup with error handling
-            try {
-                cleanup();
-            } catch (error) {
-                console.error('Error during component cleanup:', error);
-            }
-        };
-    }, [cleanup]);
-
-    // Error boundary effect for catching and handling runtime errors
-    useEffect(() => {
-        const handleError = (event: ErrorEvent) => {
-            console.error('Runtime error caught:', event.error);
-            try {
-                setStatus(`Runtime error: ${event.error?.message || 'Unknown error'}`);
-                // Stop trading on critical errors
-                stopFlagRef.current = true;
-                setIsRunning(false);
-                run_panel.setIsRunning(false);
-            } catch (stateError) {
-                console.error('Error updating state after runtime error:', stateError);
-            }
-        };
-
-        const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-            console.error('Unhandled promise rejection:', event.reason);
-            if (is_running) {
-                setStatus(`Unhandled error: ${event.reason?.message || 'Unknown error'}`);
-                setIsRunning(false);
-                stopFlagRef.current = true;
-                run_panel.setIsRunning(false);
-            }
-            // Prevent the error from being logged to console again
-            event.preventDefault();
-        };
-
-        // Add global error listeners
-        window.addEventListener('error', handleError);
-        window.addEventListener('unhandledrejection', handleUnhandledRejection);
-
-        return () => {
-            // Clean up error listeners
-            window.removeEventListener('error', handleError);
-            window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-        };
-    }, [is_running, run_panel]);
-
-    // Safer start trading function with validation
-    const startTrading = async () => {
-        try {
-            // Comprehensive validation before starting
-            if (!is_authorized) {
-                setStatus('Please authorize first');
-                return;
-            }
-
-            if (!symbol) {
-                setStatus('Please select a symbol');
-                return;
-            }
-
-            if (!apiRef.current) {
-                setStatus('API connection not available');
-                return;
-            }
-
-            if (stake <= 0 || !stake) {
-                setStatus('Invalid stake amount');
-                return;
-            }
-
-            if (!contractType) {
-                setStatus('Please select contract type');
-                return;
-            }
-
-            // Check if already running
-            if (is_running) {
-                setStatus('Trading is already running');
-                return;
-            }
-
-            // Reset flags and state safely
-            stopFlagRef.current = false;
-            lastOutcomeWasLossRef.current = false;
-
-            // Update state with error handling
-            try {
-                setIsRunning(true);
-                setStatus('Starting automated trading...');
-            } catch (stateError) {
-                console.error('Error updating state when starting trading:', stateError);
-                return;
-            }
-
-            // Start the trading loop with delay to ensure state is updated
-            setTimeout(() => {
-                if (!stopFlagRef.current) {
-                    executeContract();
-                }
-            }, 500);
-
-        } catch (error) {
-            console.error('Error starting trading:', error);
-            setStatus(`Failed to start: ${error?.message || 'Unknown error'}`);
-            setIsRunning(false);
-        }
-    };
-
-    // Renamed onRun to executeContract for clarity
-    const executeContract = onRun;
-    const onStop = stopTrading;
 
     return (
         <div className="higher-lower-trader">
@@ -2310,23 +1981,24 @@ const HigherLowerTrader = observer(() => {
 
                         {/* Control Buttons */}
                         <div className='higher-lower-trader__buttons'>
-                            <button
-                                onClick={is_running ? onStop : startTrading}
-                                disabled={!symbol || stake <= 0}
-                                className={`btn-higher-lower-start ${is_running ? 'running' : ''}`}
-                            >
-                                {is_running ? (
-                                    <>
-                                        <Square className="icon" />
-                                        <span>Stop Trading</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Play className="icon" />
-                                        <span>Start Trading</span>
-                                    </>
-                                )}
-                            </button>
+                            {!is_running ? (
+                                <button
+                                    onClick={onRun}
+                                    className='btn-start'
+                                    disabled={!isAuthorized || symbols.length === 0}
+                                >
+                                    <Play className='icon' />
+                                    {localize('Start Trading')}
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={stopTrading}
+                                    className='btn-stop'
+                                >
+                                    <Square className='icon' />
+                                    {localize('Stop Trading')}
+                                </button>
+                            )}
                         </div>
 
                         {/* Status Display */}
