@@ -1121,6 +1121,8 @@ const HigherLowerTrader = observer(() => {
         };
     };
 
+    const recommendation = getMarketRecommendation();
+
     const applyRecommendations = () => {
         const recommendation = getMarketRecommendation();
 
@@ -1383,7 +1385,7 @@ const HigherLowerTrader = observer(() => {
                                 {Object.entries(hullTrends).map(([timeframe, trendData]) => {
                                     // Correctly access confidence from trendData if it's not directly available
                                     const confidence = (trendData as any).confidence !== undefined ? (trendData as any).confidence : 0; 
-
+                                    
                                     return (
                                         <div key={timeframe} className='higher-lower-trader__trend-item'>
                                             <div className='trend-timeframe'>{timeframe}</div>
@@ -1416,32 +1418,32 @@ const HigherLowerTrader = observer(() => {
                             <div className="trend-recommendation">
                                     <div className="trend-alignment">
                                         <strong>Aligned Trend:</strong> 
-                                        <span className={`trend-${getMarketRecommendation().alignment.toLowerCase()}`}>
-                                            {getMarketRecommendation().alignment}
+                                        <span className={`trend-${recommendation.alignment.toLowerCase()}`}>
+                                            {recommendation.alignment}
                                         </span>
-                                        {getMarketRecommendation().confidence !== 'WEAK' && (
+                                        {recommendation.confidence !== 'WEAK' && (
                                             <span className="confidence-indicator">
-                                                ({getMarketRecommendation().confidence})
+                                                ({recommendation.confidence})
                                             </span>
                                         )}
                                     </div>
 
                                     <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
                                         <strong>Recommended:</strong> 
-                                        <span className={`trend-${getMarketRecommendation().alignment.toLowerCase()}`}>
-                                            {getMarketRecommendation().recommendedAction}
+                                        <span className={`trend-${recommendation.alignment.toLowerCase()}`}>
+                                            {recommendation.recommendedAction}
                                         </span>
-                                        {getMarketRecommendation().recommendedAction !== 'WAIT' && (
+                                        {recommendation.recommendedAction !== 'WAIT' && (
                                             <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: 'var(--text-less-prominent)' }}>
-                                                ({getMarketRecommendation().recommendedContractType})
+                                                ({recommendation.recommendedContractType})
                                             </span>
                                         )}
                                     </div>
 
-                                    {getMarketRecommendation().strength > 0 && (
+                                    {recommendation.strength > 0 && (
                                         <div style={{ marginTop: '0.3rem', fontSize: '0.8rem', color: 'var(--text-less-prominent)' }}>
-                                            Strength: {getMarketRecommendation().strength.toFixed(1)}% | 
-                                            Momentum: {getMarketRecommendation().momentum}
+                                            Strength: {recommendation.strength.toFixed(1)}% | 
+                                            Momentum: {recommendation.momentum}
                                         </div>
                                     )}
                                 </div>
@@ -1486,9 +1488,9 @@ const HigherLowerTrader = observer(() => {
                             <button
                                 className="apply-recommendations-btn"
                                 onClick={applyRecommendations}
-                                disabled={!getMarketRecommendation() || getMarketRecommendation().recommendedAction === 'WAIT'}
+                                disabled={!recommendation || recommendation.recommendedAction === 'WAIT'}
                             >
-                                Apply Recommendation: {getMarketRecommendation()?.recommendedAction || 'WAIT'}
+                                Apply Recommendation: {recommendation?.recommendedAction || 'WAIT'}
                             </button>
                         </div>
                         </div>
