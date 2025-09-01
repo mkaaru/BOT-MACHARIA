@@ -395,7 +395,7 @@ const HigherLowerTrader = observer(() => {
         setStatus('Preloading historical data for trend analysis...');
 
         const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'BOOM500', 'BOOM1000', 'CRASH500', 'CRASH1000', 'stpRNG'];
-        const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>} = {};
+        const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>}= {};
 
         try {
             // Fetch 4000 ticks for each volatility index for trend analysis
@@ -1208,7 +1208,7 @@ const HigherLowerTrader = observer(() => {
                         // Check stop conditions
                         const newTotalProfit = totalProfitLoss + profit;
                         if (useStopOnProfit && newTotalProfit >= targetProfit) {
-                            setStatus(`🎯 Target profit reached: ${newTotalProfit.toFixed(2)} ${account_currency}. Stopping bot.`);
+                            setStatus(`🎯 Target profit of ${targetProfit} ${account_currency} reached! Stopping bot.`);
                             stopFlagRef.current = true;
                             break;
                         }
@@ -1252,13 +1252,45 @@ const HigherLowerTrader = observer(() => {
     };
 
     const stopTrading = () => {
-        stopFlagRef.current = true;
-        setIsRunning(false);
-        stopTicks();
-        run_panel.setIsRunning(false);
-        run_panel.setHasOpenContract(false);
-        run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        setStatus('Trading stopped');
+        try {
+            // Set stop flag immediately
+            stopFlagRef.current = true;
+
+            // Update state safely
+            try {
+                setIsRunning(false);
+                setStatus('Stopping...');
+            } catch (stateError) {
+                console.error('Error updating state when stopping:', stateError);
+            }
+
+            // Clean up with error handling
+            try {
+                cleanup();
+            } catch (cleanupError) {
+                console.error('Error during cleanup when stopping:', cleanupError);
+            }
+
+            // Final status update
+            setTimeout(() => {
+                try {
+                    setStatus('Trading stopped');
+                } catch (stateError) {
+                    console.error('Error setting final stop status:', stateError);
+                }
+            }, 100);
+
+        } catch (error) {
+            console.error('Error stopping trading:', error);
+            // Force stop even if there are errors
+            stopFlagRef.current = true;
+            try {
+                setIsRunning(false);
+                setStatus('Force stopped due to error');
+            } catch (stateError) {
+                console.error('Error in force stop:', stateError);
+            }
+        }
     };
 
     // Calculate statistics
@@ -1546,6 +1578,170 @@ const HigherLowerTrader = observer(() => {
         } else {
             // Higher/Lower mode uses CALL/PUT directly
             setContractType(newContractType);
+        }
+    };
+
+    // Enhanced cleanup function with comprehensive error handling
+    const cleanup = useCallback(() => {
+        try {
+            // Set stop flag immediately
+            stopFlagRef.current = true;
+
+            // Clean up tick stream
+            if (tickStreamIdRef.current && apiRef.current) {
+                try {
+                    apiRef.current.send({ forget: tickStreamIdRef.current });
+                } catch (error) {
+                    console.error('Error cleaning up tick stream:', error);
+                }
+                tickStreamIdRef.current = null;
+            }
+
+            // Clean up message handler
+            if (messageHandlerRef.current && apiRef.current?.ws) {
+                try {
+                    apiRef.current.ws.removeEventListener('message', messageHandlerRef.current);
+                } catch (error) {
+                    console.error('Error removing message handler:', error);
+                }
+                messageHandlerRef.current = null;
+            }
+
+            // Reset states safely
+            try {
+                setIsRunning(false);
+                setStatus('Stopped');
+            } catch (stateError) {
+                console.error('Error updating state during cleanup:', stateError);
+            }
+        } catch (error) {
+            console.error('Critical error during cleanup:', error);
+        }
+    }, []);
+
+    // Enhanced component lifecycle management with error boundaries
+    useEffect(() => {
+        // Component mount effect
+        let isMounted = true;
+
+        // Initialize component safely
+        try {
+            if (isMounted) {
+                // Any initialization logic here
+            }
+        } catch (error) {
+            console.error('Error during component initialization:', error);
+        }
+
+        return () => {
+            // Set mounted flag to false
+            isMounted = false;
+
+            // Comprehensive cleanup with error handling
+            try {
+                cleanup();
+            } catch (error) {
+                console.error('Error during component cleanup:', error);
+            }
+        };
+    }, [cleanup]);
+
+    // Error boundary effect for catching and handling runtime errors
+    useEffect(() => {
+        const handleError = (event: ErrorEvent) => {
+            console.error('Runtime error caught:', event.error);
+            try {
+                setStatus(`Runtime error: ${event.error?.message || 'Unknown error'}`);
+                // Stop trading on critical errors
+                stopFlagRef.current = true;
+                setIsRunning(false);
+            } catch (stateError) {
+                console.error('Error updating state after runtime error:', stateError);
+            }
+        };
+
+        const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+            console.error('Unhandled promise rejection:', event.reason);
+            try {
+                setStatus(`Promise error: ${event.reason?.message || 'Unknown promise error'}`);
+                // Stop trading on promise rejections
+                stopFlagRef.current = true;
+                setIsRunning(false);
+            } catch (stateError) {
+                console.error('Error updating state after promise rejection:', stateError);
+            }
+        };
+
+        // Add global error listeners
+        window.addEventListener('error', handleError);
+        window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+        return () => {
+            // Clean up error listeners
+            window.removeEventListener('error', handleError);
+            window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+        };
+    }, []);
+
+    // Safer start trading function with validation
+    const startTrading = async () => {
+        try {
+            // Comprehensive validation before starting
+            if (!is_authorized) {
+                setStatus('Please authorize first');
+                return;
+            }
+
+            if (!symbol) {
+                setStatus('Please select a symbol');
+                return;
+            }
+
+            if (!apiRef.current) {
+                setStatus('API connection not available');
+                return;
+            }
+
+            if (stake <= 0 || !stake) {
+                setStatus('Invalid stake amount');
+                return;
+            }
+
+            if (!contractType) {
+                setStatus('Please select contract type');
+                return;
+            }
+
+            // Check if already running
+            if (is_running) {
+                setStatus('Trading is already running');
+                return;
+            }
+
+            // Reset flags and state safely
+            stopFlagRef.current = false;
+            lastOutcomeWasLossRef.current = false;
+
+            // Update state with error handling
+            try {
+                setIsRunning(true);
+                setStatus('Starting automated trading...');
+            } catch (stateError) {
+                console.error('Error updating state when starting trading:', stateError);
+                return;
+            }
+
+            // Start the trading loop with delay to ensure state is updated
+            setTimeout(() => {
+                if (!stopFlagRef.current) {
+                    executeContract();
+                }
+            }, 500);
+
+        } catch (error) {
+            console.error('Error starting trading:', error);
+            setStatus(`Failed to start: ${error?.message || 'Unknown error'}`);
+            setIsRunning(false);
         }
     };
 
@@ -2001,7 +2197,7 @@ const HigherLowerTrader = observer(() => {
                         <div className='higher-lower-trader__buttons'>
                             {!is_running ? (
                                 <button
-                                    onClick={onRun}
+                                    onClick={startTrading}
                                     className='btn-start'
                                     disabled={!isAuthorized || symbols.length === 0}
                                 >
