@@ -159,69 +159,167 @@ const HigherLowerTrader = observer(() => {
         return candles;
     };
 
-    // Update Ehlers trends based on tick data directly (no candle conversion)
+    // State to track trend update counters for independent timing
+    const [trendUpdateCounters, setTrendUpdateCounters] = useState({
+        '60': 0,
+        '120': 0,
+        '600': 0,
+        '2000': 0
+    });
+
+    // State to store previous trend values for smoothing
+    const [previousTrends, setPreviousTrends] = useState({
+        '60': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
+        '120': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
+        '600': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
+        '2000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 }
+    });
+
+    // Ehlers Super Smoother Filter to remove aliasing noise
+    const applySuperSmoother = (prices: number[], period: number = 10) => {
+        if (prices.length < period) return prices;
+        
+        const smoothed = [...prices];
+        const a1 = Math.exp(-1.414 * Math.PI / period);
+        const b1 = 2 * a1 * Math.cos(1.414 * Math.PI / period);
+        const c2 = b1;
+        const c3 = -a1 * a1;
+        const c1 = 1 - c2 - c3;
+
+        for (let i = 2; i < prices.length; i++) {
+            smoothed[i] = c1 * (prices[i] + prices[i - 1]) / 2 + c2 * smoothed[i - 1] + c3 * smoothed[i - 2];
+        }
+
+        return smoothed;
+    };
+
+    // Ehlers Decycler to remove market noise
+    const applyDecycler = (prices: number[], period: number = 20) => {
+        if (prices.length < 3) return prices;
+        
+        const decycled = [...prices];
+        const alpha = (Math.cos(0.707 * 2 * Math.PI / period) + Math.sin(0.707 * 2 * Math.PI / period) - 1) /
+                      Math.cos(0.707 * 2 * Math.PI / period);
+
+        for (let i = 2; i < prices.length; i++) {
+            decycled[i] = (alpha / 2) * (prices[i] + prices[i - 1]) + (1 - alpha) * decycled[i - 1];
+        }
+
+        return decycled;
+    };
+
+    // Update Ehlers trends with noise reduction and independent timing
     const updateEhlersTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
+        // Update counters
+        setTrendUpdateCounters(prev => ({
+            '60': prev['60'] + 1,
+            '120': prev['120'] + 1,
+            '600': prev['600'] + 1,
+            '2000': prev['2000'] + 1
+        }));
+
         const newTrends = { ...hullTrends };
 
-        // Define tick count requirements for different timeframe analysis
-        const tickCounts = {
-            '60': 60,
-            '120': 120,
-            '600': 600,
-            '2000': 2000
+        // Define tick count requirements and update frequencies for different timeframes
+        const timeframeConfigs = {
+            '60': { requiredTicks: 60, updateEvery: 1, smoothingPeriod: 5 },     // Update every tick (fastest)
+            '120': { requiredTicks: 120, updateEvery: 2, smoothingPeriod: 7 },   // Update every 2 ticks
+            '600': { requiredTicks: 600, updateEvery: 5, smoothingPeriod: 10 },  // Update every 5 ticks
+            '2000': { requiredTicks: 2000, updateEvery: 10, smoothingPeriod: 15 } // Update every 10 ticks (slowest)
         };
 
-        Object.entries(tickCounts).forEach(([tickCountStr, requiredTicks]) => {
-            const tickCount = Number(tickCountStr);
-            const recentTicks = newTickData.slice(-requiredTicks);
+        Object.entries(timeframeConfigs).forEach(([tickCountStr, config]) => {
+            const currentCounter = trendUpdateCounters[tickCountStr as keyof typeof trendUpdateCounters];
+            
+            // Only update if it's time for this timeframe
+            if (currentCounter % config.updateEvery !== 0) {
+                return; // Skip this update cycle
+            }
 
-            if (recentTicks.length >= Math.min(10, requiredTicks)) { // Minimum 10 ticks required
+            const recentTicks = newTickData.slice(-config.requiredTicks);
+
+            if (recentTicks.length >= Math.min(15, config.requiredTicks)) {
                 const tickPrices = recentTicks.map(tick => tick.price);
 
-                // Use adaptive HMA period based on tick count
-                const hmaPeriod = Math.max(5, Math.min(Math.floor(tickPrices.length * 0.5), 50)); // Period between 5 and 50
+                // Apply Ehlers noise reduction techniques
+                const smoothedPrices = applySuperSmoother(tickPrices, config.smoothingPeriod);
+                const decycledPrices = applyDecycler(smoothedPrices, Math.max(10, config.smoothingPeriod));
 
-                const hmaValue = calculateHMA(tickPrices, hmaPeriod);
+                // Use adaptive HMA period based on tick count and timeframe
+                const hmaPeriod = Math.max(8, Math.min(Math.floor(decycledPrices.length * 0.3), 25));
+
+                const hmaValue = calculateHMA(decycledPrices, hmaPeriod);
 
                 if (hmaValue !== null) {
+                    // Get previous values for smoothing
+                    const prevData = previousTrends[tickCountStr as keyof typeof previousTrends];
+                    
+                    // Apply exponential smoothing to HMA value
+                    const smoothingFactor = 0.3; // Adjust between 0.1 (more smoothing) and 0.5 (less smoothing)
+                    const smoothedHMA = prevData.smoothedValue === 0 ? hmaValue : 
+                                      (smoothingFactor * hmaValue) + ((1 - smoothingFactor) * prevData.smoothedValue);
+
                     let trend = 'NEUTRAL';
 
-                    // Calculate HMA slope for trend direction
-                    const prevHMA = calculateHMA(tickPrices.slice(0, -1), Math.min(hmaPeriod, tickPrices.length - 1)); // Use previous tick for slope
-                    const hmaSlope = prevHMA !== null ? hmaValue - prevHMA : 0;
+                    // Calculate trend using smoothed values
+                    const hmaSlopeLookback = Math.max(3, Math.floor(hmaPeriod / 4));
+                    const prevHMA = calculateHMA(decycledPrices.slice(0, -hmaSlopeLookback), hmaPeriod);
+                    const hmaSlope = prevHMA !== null ? smoothedHMA - prevHMA : 0;
 
-                    // Get recent price movements
-                    const currentPrice = tickPrices[tickPrices.length - 1];
-                    const priceAboveHMA = currentPrice > hmaValue;
+                    // Get current price from smoothed data
+                    const currentPrice = decycledPrices[decycledPrices.length - 1];
+                    const priceAboveHMA = currentPrice > smoothedHMA;
 
-                    // Calculate price volatility for adaptive thresholds
-                    const priceRange = Math.max(...tickPrices) - Math.min(...tickPrices);
-                    const adaptiveThreshold = priceRange * 0.1; // 10% of recent price range
+                    // Calculate adaptive thresholds based on timeframe
+                    const priceRange = Math.max(...decycledPrices.slice(-Math.min(50, decycledPrices.length))) - 
+                                     Math.min(...decycledPrices.slice(-Math.min(50, decycledPrices.length)));
+                    
+                    // Larger timeframes need bigger thresholds to avoid noise
+                    const timeframeMultiplier = config.requiredTicks / 60;
+                    const adaptiveThreshold = priceRange * (0.05 + timeframeMultiplier * 0.02);
+                    const slopeThreshold = Math.max(0.000005, adaptiveThreshold * 0.2);
 
-                    const slopeThreshold = Math.max(0.00001, adaptiveThreshold * 0.3); // Minimum slope threshold
-                    const momentumThreshold = adaptiveThreshold * 0.5; // Minimum momentum threshold
+                    // Enhanced trend detection with hysteresis (prevent rapid changes)
+                    const trendStrength = Math.abs(hmaSlope) / slopeThreshold;
+                    const minTrendStrength = prevData.trend === 'NEUTRAL' ? 1.2 : 0.8; // Hysteresis
 
-                    // Enhanced trend detection with tick-based analysis
-                    if (hmaSlope > slopeThreshold) {
-                        if (priceAboveHMA || (tickPrices.slice(-5).reduce((sum, p) => sum + p, 0) / 5 - hmaValue) > slopeThreshold) {
+                    if (trendStrength > minTrendStrength) {
+                        if (hmaSlope > slopeThreshold && priceAboveHMA) {
                             trend = 'BULLISH';
-                        }
-                    } else if (hmaSlope < -slopeThreshold) {
-                        if (!priceAboveHMA || (tickPrices.slice(-5).reduce((sum, p) => sum + p, 0) / 5 - hmaValue) < -slopeThreshold) {
+                        } else if (hmaSlope < -slopeThreshold && !priceAboveHMA) {
                             trend = 'BEARISH';
+                        } else {
+                            // Keep previous trend if conditions are mixed
+                            trend = prevData.trend;
                         }
-                    } else if (Math.abs(tickPrices[tickPrices.length - 1] - tickPrices[tickPrices.length - 5]) > momentumThreshold) {
-                        // Pure momentum-based detection when HMA is flat
-                        trend = tickPrices[tickPrices.length - 1] > tickPrices[tickPrices.length - 5] ? 'BULLISH' : 'BEARISH';
-                    } else if (Math.abs(hmaSlope) > 0.000005) {
-                        // Weak trend detection if HMA slope is slightly positive or negative
-                        trend = hmaSlope > 0 ? 'BULLISH' : 'BEARISH';
+                    } else {
+                        // Weak signal - maintain previous trend unless it's been neutral for a while
+                        trend = prevData.trend !== 'NEUTRAL' ? prevData.trend : 'NEUTRAL';
+                    }
+
+                    // Additional confirmation for trend changes
+                    if (trend !== prevData.trend && prevData.trend !== 'NEUTRAL') {
+                        // Require stronger confirmation for trend reversals
+                        const confirmationStrength = 1.5;
+                        if (trendStrength < confirmationStrength) {
+                            trend = prevData.trend; // Keep previous trend
+                        }
                     }
 
                     newTrends[tickCountStr as keyof typeof hullTrends] = {
                         trend,
-                        value: Number(hmaValue.toFixed(5))
+                        value: Number(smoothedHMA.toFixed(5))
                     };
+
+                    // Update previous trends for smoothing
+                    setPreviousTrends(prev => ({
+                        ...prev,
+                        [tickCountStr]: {
+                            trend,
+                            value: Number(hmaValue.toFixed(5)),
+                            smoothedValue: smoothedHMA
+                        }
+                    }));
                 }
             }
         });
