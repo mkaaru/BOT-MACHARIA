@@ -147,6 +147,7 @@ const HigherLowerTrader = observer(() => {
     const [contractValue, setContractValue] = useState<number>(0);
     const [potentialPayout, setPotentialPayout] = useState<number>(0);
     const [contractDuration, setContractDuration] = useState<string>('00:00:00');
+    const [currentContract, setCurrentContract] = useState<any>(null); // Track the currently active contract
 
     // Live price state
     const [currentPrice, setCurrentPrice] = useState<number>(0);
@@ -461,7 +462,7 @@ const HigherLowerTrader = observer(() => {
         setStatus('Preloading historical data for trend analysis...');
 
         const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'BOOM500', 'BOOM1000', 'CRASH500', 'CRASH1000', 'stpRNG'];
-        const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>} = {};
+        const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>}= {};
 
         try {
             // Fetch 4000 ticks for each volatility index for trend analysis
@@ -767,10 +768,6 @@ const HigherLowerTrader = observer(() => {
             setPotentialPayout(potential_payout);
             setContractValue(purchase_price);
 
-            // Update trade statistics
-            setTotalStake(prev => prev + purchase_price);
-            setTotalRuns(prev => prev + 1);
-
             // Monitor contract using real Deriv API
             await monitorRiseFallContract(contract_id, purchase_price, potential_payout);
 
@@ -975,7 +972,7 @@ const HigherLowerTrader = observer(() => {
             }
         } catch (error: any) {
             console.error('Execute trade error:', error);
-            setStatus(`Trade execution failed: ${error.message || 'Unknown error'}`);
+            setStatus(`Trade execution failed: ${error.message}`);
         }
     };
 
@@ -1064,6 +1061,292 @@ const HigherLowerTrader = observer(() => {
         }
     };
 
+    // --- Integration with Run Panel and Transactions ---
+    // --- Rise/Fall Trading Logic ---
+    const executeRiseFallTrade = useCallback(async () => {
+        if (!apiRef.current || !is_authorized) {
+            setStatus('API not connected or not authorized');
+            return;
+        }
+
+        try {
+            setStatus('Executing Rise/Fall trade...');
+
+            // Notify run panel that trading is starting
+            run_panel.setIsRunning(true);
+            run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+
+            // Get current price for entry spot
+            const currentTick = tickData[tickData.length - 1];
+            if (!currentTick) {
+                setStatus('No tick data available');
+                return;
+            }
+
+            setEntrySpot(currentTick.price);
+
+            // Determine contract type based on trend analysis
+            let selectedContractType = contractType;
+
+            // Use trend analysis to determine trade direction if available
+            const trend1000 = hullTrends['1000'];
+            if (trend1000.trend !== 'NEUTRAL') {
+                selectedContractType = trend1000.trend === 'BULLISH' ? 'CALL' : 'PUT';
+            }
+
+            const tradeOptions = {
+                amount: stake,
+                currency: account_currency,
+                symbol: symbol || 'R_100',
+                duration: duration,
+                duration_unit: durationType,
+            };
+
+            // Create buy parameters using the helper function
+            const buyParams = tradeOptionToBuy(selectedContractType, tradeOptions);
+
+            console.log('Executing trade with params:', buyParams);
+
+            // Get proposal first
+            const proposalResponse = await tradingEngine.getProposal({
+                proposal: 1,
+                amount: tradeOptions.amount,
+                contract_type: selectedContractType,
+                currency: tradeOptions.currency,
+                symbol: tradeOptions.symbol,
+                duration: tradeOptions.duration,
+                duration_unit: tradeOptions.duration_unit,
+                basis: 'stake'
+            });
+
+            if (proposalResponse.error) {
+                setStatus(`Proposal error: ${proposalResponse.error.message}`);
+                run_panel.setContractStage(contract_stages.NOT_RUNNING);
+                return;
+            }
+
+            // Buy the contract
+            const buyResponse = await tradingEngine.buyContract(proposalResponse.proposal.id, proposalResponse.proposal.ask_price);
+
+            if (buyResponse.error) {
+                setStatus(`Purchase error: ${buyResponse.error.message}`);
+                run_panel.setContractStage(contract_stages.NOT_RUNNING);
+                return;
+            }
+
+            // Update contract tracking
+            const contractData = {
+                id: buyResponse.buy.contract_id,
+                buy_price: buyResponse.buy.buy_price,
+                payout: buyResponse.buy.payout,
+                start_time: buyResponse.buy.start_time,
+                entry_spot: currentTick.price,
+                contract_type: selectedContractType,
+                symbol: tradeOptions.symbol,
+                duration: tradeOptions.duration,
+                duration_unit: tradeOptions.duration_unit,
+                transaction_id: buyResponse.buy.transaction_id
+            };
+
+            setCurrentContract(contractData);
+            setPotentialPayout(buyResponse.buy.payout);
+            setContractValue(buyResponse.buy.buy_price);
+
+            // Notify run panel and transactions of the contract
+            run_panel.setHasOpenContract(true);
+            run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
+
+            // Create transaction data for the transactions store
+            const transactionData = {
+                data: {
+                    transaction_ids: {
+                        buy: buyResponse.buy.transaction_id
+                    },
+                    buy_price: buyResponse.buy.buy_price,
+                    payout: buyResponse.buy.payout,
+                    contract_id: buyResponse.buy.contract_id,
+                    longcode: buyResponse.buy.longcode || `${selectedContractType} ${tradeOptions.symbol}`,
+                    shortcode: buyResponse.buy.shortcode || 'RISEFALL',
+                    display_name: tradeOptions.symbol,
+                    contract_type: selectedContractType,
+                    currency: tradeOptions.currency,
+                    date_start: buyResponse.buy.start_time,
+                    entry_tick: currentTick.price,
+                    entry_tick_time: currentTick.time,
+                    barrier: null,
+                    high_barrier: null,
+                    low_barrier: null,
+                    tick_count: tradeOptions.duration,
+                    is_expired: 0,
+                    is_valid_to_sell: 1,
+                    profit: 0,
+                    profit_percentage: 0,
+                    current_spot: currentTick.price,
+                    current_spot_time: currentTick.time
+                }
+            };
+
+            // Add to transactions store
+            transactions.onBotContractEvent(transactionData);
+
+            // Subscribe to contract updates
+            await tradingEngine.subscribeToContract(buyResponse.buy.contract_id);
+
+            setStatus(`Contract purchased: ${buyResponse.buy.contract_id}`);
+
+            // Update statistics
+            setTotalStake(prev => prev + buyResponse.buy.buy_price);
+            setTotalRuns(prev => prev + 1);
+
+            // Add to trade history
+            setTradeHistory(prev => [...prev, {
+                ...contractData,
+                timestamp: Date.now(),
+                status: 'open'
+            }]);
+
+        } catch (error) {
+            console.error('Trade execution error:', error);
+            setStatus(`Trade error: ${error.message}`);
+            run_panel.setContractStage(contract_stages.NOT_RUNNING);
+            run_panel.setIsRunning(false);
+        }
+    }, [apiRef, is_authorized, tickData, contractType, stake, account_currency, symbol, duration, durationType, hullTrends, run_panel, transactions]);
+
+    // WebSocket message handler for contract updates
+    useEffect(() => {
+        if (!apiRef.current || !currentContract) return;
+
+        const handleMessage = (event: MessageEvent) => {
+            try {
+                const data = JSON.parse(event.data);
+
+                if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract?.contract_id === currentContract.id) {
+                    const contract = data.proposal_open_contract;
+
+                    // Update contract value and profit
+                    if (contract.bid_price) {
+                        setContractValue(contract.bid_price);
+                        const profit = contract.bid_price - currentContract.buy_price;
+                        setCurrentProfit(profit);
+
+                        // Update transaction data in real-time
+                        const updatedTransactionData = {
+                            data: {
+                                ...currentContract,
+                                bid_price: contract.bid_price,
+                                profit: profit,
+                                profit_percentage: ((profit / currentContract.buy_price) * 100),
+                                current_spot: contract.current_spot,
+                                current_spot_time: contract.current_spot_time,
+                                is_expired: contract.is_expired ? 1 : 0,
+                                status: contract.status || 'open'
+                            }
+                        };
+
+                        // Update transactions store
+                        transactions.onBotContractEvent(updatedTransactionData);
+                    }
+
+                    // Check if contract is finished
+                    if (contract.is_expired || contract.status === 'sold') {
+                        const finalProfit = contract.profit || (contract.bid_price - currentContract.buy_price);
+                        setCurrentProfit(finalProfit);
+
+                        // Notify run panel of contract completion
+                        run_panel.setHasOpenContract(false);
+                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+
+                        // Update statistics
+                        setTotalPayout(prev => prev + (contract.bid_price || 0));
+                        if (finalProfit > 0) {
+                            setContractsWon(prev => prev + 1);
+                        } else {
+                            setContractsLost(prev => prev + 1);
+                            lastOutcomeWasLossRef.current = true;
+                        }
+                        setTotalProfitLoss(prev => prev + finalProfit);
+
+                        // Final transaction update
+                        const finalTransactionData = {
+                            data: {
+                                ...currentContract,
+                                bid_price: contract.bid_price,
+                                profit: finalProfit,
+                                profit_percentage: ((finalProfit / currentContract.buy_price) * 100),
+                                current_spot: contract.current_spot,
+                                current_spot_time: contract.current_spot_time,
+                                is_expired: 1,
+                                status: 'sold',
+                                exit_tick: contract.exit_tick,
+                                exit_tick_time: contract.exit_tick_time,
+                                date_expiry: contract.date_expiry
+                            }
+                        };
+
+                        transactions.onBotContractEvent(finalTransactionData);
+
+                        // Update trade history
+                        setTradeHistory(prev => 
+                            prev.map(trade => 
+                                trade.id === currentContract.id 
+                                    ? { ...trade, status: 'closed', profit: finalProfit, end_time: contract.date_expiry }
+                                    : trade
+                            )
+                        );
+
+                        // Clear current contract after a delay
+                        setTimeout(() => {
+                            setCurrentContract(null);
+                            setContractValue(0);
+                            setCurrentProfit(0);
+                            setPotentialPayout(0);
+                            setContractDuration('00:00:00');
+
+                            // Continue trading if still running
+                            if (is_running && !stopFlagRef.current) {
+                                if (tradingMode === 'RISE_FALL') {
+                                    // Apply martingale if last trade was a loss
+                                    if (lastOutcomeWasLossRef.current && martingaleMultiplier > 1) {
+                                        setStake(prev => prev * martingaleMultiplier);
+                                    } else {
+                                        setStake(baseStake);
+                                        lastOutcomeWasLossRef.current = false;
+                                    }
+
+                                    // Check stop conditions
+                                    if (useStopOnProfit && currentProfit >= targetProfit) {
+                                        stopTrading();
+                                        setStatus(`Target profit reached: ${targetProfit}`);
+                                        return;
+                                    }
+
+                                    setTimeout(() => executeRiseFallTrade(), 1000);
+                                } else {
+                                    // Set contract stage back to starting for next trade
+                                    run_panel.setContractStage(contract_stages.STARTING);
+                                }
+                            } else {
+                                // Trading stopped, reset run panel
+                                run_panel.setIsRunning(false);
+                                run_panel.setContractStage(contract_stages.NOT_RUNNING);
+                            }
+                        }, 3000);
+                    }
+                }
+            } catch (error) {
+                console.error('Error parsing WebSocket message:', error);
+            }
+        };
+
+        const ws = tradingEngine.getWebSocket();
+        ws.addEventListener('message', handleMessage);
+
+        return () => {
+            ws.removeEventListener('message', handleMessage);
+        };
+    }, [currentContract, is_running, tradingMode, martingaleMultiplier, baseStake, useStopOnProfit, targetProfit, currentProfit, executeRiseFallTrade, run_panel, transactions]);
+
     // Placeholder for checkTrendSupport - it should exist in the original code.
     // If not, a basic implementation or error handling would be needed.
     const checkTrendSupport = () => {
@@ -1073,23 +1356,29 @@ const HigherLowerTrader = observer(() => {
         return true;
     };
 
-    // Placeholder for handleStop - it should exist in the original code.
-    // If not, a basic implementation or error handling would be needed.
-    const handleStop = () => {
-        stopTrading();
-    };
-
+    // Stop trading
     const stopTrading = () => {
-        stopFlagRef.current = true;
         setIsRunning(false);
-        stopTicks();
+        stopFlagRef.current = true;
+        setStatus('Trading stopped');
+
+        // Update run panel
         run_panel.setIsRunning(false);
         run_panel.setHasOpenContract(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        setStatus('Trading stopped');
+
+        // Clear any current contract tracking
+        setCurrentContract(null);
+        setContractValue(0);
+        setCurrentProfit(0);
+        setPotentialPayout(0);
+        setContractDuration('00:00:00');
+
+        // Reset stake to base
+        setStake(baseStake);
+        lastOutcomeWasLossRef.current = false;
     };
 
-    // Calculate statistics
     const calculateStats = useCallback(() => {
         const totalTrades = tradeHistory.length;
         const wins = tradeHistory.filter(trade => trade.result === 'win').length;
