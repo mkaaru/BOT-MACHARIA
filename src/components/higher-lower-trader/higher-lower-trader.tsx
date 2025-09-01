@@ -495,6 +495,50 @@ const HigherLowerTrader = observer(() => {
         }
     }, [symbol, preloadedData]);
 
+    // Add event listener for volatility scanner symbol selection
+    useEffect(() => {
+        // Initialize with default symbol
+        if (symbols.length > 0) {
+            const defaultSymbol = symbols[0].symbol;
+            setSymbol(defaultSymbol);
+            // Use preloaded data if available
+            if (preloadedData[defaultSymbol] && preloadedData[defaultSymbol].length > 0) {
+                setTickData(preloadedData[defaultSymbol]);
+                updateEhlersTrends(preloadedData[defaultSymbol]);
+            } else {
+                fetchHistoricalTicks(defaultSymbol);
+            }
+            startTicks(defaultSymbol);
+        }
+
+        // Listen for symbol selection from volatility scanner
+        const handleSymbolSelection = (event: CustomEvent) => {
+            const { symbol: selectedSymbol, displayName } = event.detail;
+
+            // Find the symbol in available symbols or use it directly
+            const symbolToUse = symbols.find(s => s.symbol === selectedSymbol)?.symbol || selectedSymbol;
+
+            setSymbol(symbolToUse);
+            // Use preloaded data if available
+            if (preloadedData[symbolToUse] && preloadedData[symbolToUse].length > 0) {
+                setTickData(preloadedData[symbolToUse]);
+                updateEhlersTrends(preloadedData[symbolToUse]);
+            } else {
+                fetchHistoricalTicks(symbolToUse);
+            }
+            startTicks(symbolToUse);
+
+            console.log(`Selected symbol from scanner: ${selectedSymbol} (${displayName}) -> Trading with: ${symbolToUse}`);
+        };
+
+        window.addEventListener('selectVolatilitySymbol', handleSymbolSelection as EventListener);
+
+        return () => {
+            window.removeEventListener('selectVolatilitySymbol', handleSymbolSelection as EventListener);
+        };
+    }, [symbols, preloadedData]); // Depend on symbols and preloadedData
+
+
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
         const token = V2GetActiveToken();
@@ -1099,6 +1143,27 @@ const HigherLowerTrader = observer(() => {
     // Check if user is authorized - check if balance is available and user is logged in
     const isAuthorized = client?.balance !== undefined && client?.balance !== null && client?.is_logged_in;
 
+    // Map of available symbols for the select dropdown, including 1s volatilities
+    const availableSymbols = [
+        { value: 'R_10', label: 'Volatility 10 Index' },
+        { value: 'R_25', label: 'Volatility 25 Index' },
+        { value: 'R_50', label: 'Volatility 50 Index' },
+        { value: 'R_75', label: 'Volatility 75 Index' },
+        { value: 'R_100', label: 'Volatility 100 Index' },
+        { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
+        { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
+        { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
+        { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
+        { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
+        { value: '1HZ150V', label: 'Volatility 150 (1s) Index' },
+        { value: '1HZ200V', label: 'Volatility 200 (1s) Index' },
+        { value: '1HZ250V', label: 'Volatility 250 (1s) Index' },
+        { value: '1HZ300V', label: 'Volatility 300 (1s) Index' },
+        { value: 'BOOM1000', label: 'Boom 1000 Index' },
+        { value: 'CRASH1000', label: 'Crash 1000 Index' },
+      ];
+
+
     return (
         <div className="higher-lower-trader">
             <div className="higher-lower-trader__container">
@@ -1141,9 +1206,9 @@ const HigherLowerTrader = observer(() => {
                                     }}
                                     disabled={isPreloading}
                                 >
-                                    {symbols.map(s => (
-                                        <option key={s.symbol} value={s.symbol}>
-                                            {s.display_name} {preloadedData[s.symbol] ? `(${preloadedData[s.symbol].length} ticks)` : ''}
+                                    {availableSymbols.map(s => (
+                                        <option key={s.value} value={s.value}>
+                                            {s.label} {preloadedData[s.value] ? `(${preloadedData[s.value].length} ticks)` : ''}
                                         </option>
                                     ))}
                                 </select>
