@@ -37,9 +37,18 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
             symbol: trade_option.symbol,
         },
     };
-    if (trade_option.barrier !== undefined) {
-        buy.parameters.barrier = trade_option.barrier;
+    
+    // For Rise/Fall contracts, barrier handling is different
+    if (contract_type === 'CALL' || contract_type === 'PUT') {
+        // Higher/Lower contracts need barrier
+        if (trade_option.barrier !== undefined && trade_option.barrier !== '') {
+            buy.parameters.barrier = trade_option.barrier;
+        }
+    } else if (contract_type === 'PUTE' || contract_type === 'CALLE') {
+        // Rise/Fall with equals - barrier typically set to entry price (0)
+        buy.parameters.barrier = trade_option.barrier || '0';
     }
+    
     return buy;
 };
 
@@ -621,21 +630,46 @@ const HigherLowerTrader = observer(() => {
     const purchaseOnceWithStake = async (stakeAmount: number) => {
         await authorizeIfNeeded();
 
+        // Map contract type correctly for API call
+        let apiContractType = contractType;
+        if (tradingMode === 'RISE_FALL') {
+            // For Rise/Fall, use the correct API contract types
+            if (contractType === 'CALL') apiContractType = 'CALL'; // Rise
+            else if (contractType === 'PUT') apiContractType = 'PUT'; // Fall  
+            else if (contractType === 'PUTE') apiContractType = 'PUTE'; // Rise with equals
+            else if (contractType === 'CALLE') apiContractType = 'CALLE'; // Fall with equals
+        }
+
         const trade_option: any = {
             amount: Number(stakeAmount),
             basis: 'stake',
-            contractTypes: [contractType],
+            contractTypes: [apiContractType],
             currency: account_currency,
             duration: durationType === 's' ? Number(duration) : Number(duration * 60),
             duration_unit: durationType,
             symbol,
-            barrier: barrier
         };
 
-        const buy_req = tradeOptionToBuy(contractType, trade_option);
+        // Add barrier only if needed and valid
+        if (tradingMode === 'HIGHER_LOWER' && barrier && barrier !== '0') {
+            trade_option.barrier = barrier;
+        } else if (tradingMode === 'RISE_FALL' && (apiContractType === 'PUTE' || apiContractType === 'CALLE')) {
+            // For Rise/Fall with equals, barrier is typically 0 (entry price)
+            trade_option.barrier = barrier || '0';
+        }
+
+        const buy_req = tradeOptionToBuy(apiContractType, trade_option);
         const { buy, error } = await apiRef.current.buy(buy_req);
         if (error) throw error;
-        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
+        
+        const contractTypeDisplay = tradingMode === 'RISE_FALL' ? 
+            (apiContractType === 'CALL' ? 'Rise' : 
+             apiContractType === 'PUT' ? 'Fall' :
+             apiContractType === 'PUTE' ? 'Rise (Allow Equals)' :
+             apiContractType === 'CALLE' ? 'Fall (Allow Equals)' : apiContractType) :
+            (apiContractType === 'CALL' ? 'Higher' : 'Lower');
+            
+        setStatus(`Purchased: ${contractTypeDisplay} - ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
         return buy;
     };
 
@@ -1148,39 +1182,60 @@ const HigherLowerTrader = observer(() => {
     // Check if user is authorized - check if balance is available and user is logged in
     const isAuthorized = client?.balance !== undefined && client?.balance !== null && client?.is_logged_in;
 
-    // Map of available symbols for the select dropdown, including 1s volatilities
-    const availableSymbols = [
-        { value: 'R_10', label: 'Volatility 10 Index' },
-        { value: 'R_25', label: 'Volatility 25 Index' },
-        { value: 'R_50', label: 'Volatility 50 Index' },
-        { value: 'R_75', label: 'Volatility 75 Index' },
-        { value: 'R_100', label: 'Volatility 100 Index' },
-        // Rise/Fall specific symbols (can be added here if needed, or handled by API filtering)
-        { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
-        { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
-        { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
-        { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
-        { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
-        { value: '1HZ150V', label: 'Volatility 150 (1s) Index' },
-        { value: '1HZ200V', label: 'Volatility 200 (1s) Index' },
-        { value: '1HZ250V', label: 'Volatility 250 (1s) Index' },
-        { value: '1HZ300V', label: 'Volatility 300 (1s) Index' },
-        { value: 'BOOM1000', label: 'Boom 1000 Index' },
-        { value: 'CRASH1000', label: 'Crash 1000 Index' },
-      ];
+    // Get available symbols based on trading mode
+    const getAvailableSymbols = () => {
+        if (tradingMode === 'RISE_FALL') {
+            // Rise/Fall works with 1-second volatility indices
+            return [
+                { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
+                { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
+                { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
+                { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
+                { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
+                { value: '1HZ150V', label: 'Volatility 150 (1s) Index' },
+                { value: '1HZ200V', label: 'Volatility 200 (1s) Index' },
+                { value: '1HZ250V', label: 'Volatility 250 (1s) Index' },
+                { value: '1HZ300V', label: 'Volatility 300 (1s) Index' },
+                // Some regular volatilities also support Rise/Fall
+                { value: 'R_10', label: 'Volatility 10 Index' },
+                { value: 'R_25', label: 'Volatility 25 Index' },
+                { value: 'R_50', label: 'Volatility 50 Index' },
+                { value: 'R_75', label: 'Volatility 75 Index' },
+                { value: 'R_100', label: 'Volatility 100 Index' },
+            ];
+        } else {
+            // Higher/Lower mode symbols
+            return [
+                { value: 'R_10', label: 'Volatility 10 Index' },
+                { value: 'R_25', label: 'Volatility 25 Index' },
+                { value: 'R_50', label: 'Volatility 50 Index' },
+                { value: 'R_75', label: 'Volatility 75 Index' },
+                { value: 'R_100', label: 'Volatility 100 Index' },
+                { value: 'BOOM500', label: 'Boom 500 Index' },
+                { value: 'BOOM1000', label: 'Boom 1000 Index' },
+                { value: 'CRASH500', label: 'Crash 500 Index' },
+                { value: 'CRASH1000', label: 'Crash 1000 Index' },
+                { value: 'stpRNG', label: 'Step Index' },
+            ];
+        }
+    };
+
+    const availableSymbols = getAvailableSymbols();
 
     // Function to handle contract type change, considering trading mode
     const handleContractTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newContractType = e.target.value;
-        setContractType(newContractType);
 
-        // If in Rise/Fall mode, map 'Rise' to 'CALL' and 'Fall' to 'PUT'
+        // If in Rise/Fall mode, map display values to actual contract types
         if (tradingMode === 'RISE_FALL') {
             if (newContractType === 'Rise') setContractType('CALL');
             else if (newContractType === 'Fall') setContractType('PUT');
-            // Add logic for 'Allow Equals' if needed, mapping to 'PUTE' and 'CALLE'
+            else if (newContractType === 'RiseEquals') setContractType('PUTE'); // Rise with equals
+            else if (newContractType === 'FallEquals') setContractType('CALLE'); // Fall with equals
+            else setContractType(newContractType);
         } else {
-            setContractType(newContractType); // Higher/Lower mode uses CALL/PUT directly
+            // Higher/Lower mode uses CALL/PUT directly
+            setContractType(newContractType);
         }
     };
 
@@ -1201,8 +1256,8 @@ const HigherLowerTrader = observer(() => {
                                     const newMode = e.target.value as 'HIGHER_LOWER' | 'RISE_FALL';
                                     setTradingMode(newMode);
                                     // Reset contract type and barrier when mode changes
-                                    setContractType(newMode === 'RISE_FALL' ? 'CALL' : 'CALL'); // Default to CALL (Rise) or Higher
-                                    setBarrier(newMode === 'RISE_FALL' ? '' : '+0.37'); // Reset barrier for Rise/Fall
+                                    setContractType('CALL'); // Default to CALL (Rise/Higher)
+                                    setBarrier(newMode === 'RISE_FALL' ? '0' : '+0.37'); // Set barrier to 0 for Rise/Fall (entry price)
                                 }}
                             >
                                 <option value='HIGHER_LOWER'>{localize('Higher/Lower')}</option>
@@ -1255,7 +1310,13 @@ const HigherLowerTrader = observer(() => {
                                 <label htmlFor='hl-contractType'>{localize(tradingMode === 'RISE_FALL' ? 'Trade Type' : 'Contract Type')}</label>
                                 <select
                                     id='hl-contractType'
-                                    value={tradingMode === 'RISE_FALL' ? (contractType === 'CALL' ? 'Rise' : (contractType === 'PUT' ? 'Fall' : contractType)) : contractType}
+                                    value={tradingMode === 'RISE_FALL' ? 
+                                        (contractType === 'CALL' ? 'Rise' : 
+                                         contractType === 'PUT' ? 'Fall' : 
+                                         contractType === 'PUTE' ? 'RiseEquals' :
+                                         contractType === 'CALLE' ? 'FallEquals' : 
+                                         contractType) : 
+                                        contractType}
                                     onChange={handleContractTypeChange}
                                 >
                                     {tradingMode === 'HIGHER_LOWER' ? (
@@ -1267,7 +1328,8 @@ const HigherLowerTrader = observer(() => {
                                         <>
                                             <option value='Rise'>{localize('Rise')}</option>
                                             <option value='Fall'>{localize('Fall')}</option>
-                                            <option value='RiseEquals'>{localize('Rise/Fall equals')}</option>
+                                            <option value='RiseEquals'>{localize('Rise (Allow Equals)')}</option>
+                                            <option value='FallEquals'>{localize('Fall (Allow Equals)')}</option>
                                         </>
                                     )}
                                 </select>
@@ -1314,15 +1376,14 @@ const HigherLowerTrader = observer(() => {
                                 />
                             </div>
                             <div className='higher-lower-trader__field'>
-                                <label htmlFor='hl-barrier'>{localize(tradingMode === 'RISE_FALL' ? 'Barrier Offset' : 'Barrier')}</label>
+                                <label htmlFor='hl-barrier'>{localize(tradingMode === 'RISE_FALL' ? 'Entry Spot Offset' : 'Barrier')}</label>
                                 <input
                                     id='hl-barrier'
                                     type='text'
                                     value={barrier}
                                     onChange={e => setBarrier(e.target.value)}
-                                    placeholder={tradingMode === 'RISE_FALL' ? '0.00 = current price, +0.0001, -0.0001' : '0.00 = current price, +0.37, -0.25'}
-                                    title={tradingMode === 'RISE_FALL' ? 'Set to 0.00 for barrier equal to entry price' : 'Set to 0.00 to use current price as barrier'}
-                                    disabled={tradingMode === 'RISE_FALL'} // Barrier not applicable for Rise/Fall in this context
+                                    placeholder={tradingMode === 'RISE_FALL' ? '0 = entry price, +0.0001, -0.0001' : '0.00 = current price, +0.37, -0.25'}
+                                    title={tradingMode === 'RISE_FALL' ? 'For Rise/Fall, usually set to 0 (entry price)' : 'Set to 0.00 to use current price as barrier'}
                                 />
                             </div>
                         </div>
