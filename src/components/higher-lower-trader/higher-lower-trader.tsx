@@ -695,14 +695,9 @@ const HigherLowerTrader = observer(() => {
         }
     };
 
-    // Rise/Fall mode - tick-based contracts using TradingEngine
+    // Rise/Fall mode - tick-based contracts using real Deriv API
     const purchaseRiseFallContract = async () => {
         await authorizeIfNeeded();
-
-        if (!tradingEngine.isEngineConnected()) {
-            setStatus('Trading engine not connected');
-            return;
-        }
 
         try {
             // Map contract types correctly for Rise/Fall
@@ -712,8 +707,9 @@ const HigherLowerTrader = observer(() => {
 
             setStatus(`Getting proposal for ${apiContractType} contract...`);
 
-            // Get proposal using TradingEngine
+            // Get proposal using real Deriv API
             const proposalParams = {
+                proposal: 1,
                 amount: stake,
                 basis: 'stake',
                 contract_type: apiContractType,
@@ -725,7 +721,7 @@ const HigherLowerTrader = observer(() => {
 
             console.log('Getting proposal for Rise/Fall:', proposalParams);
 
-            const proposalResponse = await tradingEngine.getProposal(proposalParams);
+            const proposalResponse = await apiRef.current.send(proposalParams);
 
             if (proposalResponse.error) {
                 setStatus(`Proposal failed: ${proposalResponse.error.message}`);
@@ -741,8 +737,13 @@ const HigherLowerTrader = observer(() => {
 
             setStatus(`Purchasing ${apiContractType} contract...`);
 
-            // Buy contract using TradingEngine
-            const buyResponse = await tradingEngine.buyContract(proposal.id, proposal.ask_price);
+            // Buy contract using real Deriv API
+            const buyParams = {
+                buy: proposal.id,
+                price: proposal.ask_price
+            };
+
+            const buyResponse = await apiRef.current.send(buyParams);
 
             if (buyResponse.error) {
                 setStatus(`Trade failed: ${buyResponse.error.message}`);
@@ -770,7 +771,7 @@ const HigherLowerTrader = observer(() => {
             setTotalStake(prev => prev + purchase_price);
             setTotalRuns(prev => prev + 1);
 
-            // Monitor contract using TradingEngine
+            // Monitor contract using real Deriv API
             await monitorRiseFallContract(contract_id, purchase_price, potential_payout);
 
         } catch (error: any) {
@@ -779,26 +780,29 @@ const HigherLowerTrader = observer(() => {
         }
     };
 
-    // Monitor Rise/Fall contract using TradingEngine
+    // Monitor Rise/Fall contract using real Deriv API
     const monitorRiseFallContract = async (contract_id: string, purchase_price: number, potential_payout: number) => {
         try {
-            // Subscribe to contract updates using TradingEngine
-            await tradingEngine.subscribeToContract(contract_id);
+            // Subscribe to contract updates using real Deriv API
+            const response = await apiRef.current.send({
+                proposal_open_contract: 1,
+                contract_id,
+                subscribe: 1
+            });
 
-            // Listen for contract updates through TradingEngine WebSocket
-            const ws = tradingEngine.getWebSocket();
-            if (!ws) {
-                console.error('No WebSocket connection available for contract monitoring');
+            if (response.error) {
+                console.error('Monitor contract error:', response.error);
+                setStatus(`Contract monitoring failed: ${response.error.message}`);
                 return;
             }
 
-            const onMessage = (event: MessageEvent) => {
+            const onMessage = (evt: MessageEvent) => {
                 try {
-                    const data = JSON.parse(event.data);
+                    const data = JSON.parse(evt.data);
                     if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract?.contract_id === contract_id) {
                         const contract = data.proposal_open_contract;
                         const profit = contract.bid_price ? contract.bid_price - purchase_price : 0;
-                        const status = contract.status;
+                        const contractStatus = contract.status;
 
                         setCurrentProfit(profit);
                         setContractValue(contract.bid_price || purchase_price);
@@ -813,7 +817,7 @@ const HigherLowerTrader = observer(() => {
                             setContractDuration(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:00`);
                         }
 
-                        if (status === 'sold') {
+                        if (contractStatus === 'sold' || contractStatus === 'won' || contractStatus === 'lost') {
                             const final_profit = contract.bid_price - purchase_price;
                             const won = final_profit > 0;
 
@@ -841,7 +845,7 @@ const HigherLowerTrader = observer(() => {
                             }
 
                             // Remove event listener after contract completion
-                            ws.removeEventListener('message', onMessage);
+                            apiRef.current?.connection?.removeEventListener('message', onMessage);
                         }
                     }
                 } catch (error) {
@@ -849,7 +853,7 @@ const HigherLowerTrader = observer(() => {
                 }
             };
 
-            ws.addEventListener('message', onMessage);
+            apiRef.current?.connection?.addEventListener('message', onMessage);
 
         } catch (error: any) {
             console.error('Rise/Fall contract monitor setup error:', error);
@@ -1013,17 +1017,11 @@ const HigherLowerTrader = observer(() => {
         try {
             await authorizeIfNeeded();
 
-            // Check TradingEngine connection for Rise/Fall mode
-            if (tradingMode === 'RISE_FALL' && !tradingEngine.isEngineConnected()) {
-                setStatus('Waiting for trading engine connection...');
-                // Wait a bit for trading engine to connect
-                await new Promise(resolve => setTimeout(resolve, 2000));
-
-                if (!tradingEngine.isEngineConnected()) {
-                    setStatus('Trading engine not available. Please try again.');
-                    setIsRunning(false);
-                    return;
-                }
+            // Check API connection for Rise/Fall mode
+            if (tradingMode === 'RISE_FALL' && !apiRef.current) {
+                setStatus('API connection not available. Please try again.');
+                setIsRunning(false);
+                return;
             }
 
             const runLoop = async () => {
@@ -1045,7 +1043,8 @@ const HigherLowerTrader = observer(() => {
 
                         if (!stopFlagRef.current) {
                             setStatus('Waiting for next trade opportunity...');
-                            await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second delay between trades
+                            // Wait for contract completion before next trade
+                            await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay between trades
                         }
                     } catch (error: any) {
                         console.error('Trading loop error:', error);
