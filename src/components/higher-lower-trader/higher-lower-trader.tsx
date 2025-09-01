@@ -131,14 +131,14 @@ const HigherLowerTrader = observer(() => {
     // Advanced EMA calculation for multiple timeframes
     const calculateEMA = (data: number[], period: number) => {
         if (data.length === 0) return null;
-        
+
         const k = 2 / (period + 1);
         let ema = data[0];
-        
+
         for (let i = 1; i < data.length; i++) {
             ema = data[i] * k + ema * (1 - k);
         }
-        
+
         return ema;
     };
 
@@ -148,11 +148,11 @@ const HigherLowerTrader = observer(() => {
 
         const fastEMA = calculateEMA(data, fast);
         const slowEMA = calculateEMA(data, slow);
-        
+
         if (fastEMA === null || slowEMA === null) return null;
-        
+
         const macdLine = fastEMA - slowEMA;
-        
+
         // Calculate signal line (EMA of MACD)
         const macdHistory = [];
         for (let i = slow - 1; i < data.length; i++) {
@@ -163,50 +163,50 @@ const HigherLowerTrader = observer(() => {
                 macdHistory.push(fEMA - sEMA);
             }
         }
-        
+
         const signalLine = calculateEMA(macdHistory, signal);
         const histogram = signalLine ? macdLine - signalLine : 0;
-        
+
         return { macdLine, signalLine, histogram };
     };
 
     // Enhanced trend strength calculation
     const calculateTrendStrength = (prices: number[], period = 20) => {
         if (prices.length < period) return 0;
-        
+
         const recentPrices = prices.slice(-period);
         const firstPrice = recentPrices[0];
         const lastPrice = recentPrices[recentPrices.length - 1];
-        
+
         // Calculate price movement as percentage
         const priceChange = ((lastPrice - firstPrice) / firstPrice) * 100;
-        
+
         // Calculate volatility (standard deviation)
         const mean = recentPrices.reduce((sum, price) => sum + price, 0) / recentPrices.length;
         const variance = recentPrices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / recentPrices.length;
         const volatility = Math.sqrt(variance);
-        
+
         // Trend strength = price change / volatility (normalized)
         const strength = Math.abs(priceChange) / (volatility / mean * 100);
-        
+
         return Math.min(strength * 10, 100); // Scale to 0-100
     };
 
     // Advanced market momentum detection
     const detectMarketMomentum = (prices: number[], period = 14) => {
         if (prices.length < period * 2) return 'NEUTRAL';
-        
+
         const recent = prices.slice(-period);
         const previous = prices.slice(-period * 2, -period);
-        
+
         const recentAvg = recent.reduce((sum, p) => sum + p, 0) / recent.length;
         const previousAvg = previous.reduce((sum, p) => sum + p, 0) / previous.length;
-        
+
         const recentVolatility = Math.sqrt(recent.reduce((sum, p) => sum + Math.pow(p - recentAvg, 2), 0) / recent.length);
         const previousVolatility = Math.sqrt(previous.reduce((sum, p) => sum + Math.pow(p - previousAvg, 2), 0) / previous.length);
-        
+
         const volatilityChange = (recentVolatility - previousVolatility) / previousVolatility;
-        
+
         if (volatilityChange > 0.1) return 'ACCELERATING';
         if (volatilityChange < -0.1) return 'DECELERATING';
         return 'NEUTRAL';
@@ -215,54 +215,54 @@ const HigherLowerTrader = observer(() => {
     // Hybrid trend determination combining multiple indicators
     const getHybridTrend = (prices: number[]) => {
         if (prices.length < 50) return 'NEUTRAL';
-        
+
         const hma21 = calculateHMA(prices, 21);
         const ema12 = calculateEMA(prices, 12);
         const ema26 = calculateEMA(prices, 26);
         const macd = calculateMACD(prices, 12, 26, 9);
-        
+
         if (!hma21 || !ema12 || !ema26 || !macd) return 'NEUTRAL';
-        
+
         const currentPrice = prices[prices.length - 1];
         const previousPrice = prices[prices.length - 2];
-        
+
         // Scoring system for trend determination
         let bullishScore = 0;
         let bearishScore = 0;
-        
+
         // HMA trend
         if (currentPrice > hma21) bullishScore += 2;
         else bearishScore += 2;
-        
+
         // EMA crossover
         if (ema12 > ema26) bullishScore += 2;
         else bearishScore += 2;
-        
+
         // MACD signals
         if (macd.macdLine > macd.signalLine) bullishScore += 1;
         else bearishScore += 1;
-        
+
         if (macd.histogram > 0) bullishScore += 1;
         else bearishScore += 1;
-        
+
         // Price momentum
         if (currentPrice > previousPrice) bullishScore += 1;
         else bearishScore += 1;
-        
+
         // Recent price action (last 5 ticks)
         const recentPrices = prices.slice(-5);
         const upMoves = recentPrices.filter((price, i) => i > 0 && price > recentPrices[i - 1]).length;
-        
+
         if (upMoves >= 3) bullishScore += 1;
         else if (upMoves <= 1) bearishScore += 1;
-        
+
         // Determine trend with confidence threshold
         const scoreDifference = Math.abs(bullishScore - bearishScore);
-        
+
         if (scoreDifference >= 3) {
             return bullishScore > bearishScore ? 'BULLISH' : 'BEARISH';
         }
-        
+
         return 'NEUTRAL';
     };
 
@@ -305,7 +305,7 @@ const HigherLowerTrader = observer(() => {
         // Calculate trend strength and momentum
         const strength = calculateTrendStrength(tickPrices);
         const momentum = detectMarketMomentum(tickPrices);
-        
+
         setTrendStrength(strength);
         setMarketMomentum(momentum);
 
@@ -341,7 +341,7 @@ const HigherLowerTrader = observer(() => {
                         const prevHMA = calculateHMA(tickPrices.slice(0, -5), Math.min(hmaPeriod, tickPrices.length - 5));
                         const hmaSlope = prevHMA !== null ? hmaValue - prevHMA : 0;
                         const currentPrice = tickPrices[tickPrices.length - 1];
-                        
+
                         const slopeThreshold = {
                             '15s': 0.00008,
                             '1m': 0.00015,
@@ -359,10 +359,10 @@ const HigherLowerTrader = observer(() => {
                     const emaFast = calculateEMA(tickPrices, emaConfig.fast);
                     const emaSlow = calculateEMA(tickPrices, emaConfig.slow);
                     const macd = calculateMACD(tickPrices, emaConfig.fast, emaConfig.slow, emaConfig.signal);
-                    
+
                     if (emaFast && emaSlow && macd) {
                         const currentPrice = tickPrices[tickPrices.length - 1];
-                        
+
                         // EMA crossover with MACD confirmation
                         if (emaFast > emaSlow && macd.macdLine > macd.signalLine && currentPrice > emaFast) {
                             trend = 'BULLISH';
@@ -980,7 +980,7 @@ const HigherLowerTrader = observer(() => {
         const trends = Object.values(hullTrends);
         const bullishCount = trends.filter(t => t.trend === 'BULLISH').length;
         const bearishCount = trends.filter(t => t.trend === 'BEARISH').length;
-        
+
         // Require at least 3 timeframes to align for a confirmed trend
         if (bullishCount >= 3) return 'BULLISH';
         if (bearishCount >= 3) return 'BEARISH';
@@ -990,22 +990,22 @@ const HigherLowerTrader = observer(() => {
     // Enhanced auto-recommendation system
     const getRecommendedContractType = () => {
         const alignedTrend = getAlignedTrend();
-        
+
         // Strong trend with high confidence
         if (alignedTrend === 'BULLISH' && trendStrength > 50) return 'CALL';
         if (alignedTrend === 'BEARISH' && trendStrength > 50) return 'PUT';
-        
+
         // Medium confidence - check momentum
         if (alignedTrend === 'BULLISH' && marketMomentum === 'ACCELERATING') return 'CALL';
         if (alignedTrend === 'BEARISH' && marketMomentum === 'ACCELERATING') return 'PUT';
-        
+
         return contractType; // Keep current if unclear
     };
 
     // Get recommended entry timing
     const getEntryTiming = () => {
         const alignedTrend = getAlignedTrend();
-        
+
         if (alignedTrend !== 'NEUTRAL' && trendStrength > 70) return 'IMMEDIATE';
         if (alignedTrend !== 'NEUTRAL' && trendStrength > 40 && marketMomentum === 'ACCELERATING') return 'SOON';
         if (trendStrength < 30) return 'WAIT';
@@ -1014,7 +1014,7 @@ const HigherLowerTrader = observer(() => {
 
     // Auto-update contract type based on trends (optional feature)
     const [autoSelectContract, setAutoSelectContract] = useState(false);
-    
+
     useEffect(() => {
         if (autoSelectContract && !is_running) {
             const recommended = getRecommendedContractType();
@@ -1262,7 +1262,7 @@ const HigherLowerTrader = observer(() => {
                         {/* Enhanced Market Trends */}
                         <div className='higher-lower-trader__trends'>
                             <h4>{localize('Market Trends')} ({trendMethod === 'HULL' ? 'Hull MA' : trendMethod === 'EMA' ? 'EMA+MACD' : 'Hybrid Analysis'})</h4>
-                            
+
                             {/* Trend Method Information */}
                             <div className='trend-method-info'>
                                 {trendMethod === 'HYBRID' && (
@@ -1293,7 +1293,7 @@ const HigherLowerTrader = observer(() => {
 
                                     const maxTicks = tickCounts[timeframe as keyof typeof tickCounts] || 600;
                                     const actualTicks = Math.min(tickData.length, maxTicks);
-                                    
+
                                     const requiredConfirmations = {
                                         '15s': 3,
                                         '1m': 4,
@@ -1319,77 +1319,103 @@ const HigherLowerTrader = observer(() => {
                                     );
                                 })}
                             </div>
-                            
+
                             <div className='trend-recommendation'>
                                 <div className='trend-alignment'>
-                                    <Text size='xs'>
-                                        {localize('Aligned Trend')}: <strong className={`trend-${getAlignedTrend().toLowerCase()}`}>
-                                            {getAlignedTrend()}
-                                        </strong>
-                                        <span className='trend-strength-badge'>
-                                            {trendStrength > 70 ? '🔥 STRONG' : trendStrength > 40 ? '⚡ MEDIUM' : '💭 WEAK'}
-                                        </span>
-                                    </Text>
-                                </div>
-                                <Text size='xs'>
-                                    {localize('Recommended')}: <strong>{getRecommendedContractType() === 'CALL' ? 'Higher' : 'Lower'}</strong>
-                                    {getAlignedTrend() !== 'NEUTRAL' && trendStrength > 50 && (
-                                        <span className='confidence-indicator'> (High Confidence - {marketMomentum})</span>
-                                    )}
-                                </Text>
-                                
-                                {/* Trading Signals */}
-                                <div className='trading-signals'>
-                                    {getAlignedTrend() === 'BULLISH' && trendStrength > 60 && (
-                                        <span className='signal signal-buy'>🟢 STRONG BUY SIGNAL</span>
-                                    )}
-                                    {getAlignedTrend() === 'BEARISH' && trendStrength > 60 && (
-                                        <span className='signal signal-sell'>🔴 STRONG SELL SIGNAL</span>
-                                    )}
-                                    {trendStrength < 30 && (
-                                        <span className='signal signal-wait'>⏳ WAIT FOR CLEARER SIGNAL</span>
-                                    )}
+                                    <strong>Hybrid Analysis: </strong>
+                                    <span className={`trend-${getHybridTrend(tickData.map(tick => tick.price)).toLowerCase()}`}>
+                                        {getHybridTrend(tickData.map(tick => tick.price))}
+                                    </span>
+                                    <span className='trend-strength-badge'>
+                                        ({trendStrength.toFixed(0)}% strength)
+                                    </span>
+                                    <span className={`momentum-indicator momentum-${marketMomentum.toLowerCase()}`}>
+                                        {marketMomentum}
+                                    </span>
                                 </div>
 
-                                {/* Entry Timing and Recommendations */}
+                                <div className='trend-alignment'>
+                                    <strong>Aligned Trend: </strong>
+                                    <span className={`trend-${getAlignedTrend().toLowerCase()}`}>
+                                        {getAlignedTrend()}
+                                    </span>
+                                    <span className='confidence'>
+                                        ({Object.values(hullTrends).filter(t => t.trend !== 'NEUTRAL').length}/4 timeframes)
+                                    </span>
+                                </div>
+
+                                <div className='confidence-indicator'>
+                                    <strong>Recommended: {getRecommendedContractType() === 'CALL' ? 'Higher (Call)' : 'Lower (Put)'}</strong>
+                                    <span className='hybrid-basis'> - Based on Hybrid Analysis</span>
+                                </div>
+
                                 <div className='entry-recommendations'>
-                                    <Text size='xs'>
-                                        {localize('Entry Timing')}: <strong className={`timing-${getEntryTiming().toLowerCase()}`}>
+                                    <div>
+                                        <strong>Entry Timing: </strong>
+                                        <span className={`timing-${getEntryTiming().toLowerCase()}`}>
                                             {getEntryTiming()}
-                                        </strong>
-                                    </Text>
-                                    <Text size='xs'>
-                                        {localize('Recommended Duration')}: <strong>{getRecommendedDuration()}s</strong>
-                                        {trendStrength > 70 && <span className='duration-reason'> (Strong trend - quick resolution)</span>}
-                                        {trendStrength < 40 && <span className='duration-reason'> (Weak trend - needs time to develop)</span>}
-                                    </Text>
+                                        </span>
+                                    </div>
+                                    <div className='duration-reason'>
+                                        Optimal Duration: {getRecommendedDuration()}s 
+                                        {trendStrength > 80 ? ' (Strong trend - short duration)' : 
+                                         trendStrength > 50 ? ' (Medium trend - balanced duration)' : 
+                                         ' (Weak trend - longer duration)'}
+                                    </div>
                                 </div>
+                            </div>
 
-                                {/* Auto-recommendation controls */}
-                                <div className='auto-controls'>
-                                    <label>
-                                        <input
-                                            type='checkbox'
-                                            checked={autoSelectContract}
-                                            onChange={e => setAutoSelectContract(e.target.checked)}
-                                            disabled={is_running}
-                                        />
-                                        {localize('Auto-select contract type based on trends')}
-                                    </label>
-                                    
-                                    {autoSelectContract && (
-                                        <button
-                                            className='apply-recommendations-btn'
-                                            onClick={() => {
-                                                setContractType(getRecommendedContractType());
-                                                setDuration(getRecommendedDuration());
-                                            }}
-                                            disabled={is_running}
-                                        >
-                                            {localize('Apply All Recommendations')}
-                                        </button>
-                                    )}
-                                </div>
+                            {/* Trading Signals */}
+                            <div className='trading-signals'>
+                                {getAlignedTrend() === 'BULLISH' && trendStrength > 60 && (
+                                    <span className='signal signal-buy'>🟢 STRONG BUY SIGNAL</span>
+                                )}
+                                {getAlignedTrend() === 'BEARISH' && trendStrength > 60 && (
+                                    <span className='signal signal-sell'>🔴 STRONG SELL SIGNAL</span>
+                                )}
+                                {trendStrength < 30 && (
+                                    <span className='signal signal-wait'>⏳ WAIT FOR CLEARER SIGNAL</span>
+                                )}
+                            </div>
+
+                            {/* Entry Timing and Recommendations */}
+                            <div className='entry-recommendations'>
+                                <Text size='xs'>
+                                    {localize('Entry Timing')}: <strong className={`timing-${getEntryTiming().toLowerCase()}`}>
+                                        {getEntryTiming()}
+                                    </strong>
+                                </Text>
+                                <Text size='xs'>
+                                    {localize('Recommended Duration')}: <strong>{getRecommendedDuration()}s</strong>
+                                    {trendStrength > 70 && <span className='duration-reason'> (Strong trend - quick resolution)</span>}
+                                    {trendStrength < 40 && <span className='duration-reason'> (Weak trend - needs time to develop)</span>}
+                                </Text>
+                            </div>
+
+                            {/* Auto-recommendation controls */}
+                            <div className='auto-controls'>
+                                <label>
+                                    <input
+                                        type='checkbox'
+                                        checked={autoSelectContract}
+                                        onChange={e => setAutoSelectContract(e.target.checked)}
+                                    />
+                                    Auto-select contract type based on hybrid analysis
+                                </label>
+
+                                <button 
+                                    className='apply-recommendations-btn'
+                                    onClick={() => {
+                                        const recommended = getRecommendedContractType();
+                                        const optimalDuration = getRecommendedDuration();
+                                        setContractType(recommended);
+                                        setDuration(optimalDuration);
+                                        setBarrier('+0.37'); // Reset barrier to optimal default
+                                    }}
+                                    disabled={is_running}
+                                >
+                                    Apply Hybrid Recommendations
+                                </button>
                             </div>
                         </div>
 
