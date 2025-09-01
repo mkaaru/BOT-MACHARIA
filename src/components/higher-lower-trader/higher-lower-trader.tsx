@@ -763,7 +763,7 @@ const HigherLowerTrader = observer(() => {
                     // Wait for contract completion - different logic for Rise/Fall vs Higher/Lower
                     const contractResult = await new Promise((resolve, reject) => {
                         let pollCount = 0;
-                        const maxPolls = tradingMode === 'RISE_FALL' ? 60 : 300; // Allow more time for Rise/Fall immediate selling
+                        const maxPolls = tradingMode === 'RISE_FALL' ? 30 : 300; // Reduced timeout for Rise/Fall
 
                         const checkContract = async () => {
                             try {
@@ -801,29 +801,29 @@ const HigherLowerTrader = observer(() => {
                                         entry_tick_display_value: contract.entry_tick_display_value,
                                         exit_tick_display_value: contract.exit_tick_display_value,
                                         payout: contract.sell_price,
-                                        stake: effectiveStake // Add stake for stat calculation
+                                        stake: effectiveStake
                                     });
                                 } else {
                                     // Contract still running
                                     const currentBidPrice = Number(contract.bid_price || 0);
                                     const currentProfit = Number(contract.profit || 0);
 
-                                    // For Rise/Fall mode, sell immediately once the next tick comes in
+                                    // For Rise/Fall mode, sell immediately once contract is active
                                     if (tradingMode === 'RISE_FALL') {
-                                        // Check if we have entry tick and current tick (contract has started)
-                                        if (contract.entry_tick_display_value && currentBidPrice > 0) {
-                                            setStatus(`Selling Rise/Fall contract immediately after next tick...`);
+                                        // Check if contract is active (has entry tick) and can be sold
+                                        if (contract.entry_tick_display_value && contract.is_sellable && currentBidPrice > 0) {
+                                            setStatus(`💰 Selling Rise/Fall contract immediately...`);
                                             
                                             try {
                                                 const sellResponse = await apiRef.current.send({
                                                     sell: buy.contract_id,
-                                                    price: currentBidPrice
+                                                    price: 0 // Use market price for immediate sell
                                                 });
 
                                                 if (sellResponse.error) {
                                                     console.warn('Sell error:', sellResponse.error);
-                                                    // Continue polling if sell fails
-                                                    setTimeout(checkContract, 500);
+                                                    // If sell fails, continue polling briefly
+                                                    setTimeout(checkContract, 200);
                                                     return;
                                                 }
 
@@ -854,6 +854,12 @@ const HigherLowerTrader = observer(() => {
                                                 console.warn('Error selling contract:', sellError);
                                                 // Continue with normal polling
                                             }
+                                        } else if (contract.entry_tick_display_value) {
+                                            // Contract has started but not sellable yet, wait briefly
+                                            setStatus(`⏱️ Waiting for contract to become sellable...`);
+                                        } else {
+                                            // Contract not started yet
+                                            setStatus(`🚀 Waiting for contract to start...`);
                                         }
                                     }
 
@@ -877,8 +883,8 @@ const HigherLowerTrader = observer(() => {
                                         }
                                     }
 
-                                    // Continue polling - faster for Rise/Fall
-                                    setTimeout(checkContract, tradingMode === 'RISE_FALL' ? 500 : 1000);
+                                    // Continue polling - much faster for Rise/Fall
+                                    setTimeout(checkContract, tradingMode === 'RISE_FALL' ? 200 : 1000);
                                 }
                             } catch (error) {
                                 console.error('Contract polling error:', error);
@@ -886,8 +892,8 @@ const HigherLowerTrader = observer(() => {
                             }
                         };
 
-                        // Start polling immediately for Rise/Fall, with delay for Higher/Lower
-                        setTimeout(checkContract, tradingMode === 'RISE_FALL' ? 100 : 2000);
+                        // Start polling immediately for Rise/Fall
+                        setTimeout(checkContract, tradingMode === 'RISE_FALL' ? 50 : 2000);
                     });
 
                     // Process contract result
