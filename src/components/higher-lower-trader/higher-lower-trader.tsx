@@ -6,7 +6,6 @@ import Text from '@/components/shared_ui/text';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
-import VolatilityScanner from '@/components/volatility-scanner/volatility-scanner'; // Import VolatilityScanner
 import './higher-lower-trader.scss';
 
 // Volatility indices for Higher/Lower trading
@@ -179,7 +178,7 @@ const HigherLowerTrader = observer(() => {
     // Ehlers Super Smoother Filter to remove aliasing noise
     const applySuperSmoother = (prices: number[], period: number = 10) => {
         if (prices.length < period) return prices;
-
+        
         const smoothed = [...prices];
         const a1 = Math.exp(-1.414 * Math.PI / period);
         const b1 = 2 * a1 * Math.cos(1.414 * Math.PI / period);
@@ -197,7 +196,7 @@ const HigherLowerTrader = observer(() => {
     // Ehlers Decycler to remove market noise
     const applyDecycler = (prices: number[], period: number = 20) => {
         if (prices.length < 3) return prices;
-
+        
         const decycled = [...prices];
         const alpha = (Math.cos(0.707 * 2 * Math.PI / period) + Math.sin(0.707 * 2 * Math.PI / period) - 1) /
                       Math.cos(0.707 * 2 * Math.PI / period);
@@ -232,7 +231,7 @@ const HigherLowerTrader = observer(() => {
 
         Object.entries(timeframeConfigs).forEach(([tickCountStr, config]) => {
             const currentCounter = trendUpdateCounters[tickCountStr as keyof typeof trendUpdateCounters];
-
+            
             // Only update if it's time for this timeframe
             if (currentCounter % config.updateEvery !== 0) {
                 return; // Skip this update cycle
@@ -255,7 +254,7 @@ const HigherLowerTrader = observer(() => {
                 if (hmaValue !== null) {
                     // Get previous values for smoothing
                     const prevData = previousTrends[tickCountStr as keyof typeof previousTrends];
-
+                    
                     // Apply exponential smoothing to HMA value
                     const smoothingFactor = 0.3; // Adjust between 0.1 (more smoothing) and 0.5 (less smoothing)
                     const smoothedHMA = prevData.smoothedValue === 0 ? hmaValue : 
@@ -275,7 +274,7 @@ const HigherLowerTrader = observer(() => {
                     // Calculate adaptive thresholds based on timeframe
                     const priceRange = Math.max(...decycledPrices.slice(-Math.min(50, decycledPrices.length))) - 
                                      Math.min(...decycledPrices.slice(-Math.min(50, decycledPrices.length)));
-
+                    
                     // Larger timeframes need bigger thresholds to avoid noise
                     const timeframeMultiplier = config.requiredTicks / 60;
                     const adaptiveThreshold = priceRange * (0.05 + timeframeMultiplier * 0.02);
@@ -1075,7 +1074,7 @@ const HigherLowerTrader = observer(() => {
                             {(() => {
                                 const recommendation = getTradingRecommendation();
                                 const isAligned = recommendation.alignedTrends >= recommendation.requiredAlignment;
-
+                                
                                 return (
                                     <div className={`recommendation ${recommendation.recommendation.toLowerCase()} ${!isAligned ? 'insufficient-alignment' : ''}`}>
                                         <h5>📈 Recommended: {recommendation.recommendation}</h5>
@@ -1181,17 +1180,11 @@ const HigherLowerTrader = observer(() => {
                         </div>
 
                         {/* Status Display */}
-                        <div className='higher-lower-trader__status'>
-                            <Text size='sm'>{status}</Text>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Volatility Scanner Recommendations */}
-                <div className='higher-lower-trader__scanner-section'>
-                    <h3>{localize('Market Scanner Recommendations')}</h3>
-                    <div className='scanner-container'>
-                        <VolatilityScanner />
+                        {status && (
+                            <div className='higher-lower-trader__status'>
+                                <Text size='xs'>{status}</Text>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
