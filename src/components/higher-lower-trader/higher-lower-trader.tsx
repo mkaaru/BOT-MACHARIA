@@ -101,9 +101,6 @@ const HigherLowerTrader = observer(() => {
     const [contractsLost, setContractsLost] = useState(0);
     const [totalProfitLoss, setTotalProfitLoss] = useState(0);
 
-    // State to store historical trend data for consensus calculation
-    const [trendHistory, setTrendHistory] = useState<Array<{time: number, trends: typeof hullTrends}>>([]);
-
     // --- Helper Functions ---
 
     // Hull Moving Average calculation with Weighted Moving Average
@@ -274,13 +271,17 @@ const HigherLowerTrader = observer(() => {
         }
     };
 
-    // Preload historical data for all volatilities
+    // State to store preloaded data for all volatilities
+    const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
+    const [isPreloading, setIsPreloading] = useState(false);
+
+    // Preload historical data for all volatility indices
     const preloadAllVolatilityData = async (api: any) => {
         setIsPreloading(true);
         setStatus('Preloading historical data for trend analysis...');
 
         const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'BOOM500', 'BOOM1000', 'CRASH500', 'CRASH1000', 'stpRNG'];
-        const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>}= {};
+        const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>} = {};
 
         try {
             // Fetch 2000 ticks for each volatility index for trend analysis
@@ -390,18 +391,6 @@ const HigherLowerTrader = observer(() => {
             }
         }
     }, [symbol, preloadedData]);
-
-    // Effect to store current trends in history for consensus calculation
-    useEffect(() => {
-        if (Object.values(hullTrends).some(t => t.trend !== 'NEUTRAL')) { // Only record if there's a trend
-            const trendSnapshot = { time: Date.now(), trends: hullTrends };
-            setTrendHistory(prev => {
-                const newHistory = [...prev, trendSnapshot];
-                // Keep only the last 10 snapshots to manage memory
-                return newHistory.slice(-10);
-            });
-        }
-    }, [hullTrends]);
 
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
@@ -526,21 +515,6 @@ const HigherLowerTrader = observer(() => {
                     const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
                     setStake(effectiveStake);
 
-                    // Use stabilized Hull Moving Average consensus for prediction
-                    const consensusTrend = getStabilizedHullConsensus();
-                    if (consensusTrend === 'BULLISH') {
-                        setContractType('CALL');
-                        setStatus(`🔮 Stabilized Hull MA consensus: BULLISH trend confirmed - placing HIGHER trade`);
-                    } else if (consensusTrend === 'BEARISH') {
-                        setContractType('PUT');
-                        setStatus(`🔮 Stabilized Hull MA consensus: BEARISH trend confirmed - placing LOWER trade`);
-                    } else {
-                        // If no clear consensus, skip this round
-                        setStatus(`⏸️ Stabilized Hull MA consensus: NEUTRAL - waiting for confirmed trend signal`);
-                        await new Promise(resolve => setTimeout(resolve, 8000)); // Wait longer for stability
-                        continue;
-                    }
-
                     setStatus(`Placing ${contractType === 'CALL' ? 'Higher' : 'Lower'} trade with stake ${effectiveStake} ${account_currency}...`);
 
                     const buy = await purchaseOnceWithStake(effectiveStake);
@@ -637,8 +611,8 @@ const HigherLowerTrader = observer(() => {
                                     const currentProfit = Number(contract.profit || 0);
 
                                     // Calculate potential payout based on current contract value
-                                    const potentialPayout = contract.payout ? Number(contract.payout) :
-                                                          (currentBidPrice > 0 ? currentBidPrice :
+                                    const potentialPayout = contract.payout ? Number(contract.payout) : 
+                                                          (currentBidPrice > 0 ? currentBidPrice : 
                                                            (effectiveStake + currentProfit));
 
                                     setContractValue(currentBidPrice);
@@ -806,58 +780,6 @@ const HigherLowerTrader = observer(() => {
         return { recommendation, confidence };
     };
 
-    // Calculate stabilized Hull Moving Average consensus with historical validation
-    const getStabilizedHullConsensus = () => {
-        const trends = Object.values(hullTrends);
-        const bullishCount = trends.filter(t => t.trend === 'BULLISH').length;
-        const bearishCount = trends.filter(t => t.trend === 'BEARISH').length;
-
-        // Weight longer timeframes more heavily with stability bonus
-        const weightedBullish = (hullTrends['2000'].trend === 'BULLISH' ? 3 : 0) +
-                               (hullTrends['600'].trend === 'BULLISH' ? 2 : 0) +
-                               (hullTrends['120'].trend === 'BULLISH' ? 1.5 : 0) +
-                               (hullTrends['60'].trend === 'BULLISH' ? 1 : 0);
-
-        const weightedBearish = (hullTrends['2000'].trend === 'BEARISH' ? 3 : 0) +
-                               (hullTrends['600'].trend === 'BEARISH' ? 2 : 0) +
-                               (hullTrends['120'].trend === 'BEARISH' ? 1.5 : 0) +
-                               (hullTrends['60'].trend === 'BEARISH' ? 1 : 0);
-
-        // Check historical consistency
-        let historicalConsistency = 0;
-        if (trendHistory.length >= 3) {
-            const recentTrends = trendHistory.slice(-3);
-            const currentConsensus = weightedBullish > weightedBearish ? 'BULLISH' :
-                                   weightedBearish > weightedBullish ? 'BEARISH' : 'NEUTRAL';
-
-            // Count how many recent snapshots agree with current consensus
-            historicalConsistency = recentTrends.filter(snapshot => {
-                const snapBullish = Object.values(snapshot.trends).filter(t => t.trend === 'BULLISH').length;
-                const snapBearish = Object.values(snapshot.trends).filter(t => t.trend === 'BEARISH').length;
-                const snapConsensus = snapBullish > snapBearish ? 'BULLISH' :
-                                    snapBearish > snapBullish ? 'BEARISH' : 'NEUTRAL';
-                return snapConsensus === currentConsensus;
-            }).length;
-        }
-
-        // Require stronger consensus with historical validation
-        const requiredWeight = 2.5; // Increased threshold
-        const requiredCount = 3; // At least 3 timeframes must agree
-        const requiredConsistency = 2; // At least 2/3 historical snapshots must agree
-
-        if (weightedBullish > weightedBearish + requiredWeight &&
-            bullishCount >= requiredCount &&
-            historicalConsistency >= Math.min(requiredConsistency, trendHistory.length)) {
-            return 'BULLISH';
-        } else if (weightedBearish > weightedBullish + requiredWeight &&
-                   bearishCount >= requiredCount &&
-                   historicalConsistency >= Math.min(requiredConsistency, trendHistory.length)) {
-            return 'BEARISH';
-        }
-
-        return 'NEUTRAL';
-    };
-
     // Auto contract type selection based on Hull trends
     const getRecommendedContractType = () => {
         const { recommendation } = getTradingRecommendation();
@@ -890,7 +812,7 @@ const HigherLowerTrader = observer(() => {
                         <div className='higher-lower-trader__row higher-lower-trader__row--two'>
                             <div className='higher-lower-trader__field'>
                                 <label htmlFor='hl-symbol'>
-                                    {localize('Volatility')}
+                                    {localize('Volatility')} 
                                     {isPreloading && <span className='loading-indicator'> (Loading...)</span>}
                                 </label>
                                 <select
