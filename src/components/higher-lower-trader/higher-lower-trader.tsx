@@ -1045,70 +1045,14 @@ const HigherLowerTrader = observer(() => {
                         {/* Control Buttons */}
                         <div className='higher-lower-trader__buttons'>
                             {!is_running ? (
-                                <>
-                                    <button
-                                        onClick={onRun}
-                                        className='btn-start'
-                                        disabled={!isAuthorized || symbols.length === 0}
-                                    >
-                                        <Play className='icon' />
-                                        {localize('Start Trading')}
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            // Reset all settings to default values
-                                            setSymbol(symbols[0]?.symbol || '');
-                                            setContractType('CALL');
-                                            setDuration(60);
-                                            setDurationType('s');
-                                            setStake(1.0);
-                                            setBaseStake(1.0);
-                                            setBarrier('+0.37');
-                                            setMartingaleMultiplier(2.0);
-                                            setUseStopOnProfit(false);
-                                            setTargetProfit(10.0);
-                                            
-                                            // Reset statistics
-                                            resetStats();
-                                            
-                                            // Reset tick data and trends
-                                            setTickData([]);
-                                            setHullTrends({
-                                                '60': { trend: 'NEUTRAL', value: 0 },
-                                                '120': { trend: 'NEUTRAL', value: 0 },
-                                                '600': { trend: 'NEUTRAL', value: 0 },
-                                                '2000': { trend: 'NEUTRAL', value: 0 }
-                                            });
-                                            setTicksProcessed(0);
-                                            setCurrentPrice(0);
-                                            
-                                            // Reset contract state
-                                            setCurrentProfit(0);
-                                            setContractValue(0);
-                                            setPotentialPayout(0);
-                                            setContractDuration('00:00:00');
-                                            
-                                            setStatus('Settings refreshed to defaults');
-                                            
-                                            // Restart ticks if symbol is available
-                                            if (symbols[0]?.symbol) {
-                                                // Use preloaded data if available
-                                                if (preloadedData[symbols[0].symbol] && preloadedData[symbols[0].symbol].length > 0) {
-                                                    setTickData(preloadedData[symbols[0].symbol]);
-                                                    updateHullTrends(preloadedData[symbols[0].symbol]);
-                                                } else {
-                                                    fetchHistoricalTicks(symbols[0].symbol);
-                                                }
-                                                startTicks(symbols[0].symbol);
-                                            }
-                                        }}
-                                        className='btn-refresh'
-                                        disabled={is_running}
-                                        title='Reset all settings to default values'
-                                    >
-                                        🔄 {localize('Refresh')}
-                                    </button>
-                                </>
+                                <button
+                                    onClick={onRun}
+                                    className='btn-start'
+                                    disabled={!isAuthorized || symbols.length === 0}
+                                >
+                                    <Play className='icon' />
+                                    {localize('Start Trading')}
+                                </button>
                             ) : (
                                 <button
                                     onClick={stopTrading}
