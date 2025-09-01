@@ -529,7 +529,7 @@ const HigherLowerTrader = observer(() => {
                     // Update statistics
                     setTotalStake(prev => prev + effectiveStake);
                     setTotalRuns(prev => prev + 1);
-                    
+
                     // Sync with global run panel
                     run_panel.onStatisticUpdate();
 
@@ -760,7 +760,7 @@ const HigherLowerTrader = observer(() => {
         setContractsWon(0);
         setContractsLost(0);
         setTotalProfitLoss(0);
-        
+
         // Also reset global run panel statistics
         try {
             run_panel?.onClearStatistics?.();
@@ -803,6 +803,15 @@ const HigherLowerTrader = observer(() => {
 
     // Check if user is authorized - check if balance is available and user is logged in
     const isAuthorized = client?.balance !== undefined && client?.balance !== null && client?.is_logged_in;
+
+    // Sync with run panel statistics
+    useEffect(() => {
+        // Update run panel state when trading starts/stops
+        if (run_panel) {
+            run_panel.setIsRunning(is_running);
+            run_panel.setHasOpenContract(!!contractValue && contractValue > 0);
+        }
+    }, [is_running, contractValue, run_panel]);
 
     return (
         <div className='higher-lower-trader'>
