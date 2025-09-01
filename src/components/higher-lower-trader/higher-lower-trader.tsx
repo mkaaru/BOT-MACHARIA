@@ -757,27 +757,29 @@ const HigherLowerTrader = observer(() => {
 
     // --- Stop Trading Logic ---
     const stopTrading = async () => {
-        stopFlagRef.current = true;
-        setIsRunning(false);
-        // setIsTrading(false); // This state is not defined in the original code, assuming it's a typo or removed
-
-        setStatus('Stopping trading and canceling contracts...');
-
         try {
-            // Cancel any active contract if exists
-            if (currentContract) {
-                try {
-                    const { sell } = await apiRef.current.sell({
-                        sell: currentContract.contract_id,
-                        price: 0 // Market price
-                    });
+            setStatus('Stopping trading...');
+            
+            // Set stop flag first
+            stopFlagRef.current = true;
+            setIsRunning(false);
 
-                    if (sell) {
-                        setStatus(`Contract sold at market price: ${sell.sold_for}`);
-                        setCurrentContract(null);
-                        setContractValue(0);
-                        setPotentialPayout(0);
-                        setContractDuration('00:00:00');
+            // Cancel any active contract if exists
+            if (currentContract?.contract_id) {
+                try {
+                    setStatus('Attempting to sell active contract...');
+                    
+                    if (apiRef.current?.sell) {
+                        const sellResponse = await apiRef.current.sell({
+                            sell: currentContract.contract_id,
+                            price: 0 // Market price
+                        });
+
+                        if (sellResponse?.sell) {
+                            setStatus(`Contract sold at market price: ${sellResponse.sell.sold_for}`);
+                        } else {
+                            setStatus('Contract sale request sent');
+                        }
                     }
                 } catch (sellError: any) {
                     console.warn('Failed to sell contract:', sellError);
@@ -785,42 +787,60 @@ const HigherLowerTrader = observer(() => {
                 }
             }
 
-            // Cleanup contract subscriptions
-            if (contractStreamIdRef.current) {
+            // Cleanup contract subscriptions safely
+            if (contractStreamIdRef.current && apiRef.current?.forget) {
                 try {
                     await apiRef.current.forget({ forget: contractStreamIdRef.current });
-                    contractStreamIdRef.current = null;
                 } catch (forgetError) {
                     console.warn('Failed to forget contract subscription:', forgetError);
                 }
+                contractStreamIdRef.current = null;
             }
 
-            // Clear any contract timers
+            // Clear any contract timers safely
             if (contractTimerRef.current) {
                 clearInterval(contractTimerRef.current);
                 contractTimerRef.current = null;
             }
 
+            // Cleanup live ticks safely
+            try {
+                stopTicks();
+            } catch (tickError) {
+                console.warn('Error stopping ticks:', tickError);
+            }
+
+            // Update Run Panel state safely
+            try {
+                run_panel.setIsRunning(false);
+                run_panel.setHasOpenContract(false);
+                run_panel.setContractStage(contract_stages.NOT_RUNNING);
+            } catch (runPanelError) {
+                console.warn('Error updating run panel state:', runPanelError);
+            }
+
+            // Reset contract state
+            setCurrentContract(null);
+            setContractValue(0);
+            setPotentialPayout(0);
+            setCurrentProfit(0);
+            setContractDuration('00:00:00');
+
+            setStatus('Trading stopped successfully');
+
         } catch (error: any) {
             console.error('Error during stop trading:', error);
             setStatus(`Error stopping trading: ${error.message || 'Unknown error'}`);
+            
+            // Ensure we still set the basic stopped state even if there are errors
+            stopFlagRef.current = true;
+            setIsRunning(false);
+            setCurrentContract(null);
+            setContractValue(0);
+            setPotentialPayout(0);
+            setCurrentProfit(0);
+            setContractDuration('00:00:00');
         }
-
-        // Cleanup live ticks
-        stopTicks();
-
-        // Update Run Panel state
-        run_panel.setIsRunning(false);
-        run_panel.setHasOpenContract(false);
-        run_panel.setContractStage(contract_stages.NOT_RUNNING);
-
-        // Reset contract state
-        setCurrentContract(null);
-        setContractValue(0);
-        setPotentialPayout(0);
-        setContractDuration('00:00:00');
-
-        setStatus('Trading stopped - all contracts canceled');
     };
 
 
