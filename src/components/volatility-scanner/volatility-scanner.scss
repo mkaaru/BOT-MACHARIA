@@ -1,0 +1,325 @@
+
+.volatility-scanner {
+  padding: 20px;
+  background: var(--general-main-1);
+  min-height: 100vh;
+
+  .scanner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--general-section-1);
+
+    h2 {
+      margin: 0;
+      color: var(--text-general);
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .scanner-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--text-general);
+
+      .status-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        
+        &.connected {
+          background-color: #4caf50;
+        }
+        
+        &.disconnected {
+          background-color: #f44336;
+        }
+      }
+
+      .scanning-text {
+        color: var(--brand-red-coral);
+        font-weight: 500;
+        animation: pulse 1.5s infinite;
+      }
+    }
+  }
+
+  .best-recommendations {
+    margin-bottom: 32px;
+
+    h3 {
+      margin: 0 0 16px 0;
+      color: var(--text-general);
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .recommendations-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .recommendation-card {
+      padding: 16px;
+      border-radius: 8px;
+      border: 2px solid;
+      background: var(--general-main-1);
+      transition: all 0.3s ease;
+
+      &.bullish {
+        border-color: #4caf50;
+        background: linear-gradient(135deg, #e8f5e9 0%, var(--general-main-1) 100%);
+      }
+
+      &.bearish {
+        border-color: #f44336;
+        background: linear-gradient(135deg, #ffebee 0%, var(--general-main-1) 100%);
+      }
+
+      &.neutral {
+        border-color: #999;
+        background: var(--general-section-1);
+      }
+
+      .symbol-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+
+        .symbol-name {
+          font-weight: 600;
+          color: var(--text-general);
+        }
+
+        .symbol-price {
+          font-family: monospace;
+          font-size: 14px;
+          color: var(--text-general);
+        }
+      }
+
+      .recommendation-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 14px;
+
+        .recommendation {
+          font-weight: 600;
+          padding: 4px 8px;
+          border-radius: 4px;
+          background: rgba(255, 255, 255, 0.8);
+        }
+
+        .confidence {
+          font-weight: 500;
+          color: var(--text-general);
+        }
+
+        .alignment {
+          font-size: 12px;
+          color: var(--text-less-prominent);
+        }
+      }
+    }
+
+    .no-recommendations {
+      text-align: center;
+      padding: 32px;
+      color: var(--text-less-prominent);
+
+      svg {
+        margin-bottom: 16px;
+        color: var(--text-less-prominent);
+      }
+
+      p {
+        margin: 0;
+        font-size: 16px;
+      }
+    }
+  }
+
+  .symbols-overview {
+    h3 {
+      margin: 0 0 16px 0;
+      color: var(--text-general);
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .symbols-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+
+    .symbol-card {
+      background: var(--general-section-1);
+      border-radius: 8px;
+      padding: 16px;
+      border: 1px solid var(--general-section-2);
+      transition: all 0.3s ease;
+
+      &:hover {
+        border-color: var(--brand-red-coral);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+
+      .symbol-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+
+        .symbol-name {
+          font-weight: 600;
+          color: var(--text-general);
+          font-size: 14px;
+        }
+
+        .symbol-price {
+          font-family: monospace;
+          font-size: 13px;
+          color: var(--text-general);
+          background: var(--general-main-1);
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+      }
+
+      .trends-display {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-bottom: 16px;
+
+        .trend-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 8px;
+          background: var(--general-main-1);
+          border-radius: 4px;
+          font-size: 12px;
+
+          .timeframe {
+            font-weight: 500;
+            color: var(--text-general);
+            min-width: 40px;
+          }
+
+          .trend-icon {
+            &.bullish {
+              color: #4caf50;
+            }
+
+            &.bearish {
+              color: #f44336;
+            }
+
+            &.neutral {
+              color: var(--text-less-prominent);
+            }
+          }
+
+          .strength {
+            font-weight: 500;
+            color: var(--text-general);
+            margin-left: auto;
+          }
+        }
+      }
+
+      .symbol-recommendation {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+
+        &.bullish {
+          background: rgba(76, 175, 80, 0.1);
+          color: #2e7d32;
+        }
+
+        &.bearish {
+          background: rgba(244, 67, 54, 0.1);
+          color: #c62828;
+        }
+
+        &.neutral {
+          background: var(--general-section-2);
+          color: var(--text-less-prominent);
+        }
+
+        .rec-text {
+          font-weight: 600;
+        }
+
+        .alignment-info {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 11px;
+
+          .strong-signal {
+            animation: bounce 1.5s infinite;
+          }
+        }
+      }
+    }
+  }
+
+  .scanner-footer {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid var(--general-section-1);
+    text-align: center;
+    color: var(--text-less-prominent);
+  }
+
+  @media (max-width: 768px) {
+    padding: 16px;
+
+    .scanner-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+
+      h2 {
+        font-size: 20px;
+      }
+    }
+
+    .recommendations-grid,
+    .symbols-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .symbol-card .trends-display {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-3px); }
+  60% { transform: translateY(-2px); }
+}
