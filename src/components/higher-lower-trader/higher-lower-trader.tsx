@@ -1493,6 +1493,85 @@ const HigherLowerTrader = observer(() => {
                                 Apply Recommendation: {recommendation?.recommendedAction || 'WAIT'}
                             </button>
                         </div>
+
+                            <div className="trend-recommendation">
+                                    <div className="trend-alignment">
+                                        <strong>Aligned Trend:</strong> 
+                                        <span className={`trend-${recommendation.alignment.toLowerCase()}`}>
+                                            {recommendation.alignment}
+                                        </span>
+                                        {recommendation.confidence !== 'WEAK' && (
+                                            <span className="confidence-indicator">
+                                                ({recommendation.confidence})
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                                        <strong>Recommended:</strong> 
+                                        <span className={`trend-${recommendation.alignment.toLowerCase()}`}>
+                                            {recommendation.recommendedAction}
+                                        </span>
+                                        {recommendation.recommendedAction !== 'WAIT' && (
+                                            <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: 'var(--text-less-prominent)' }}>
+                                                ({recommendation.recommendedContractType})
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {recommendation.strength > 0 && (
+                                        <div style={{ marginTop: '0.3rem', fontSize: '0.8rem', color: 'var(--text-less-prominent)' }}>
+                                            Strength: {recommendation.strength.toFixed(1)}% | 
+                                            Momentum: {recommendation.momentum}
+                                        </div>
+                                    )}
+                                </div>
+
+                            {/* Trading Signals */}
+                            <div className='trading-signals'>
+                                {getAlignedTrend() === 'BULLISH' && trendStrength > 60 && (
+                                    <span className='signal signal-buy'>🟢 STRONG BUY SIGNAL</span>
+                                )}
+                                {getAlignedTrend() === 'BEARISH' && trendStrength > 60 && (
+                                    <span className='signal signal-sell'>🔴 STRONG SELL SIGNAL</span>
+                                )}
+                                {trendStrength < 30 && (
+                                    <span className='signal signal-wait'>⏳ WAIT FOR CLEARER SIGNAL</span>
+                                )}
+                            </div>
+
+                            {/* Entry Timing and Recommendations */}
+                            <div className='entry-recommendations'>
+                                <Text size='xs'>
+                                    {localize('Entry Timing')}: <strong className={`timing-${getEntryTiming().toLowerCase()}`}>
+                                        {getEntryTiming()}
+                                    </strong>
+                                </Text>
+                                <Text size='xs'>
+                                    {localize('Recommended Duration')}: <strong>{getRecommendedDuration()}s</strong>
+                                    {trendStrength > 70 && <span className='duration-reason'> (Strong trend - quick resolution)</span>}
+                                    {trendStrength < 40 && <span className='duration-reason'> (Weak trend - needs time to develop)</span>}
+                                </Text>
+                            </div>
+
+                            {/* Auto-recommendation controls */}
+                            <div className="auto-controls">
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={autoSelectContract}
+                                    onChange={(e) => setAutoSelectContract(e.target.checked)}
+                                />
+                                Auto-apply trend recommendations
+                            </label>
+                            <button
+                                className="apply-recommendations-btn"
+                                onClick={applyRecommendations}
+                                disabled={!recommendation || recommendation.recommendedAction === 'WAIT'}
+                            >
+                                Apply Recommendation: {recommendation?.recommendedAction || 'WAIT'}
+                            </button>
+                        </div>
                         </div>
 
                         {/* Contract Info During Trading */}
