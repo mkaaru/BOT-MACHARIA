@@ -315,17 +315,19 @@
     &__buttons {
         display: flex;
         justify-content: center;
-        gap: 1rem;
-        margin: 2rem 0 1rem 0;
+        align-items: center;
+        margin-top: 24px;
+        gap: 16px;
 
-        .btn-start, .btn-stop {
+        .btn-start,
+        .btn-stop,
+        .btn-refresh {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 1rem 2rem;
+            gap: 8px;
+            padding: 12px 24px;
             border: none;
-            border-radius: 4px;
-            font-size: 1rem;
+            border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
@@ -336,28 +338,44 @@
             }
 
             &:disabled {
-                opacity: 0.6;
+                opacity: 0.5;
                 cursor: not-allowed;
             }
         }
 
         .btn-start {
-            background: var(--text-profit-success);
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
             color: white;
+            flex: 1;
 
             &:hover:not(:disabled) {
-                background: var(--status-success);
+                background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
                 transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+            }
+        }
+
+        .btn-refresh {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            color: white;
+            margin-left: 12px;
+            padding: 12px 20px;
+
+            &:hover:not(:disabled) {
+                background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
             }
         }
 
         .btn-stop {
-            background: var(--text-loss-danger);
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
             color: white;
 
             &:hover:not(:disabled) {
-                background: var(--status-danger);
+                background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
                 transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
             }
         }
     }
@@ -505,5 +523,4 @@
             opacity: 0.8;
         }
     }
-}
 }
