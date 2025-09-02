@@ -649,8 +649,19 @@ const MLTrader = observer(() => {
         setFallPercentage(0);
 
         try {
-            const { subscription, error } = await apiRef.current.send({ ticks: sym, subscribe: 1 });
-            if (error) throw error;
+            if (!apiRef.current) {
+                console.warn('API not available for tick subscription');
+                return;
+            }
+            
+            const response = await apiRef.current.send({ ticks: sym, subscribe: 1 });
+            if (response?.error) {
+                console.error('Tick subscription error:', response.error);
+                setStatus(`Tick subscription failed: ${response.error.message || 'Unknown error'}`);
+                return;
+            }
+            
+            const { subscription } = response;
             if (subscription?.id) tickStreamIdRef.current = subscription.id;
 
             const onMsg = (evt: MessageEvent) => {
@@ -712,7 +723,8 @@ const MLTrader = observer(() => {
             apiRef.current?.connection?.addEventListener('message', onMsg);
 
         } catch (e: any) {
-            console.error('startTicks error', e);
+            console.error('startTicks error:', e);
+            setStatus(`Failed to start tick stream: ${e?.message || 'Unknown error'}`);
         }
     };
 
