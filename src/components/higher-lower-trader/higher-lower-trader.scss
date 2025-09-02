@@ -565,45 +565,106 @@
     // Trading mode toggle buttons
     .trading-mode-toggle {
         display: flex;
-        gap: 0;
-        border: 1px solid var(--border-normal);
-        border-radius: 4px;
+        gap: 2px;
+        border-radius: 8px;
         overflow: hidden;
-        background: var(--fill-normal);
+        background: #f1f3f6;
+        padding: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 
         .mode-toggle-btn {
             flex: 1;
-            padding: 8px 16px;
+            padding: 12px 20px;
             border: none;
-            background: var(--fill-normal);
-            color: var(--text-general);
+            border-radius: 6px;
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
-
-            &:first-child {
-                border-right: 1px solid var(--border-normal);
-            }
-
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            
+            // Default state
+            background: transparent;
+            color: #64748b;
+            
             &:hover {
-                background: var(--fill-hover);
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             }
 
-            &.active {
-                background: var(--brand-secondary);
-                color: white;
-                font-weight: 600;
+            // Higher/Lower mode styling (Blue theme)
+            &:first-child {
+                &.active {
+                    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+                    color: white;
+                    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+                    
+                    &:hover {
+                        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+                        transform: translateY(-2px);
+                        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+                    }
+                }
+                
+                &:not(.active):hover {
+                    background: rgba(59, 130, 246, 0.1);
+                    color: #2563eb;
+                }
+            }
 
-                &:hover {
-                    background: var(--brand-secondary);
+            // Rise/Fall mode styling (Green theme)
+            &:last-child {
+                &.active {
+                    background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+                    color: white;
+                    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+                    
+                    &:hover {
+                        background: linear-gradient(135deg, #059669 0%, #065f46 100%);
+                        transform: translateY(-2px);
+                        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+                    }
+                }
+                
+                &:not(.active):hover {
+                    background: rgba(16, 185, 129, 0.1);
+                    color: #059669;
                 }
             }
 
             &:focus {
                 outline: none;
-                box-shadow: 0 0 0 2px var(--brand-secondary-transparent);
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            }
+
+            &:active {
+                transform: translateY(0);
+            }
+
+            // Icon and text styling
+            &::before {
+                content: '';
+                display: inline-block;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                margin-right: 8px;
+                transition: all 0.3s ease;
+            }
+
+            &:first-child::before {
+                background: #3b82f6;
+            }
+
+            &:last-child::before {
+                background: #10b981;
+            }
+
+            &.active::before {
+                background: white;
+                box-shadow: 0 0 0 2px currentColor;
             }
         }
     }
