@@ -1,9 +1,13 @@
 .ml-trader {
-  padding: 20px;
-  max-width: 1200px;
+  padding: 16px;
+  max-width: 1400px;
   margin: 0 auto;
+  background: var(--general-main-1);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   min-height: 100vh;
-  background: var(--general-section-1);
+  height: auto;
+  overflow-y: auto;
 
   &__header {
     display: flex;
@@ -469,7 +473,7 @@
     }
   }
 
-  .ml-trader__volatility-scanner {
+  &__volatility-scanner {
     background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
     border: 2px solid #e9ecef;
     border-radius: 12px;

@@ -451,8 +451,9 @@ const MLTrader = observer(() => {
         setIsPreloading(true);
         setStatus('Preloading historical data for trend analysis...');
 
-        const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'BOOM500', 'BOOM1000', 'CRASH500', 'CRASH1000', 'stpRNG'];
-        const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>} = {};
+        // Updated to include only plain and 1-second volatilities
+        const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', '1HZ150V', '1HZ200V', '1HZ250V', '1HZ300V'];
+        const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>}= {};
 
         try {
             // Fetch 4000 ticks for each volatility index for trend analysis
@@ -509,7 +510,7 @@ const MLTrader = observer(() => {
                 const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
                 if (asErr) throw asErr;
                 const syn = (active_symbols || [])
-                    .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol) || s.symbol.startsWith('BOOM') || s.symbol.startsWith('CRASH') || s.symbol === 'stpRNG')
+                    .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol) || s.symbol.startsWith('BOOM') || s.symbol.startsWith('CRASH') || s.symbol === 'stpRNG' || s.symbol.startsWith('1HZ'))
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
                 setSymbols(syn);
 
@@ -866,7 +867,7 @@ const MLTrader = observer(() => {
         } else {
             alignedTrends = Math.max(alignedBullish, alignedBearish);
             confidence = 30;
-            reasoning = `Mixed signals across timeframes. ${trendCounts.bullishCount} bullish, ${trendCounts.bearishCount} bearish, ${trendCounts.neutralCount} neutral. Market conditions unclear.`;
+            reasoning = 'Mixed signals across timeframes. ${trendCounts.bullishCount} bullish, ${trendCounts.bearishCount} bearish, ${trendCounts.neutralCount} neutral. Market conditions unclear.';
         }
 
         return {
@@ -887,7 +888,8 @@ const MLTrader = observer(() => {
         setStatus('Scanning volatility opportunities...');
 
         const opportunities: any[] = [];
-        const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'BOOM500', 'BOOM1000', 'CRASH500', 'CRASH1000', 'stpRNG'];
+        // Updated to include only plain and 1-second volatilities
+        const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', '1HZ150V', '1HZ200V', '1HZ250V', '1HZ300V'];
 
         try {
             for (const volatilitySymbol of volatilitySymbols) {
@@ -1064,8 +1066,8 @@ const MLTrader = observer(() => {
             <div className="ml-trader__controls">
                 <div className="control-group">
                     <Text size="sm" weight="bold">Symbol</Text>
-                    <select 
-                        value={symbol} 
+                    <select
+                        value={symbol}
                         onChange={(e) => {
                             setSymbol(e.target.value);
                             startTicks(e.target.value);
@@ -1105,8 +1107,8 @@ const MLTrader = observer(() => {
                         value={duration}
                         onChange={(e) => setDuration(parseInt(e.target.value) || 1)}
                     />
-                    <select 
-                        value={durationType} 
+                    <select
+                        value={durationType}
                         onChange={(e) => setDurationType(e.target.value)}
                     >
                         <option value="t">Ticks</option>
@@ -1198,7 +1200,7 @@ const MLTrader = observer(() => {
                                         className='select-symbol-btn'
                                         onClick={() => {
                                             setSymbol(opportunity.tradingSymbol);
-                                            
+
                                             // Fetch historical data and update trends for the selected symbol
                                             if (preloadedData[opportunity.tradingSymbol] && preloadedData[opportunity.tradingSymbol].length > 0) {
                                                 setTickData(preloadedData[opportunity.tradingSymbol]);
@@ -1313,9 +1315,9 @@ const MLTrader = observer(() => {
                     </div>
                     <div className="stat-item">
                         <Text size="xs">P&L</Text>
-                        <Text 
-                            size="sm" 
-                            weight="bold" 
+                        <Text
+                            size="sm"
+                            weight="bold"
                             color={totalProfitLoss >= 0 ? 'success' : 'danger'}
                         >
                             {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)} {account_currency}
