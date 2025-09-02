@@ -166,7 +166,9 @@ const MLTrader = observer(() => {
 
     // Hull Moving Average trend analysis state - using 1000 tick increments for stability
     const [hullTrends, setHullTrends] = useState({
+        '500': { trend: 'NEUTRAL', value: 0 },
         '1000': { trend: 'NEUTRAL', value: 0 },
+        '1500': { trend: 'NEUTRAL', value: 0 },
         '2000': { trend: 'NEUTRAL', value: 0 },
         '3000': { trend: 'NEUTRAL', value: 0 },
         '4000': { trend: 'NEUTRAL', value: 0 }
@@ -191,7 +193,9 @@ const MLTrader = observer(() => {
 
     // State to track trend update counters for independent timing
     const [trendUpdateCounters, setTrendUpdateCounters] = useState({
+        '500': 0,
         '1000': 0,
+        '1500': 0,
         '2000': 0,
         '3000': 0,
         '4000': 0
@@ -199,7 +203,9 @@ const MLTrader = observer(() => {
 
     // State to store previous trend values for smoothing
     const [previousTrends, setPreviousTrends] = useState({
+        '500': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
         '1000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
+        '1500': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
         '2000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
         '3000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
         '4000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 }
@@ -300,7 +306,9 @@ const MLTrader = observer(() => {
     const updateEhlersTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
         // Update counters
         setTrendUpdateCounters(prev => ({
+            '500': prev['500'] + 1,
             '1000': prev['1000'] + 1,
+            '1500': prev['1500'] + 1,
             '2000': prev['2000'] + 1,
             '3000': prev['3000'] + 1,
             '4000': prev['4000'] + 1
@@ -309,9 +317,11 @@ const MLTrader = observer(() => {
         const newTrends = { ...hullTrends };
 
         // Define tick count requirements and update frequencies for different timeframes
-        // Using 1000 tick increments for more stable trend detection
+        // Using tick count increments for more stable trend detection
         const timeframeConfigs = {
+            '500': { requiredTicks: 500, updateEvery: 5, smoothingPeriod: 15 },
             '1000': { requiredTicks: 1000, updateEvery: 10, smoothingPeriod: 20 },  // Update every 10 ticks
+            '1500': { requiredTicks: 1500, updateEvery: 15, smoothingPeriod: 25 },
             '2000': { requiredTicks: 2000, updateEvery: 15, smoothingPeriod: 25 },  // Update every 15 ticks
             '3000': { requiredTicks: 3000, updateEvery: 20, smoothingPeriod: 30 },  // Update every 20 ticks
             '4000': { requiredTicks: 4000, updateEvery: 25, smoothingPeriod: 35 }   // Update every 25 ticks (most stable)
@@ -463,7 +473,7 @@ const MLTrader = observer(() => {
         setIsPreloading(true);
         setStatus('Preloading historical data for trend analysis...');
 
-        // Use symbols from VOLATILITY_INDICES
+        // Use only standard Deriv volatility indices
         const volatilitySymbols = VOLATILITY_INDICES.map(v => v.value);
 
         const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>}= {};
@@ -1328,7 +1338,7 @@ const MLTrader = observer(() => {
         setStatus('Scanning volatility opportunities...');
 
         const opportunities: any[] = [];
-        // Use symbols from VOLATILITY_INDICES
+        // Use only standard Deriv volatility indices
         const volatilitySymbols = VOLATILITY_INDICES.map(v => v.value);
 
         try {
@@ -1372,14 +1382,18 @@ const MLTrader = observer(() => {
     // Calculate trends for a specific symbol's data
     const calculateTrendsForSymbol = (symbolData: Array<{ time: number, price: number, close: number }>) => {
         const trends = {
+            '500': { trend: 'NEUTRAL', value: 0 },
             '1000': { trend: 'NEUTRAL', value: 0 },
+            '1500': { trend: 'NEUTRAL', value: 0 },
             '2000': { trend: 'NEUTRAL', value: 0 },
             '3000': { trend: 'NEUTRAL', value: 0 },
             '4000': { trend: 'NEUTRAL', value: 0 }
         };
 
         const timeframeConfigs = {
+            '500': { requiredTicks: 500, smoothingPeriod: 15 },
             '1000': { requiredTicks: 1000, smoothingPeriod: 20 },
+            '1500': { requiredTicks: 1500, smoothingPeriod: 25 },
             '2000': { requiredTicks: 2000, smoothingPeriod: 25 },
             '3000': { requiredTicks: 3000, smoothingPeriod: 30 },
             '4000': { requiredTicks: 4000, smoothingPeriod: 35 }
@@ -1748,7 +1762,7 @@ const MLTrader = observer(() => {
                 <div className='trend-timeframes'>
                     {Object.entries(hullTrends).map(([timeframe, trendData]) => (
                         <div key={timeframe} className={`trend-item trend-${trendData.trend.toLowerCase()}`}>
-                            <span className='timeframe'>{timeframe} Ticks:</span>
+                            <span className='timeframe'>{timeframe} Tick:</span>
                             <span className='trend'>{trendData.trend}</span>
                             <span className='value'>({trendData.value.toFixed(5)})</span>
                         </div>
