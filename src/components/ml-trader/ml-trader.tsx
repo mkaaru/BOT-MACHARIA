@@ -73,35 +73,19 @@ const tradingEngine = {
     },
 };
 
-// Extended volatility indices configuration from Smart Trader
-    const VOLATILITY_INDICES = [
-        { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
-        { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
-        { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
-        { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
-        { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
-        { value: 'R_10', label: 'Volatility 10 Index' },
-        { value: 'R_25', label: 'Volatility 25 Index' },
-        { value: 'R_50', label: 'Volatility 50 Index' },
-        { value: 'R_75', label: 'Volatility 75 Index' },
-        { value: 'R_100', label: 'Volatility 100 Index' },
-        { value: '1HZ150V', label: 'Volatility 150 (1s) Index' },
-        { value: '1HZ200V', label: 'Volatility 200 (1s) Index' },
-        { value: '1HZ250V', label: 'Volatility 250 (1s) Index' },
-        { value: '1HZ300V', label: 'Volatility 300 (1s) Index' },
-        { value: 'BOOM300N', label: 'Boom 300 Index' },
-        { value: 'BOOM500N', label: 'Boom 500 Index' },
-        { value: 'BOOM1000N', label: 'Boom 1000 Index' },
-        { value: 'CRASH300N', label: 'Crash 300 Index' },
-        { value: 'CRASH500N', label: 'Crash 500 Index' },
-        { value: 'CRASH1000N', label: 'Crash 1000 Index' },
-        { value: 'WLDAUD', label: 'AUD Basket' },
-        { value: 'WLDEUR', label: 'EUR Basket' },
-        { value: 'WLDGBP', label: 'GBP Basket' },
-        { value: 'WLDUSD', label: 'USD Basket' },
-        { value: 'WLDXAU', label: 'Gold Basket' },
-    ];
-
+// Volatility indices for Rise/Fall trading
+const VOLATILITY_INDICES = [
+  { value: 'R_10', label: 'Volatility 10 (1s) Index' },
+  { value: 'R_25', label: 'Volatility 25 (1s) Index' },
+  { value: 'R_50', label: 'Volatility 50 (1s) Index' },
+  { value: 'R_75', label: 'Volatility 75 (1s) Index' },
+  { value: 'R_100', label: 'Volatility 100 (1s) Index' },
+  { value: 'BOOM500', label: 'Boom 500 Index' },
+  { value: 'BOOM1000', label: 'Boom 1000 Index' },
+  { value: 'CRASH500', label: 'Crash 500 Index' },
+  { value: 'CRASH1000', label: 'Crash 1000 Index' },
+  { value: 'stpRNG', label: 'Step Index' },
+];
 
 // Safe version of tradeOptionToBuy without Blockly dependencies
 const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
@@ -174,8 +158,6 @@ const MLTrader = observer(() => {
     const [isPreloading, setIsPreloading] = useState<boolean>(false);
     const [marketRecommendation, setMarketRecommendation] = useState<any>(null);
     const [isAutoTrading, setIsAutoTrading] = useState<boolean>(false); // State to manage auto-trading status
-    const [applyContinuousTrading, setApplyContinuousTrading] = useState<boolean>(false); // State to manage continuous trading
-    const [isContractActive, setIsContractActive] = useState<boolean>(false); // State to track if a contract is currently active
 
     // Rise/Fall Analytics State
     const [tickStream, setTickStream] = useState<Array<{ price: number; direction: 'R' | 'F' | 'N'; time: number }>>([]);
@@ -225,7 +207,7 @@ const MLTrader = observer(() => {
 
     // --- Helper Functions ---
 
-    // Hull Moving Average calculation with Weighted Moving Average (reduced periods for responsiveness)
+    // Hull Moving Average calculation with Weighted Moving Average
     const calculateHMA = (data: number[], period: number) => {
         if (data.length < period) return null;
 
@@ -314,49 +296,124 @@ const MLTrader = observer(() => {
         return decycled;
     };
 
-    // Update HMA trends for multiple timeframes with noise reduction (more responsive)
-    const updateEhlersTrends = (tickData: Array<{ price: number; time: number; close: number }>) => {
-        if (!tickData || tickData.length < 2000) return; // Reduced minimum data requirement
+    // Update Ehlers trends with noise reduction and independent timing
+    const updateEhlersTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
+        // Update counters
+        setTrendUpdateCounters(prev => ({
+            '1000': prev['1000'] + 1,
+            '2000': prev['2000'] + 1,
+            '3000': prev['3000'] + 1,
+            '4000': prev['4000'] + 1
+        }));
 
-        const prices = tickData.map(t => t.close || t.price);
+        const newTrends = { ...hullTrends };
 
-        // Apply Ehlers Super Smoother filter to reduce noise (shorter period)
-        const smoothedPrices = applySuperSmoother(prices, 8); // Reduced from 14
+        // Define tick count requirements and update frequencies for different timeframes
+        // Using 1000 tick increments for more stable trend detection
+        const timeframeConfigs = {
+            '1000': { requiredTicks: 1000, updateEvery: 10, smoothingPeriod: 20 },  // Update every 10 ticks
+            '2000': { requiredTicks: 2000, updateEvery: 15, smoothingPeriod: 25 },  // Update every 15 ticks
+            '3000': { requiredTicks: 3000, updateEvery: 20, smoothingPeriod: 30 },  // Update every 20 ticks
+            '4000': { requiredTicks: 4000, updateEvery: 25, smoothingPeriod: 35 }   // Update every 25 ticks (most stable)
+        };
 
-        // Apply Ehlers Decycler to remove cyclic components (shorter period)
-        const decycledPrices = applyDecycler(smoothedPrices, 60); // Reduced from 125
+        Object.entries(timeframeConfigs).forEach(([tickCountStr, config]) => {
+            const currentCounter = trendUpdateCounters[tickCountStr as keyof typeof trendUpdateCounters];
 
-        const trends: { [key: string]: 'BULLISH' | 'BEARISH' | 'NEUTRAL' } = {};
+            // Only update if it's time for this timeframe
+            if (currentCounter % config.updateEvery !== 0) {
+                return; // Skip this update cycle
+            }
 
-        // Analyze trends across multiple timeframes with more responsive periods
-        const timeframes = [500, 1000, 1500, 2000]; // Reduced timeframes for faster signals
+            const recentTicks = newTickData.slice(-config.requiredTicks);
 
-        timeframes.forEach(tf => {
-            if (decycledPrices.length >= tf) {
-                const recentData = decycledPrices.slice(-tf);
+            if (recentTicks.length >= Math.min(15, config.requiredTicks)) {
+                const tickPrices = recentTicks.map(tick => tick.price);
 
-                // Use much more responsive HMA periods
-                const hma14 = calculateHMA(recentData, 14);  // Reduced from 21
-                const hma9 = calculateHMA(recentData, 9);    // Reduced from 14
-                const hma5 = calculateHMA(recentData, 5);    // Reduced from 7
+                // Apply Ehlers noise reduction techniques
+                const smoothedPrices = applySuperSmoother(tickPrices, config.smoothingPeriod);
+                const decycledPrices = applyDecycler(smoothedPrices, Math.max(10, config.smoothingPeriod));
 
-                if (hma14 !== null && hma9 !== null && hma5 !== null) {
-                    // Determine trend based on HMA alignment with stronger signals
-                    const bullishStrength = (hma5 - hma9) / hma9 + (hma9 - hma14) / hma14;
-                    const bearishStrength = (hma9 - hma5) / hma5 + (hma14 - hma9) / hma9;
+                // Use adaptive HMA period based on tick count and timeframe
+                const hmaPeriod = Math.max(8, Math.min(Math.floor(decycledPrices.length * 0.3), 25));
 
-                    if (hma5 > hma9 && hma9 > hma14 && bullishStrength > 0.001) {
-                        trends[`${tf}T`] = 'BULLISH';
-                    } else if (hma5 < hma9 && hma9 < hma14 && bearishStrength > 0.001) {
-                        trends[`${tf}T`] = 'BEARISH';
+                const hmaValue = calculateHMA(decycledPrices, hmaPeriod);
+
+                if (hmaValue !== null) {
+                    // Get previous values for smoothing
+                    const prevData = previousTrends[tickCountStr as keyof typeof previousTrends];
+
+                    // Apply exponential smoothing to HMA value
+                    const smoothingFactor = 0.3; // Adjust between 0.1 (more smoothing) and 0.5 (less smoothing)
+                    const smoothedHMA = prevData.smoothedValue === 0 ? hmaValue :
+                                      (smoothingFactor * hmaValue) + ((1 - smoothingFactor) * prevData.smoothedValue);
+
+                    let trend = 'NEUTRAL';
+
+                    // Calculate trend using smoothed values
+                    const hmaSlopeLookback = Math.max(3, Math.floor(hmaPeriod / 4));
+                    const prevHMA = calculateHMA(decycledPrices.slice(0, -hmaSlopeLookback), hmaPeriod);
+                    const hmaSlope = prevHMA !== null ? smoothedHMA - prevHMA : 0;
+
+                    // Get current price from smoothed data
+                    const currentPrice = decycledPrices[decycledPrices.length - 1];
+                    const priceAboveHMA = currentPrice > smoothedHMA;
+
+                    // Calculate adaptive thresholds based on timeframe
+                    const priceRange = Math.max(...decycledPrices.slice(-Math.min(50, decycledPrices.length))) -
+                                     Math.min(...decycledPrices.slice(-Math.min(50, decycledPrices.length)));
+
+                    // Larger timeframes need bigger thresholds to avoid noise
+                    const timeframeMultiplier = config.requiredTicks / 60;
+                    const adaptiveThreshold = priceRange * (0.05 + timeframeMultiplier * 0.02);
+                    const slopeThreshold = Math.max(0.000005, adaptiveThreshold * 0.2);
+
+                    // Enhanced trend detection with hysteresis (prevent rapid changes)
+                    const trendStrength = Math.abs(hmaSlope) / slopeThreshold;
+                    const minTrendStrength = prevData.trend === 'NEUTRAL' ? 1.2 : 0.8; // Hysteresis
+
+                    if (trendStrength > minTrendStrength) {
+                        if (hmaSlope > slopeThreshold && priceAboveHMA) {
+                            trend = 'BULLISH';
+                        } else if (hmaSlope < -slopeThreshold && !priceAboveHMA) {
+                            trend = 'BEARISH';
+                        } else {
+                            // Keep previous trend if conditions are mixed
+                            trend = prevData.trend;
+                        }
                     } else {
-                        trends[`${tf}T`] = 'NEUTRAL';
+                        // Weak signal - maintain previous trend unless it's been neutral for a while
+                        trend = prevData.trend !== 'NEUTRAL' ? prevData.trend : 'NEUTRAL';
                     }
+
+                    // Additional confirmation for trend changes
+                    if (trend !== prevData.trend && prevData.trend !== 'NEUTRAL') {
+                        // Require stronger confirmation for trend reversals
+                        const confirmationStrength = 1.5;
+                        if (trendStrength < confirmationStrength) {
+                            trend = prevData.trend; // Keep previous trend
+                        }
+                    }
+
+                    newTrends[tickCountStr as keyof typeof hullTrends] = {
+                        trend,
+                        value: Number(smoothedHMA.toFixed(5))
+                    };
+
+                    // Update previous trends for smoothing
+                    setPreviousTrends(prev => ({
+                        ...prev,
+                        [tickCountStr]: {
+                            trend,
+                            value: Number(hmaValue.toFixed(5)),
+                            smoothedValue: smoothedHMA
+                        }
+                    }));
                 }
             }
         });
 
-        setHullTrends(trends);
+        setHullTrends(newTrends);
     };
 
     // Fetch historical tick data for Hull Moving Average analysis
@@ -698,7 +755,7 @@ const MLTrader = observer(() => {
             return;
         }
         if (totalProfitLoss >= takeProfit) {
-            setStatus(`Take Profit hit ($${takeProfit}). Stopping auto trading.`);
+            setStatus(`Take Profit hit ($${takeProfit}). Stopping trading.`);
             stopAutoTrading();
             return;
         }
@@ -798,7 +855,6 @@ const MLTrader = observer(() => {
 
                 // Push to transactions store for run panel display
                 transactions.onBotContractEvent(contractData);
-                setIsContractActive(true); // Set contract active state
 
                 // Also log the trade initiation
                 setStatus(`🚀 Trade started: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
@@ -807,16 +863,6 @@ const MLTrader = observer(() => {
             }
 
             setStatus(`${apiContractType} contract purchased successfully! Contract ID: ${buy.contract_id}`);
-
-            // If auto trading is enabled, immediately execute the next trade
-            if (isAutoTrading && applyContinuousTrading && !stopFlagRef.current) {
-                console.log('Auto trading: Contract purchased, executing next trade immediately...');
-                setTimeout(() => {
-                    if (isAutoTrading && !stopFlagRef.current) {
-                        executeNextTrade();
-                    }
-                }, 1000); // Short delay to ensure current purchase is fully processed
-            }
 
             // Subscribe to contract updates
             try {
@@ -857,14 +903,11 @@ const MLTrader = observer(() => {
 
                                     run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
                                     run_panel.setHasOpenContract(false);
-                                    setIsContractActive(false); // Set contract inactive state
                                     if (pocSubIdRef.current) apiRef.current?.forget?.({ forget: pocSubIdRef.current });
                                     apiRef.current?.connection?.removeEventListener('message', onMsg);
-                                    pocSubIdRef.current = null; // Clear the ref
 
-                                    // Update statistics
+                                    // Update martingale logic
                                     if (profit > 0) {
-                                        setContractsWon(prev => prev + 1);
                                         lastOutcomeWasLossRef.current = false;
                                         lossStreak = 0;
                                         step = 0;
@@ -872,7 +915,6 @@ const MLTrader = observer(() => {
                                         setCurrentMartingaleCount(0); // Reset martingale count on win
                                         setIsInMartingaleSplit(false); // Reset mode on win
                                     } else {
-                                        setContractsLost(prev => prev + 1);
                                         lastOutcomeWasLossRef.current = true;
                                         lossStreak++;
                                         step = Math.min(step + 1, martingaleRuns); // Cap at martingaleRuns
@@ -891,11 +933,7 @@ const MLTrader = observer(() => {
                                             setIsInMartingaleSplit(false);
                                         }
                                     }
-                                    setTotalPayout(prev => prev + (poc?.payout || 0));
                                     setTotalProfitLoss(prev => prev + profit); // Update total P&L
-
-                                    // Contract completed - stats updated above
-                                    // Auto trading will continue from the purchase completion handler
                                 } else {
                                     // Contract is still running
                                     setStatus(`📈 Running: ${poc?.longcode || 'Contract'} | Current P&L: ${profit.toFixed(2)} ${account_currency}`);
@@ -928,219 +966,392 @@ const MLTrader = observer(() => {
         purchaseRiseFallContract(contractType);
     };
 
-    const startAutoTrading = () => {
-        if (!symbol) {
-            setStatus("Please select a symbol.");
-            return;
-        }
+    // Auto trading functions
+    const startAutoTrading = async () => {
         setIsAutoTrading(true);
-        setApplyContinuousTrading(true);
-        stopFlagRef.current = false; // Reset stop flag
-        setStatus('Auto trading started. Executing first trade...');
-
-        // Start first trade immediately
-        setTimeout(() => {
-            executeNextTrade();
-        }, 1000);
-    };
-
-    const executeNextTrade = async () => {
-        if (!isAutoTrading || stopFlagRef.current) return;
-
-        // Note: Allowing multiple contracts to run simultaneously for faster trading
+        setStatus('🚀 Starting auto trading...');
+        setIsRunning(true);
+        stopFlagRef.current = false;
+        run_panel.toggleDrawer(true);
+        run_panel.setActiveTabIndex(1); // Transactions tab index
+        run_panel.run_id = `ml-auto-${Date.now()}`;
+        run_panel.setIsRunning(true);
+        run_panel.setContractStage(contract_stages.STARTING);
 
         try {
-            // Check for stop loss and take profit before trading
-            if (totalProfitLoss <= -stopLoss) {
-                setStatus(`Stop Loss hit ($${stopLoss}). Stopping auto trading.`);
-                stopAutoTrading();
-                return;
-            }
-            if (totalProfitLoss >= takeProfit) {
-                setStatus(`Take Profit hit ($${takeProfit}). Stopping auto trading.`);
-                stopAutoTrading();
-                return;
-            }
-
-            // Use market recommendation or default to CALL
-            const recommendation = getMarketRecommendation();
-            const tradeType = recommendation?.recommendation === 'FALL' ? 'PUT' : 'CALL';
-
-            setStatus(`🤖 Auto Trading: Executing ${tradeType} trade with stake $${stake}...`);
-            await purchaseRiseFallContract(tradeType);
-
+            // Start the continuous trading loop
+            await executeAutoTradingLoop();
         } catch (error) {
             console.error('Auto trading error:', error);
-            setStatus(`Auto trading error: ${error}`);
-
-            // Continue trading after error with delay if auto trading is still active
-            if (isAutoTrading && !stopFlagRef.current) {
-                setTimeout(() => {
-                    executeNextTrade();
-                }, 5000);
-            }
+            setStatus(`Auto trading error: ${error.message || 'Unknown error'}`);
+            stopAutoTrading();
         }
     };
 
     const stopAutoTrading = () => {
-        console.log('Stopping auto trading...');
         setIsAutoTrading(false);
-        setApplyContinuousTrading(false);
-        setStatus('Auto trading stopped.');
+        setIsRunning(false);
         stopFlagRef.current = true;
-
-        // Clear any pending timeouts
         if (autoTradingIntervalRef.current) {
-            clearTimeout(autoTradingIntervalRef.current);
+            clearInterval(autoTradingIntervalRef.current);
             autoTradingIntervalRef.current = null;
         }
+        run_panel.setIsRunning(false);
+        run_panel.setHasOpenContract(false);
+        run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        setStatus('Auto trading stopped');
+    };
 
-        // Clear contract subscriptions on stop
-        if (pocSubIdRef.current) {
-            apiRef.current?.forget?.({ forget: pocSubIdRef.current });
-            pocSubIdRef.current = null;
-        }
-        if (messageHandlerRef.current) {
-            apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
-            messageHandlerRef.current = null;
+    const executeAutoTradingLoop = async () => {
+        while (!stopFlagRef.current && isAutoTrading) {
+            try {
+                // Check stop loss and take profit before each trade
+                if (totalProfitLoss <= -stopLoss) {
+                    setStatus(`Stop Loss hit ($${stopLoss}). Stopping auto trading.`);
+                    stopAutoTrading();
+                    return;
+                }
+                if (totalProfitLoss >= takeProfit) {
+                    setStatus(`Take Profit hit ($${takeProfit}). Stopping auto trading.`);
+                    stopAutoTrading();
+                    return;
+                }
+
+                // Get market recommendation to determine trade direction
+                const recommendation = getMarketRecommendation();
+                const tradeType = recommendation?.recommendation === 'FALL' ? 'PUT' : 'CALL';
+
+                setStatus(`🔄 Executing auto trade: ${tradeType} based on ML analysis...`);
+
+                // Execute the trade and wait for completion
+                await executeNextTrade(tradeType);
+
+                // Small delay before next trade to avoid spam
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+            } catch (error) {
+                console.error('Auto trading loop error:', error);
+                setStatus(`Trade execution error: ${error.message || 'Unknown error'}`);
+
+                // Wait a bit before retrying on error
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
         }
     };
 
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            if (messageHandlerRef.current && apiRef.current) {
-                const ws = tradingEngine.getWebSocket();
-                ws.removeEventListener('message', messageHandlerRef.current);
-            }
-            if (tickStreamIdRef.current && apiRef.current) {
-                apiRef.current.send({ forget: tickStreamIdRef.current });
-            }
-            // Stop auto trading
-            if (autoTradingIntervalRef.current) {
-                clearTimeout(autoTradingIntervalRef.current);
-            }
-        };
-    }, []);
+    const executeNextTrade = async (tradeType: string) => {
+        return new Promise<void>(async (resolve, reject) => {
+            try {
+                await authorizeIfNeeded();
 
-    // Get market recommendation based on Hull trends analysis (more responsive)
+                // Check martingale conditions
+                let currentStakeAmount = baseStake;
+                if (isInMartingaleSplit && currentMartingaleCount > 0) {
+                    currentStakeAmount = baseStake * Math.pow(martingaleMultiplier, currentMartingaleCount);
+                }
+                setStake(currentStakeAmount);
+
+                setStatus(`Getting proposal for ${tradeType} contract...`);
+
+                // Get proposal using real Deriv API
+                const proposalParams = {
+                    proposal: 1,
+                    amount: currentStakeAmount,
+                    basis: 'stake',
+                    contract_type: tradeType,
+                    currency: account_currency,
+                    duration: 1, // Duration is 1 tick for Rise/Fall
+                    duration_unit: 't', // tick unit
+                    symbol: symbol,
+                };
+
+                const proposalResponse = await apiRef.current.send(proposalParams);
+
+                if (proposalResponse.error) {
+                    setStatus(`Proposal failed: ${proposalResponse.error.message}`);
+                    reject(new Error(proposalResponse.error.message));
+                    return;
+                }
+
+                const proposal = proposalResponse.proposal;
+                if (!proposal) {
+                    setStatus('No proposal received');
+                    reject(new Error('No proposal received'));
+                    return;
+                }
+
+                setStatus(`Purchasing ${tradeType} contract...`);
+
+                // Buy contract using real Deriv API
+                const buyParams = {
+                    buy: proposal.id,
+                    price: proposal.ask_price
+                };
+
+                const buyResponse = await apiRef.current.send(buyParams);
+
+                if (buyResponse.error) {
+                    setStatus(`Trade failed: ${buyResponse.error.message}`);
+                    reject(new Error(buyResponse.error.message));
+                    return;
+                }
+
+                const buy = buyResponse.buy;
+
+                // Update statistics
+                setTotalStake(prev => prev + currentStakeAmount);
+                setTotalRuns(prev => prev + 1);
+
+                // Add to trade history
+                const tradeRecord = {
+                    id: buy?.contract_id,
+                    symbol: symbol,
+                    contract_type: tradeType,
+                    buy_price: buy?.buy_price,
+                    payout: buy?.payout,
+                    timestamp: new Date().toISOString(),
+                    status: 'purchased'
+                };
+
+                setTradeHistory(prev => [tradeRecord, ...prev.slice(0, 99)]);
+
+                // Seed transaction for UI
+                try {
+                    const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
+                    const contractData = {
+                        contract_id: buy?.contract_id,
+                        transaction_ids: { buy: buy?.transaction_id },
+                        buy_price: buy?.buy_price,
+                        currency: account_currency,
+                        contract_type: tradeType as any,
+                        underlying: symbol,
+                        display_name: symbol_display,
+                        date_start: Math.floor(Date.now() / 1000),
+                        status: 'open',
+                        shortcode: buy?.shortcode || `${tradeType}_${symbol}_1T_${currentStakeAmount}`,
+                        longcode: buy?.longcode || `${tradeType} prediction on ${symbol_display}`,
+                        is_completed: false,
+                        profit: 0,
+                        payout: buy?.payout || 0,
+                        run_id: run_panel.run_id,
+                    } as any;
+
+                    transactions.onBotContractEvent(contractData);
+                } catch (err) {
+                    console.error('Error seeding transaction:', err);
+                }
+
+                setStatus(`${tradeType} contract purchased! Contract ID: ${buy.contract_id}`);
+
+                // Subscribe to contract updates and wait for completion
+                try {
+                    const contractSubscription = await apiRef.current.send({
+                        proposal_open_contract: 1,
+                        contract_id: buy.contract_id,
+                        subscribe: 1
+                    });
+
+                    if (contractSubscription.error) {
+                        console.error('Contract subscription error:', contractSubscription.error);
+                        resolve(); // Continue even if subscription fails
+                        return;
+                    }
+
+                    let contractCompleted = false;
+                    let pocSubId = contractSubscription.subscription?.id;
+
+                    const onMsg = (evt: MessageEvent) => {
+                        try {
+                            const data = JSON.parse(evt.data as any);
+                            if (data?.msg_type === 'proposal_open_contract') {
+                                const poc = data.proposal_open_contract;
+                                if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
+
+                                if (String(poc?.contract_id || '') === buy.contract_id) {
+                                    // Update transaction in run panel
+                                    transactions.onBotContractEvent({
+                                        ...poc,
+                                        run_id: run_panel.run_id,
+                                    });
+                                    run_panel.setHasOpenContract(true);
+
+                                    const profit = Number(poc?.profit || 0);
+
+                                    if (poc?.is_sold || poc?.status === 'sold') {
+                                        const result = profit > 0 ? '✅ WIN' : '❌ LOSS';
+                                        const profitText = profit > 0 ? `+${profit.toFixed(2)}` : profit.toFixed(2);
+                                        setStatus(`${result}: ${profitText} ${account_currency} | Contract completed`);
+
+                                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                                        run_panel.setHasOpenContract(false);
+
+                                        // Clean up subscription
+                                        if (pocSubId) {
+                                            apiRef.current?.forget?.({ forget: pocSubId });
+                                        }
+                                        apiRef.current?.connection?.removeEventListener('message', onMsg);
+
+                                        // Update statistics
+                                        setTotalPayout(prev => prev + profit);
+                                        setTotalProfitLoss(prev => prev + profit);
+
+                                        if (profit > 0) {
+                                            setContractsWon(prev => prev + 1);
+                                            lastOutcomeWasLossRef.current = false;
+
+                                            // Handle martingale after win
+                                            if (isInMartingaleSplit) {
+                                                setCurrentMartingaleCount(0);
+                                                setIsInMartingaleSplit(false);
+                                                setStake(baseStake);
+                                            }
+                                        } else {
+                                            setContractsLost(prev => prev + 1);
+                                            lastOutcomeWasLossRef.current = true;
+
+                                            // Handle martingale after loss
+                                            if (currentMartingaleCount < martingaleRuns) {
+                                                setIsInMartingaleSplit(true);
+                                                setCurrentMartingaleCount(prev => prev + 1);
+                                            } else {
+                                                setCurrentMartingaleCount(0);
+                                                setIsInMartingaleSplit(false);
+                                                setStake(baseStake);
+                                            }
+                                        }
+
+                                        contractCompleted = true;
+                                        resolve(); // Resolve the promise to continue the loop
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Contract update parsing error:', error);
+                        }
+                    };
+
+                    apiRef.current?.connection?.addEventListener('message', onMsg);
+
+                    // Set a timeout in case the contract doesn't complete normally
+                    setTimeout(() => {
+                        if (!contractCompleted) {
+                            console.warn('Contract completion timeout, continuing...');
+                            if (pocSubId) {
+                                apiRef.current?.forget?.({ forget: pocSubId });
+                            }
+                            apiRef.current?.connection?.removeEventListener('message', onMsg);
+                            resolve();
+                        }
+                    }, 30000); // 30 second timeout
+
+                } catch (subscriptionError) {
+                    console.error('Contract subscription error:', subscriptionError);
+                    resolve(); // Continue even if subscription fails
+                }
+
+            } catch (error) {
+                console.error('Execute trade error:', error);
+                reject(error);
+            }
+        });
+    };
+
+    // Get market recommendation based on HMA trend analysis
     const getMarketRecommendation = () => {
-        const trendValues = Object.values(hullTrends);
-        const bullishCount = trendValues.filter(t => t === 'BULLISH').length;
-        const bearishCount = trendValues.filter(t => t === 'BEARISH').length;
-        const neutralCount = trendValues.filter(t => t === 'NEUTRAL').length;
+        if (Object.keys(hullTrends).length === 0) return null;
 
-        let recommendation = 'RISE';
-        let confidence = 50;
-        let reasoning = 'Default recommendation';
+        // Count aligned trends for different timeframes
+        const trendCounts = {
+            bullishCount: 0,
+            bearishCount: 0,
+            neutralCount: 0
+        };
 
-        // Require only 2+ aligned trends for faster signal generation
-        if (bullishCount >= 2 && bearishCount <= 1) {
+        Object.entries(hullTrends).forEach(([timeframe, trendData]) => {
+            const { trend } = trendData;
+            if (trend === 'BULLISH') trendCounts.bullishCount++;
+            else if (trend === 'BEARISH') trendCounts.bearishCount++;
+            else trendCounts.neutralCount++;
+        });
+
+        const totalTrends = Object.keys(hullTrends).length;
+        const alignedBullish = trendCounts.bullishCount;
+        const alignedBearish = trendCounts.bearishCount;
+
+        // Determine recommendation based on trend alignment
+        let recommendation: 'RISE' | 'FALL' | 'WAIT' = 'WAIT';
+        let confidence = 0;
+        let alignedTrends = 0;
+        let reasoning = '';
+
+        if (alignedBullish >= 3) {
             recommendation = 'RISE';
-            confidence = Math.min(90, 60 + (bullishCount * 10) - (bearishCount * 5));
-            reasoning = `${bullishCount} bullish trends detected with ${bearishCount} bearish counter-trends`;
-        } else if (bearishCount >= 2 && bullishCount <= 1) {
+            alignedTrends = alignedBullish;
+            confidence = Math.min(95, (alignedBullish / totalTrends) * 100);
+            reasoning = `${alignedBullish} out of ${totalTrends} Hull Moving Average timeframes show bullish trend. Strong upward momentum detected.`;
+        } else if (alignedBearish >= 3) {
             recommendation = 'FALL';
-            confidence = Math.min(90, 60 + (bearishCount * 10) - (bullishCount * 5));
-            reasoning = `${bearishCount} bearish trends detected with ${bullishCount} bullish counter-trends`;
-        } else if (bullishCount > bearishCount) {
+            alignedTrends = alignedBearish;
+            confidence = Math.min(95, (alignedBearish / totalTrends) * 100);
+            reasoning = `${alignedBearish} out of ${totalTrends} Hull Moving Average timeframes show bearish trend. Strong downward momentum detected.`;
+        } else if (alignedBullish === 2 && alignedBearish <= 1) {
             recommendation = 'RISE';
-            confidence = Math.min(70, 55 + (bullishCount * 7) - (bearishCount * 3));
-            reasoning = `Bullish bias (B:${bullishCount} vs Be:${bearishCount})`;
-        } else if (bearishCount > bullishCount) {
+            alignedTrends = alignedBullish;
+            confidence = 65;
+            reasoning = `${alignedBullish} out of ${totalTrends} timeframes show bullish trend. Moderate upward momentum.`;
+        } else if (alignedBearish === 2 && alignedBullish <= 1) {
             recommendation = 'FALL';
-            confidence = Math.min(70, 55 + (bearishCount * 7) - (bullishCount * 3));
-            reasoning = `Bearish bias (Be:${bearishCount} vs B:${bullishCount})`;
-        } else if (neutralCount >= 2) {
-            // Use alternating strategy for neutral markets
-            recommendation = totalRuns % 2 === 0 ? 'RISE' : 'FALL';
-            confidence = 50;
-            reasoning = `Market is neutral (${neutralCount} neutral trends), using alternating strategy`;
+            alignedTrends = alignedBearish;
+            confidence = 65;
+            reasoning = `${alignedBearish} out of ${totalTrends} timeframes show bearish trend. Moderate downward momentum.`;
         } else {
-            // Mixed signals - use alternating strategy
-            recommendation = totalRuns % 2 === 0 ? 'RISE' : 'FALL';
-            confidence = 45;
-            reasoning = `Mixed signals (B:${bullishCount}, Be:${bearishCount}, N:${neutralCount}), using alternating approach`;
+            alignedTrends = Math.max(alignedBullish, alignedBearish);
+            confidence = 30;
+            reasoning = 'Mixed signals across timeframes. ${trendCounts.bullishCount} bullish, ${trendCounts.bearishCount} bearish, ${trendCounts.neutralCount} neutral. Market conditions unclear.';
         }
 
         return {
+            symbol,
             recommendation,
             confidence,
-            reasoning,
-            trends: hullTrends
+            alignedTrends,
+            totalTrends,
+            reasoning
         };
     };
 
-    // Scan volatility opportunities with Hull Moving Average analysis (more responsive)
+    // Scan all volatility indices for opportunities
     const scanVolatilityOpportunities = async () => {
-        if (isScanning || Object.keys(preloadedData).length < 5) return;
+        if (!apiRef.current || isScanning) return;
 
         setIsScanning(true);
+        setStatus('Scanning volatility opportunities...');
+
         const opportunities: any[] = [];
+        // Use symbols from VOLATILITY_INDICES
+        const volatilitySymbols = VOLATILITY_INDICES.map(v => v.value);
 
         try {
-            for (const vol of VOLATILITY_INDICES) {
-                if (preloadedData[vol.value] && preloadedData[vol.value].length >= 2000) { // Reduced data requirement
-                    const prices = preloadedData[vol.value].map(t => t.close || t.price);
+            for (const volatilitySymbol of volatilitySymbols) {
+                const symbolData = preloadedData[volatilitySymbol];
+                if (!symbolData || symbolData.length < 4000) continue;
 
-                    // Apply Ehlers filters for noise reduction (more responsive)
-                    const smoothedPrices = applySuperSmoother(prices, 8); // Reduced from 14
-                    const decycledPrices = applyDecycler(smoothedPrices, 60); // Reduced from 125
+                // Calculate trends for this symbol
+                const symbolTrends = calculateTrendsForSymbol(symbolData);
 
-                    const trends: { [key: string]: 'BULLISH' | 'BEARISH' | 'NEUTRAL' } = {};
-                    const timeframes = [500, 1000, 1500, 2000]; // More responsive timeframes
+                if (symbolTrends) {
+                    const recommendation = getRecommendationForTrends(symbolTrends);
 
-                    timeframes.forEach(tf => {
-                        if (decycledPrices.length >= tf) {
-                            const recentData = decycledPrices.slice(-tf);
-
-                            // More responsive HMA periods
-                            const hma14 = calculateHMA(recentData, 14); // Reduced from 21
-                            const hma9 = calculateHMA(recentData, 9);   // Reduced from 14
-                            const hma5 = calculateHMA(recentData, 5);   // Reduced from 7
-
-                            if (hma14 !== null && hma9 !== null && hma5 !== null) {
-                                // Enhanced trend detection with momentum
-                                const bullishStrength = (hma5 - hma9) / hma9 + (hma9 - hma14) / hma14;
-                                const bearishStrength = (hma9 - hma5) / hma5 + (hma14 - hma9) / hma9;
-
-                                if (hma5 > hma9 && hma9 > hma14 && bullishStrength > 0.001) {
-                                    trends[`${tf}T`] = 'BULLISH';
-                                } else if (hma5 < hma9 && hma9 < hma14 && bearishStrength > 0.001) {
-                                    trends[`${tf}T`] = 'BEARISH';
-                                } else {
-                                    trends[`${tf}T`] = 'NEUTRAL';
-                                }
-                            }
-                        }
-                    });
-
-                    const trendValues = Object.values(trends);
-                    const bullishCount = trendValues.filter(t => t === 'BULLISH').length;
-                    const bearishCount = trendValues.filter(t => t === 'BEARISH').length;
-
-                    // Look for volatilities with 2+ aligned trends (more opportunities)
-                    if (bullishCount >= 2 && bearishCount <= 1) {
-                        const confidence = Math.min(95, 65 + (bullishCount * 10) - (bearishCount * 5));
+                    if (recommendation && recommendation.confidence >= 65) {
                         opportunities.push({
-                            symbol: vol.value,
-                            displayName: vol.label,
-                            confidence: Math.round(confidence),
-                            signal: 'RISE',
-                            alignedCount: bullishCount,
-                            totalCount: trendValues.length,
-                            reasoning: `${bullishCount} bullish trends with ${bearishCount} bearish counter-trends`
-                        });
-                    } else if (bearishCount >= 2 && bullishCount <= 1) {
-                        const confidence = Math.min(95, 65 + (bearishCount * 10) - (bullishCount * 5));
-                        opportunities.push({
-                            symbol: vol.value,
-                            displayName: vol.label,
-                            confidence: Math.round(confidence),
-                            signal: 'FALL',
-                            alignedCount: bearishCount,
-                            totalCount: trendValues.length,
-                            reasoning: `${bearishCount} bearish trends with ${bullishCount} bullish counter-trends`
+                            symbol: volatilitySymbol,
+                            displayName: VOLATILITY_INDICES.find(v => v.value === volatilitySymbol)?.label || volatilitySymbol,
+                            tradingSymbol: volatilitySymbol,
+                            confidence: recommendation.confidence,
+                            signal: recommendation.recommendation === 'RISE' ? 'HIGHER' : recommendation.recommendation === 'FALL' ? 'LOWER' : 'WAIT',
+                            alignedCount: recommendation.alignedTrends,
+                            totalCount: recommendation.totalTrends,
+                            reasoning: recommendation.reasoning
                         });
                     }
                 }
@@ -1148,12 +1359,13 @@ const MLTrader = observer(() => {
 
             // Sort by confidence
             opportunities.sort((a, b) => b.confidence - a.confidence);
-            setVolatilityRecommendations(opportunities.slice(0, 8)); // Show more opportunities
+            setVolatilityRecommendations(opportunities.slice(0, 5)); // Top 5 opportunities
 
         } catch (error) {
             console.error('Error scanning volatility opportunities:', error);
         } finally {
             setIsScanning(false);
+            setStatus('Volatility scan completed');
         }
     };
 
@@ -1252,12 +1464,12 @@ const MLTrader = observer(() => {
             alignedTrends = alignedBearish;
             confidence = Math.min(95, (alignedBearish / totalTrends) * 100);
             reasoning = `${alignedBearish} out of ${totalTrends} timeframes bearish`;
-        } else if (alignedBullish >= 2 && alignedBearish <= 1) {
+        } else if (alignedBullish === 2 && alignedBearish <= 1) {
             recommendation = 'RISE';
             alignedTrends = alignedBullish;
             confidence = 65;
             reasoning = `${alignedBullish} out of ${totalTrends} timeframes bullish (moderate)`;
-        } else if (alignedBearish >= 2 && alignedBullish <= 1) {
+        } else if (alignedBearish === 2 && alignedBullish <= 1) {
             recommendation = 'FALL';
             alignedTrends = alignedBearish;
             confidence = 65;
@@ -1337,55 +1549,6 @@ const MLTrader = observer(() => {
                     >
                         <option value="t">Ticks</option>
                     </select>
-                </div>
-
-                <div className="control-group">
-                    <label htmlFor="martingale-multiplier">Martingale Multiplier</label>
-                    <input
-                        id="martingale-multiplier"
-                        type="number"
-                        min={1.1}
-                        max={10}
-                        step={0.1}
-                        value={martingaleMultiplier}
-                        onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value) || 2.0)}
-                    />
-                </div>
-
-                <div className="control-group">
-                    <label htmlFor="martingale-runs">Max Martingale Runs</label>
-                    <input
-                        id="martingale-runs"
-                        type="number"
-                        min={1}
-                        max={20}
-                        value={martingaleRuns}
-                        onChange={(e) => setMartingaleRuns(parseInt(e.target.value) || 10)}
-                    />
-                </div>
-
-                <div className="control-group">
-                    <label htmlFor="stop-loss">Stop Loss ($)</label>
-                    <input
-                        id="stop-loss"
-                        type="number"
-                        min={1}
-                        step={0.01}
-                        value={stopLoss}
-                        onChange={(e) => setStopLoss(parseFloat(e.target.value) || 50.0)}
-                    />
-                </div>
-
-                <div className="control-group">
-                    <label htmlFor="take-profit">Take Profit ($)</label>
-                    <input
-                        id="take-profit"
-                        type="number"
-                        min={1}
-                        step={0.01}
-                        value={takeProfit}
-                        onChange={(e) => setTakeProfit(parseFloat(e.target.value) || 100.0)}
-                    />
                 </div>
             </div>
 
@@ -1519,11 +1682,7 @@ const MLTrader = observer(() => {
                 </div>
 
                 {volatilityRecommendations.length > 0 ? (
-                    <div className='recommendations-list'>
-                        <div className='list-header'>
-                            <h5>{localize('High-Confidence Opportunities')} ({volatilityRecommendations.length})</h5>
-                            <small>{localize('Volatilities with 2+ aligned trends')}</small>
-                        </div>
+                    <div className='opportunities-list'>
                         {volatilityRecommendations.map((opportunity, index) => (
                             <div key={opportunity.symbol} className={`opportunity-card ${opportunity.signal.toLowerCase()}`}>
                                 <div className='opportunity-header'>
@@ -1574,7 +1733,11 @@ const MLTrader = observer(() => {
                     </div>
                 ) : (
                     <div className='no-opportunities'>
-                        <p>{localize('No volatilities currently have 2+ aligned trends.')}</p>
+                        {isScanning ? (
+                            <span>{localize('Scanning for opportunities...')}</span>
+                        ) : (
+                            <span>{localize('No volatilities currently have 3+ aligned trends.')}</span>
+                        )}
                         <small>{localize('Scan to discover high-probability setups.')}</small>
                     </div>
                 )}
@@ -1668,14 +1831,7 @@ const MLTrader = observer(() => {
 
             {status && (
                 <div className="ml-trader__status-message">
-                    <Text size="s" weight="bold" color="prominent">Status:</Text>
-                    <Text size="s">{status}</Text>
-                    {isAutoTrading && (
-                        <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
-                            Auto Trading Active | Contract Active: {isContractActive ? 'Yes' : 'No'} |
-                            Martingale: {isInMartingaleSplit ? `Step ${currentMartingaleCount}` : 'Base Stake'}
-                        </div>
-                    )}
+                    <Text size="sm">{status}</Text>
                 </div>
             )}
 
