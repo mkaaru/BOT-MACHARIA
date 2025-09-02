@@ -801,8 +801,10 @@ const MLTrader = observer(() => {
                         run_panel.setHasOpenContract(true);
 
                         if (contractStatus === 'sold' || contract.is_sold) {
+                            // Calculate actual profit/loss - if loss, show negative stake amount
+                            const actualProfitLoss = profit > 0 ? profit : -purchase_price;
                             const result = profit > 0 ? '✅ WIN' : '❌ LOSS';
-                            const profitText = profit > 0 ? `+${profit.toFixed(2)}` : profit.toFixed(2);
+                            const profitText = actualProfitLoss > 0 ? `+${actualProfitLoss.toFixed(2)}` : actualProfitLoss.toFixed(2);
                             setStatus(`${result}: ${profitText} ${account_currency} | Contract completed`);
 
                             run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
@@ -810,8 +812,10 @@ const MLTrader = observer(() => {
                             if (pocSubIdRef.current) apiRef.current?.forget?.({ forget: pocSubIdRef.current });
                             apiRef.current?.connection?.removeEventListener('message', onMessage);
 
-                            // Update martingale logic
+                            // Update statistics with actual loss amounts
                             if (profit > 0) {
+                                setContractsWon(prev => prev + 1);
+                                setTotalPayout(prev => prev + potential_payout);
                                 lastOutcomeWasLossRef.current = false;
                                 lossStreak = 0;
                                 step = 0;
@@ -819,6 +823,7 @@ const MLTrader = observer(() => {
                                 setCurrentMartingaleCount(0); // Reset martingale count on win
                                 setIsInMartingaleSplit(false); // Reset mode on win
                             } else {
+                                setContractsLost(prev => prev + 1);
                                 lastOutcomeWasLossRef.current = true;
                                 lossStreak++;
                                 step = Math.min(step + 1, martingaleRuns); // Cap at martingaleRuns
@@ -837,13 +842,7 @@ const MLTrader = observer(() => {
                                     setIsInMartingaleSplit(false);
                                 }
                             }
-                            setTotalProfitLoss(prev => prev + profit); // Update total P&L
-                            setTotalPayout(prev => prev + profit); // Update total payout
-
-                        } else {
-                            // Contract is still running
-                            setStatus(`📈 Running: ${contract.longcode || 'Contract'} | Current P&L: ${profit.toFixed(2)} ${account_currency}`);
-                            run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
+                            setTotalProfitLoss(prev => prev + actualProfitLoss); // Update total P&L with actual loss
                         }
                     }
                 } catch (err) {
@@ -1053,7 +1052,10 @@ const MLTrader = observer(() => {
                     potential_payout: buy?.payout,
                     entry_spot: proposal.spot,
                     timestamp: Date.now(),
-                    status: 'OPEN'
+                    status: 'OPEN',
+                    endTime: null,
+                    actualPayout: 0,
+                    actualProfitLoss: 0
                 };
 
                 setTradeHistory(prev => [tradeRecord, ...prev.slice(0, 99)]);
