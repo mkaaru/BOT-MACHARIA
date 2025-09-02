@@ -653,12 +653,47 @@ const SmartTrader = observer(() => {
                                         if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
                                         apiRef.current?.connection?.removeEventListener('message', onMsg);
 
+                                        // Check API connection health after contract closure
+                                        const checkConnectionHealth = async () => {
+                                            try {
+                                                const connectionState = apiRef.current?.connection?.readyState;
+                                                if (connectionState !== WebSocket.OPEN) {
+                                                    console.warn('API connection not in OPEN state after contract closure:', connectionState);
+                                                    setStatus('API connection issue detected, attempting to reconnect...');
+
+                                                    // Attempt to reconnect if connection is lost
+                                                    if (connectionState === WebSocket.CLOSED || connectionState === WebSocket.CLOSING) {
+                                                        const newApi = generateDerivApiInstance();
+                                                        apiRef.current = newApi;
+                                                        if (is_authorized) {
+                                                            await authorizeIfNeeded();
+                                                        }
+                                                        if (symbol) {
+                                                            startTicks(symbol);
+                                                        }
+                                                    }
+                                                } else {
+                                                    // Connection is healthy, ping to verify
+                                                    const pingResponse = await apiRef.current.send({ ping: 1 });
+                                                    if (pingResponse.error) {
+                                                        console.warn('API ping failed after contract closure:', pingResponse.error);
+                                                        setStatus('API connectivity issue detected');
+                                                    }
+                                                }
+                                            } catch (healthCheckError) {
+                                                console.error('Connection health check failed:', healthCheckError);
+                                                setStatus('Connection health check failed');
+                                            }
+                                        };
+
+                                        // Run health check after a short delay
+                                        setTimeout(checkConnectionHealth, 1000);
+
                                         const profit = Number(poc?.profit || 0);
                                         const isWin = profit > 0;
+                                        setStatus(`Contract ${isWin ? 'WON' : 'LOST'}! P&L: ${profit.toFixed(2)} ${account_currency}`);
 
-                                        setStatus(`Contract ${isWin ? 'WON' : 'LOST'}: ${poc?.longcode || 'Contract'} (Profit: ${profit} ${account_currency})`);
-
-                                        if (isWin) {
+                                        if (profit > 0) {
                                             lastOutcomeWasLossRef.current = false;
                                             lossStreak = 0;
                                             step = 0;
@@ -666,13 +701,8 @@ const SmartTrader = observer(() => {
                                         } else {
                                             lastOutcomeWasLossRef.current = true;
                                             lossStreak++;
-                                            step = Math.min(step + 1, 10); // Cap at 10 steps to prevent excessive stake
+                                            step = Math.min(step + 1, 50);
                                         }
-                                        // Reset contract values
-                                        setCurrentProfit(0);
-                                        setContractValue(0);
-                                        setPotentialPayout(0);
-                                        setContractDuration('00:00:00');
                                     } else {
                                         // Update contract tracking values for open contracts
                                         setCurrentProfit(Number(poc?.profit || 0));
