@@ -640,36 +640,28 @@ const SmartTrader = observer(() => {
                                 // capture subscription id for later forget
                                 if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
                                 if (String(poc?.contract_id || '') === targetId) {
+                                    // Update transactions store for run panel display
                                     transactions.onBotContractEvent(poc);
+
+                                    // Also update run panel state
                                     run_panel.setHasOpenContract(true);
-
-                                    // Update contract tracking values
-                                    setCurrentProfit(Number(poc?.profit || 0));
-                                    setContractValue(Number(poc?.bid_price || 0));
-                                    setPotentialPayout(Number(poc?.payout || 0));
-
-                                    // Calculate remaining time
-                                    if (poc?.date_expiry && !poc?.is_sold) {
-                                        const now = Math.floor(Date.now() / 1000);
-                                        const expiry = Number(poc.date_expiry);
-                                        const remaining = Math.max(0, expiry - now);
-                                        const hours = Math.floor(remaining / 3600);
-                                        const minutes = Math.floor((remaining % 3600) / 60);
-                                        const seconds = remaining % 60;
-                                        setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-                                    }
+                                    run_panel.onBotContractEvent?.(poc);
 
                                     if (poc?.is_sold || poc?.status === 'sold') {
                                         run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
                                         run_panel.setHasOpenContract(false);
                                         if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
                                         apiRef.current?.connection?.removeEventListener('message', onMsg);
+
                                         const profit = Number(poc?.profit || 0);
-                                        if (profit > 0) {
+                                        const isWin = profit > 0;
+
+                                        setStatus(`Contract ${isWin ? 'WON' : 'LOST'}: ${poc?.longcode || 'Contract'} (Profit: ${profit} ${account_currency})`);
+
+                                        if (isWin) {
                                             lastOutcomeWasLossRef.current = false;
                                             lossStreak = 0;
                                             step = 0;
-                                            // Reset to base stake on win
                                             setStake(baseStake);
                                         } else {
                                             lastOutcomeWasLossRef.current = true;
@@ -681,6 +673,22 @@ const SmartTrader = observer(() => {
                                         setContractValue(0);
                                         setPotentialPayout(0);
                                         setContractDuration('00:00:00');
+                                    } else {
+                                        // Update contract tracking values for open contracts
+                                        setCurrentProfit(Number(poc?.profit || 0));
+                                        setContractValue(Number(poc?.bid_price || 0));
+                                        setPotentialPayout(Number(poc?.payout || 0));
+
+                                        // Calculate remaining time
+                                        if (poc?.date_expiry && !poc?.is_sold) {
+                                            const now = Math.floor(Date.now() / 1000);
+                                            const expiry = Number(poc.date_expiry);
+                                            const remaining = Math.max(0, expiry - now);
+                                            const hours = Math.floor(remaining / 3600);
+                                            const minutes = Math.floor((remaining % 3600) / 60);
+                                            const seconds = remaining % 60;
+                                            setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+                                        }
                                     }
                                 }
                             }
@@ -729,24 +737,22 @@ const SmartTrader = observer(() => {
     };
 
     // --- Stop Trading Logic ---
-    const stopTrading = () => {
+    const onStop = () => {
         stopFlagRef.current = true;
         setIsRunning(false);
-        setIsTrading(false);
-        // Cleanup live ticks
-        stopTicks();
-        // Update Run Panel state
+        setStatus('Smart Trader stopped');
+
+        // Update run panel state
         run_panel.setIsRunning(false);
-        run_panel.setHasOpenContract(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        setStatus('Trading stopped');
+        run_panel.setHasOpenContract(false);
     };
 
     // Listen for Run Panel stop events
     useEffect(() => {
         const handleRunPanelStop = () => {
             if (is_running) { // Only stop if currently trading
-                stopTrading();
+                onStop();
             }
         };
 
@@ -761,7 +767,7 @@ const SmartTrader = observer(() => {
             // Cleanup listeners if they were registered
             if (run_panel?.dbot?.observer) {
                 run_panel.dbot.observer.unregisterAll('bot.stop');
-                run_panel.dbot.observer.unregisterAll('bot.click_stop');
+                run_panel.dbot.observer.unregisterAll('bot.click_click_stop');
             }
         };
         // Depend on is_running and run_panel to ensure correct listener attachment/detachment
@@ -1076,7 +1082,7 @@ const SmartTrader = observer(() => {
                                 {is_running ? localize('Running...') : localize('Start Trading')}
                             </button>
                             {is_running && (
-                                <button className='smart-trader__stop' onClick={stopTrading}>
+                                <button className='smart-trader__stop' onClick={onStop}>
                                     {localize('Stop')}
                                 </button>
                             )}
