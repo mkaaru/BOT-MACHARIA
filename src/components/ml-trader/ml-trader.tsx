@@ -941,8 +941,13 @@ const MLTrader = observer(() => {
                                     setTotalProfitLoss(prev => prev + profit); // Update total P&L
 
                                     // If continuous trading is enabled, prepare for the next trade
-                                    if (applyContinuousTrading && !stopFlagRef.current) {
-                                        setTimeout(executeNextTrade, 5000); // Delay before next trade
+                                    if (applyContinuousTrading && isAutoTrading && !stopFlagRef.current) {
+                                        console.log('Contract completed, scheduling next trade in 3 seconds...');
+                                        setTimeout(() => {
+                                            if (isAutoTrading && !stopFlagRef.current) {
+                                                executeNextTrade();
+                                            }
+                                        }, 3000); // Reduced delay for faster trading
                                     }
                                 } else {
                                     // Contract is still running
@@ -983,16 +988,23 @@ const MLTrader = observer(() => {
         }
         setIsAutoTrading(true);
         setApplyContinuousTrading(true);
-        setStatus('Auto trading started. Waiting for market signal...');
+        stopFlagRef.current = false; // Reset stop flag
+        setStatus('Auto trading started. Executing first trade...');
 
-        // If no contract is currently active, start first trade
-        if (!isContractActive) {
+        // Start first trade immediately
+        setTimeout(() => {
             executeNextTrade();
-        }
+        }, 1000);
     };
 
     const executeNextTrade = async () => {
-        if (!isAutoTrading || stopFlagRef.current || isContractActive) return;
+        if (!isAutoTrading || stopFlagRef.current) return;
+
+        // Don't execute if contract is active
+        if (isContractActive) {
+            console.log('Contract already active, waiting...');
+            return;
+        }
 
         try {
             // Check for stop loss and take profit before trading
@@ -1009,9 +1021,9 @@ const MLTrader = observer(() => {
 
             // Use market recommendation or default to CALL
             const recommendation = getMarketRecommendation();
-            const tradeType = recommendation?.signal === 'FALL' ? 'PUT' : 'CALL';
+            const tradeType = recommendation?.recommendation === 'FALL' ? 'PUT' : 'CALL';
 
-            setStatus(`Executing ${tradeType} trade with stake ${stake}...`);
+            setStatus(`🤖 Auto Trading: Executing ${tradeType} trade with stake $${stake}...`);
             await purchaseRiseFallContract(tradeType);
 
         } catch (error) {
@@ -1028,6 +1040,7 @@ const MLTrader = observer(() => {
     };
 
     const stopAutoTrading = () => {
+        console.log('Stopping auto trading...');
         setIsAutoTrading(false);
         setApplyContinuousTrading(false);
         setStatus('Auto trading stopped.');
@@ -1069,7 +1082,16 @@ const MLTrader = observer(() => {
 
     // Get market recommendation based on HMA trend analysis
     const getMarketRecommendation = () => {
-        if (Object.keys(hullTrends).length === 0) return null;
+        if (Object.keys(hullTrends).length === 0) {
+            return {
+                symbol,
+                recommendation: 'RISE', // Default to RISE if no trends available
+                confidence: 50,
+                alignedTrends: 0,
+                totalTrends: 0,
+                reasoning: 'No trend data available, using default RISE signal'
+            };
+        }
 
         // Count aligned trends for different timeframes
         const trendCounts = {
@@ -1090,8 +1112,8 @@ const MLTrader = observer(() => {
         const alignedBearish = trendCounts.bearishCount;
 
         // Determine recommendation based on trend alignment
-        let recommendation: 'RISE' | 'FALL' | 'WAIT' = 'WAIT';
-        let confidence = 0;
+        let recommendation: 'RISE' | 'FALL' | 'WAIT' = 'RISE'; // Default to RISE instead of WAIT
+        let confidence = 50; // Default confidence
         let alignedTrends = 0;
         let reasoning = '';
 
@@ -1105,20 +1127,22 @@ const MLTrader = observer(() => {
             alignedTrends = alignedBearish;
             confidence = Math.min(95, (alignedBearish / totalTrends) * 100);
             reasoning = `${alignedBearish} out of ${totalTrends} Hull Moving Average timeframes show bearish trend. Strong downward momentum detected.`;
-        } else if (alignedBullish === 2 && alignedBearish <= 1) {
+        } else if (alignedBullish >= 2 && alignedBearish <= 1) {
             recommendation = 'RISE';
             alignedTrends = alignedBullish;
             confidence = 65;
             reasoning = `${alignedBullish} out of ${totalTrends} timeframes show bullish trend. Moderate upward momentum.`;
-        } else if (alignedBearish === 2 && alignedBullish <= 1) {
+        } else if (alignedBearish >= 2 && alignedBullish <= 1) {
             recommendation = 'FALL';
             alignedTrends = alignedBearish;
             confidence = 65;
             reasoning = `${alignedBearish} out of ${totalTrends} timeframes show bearish trend. Moderate downward momentum.`;
         } else {
+            // Mixed signals - use alternating strategy or default to RISE
             alignedTrends = Math.max(alignedBullish, alignedBearish);
-            confidence = 30;
-            reasoning = 'Mixed signals across timeframes. ${trendCounts.bullishCount} bullish, ${trendCounts.bearishCount} bearish, ${trendCounts.neutralCount} neutral. Market conditions unclear.';
+            confidence = 50;
+            recommendation = totalRuns % 2 === 0 ? 'RISE' : 'FALL'; // Alternate on mixed signals
+            reasoning = `Mixed signals: ${trendCounts.bullishCount} bullish, ${trendCounts.bearishCount} bearish, ${trendCounts.neutralCount} neutral. Using alternating strategy.`;
         }
 
         return {
