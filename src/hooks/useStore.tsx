@@ -36,12 +36,25 @@ const StoreProvider: React.FC<TStoreProvider> = ({ children, mockStore }) => {
     return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 };
 
-const useStore = () => {
+export const useStore = () => {
     const store = useContext(StoreContext);
-
-    return store as RootStore;
+    if (!store) {
+        throw new Error('useStore must be used within a StoreProvider');
+    }
+    return store;
 };
 
-export { StoreProvider, useStore };
+// Safe version that returns null if store is not available
+export const useStoreOptional = () => {
+    return useContext(StoreContext);
+};
+
+// Safe UI store access with fallback
+export const useUIStore = () => {
+    const store = useStoreOptional();
+    return store?.ui || null;
+};
+
+export { StoreProvider };
 
 export const mockStore = (ws: TWebSocket) => new RootStore(Bot, ws);
