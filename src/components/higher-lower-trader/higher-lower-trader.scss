@@ -562,29 +562,6 @@
         }
     }
 
-    // Trading mode display
-    .trading-mode-display {
-        background: linear-gradient(145deg, #f8fafc 0%, #e9ecef 100%);
-        padding: 20px;
-        border-radius: 12px;
-        margin-bottom: 24px;
-        border: 2px solid rgba(79, 70, 229, 0.2);
-
-        h4 {
-            margin: 0 0 8px 0;
-            color: #4f46e5;
-            font-size: 18px;
-            font-weight: 700;
-        }
-
-        p {
-            margin: 0;
-            color: #64748b;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-    }
-
     // Trading mode toggle buttons - Enhanced Modern Design
     .trading-mode-toggle {
         display: flex;

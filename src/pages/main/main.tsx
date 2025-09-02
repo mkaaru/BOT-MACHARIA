@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useEffect, useState, useCallback } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
-import { useLocation, useNavigate, Route, Routes } from 'react-router-dom'; // Import Route and Routes
+import { useLocation, useNavigate } from 'react-router-dom';
 import ChunkLoader from '@/components/loader/chunk-loader';
 import DesktopWrapper from '@/components/shared_ui/desktop-wrapper';
 import Dialog from '@/components/shared_ui/dialog';
@@ -26,7 +26,6 @@ import VolatilityAnalyzer from '@/components/volatility-analyzer';
 import SmartTrader from '@/components/smart-trader';
 import MLTrader from '@/components/ml-trader';
 import HigherLowerTrader from '@/components/higher-lower-trader';
-import RiseFallTrader from '@/components/rise-fall-trader';
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
@@ -108,7 +107,7 @@ const AppWrapper = observer(() => {
     const { is_dialog_open, dialog_options, onCancelButtonClick, onCloseDialog, onOkButtonClick, stopBot, is_drawer_open } = run_panel;
     const { cancel_button_text, ok_button_text, title, message } = dialog_options as { [key: string]: string };
     const { clear } = summary_card;
-    const { FREE_BOTS, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, DASHBOARD, AI_TRADER, TRADING_HUB } = DBOT_TABS;
+    const { FREE_BOTS, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, DASHBOARD, AI_TRADER } = DBOT_TABS;
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -1293,20 +1292,6 @@ if __name__ == "__main__":
                                 <HigherLowerTrader />
                             </div>
                         </div>
-                        <div label={<><RiseFallTraderIcon /><Localize i18n_default_text='Rise/Fall Trader' /></>} id='id-rise-fall-trader'>
-                            <div className={classNames('dashboard__chart-wrapper', {
-                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
-                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })} style={{
-                                height: '100%',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                padding: 0,
-                                overflow: 'hidden'
-                            }}>
-                                <RiseFallTrader />
-                            </div>
-                        </div>
                         <div label={<><AITraderIcon /><Localize i18n_default_text='AI Trader' /></>} id='id-ai-trader'>
                             <SmartTrader />
                         </div>
@@ -1371,11 +1356,6 @@ if __name__ == "__main__":
                 </div>
             </div>
             <DesktopWrapper>
-                <Routes> {/* Added Routes component for routing */}
-                    <Route path="/higher-lower-trader" element={<HigherLowerTrader />} />
-                    <Route path="/rise-fall-trader" element={<RiseFallTrader />} />
-                    <Route path="/volatility-analyzer" element={<VolatilityAnalyzer />} />
-                </Routes>
                 <div className='main__run-strategy-wrapper'>
                     <RunStrategy />
                     {showRunPanel && <RunPanel />}

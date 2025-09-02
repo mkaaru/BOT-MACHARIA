@@ -1399,9 +1399,30 @@ const HigherLowerTrader = observer(() => {
 
                         {/* Trading Mode Selection - Toggle Buttons */}
                         <div className='form-group'>
-                            <div className="trading-mode-display">
-                                <h4>{localize('Trading Mode: Higher/Lower')}</h4>
-                                <p>{localize('Choose a target price (Barrier) and predict if the market price will be higher or lower than the barrier at expiry.')}</p>
+                            <label>{localize('Trading Mode')}</label>
+                            <div className='trading-mode-toggle'>
+                                <button
+                                    type='button'
+                                    className={`mode-toggle-btn ${tradingMode === 'HIGHER_LOWER' ? 'active' : ''}`}
+                                    onClick={() => {
+                                        setTradingMode('HIGHER_LOWER');
+                                        setContractType('CALL'); // Default to Higher
+                                        setBarrier('+0.37'); // Default barrier for Higher/Lower
+                                    }}
+                                >
+                                    {localize('Higher/Lower')}
+                                </button>
+                                <button
+                                    type='button'
+                                    className={`mode-toggle-btn ${tradingMode === 'RISE_FALL' ? 'active' : ''}`}
+                                    onClick={() => {
+                                        setTradingMode('RISE_FALL');
+                                        setContractType('CALL'); // Default to Rise
+                                        setBarrier('0'); // Default barrier to 0 for Rise/Fall
+                                    }}
+                                >
+                                    {localize('Rise/Fall')}
+                                </button>
                             </div>
                         </div>
 
