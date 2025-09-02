@@ -788,7 +788,8 @@ const MLTrader = observer(() => {
                     const data = JSON.parse(evt.data);
                     if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract?.contract_id === contract_id) {
                         const contract = data.proposal_open_contract;
-                        const profit = contract.bid_price ? contract.bid_price - purchase_price : 0;
+                        let profit = contract.profit || 0;
+                        const isWin = profit > 0;
                         const contractStatus = contract.status;
                         const currentContractData = {
                             ...contract,
@@ -801,10 +802,13 @@ const MLTrader = observer(() => {
                         run_panel.setHasOpenContract(true);
 
                         if (contractStatus === 'sold' || contract.is_sold) {
-                            // Calculate proper profit/loss for statistics - losses should show negative stake amount
-                            const actualProfitLoss = profit > 0 ? profit : -purchase_price;
+                            // For losses, ensure we show the negative stake amount
+                            if (!isWin && profit === 0) {
+                                profit = -purchase_price; // Use purchase_price which is the stake
+                            }
+
                             const result = profit > 0 ? '✅ WIN' : '❌ LOSS';
-                            const profitText = actualProfitLoss > 0 ? `+${actualProfitLoss.toFixed(2)}` : actualProfitLoss.toFixed(2);
+                            const profitText = profit > 0 ? `+${profit.toFixed(2)}` : profit.toFixed(2);
                             setStatus(`${result}: ${profitText} ${account_currency} | Contract completed`);
 
                             run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
@@ -813,8 +817,9 @@ const MLTrader = observer(() => {
                             apiRef.current?.connection?.removeEventListener('message', onMessage);
 
                             // Update statistics with proper loss amounts
-                            if (profit > 0) {
+                            if (isWin) {
                                 setContractsWon(prev => prev + 1);
+                                setTotalPayout(prev => prev + contract.payout);
                                 lastOutcomeWasLossRef.current = false;
 
                                 // Handle martingale after win
@@ -843,7 +848,29 @@ const MLTrader = observer(() => {
                                     setIsInMartingaleSplit(false);
                                 }
                             }
-                            setTotalProfitLoss(prev => prev + actualProfitLoss); // Update total P&L with actual loss
+                            setTotalProfitLoss(prev => prev + profit); // Update total P&L with actual loss
+                            setCurrentProfit(profit);
+
+                            // Update trade history
+                            setTradeHistory(prev => prev.map(trade =>
+                                trade.id === contract.contract_id
+                                    ? { ...trade, profit: profit, status: isWin ? 'WON' : 'LOST' }
+                                    : trade
+                            ));
+
+                            // Report contract completion to transactions store
+                            transactions.onBotContractEvent({
+                                contract: {
+                                    contract_id: contract.contract_id,
+                                    profit: profit,
+                                    sell_price: isWin ? (purchase_price + profit) : 0,
+                                    buy_price: purchase_price,
+                                    currency: account_currency,
+                                    is_sold: true,
+                                    status: isWin ? 'won' : 'lost',
+                                    date_end: Math.floor(Date.now() / 1000)
+                                }
+                            });
                         }
                     }
                 } catch (err) {
@@ -857,6 +884,204 @@ const MLTrader = observer(() => {
         } catch (error) {
             console.error('Monitor contract error:', error);
             setStatus(`Contract monitoring failed: ${error.message || 'Unknown error'}`);
+        }
+    };
+
+    // Auto-trading logic
+    const executeAutoTrade = async () => {
+        if (!isAutoTrading || !marketRecommendation || !symbol) {
+            return;
+        }
+
+        try {
+            setStatus('Executing auto trade...');
+
+            const proposalParams = {
+                amount: stake,
+                basis: 'stake',
+                contract_type: contractType,
+                currency: account_currency,
+                duration: duration,
+                duration_unit: durationType,
+                symbol: symbol
+            };
+
+            if (allowEquals && (contractType === 'CALL' || contractType === 'PUT')) {
+                proposalParams.contract_type = contractType === 'CALL' ? 'CALLE' : 'PUTE';
+            }
+
+            const proposalResponse = await apiRef.current.send(proposalParams);
+
+            if (proposalResponse.error) {
+                setStatus(`Proposal failed: ${proposalResponse.error.message}`);
+                return;
+            }
+
+            const proposal = proposalResponse.proposal;
+            if (!proposal) {
+                setStatus('No proposal received');
+                return;
+            }
+
+            setStatus(`Purchasing ${contractType} contract...`);
+
+            // Buy contract using real Deriv API
+            const buyParams = {
+                buy: proposal.id,
+                price: proposal.ask_price
+            };
+
+            const buyResponse = await apiRef.current.send(buyParams);
+
+            if (buyResponse.error) {
+                setStatus(`Trade failed: ${buyResponse.error.message}`);
+                return;
+            }
+
+            const buy = buyResponse.buy;
+
+            // Update statistics
+            setTotalStake(prev => prev + stake);
+            setTotalRuns(prev => prev + 1);
+
+            // Add to trade history
+            setTradeHistory(prev => [...prev, {
+                id: buy.contract_id,
+                symbol: symbol,
+                type: contractType,
+                stake: stake,
+                time: new Date().toISOString(),
+                status: 'PURCHASED'
+            }]);
+
+            // Report to transactions store
+            transactions.onBotContractEvent({
+                contract: {
+                    contract_id: buy.contract_id,
+                    buy_price: stake,
+                    currency: account_currency,
+                    contract_type: contractType,
+                    symbol: symbol,
+                    date_start: Math.floor(Date.now() / 1000),
+                    shortcode: `${contractType}_${symbol}_${duration}${durationType}_${stake}`
+                }
+            });
+
+            setStatus('Auto trade executed successfully');
+
+            // Subscribe to contract updates and wait for completion
+            try {
+                const contractSubscription = await apiRef.current.send({
+                    proposal_open_contract: 1,
+                    contract_id: buy.contract_id,
+                    subscribe: 1
+                });
+
+                if (contractSubscription.error) {
+                    console.error('Contract subscription error:', contractSubscription.error);
+                    return;
+                }
+
+                let contractCompleted = false;
+                let pocSubId = contractSubscription.subscription?.id;
+
+                const onMsg = (evt: MessageEvent) => {
+                    try {
+                        const data = JSON.parse(evt.data as any);
+                        if (data?.msg_type === 'proposal_open_contract') {
+                            const poc = data.proposal_open_contract;
+                            if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
+
+                            if (String(poc?.contract_id || '') === buy.contract_id) {
+                                // Update transaction in run panel
+                                transactions.onBotContractEvent({
+                                    ...poc,
+                                    run_id: run_panel.run_id,
+                                });
+                                run_panel.setHasOpenContract(true);
+
+                                const profit = Number(poc?.profit || 0);
+
+                                if (poc?.is_sold || poc?.status === 'sold') {
+                                    let actualProfitLoss = profit;
+                                    const isWin = profit > 0;
+
+                                    // For losses, ensure we show the negative stake amount
+                                    if (!isWin && actualProfitLoss === 0) {
+                                        actualProfitLoss = -stake;
+                                    }
+
+                                    const result = actualProfitLoss > 0 ? '✅ WIN' : '❌ LOSS';
+                                    const profitText = actualProfitLoss > 0 ? `+${actualProfitLoss.toFixed(2)}` : actualProfitLoss.toFixed(2);
+                                    setStatus(`${result}: ${profitText} ${account_currency} | Contract completed`);
+
+                                    run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                                    run_panel.setHasOpenContract(false);
+
+                                    // Clean up subscription
+                                    if (pocSubId) {
+                                        apiRef.current?.forget?.({ forget: pocSubId });
+                                    }
+                                    apiRef.current?.connection?.removeEventListener('message', onMsg);
+
+                                    // Update statistics
+                                    setTotalProfitLoss(prev => prev + actualProfitLoss);
+
+                                    if (isWin) {
+                                        setContractsWon(prev => prev + 1);
+                                        setTotalPayout(prev => prev + (buy.payout || 0));
+                                        lastOutcomeWasLossRef.current = false;
+
+                                        // Handle martingale after win
+                                        if (isInMartingaleSplit) {
+                                            setCurrentMartingaleCount(0);
+                                            setIsInMartingaleSplit(false);
+                                            setStake(baseStake);
+                                        }
+                                    } else {
+                                        setContractsLost(prev => prev + 1);
+                                        lastOutcomeWasLossRef.current = true;
+
+                                        // Handle martingale after loss
+                                        if (currentMartingaleCount < martingaleRuns) {
+                                            setIsInMartingaleSplit(true);
+                                            setCurrentMartingaleCount(prev => prev + 1);
+                                        } else {
+                                            setCurrentMartingaleCount(0);
+                                            setIsInMartingaleSplit(false);
+                                            setStake(baseStake);
+                                        }
+                                    }
+
+                                    contractCompleted = true;
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Contract update parsing error:', error);
+                    }
+                };
+
+                apiRef.current?.connection?.addEventListener('message', onMsg);
+
+                // Set a timeout in case the contract doesn't complete normally
+                setTimeout(() => {
+                    if (!contractCompleted) {
+                        console.warn('Contract completion timeout, continuing...');
+                        if (pocSubId) {
+                            apiRef.current?.forget?.({ forget: pocSubId });
+                        }
+                        apiRef.current?.connection?.removeEventListener('message', onMsg);
+                    }
+                }, 30000); // 30 second timeout
+
+            } catch (subscriptionError) {
+                console.error('Contract subscription error:', subscriptionError);
+            }
+
+        } catch (error) {
+            console.error('Execute trade error:', error);
+            setStatus(`Trade execution error: ${error.message || 'Unknown error'}`);
         }
     };
 
@@ -939,267 +1164,50 @@ const MLTrader = observer(() => {
             autoTradingIntervalRef.current = null;
         }
         run_panel.setIsRunning(false);
-        run_panel.setHasOpenContract(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
         setStatus('Auto trading stopped');
     };
 
-    const executeAutoTradingLoop = async () => {
-        while (!stopFlagRef.current && isAutoTrading) {
-            try {
-                // Check stop loss and take profit before each trade
-                if (totalProfitLoss <= -stopLoss) {
-                    setStatus(`Stop Loss hit ($${stopLoss}). Stopping auto trading.`);
-                    stopAutoTrading();
-                    return;
-                }
-                if (totalProfitLoss >= takeProfit) {
-                    setStatus(`Take Profit hit ($${takeProfit}). Stopping auto trading.`);
-                    stopAutoTrading();
-                    return;
-                }
-
-                // Get market recommendation to determine trade direction
-                const recommendation = getMarketRecommendation();
-                const tradeType = recommendation?.recommendation === 'FALL' ? 'PUT' : 'CALL';
-
-                setStatus(`🔄 Executing auto trade: ${tradeType} based on ML analysis...`);
-
-                // Execute the trade and wait for completion
-                await executeNextTrade(tradeType);
-
-                // Small delay before next trade to avoid spam
-                await new Promise(resolve => setTimeout(resolve, 1000));
-
-            } catch (error) {
-                console.error('Auto trading loop error:', error);
-                setStatus(`Trade execution error: ${error.message || 'Unknown error'}`);
-
-                // Wait a bit before retrying on error
-                await new Promise(resolve => setTimeout(resolve, 2000));
+    const toggleAutoTrading = () => {
+        if (isAutoTrading) {
+            setIsAutoTrading(false);
+            if (autoTradingIntervalRef.current) {
+                clearInterval(autoTradingIntervalRef.current);
+                autoTradingIntervalRef.current = null;
             }
+            setStatus('Auto trading stopped');
+            run_panel.setIsRunning(false);
+            run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        } else {
+            if (!symbol || !marketRecommendation) {
+                setStatus('Please select a symbol and wait for market recommendation');
+                return;
+            }
+
+            if (!apiRef.current.connection || apiRef.current.connection.readyState !== WebSocket.OPEN) {
+                setStatus('Trading engine not connected. Please wait for connection...');
+                return;
+            }
+
+            setIsAutoTrading(true);
+            setStatus('Auto trading started');
+
+            // Update run panel state
+            run_panel.setIsRunning(true);
+            run_panel.setContractStage(contract_stages.STARTING);
+            run_panel.toggleDrawer(true);
+            run_panel.setActiveTabIndex(1); // Switch to transactions tab
+
+            // Execute first trade immediately
+            executeAutoTrade();
+
+            // Set up interval for subsequent trades
+            autoTradingIntervalRef.current = setInterval(() => {
+                if (isAutoTrading && apiRef.current.connection && apiRef.current.connection.readyState === WebSocket.OPEN) {
+                    executeAutoTrade();
+                }
+            }, 30000); // Execute every 30 seconds
         }
-    };
-
-    const executeNextTrade = async (tradeType: string) => {
-        return new Promise<void>(async (resolve, reject) => {
-            try {
-                await authorizeIfNeeded();
-
-                // Check martingale conditions
-                let currentStakeAmount = baseStake;
-                if (isInMartingaleSplit && currentMartingaleCount > 0) {
-                    currentStakeAmount = baseStake * Math.pow(martingaleMultiplier, currentMartingaleCount);
-                }
-                setStake(currentStakeAmount);
-
-                setStatus(`Getting proposal for ${tradeType} contract...`);
-
-                // Get proposal using real Deriv API
-                const proposalParams = {
-                    proposal: 1,
-                    amount: currentStakeAmount,
-                    basis: 'stake',
-                    contract_type: tradeType,
-                    currency: account_currency,
-                    duration: 1, // Duration is 1 tick for Rise/Fall
-                    duration_unit: 't', // tick unit
-                    symbol: symbol,
-                };
-
-                const proposalResponse = await apiRef.current.send(proposalParams);
-
-                if (proposalResponse.error) {
-                    setStatus(`Proposal failed: ${proposalResponse.error.message}`);
-                    reject(new Error(proposalResponse.error.message));
-                    return;
-                }
-
-                const proposal = proposalResponse.proposal;
-                if (!proposal) {
-                    setStatus('No proposal received');
-                    reject(new Error('No proposal received'));
-                    return;
-                }
-
-                setStatus(`Purchasing ${tradeType} contract...`);
-
-                // Buy contract using real Deriv API
-                const buyParams = {
-                    buy: proposal.id,
-                    price: proposal.ask_price
-                };
-
-                const buyResponse = await apiRef.current.send(buyParams);
-
-                if (buyResponse.error) {
-                    setStatus(`Trade failed: ${buyResponse.error.message}`);
-                    reject(new Error(buyResponse.error.message));
-                    return;
-                }
-
-                const buy = buyResponse.buy;
-
-                // Update statistics
-                setTotalStake(prev => prev + currentStakeAmount);
-                setTotalRuns(prev => prev + 1);
-
-                // Add to trade history
-                const tradeRecord = {
-                    id: buy?.contract_id,
-                    symbol: symbol,
-                    contract_type: tradeType,
-                    stake: currentStakeAmount,
-                    potential_payout: buy?.payout,
-                    entry_spot: proposal.spot,
-                    timestamp: Date.now(),
-                    status: 'OPEN',
-                    endTime: null,
-                    actualPayout: 0,
-                    actualProfitLoss: 0
-                };
-
-                setTradeHistory(prev => [tradeRecord, ...prev.slice(0, 99)]);
-
-                // Seed transaction for UI
-                try {
-                    const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
-                    const contractData = {
-                        contract_id: buy?.contract_id,
-                        transaction_ids: { buy: buy?.transaction_id },
-                        buy_price: buy?.buy_price,
-                        currency: account_currency,
-                        contract_type: tradeType as any,
-                        underlying: symbol,
-                        display_name: symbol_display,
-                        date_start: Math.floor(Date.now() / 1000),
-                        status: 'open',
-                        shortcode: buy?.shortcode || `${tradeType}_${symbol}_1T_${currentStakeAmount}`,
-                        longcode: buy?.longcode || `${tradeType} prediction on ${symbol_display}`,
-                        is_completed: false,
-                        profit: 0,
-                        payout: buy?.payout || 0,
-                        run_id: run_panel.run_id,
-                    } as any;
-
-                    transactions.onBotContractEvent(contractData);
-                } catch (err) {
-                    console.error('Error seeding transaction:', err);
-                }
-
-                setStatus(`${tradeType} contract purchased! Contract ID: ${buy.contract_id}`);
-
-                // Subscribe to contract updates and wait for completion
-                try {
-                    const contractSubscription = await apiRef.current.send({
-                        proposal_open_contract: 1,
-                        contract_id: buy.contract_id,
-                        subscribe: 1
-                    });
-
-                    if (contractSubscription.error) {
-                        console.error('Contract subscription error:', contractSubscription.error);
-                        resolve(); // Continue even if subscription fails
-                        return;
-                    }
-
-                    let contractCompleted = false;
-                    let pocSubId = contractSubscription.subscription?.id;
-
-                    const onMsg = (evt: MessageEvent) => {
-                        try {
-                            const data = JSON.parse(evt.data as any);
-                            if (data?.msg_type === 'proposal_open_contract') {
-                                const poc = data.proposal_open_contract;
-                                if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
-
-                                if (String(poc?.contract_id || '') === buy.contract_id) {
-                                    // Update transaction in run panel
-                                    transactions.onBotContractEvent({
-                                        ...poc,
-                                        run_id: run_panel.run_id,
-                                    });
-                                    run_panel.setHasOpenContract(true);
-
-                                    const profit = Number(poc?.profit || 0);
-
-                                    if (poc?.is_sold || poc?.status === 'sold') {
-                                        const result = profit > 0 ? '✅ WIN' : '❌ LOSS';
-                                        const profitText = profit > 0 ? `+${profit.toFixed(2)}` : profit.toFixed(2);
-                                        setStatus(`${result}: ${profitText} ${account_currency} | Contract completed`);
-
-                                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
-                                        run_panel.setHasOpenContract(false);
-
-                                        // Clean up subscription
-                                        if (pocSubId) {
-                                            apiRef.current?.forget?.({ forget: pocSubId });
-                                        }
-                                        apiRef.current?.connection?.removeEventListener('message', onMsg);
-
-                                        // Update statistics
-                                        setTotalPayout(prev => prev + (profit > 0 ? buy.payout : 0)); // Add payout only if won
-                                        setTotalProfitLoss(prev => prev + profit); // Profit/Loss is directly from contract
-
-                                        if (profit > 0) {
-                                            setContractsWon(prev => prev + 1);
-                                            lastOutcomeWasLossRef.current = false;
-
-                                            // Handle martingale after win
-                                            if (isInMartingaleSplit) {
-                                                setCurrentMartingaleCount(0);
-                                                setIsInMartingaleSplit(false);
-                                                setStake(baseStake);
-                                            }
-                                        } else {
-                                            setContractsLost(prev => prev + 1);
-                                            lastOutcomeWasLossRef.current = true;
-
-                                            // Handle martingale after loss
-                                            if (currentMartingaleCount < martingaleRuns) {
-                                                setIsInMartingaleSplit(true);
-                                                setCurrentMartingaleCount(prev => prev + 1);
-                                            } else {
-                                                setCurrentMartingaleCount(0);
-                                                setIsInMartingaleSplit(false);
-                                                setStake(baseStake);
-                                            }
-                                        }
-
-                                        contractCompleted = true;
-                                        resolve(); // Resolve the promise to continue the loop
-                                    }
-                                }
-                            }
-                        } catch (error) {
-                            console.error('Contract update parsing error:', error);
-                        }
-                    };
-
-                    apiRef.current?.connection?.addEventListener('message', onMsg);
-
-                    // Set a timeout in case the contract doesn't complete normally
-                    setTimeout(() => {
-                        if (!contractCompleted) {
-                            console.warn('Contract completion timeout, continuing...');
-                            if (pocSubId) {
-                                apiRef.current?.forget?.({ forget: pocSubId });
-                            }
-                            apiRef.current?.connection?.removeEventListener('message', onMsg);
-                            resolve();
-                        }
-                    }, 30000); // 30 second timeout
-
-                } catch (subscriptionError) {
-                    console.error('Contract subscription error:', subscriptionError);
-                    resolve(); // Continue even if subscription fails
-                }
-
-            } catch (error) {
-                console.error('Execute trade error:', error);
-                reject(error);
-            }
-        });
     };
 
     // Get market recommendation based on HMA trend analysis
@@ -1444,6 +1452,20 @@ const MLTrader = observer(() => {
             reasoning
         };
     };
+
+    // Cleanup effect for interval and run panel state
+    useEffect(() => {
+        return () => {
+            if (autoTradingIntervalRef.current) {
+                clearInterval(autoTradingIntervalRef.current);
+            }
+            // Reset run panel state when component unmounts
+            if (isAutoTrading) {
+                run_panel.setIsRunning(false);
+                run_panel.setContractStage(contract_stages.NOT_RUNNING);
+            }
+        };
+    }, [isAutoTrading, run_panel]);
 
 
     return (
@@ -1739,7 +1761,7 @@ const MLTrader = observer(() => {
 
                     <button
                         className={`start-trading-btn ${isAutoTrading ? 'trading-active' : ''}`}
-                        onClick={isAutoTrading ? stopAutoTrading : startAutoTrading}
+                        onClick={toggleAutoTrading}
                         disabled={!symbol}
                     >
                         {isAutoTrading ? 'Stop Auto Trading' : 'Start Auto Trading'}
