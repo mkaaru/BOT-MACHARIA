@@ -852,7 +852,7 @@ const MLTrader = observer(() => {
             };
             // Capture subscription ID for later forget
             if (response.subscription?.id) pocSubIdRef.current = response.subscription.id;
-            apiRef.current?.connection?.addEventListener('message', onMessage);
+            apiRef.current?.connection?.addEventListener('message', onMsg);
             messageHandlerRef.current = onMsg; // Store the handler for potential removal
         } catch (error) {
             console.error('Monitor contract error:', error);
@@ -1793,10 +1793,10 @@ const MLTrader = observer(() => {
                         {tradeHistory.slice(0, 5).map((trade, index) => (
                             <div key={trade.id || index} className="history-item">
                                 <Text size="xs">
-                                    {trade.contract_type} - {trade.stake} {account_currency}
+                                    {trade.contract_type} - {trade.stake.toFixed(2)} {account_currency}
                                 </Text>
                                 <Text size="xs" color="general">
-                                    {new Date(trade.timestamp).toLocaleTimeString()}
+                                    {trade.endTime ? new Date(trade.endTime).toLocaleTimeString() : ''}
                                 </Text>
                             </div>
                         ))}
