@@ -117,6 +117,7 @@ const MLTrader = observer(() => {
     const apiRef = useRef<any>(null);
     const tickStreamIdRef = useRef<string | null>(null);
     const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
+    const pocSubIdRef = useRef<string | null>(null); // Ref for proposal_open_contract subscription ID
 
     const [is_authorized, setIsAuthorized] = useState(false);
     const [account_currency, setAccountCurrency] = useState<string>('USD');
@@ -160,6 +161,8 @@ const MLTrader = observer(() => {
     const [is_running, setIsRunning] = useState(false);
     const stopFlagRef = useRef<boolean>(false);
     const lastOutcomeWasLossRef = useRef(false);
+    let lossStreak = 0;
+    let step = 0;
 
     // Trading statistics
     const [totalStake, setTotalStake] = useState(0);
@@ -453,6 +456,7 @@ const MLTrader = observer(() => {
 
         // Updated to include only plain and 1-second volatilities
         const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', '1HZ150V', '1HZ200V', '1HZ250V', '1HZ300V'];
+
         const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>}= {};
 
         try {
@@ -699,14 +703,13 @@ const MLTrader = observer(() => {
     };
 
     // Rise/Fall mode - tick-based contracts using real Deriv API
-    const purchaseRiseFallContract = async () => {
+    const purchaseRiseFallContract = async (tradeType: string) => {
         await authorizeIfNeeded();
 
         try {
             // Map contract types correctly for Rise/Fall
-            let apiContractType = contractType;
-            if (contractType === 'CALL') apiContractType = 'CALL'; // Rise
-            if (contractType === 'PUT') apiContractType = 'PUT'; // Fall
+            let apiContractType = tradeType;
+            // No change needed for CALL/PUT as they directly map to Rise/Fall
 
             setStatus(`Getting proposal for ${apiContractType} contract...`);
 
@@ -754,8 +757,8 @@ const MLTrader = observer(() => {
                 return;
             }
 
-            const purchase = buyResponse.buy;
-            console.log('Rise/Fall Contract purchased:', purchase);
+            const buy = buyResponse.buy;
+            console.log('Rise/Fall Contract purchased:', buy);
 
             // Update statistics
             setTotalStake(prev => prev + stake);
@@ -763,24 +766,54 @@ const MLTrader = observer(() => {
 
             // Add to trade history
             const tradeRecord = {
-                id: purchase.contract_id,
+                id: buy?.contract_id,
                 symbol: symbol,
                 contract_type: apiContractType,
-                buy_price: purchase.buy_price,
-                payout: purchase.payout,
+                buy_price: buy?.buy_price,
+                payout: buy?.payout,
                 timestamp: new Date().toISOString(),
                 status: 'purchased'
             };
 
             setTradeHistory(prev => [tradeRecord, ...prev.slice(0, 99)]);
 
-            setStatus(`${apiContractType} contract purchased successfully! Contract ID: ${purchase.contract_id}`);
+            // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
+            try {
+                const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
+                const contractData = {
+                    contract_id: buy?.contract_id,
+                    transaction_ids: { buy: buy?.transaction_id },
+                    buy_price: buy?.buy_price,
+                    currency: account_currency,
+                    contract_type: apiContractType as any,
+                    underlying: symbol,
+                    display_name: symbol_display,
+                    date_start: Math.floor(Date.now() / 1000),
+                    status: 'open',
+                    shortcode: buy?.shortcode || `${tradeType}_${symbol}_${duration}T_${stake}`,
+                    longcode: buy?.longcode || `${tradeType} prediction on ${symbol_display}`,
+                    is_completed: false,
+                    profit: 0,
+                    payout: buy?.payout || 0,
+                    run_id: run_panel.run_id,
+                } as any;
+
+                // Push to transactions store for run panel display
+                transactions.onBotContractEvent(contractData);
+
+                // Also log the trade initiation
+                setStatus(`🚀 Trade started: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
+            } catch (err) {
+                console.error('Error seeding transaction:', err);
+            }
+
+            setStatus(`${apiContractType} contract purchased successfully! Contract ID: ${buy.contract_id}`);
 
             // Subscribe to contract updates
             try {
                 const contractSubscription = await apiRef.current.send({
                     proposal_open_contract: 1,
-                    contract_id: purchase.contract_id,
+                    contract_id: buy.contract_id,
                     subscribe: 1
                 });
 
@@ -789,6 +822,62 @@ const MLTrader = observer(() => {
                 } else {
                     console.log('Subscribed to contract updates');
                 }
+
+                // Listen for subsequent streaming updates
+                const onMsg = (evt: MessageEvent) => {
+                    try {
+                        const data = JSON.parse(evt.data as any);
+                        if (data?.msg_type === 'proposal_open_contract') {
+                            const poc = data.proposal_open_contract;
+                            // capture subscription id for later forget
+                            if (!pocSubIdRef.current && data?.subscription?.id) pocSubIdRef.current = data.subscription.id;
+                            if (String(poc?.contract_id || '') === buy.contract_id) {
+                                // Update transaction in run panel with latest contract data
+                                transactions.onBotContractEvent({
+                                    ...poc,
+                                    run_id: run_panel.run_id,
+                                });
+                                run_panel.setHasOpenContract(true);
+
+                                // Update status with live contract info
+                                const profit = Number(poc?.profit || 0);
+                                if (poc?.is_sold || poc?.status === 'sold') {
+                                    const result = profit > 0 ? '✅ WIN' : '❌ LOSS';
+                                    const profitText = profit > 0 ? `+${profit.toFixed(2)}` : profit.toFixed(2);
+                                    setStatus(`${result}: ${profitText} ${account_currency} | Contract completed`);
+
+                                    run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                                    run_panel.setHasOpenContract(false);
+                                    if (pocSubIdRef.current) apiRef.current?.forget?.({ forget: pocSubIdRef.current });
+                                    apiRef.current?.connection?.removeEventListener('message', onMsg);
+
+                                    // Update martingale logic
+                                    if (profit > 0) {
+                                        lastOutcomeWasLossRef.current = false;
+                                        lossStreak = 0;
+                                        step = 0;
+                                        setStake(baseStake);
+                                    } else {
+                                        lastOutcomeWasLossRef.current = true;
+                                        lossStreak++;
+                                        step = Math.min(step + 1, 50);
+                                        // Adjust stake based on martingale multiplier and step
+                                        setStake(baseStake * Math.pow(martingaleMultiplier, step));
+                                    }
+                                } else {
+                                    // Contract is still running
+                                    setStatus(`📈 Running: ${poc?.longcode || 'Contract'} | Current P&L: ${profit.toFixed(2)} ${account_currency}`);
+                                    run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Error processing contract update:', err);
+                    }
+                };
+                apiRef.current?.connection?.addEventListener('message', onMsg);
+                messageHandlerRef.current = onMsg; // Store the handler for potential removal
+
             } catch (subscriptionError) {
                 console.error('Error subscribing to contract:', subscriptionError);
             }
@@ -799,21 +888,48 @@ const MLTrader = observer(() => {
         }
     };
 
+    const onRun = async () => {
+        setStatus('');
+        setIsRunning(true);
+        stopFlagRef.current = false;
+
+        // Ensure run panel is visible and set to transactions tab
+        run_panel.toggleDrawer(true);
+        run_panel.setActiveTabIndex(1); // Transactions tab index in run panel tabs
+        run_panel.run_id = `ml-trader-${Date.now()}`;
+        run_panel.setIsRunning(true);
+        run_panel.setContractStage(contract_stages.STARTING);
+
+        setStatus('🤖 ML Trader started - trades will appear in run panel');
+    };
+
     const handleStartTrading = () => {
         if (is_running) {
+            // Stop trading logic
             setIsRunning(false);
             stopFlagRef.current = true;
-            setStatus('Trading stopped');
+            setStatus('🛑 ML Trader stopped - view trade history in run panel');
+            run_panel.setIsRunning(false);
+            run_panel.setHasOpenContract(false);
+            run_panel.setContractStage(contract_stages.NOT_RUNNING);
+            stopTicks(); // Ensure no more tick subscriptions
+            if (pocSubIdRef.current) {
+                apiRef.current?.forget?.({ forget: pocSubIdRef.current });
+                pocSubIdRef.current = null;
+            }
+            if (messageHandlerRef.current) {
+                apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
+                messageHandlerRef.current = null;
+            }
         } else {
-            setIsRunning(true);
-            stopFlagRef.current = false;
-            setStatus('Trading started');
+            // Start trading logic
+            onRun();
         }
     };
 
     const handleManualTrade = (tradeType: string) => {
         setContractType(tradeType);
-        purchaseRiseFallContract();
+        purchaseRiseFallContract(tradeType);
     };
 
     // Get market recommendation based on HMA trend analysis
