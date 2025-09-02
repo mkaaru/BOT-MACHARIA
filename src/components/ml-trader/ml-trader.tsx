@@ -1256,67 +1256,69 @@ const MLTrader = observer(() => {
         });
     };
 
-    // Get market recommendation based on HMA trend analysis
+    // Get market recommendation based on trend analysis
     const getMarketRecommendation = () => {
-        if (Object.keys(hullTrends).length === 0) return null;
+        if (!hullTrends || Object.keys(hullTrends).length === 0) {
+            return {
+                recommendation: 'NEUTRAL',
+                confidence: 0,
+                reasoning: 'No trend data available',
+                trends: {},
+                alignedTrends: 0
+            };
+        }
 
-        // Count aligned trends for different timeframes
-        const trendCounts = {
-            bullishCount: 0,
-            bearishCount: 0,
-            neutralCount: 0
-        };
-
-        Object.entries(hullTrends).forEach(([timeframe, trendData]) => {
-            const { trend } = trendData;
-            if (trend === 'BULLISH') trendCounts.bullishCount++;
-            else if (trend === 'BEARISH') trendCounts.bearishCount++;
-            else trendCounts.neutralCount++;
-        });
+        // Count trend alignments
+        const bullishCount = Object.values(hullTrends).filter(t => t.trend === 'BULLISH').length;
+        const bearishCount = Object.values(hullTrends).filter(t => t.trend === 'BEARISH').length;
+        const neutralCount = Object.values(hullTrends).filter(t => t.trend === 'NEUTRAL').length;
 
         const totalTrends = Object.keys(hullTrends).length;
-        const alignedBullish = trendCounts.bullishCount;
-        const alignedBearish = trendCounts.bearishCount;
+        const bullishPercentage = Math.round((bullishCount / totalTrends) * 100);
+        const bearishPercentage = Math.round((bearishCount / totalTrends) * 100);
 
-        // Determine recommendation based on trend alignment
-        let recommendation: 'RISE' | 'FALL' | 'WAIT' = 'WAIT';
+        let recommendation = 'NEUTRAL';
         let confidence = 0;
-        let alignedTrends = 0;
         let reasoning = '';
 
-        if (alignedBullish >= 3) {
+        // More aggressive thresholds for trading signals
+        if (bullishCount >= 2) {
             recommendation = 'RISE';
-            alignedTrends = alignedBullish;
-            confidence = Math.min(95, (alignedBullish / totalTrends) * 100);
-            reasoning = `${alignedBullish} out of ${totalTrends} Hull Moving Average timeframes show bullish trend. Strong upward momentum detected.`;
-        } else if (alignedBearish >= 3) {
+            confidence = Math.max(65, bullishPercentage + 10);
+            reasoning = `${bullishCount}/${totalTrends} timeframes show bullish trends`;
+        } else if (bearishCount >= 2) {
             recommendation = 'FALL';
-            alignedTrends = alignedBearish;
-            confidence = Math.min(95, (alignedBearish / totalTrends) * 100);
-            reasoning = `${alignedBearish} out of ${totalTrends} Hull Moving Average timeframes show bearish trend. Strong downward momentum detected.`;
-        } else if (alignedBullish === 2 && alignedBearish <= 1) {
+            confidence = Math.max(65, bearishPercentage + 10);
+            reasoning = `${bearishCount}/${totalTrends} timeframes show bearish trends`;
+        } else if (bullishCount > bearishCount && bullishCount > 0) {
             recommendation = 'RISE';
-            alignedTrends = alignedBullish;
-            confidence = 65;
-            reasoning = `${alignedBullish} out of ${totalTrends} timeframes show bullish trend. Moderate upward momentum.`;
-        } else if (alignedBearish === 2 && alignedBullish <= 1) {
+            confidence = Math.max(55, bullishPercentage + 5);
+            reasoning = `${bullishCount}/${totalTrends} timeframes favor bullish bias`;
+        } else if (bearishCount > bullishCount && bearishCount > 0) {
             recommendation = 'FALL';
-            alignedTrends = alignedBearish;
-            confidence = 65;
-            reasoning = `${alignedBearish} out of ${totalTrends} timeframes show bearish trend. Moderate downward momentum.`;
+            confidence = Math.max(55, bearishPercentage + 5);
+            reasoning = `${bearishCount}/${totalTrends} timeframes favor bearish bias`;
         } else {
-            alignedTrends = Math.max(alignedBullish, alignedBearish);
+            recommendation = 'NEUTRAL';
             confidence = 30;
-            reasoning = 'Mixed signals across timeframes. ${trendCounts.bullishCount} bullish, ${trendCounts.bearishCount} bearish, ${trendCounts.neutralCount} neutral. Market conditions unclear.';
+            reasoning = 'Mixed or insufficient trend signals';
+        }
+
+        // Add rise/fall percentage boost to confidence
+        if (risePercentage > 60 && recommendation === 'RISE') {
+            confidence = Math.min(95, confidence + 10);
+            reasoning += ` + ${risePercentage}% recent rise bias`;
+        } else if (fallPercentage > 60 && recommendation === 'FALL') {
+            confidence = Math.min(95, confidence + 10);
+            reasoning += ` + ${fallPercentage}% recent fall bias`;
         }
 
         return {
-            symbol,
             recommendation,
             confidence,
-            alignedTrends,
-            totalTrends,
-            reasoning
+            reasoning,
+            trends: hullTrends,
+            alignedTrends: bullishCount + bearishCount
         };
     };
 
