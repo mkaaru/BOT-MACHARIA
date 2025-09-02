@@ -1186,6 +1186,134 @@
     }
   }
 
+  // New styles for volatility recommendations
+  .volatility-recommendations {
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+
+    h3 {
+      margin: 0 0 16px 0;
+      color: #333;
+      font-size: 16px;
+    }
+
+    .recommendations-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 12px;
+
+      .recommendation-card {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        padding: 12px;
+        transition: all 0.3s ease;
+
+        &:hover {
+          border-color: #4a90e2;
+          box-shadow: 0 2px 8px rgba(74, 144, 226, 0.15);
+        }
+
+        .rec-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+
+          .symbol {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+          }
+
+          .rank {
+            background: #4a90e2;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+
+            &.rank-1 {
+              background: #28a745;
+            }
+
+            &.rank-2 {
+              background: #ffc107;
+              color: #333;
+            }
+
+            &.rank-3 {
+              background: #dc3545;
+            }
+          }
+        }
+
+        .rec-stats {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 12px;
+
+          .stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: #f8f9fa;
+
+            &.dominant {
+              background: #e8f5e8;
+              border: 1px solid #4caf50;
+
+              .value {
+                color: #4caf50;
+                font-weight: 600;
+              }
+            }
+
+            .label {
+              font-size: 11px;
+              color: #666;
+              margin-bottom: 2px;
+            }
+
+            .value {
+              font-size: 13px;
+              font-weight: 600;
+              color: #333;
+            }
+          }
+        }
+
+        .select-symbol-btn {
+          width: 100%;
+          padding: 8px 12px;
+          background: #4a90e2;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+
+          &:hover {
+            background: #357abd;
+            transform: translateY(-1px);
+          }
+
+          &:active {
+            transform: translateY(0);
+          }
+        }
+      }
+    }
+  }
+
   @media (max-width: 768px) {
     padding: 15px;
     min-height: auto;

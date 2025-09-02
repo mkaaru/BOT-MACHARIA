@@ -8,71 +8,6 @@ import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import './ml-trader.scss';
 
-// Mock TradingEngine for demonstration purposes. In a real scenario, this would be imported and configured.
-const tradingEngine = {
-    isEngineConnected: () => true, // Assume connected for this example
-    getProposal: async (params: any) => {
-        // Simulate a successful proposal response
-        return {
-            proposal: {
-                id: `proposal_${Math.random().toString(36).substr(2, 9)}`,
-                ask_price: parseFloat((params.amount * 1.95).toFixed(2)), // Simulate a price
-                longcode: `${params.contract_type} ${params.symbol}`,
-                // Add other necessary proposal fields if needed
-            },
-            error: null,
-        };
-    },
-    buyContract: async (proposal_id: string, price: number) => {
-        // Simulate a successful contract purchase
-        const contract_id = `contract_${Math.random().toString(36).substr(2, 9)}`;
-        return {
-            buy: {
-                id: contract_id,
-                contract_id: contract_id,
-                buy_price: price,
-                payout: price * 1.95, // Simulate payout
-                transaction_id: `tx_${Math.random().toString(36).substr(2, 9)}`,
-                longcode: 'Simulated Rise/Fall Contract',
-                shortcode: 'RISEFALL',
-                start_time: Math.floor(Date.now() / 1000),
-                symbol: 'R_100', // Example symbol
-                contract_type: 'CALL',
-                currency: 'USD',
-                // Add other necessary purchase receipt fields
-            },
-            error: null,
-        };
-    },
-    subscribeToContract: async (contract_id: string) => {
-        // Simulate subscription
-        console.log(`Subscribing to contract ${contract_id}`);
-        return { error: null };
-    },
-    getWebSocket: () => {
-        // In a real implementation, this would return the actual WebSocket connection
-        // For this mock, we'll simulate it by returning an object with addEventListener and removeEventListener
-        let listeners: { [key: string]: ((event: MessageEvent) => void)[] } = {};
-        return {
-            addEventListener: (type: string, listener: (event: MessageEvent) => void) => {
-                if (!listeners[type]) listeners[type] = [];
-                listeners[type].push(listener);
-            },
-            removeEventListener: (type: string, listener: (event: MessageEvent) => void) => {
-                if (listeners[type]) {
-                    listeners[type] = listeners[type].filter(l => l !== listener);
-                }
-            },
-            // Mock dispatchEvent to simulate receiving messages
-            dispatchEvent: (event: MessageEvent) => {
-                if (listeners['message']) {
-                    listeners['message'].forEach(listener => listener(event));
-                }
-            }
-        };
-    },
-};
-
 // Volatility indices for Rise/Fall trading
 const VOLATILITY_INDICES = [
   { value: 'R_10', label: 'Volatility 10 (1s) Index' },
@@ -86,29 +21,6 @@ const VOLATILITY_INDICES = [
   { value: 'CRASH1000', label: 'Crash 1000 Index' },
   { value: 'stpRNG', label: 'Step Index' },
 ];
-
-// Safe version of tradeOptionToBuy without Blockly dependencies
-const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
-    const buy: any = {
-        buy: '1',
-        price: trade_option.amount,
-        parameters: {
-            amount: trade_option.amount,
-            basis: trade_option.basis || 'stake',
-            contract_type,
-            currency: trade_option.currency,
-            symbol: trade_option.symbol,
-        },
-    };
-
-    // Add duration
-    if (trade_option.duration !== undefined && trade_option.duration_unit !== undefined) {
-        buy.parameters.duration = trade_option.duration;
-        buy.parameters.duration_unit = trade_option.duration_unit;
-    }
-
-    return buy;
-};
 
 const MLTrader = observer(() => {
     const store = useStore();
@@ -131,6 +43,7 @@ const MLTrader = observer(() => {
     const [durationType, setDurationType] = useState<string>('t'); // 't' for ticks
     const [stake, setStake] = useState<number>(1.0);
     const [baseStake, setBaseStake] = useState<number>(1.0);
+    const [allowEquals, setAllowEquals] = useState<boolean>(false); // State for "Allow Equals" option
 
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
@@ -754,248 +667,267 @@ const MLTrader = observer(() => {
         }
     };
 
-    // Rise/Fall mode - tick-based contracts using real Deriv API
-    const purchaseRiseFallContract = async (tradeType: string) => {
-        await authorizeIfNeeded();
-
-        // Check for stop loss and take profit before trading
-        if (totalProfitLoss <= -stopLoss) {
-            setStatus(`Stop Loss hit ($${stopLoss}). Stopping trading.`);
-            stopAutoTrading();
+    // Execute Rise/Fall trade using real Deriv API
+    const executeRiseFallTrade = async (direction: 'RISE' | 'FALL') => {
+        if (!apiRef.current) {
+            setStatus('API not connected');
             return;
         }
-        if (totalProfitLoss >= takeProfit) {
-            setStatus(`Take Profit hit ($${takeProfit}). Stopping trading.`);
-            stopAutoTrading();
-            return;
-        }
-
 
         try {
-            // Map contract types correctly for Rise/Fall
-            let apiContractType = tradeType;
-            // No change needed for CALL/PUT as they directly map to Rise/Fall
+            await authorizeIfNeeded();
+            setStatus(`Executing ${direction} trade...`);
 
-            setStatus(`Getting proposal for ${apiContractType} contract...`);
+            // Determine contract type based on direction and allowEquals setting
+            let contractTypeToUse: string;
+            if (direction === 'RISE') {
+                contractTypeToUse = allowEquals ? 'CALLE' : 'CALL';  // CALLE allows equals for Rise
+            } else {
+                contractTypeToUse = allowEquals ? 'PUTE' : 'PUT';    // PUTE allows equals for Fall
+            }
 
-            // Get proposal using real Deriv API
+            // Get proposal for Rise/Fall trade
             const proposalParams = {
                 proposal: 1,
                 amount: stake,
                 basis: 'stake',
-                contract_type: apiContractType,
+                contract_type: contractTypeToUse,
                 currency: account_currency,
-                duration: 1, // Duration is 1 tick for Rise/Fall
-                duration_unit: 't', // tick unit
+                duration: duration,
+                duration_unit: durationType,
                 symbol: symbol,
             };
 
-            console.log('Getting proposal for Rise/Fall:', proposalParams);
+            console.log('Rise/Fall proposal params:', proposalParams);
 
             const proposalResponse = await apiRef.current.send(proposalParams);
 
             if (proposalResponse.error) {
-                setStatus(`Proposal failed: ${proposalResponse.error.message}`);
-                console.error('Proposal error:', proposalResponse.error);
+                setStatus(`Proposal error: ${proposalResponse.error.message}`);
                 return;
             }
 
             const proposal = proposalResponse.proposal;
-            if (!proposal) {
-                setStatus('No proposal received');
-                return;
-            }
+            const proposalId = proposal.id;
+            const askPrice = proposal.ask_price;
 
-            setStatus(`Purchasing ${apiContractType} contract...`);
+            console.log('Rise/Fall proposal received:', proposal);
 
-            // Buy contract using real Deriv API
-            const buyParams = {
-                buy: proposal.id,
-                price: proposal.ask_price
+            // Execute the purchase
+            const purchaseParams = {
+                buy: proposalId,
+                price: askPrice,
             };
 
-            const buyResponse = await apiRef.current.send(buyParams);
+            const purchaseResponse = await apiRef.current.send(purchaseParams);
 
-            if (buyResponse.error) {
-                setStatus(`Trade failed: ${buyResponse.error.message}`);
-                console.error('Buy error:', buyResponse.error);
+            if (purchaseResponse.error) {
+                setStatus(`Purchase error: ${purchaseResponse.error.message}`);
                 return;
             }
 
-            const buy = buyResponse.buy;
-            console.log('Rise/Fall Contract purchased:', buy);
+            const purchase = purchaseResponse.buy;
+            const contract_id = purchase.contract_id;
+            const purchase_price = purchase.buy_price;
+            const potential_payout = purchase.payout;
 
-            // Update statistics
-            setTotalStake(prev => prev + stake);
+            console.log('Rise/Fall purchase successful:', purchase);
+
+            // Update trading statistics
+            setTotalStake(prev => prev + purchase_price);
             setTotalRuns(prev => prev + 1);
+            setStatus(`${direction} contract purchased: ${contract_id}`);
+
+            // Track contract value and potential payout
+            setContractValue(purchase_price);
+            setPotentialPayout(potential_payout);
+            setEntrySpot(proposal.spot); // Store entry spot for Rise/Fall
 
             // Add to trade history
             const tradeRecord = {
-                id: buy?.contract_id,
+                id: contract_id,
                 symbol: symbol,
-                contract_type: apiContractType,
-                buy_price: buy?.buy_price,
-                payout: buy?.payout,
-                timestamp: new Date().toISOString(),
-                status: 'purchased'
+                contract_type: contractTypeToUse,
+                direction: direction,
+                stake: purchase_price,
+                potential_payout: potential_payout,
+                entry_spot: proposal.spot,
+                timestamp: Date.now(),
+                status: 'OPEN'
             };
 
-            setTradeHistory(prev => [tradeRecord, ...prev.slice(0, 99)]);
+            setTradeHistory(prev => [...prev, tradeRecord]);
 
-            // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
-            try {
-                const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
-                const contractData = {
-                    contract_id: buy?.contract_id,
-                    transaction_ids: { buy: buy?.transaction_id },
-                    buy_price: buy?.buy_price,
-                    currency: account_currency,
-                    contract_type: apiContractType as any,
-                    underlying: symbol,
-                    display_name: symbol_display,
-                    date_start: Math.floor(Date.now() / 1000),
-                    status: 'open',
-                    shortcode: buy?.shortcode || `${tradeType}_${symbol}_${duration}T_${stake}`,
-                    longcode: buy?.longcode || `${tradeType} prediction on ${symbol_display}`,
-                    is_completed: false,
-                    profit: 0,
-                    payout: buy?.payout || 0,
-                    run_id: run_panel.run_id,
-                } as any;
+            // Monitor contract using real Deriv API
+            await monitorRiseFallContract(contract_id, purchase_price, potential_payout);
 
-                // Push to transactions store for run panel display
-                transactions.onBotContractEvent(contractData);
+        } catch (error: any) {
+            console.error('Rise/Fall purchase error:', error);
+            setStatus(`Rise/Fall purchase failed: ${error.message || 'Unknown error'}`);
+        }
+    };
 
-                // Also log the trade initiation
-                setStatus(`🚀 Trade started: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
-            } catch (err) {
-                console.error('Error seeding transaction:', err);
+    // Monitor Rise/Fall contract using real Deriv API
+    const monitorRiseFallContract = async (contract_id: string, purchase_price: number, potential_payout: number) => {
+        try {
+            // Subscribe to contract updates using real Deriv API
+            const response = await apiRef.current.send({
+                proposal_open_contract: 1,
+                contract_id,
+                subscribe: 1
+            });
+
+            if (response.error) {
+                console.error('Monitor contract error:', response.error);
+                setStatus(`Contract monitoring failed: ${response.error.message}`);
+                return;
             }
 
-            setStatus(`${apiContractType} contract purchased successfully! Contract ID: ${buy.contract_id}`);
+            const onMessage = (evt: MessageEvent) => {
+                try {
+                    const data = JSON.parse(evt.data);
+                    if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract?.contract_id === contract_id) {
+                        const contract = data.proposal_open_contract;
+                        const profit = contract.bid_price ? contract.bid_price - purchase_price : 0;
+                        const contractStatus = contract.status;
+                        const currentContractData = {
+                            ...contract,
+                            profit: profit,
+                            status: contractStatus,
+                            run_id: run_panel.run_id,
+                        };
 
-            // Subscribe to contract updates
-            try {
-                const contractSubscription = await apiRef.current.send({
-                    proposal_open_contract: 1,
-                    contract_id: buy.contract_id,
-                    subscribe: 1
-                });
+                        transactions.onBotContractEvent(currentContractData);
+                        run_panel.setHasOpenContract(true);
 
-                if (contractSubscription.error) {
-                    console.error('Contract subscription error:', contractSubscription.error);
-                } else {
-                    console.log('Subscribed to contract updates');
-                }
+                        if (contractStatus === 'sold' || contract.is_sold) {
+                            const result = profit > 0 ? '✅ WIN' : '❌ LOSS';
+                            const profitText = profit > 0 ? `+${profit.toFixed(2)}` : profit.toFixed(2);
+                            setStatus(`${result}: ${profitText} ${account_currency} | Contract completed`);
 
-                // Listen for subsequent streaming updates
-                const onMsg = (evt: MessageEvent) => {
-                    try {
-                        const data = JSON.parse(evt.data as any);
-                        if (data?.msg_type === 'proposal_open_contract') {
-                            const poc = data.proposal_open_contract;
-                            // capture subscription id for later forget
-                            if (!pocSubIdRef.current && data?.subscription?.id) pocSubIdRef.current = data.subscription.id;
-                            if (String(poc?.contract_id || '') === buy.contract_id) {
-                                // Update transaction in run panel with latest contract data
-                                transactions.onBotContractEvent({
-                                    ...poc,
-                                    run_id: run_panel.run_id,
-                                });
-                                run_panel.setHasOpenContract(true);
+                            run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                            run_panel.setHasOpenContract(false);
+                            if (pocSubIdRef.current) apiRef.current?.forget?.({ forget: pocSubIdRef.current });
+                            apiRef.current?.connection?.removeEventListener('message', onMessage);
 
-                                // Update status with live contract info
-                                const profit = Number(poc?.profit || 0);
-                                if (poc?.is_sold || poc?.status === 'sold') {
-                                    const result = profit > 0 ? '✅ WIN' : '❌ LOSS';
-                                    const profitText = profit > 0 ? `+${profit.toFixed(2)}` : profit.toFixed(2);
-                                    setStatus(`${result}: ${profitText} ${account_currency} | Contract completed`);
+                            // Update martingale logic
+                            if (profit > 0) {
+                                lastOutcomeWasLossRef.current = false;
+                                lossStreak = 0;
+                                step = 0;
+                                setStake(baseStake);
+                                setCurrentMartingaleCount(0); // Reset martingale count on win
+                                setIsInMartingaleSplit(false); // Reset mode on win
+                            } else {
+                                lastOutcomeWasLossRef.current = true;
+                                lossStreak++;
+                                step = Math.min(step + 1, martingaleRuns); // Cap at martingaleRuns
+                                setCurrentMartingaleCount(step);
+                                setIsInMartingaleSplit(true); // Enter split mode
 
-                                    run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
-                                    run_panel.setHasOpenContract(false);
-                                    if (pocSubIdRef.current) apiRef.current?.forget?.({ forget: pocSubIdRef.current });
-                                    apiRef.current?.connection?.removeEventListener('message', onMsg);
+                                // Adjust stake based on martingale multiplier and step
+                                const nextStake = baseStake * Math.pow(martingaleMultiplier, step);
+                                setStake(nextStake);
 
-                                    // Update martingale logic
-                                    if (profit > 0) {
-                                        lastOutcomeWasLossRef.current = false;
-                                        lossStreak = 0;
-                                        step = 0;
-                                        setStake(baseStake);
-                                        setCurrentMartingaleCount(0); // Reset martingale count on win
-                                        setIsInMartingaleSplit(false); // Reset mode on win
-                                    } else {
-                                        lastOutcomeWasLossRef.current = true;
-                                        lossStreak++;
-                                        step = Math.min(step + 1, martingaleRuns); // Cap at martingaleRuns
-                                        setCurrentMartingaleCount(step);
-                                        setIsInMartingaleSplit(true); // Enter split mode
-
-                                        // Adjust stake based on martingale multiplier and step
-                                        const nextStake = baseStake * Math.pow(martingaleMultiplier, step);
-                                        setStake(nextStake);
-
-                                        // Check if max martingale runs reached
-                                        if (step >= martingaleRuns) {
-                                            setStatus(`Martingale runs limit (${martingaleRuns}) reached. Resetting stake.`);
-                                            setStake(baseStake);
-                                            setCurrentMartingaleCount(0);
-                                            setIsInMartingaleSplit(false);
-                                        }
-                                    }
-                                    setTotalProfitLoss(prev => prev + profit); // Update total P&L
-                                } else {
-                                    // Contract is still running
-                                    setStatus(`📈 Running: ${poc?.longcode || 'Contract'} | Current P&L: ${profit.toFixed(2)} ${account_currency}`);
-                                    run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
+                                // Check if max martingale runs reached
+                                if (step >= martingaleRuns) {
+                                    setStatus(`Martingale runs limit (${martingaleRuns}) reached. Resetting stake.`);
+                                    setStake(baseStake);
+                                    setCurrentMartingaleCount(0);
+                                    setIsInMartingaleSplit(false);
                                 }
                             }
+                            setTotalProfitLoss(prev => prev + profit); // Update total P&L
+                            setTotalPayout(prev => prev + profit); // Update total payout
+
+                        } else {
+                            // Contract is still running
+                            setStatus(`📈 Running: ${contract.longcode || 'Contract'} | Current P&L: ${profit.toFixed(2)} ${account_currency}`);
+                            run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
                         }
-                    } catch (err) {
-                        console.error('Error processing contract update:', err);
                     }
-                };
-                apiRef.current?.connection?.addEventListener('message', onMsg);
-                messageHandlerRef.current = onMsg; // Store the handler for potential removal
-
-            } catch (subscriptionError) {
-                console.error('Error subscribing to contract:', subscriptionError);
-            }
-
+                } catch (err) {
+                    console.error('Error processing contract update:', err);
+                }
+            };
+            // Capture subscription ID for later forget
+            if (response.subscription?.id) pocSubIdRef.current = response.subscription.id;
+            apiRef.current?.connection?.addEventListener('message', onMessage);
+            messageHandlerRef.current = onMsg; // Store the handler for potential removal
         } catch (error) {
-            console.error('Purchase error:', error);
-            setStatus(`Purchase failed: ${error}`);
+            console.error('Monitor contract error:', error);
+            setStatus(`Contract monitoring failed: ${error.message || 'Unknown error'}`);
         }
     };
 
-    const executeSingleTrade = () => {
-        if (!symbol) {
-            setStatus("Please select a symbol.");
+    // Start auto trading based on Hull Moving Average trends and volatility scanner
+    const startAutoTrading = () => {
+        if (isAutoTrading) {
+            setStatus('Auto trading already running');
             return;
         }
-        purchaseRiseFallContract(contractType);
-    };
 
-    // Auto trading functions
-    const startAutoTrading = async () => {
         setIsAutoTrading(true);
-        setStatus('🚀 Starting auto trading...');
-        setIsRunning(true);
-        stopFlagRef.current = false;
-        run_panel.toggleDrawer(true);
-        run_panel.setActiveTabIndex(1); // Transactions tab index
-        run_panel.run_id = `ml-auto-${Date.now()}`;
-        run_panel.setIsRunning(true);
-        run_panel.setContractStage(contract_stages.STARTING);
+        setStatus('Starting auto trading based on trend analysis and volatility opportunities...');
 
-        try {
-            // Start the continuous trading loop
-            await executeAutoTradingLoop();
-        } catch (error) {
-            console.error('Auto trading error:', error);
-            setStatus(`Auto trading error: ${error.message || 'Unknown error'}`);
-            stopAutoTrading();
-        }
+        autoTradingIntervalRef.current = setInterval(() => {
+            if (stopFlagRef.current) {
+                stopAutoTrading();
+                return;
+            }
+
+            // First check volatility opportunities from scanner
+            if (volatilityRecommendations.length > 0) {
+                // Find best volatility opportunity
+                const bestOpportunity = volatilityRecommendations.reduce((best, current) => {
+                    // Use the higher of rise/fall percentage as the score
+                    const currentScore = Math.max(current.risePercentage, current.fallPercentage);
+                    const bestScore = Math.max(best.risePercentage, best.fallPercentage);
+                    return currentScore > bestScore ? current : best;
+                }, volatilityRecommendations[0]); // Initialize with the first recommendation
+
+                // Only trade if opportunity score is above threshold
+                const threshold = 65; // 65% threshold for volatility opportunities
+                const riseScore = bestOpportunity.risePercentage;
+                const fallScore = bestOpportunity.fallPercentage;
+
+                if (riseScore > threshold || fallScore > threshold) {
+                    setSymbol(bestOpportunity.symbol);
+
+                    if (riseScore > fallScore && riseScore > threshold) {
+                        setStatus(`Auto trading: RISE on ${bestOpportunity.displayName} (Rise: ${riseScore.toFixed(1)}%)`);
+                        executeRiseFallTrade('RISE');
+                    } else if (fallScore > threshold) {
+                        setStatus(`Auto trading: FALL on ${bestOpportunity.displayName} (Fall: ${fallScore.toFixed(1)}%)`);
+                        executeRiseFallTrade('FALL');
+                    }
+                    return;
+                }
+            }
+
+            // Fallback to Hull Moving Average trends
+            const recommendation = getMarketRecommendation();
+
+            if (recommendation) {
+                const { recommendation: action, confidence, symbol: recommendedSymbol, reasoning } = recommendation;
+
+                if (confidence >= 70) { // Only trade with high confidence
+                    setSymbol(recommendedSymbol);
+                    setStatus(`Auto trading: ${action} on ${recommendedSymbol} (${reasoning})`);
+
+                    // Execute trade based on recommendation
+                    if (action === 'RISE') {
+                        executeRiseFallTrade('RISE');
+                    } else if (action === 'FALL') {
+                        executeRiseFallTrade('FALL');
+                    }
+                } else {
+                    setStatus(`Auto trading: Waiting for high confidence signal (current: ${(confidence).toFixed(1)}%)`);
+                }
+            } else {
+                setStatus('Auto trading: No clear opportunities detected, waiting...');
+            }
+        }, 30000); // Check every 30 seconds for auto trading opportunities
     };
 
     const stopAutoTrading = () => {
@@ -1117,10 +1049,11 @@ const MLTrader = observer(() => {
                     id: buy?.contract_id,
                     symbol: symbol,
                     contract_type: tradeType,
-                    buy_price: buy?.buy_price,
-                    payout: buy?.payout,
-                    timestamp: new Date().toISOString(),
-                    status: 'purchased'
+                    stake: currentStakeAmount,
+                    potential_payout: buy?.payout,
+                    entry_spot: proposal.spot,
+                    timestamp: Date.now(),
+                    status: 'OPEN'
                 };
 
                 setTradeHistory(prev => [tradeRecord, ...prev.slice(0, 99)]);
@@ -1342,9 +1275,10 @@ const MLTrader = observer(() => {
         const volatilitySymbols = VOLATILITY_INDICES.map(v => v.value);
 
         try {
-            for (const volatilitySymbol of volatilitySymbols) {
+            // Fetch recommendations for all volatilities
+            const promises = volatilitySymbols.map(async (volatilitySymbol) => {
                 const symbolData = preloadedData[volatilitySymbol];
-                if (!symbolData || symbolData.length < 4000) continue;
+                if (!symbolData || symbolData.length < 4000) return;
 
                 // Calculate trends for this symbol
                 const symbolTrends = calculateTrendsForSymbol(symbolData);
@@ -1352,7 +1286,7 @@ const MLTrader = observer(() => {
                 if (symbolTrends) {
                     const recommendation = getRecommendationForTrends(symbolTrends);
 
-                    if (recommendation && recommendation.confidence >= 65) {
+                    if (recommendation && (recommendation.confidence >= 65 || recommendation.alignedTrends >=3)) { // Filter for high confidence or strong alignment
                         opportunities.push({
                             symbol: volatilitySymbol,
                             displayName: VOLATILITY_INDICES.find(v => v.value === volatilitySymbol)?.label || volatilitySymbol,
@@ -1361,13 +1295,18 @@ const MLTrader = observer(() => {
                             signal: recommendation.recommendation === 'RISE' ? 'HIGHER' : recommendation.recommendation === 'FALL' ? 'LOWER' : 'WAIT',
                             alignedCount: recommendation.alignedTrends,
                             totalCount: recommendation.totalTrends,
-                            reasoning: recommendation.reasoning
+                            reasoning: recommendation.reasoning,
+                            // Add rise/fall percentages for auto-trading logic
+                            risePercentage: recommendation.recommendation === 'RISE' ? recommendation.confidence : (recommendation.recommendation === 'FALL' ? 100 - recommendation.confidence : 50),
+                            fallPercentage: recommendation.recommendation === 'FALL' ? recommendation.confidence : (recommendation.recommendation === 'RISE' ? 100 - recommendation.confidence : 50)
                         });
                     }
                 }
-            }
+            });
 
-            // Sort by confidence
+            await Promise.all(promises);
+
+            // Sort by confidence and filter out 'WAIT' signals
             opportunities.sort((a, b) => b.confidence - a.confidence);
             setVolatilityRecommendations(opportunities.slice(0, 5)); // Top 5 opportunities
 
@@ -1529,8 +1468,8 @@ const MLTrader = observer(() => {
                             }
                         }}
                     >
-                        <option value="">Select Volatility Index</option>
-                        {VOLATILITY_INDICES.map((vol) => (
+                        <option value="">Select Symbol</option>
+                        {VOLATILITY_INDICES.map(vol => (
                             <option key={vol.value} value={vol.value}>
                                 {vol.label}
                             </option>
@@ -1563,6 +1502,28 @@ const MLTrader = observer(() => {
                     >
                         <option value="t">Ticks</option>
                     </select>
+                </div>
+
+                <div className="control-group">
+                    <label>Base Stake</label>
+                    <input
+                        type="number"
+                        value={baseStake}
+                        onChange={(e) => setBaseStake(Number(e.target.value))}
+                        min="0.1"
+                        step="0.1"
+                    />
+                </div>
+
+                <div className="control-group">
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={allowEquals}
+                            onChange={(e) => setAllowEquals(e.target.checked)}
+                        />
+                        Allow Equals (CALLE/PUTE)
+                    </label>
                 </div>
             </div>
 
@@ -1642,6 +1603,56 @@ const MLTrader = observer(() => {
                 </div>
             </div>
 
+            {/* Volatility Scanner Recommendations */}
+            {volatilityRecommendations.length > 0 && (
+                <div className="volatility-recommendations">
+                    <h3>Volatility Opportunities</h3>
+                    <div className="recommendations-grid">
+                        {volatilityRecommendations.slice(0, 3).map((rec, index) => (
+                            <div key={rec.symbol} className="recommendation-card">
+                                <div className="rec-header">
+                                    <span className="symbol">{rec.displayName}</span>
+                                    <span className={`rank rank-${index + 1}`}>#{index + 1}</span>
+                                </div>
+                                <div className="rec-stats">
+                                    <div className={`stat ${rec.risePercentage > rec.fallPercentage ? 'dominant' : ''}`}>
+                                        <span className="label">Rise:</span>
+                                        <span className="value">{rec.risePercentage.toFixed(1)}%</span>
+                                    </div>
+                                    <div className={`stat ${rec.fallPercentage > rec.risePercentage ? 'dominant' : ''}`}>
+                                        <span className="label">Fall:</span>
+                                        <span className="value">{rec.fallPercentage.toFixed(1)}%</span>
+                                    </div>
+                                </div>
+                                <button
+                                    className="select-symbol-btn"
+                                    onClick={() => {
+                                        setSymbol(rec.symbol);
+                                        setStatus(`Selected ${rec.displayName} from volatility scanner`);
+                                        // Trigger tick updates for the new symbol
+                                        if (preloadedData[rec.symbol] && preloadedData[rec.symbol].length > 0) {
+                                            setTickData(preloadedData[rec.symbol]);
+                                            updateEhlersTrends(preloadedData[rec.symbol]);
+                                        } else {
+                                            fetchHistoricalTicks(rec.symbol);
+                                        }
+                                        startTicks(rec.symbol);
+                                        // Set contract type based on signal
+                                        if (rec.risePercentage > rec.fallPercentage) {
+                                            setContractType('CALL');
+                                        } else {
+                                            setContractType('PUT');
+                                        }
+                                    }}
+                                >
+                                    Select Symbol
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Market Recommendation Display */}
             {marketRecommendation && (
                 <div className='ml-trader__recommendation'>
@@ -1661,7 +1672,7 @@ const MLTrader = observer(() => {
                                 <span>Aligned Trends: {marketRecommendation.alignedTrends}/{marketRecommendation.totalTrends}</span>
                             </div>
                         </div>
-                        {marketRecommendation.confidence >= 65 && (
+                        {marketRecommendation.confidence >= 70 && (
                             <button
                                 className={`use-recommendation-btn ${marketRecommendation.recommendation.toLowerCase()}`}
                                 onClick={() => {
@@ -1682,80 +1693,6 @@ const MLTrader = observer(() => {
                 </div>
             )}
 
-            {/* Volatility Opportunities Scanner */}
-            <div className='ml-trader__volatility-scanner'>
-                <div className='scanner-header'>
-                    <h3>{localize('Volatility Opportunities Scanner')}</h3>
-                    <button
-                        className='scan-btn'
-                        onClick={scanVolatilityOpportunities}
-                        disabled={isScanning || Object.keys(preloadedData).length < 5}
-                    >
-                        {isScanning ? localize('Scanning...') : localize('Scan All Volatilities')}
-                    </button>
-                </div>
-
-                {volatilityRecommendations.length > 0 ? (
-                    <div className='opportunities-list'>
-                        {volatilityRecommendations.map((opportunity, index) => (
-                            <div key={opportunity.symbol} className={`opportunity-card ${opportunity.signal.toLowerCase()}`}>
-                                <div className='opportunity-header'>
-                                    <span className='symbol-name'>{opportunity.displayName}</span>
-                                    <span className={`signal-badge ${opportunity.signal.toLowerCase()}`}>
-                                        {opportunity.signal}
-                                    </span>
-                                </div>
-                                <div className='opportunity-details'>
-                                    <div className='confidence'>
-                                        Confidence: {opportunity.confidence.toFixed(1)}%
-                                    </div>
-                                    <div className='alignment'>
-                                        Trends: {opportunity.alignedCount}/{opportunity.totalCount}
-                                    </div>
-                                </div>
-                                <div className='opportunity-actions'>
-                                    <button
-                                        className='select-symbol-btn'
-                                        onClick={() => {
-                                            setSymbol(opportunity.tradingSymbol);
-
-                                            // Fetch historical data and update trends for the selected symbol
-                                            if (preloadedData[opportunity.tradingSymbol] && preloadedData[opportunity.tradingSymbol].length > 0) {
-                                                setTickData(preloadedData[opportunity.tradingSymbol]);
-                                                updateEhlersTrends(preloadedData[opportunity.tradingSymbol]);
-                                            } else {
-                                                fetchHistoricalTicks(opportunity.tradingSymbol);
-                                            }
-                                            startTicks(opportunity.tradingSymbol);
-
-                                            // Set contract type based on signal
-                                            if (opportunity.signal === 'HIGHER') {
-                                                setContractType('CALL');
-                                            } else if (opportunity.signal === 'LOWER') {
-                                                setContractType('PUT');
-                                            }
-                                        }}
-                                    >
-                                        Select & Trade
-                                    </button>
-                                </div>
-                                <div className='opportunity-reasoning'>
-                                    <small>{opportunity.reasoning}</small>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className='no-opportunities'>
-                        {isScanning ? (
-                            <span>{localize('Scanning for opportunities...')}</span>
-                        ) : (
-                            <span>{localize('No volatilities currently have 3+ aligned trends.')}</span>
-                        )}
-                        <small>{localize('Scan to discover high-probability setups.')}</small>
-                    </div>
-                )}
-            </div>
 
             <div className="ml-trader__trend-analysis">
                 <h3>{localize('Hull Moving Average Trend Analysis')}</h3>
@@ -1777,7 +1714,7 @@ const MLTrader = observer(() => {
                         onClick={() => {
                             setContractType('CALL');
                             if (!isAutoTrading) {
-                                executeSingleTrade();
+                                executeRiseFallTrade('RISE');
                             }
                         }}
                         disabled={!symbol || isAutoTrading}
@@ -1789,7 +1726,7 @@ const MLTrader = observer(() => {
                         onClick={() => {
                             setContractType('PUT');
                             if (!isAutoTrading) {
-                                executeSingleTrade();
+                                executeRiseFallTrade('FALL');
                             }
                         }}
                         disabled={!symbol || isAutoTrading}
@@ -1856,7 +1793,7 @@ const MLTrader = observer(() => {
                         {tradeHistory.slice(0, 5).map((trade, index) => (
                             <div key={trade.id || index} className="history-item">
                                 <Text size="xs">
-                                    {trade.contract_type} - {trade.buy_price} {account_currency}
+                                    {trade.contract_type} - {trade.stake} {account_currency}
                                 </Text>
                                 <Text size="xs" color="general">
                                     {new Date(trade.timestamp).toLocaleTimeString()}
