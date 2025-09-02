@@ -9,69 +9,70 @@ import { useStore } from '@/hooks/useStore';
 import './higher-lower-trader.scss';
 
 // Mock TradingEngine for demonstration purposes. In a real scenario, this would be imported and configured.
-const tradingEngine = {
-    isEngineConnected: () => true, // Assume connected for this example
-    getProposal: async (params: any) => {
-        // Simulate a successful proposal response
-        return {
-            proposal: {
-                id: `proposal_${Math.random().toString(36).substr(2, 9)}`,
-                ask_price: parseFloat((params.amount * 1.95).toFixed(2)), // Simulate a price
-                longcode: `${params.contract_type} ${params.symbol}`,
-                // Add other necessary proposal fields if needed
-            },
-            error: null,
-        };
-    },
-    buyContract: async (proposal_id: string, price: number) => {
-        // Simulate a successful contract purchase
-        const contract_id = `contract_${Math.random().toString(36).substr(2, 9)}`;
-        return {
-            buy: {
-                id: contract_id,
-                contract_id: contract_id,
-                buy_price: price,
-                payout: price * 1.95, // Simulate payout
-                transaction_id: `tx_${Math.random().toString(36).substr(2, 9)}`,
-                longcode: 'Simulated Rise/Fall Contract',
-                shortcode: 'RISEFALL',
-                start_time: Math.floor(Date.now() / 1000),
-                symbol: 'R_100', // Example symbol
-                contract_type: 'CALL',
-                currency: 'USD',
-                // Add other necessary purchase receipt fields
-            },
-            error: null,
-        };
-    },
-    subscribeToContract: async (contract_id: string) => {
-        // Simulate subscription
-        console.log(`Subscribing to contract ${contract_id}`);
-        return { error: null };
-    },
-    getWebSocket: () => {
-        // In a real implementation, this would return the actual WebSocket connection
-        // For this mock, we'll simulate it by returning an object with addEventListener and removeEventListener
-        let listeners: { [key: string]: ((event: MessageEvent) => void)[] } = {};
-        return {
-            addEventListener: (type: string, listener: (event: MessageEvent) => void) => {
-                if (!listeners[type]) listeners[type] = [];
-                listeners[type].push(listener);
-            },
-            removeEventListener: (type: string, listener: (event: MessageEvent) => void) => {
-                if (listeners[type]) {
-                    listeners[type] = listeners[type].filter(l => l !== listener);
-                }
-            },
-            // Mock dispatchEvent to simulate receiving messages
-            dispatchEvent: (event: MessageEvent) => {
-                if (listeners['message']) {
-                    listeners['message'].forEach(listener => listener(event));
-                }
-            }
-        };
-    },
-};
+// This mock is not used in the final code and can be removed.
+// const tradingEngine = {
+//     isEngineConnected: () => true, // Assume connected for this example
+//     getProposal: async (params: any) => {
+//         // Simulate a successful proposal response
+//         return {
+//             proposal: {
+//                 id: `proposal_${Math.random().toString(36).substr(2, 9)}`,
+//                 ask_price: parseFloat((params.amount * 1.95).toFixed(2)), // Simulate a price
+//                 longcode: `${params.contract_type} ${params.symbol}`,
+//                 // Add other necessary proposal fields if needed
+//             },
+//             error: null,
+//         };
+//     },
+//     buyContract: async (proposal_id: string, price: number) => {
+//         // Simulate a successful contract purchase
+//         const contract_id = `contract_${Math.random().toString(36).substr(2, 9)}`;
+//         return {
+//             buy: {
+//                 id: contract_id,
+//                 contract_id: contract_id,
+//                 buy_price: price,
+//                 payout: price * 1.95, // Simulate payout
+//                 transaction_id: `tx_${Math.random().toString(36).substr(2, 9)}`,
+//                 longcode: 'Simulated Rise/Fall Contract',
+//                 shortcode: 'RISEFALL',
+//                 start_time: Math.floor(Date.now() / 1000),
+//                 symbol: 'R_100', // Example symbol
+//                 contract_type: 'CALL',
+//                 currency: 'USD',
+//                 // Add other necessary purchase receipt fields
+//             },
+//             error: null,
+//         };
+//     },
+//     subscribeToContract: async (contract_id: string) => {
+//         // Simulate subscription
+//         console.log(`Subscribing to contract ${contract_id}`);
+//         return { error: null };
+//     },
+//     getWebSocket: () => {
+//         // In a real implementation, this would return the actual WebSocket connection
+//         // For this mock, we'll simulate it by returning an object with addEventListener and removeEventListener
+//         let listeners: { [key: string]: ((event: MessageEvent) => void)[] } = {};
+//         return {
+//             addEventListener: (type: string, listener: (event: MessageEvent) => void) => {
+//                 if (!listeners[type]) listeners[type] = [];
+//                 listeners[type].push(listener);
+//             },
+//             removeEventListener: (type: string, listener: (event: MessageEvent) => void) => {
+//                 if (listeners[type]) {
+//                     listeners[type] = listeners[type].filter(l => l !== listener);
+//                 }
+//             },
+//             // Mock dispatchEvent to simulate receiving messages
+//             dispatchEvent: (event: MessageEvent) => {
+//                 if (listeners['message']) {
+//                     listeners['message'].forEach(listener => listener(event));
+//                 }
+//             }
+//         };
+//     },
+// };
 
 
 // Volatility indices for Higher/Lower trading
@@ -184,7 +185,6 @@ const HigherLowerTrader = observer(() => {
 
     // Trading mode state (Higher/Lower or Rise/Fall)
     const [tradingMode, setTradingMode] = useState<'HIGHER_LOWER' | 'RISE_FALL'>('HIGHER_LOWER');
-
 
     // --- Helper Functions ---
 
@@ -924,80 +924,221 @@ const HigherLowerTrader = observer(() => {
         }
     };
 
-    // Placeholder for purchaseHigherLowerContract - it should exist in the original code.
-    // If not, a basic implementation or error handling would be needed.
-    const purchaseHigherLowerContract = async () => {
-        await authorizeIfNeeded();
+    // Original Higher/Lower trading logic
+    const executeHigherLowerTrade = useCallback(async () => {
+        if (!apiRef.current || !symbol || !livePrice) return;
 
-        let apiContractType = contractType;
-        if (contractType === 'CALL') apiContractType = 'CALL'; // Higher
-        else if (contractType === 'PUT') apiContractType = 'PUT'; // Lower
-
-        const trade_option: any = {
-            amount: stake,
-            basis: 'stake',
-            currency: account_currency,
-            symbol,
-            duration: durationType === 's' ? duration : duration * 60,
-            duration_unit: durationType,
-        };
-
-        if (barrier && barrier !== '0') {
-            trade_option.barrier = barrier;
-        }
-
-        const buy_request = tradeOptionToBuy(apiContractType, trade_option);
-        setStatus(`Purchasing ${apiContractType === 'CALL' ? 'Higher' : 'Lower'} contract for ${stake} ${account_currency}...`);
-
-        const response = await apiRef.current.send(buy_request);
-        if (response.error) {
-            console.error('Purchase error:', response.error);
-            throw response.error;
-        }
-
-        const buy = response.buy;
-        setStatus(`${apiContractType === 'CALL' ? 'Higher' : 'Lower'} contract purchased: ${buy?.longcode || apiContractType}`);
-        setTotalStake(prev => prev + Number(stake));
-        setTotalRuns(prev => prev + 1);
-
-        // Monitor contract
-        await monitorContract(buy.contract_id, buy.buy_price, buy.payout);
-        return buy;
-    };
-
-
-    const executeTrade = async () => {
-        try {
-            if (tradingMode === 'RISE_FALL') {
-                await purchaseRiseFallContract();
-            } else {
-                await purchaseHigherLowerContract();
-            }
-        } catch (error: any) {
-            console.error('Execute trade error:', error);
-            setStatus(`Trade execution failed: ${error.message || 'Unknown error'}`);
-        }
-    };
-
-    const executeSingleTrade = async () => {
-        setIsRunning(true);
+        setIsRunning(true); // Assuming this is called within handleStart or similar
         stopFlagRef.current = false;
 
         try {
-            if (tradingMode === 'RISE_FALL') {
-                // For Rise/Fall, execute directly
-                await purchaseRiseFallContract();
-            } else {
-                // For Higher/Lower, use existing logic
-                await executeTrade();
-            }
+            const currentPrice = parseFloat(livePrice);
+            const targetBarrier = parseFloat(barrier);
+
+            // Determine contract type based on current price vs barrier
+            const contractType = currentPrice > targetBarrier ? 'CALL' : 'PUT';
+
+            // Use Deriv API for trading
+            const ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${API_CONFIG.appId}`);
+
+            ws.onopen = () => {
+                // Authorize first
+                ws.send(JSON.stringify({
+                    authorize: V2GetActiveToken() // Use the token from the hook
+                }));
+            };
+
+            ws.onmessage = async (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.msg_type === 'authorize' && !data.error) {
+                    // Send buy request
+                    const buyRequest = {
+                        buy: '1',
+                        price: stake, // Use the current stake value
+                        parameters: {
+                            amount: stake,
+                            basis: 'stake',
+                            contract_type: contractType,
+                            currency: account_currency,
+                            duration: duration,
+                            duration_unit: durationType,
+                            symbol: symbol,
+                            barrier: targetBarrier.toString()
+                        }
+                    };
+
+                    ws.send(JSON.stringify(buyRequest));
+                }
+
+                if (data.msg_type === 'buy' && !data.error) {
+                    const contract = data.buy;
+                    const purchase_price = contract.buy_price;
+
+                    // Update internal state for tracking
+                    setTotalStake(prev => prev + Number(stake));
+                    setTotalRuns(prev => prev + 1);
+                    setStatus(`Purchased ${contractType} contract for ${symbol}`);
+
+                    // Subscribe to contract updates
+                    ws.send(JSON.stringify({
+                        proposal_open_contract: 1,
+                        contract_id: contract.contract_id,
+                        subscribe: 1
+                    }));
+                }
+
+                if (data.msg_type === 'proposal_open_contract') {
+                    const contractUpdate = data.proposal_open_contract;
+
+                    if (contractUpdate.is_sold) {
+                        const profit = parseFloat(contractUpdate.profit) || 0;
+                        const isWin = profit > 0;
+
+                        setTotalPayout(prev => prev + (contractUpdate.bid_price || 0));
+                        setTotalProfitLoss(prev => prev + profit);
+
+                        if (isWin) {
+                            setContractsWon(prev => prev + 1);
+                            lastOutcomeWasLossRef.current = false;
+                            setStake(baseStake); // Reset stake on win
+                        } else {
+                            setContractsLost(prev => prev + 1);
+                            lastOutcomeWasLossRef.current = true;
+                            setStake(prevStake => Number((prevStake * martingaleMultiplier).toFixed(2))); // Apply martingale on loss
+                        }
+
+                        setStatus(`Contract ${isWin ? 'WON' : 'LOST'}! P&L: ${profit.toFixed(2)} ${account_currency}`);
+
+                        // Check stop on profit condition
+                        if (useStopOnProfit && profit > 0 && (totalProfitLoss + profit) >= targetProfit) {
+                            setStatus(`Target profit reached! Stopping...`);
+                            handleStop();
+                        }
+
+                        ws.close(); // Close WebSocket after contract completion
+                        setIsRunning(false);
+                    }
+                }
+
+                if (data.error) {
+                    console.error('Trading error:', data.error);
+                    setContractsLost(prev => prev + 1);
+                    setTotalProfitLoss(prev => prev - Number(stake)); // Assume loss if error occurs during trade
+                    setStatus(`Trade error: ${data.error.message}`);
+                    ws.close();
+                    setIsRunning(false);
+                }
+            };
+
         } catch (error: any) {
-            console.error('Single trade error:', error);
-            setStatus(`Single trade failed: ${error.message}`);
-        } finally {
+            console.error('Higher/Lower trade execution failed:', error);
+            setStatus(`Higher/Lower trade execution failed: ${error.message}`);
             setIsRunning(false);
         }
-    };
+    }, [apiRef, symbol, livePrice, barrier, stake, account_currency, duration, durationType, baseStake, martingaleMultiplier, useStopOnProfit, targetProfit, totalProfitLoss]);
+
+    // Rise/Fall trading logic with trend analysis
+    const executeRiseFallTrade = useCallback(async () => {
+        await authorizeIfNeeded();
+
+        try {
+            // Use trend analysis to determine trade direction
+            const recommendation = getTradingRecommendation();
+            const contractType = recommendation.recommendation === 'HIGHER' ? 'CALL' : 'PUT';
+
+            const ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${API_CONFIG.appId}`);
+
+            ws.onopen = () => {
+                ws.send(JSON.stringify({
+                    authorize: V2GetActiveToken()
+                }));
+            };
+
+            ws.onmessage = async (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.msg_type === 'authorize' && !data.error) {
+                    const buyRequest = {
+                        buy: '1',
+                        price: stake,
+                        parameters: {
+                            amount: stake,
+                            basis: 'stake',
+                            contract_type: contractType,
+                            currency: account_currency,
+                            duration: 1, // Next tick for Rise/Fall
+                            duration_unit: 't',
+                            symbol: symbol
+                        }
+                    };
+
+                    ws.send(JSON.stringify(buyRequest));
+                }
+
+                if (data.msg_type === 'buy' && !data.error) {
+                    const contract = data.buy;
+                    const purchase_price = contract.buy_price;
+
+                    setTotalStake(prev => prev + Number(stake));
+                    setTotalRuns(prev => prev + 1);
+                    setStatus(`Purchased Rise/Fall ${contractType} contract for ${symbol}`);
+
+                    ws.send(JSON.stringify({
+                        proposal_open_contract: 1,
+                        contract_id: contract.contract_id,
+                        subscribe: 1
+                    }));
+                }
+
+                if (data.msg_type === 'proposal_open_contract') {
+                    const contractUpdate = data.proposal_open_contract;
+
+                    if (contractUpdate.is_sold) {
+                        const profit = parseFloat(contractUpdate.profit) || 0;
+                        const isWin = profit > 0;
+
+                        setTotalPayout(prev => prev + (contractUpdate.bid_price || 0));
+                        setTotalProfitLoss(prev => prev + profit);
+
+                        if (isWin) {
+                            setContractsWon(prev => prev + 1);
+                            lastOutcomeWasLossRef.current = false;
+                            setStake(baseStake); // Reset stake on win
+                        } else {
+                            setContractsLost(prev => prev + 1);
+                            lastOutcomeWasLossRef.current = true;
+                            setStake(prevStake => Number((prevStake * martingaleMultiplier).toFixed(2))); // Apply martingale on loss
+                        }
+
+                        setStatus(`Rise/Fall contract ${isWin ? 'WON' : 'LOST'}! P&L: ${profit.toFixed(2)} ${account_currency}`);
+
+                        if (useStopOnProfit && profit > 0 && (totalProfitLoss + profit) >= targetProfit) {
+                            setStatus(`Target profit reached! Stopping...`);
+                            handleStop();
+                        }
+
+                        ws.close();
+                        setIsRunning(false);
+                    }
+                }
+
+                if (data.error) {
+                    console.error('Rise/Fall trading error:', data.error);
+                    setContractsLost(prev => prev + 1);
+                    setTotalProfitLoss(prev => prev - Number(stake));
+                    setStatus(`Rise/Fall trade error: ${data.error.message}`);
+                    ws.close();
+                    setIsRunning(false);
+                }
+            };
+
+        } catch (error: any) {
+            console.error('Rise/Fall trade execution failed:', error);
+            setStatus(`Rise/Fall trade execution failed: ${error.message}`);
+            setIsRunning(false);
+        }
+    }, [authorizeIfNeeded, symbol, account_currency, baseStake, martingaleMultiplier, stake, getTradingRecommendation, useStopOnProfit, targetProfit, totalProfitLoss]);
 
     const handleStart = async () => {
         if (is_running) {
@@ -1035,10 +1176,10 @@ const HigherLowerTrader = observer(() => {
                                 await new Promise(resolve => setTimeout(resolve, 2000));
                                 continue;
                             }
-                            await executeTrade();
+                            await executeHigherLowerTrade();
                         } else if (tradingMode === 'RISE_FALL') {
                             // Execute Rise/Fall trade directly
-                            await purchaseRiseFallContract();
+                            await executeRiseFallTrade();
                         }
 
                         if (!stopFlagRef.current) {
@@ -1388,6 +1529,53 @@ const HigherLowerTrader = observer(() => {
             setContractType(newContractType);
         }
     };
+
+    // Variable to store the trading interval for start/stop functionality
+    const tradingIntervalRef = useRef<any>(null);
+
+    // Function to start trading based on mode
+    const startTrading = useCallback(async () => {
+        if (!is_authorized || !symbol || is_running) return;
+
+        setIsRunning(true);
+        setStatus('Starting trading...');
+
+        const executeAndScheduleNext = async () => {
+            if (!is_running || stopFlagRef.current) {
+                return;
+            }
+
+            try {
+                if (tradingMode === 'HIGHER_LOWER') {
+                    // Check trend support before executing Higher/Lower trade
+                    const trendsSupport = checkTrendSupport();
+                    if (!trendsSupport) {
+                        setStatus('Waiting for better trend conditions...');
+                        return; // Skip this trade if trends don't support
+                    }
+                    await executeHigherLowerTrade();
+                } else {
+                    // Execute Rise/Fall trade directly
+                    await executeRiseFallTrade();
+                }
+            } catch (error: any) {
+                console.error('Error during trade execution:', error);
+                setStatus(`Trade execution error: ${error.message}`);
+            } finally {
+                // Schedule the next trade if the bot is still running and not stopped
+                if (is_running && !stopFlagRef.current) {
+                    setTimeout(executeAndScheduleNext, 5000); // Schedule next trade after 5 seconds
+                } else {
+                    setIsRunning(false); // Ensure running state is false if stopped
+                }
+            }
+        };
+
+        // Initial call to start the trading loop
+        await executeAndScheduleNext();
+
+    }, [is_authorized, symbol, is_running, tradingMode, checkTrendSupport, executeHigherLowerTrade, executeRiseFallTrade]);
+
 
     return (
         <div className="higher-lower-trader">
@@ -1846,9 +2034,9 @@ const HigherLowerTrader = observer(() => {
                         <div className='higher-lower-trader__buttons'>
                             {!is_running ? (
                                 <button
-                                    onClick={handleStart}
+                                    onClick={startTrading}
                                     className='btn-start'
-                                    disabled={!isAuthorized || symbols.length === 0}
+                                    disabled={!isAuthorized || !symbol}
                                 >
                                     <Play className='icon' />
                                     {localize('Start Trading')}
