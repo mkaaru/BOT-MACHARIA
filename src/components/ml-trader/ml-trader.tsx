@@ -151,6 +151,19 @@ const MLTrader = observer(() => {
     const [entrySpot, setEntrySpot] = useState<number>(0); // For Rise/Fall mode
     const [ticksProcessed, setTicksProcessed] = useState<number>(0);
 
+    // Volatility scanner state
+    const [isScanning, setIsScanning] = useState(false);
+    const [volatilityRecommendations, setVolatilityRecommendations] = useState<any[]>([]);
+    const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
+    const [isPreloading, setIsPreloading] = useState<boolean>(false);
+    const [marketRecommendation, setMarketRecommendation] = useState<any>(null);
+    const [isAutoTrading, setIsAutoTrading] = useState<boolean>(false); // State to manage auto-trading status
+
+    // Rise/Fall Analytics State
+    const [tickStream, setTickStream] = useState<Array<{ price: number; direction: 'R' | 'F' | 'N'; time: number }>>([]);
+    const [risePercentage, setRisePercentage] = useState<number>(0);
+    const [fallPercentage, setFallPercentage] = useState<number>(0);
+
     // Hull Moving Average trend analysis state - using 1000 tick increments for stability
     const [hullTrends, setHullTrends] = useState({
         '1000': { trend: 'NEUTRAL', value: 0 },
@@ -175,15 +188,6 @@ const MLTrader = observer(() => {
     const [contractsWon, setContractsWon] = useState(0);
     const [contractsLost, setContractsLost] = useState(0);
     const [totalProfitLoss, setTotalProfitLoss] = useState(0);
-
-    // Volatility scanner state
-    const [isScanning, setIsScanning] = useState(false);
-    const [volatilityRecommendations, setVolatilityRecommendations] = useState<any[]>([]);
-    const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
-    const [isPreloading, setIsPreloading] = useState<boolean>(false);
-    const [marketRecommendation, setMarketRecommendation] = useState<any>(null);
-    const [isAutoTrading, setIsAutoTrading] = useState<boolean>(false); // State to manage auto-trading status
-
 
     // State to track trend update counters for independent timing
     const [trendUpdateCounters, setTrendUpdateCounters] = useState({
@@ -668,6 +672,9 @@ const MLTrader = observer(() => {
     const startTicks = async (sym: string) => {
         stopTicks();
         setTicksProcessed(0);
+        setTickStream([]); // Clear tick stream on new symbol
+        setRisePercentage(0);
+        setFallPercentage(0);
 
         try {
             const { subscription, error } = await apiRef.current.send({ ticks: sym, subscribe: 1 });
@@ -684,6 +691,36 @@ const MLTrader = observer(() => {
                         setCurrentPrice(quote);
                         setEntrySpot(quote); // Update entry spot for Rise/Fall
                         setTicksProcessed(prev => prev + 1);
+
+                        // Update tick stream for R/F analysis (borrowed from volatility analyzer)
+                        setTickStream(prev => {
+                            const lastPrice = prev.length > 0 ? prev[prev.length - 1].price : quote;
+                            let direction: 'R' | 'F' | 'N' = 'N';
+
+                            if (quote > lastPrice) {
+                                direction = 'R'; // Rise
+                            } else if (quote < lastPrice) {
+                                direction = 'F'; // Fall
+                            }
+
+                            const newTick = { price: quote, direction, time: tickTime };
+                            const updatedStream = [...prev, newTick].slice(-120); // Keep last 120 ticks
+
+                            // Calculate rise/fall percentages
+                            const riseCount = updatedStream.filter(t => t.direction === 'R').length;
+                            const fallCount = updatedStream.filter(t => t.direction === 'F').length;
+                            const totalDirectional = riseCount + fallCount;
+
+                            if (totalDirectional > 0) {
+                                setRisePercentage(Math.round((riseCount / totalDirectional) * 100));
+                                setFallPercentage(Math.round((fallCount / totalDirectional) * 100));
+                            } else {
+                                setRisePercentage(0);
+                                setFallPercentage(0);
+                            }
+
+                            return updatedStream;
+                        });
 
                         setTickData(prev => {
                             const newTickData = [...prev, {
@@ -1284,10 +1321,78 @@ const MLTrader = observer(() => {
             </div>
 
             <div className="ml-trader__market-info">
-                <div className="market-data">
-                    <Text size="sm" weight="bold">Current Price: {currentPrice.toFixed(5)}</Text>
-                    <Text size="sm">Entry Spot: {entrySpot.toFixed(5)}</Text>
-                    <Text size="sm">Ticks Processed: {ticksProcessed}</Text>
+                <div className="live-data-section">
+                    <div className="live-price">
+                        <Text size="sm" weight="bold">
+                            Current Price: {currentPrice.toFixed(5)}
+                        </Text>
+                        <Text size="sm">
+                            Ticks Processed: {ticksProcessed}
+                        </Text>
+                        <Text size="sm">
+                            Entry Spot: {entrySpot.toFixed(5)}
+                        </Text>
+                    </div>
+
+                    {/* Rise/Fall Analytics borrowed from volatility analyzer */}
+                    <div className="rise-fall-analytics">
+                        <h3>Rise/Fall Analysis</h3>
+                        <div className="analytics-grid">
+                            <div className="analytics-item">
+                                <div className="progress-item">
+                                    <div className="progress-label">
+                                        <span>Rise</span>
+                                        <span className="progress-percentage">{risePercentage}%</span>
+                                    </div>
+                                    <div className="progress-bar">
+                                        <div 
+                                            className="progress-fill"
+                                            style={{ 
+                                                width: `${risePercentage}%`,
+                                                backgroundColor: '#4CAF50'
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="analytics-item">
+                                <div className="progress-item">
+                                    <div className="progress-label">
+                                        <span>Fall</span>
+                                        <span className="progress-percentage">{fallPercentage}%</span>
+                                    </div>
+                                    <div className="progress-bar">
+                                        <div 
+                                            className="progress-fill"
+                                            style={{ 
+                                                width: `${fallPercentage}%`,
+                                                backgroundColor: '#f44336'
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Tick Stream Display */}
+                    <div className="tick-stream">
+                        <h4>Last 10 Ticks Pattern:</h4>
+                        <div className="pattern-grid">
+                            {tickStream.slice(-10).map((tick, index) => (
+                                <div 
+                                    key={index} 
+                                    className={`digit-item ${tick.direction === 'R' ? 'rise' : tick.direction === 'F' ? 'fall' : 'neutral'}`}
+                                >
+                                    {tick.direction}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="pattern-info">
+                            Recent pattern: {tickStream.slice(-10).map(t => t.direction).join('')}
+                        </div>
+                    </div>
                 </div>
             </div>
 

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Play, Square, TrendingUp, TrendingDown } from 'lucide-react';
@@ -35,6 +34,8 @@ const RiseFallTrader = observer(() => {
     const apiRef = useRef<any>(null);
     const tickStreamIdRef = useRef<string | null>(null);
     const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
+    const autoTradingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const lastTradeResultRef = useRef<'WIN' | 'LOSS' | null>(null);
 
     const [is_authorized, setIsAuthorized] = useState(false);
     const [account_currency, setAccountCurrency] = useState<string>('USD');
@@ -45,11 +46,22 @@ const RiseFallTrader = observer(() => {
     const [contractType, setContractType] = useState<string>('CALL'); // CALL for Rise, PUT for Fall
     const [duration, setDuration] = useState<number>(1); // Duration in ticks for Rise/Fall
     const [stake, setStake] = useState<number>(1.0);
+    const [martingaleRuns, setMartingaleRuns] = useState<number>(5); // Number of martingale steps
+    const [stopLoss, setStopLoss] = useState<number>(100); // Stop loss in currency units
+    const [takeProfit, setTakeProfit] = useState<number>(100); // Take profit in currency units
+    const [baseStake, setBaseStake] = useState<number>(1.0); // Base stake for martingale
+    const [currentMartingaleCount, setCurrentMartingaleCount] = useState<number>(0); // Current martingale step
+    const [isAutoTrading, setIsAutoTrading] = useState<boolean>(false);
 
     // Live price state
     const [currentPrice, setCurrentPrice] = useState<number>(0);
     const [entrySpot, setEntrySpot] = useState<number>(0);
     const [ticksProcessed, setTicksProcessed] = useState<number>(0);
+
+    // Volatility scanner state
+    const [isScanning, setIsScanning] = useState(false);
+    const [volatilityRecommendations, setVolatilityRecommendations] = useState<any[]>([]);
+    const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
 
     // Hull Moving Average trend analysis state
     const [hullTrends, setHullTrends] = useState({
@@ -60,6 +72,11 @@ const RiseFallTrader = observer(() => {
     });
     const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
     const [tradeHistory, setTradeHistory] = useState<Array<any>>([]);
+
+    // Volatility analysis state
+    const [risePercentage, setRisePercentage] = useState<number>(0);
+    const [fallPercentage, setFallPercentage] = useState<number>(0);
+    const [tickStream, setTickStream] = useState<Array<{ time: number, price: number, direction: 'R' | 'F' | 'N' }>>([]);
 
     const [status, setStatus] = useState<string>('Initializing...');
     const [is_running, setIsRunning] = useState(false);
@@ -72,11 +89,6 @@ const RiseFallTrader = observer(() => {
     const [contractsLost, setContractsLost] = useState(0);
     const [totalProfitLoss, setTotalProfitLoss] = useState(0);
 
-    // Volatility scanner state
-    const [isScanning, setIsScanning] = useState(false);
-    const [volatilityRecommendations, setVolatilityRecommendations] = useState<any[]>([]);
-    const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
-    const [isPreloading, setIsPreloading] = useState<boolean>(false);
     const [marketRecommendation, setMarketRecommendation] = useState<any>(null);
 
     // --- Helper Functions ---
@@ -151,6 +163,48 @@ const RiseFallTrader = observer(() => {
 
         setHullTrends(newTrends);
     };
+
+    // Update Rise/Fall percentages and tick stream direction
+    const updateVolatilityAnalysis = (currentTickPrice: number, entryTickPrice: number) => {
+        setTickStream(prev => {
+            const direction = currentTickPrice > entryTickPrice ? 'R' : currentTickPrice < entryTickPrice ? 'F' : 'N';
+            const newStream = [...prev, { time: Date.now(), price: currentTickPrice, direction }];
+            return newStream.slice(-20); // Keep only the last 20 ticks for display
+        });
+
+        setTickData(prev => {
+            const newTickData = [...prev, { time: Date.now(), price: currentTickPrice, close: currentTickPrice }];
+            const trimmedData = newTickData.slice(-4000);
+            updateHullTrends(trimmedData);
+            return trimmedData;
+        });
+
+        // Calculate rise/fall percentages based on the last N ticks or a defined period
+        const recentTicksForPercentage = tickData.slice(-100); // Analyze last 100 ticks for percentage
+        if (recentTicksForPercentage.length > 1) {
+            let rises = 0;
+            let falls = 0;
+            for (let i = 1; i < recentTicksForPercentage.length; i++) {
+                if (recentTicksForPercentage[i].price > recentTicksForPercentage[i - 1].price) {
+                    rises++;
+                } else if (recentTicksForPercentage[i].price < recentTicksForPercentage[i - 1].price) {
+                    falls++;
+                }
+            }
+            const totalChanges = rises + falls;
+            if (totalChanges > 0) {
+                setRisePercentage((rises / totalChanges) * 100);
+                setFallPercentage((falls / totalChanges) * 100);
+            } else {
+                setRisePercentage(50);
+                setFallPercentage(50);
+            }
+        } else {
+            setRisePercentage(50);
+            setFallPercentage(50);
+        }
+    };
+
 
     // Fetch historical tick data
     const fetchHistoricalTicks = async (symbolToFetch: string) => {
@@ -253,6 +307,7 @@ const RiseFallTrader = observer(() => {
         }
         setIsAuthorized(true);
         setAccountCurrency(response.authorize?.currency || 'USD');
+        setBaseStake(stake); // Set base stake on successful authorization
     };
 
     const stopTicks = () => {
@@ -288,17 +343,12 @@ const RiseFallTrader = observer(() => {
                         setEntrySpot(quote);
                         setTicksProcessed(prev => prev + 1);
 
-                        setTickData(prev => {
-                            const newTickData = [...prev, {
-                                time: tickTime,
-                                price: quote,
-                                close: quote
-                            }];
+                        updateVolatilityAnalysis(quote, entrySpot); // Update volatility analysis
 
-                            const trimmedData = newTickData.slice(-4000);
-                            updateHullTrends(trimmedData);
-                            return trimmedData;
-                        });
+                        // Process trade result if auto-trading
+                        if (isAutoTrading && lastTradeResultRef.current) {
+                            handleAutoTradeCompletion(lastTradeResultRef.current, quote);
+                        }
                     }
                 } catch {}
             };
@@ -311,17 +361,17 @@ const RiseFallTrader = observer(() => {
     };
 
     // Purchase Rise/Fall contract
-    const purchaseRiseFallContract = async () => {
+    const purchaseRiseFallContract = async (type: 'CALL' | 'PUT') => {
         await authorizeIfNeeded();
 
         try {
-            setStatus(`Getting proposal for ${contractType === 'CALL' ? 'Rise' : 'Fall'} contract...`);
+            setStatus(`Getting proposal for ${type === 'CALL' ? 'Rise' : 'Fall'} contract...`);
 
             const proposalParams = {
                 proposal: 1,
                 amount: stake,
                 basis: 'stake',
-                contract_type: contractType,
+                contract_type: type,
                 currency: account_currency,
                 duration: 1,
                 duration_unit: 't',
@@ -332,16 +382,16 @@ const RiseFallTrader = observer(() => {
 
             if (proposalResponse.error) {
                 setStatus(`Proposal failed: ${proposalResponse.error.message}`);
-                return;
+                return { success: false, error: proposalResponse.error };
             }
 
             const proposal = proposalResponse.proposal;
             if (!proposal) {
                 setStatus('No proposal received');
-                return;
+                return { success: false, error: 'No proposal received' };
             }
 
-            setStatus(`Purchasing ${contractType === 'CALL' ? 'Rise' : 'Fall'} contract...`);
+            setStatus(`Purchasing ${type === 'CALL' ? 'Rise' : 'Fall'} contract...`);
 
             const buyParams = {
                 buy: proposal.id,
@@ -352,7 +402,7 @@ const RiseFallTrader = observer(() => {
 
             if (buyResponse.error) {
                 setStatus(`Trade failed: ${buyResponse.error.message}`);
-                return;
+                return { success: false, error: buyResponse.error };
             }
 
             const purchase = buyResponse.buy;
@@ -363,7 +413,7 @@ const RiseFallTrader = observer(() => {
             const tradeRecord = {
                 id: purchase.contract_id,
                 symbol: symbol,
-                contract_type: contractType,
+                contract_type: type,
                 buy_price: purchase.buy_price,
                 payout: purchase.payout,
                 timestamp: new Date().toISOString(),
@@ -371,17 +421,24 @@ const RiseFallTrader = observer(() => {
             };
 
             setTradeHistory(prev => [tradeRecord, ...prev.slice(0, 99)]);
-            setStatus(`${contractType === 'CALL' ? 'Rise' : 'Fall'} contract purchased! ID: ${purchase.contract_id}`);
+            setStatus(`${type === 'CALL' ? 'Rise' : 'Fall'} contract purchased! ID: ${purchase.contract_id}`);
 
-        } catch (error) {
+            return { success: true, data: purchase };
+
+        } catch (error: any) {
             console.error('Purchase error:', error);
-            setStatus(`Purchase failed: ${error}`);
+            setStatus(`Purchase failed: ${error.message}`);
+            return { success: false, error: error };
         }
     };
 
-    const handleManualTrade = (tradeType: string) => {
+    const handleManualTrade = async (tradeType: 'CALL' | 'PUT') => {
         setContractType(tradeType);
-        purchaseRiseFallContract();
+        const result = await purchaseRiseFallContract(tradeType);
+        if (result.success) {
+            // For manual trades, we don't track martingale or auto-trading status here.
+            // The result of the trade (win/loss) will be handled in a separate 'sell' event or by polling.
+        }
     };
 
     // Get market recommendation based on Hull trends
@@ -484,6 +541,113 @@ const RiseFallTrader = observer(() => {
         }
     };
 
+    // Auto Trading Logic
+    const startAutoTrading = async () => {
+        if (!symbol || stake <= 0) {
+            setStatus('Please select a symbol and set a valid stake.');
+            return;
+        }
+        await authorizeIfNeeded();
+        setIsAutoTrading(true);
+        setBaseStake(stake); // Set base stake when starting auto-trading
+        setCurrentMartingaleCount(0); // Reset martingale count
+        setStatus('Auto trading started...');
+        executeNextContract();
+    };
+
+    const stopAutoTrading = () => {
+        setIsAutoTrading(false);
+        if (autoTradingIntervalRef.current) {
+            clearInterval(autoTradingIntervalRef.current);
+            autoTradingIntervalRef.current = null;
+        }
+        setStatus('Auto trading stopped.');
+    };
+
+    const executeNextContract = async () => {
+        if (!isAutoTrading) return;
+
+        const currentStake = calculateMartingaleStake();
+        if (currentStake <= 0) {
+            setStatus('Stake is too low to continue auto-trading. Stopping.');
+            stopAutoTrading();
+            return;
+        }
+        setStake(currentStake); // Update the stake input for visibility
+
+        const contractTypeToTrade = marketRecommendation?.recommendation === 'RISE' ? 'CALL' :
+                                   marketRecommendation?.recommendation === 'FALL' ? 'PUT' :
+                                   Math.random() < 0.5 ? 'CALL' : 'PUT'; // Default to random if no recommendation
+
+        const purchaseResult = await purchaseRiseFallContract(contractTypeToTrade as any);
+
+        if (purchaseResult.success) {
+            lastTradeResultRef.current = null; // Reset last trade result until outcome is known
+            // The result of the trade will be determined when the 'sell' event is received or by polling
+            // For now, we just recorded the purchase.
+            setStatus(`Contract purchased: ${contractTypeToTrade === 'CALL' ? 'Rise' : 'Fall'} (Stake: ${currentStake.toFixed(2)})`);
+        } else {
+            // If purchase failed, maybe retry or stop
+            setStatus(`Contract purchase failed. Retrying after a delay...`);
+            setTimeout(executeNextContract, 5000); // Retry after 5 seconds
+        }
+    };
+
+    const calculateMartingaleStake = (): number => {
+        if (currentMartingaleCount === 0) return baseStake;
+
+        const previousStake = stake;
+        const potentialWinAmount = stake * (1 + (0.9)); // Assuming ~90% payout for simplicity
+        const requiredProfit = baseStake; // Target profit is the base stake
+        const requiredStake = requiredProfit / 0.9; // Stake needed to achieve required profit
+
+        let nextStake = previousStake * 2; // Double the stake for martingale
+
+        // Ensure stake doesn't exceed limits or stop-loss potential
+        if (currentMartingaleCount >= martingaleRuns) {
+            setStatus('Maximum martingale runs reached. Resetting stake.');
+            setCurrentMartingaleCount(0);
+            setStake(baseStake); // Reset to base stake
+            return baseStake;
+        }
+
+        // Simple check against stop loss - this is a very basic implementation
+        if (totalStake + nextStake > stopLoss) {
+            setStatus('Next stake exceeds stop loss. Stopping auto-trading.');
+            stopAutoTrading();
+            return 0; // Indicate that no stake should be placed
+        }
+
+        return nextStake;
+    };
+
+    const handleAutoTradeCompletion = (result: 'WIN' | 'LOSS', currentTick: number) => {
+        if (result === 'WIN') {
+            setContractsWon(prev => prev + 1);
+            setTotalProfitLoss(prev => prev + stake * 0.9); // Assuming 90% payout
+            setStatus('Trade Won!');
+            setCurrentMartingaleCount(0); // Reset martingale count on win
+            setStake(baseStake); // Reset stake to base
+        } else { // LOSS
+            setContractsLost(prev => prev + 1);
+            setTotalProfitLoss(prev => prev - stake);
+            setStatus('Trade Lost.');
+            setCurrentMartingaleCount(prev => prev + 1);
+            // Stake will be recalculated in the next executeNextContract call based on currentMartingaleCount
+        }
+
+        // Check take profit
+        if (totalProfitLoss >= takeProfit) {
+            setStatus('Take profit reached! Stopping auto-trading.');
+            stopAutoTrading();
+            return;
+        }
+
+        // Schedule the next contract after a short delay
+        setTimeout(executeNextContract, 1000); // Wait 1 second before the next trade
+        lastTradeResultRef.current = null; // Clear the last trade result
+    };
+
     const winRate = totalRuns > 0 ? ((contractsWon / totalRuns) * 100).toFixed(1) : '0.0';
 
     return (
@@ -493,214 +657,258 @@ const RiseFallTrader = observer(() => {
                 <div className={`connection-status ${connectionStatus}`}>
                     {connectionStatus === 'connected' && '🟢 Connected'}
                     {connectionStatus === 'disconnected' && '🔴 Disconnected'}
-                    {connectionStatus === 'error' && '⚠️ Error'}
+                    {connectionStatus === 'error' && '🔴 Error'}
                 </div>
             </div>
 
-            <div className="trading-controls">
+            <div className="trader-controls">
                 <div className="control-group">
                     <label>Symbol:</label>
-                    <select
-                        value={symbol}
-                        onChange={(e) => setSymbol(e.target.value)}
-                    >
-                        {VOLATILITY_INDICES.map((vol) => (
-                            <option key={vol.value} value={vol.value}>
-                                {vol.label}
+                    <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>
+                        {VOLATILITY_INDICES.map((idx) => (
+                            <option key={idx.value} value={idx.value}>
+                                {idx.label}
                             </option>
                         ))}
                     </select>
                 </div>
 
                 <div className="control-group">
-                    <label>Stake ({account_currency}):</label>
+                    <label>Duration (Ticks):</label>
                     <input
                         type="number"
                         min="1"
-                        step="0.01"
-                        value={stake}
-                        onChange={(e) => setStake(parseFloat(e.target.value) || 1)}
+                        max="10"
+                        value={duration}
+                        onChange={(e) => setDuration(parseInt(e.target.value))}
                     />
                 </div>
 
                 <div className="control-group">
-                    <label>Duration:</label>
+                    <label>Base Stake ({account_currency}):</label>
+                    <input
+                        type="number"
+                        min="0.35"
+                        step="0.01"
+                        value={baseStake}
+                        onChange={(e) => {
+                            setBaseStake(parseFloat(e.target.value) || 1);
+                            if (!isAutoTrading) setStake(parseFloat(e.target.value) || 1);
+                        }}
+                    />
+                </div>
+
+                <div className="control-group">
+                    <label>Martingale Runs:</label>
                     <input
                         type="number"
                         min="1"
-                        value={duration}
-                        onChange={(e) => setDuration(parseInt(e.target.value) || 1)}
+                        max="20"
+                        value={martingaleRuns}
+                        onChange={(e) => setMartingaleRuns(parseInt(e.target.value))}
                     />
-                    <select value="t" disabled>
-                        <option value="t">Ticks</option>
-                    </select>
+                </div>
+
+                <div className="control-group">
+                    <label>Stop Loss ({account_currency}):</label>
+                    <input
+                        type="number"
+                        min="1"
+                        step="0.01"
+                        value={stopLoss}
+                        onChange={(e) => setStopLoss(parseFloat(e.target.value))}
+                    />
+                </div>
+
+                <div className="control-group">
+                    <label>Take Profit ({account_currency}):</label>
+                    <input
+                        type="number"
+                        min="1"
+                        step="0.01"
+                        value={takeProfit}
+                        onChange={(e) => setTakeProfit(parseFloat(e.target.value))}
+                    />
                 </div>
             </div>
 
-            <div className="trading-section">
-                <div className="section-title">Manual Trading</div>
-                <div className="trading-buttons">
-                    <button
-                        className="trade-button rise-button"
-                        onClick={() => handleManualTrade('CALL')}
-                        disabled={!symbol || stake <= 0}
-                    >
-                        Rise
-                    </button>
-                    <button
-                        className="trade-button fall-button"
-                        onClick={() => handleManualTrade('PUT')}
-                        disabled={!symbol || stake <= 0}
-                    >
-                        Fall
-                    </button>
+            <div className="live-data">
+                <div className="price-display">
+                    <Text size="sm" weight="bold">Current Price: {currentPrice.toFixed(5)}</Text>
+                    <Text size="sm">Ticks Processed: {ticksProcessed}</Text>
                 </div>
 
-                <div className="trading-info">
-                    <div className="info-item">
-                        <div className="label">Current Price</div>
-                        <div className="value">{currentPrice.toFixed(5)}</div>
-                    </div>
-                    <div className="info-item">
-                        <div className="label">Entry Spot</div>
-                        <div className="value">{entrySpot.toFixed(5)}</div>
-                    </div>
-                    <div className="info-item">
-                        <div className="label">Ticks Processed</div>
-                        <div className="value">{ticksProcessed}</div>
+                {/* Rise/Fall Analytics borrowed from volatility analyzer */}
+                <div className="rise-fall-analytics">
+                    <h3>Rise/Fall Analysis</h3>
+                    <div className="analytics-grid">
+                        <div className="analytics-item">
+                            <div className="progress-item">
+                                <div className="progress-label">
+                                    <span>Rise</span>
+                                    <span className="progress-percentage">{risePercentage.toFixed(1)}%</span>
+                                </div>
+                                <div className="progress-bar">
+                                    <div
+                                        className="progress-fill"
+                                        style={{
+                                            width: `${risePercentage}%`,
+                                            backgroundColor: '#4CAF50'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="analytics-item">
+                            <div className="progress-item">
+                                <div className="progress-label">
+                                    <span>Fall</span>
+                                    <span className="progress-percentage">{fallPercentage.toFixed(1)}%</span>
+                                </div>
+                                <div className="progress-bar">
+                                    <div
+                                        className="progress-fill"
+                                        style={{
+                                            width: `${fallPercentage}%`,
+                                            backgroundColor: '#f44336'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Market Recommendation */}
-            {marketRecommendation && (
-                <div className="trading-section">
-                    <div className="section-title">Current Symbol Recommendation</div>
-                    <div className="recommendation-card">
-                        <div className="recommendation-header">
-                            <span className="symbol-name">{marketRecommendation.symbol}</span>
-                            <span className={`signal ${marketRecommendation.recommendation.toLowerCase()}`}>
-                                {marketRecommendation.recommendation}
-                            </span>
-                        </div>
-                        <div className="recommendation-details">
-                            <div className="confidence">
-                                Confidence: {marketRecommendation.confidence.toFixed(1)}%
-                            </div>
-                            <div className="aligned-trends">
-                                Aligned Trends: {marketRecommendation.alignedTrends}/{marketRecommendation.totalTrends}
-                            </div>
-                        </div>
-                        <div className="recommendation-reasoning">
-                            {marketRecommendation.reasoning}
-                        </div>
-                        {marketRecommendation.recommendation !== 'WAIT' && (
-                            <button
-                                className={`apply-recommendation-btn ${marketRecommendation.recommendation.toLowerCase()}`}
-                                onClick={() => handleManualTrade(marketRecommendation.recommendation === 'RISE' ? 'CALL' : 'PUT')}
+                {/* Tick Stream Display */}
+                <div className="tick-stream">
+                    <h4>Last 10 Ticks Pattern:</h4>
+                    <div className="pattern-grid">
+                        {tickStream.slice(-10).map((tick, index) => (
+                            <div
+                                key={index}
+                                className={`digit-item ${tick.direction === 'R' ? 'rise' : tick.direction === 'F' ? 'fall' : 'neutral'}`}
                             >
-                                Apply Recommendation: {marketRecommendation.recommendation}
-                            </button>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* Volatility Opportunities Scanner */}
-            <div className="trading-section">
-                <div className="section-title">
-                    Volatility Opportunities Scanner
-                    <button
-                        className="scan-button"
-                        onClick={scanVolatilityOpportunities}
-                        disabled={isScanning}
-                    >
-                        {isScanning ? 'Scanning...' : 'Scan All Volatilities'}
-                    </button>
-                </div>
-
-                {volatilityRecommendations.length > 0 ? (
-                    <div className="volatility-recommendations">
-                        {volatilityRecommendations.map((recommendation, index) => (
-                            <div key={recommendation.symbol} className="volatility-card">
-                                <div className="volatility-header">
-                                    <span className="volatility-name">{recommendation.displayName}</span>
-                                    <span className={`volatility-signal ${recommendation.signal.toLowerCase()}`}>
-                                        {recommendation.signal}
-                                    </span>
-                                </div>
-                                <div className="volatility-confidence">
-                                    Confidence: {recommendation.confidence}%
-                                </div>
-                                <div className="volatility-reasoning">
-                                    {recommendation.reasoning}
-                                </div>
-                                <button
-                                    className="select-symbol-btn"
-                                    onClick={() => setSymbol(recommendation.symbol)}
-                                >
-                                    Select Symbol
-                                </button>
+                                {tick.direction}
                             </div>
                         ))}
                     </div>
-                ) : (
-                    <div className="no-opportunities">
-                        No volatility opportunities currently found. Try scanning again.
+                    <div className="pattern-info">
+                        Recent pattern: {tickStream.slice(-10).map(t => t.direction).join('')}
                     </div>
-                )}
+                </div>
             </div>
 
-            {/* Market Analysis */}
-            <div className="market-analysis">
-                <div className="section-title">Hull Moving Average Analysis</div>
-                <div className="analysis-grid">
-                    {Object.entries(hullTrends).map(([timeframe, trendData]) => (
-                        <div key={timeframe} className="analysis-card">
-                            <div className="card-title">{timeframe} Tick Timeframe</div>
-                            <div className={`trend-indicator ${trendData.trend.toLowerCase()}`}>
-                                <div className="trend-arrow">
-                                    {trendData.trend === 'BULLISH' && <TrendingUp />}
-                                    {trendData.trend === 'BEARISH' && <TrendingDown />}
-                                    {trendData.trend === 'NEUTRAL' && '—'}
-                                </div>
-                                <div className="trend-text">{trendData.trend}</div>
-                            </div>
-                            <div className="hma-value">HMA: {trendData.value}</div>
+            <div className="hull-trends">
+                <h3>Hull Moving Average Trend Analysis</h3>
+                <div className="trends-grid">
+                    {Object.entries(hullTrends).map(([timeframe, data]) => (
+                        <div key={timeframe} className={`trend-item trend-${data.trend.toLowerCase()}`}>
+                            <Text size="xs" weight="bold">{timeframe} Ticks: {data.trend}</Text>
+                            <Text size="xs">HMA: {data.value}</Text>
                         </div>
                     ))}
                 </div>
             </div>
 
-            {/* Status Panel */}
-            <div className="status-panel">
-                <div className={`status-message ${status.includes('error') ? 'error' : status.includes('success') ? 'success' : 'info'}`}>
-                    {status}
+            {marketRecommendation && (
+                <div className="market-recommendation">
+                    <div className={`recommendation-card recommendation-${marketRecommendation.recommendation.toLowerCase()}`}>
+                        <Text size="sm" weight="bold">Market Recommendation: {marketRecommendation.recommendation}</Text>
+                        <Text size="xs">Confidence: {marketRecommendation.confidence}%</Text>
+                        <Text size="xs">Signal: {marketRecommendation.signal}</Text>
+                    </div>
                 </div>
+            )}
 
-                <div className="trading-stats">
+            <div className="trading-buttons">
+                <button
+                    className={`trade-btn auto-trade-btn ${isAutoTrading ? 'trading-active' : ''}`}
+                    onClick={isAutoTrading ? stopAutoTrading : startAutoTrading}
+                    disabled={!symbol}
+                >
+                    {isAutoTrading ? (
+                        <>
+                            <Square size={16} />
+                            Stop Auto Trading
+                        </>
+                    ) : (
+                        <>
+                            <Play size={16} />
+                            Start Auto Trading
+                        </>
+                    )}
+                </button>
+
+                <button
+                    className="trade-btn rise-btn"
+                    onClick={() => handleManualTrade('CALL')}
+                    disabled={is_running || isAutoTrading}
+                >
+                    <TrendingUp size={16} />
+                    Rise (Manual)
+                </button>
+                <button
+                    className="trade-btn fall-btn"
+                    onClick={() => handleManualTrade('PUT')}
+                    disabled={is_running || isAutoTrading}
+                >
+                    <TrendingDown size={16} />
+                    Fall (Manual)
+                </button>
+            </div>
+
+            {/* Martingale Status */}
+            {isAutoTrading && (
+                <div className="martingale-status">
+                    <Text size="sm">Martingale Count: {currentMartingaleCount}/{martingaleRuns}</Text>
+                    <Text size="sm">Current Stake: ${stake.toFixed(2)}</Text>
+                    <Text size="sm">Base Stake: ${baseStake.toFixed(2)}</Text>
+                </div>
+            )}
+
+            <div className="trade-history">
+                <h3>Recent Trades</h3>
+                <div className="history-list">
+                    {tradeHistory.slice(0, 5).map((trade, index) => (
+                        <div key={index} className="history-item">
+                            <Text size="xs">
+                                {trade.contract_type === 'CALL' ? '⬆️' : '⬇️'} {trade.symbol} -
+                                ${trade.buy_price} (Payout: ${trade.payout})
+                            </Text>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="trading-stats">
+                <div className="stats-grid">
                     <div className="stat-item">
-                        <div className="stat-value">{totalRuns}</div>
-                        <div className="stat-label">Total Trades</div>
+                        <Text size="xs" weight="bold">Total Stake: ${totalStake.toFixed(2)}</Text>
                     </div>
                     <div className="stat-item">
-                        <div className="stat-value">{contractsWon}</div>
-                        <div className="stat-label">Won</div>
+                        <Text size="xs" weight="bold">Total Payout: ${totalPayout.toFixed(2)}</Text>
                     </div>
                     <div className="stat-item">
-                        <div className="stat-value">{contractsLost}</div>
-                        <div className="stat-label">Lost</div>
+                        <Text size="xs" weight="bold">Total Runs: {totalRuns}</Text>
                     </div>
                     <div className="stat-item">
-                        <div className="stat-value">{winRate}%</div>
-                        <div className="stat-label">Win Rate</div>
+                        <Text size="xs" weight="bold">Won: {contractsWon}</Text>
                     </div>
                     <div className="stat-item">
-                        <div className="stat-value">{totalProfitLoss.toFixed(2)}</div>
-                        <div className="stat-label">P&L ({account_currency})</div>
+                        <Text size="xs" weight="bold">Lost: {contractsLost}</Text>
+                    </div>
+                    <div className="stat-item">
+                        <Text size="xs" weight="bold">P&L: ${totalProfitLoss.toFixed(2)}</Text>
                     </div>
                 </div>
             </div>
+
+            {status && (
+                <div className="status-message">
+                    <Text size="sm">{status}</Text>
+                </div>
+            )}
         </div>
     );
 });
