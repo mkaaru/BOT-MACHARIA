@@ -118,6 +118,7 @@ const MLTrader = observer(() => {
     const tickStreamIdRef = useRef<string | null>(null);
     const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
     const pocSubIdRef = useRef<string | null>(null); // Ref for proposal_open_contract subscription ID
+    const autoTradingIntervalRef = useRef<NodeJS.Timeout | null>(null); // Ref for auto-trading interval
 
     const [is_authorized, setIsAuthorized] = useState(false);
     const [account_currency, setAccountCurrency] = useState<string>('USD');
@@ -133,8 +134,11 @@ const MLTrader = observer(() => {
 
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
-    const [useStopOnProfit, setUseStopOnProfit] = useState<boolean>(false);
-    const [targetProfit, setTargetProfit] = useState<number>(10.0);
+    const [martingaleRuns, setMartingaleRuns] = useState<number>(10); // Default to 10 runs
+    const [stopLoss, setStopLoss] = useState<number>(50.0);
+    const [takeProfit, setTakeProfit] = useState<number>(100.0);
+    const [currentMartingaleCount, setCurrentMartingaleCount] = useState<number>(0);
+    const [isInMartingaleSplit, setIsInMartingaleSplit] = useState<boolean>(false);
 
     // Contract tracking state
     const [currentProfit, setCurrentProfit] = useState<number>(0);
@@ -178,6 +182,7 @@ const MLTrader = observer(() => {
     const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
     const [isPreloading, setIsPreloading] = useState<boolean>(false);
     const [marketRecommendation, setMarketRecommendation] = useState<any>(null);
+    const [isAutoTrading, setIsAutoTrading] = useState<boolean>(false); // State to manage auto-trading status
 
 
     // State to track trend update counters for independent timing
@@ -706,6 +711,19 @@ const MLTrader = observer(() => {
     const purchaseRiseFallContract = async (tradeType: string) => {
         await authorizeIfNeeded();
 
+        // Check for stop loss and take profit before trading
+        if (totalProfitLoss <= -stopLoss) {
+            setStatus(`Stop Loss hit ($${stopLoss}). Stopping trading.`);
+            stopAutoTrading();
+            return;
+        }
+        if (totalProfitLoss >= takeProfit) {
+            setStatus(`Take Profit hit ($${takeProfit}). Stopping trading.`);
+            stopAutoTrading();
+            return;
+        }
+
+
         try {
             // Map contract types correctly for Rise/Fall
             let apiContractType = tradeType;
@@ -857,13 +875,28 @@ const MLTrader = observer(() => {
                                         lossStreak = 0;
                                         step = 0;
                                         setStake(baseStake);
+                                        setCurrentMartingaleCount(0); // Reset martingale count on win
+                                        setIsInMartingaleSplit(false); // Reset mode on win
                                     } else {
                                         lastOutcomeWasLossRef.current = true;
                                         lossStreak++;
-                                        step = Math.min(step + 1, 50);
+                                        step = Math.min(step + 1, martingaleRuns); // Cap at martingaleRuns
+                                        setCurrentMartingaleCount(step);
+                                        setIsInMartingaleSplit(true); // Enter split mode
+
                                         // Adjust stake based on martingale multiplier and step
-                                        setStake(baseStake * Math.pow(martingaleMultiplier, step));
+                                        const nextStake = baseStake * Math.pow(martingaleMultiplier, step);
+                                        setStake(nextStake);
+
+                                        // Check if max martingale runs reached
+                                        if (step >= martingaleRuns) {
+                                            setStatus(`Martingale runs limit (${martingaleRuns}) reached. Resetting stake.`);
+                                            setStake(baseStake);
+                                            setCurrentMartingaleCount(0);
+                                            setIsInMartingaleSplit(false);
+                                        }
                                     }
+                                    setTotalProfitLoss(prev => prev + profit); // Update total P&L
                                 } else {
                                     // Contract is still running
                                     setStatus(`📈 Running: ${poc?.longcode || 'Contract'} | Current P&L: ${profit.toFixed(2)} ${account_currency}`);
@@ -888,49 +921,71 @@ const MLTrader = observer(() => {
         }
     };
 
-    const onRun = async () => {
-        setStatus('');
-        setIsRunning(true);
-        stopFlagRef.current = false;
+    const executeSingleTrade = () => {
+        if (!symbol) {
+            setStatus("Please select a symbol.");
+            return;
+        }
+        purchaseRiseFallContract(contractType);
+    };
 
-        // Ensure run panel is visible and set to transactions tab
-        run_panel.toggleDrawer(true);
-        run_panel.setActiveTabIndex(1); // Transactions tab index in run panel tabs
-        run_panel.run_id = `ml-trader-${Date.now()}`;
+    const startAutoTrading = () => {
+        if (!symbol) {
+            setStatus("Please select a symbol.");
+            return;
+        }
+        setIsAutoTrading(true);
+        setStatus('Auto trading started.');
         run_panel.setIsRunning(true);
         run_panel.setContractStage(contract_stages.STARTING);
 
-        setStatus('🤖 ML Trader started - trades will appear in run panel');
+        // Immediately start the first trade
+        executeSingleTrade();
+
+        // Set interval for subsequent trades
+        autoTradingIntervalRef.current = setInterval(() => {
+            if (!stopFlagRef.current && isAutoTrading) {
+                executeSingleTrade();
+            }
+        }, 5000); // Adjust interval as needed (e.g., 5 seconds)
     };
 
-    const handleStartTrading = () => {
-        if (is_running) {
-            // Stop trading logic
-            setIsRunning(false);
-            stopFlagRef.current = true;
-            setStatus('🛑 ML Trader stopped - view trade history in run panel');
-            run_panel.setIsRunning(false);
-            run_panel.setHasOpenContract(false);
-            run_panel.setContractStage(contract_stages.NOT_RUNNING);
-            stopTicks(); // Ensure no more tick subscriptions
-            if (pocSubIdRef.current) {
-                apiRef.current?.forget?.({ forget: pocSubIdRef.current });
-                pocSubIdRef.current = null;
-            }
-            if (messageHandlerRef.current) {
-                apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
-                messageHandlerRef.current = null;
-            }
-        } else {
-            // Start trading logic
-            onRun();
+    const stopAutoTrading = () => {
+        setIsAutoTrading(false);
+        setStatus('Auto trading stopped.');
+        run_panel.setIsRunning(false);
+        run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        if (autoTradingIntervalRef.current) {
+            clearInterval(autoTradingIntervalRef.current);
+            autoTradingIntervalRef.current = null;
+        }
+        // Clear contract subscriptions on stop
+        if (pocSubIdRef.current) {
+            apiRef.current?.forget?.({ forget: pocSubIdRef.current });
+            pocSubIdRef.current = null;
+        }
+        if (messageHandlerRef.current) {
+            apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
+            messageHandlerRef.current = null;
         }
     };
 
-    const handleManualTrade = (tradeType: string) => {
-        setContractType(tradeType);
-        purchaseRiseFallContract(tradeType);
-    };
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (messageHandlerRef.current && apiRef.current) {
+                const ws = tradingEngine.getWebSocket();
+                ws.removeEventListener('message', messageHandlerRef.current);
+            }
+            if (tickStreamIdRef.current && apiRef.current) {
+                apiRef.current.send({ forget: tickStreamIdRef.current });
+            }
+            // Stop auto trading
+            if (autoTradingIntervalRef.current) {
+                clearTimeout(autoTradingIntervalRef.current);
+            }
+        };
+    }, []);
 
     // Get market recommendation based on HMA trend analysis
     const getMarketRecommendation = () => {
@@ -1186,19 +1241,15 @@ const MLTrader = observer(() => {
                         value={symbol}
                         onChange={(e) => {
                             setSymbol(e.target.value);
-                            startTicks(e.target.value);
-                            // Fetch historical data for the newly selected symbol
-                            if (preloadedData[e.target.value] && preloadedData[e.target.value].length > 0) {
-                                setTickData(preloadedData[e.target.value]);
-                                updateEhlersTrends(preloadedData[e.target.value]);
-                            } else {
+                            if (e.target.value && !tickStreamIdRef.current) {
                                 fetchHistoricalTicks(e.target.value);
                             }
                         }}
                     >
-                        {symbols.map(s => (
-                            <option key={s.symbol} value={s.symbol}>
-                                {s.display_name}
+                        <option value="">Select Volatility Index</option>
+                        {VOLATILITY_INDICES.map((vol) => (
+                            <option key={vol.value} value={vol.value}>
+                                {vol.label}
                             </option>
                         ))}
                     </select>
@@ -1371,39 +1422,38 @@ const MLTrader = observer(() => {
             <div className="ml-trader__actions">
                 <div className="contract-buttons">
                     <button
-                        className="contract-btn rise-btn"
-                        onClick={() => handleManualTrade('CALL')}
-                        disabled={is_running}
+                        className="higher-btn"
+                        onClick={() => {
+                            setContractType('CALL');
+                            if (!isAutoTrading) {
+                                executeSingleTrade();
+                            }
+                        }}
+                        disabled={!symbol || isAutoTrading}
                     >
-                        <TrendingUp size={16} />
-                        Rise
+                        Rise (Manual)
                     </button>
                     <button
-                        className="contract-btn fall-btn"
-                        onClick={() => handleManualTrade('PUT')}
-                        disabled={is_running}
+                        className="lower-btn"
+                        onClick={() => {
+                            setContractType('PUT');
+                            if (!isAutoTrading) {
+                                executeSingleTrade();
+                            }
+                        }}
+                        disabled={!symbol || isAutoTrading}
                     >
-                        <TrendingDown size={16} />
-                        Fall
+                        Fall (Manual)
+                    </button>
+
+                    <button
+                        className={`start-trading-btn ${isAutoTrading ? 'trading-active' : ''}`}
+                        onClick={isAutoTrading ? stopAutoTrading : startAutoTrading}
+                        disabled={!symbol}
+                    >
+                        {isAutoTrading ? 'Stop Auto Trading' : 'Start Auto Trading'}
                     </button>
                 </div>
-
-                <button
-                    className={`trading-btn ${is_running ? 'stop' : 'start'}`}
-                    onClick={handleStartTrading}
-                >
-                    {is_running ? (
-                        <>
-                            <Square size={16} />
-                            Stop Trading
-                        </>
-                    ) : (
-                        <>
-                            <Play size={16} />
-                            Start Auto Trading
-                        </>
-                    )}
-                </button>
             </div>
 
             <div className="ml-trader__statistics">

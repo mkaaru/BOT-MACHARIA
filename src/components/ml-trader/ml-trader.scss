@@ -632,6 +632,116 @@
     }
   }
 
+  .trading-controls {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 15px 0;
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+
+      label {
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 5px;
+        color: #333;
+      }
+
+      input {
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+
+        &:focus {
+          border-color: #007bff;
+          outline: none;
+        }
+
+        &[readonly] {
+          background-color: #f0f0f0;
+          color: #666;
+          cursor: not-allowed;
+        }
+      }
+    }
+  }
+
+  .trade-history {
+    margin: 15px 0;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+
+    h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 0 0 10px 0;
+      color: #333;
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+
+      .history-item {
+        display: grid;
+        grid-template-columns: 60px 80px 50px 60px 70px;
+        gap: 8px;
+        padding: 6px 8px;
+        background: white;
+        border-radius: 4px;
+        font-size: 11px;
+        border-left: 3px solid #ddd;
+
+        &.win {
+          border-left-color: #28a745;
+          background: #f8fff9;
+        }
+
+        &.loss {
+          border-left-color: #dc3545;
+          background: #fff8f8;
+        }
+
+        .trade-time {
+          font-weight: 500;
+          color: #666;
+        }
+
+        .trade-symbol {
+          font-weight: 600;
+          color: #333;
+        }
+
+        .trade-type {
+          color: #007bff;
+          font-weight: 500;
+        }
+
+        .trade-stake {
+          color: #666;
+        }
+
+        .trade-profit {
+          font-weight: 600;
+
+          &.win {
+            color: #28a745;
+          }
+
+          &.loss {
+            color: #dc3545;
+          }
+        }
+      }
+    }
+  }
+
 
   @media (max-width: 768px) {
     padding: 15px;
