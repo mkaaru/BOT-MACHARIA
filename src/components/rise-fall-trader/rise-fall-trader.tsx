@@ -841,7 +841,7 @@ const RiseFallTrader = observer(() => {
                 </button>
 
                 <button
-                    className="trade-btn rise-btn"
+                    className="trade-btn rise-btn manual-trade-btn"
                     onClick={() => handleManualTrade('CALL')}
                     disabled={is_running || isAutoTrading}
                 >
@@ -849,7 +849,7 @@ const RiseFallTrader = observer(() => {
                     Rise (Manual)
                 </button>
                 <button
-                    className="trade-btn fall-btn"
+                    className="trade-btn fall-btn manual-trade-btn"
                     onClick={() => handleManualTrade('PUT')}
                     disabled={is_running || isAutoTrading}
                 >

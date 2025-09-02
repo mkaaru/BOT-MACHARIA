@@ -198,6 +198,15 @@
           }
         }
 
+        &.manual-trade-btn {
+          margin-bottom: 8px;
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+
+          &:hover:not(:disabled) {
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+          }
+        }
+
         &.rise-btn {
           background: linear-gradient(135deg, #00e676 0%, #4caf50 50%, #66bb6a 100%);
           color: white;
