@@ -73,19 +73,35 @@ const tradingEngine = {
     },
 };
 
-// Volatility indices for Rise/Fall trading
-const VOLATILITY_INDICES = [
-  { value: 'R_10', label: 'Volatility 10 (1s) Index' },
-  { value: 'R_25', label: 'Volatility 25 (1s) Index' },
-  { value: 'R_50', label: 'Volatility 50 (1s) Index' },
-  { value: 'R_75', label: 'Volatility 75 (1s) Index' },
-  { value: 'R_100', label: 'Volatility 100 (1s) Index' },
-  { value: 'BOOM500', label: 'Boom 500 Index' },
-  { value: 'BOOM1000', label: 'Boom 1000 Index' },
-  { value: 'CRASH500', label: 'Crash 500 Index' },
-  { value: 'CRASH1000', label: 'Crash 1000 Index' },
-  { value: 'stpRNG', label: 'Step Index' },
-];
+// Extended volatility indices configuration from Smart Trader
+    const VOLATILITY_INDICES = [
+        { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
+        { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
+        { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
+        { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
+        { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
+        { value: 'R_10', label: 'Volatility 10 Index' },
+        { value: 'R_25', label: 'Volatility 25 Index' },
+        { value: 'R_50', label: 'Volatility 50 Index' },
+        { value: 'R_75', label: 'Volatility 75 Index' },
+        { value: 'R_100', label: 'Volatility 100 Index' },
+        { value: '1HZ150V', label: 'Volatility 150 (1s) Index' },
+        { value: '1HZ200V', label: 'Volatility 200 (1s) Index' },
+        { value: '1HZ250V', label: 'Volatility 250 (1s) Index' },
+        { value: '1HZ300V', label: 'Volatility 300 (1s) Index' },
+        { value: 'BOOM300N', label: 'Boom 300 Index' },
+        { value: 'BOOM500N', label: 'Boom 500 Index' },
+        { value: 'BOOM1000N', label: 'Boom 1000 Index' },
+        { value: 'CRASH300N', label: 'Crash 300 Index' },
+        { value: 'CRASH500N', label: 'Crash 500 Index' },
+        { value: 'CRASH1000N', label: 'Crash 1000 Index' },
+        { value: 'WLDAUD', label: 'AUD Basket' },
+        { value: 'WLDEUR', label: 'EUR Basket' },
+        { value: 'WLDGBP', label: 'GBP Basket' },
+        { value: 'WLDUSD', label: 'USD Basket' },
+        { value: 'WLDXAU', label: 'Gold Basket' },
+    ];
+
 
 // Safe version of tradeOptionToBuy without Blockly dependencies
 const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
@@ -209,7 +225,7 @@ const MLTrader = observer(() => {
 
     // --- Helper Functions ---
 
-    // Hull Moving Average calculation with Weighted Moving Average
+    // Hull Moving Average calculation with Weighted Moving Average (reduced periods for responsiveness)
     const calculateHMA = (data: number[], period: number) => {
         if (data.length < period) return null;
 
@@ -298,124 +314,49 @@ const MLTrader = observer(() => {
         return decycled;
     };
 
-    // Update Ehlers trends with noise reduction and independent timing
-    const updateEhlersTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
-        // Update counters
-        setTrendUpdateCounters(prev => ({
-            '1000': prev['1000'] + 1,
-            '2000': prev['2000'] + 1,
-            '3000': prev['3000'] + 1,
-            '4000': prev['4000'] + 1
-        }));
+    // Update HMA trends for multiple timeframes with noise reduction (more responsive)
+    const updateEhlersTrends = (tickData: Array<{ price: number; time: number; close: number }>) => {
+        if (!tickData || tickData.length < 2000) return; // Reduced minimum data requirement
 
-        const newTrends = { ...hullTrends };
+        const prices = tickData.map(t => t.close || t.price);
 
-        // Define tick count requirements and update frequencies for different timeframes
-        // Using 1000 tick increments for more stable trend detection
-        const timeframeConfigs = {
-            '1000': { requiredTicks: 1000, updateEvery: 10, smoothingPeriod: 20 },  // Update every 10 ticks
-            '2000': { requiredTicks: 2000, updateEvery: 15, smoothingPeriod: 25 },  // Update every 15 ticks
-            '3000': { requiredTicks: 3000, updateEvery: 20, smoothingPeriod: 30 },  // Update every 20 ticks
-            '4000': { requiredTicks: 4000, updateEvery: 25, smoothingPeriod: 35 }   // Update every 25 ticks (most stable)
-        };
+        // Apply Ehlers Super Smoother filter to reduce noise (shorter period)
+        const smoothedPrices = applySuperSmoother(prices, 8); // Reduced from 14
 
-        Object.entries(timeframeConfigs).forEach(([tickCountStr, config]) => {
-            const currentCounter = trendUpdateCounters[tickCountStr as keyof typeof trendUpdateCounters];
+        // Apply Ehlers Decycler to remove cyclic components (shorter period)
+        const decycledPrices = applyDecycler(smoothedPrices, 60); // Reduced from 125
 
-            // Only update if it's time for this timeframe
-            if (currentCounter % config.updateEvery !== 0) {
-                return; // Skip this update cycle
-            }
+        const trends: { [key: string]: 'BULLISH' | 'BEARISH' | 'NEUTRAL' } = {};
 
-            const recentTicks = newTickData.slice(-config.requiredTicks);
+        // Analyze trends across multiple timeframes with more responsive periods
+        const timeframes = [500, 1000, 1500, 2000]; // Reduced timeframes for faster signals
 
-            if (recentTicks.length >= Math.min(15, config.requiredTicks)) {
-                const tickPrices = recentTicks.map(tick => tick.price);
+        timeframes.forEach(tf => {
+            if (decycledPrices.length >= tf) {
+                const recentData = decycledPrices.slice(-tf);
 
-                // Apply Ehlers noise reduction techniques
-                const smoothedPrices = applySuperSmoother(tickPrices, config.smoothingPeriod);
-                const decycledPrices = applyDecycler(smoothedPrices, Math.max(10, config.smoothingPeriod));
+                // Use much more responsive HMA periods
+                const hma14 = calculateHMA(recentData, 14);  // Reduced from 21
+                const hma9 = calculateHMA(recentData, 9);    // Reduced from 14
+                const hma5 = calculateHMA(recentData, 5);    // Reduced from 7
 
-                // Use adaptive HMA period based on tick count and timeframe
-                const hmaPeriod = Math.max(8, Math.min(Math.floor(decycledPrices.length * 0.3), 25));
+                if (hma14 !== null && hma9 !== null && hma5 !== null) {
+                    // Determine trend based on HMA alignment with stronger signals
+                    const bullishStrength = (hma5 - hma9) / hma9 + (hma9 - hma14) / hma14;
+                    const bearishStrength = (hma9 - hma5) / hma5 + (hma14 - hma9) / hma9;
 
-                const hmaValue = calculateHMA(decycledPrices, hmaPeriod);
-
-                if (hmaValue !== null) {
-                    // Get previous values for smoothing
-                    const prevData = previousTrends[tickCountStr as keyof typeof previousTrends];
-
-                    // Apply exponential smoothing to HMA value
-                    const smoothingFactor = 0.3; // Adjust between 0.1 (more smoothing) and 0.5 (less smoothing)
-                    const smoothedHMA = prevData.smoothedValue === 0 ? hmaValue :
-                                      (smoothingFactor * hmaValue) + ((1 - smoothingFactor) * prevData.smoothedValue);
-
-                    let trend = 'NEUTRAL';
-
-                    // Calculate trend using smoothed values
-                    const hmaSlopeLookback = Math.max(3, Math.floor(hmaPeriod / 4));
-                    const prevHMA = calculateHMA(decycledPrices.slice(0, -hmaSlopeLookback), hmaPeriod);
-                    const hmaSlope = prevHMA !== null ? smoothedHMA - prevHMA : 0;
-
-                    // Get current price from smoothed data
-                    const currentPrice = decycledPrices[decycledPrices.length - 1];
-                    const priceAboveHMA = currentPrice > smoothedHMA;
-
-                    // Calculate adaptive thresholds based on timeframe
-                    const priceRange = Math.max(...decycledPrices.slice(-Math.min(50, decycledPrices.length))) -
-                                     Math.min(...decycledPrices.slice(-Math.min(50, decycledPrices.length)));
-
-                    // Larger timeframes need bigger thresholds to avoid noise
-                    const timeframeMultiplier = config.requiredTicks / 60;
-                    const adaptiveThreshold = priceRange * (0.05 + timeframeMultiplier * 0.02);
-                    const slopeThreshold = Math.max(0.000005, adaptiveThreshold * 0.2);
-
-                    // Enhanced trend detection with hysteresis (prevent rapid changes)
-                    const trendStrength = Math.abs(hmaSlope) / slopeThreshold;
-                    const minTrendStrength = prevData.trend === 'NEUTRAL' ? 1.2 : 0.8; // Hysteresis
-
-                    if (trendStrength > minTrendStrength) {
-                        if (hmaSlope > slopeThreshold && priceAboveHMA) {
-                            trend = 'BULLISH';
-                        } else if (hmaSlope < -slopeThreshold && !priceAboveHMA) {
-                            trend = 'BEARISH';
-                        } else {
-                            // Keep previous trend if conditions are mixed
-                            trend = prevData.trend;
-                        }
+                    if (hma5 > hma9 && hma9 > hma14 && bullishStrength > 0.001) {
+                        trends[`${tf}T`] = 'BULLISH';
+                    } else if (hma5 < hma9 && hma9 < hma14 && bearishStrength > 0.001) {
+                        trends[`${tf}T`] = 'BEARISH';
                     } else {
-                        // Weak signal - maintain previous trend unless it's been neutral for a while
-                        trend = prevData.trend !== 'NEUTRAL' ? prevData.trend : 'NEUTRAL';
+                        trends[`${tf}T`] = 'NEUTRAL';
                     }
-
-                    // Additional confirmation for trend changes
-                    if (trend !== prevData.trend && prevData.trend !== 'NEUTRAL') {
-                        // Require stronger confirmation for trend reversals
-                        const confirmationStrength = 1.5;
-                        if (trendStrength < confirmationStrength) {
-                            trend = prevData.trend; // Keep previous trend
-                        }
-                    }
-
-                    newTrends[tickCountStr as keyof typeof hullTrends] = {
-                        trend,
-                        value: Number(smoothedHMA.toFixed(5))
-                    };
-
-                    // Update previous trends for smoothing
-                    setPreviousTrends(prev => ({
-                        ...prev,
-                        [tickCountStr]: {
-                            trend,
-                            value: Number(hmaValue.toFixed(5)),
-                            smoothedValue: smoothedHMA
-                        }
-                    }));
                 }
             }
         });
 
-        setHullTrends(newTrends);
+        setHullTrends(trends);
     };
 
     // Fetch historical tick data for Hull Moving Average analysis
@@ -1082,113 +1023,124 @@ const MLTrader = observer(() => {
         };
     }, []);
 
-    // Get market recommendation based on HMA trend analysis
+    // Get market recommendation based on Hull trends analysis (more responsive)
     const getMarketRecommendation = () => {
-        if (Object.keys(hullTrends).length === 0) {
-            return {
-                symbol,
-                recommendation: 'RISE', // Default to RISE if no trends available
-                confidence: 50,
-                alignedTrends: 0,
-                totalTrends: 0,
-                reasoning: 'No trend data available, using default RISE signal'
-            };
-        }
+        const trendValues = Object.values(hullTrends);
+        const bullishCount = trendValues.filter(t => t === 'BULLISH').length;
+        const bearishCount = trendValues.filter(t => t === 'BEARISH').length;
+        const neutralCount = trendValues.filter(t => t === 'NEUTRAL').length;
 
-        // Count aligned trends for different timeframes
-        const trendCounts = {
-            bullishCount: 0,
-            bearishCount: 0,
-            neutralCount: 0
-        };
+        let recommendation = 'RISE';
+        let confidence = 50;
+        let reasoning = 'Default recommendation';
 
-        Object.entries(hullTrends).forEach(([timeframe, trendData]) => {
-            const { trend } = trendData;
-            if (trend === 'BULLISH') trendCounts.bullishCount++;
-            else if (trend === 'BEARISH') trendCounts.bearishCount++;
-            else trendCounts.neutralCount++;
-        });
-
-        const totalTrends = Object.keys(hullTrends).length;
-        const alignedBullish = trendCounts.bullishCount;
-        const alignedBearish = trendCounts.bearishCount;
-
-        // Determine recommendation based on trend alignment
-        let recommendation: 'RISE' | 'FALL' | 'WAIT' = 'RISE'; // Default to RISE instead of WAIT
-        let confidence = 50; // Default confidence
-        let alignedTrends = 0;
-        let reasoning = '';
-
-        if (alignedBullish >= 3) {
+        // Require only 2+ aligned trends for faster signal generation
+        if (bullishCount >= 2 && bearishCount <= 1) {
             recommendation = 'RISE';
-            alignedTrends = alignedBullish;
-            confidence = Math.min(95, (alignedBullish / totalTrends) * 100);
-            reasoning = `${alignedBullish} out of ${totalTrends} Hull Moving Average timeframes show bullish trend. Strong upward momentum detected.`;
-        } else if (alignedBearish >= 3) {
+            confidence = Math.min(90, 60 + (bullishCount * 10) - (bearishCount * 5));
+            reasoning = `${bullishCount} bullish trends detected with ${bearishCount} bearish counter-trends`;
+        } else if (bearishCount >= 2 && bullishCount <= 1) {
             recommendation = 'FALL';
-            alignedTrends = alignedBearish;
-            confidence = Math.min(95, (alignedBearish / totalTrends) * 100);
-            reasoning = `${alignedBearish} out of ${totalTrends} Hull Moving Average timeframes show bearish trend. Strong downward momentum detected.`;
-        } else if (alignedBullish >= 2 && alignedBearish <= 1) {
+            confidence = Math.min(90, 60 + (bearishCount * 10) - (bullishCount * 5));
+            reasoning = `${bearishCount} bearish trends detected with ${bullishCount} bullish counter-trends`;
+        } else if (bullishCount > bearishCount) {
             recommendation = 'RISE';
-            alignedTrends = alignedBullish;
-            confidence = 65;
-            reasoning = `${alignedBullish} out of ${totalTrends} timeframes show bullish trend. Moderate upward momentum.`;
-        } else if (alignedBearish >= 2 && alignedBullish <= 1) {
+            confidence = Math.min(70, 55 + (bullishCount * 7) - (bearishCount * 3));
+            reasoning = `Bullish bias (B:${bullishCount} vs Be:${bearishCount})`;
+        } else if (bearishCount > bullishCount) {
             recommendation = 'FALL';
-            alignedTrends = alignedBearish;
-            confidence = 65;
-            reasoning = `${alignedBearish} out of ${totalTrends} timeframes show bearish trend. Moderate downward momentum.`;
-        } else {
-            // Mixed signals - use alternating strategy or default to RISE
-            alignedTrends = Math.max(alignedBullish, alignedBearish);
+            confidence = Math.min(70, 55 + (bearishCount * 7) - (bullishCount * 3));
+            reasoning = `Bearish bias (Be:${bearishCount} vs B:${bullishCount})`;
+        } else if (neutralCount >= 2) {
+            // Use alternating strategy for neutral markets
+            recommendation = totalRuns % 2 === 0 ? 'RISE' : 'FALL';
             confidence = 50;
-            recommendation = totalRuns % 2 === 0 ? 'RISE' : 'FALL'; // Alternate on mixed signals
-            reasoning = `Mixed signals: ${trendCounts.bullishCount} bullish, ${trendCounts.bearishCount} bearish, ${trendCounts.neutralCount} neutral. Using alternating strategy.`;
+            reasoning = `Market is neutral (${neutralCount} neutral trends), using alternating strategy`;
+        } else {
+            // Mixed signals - use alternating strategy
+            recommendation = totalRuns % 2 === 0 ? 'RISE' : 'FALL';
+            confidence = 45;
+            reasoning = `Mixed signals (B:${bullishCount}, Be:${bearishCount}, N:${neutralCount}), using alternating approach`;
         }
 
         return {
-            symbol,
             recommendation,
             confidence,
-            alignedTrends,
-            totalTrends,
-            reasoning
+            reasoning,
+            trends: hullTrends
         };
     };
 
-    // Scan all volatility indices for opportunities
+    // Scan volatility opportunities with Hull Moving Average analysis (more responsive)
     const scanVolatilityOpportunities = async () => {
-        if (!apiRef.current || isScanning) return;
+        if (isScanning || Object.keys(preloadedData).length < 5) return;
 
         setIsScanning(true);
-        setStatus('Scanning volatility opportunities...');
-
         const opportunities: any[] = [];
-        // Use symbols from VOLATILITY_INDICES
-        const volatilitySymbols = VOLATILITY_INDICES.map(v => v.value);
 
         try {
-            for (const volatilitySymbol of volatilitySymbols) {
-                const symbolData = preloadedData[volatilitySymbol];
-                if (!symbolData || symbolData.length < 4000) continue;
+            for (const vol of VOLATILITY_INDICES) {
+                if (preloadedData[vol.value] && preloadedData[vol.value].length >= 2000) { // Reduced data requirement
+                    const prices = preloadedData[vol.value].map(t => t.close || t.price);
 
-                // Calculate trends for this symbol
-                const symbolTrends = calculateTrendsForSymbol(symbolData);
+                    // Apply Ehlers filters for noise reduction (more responsive)
+                    const smoothedPrices = applySuperSmoother(prices, 8); // Reduced from 14
+                    const decycledPrices = applyDecycler(smoothedPrices, 60); // Reduced from 125
 
-                if (symbolTrends) {
-                    const recommendation = getRecommendationForTrends(symbolTrends);
+                    const trends: { [key: string]: 'BULLISH' | 'BEARISH' | 'NEUTRAL' } = {};
+                    const timeframes = [500, 1000, 1500, 2000]; // More responsive timeframes
 
-                    if (recommendation && recommendation.confidence >= 65) {
+                    timeframes.forEach(tf => {
+                        if (decycledPrices.length >= tf) {
+                            const recentData = decycledPrices.slice(-tf);
+
+                            // More responsive HMA periods
+                            const hma14 = calculateHMA(recentData, 14); // Reduced from 21
+                            const hma9 = calculateHMA(recentData, 9);   // Reduced from 14
+                            const hma5 = calculateHMA(recentData, 5);   // Reduced from 7
+
+                            if (hma14 !== null && hma9 !== null && hma5 !== null) {
+                                // Enhanced trend detection with momentum
+                                const bullishStrength = (hma5 - hma9) / hma9 + (hma9 - hma14) / hma14;
+                                const bearishStrength = (hma9 - hma5) / hma5 + (hma14 - hma9) / hma9;
+
+                                if (hma5 > hma9 && hma9 > hma14 && bullishStrength > 0.001) {
+                                    trends[`${tf}T`] = 'BULLISH';
+                                } else if (hma5 < hma9 && hma9 < hma14 && bearishStrength > 0.001) {
+                                    trends[`${tf}T`] = 'BEARISH';
+                                } else {
+                                    trends[`${tf}T`] = 'NEUTRAL';
+                                }
+                            }
+                        }
+                    });
+
+                    const trendValues = Object.values(trends);
+                    const bullishCount = trendValues.filter(t => t === 'BULLISH').length;
+                    const bearishCount = trendValues.filter(t => t === 'BEARISH').length;
+
+                    // Look for volatilities with 2+ aligned trends (more opportunities)
+                    if (bullishCount >= 2 && bearishCount <= 1) {
+                        const confidence = Math.min(95, 65 + (bullishCount * 10) - (bearishCount * 5));
                         opportunities.push({
-                            symbol: volatilitySymbol,
-                            displayName: VOLATILITY_INDICES.find(v => v.value === volatilitySymbol)?.label || volatilitySymbol,
-                            tradingSymbol: volatilitySymbol,
-                            confidence: recommendation.confidence,
-                            signal: recommendation.recommendation === 'RISE' ? 'HIGHER' : recommendation.recommendation === 'FALL' ? 'LOWER' : 'WAIT',
-                            alignedCount: recommendation.alignedTrends,
-                            totalCount: recommendation.totalTrends,
-                            reasoning: recommendation.reasoning
+                            symbol: vol.value,
+                            displayName: vol.label,
+                            confidence: Math.round(confidence),
+                            signal: 'RISE',
+                            alignedCount: bullishCount,
+                            totalCount: trendValues.length,
+                            reasoning: `${bullishCount} bullish trends with ${bearishCount} bearish counter-trends`
+                        });
+                    } else if (bearishCount >= 2 && bullishCount <= 1) {
+                        const confidence = Math.min(95, 65 + (bearishCount * 10) - (bullishCount * 5));
+                        opportunities.push({
+                            symbol: vol.value,
+                            displayName: vol.label,
+                            confidence: Math.round(confidence),
+                            signal: 'FALL',
+                            alignedCount: bearishCount,
+                            totalCount: trendValues.length,
+                            reasoning: `${bearishCount} bearish trends with ${bullishCount} bullish counter-trends`
                         });
                     }
                 }
@@ -1196,13 +1148,12 @@ const MLTrader = observer(() => {
 
             // Sort by confidence
             opportunities.sort((a, b) => b.confidence - a.confidence);
-            setVolatilityRecommendations(opportunities.slice(0, 5)); // Top 5 opportunities
+            setVolatilityRecommendations(opportunities.slice(0, 8)); // Show more opportunities
 
         } catch (error) {
             console.error('Error scanning volatility opportunities:', error);
         } finally {
             setIsScanning(false);
-            setStatus('Volatility scan completed');
         }
     };
 
@@ -1301,12 +1252,12 @@ const MLTrader = observer(() => {
             alignedTrends = alignedBearish;
             confidence = Math.min(95, (alignedBearish / totalTrends) * 100);
             reasoning = `${alignedBearish} out of ${totalTrends} timeframes bearish`;
-        } else if (alignedBullish === 2 && alignedBearish <= 1) {
+        } else if (alignedBullish >= 2 && alignedBearish <= 1) {
             recommendation = 'RISE';
             alignedTrends = alignedBullish;
             confidence = 65;
             reasoning = `${alignedBullish} out of ${totalTrends} timeframes bullish (moderate)`;
-        } else if (alignedBearish === 2 && alignedBullish <= 1) {
+        } else if (alignedBearish >= 2 && alignedBullish <= 1) {
             recommendation = 'FALL';
             alignedTrends = alignedBearish;
             confidence = 65;
@@ -1568,7 +1519,11 @@ const MLTrader = observer(() => {
                 </div>
 
                 {volatilityRecommendations.length > 0 ? (
-                    <div className='opportunities-list'>
+                    <div className='recommendations-list'>
+                        <div className='list-header'>
+                            <h5>{localize('High-Confidence Opportunities')} ({volatilityRecommendations.length})</h5>
+                            <small>{localize('Volatilities with 2+ aligned trends')}</small>
+                        </div>
                         {volatilityRecommendations.map((opportunity, index) => (
                             <div key={opportunity.symbol} className={`opportunity-card ${opportunity.signal.toLowerCase()}`}>
                                 <div className='opportunity-header'>
@@ -1619,11 +1574,7 @@ const MLTrader = observer(() => {
                     </div>
                 ) : (
                     <div className='no-opportunities'>
-                        {isScanning ? (
-                            <span>{localize('Scanning for opportunities...')}</span>
-                        ) : (
-                            <span>{localize('No volatilities currently have 3+ aligned trends.')}</span>
-                        )}
+                        <p>{localize('No volatilities currently have 2+ aligned trends.')}</p>
                         <small>{localize('Scan to discover high-probability setups.')}</small>
                     </div>
                 )}
