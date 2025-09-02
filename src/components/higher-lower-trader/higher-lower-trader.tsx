@@ -926,117 +926,78 @@ const HigherLowerTrader = observer(() => {
 
     // Original Higher/Lower trading logic
     const executeHigherLowerTrade = useCallback(async () => {
-        if (!apiRef.current || !symbol || !livePrice) return;
+        if (!apiRef.current || !symbol || !currentPrice) return;
 
-        setIsRunning(true); // Assuming this is called within handleStart or similar
+        setIsRunning(true);
         stopFlagRef.current = false;
 
         try {
-            const currentPrice = parseFloat(livePrice);
             const targetBarrier = parseFloat(barrier);
+            const tradeContractType = currentPrice > targetBarrier ? 'CALL' : 'PUT';
 
-            // Determine contract type based on current price vs barrier
-            const contractType = currentPrice > targetBarrier ? 'CALL' : 'PUT';
-
-            // Use Deriv API for trading
-            const ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${API_CONFIG.appId}`);
-
-            ws.onopen = () => {
-                // Authorize first
-                ws.send(JSON.stringify({
-                    authorize: V2GetActiveToken() // Use the token from the hook
-                }));
+            // Get proposal using current API instance
+            const proposalParams = {
+                proposal: 1,
+                amount: stake,
+                basis: 'stake',
+                contract_type: tradeContractType,
+                currency: account_currency,
+                duration: duration,
+                duration_unit: durationType,
+                symbol: symbol,
+                barrier: targetBarrier.toString()
             };
 
-            ws.onmessage = async (event) => {
-                const data = JSON.parse(event.data);
+            const proposalResponse = await apiRef.current.send(proposalParams);
 
-                if (data.msg_type === 'authorize' && !data.error) {
-                    // Send buy request
-                    const buyRequest = {
-                        buy: '1',
-                        price: stake, // Use the current stake value
-                        parameters: {
-                            amount: stake,
-                            basis: 'stake',
-                            contract_type: contractType,
-                            currency: account_currency,
-                            duration: duration,
-                            duration_unit: durationType,
-                            symbol: symbol,
-                            barrier: targetBarrier.toString()
-                        }
-                    };
+            if (proposalResponse.error) {
+                console.error('Higher/Lower proposal error:', proposalResponse.error);
+                setStatus(`Proposal failed: ${proposalResponse.error.message}`);
+                setIsRunning(false);
+                return;
+            }
 
-                    ws.send(JSON.stringify(buyRequest));
-                }
+            const proposal = proposalResponse.proposal;
+            if (!proposal) {
+                setStatus('No proposal received');
+                setIsRunning(false);
+                return;
+            }
 
-                if (data.msg_type === 'buy' && !data.error) {
-                    const contract = data.buy;
-                    const purchase_price = contract.buy_price;
-
-                    // Update internal state for tracking
-                    setTotalStake(prev => prev + Number(stake));
-                    setTotalRuns(prev => prev + 1);
-                    setStatus(`Purchased ${contractType} contract for ${symbol}`);
-
-                    // Subscribe to contract updates
-                    ws.send(JSON.stringify({
-                        proposal_open_contract: 1,
-                        contract_id: contract.contract_id,
-                        subscribe: 1
-                    }));
-                }
-
-                if (data.msg_type === 'proposal_open_contract') {
-                    const contractUpdate = data.proposal_open_contract;
-
-                    if (contractUpdate.is_sold) {
-                        const profit = parseFloat(contractUpdate.profit) || 0;
-                        const isWin = profit > 0;
-
-                        setTotalPayout(prev => prev + (contractUpdate.bid_price || 0));
-                        setTotalProfitLoss(prev => prev + profit);
-
-                        if (isWin) {
-                            setContractsWon(prev => prev + 1);
-                            lastOutcomeWasLossRef.current = false;
-                            setStake(baseStake); // Reset stake on win
-                        } else {
-                            setContractsLost(prev => prev + 1);
-                            lastOutcomeWasLossRef.current = true;
-                            setStake(prevStake => Number((prevStake * martingaleMultiplier).toFixed(2))); // Apply martingale on loss
-                        }
-
-                        setStatus(`Contract ${isWin ? 'WON' : 'LOST'}! P&L: ${profit.toFixed(2)} ${account_currency}`);
-
-                        // Check stop on profit condition
-                        if (useStopOnProfit && profit > 0 && (totalProfitLoss + profit) >= targetProfit) {
-                            setStatus(`Target profit reached! Stopping...`);
-                            handleStop();
-                        }
-
-                        ws.close(); // Close WebSocket after contract completion
-                        setIsRunning(false);
-                    }
-                }
-
-                if (data.error) {
-                    console.error('Trading error:', data.error);
-                    setContractsLost(prev => prev + 1);
-                    setTotalProfitLoss(prev => prev - Number(stake)); // Assume loss if error occurs during trade
-                    setStatus(`Trade error: ${data.error.message}`);
-                    ws.close();
-                    setIsRunning(false);
-                }
+            // Buy contract
+            const buyParams = {
+                buy: proposal.id,
+                price: proposal.ask_price
             };
+
+            const buyResponse = await apiRef.current.send(buyParams);
+
+            if (buyResponse.error) {
+                console.error('Higher/Lower buy error:', buyResponse.error);
+                setStatus(`Trade failed: ${buyResponse.error.message}`);
+                setIsRunning(false);
+                return;
+            }
+
+            const purchase_receipt = buyResponse.buy;
+            const purchase_price = purchase_receipt.buy_price;
+
+            // Update internal state for tracking
+            setTotalStake(prev => prev + Number(stake));
+            setTotalRuns(prev => prev + 1);
+            setStatus(`Purchased ${tradeContractType} contract for ${symbol}`);
+
+            // Monitor contract
+            await monitorContract(purchase_receipt.contract_id, purchase_price, purchase_receipt.payout);
+
+            
 
         } catch (error: any) {
             console.error('Higher/Lower trade execution failed:', error);
             setStatus(`Higher/Lower trade execution failed: ${error.message}`);
             setIsRunning(false);
         }
-    }, [apiRef, symbol, livePrice, barrier, stake, account_currency, duration, durationType, baseStake, martingaleMultiplier, useStopOnProfit, targetProfit, totalProfitLoss]);
+    }, [apiRef, symbol, currentPrice, barrier, stake, account_currency, duration, durationType, baseStake, martingaleMultiplier, useStopOnProfit, targetProfit, totalProfitLoss]);
 
     // Rise/Fall trading logic with trend analysis
     const executeRiseFallTrade = useCallback(async () => {
@@ -1045,93 +1006,60 @@ const HigherLowerTrader = observer(() => {
         try {
             // Use trend analysis to determine trade direction
             const recommendation = getTradingRecommendation();
-            const contractType = recommendation.recommendation === 'HIGHER' ? 'CALL' : 'PUT';
+            const tradeContractType = recommendation.recommendation === 'HIGHER' ? 'CALL' : 'PUT';
 
-            const ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${API_CONFIG.appId}`);
-
-            ws.onopen = () => {
-                ws.send(JSON.stringify({
-                    authorize: V2GetActiveToken()
-                }));
+            // Get proposal using current API instance
+            const proposalParams = {
+                proposal: 1,
+                amount: stake,
+                basis: 'stake',
+                contract_type: tradeContractType,
+                currency: account_currency,
+                duration: 1, // Next tick for Rise/Fall
+                duration_unit: 't',
+                symbol: symbol
             };
 
-            ws.onmessage = async (event) => {
-                const data = JSON.parse(event.data);
+            const proposalResponse = await apiRef.current.send(proposalParams);
 
-                if (data.msg_type === 'authorize' && !data.error) {
-                    const buyRequest = {
-                        buy: '1',
-                        price: stake,
-                        parameters: {
-                            amount: stake,
-                            basis: 'stake',
-                            contract_type: contractType,
-                            currency: account_currency,
-                            duration: 1, // Next tick for Rise/Fall
-                            duration_unit: 't',
-                            symbol: symbol
-                        }
-                    };
+            if (proposalResponse.error) {
+                console.error('Rise/Fall proposal error:', proposalResponse.error);
+                setStatus(`Proposal failed: ${proposalResponse.error.message}`);
+                setIsRunning(false);
+                return;
+            }
 
-                    ws.send(JSON.stringify(buyRequest));
-                }
+            const proposal = proposalResponse.proposal;
+            if (!proposal) {
+                setStatus('No proposal received');
+                setIsRunning(false);
+                return;
+            }
 
-                if (data.msg_type === 'buy' && !data.error) {
-                    const contract = data.buy;
-                    const purchase_price = contract.buy_price;
-
-                    setTotalStake(prev => prev + Number(stake));
-                    setTotalRuns(prev => prev + 1);
-                    setStatus(`Purchased Rise/Fall ${contractType} contract for ${symbol}`);
-
-                    ws.send(JSON.stringify({
-                        proposal_open_contract: 1,
-                        contract_id: contract.contract_id,
-                        subscribe: 1
-                    }));
-                }
-
-                if (data.msg_type === 'proposal_open_contract') {
-                    const contractUpdate = data.proposal_open_contract;
-
-                    if (contractUpdate.is_sold) {
-                        const profit = parseFloat(contractUpdate.profit) || 0;
-                        const isWin = profit > 0;
-
-                        setTotalPayout(prev => prev + (contractUpdate.bid_price || 0));
-                        setTotalProfitLoss(prev => prev + profit);
-
-                        if (isWin) {
-                            setContractsWon(prev => prev + 1);
-                            lastOutcomeWasLossRef.current = false;
-                            setStake(baseStake); // Reset stake on win
-                        } else {
-                            setContractsLost(prev => prev + 1);
-                            lastOutcomeWasLossRef.current = true;
-                            setStake(prevStake => Number((prevStake * martingaleMultiplier).toFixed(2))); // Apply martingale on loss
-                        }
-
-                        setStatus(`Rise/Fall contract ${isWin ? 'WON' : 'LOST'}! P&L: ${profit.toFixed(2)} ${account_currency}`);
-
-                        if (useStopOnProfit && profit > 0 && (totalProfitLoss + profit) >= targetProfit) {
-                            setStatus(`Target profit reached! Stopping...`);
-                            handleStop();
-                        }
-
-                        ws.close();
-                        setIsRunning(false);
-                    }
-                }
-
-                if (data.error) {
-                    console.error('Rise/Fall trading error:', data.error);
-                    setContractsLost(prev => prev + 1);
-                    setTotalProfitLoss(prev => prev - Number(stake));
-                    setStatus(`Rise/Fall trade error: ${data.error.message}`);
-                    ws.close();
-                    setIsRunning(false);
-                }
+            // Buy contract
+            const buyParams = {
+                buy: proposal.id,
+                price: proposal.ask_price
             };
+
+            const buyResponse = await apiRef.current.send(buyParams);
+
+            if (buyResponse.error) {
+                console.error('Rise/Fall buy error:', buyResponse.error);
+                setStatus(`Trade failed: ${buyResponse.error.message}`);
+                setIsRunning(false);
+                return;
+            }
+
+            const purchase_receipt = buyResponse.buy;
+            const purchase_price = purchase_receipt.buy_price;
+
+            setTotalStake(prev => prev + Number(stake));
+            setTotalRuns(prev => prev + 1);
+            setStatus(`Purchased Rise/Fall ${tradeContractType} contract for ${symbol}`);
+
+            // Monitor contract
+            await monitorRiseFallContract(purchase_receipt.contract_id, purchase_price, purchase_receipt.payout);
 
         } catch (error: any) {
             console.error('Rise/Fall trade execution failed:', error);
