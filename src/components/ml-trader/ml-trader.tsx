@@ -277,8 +277,6 @@ const MLTrader = observer(() => {
                     const hmaSlopeLookback = Math.max(3, Math.floor(hmaPeriod / 4));
                     const prevHMA = calculateHMA(decycledPrices.slice(0, -hmaSlopeLookback), hmaPeriod);
                     const hmaSlope = prevHMA !== null ? smoothedHMA - prevHMA : 0;
-
-                    // Get current price from smoothed data
                     const currentPrice = decycledPrices[decycledPrices.length - 1];
                     const priceAboveHMA = currentPrice > smoothedHMA;
 
@@ -862,86 +860,48 @@ const MLTrader = observer(() => {
 
     // Start auto trading based on Hull Moving Average trends and volatility scanner
     const startAutoTrading = () => {
-        if (isAutoTrading) {
-            setStatus('Auto trading already running');
+        if (!is_authorized || !symbol) {
+            setStatus('Please authorize and select a symbol first');
             return;
         }
 
         setIsAutoTrading(true);
-        setStatus('Starting auto trading based on trend analysis and volatility opportunities...');
+        stopFlagRef.current = false;
 
-        autoTradingIntervalRef.current = setInterval(() => {
-            if (stopFlagRef.current) {
-                stopAutoTrading();
-                return;
-            }
+        // Set Run Panel state
+        run_panel.setIsRunning(true);
+        run_panel.toggleDrawer(true);
+        run_panel.setActiveTabIndex(1);
+        run_panel.run_id = `ml-trader-${Date.now()}`;
+        run_panel.setContractStage(contract_stages.STARTING);
 
-            // First check volatility opportunities from scanner
-            if (volatilityRecommendations.length > 0) {
-                // Find best volatility opportunity
-                const bestOpportunity = volatilityRecommendations.reduce((best, current) => {
-                    // Use the higher of rise/fall percentage as the score
-                    const currentScore = Math.max(current.risePercentage, current.fallPercentage);
-                    const bestScore = Math.max(best.risePercentage, best.fallPercentage);
-                    return currentScore > bestScore ? current : best;
-                }, volatilityRecommendations[0]); // Initialize with the first recommendation
+        // Register bot listeners for Run Panel integration
+        run_panel.registerBotListeners();
 
-                // Only trade if opportunity score is above threshold
-                const threshold = 65; // 65% threshold for volatility opportunities
-                const riseScore = bestOpportunity.risePercentage;
-                const fallScore = bestOpportunity.fallPercentage;
+        setStatus('Auto-trading started');
 
-                if (riseScore > threshold || fallScore > threshold) {
-                    setSymbol(bestOpportunity.symbol);
-
-                    if (riseScore > fallScore && riseScore > threshold) {
-                        setStatus(`Auto trading: RISE on ${bestOpportunity.displayName} (Rise: ${riseScore.toFixed(1)}%)`);
-                        executeRiseFallTrade('RISE');
-                    } else if (fallScore > threshold) {
-                        setStatus(`Auto trading: FALL on ${bestOpportunity.displayName} (Fall: ${fallScore.toFixed(1)}%)`);
-                        executeRiseFallTrade('FALL');
-                    }
-                    return;
-                }
-            }
-
-            // Fallback to Hull Moving Average trends
-            const recommendation = getMarketRecommendation();
-
-            if (recommendation) {
-                const { recommendation: action, confidence, symbol: recommendedSymbol, reasoning } = recommendation;
-
-                if (confidence >= 70) { // Only trade with high confidence
-                    setSymbol(recommendedSymbol);
-                    setStatus(`Auto trading: ${action} on ${recommendedSymbol} (${reasoning})`);
-
-                    // Execute trade based on recommendation
-                    if (action === 'RISE') {
-                        executeRiseFallTrade('RISE');
-                    } else if (action === 'FALL') {
-                        executeRiseFallTrade('FALL');
-                    }
-                } else {
-                    setStatus(`Auto trading: Waiting for high confidence signal (current: ${(confidence).toFixed(1)}%)`);
-                }
-            } else {
-                setStatus('Auto trading: No clear opportunities detected, waiting...');
-            }
-        }, 30000); // Check every 30 seconds for auto trading opportunities
+        // Start the first trade immediately
+        executeTrade();
     };
 
     const stopAutoTrading = () => {
         setIsAutoTrading(false);
-        setIsRunning(false);
         stopFlagRef.current = true;
+
         if (autoTradingIntervalRef.current) {
             clearInterval(autoTradingIntervalRef.current);
             autoTradingIntervalRef.current = null;
         }
+
+        // Update Run Panel state
         run_panel.setIsRunning(false);
         run_panel.setHasOpenContract(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        setStatus('Auto trading stopped');
+
+        // Unregister bot listeners
+        run_panel.unregisterBotListeners();
+
+        setStatus('Auto-trading stopped');
     };
 
     const executeAutoTradingLoop = async () => {
@@ -1442,6 +1402,332 @@ const MLTrader = observer(() => {
         };
     };
 
+    // --- Contract Management Functions ---
+    const monitorContract = async (contractId: string) => {
+        try {
+            setStatus('Monitoring contract...');
+            run_panel.setHasOpenContract(true);
+            run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
+
+            if (pocSubIdRef.current) {
+                // Unsubscribe from previous contract
+                const unsubscribeRequest = { forget: pocSubIdRef.current };
+                await apiRef.current.send(unsubscribeRequest);
+                pocSubIdRef.current = null;
+            }
+
+            const contractSubscription = {
+                proposal_open_contract: 1,
+                contract_id: contractId,
+                subscribe: 1
+            };
+
+            const contractResponse = await apiRef.current.send(contractSubscription);
+            pocSubIdRef.current = contractResponse.req_id;
+
+            const messageHandler = (response: any) => {
+                if (response.proposal_open_contract && response.proposal_open_contract.contract_id == contractId) {
+                    const contract = response.proposal_open_contract;
+
+                    // Update contract tracking
+                    setContractValue(contract.current_spot || 0);
+                    setPotentialPayout(contract.payout || 0);
+
+                    // Calculate profit
+                    const profit = contract.profit || 0;
+                    setCurrentProfit(profit);
+
+                    // Update contract duration
+                    if (contract.date_start && contract.date_expiry) {
+                        const startTime = new Date(contract.date_start * 1000);
+                        const endTime = new Date(contract.date_expiry * 1000);
+                        const now = new Date();
+
+                        if (now < endTime) {
+                            const remaining = Math.max(0, endTime.getTime() - now.getTime());
+                            const hours = Math.floor(remaining / (1000 * 60 * 60));
+                            const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+                            const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+                            setContractDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+                        }
+                    }
+
+                    // Notify Run Panel about contract updates
+                    transactions.onBotContractEvent({
+                        ...contract,
+                        contract_id: parseInt(contractId),
+                        buy_price: contract.buy_price || stake,
+                        profit: profit,
+                        is_completed: contract.is_sold || contract.status === 'sold',
+                        currency: account_currency,
+                        transaction_ids: {
+                            buy: parseInt(contractId),
+                            sell: contract.transaction_ids?.sell
+                        }
+                    });
+
+                    // Check if contract is finished
+                    if (contract.is_sold || contract.status === 'sold') {
+                        setStatus('Contract completed');
+                        run_panel.setHasOpenContract(false);
+                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+
+                        // Update statistics
+                        const finalProfit = contract.profit || 0;
+                        const contractStake = contract.buy_price || stake;
+                        const contractPayout = contract.payout || 0;
+
+                        setTotalStake(prev => prev + contractStake);
+                        setTotalRuns(prev => prev + 1);
+
+                        if (finalProfit > 0) {
+                            setContractsWon(prev => prev + 1);
+                            setTotalPayout(prev => prev + contractPayout);
+                            lastOutcomeWasLossRef.current = false;
+                            setCurrentMartingaleCount(0);
+                            setIsInMartingaleSplit(false);
+                            setStake(baseStake); // Reset to base stake on win
+                        } else {
+                            setContractsLost(prev => prev + 1);
+                            lastOutcomeWasLossRef.current = true;
+
+                            // Martingale logic
+                            if (currentMartingaleCount < martingaleRuns) {
+                                setStake(prev => prev * martingaleMultiplier);
+                                setCurrentMartingaleCount(prev => prev + 1);
+                                setIsInMartingaleSplit(true);
+                            } else {
+                                setStake(baseStake);
+                                setCurrentMartingaleCount(0);
+                                setIsInMartingaleSplit(false);
+                            }
+                        }
+
+                        setTotalProfitLoss(prev => prev + finalProfit);
+
+                        // Add to trade history
+                        const tradeRecord = {
+                            id: contractId,
+                            symbol,
+                            contractType,
+                            stake: contractStake,
+                            payout: contractPayout,
+                            profit: finalProfit,
+                            result: finalProfit > 0 ? 'win' : 'loss',
+                            timestamp: Date.now(),
+                            entrySpot: contract.entry_spot,
+                            exitSpot: contract.exit_spot
+                        };
+
+                        setTradeHistory(prev => [tradeRecord, ...prev.slice(0, 99)]);
+
+                        // Check stop conditions
+                        const newTotalProfitLoss = totalProfitLoss + finalProfit;
+                        if (newTotalProfitLoss <= -stopLoss || newTotalProfitLoss >= takeProfit) {
+                            setIsAutoTrading(false);
+                            autoTradingIntervalRef.current && clearInterval(autoTradingIntervalRef.current);
+                            setStatus(`Auto-trading stopped: ${newTotalProfitLoss <= -stopLoss ? 'Stop loss' : 'Take profit'} reached`);
+                            run_panel.setIsRunning(false);
+                            run_panel.setContractStage(contract_stages.NOT_RUNNING);
+                            return;
+                        }
+
+                        // Continue auto-trading if enabled
+                        if (isAutoTrading && !stopFlagRef.current) {
+                            setTimeout(() => {
+                                if (isAutoTrading && !stopFlagRef.current) {
+                                    executeTrade();
+                                }
+                            }, 3000); // Wait 3 seconds before next trade
+                        }
+                    }
+                }
+            };
+
+            // Add message handler
+            if (messageHandlerRef.current) {
+                apiRef.current.events.off('message', messageHandlerRef.current);
+            }
+            messageHandlerRef.current = messageHandler;
+            apiRef.current.events.on('message', messageHandler);
+
+        } catch (error: any) {
+            console.error('Error monitoring contract:', error);
+            setStatus(`Monitoring error: ${error.message}`);
+            run_panel.setHasOpenContract(false);
+        }
+    };
+
+    // --- Auto Trading Logic ---
+    const startAutoTrading = () => {
+        if (!is_authorized || !symbol) {
+            setStatus('Please authorize and select a symbol first');
+            return;
+        }
+
+        setIsAutoTrading(true);
+        stopFlagRef.current = false;
+
+        // Set Run Panel state
+        run_panel.setIsRunning(true);
+        run_panel.toggleDrawer(true);
+        run_panel.setActiveTabIndex(1);
+        run_panel.run_id = `ml-trader-${Date.now()}`;
+        run_panel.setContractStage(contract_stages.STARTING);
+
+        // Register bot listeners for Run Panel integration
+        run_panel.registerBotListeners();
+
+        setStatus('Auto-trading started');
+
+        // Start the first trade immediately
+        executeTrade();
+    };
+
+    const stopAutoTrading = () => {
+        setIsAutoTrading(false);
+        stopFlagRef.current = true;
+
+        if (autoTradingIntervalRef.current) {
+            clearInterval(autoTradingIntervalRef.current);
+            autoTradingIntervalRef.current = null;
+        }
+
+        // Update Run Panel state
+        run_panel.setIsRunning(false);
+        run_panel.setHasOpenContract(false);
+        run_panel.setContractStage(contract_stages.NOT_RUNNING);
+
+        // Unregister bot listeners
+        run_panel.unregisterBotListeners();
+
+        setStatus('Auto-trading stopped');
+    };
+
+    const executeTrade = async () => {
+        if (!is_authorized || !symbol) {
+            setStatus('Not authorized or no symbol selected');
+            return;
+        }
+
+        try {
+            setStatus('Getting proposal...');
+            run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+
+            // Determine contract type based on allowEquals setting
+            let finalContractType = contractType;
+            if (allowEquals) {
+                finalContractType = contractType === 'CALL' ? 'CALLE' : 'PUTE';
+            }
+
+            const proposalRequest = {
+                proposal: 1,
+                amount: stake,
+                contract_type: finalContractType,
+                currency: account_currency,
+                symbol: symbol,
+                duration: duration,
+                duration_unit: durationType
+            };
+
+            const proposalResponse = await apiRef.current.send(proposalRequest);
+
+            if (proposalResponse.error) {
+                throw new Error(proposalResponse.error.message);
+            }
+
+            const proposal = proposalResponse.proposal;
+            setStatus('Buying contract...');
+
+            const buyRequest = {
+                buy: proposal.id,
+                price: stake
+            };
+
+            const buyResponse = await apiRef.current.send(buyRequest);
+
+            if (buyResponse.error) {
+                throw new Error(buyResponse.error.message);
+            }
+
+            const buyContract = buyResponse.buy;
+            const contractId = buyContract.contract_id.toString();
+
+            setStatus(`Contract purchased: ${contractId}`);
+            setEntrySpot(buyContract.start_spot || 0);
+
+            // Notify Run Panel about the contract purchase
+            const contractInfo = {
+                contract_id: parseInt(contractId),
+                buy_price: stake,
+                currency: account_currency,
+                contract_type: finalContractType,
+                symbol: symbol,
+                date_start: Date.now() / 1000,
+                entry_spot: buyContract.start_spot,
+                transaction_ids: {
+                    buy: parseInt(contractId)
+                },
+                profit: 0,
+                is_completed: false
+            };
+
+            // Push initial contract data to transactions
+            transactions.onBotContractEvent(contractInfo);
+
+            // Monitor the contract
+            await monitorContract(contractId);
+
+        } catch (error: any) {
+            console.error('Trade execution error:', error);
+            setStatus(`Trade error: ${error.message}`);
+            run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        }
+    };
+
+    // --- Effects ---
+    useEffect(() => {
+        connectToAPI();
+        loadVolatilityData();
+
+        return () => {
+            cleanup();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (symbol && is_authorized) {
+            startTickStream();
+            fetchHistoricalTicks(symbol);
+        }
+
+        return () => {
+            stopTickStream();
+        };
+    }, [symbol, is_authorized]);
+
+    // Listen for Run Panel stop events
+    useEffect(() => {
+        const handleRunPanelStop = () => {
+            if (isAutoTrading) {
+                stopAutoTrading();
+            }
+        };
+
+        // Register listener for Run Panel stop button
+        if (run_panel?.dbot?.observer) {
+            run_panel.dbot.observer.register('bot.stop', handleRunPanelStop);
+            run_panel.dbot.observer.register('bot.click_stop', handleRunPanelStop);
+        }
+
+        return () => {
+            // Cleanup listeners
+            if (run_panel?.dbot?.observer) {
+                run_panel.dbot.observer.unregisterAll('bot.stop');
+                run_panel.dbot.observer.unregisterAll('bot.click_stop');
+            }
+        };
+    }, [isAutoTrading, run_panel]);
 
     return (
         <div className="ml-trader">
