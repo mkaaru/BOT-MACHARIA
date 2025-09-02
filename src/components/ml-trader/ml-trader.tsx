@@ -176,14 +176,6 @@ const MLTrader = observer(() => {
     const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
     const [isPreloading, setIsPreloading] = useState<boolean>(false);
 
-    // Hull Moving Average trend analysis state - using 1000 tick increments for stability
-    const [hullTrends, setHullTrends] = useState({
-        '1000': { trend: 'NEUTRAL', value: 0 },
-        '2000': { trend: 'NEUTRAL', value: 0 },
-        '3000': { trend: 'NEUTRAL', value: 0 },
-        '4000': { trend: 'NEUTRAL', value: 0 }
-    });
-
     // State to track trend update counters for independent timing
     const [trendUpdateCounters, setTrendUpdateCounters] = useState({
         '1000': 0,
