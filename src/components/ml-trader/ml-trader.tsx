@@ -920,6 +920,45 @@ const MLTrader = observer(() => {
                                 }
                             } else {
                                 setContractsLost(prev => prev + 1);
+                            }
+
+                            // Perform connection health check after contract completion
+                            setTimeout(async () => {
+                                try {
+                                    if (apiRef.current && !stopFlagRef.current) {
+                                        // Test API connection with a simple ping request
+                                        const healthCheck = await Promise.race([
+                                            apiRef.current.send({ ping: 1 }),
+                                            new Promise((_, reject) => 
+                                                setTimeout(() => reject(new Error('Health check timeout')), 3000)
+                                            )
+                                        ]);
+                                        
+                                        if (healthCheck.error) {
+                                            console.warn('API health check failed, attempting reconnection...');
+                                            setStatus('API connection issue detected, reconnecting...');
+                                            
+                                            // Reinitialize API connection
+                                            const newApi = generateDerivApiInstance();
+                                            apiRef.current = newApi;
+                                            
+                                            // Re-authorize if needed
+                                            try {
+                                                await authorizeIfNeeded();
+                                                setStatus('Connection restored successfully');
+                                            } catch (authError) {
+                                                console.error('Re-authorization failed:', authError);
+                                                setStatus('Failed to restore API connection');
+                                            }
+                                        } else {
+                                            console.log('API connection healthy after contract completion');
+                                        }
+                                    }
+                                } catch (healthCheckError) {
+                                    console.error('Connection health check failed:', healthCheckError);
+                                    setStatus('Connection health check failed');
+                                }
+                            }, 1000); // Wait 1 second after contract completion
                                 lastOutcomeWasLossRef.current = true;
                                 lossStreak++;
                                 step = Math.min(step + 1, martingaleRuns);
