@@ -1,0 +1,94 @@
+Compilation failed
+
+File: /home/runner/workspace/src/components/ml-trader/ml-trader.tsx:1:1
+  × Module build failed:
+  ╰─▶   ×   × the name `hullTrends` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/components/ml-trader/ml-trader.tsx:151:1]
+        │  148 │     const [ticksProcessed, setTicksProcessed] = useState<number>(0);
+        │  149 │
+        │  150 │     // Hull Moving Average trend analysis state - using 1000 tick increments for stability
+        │  151 │     const [hullTrends, setHullTrends] = useState({
+        │      ·            ─────┬────
+        │      ·                 ╰── previous definition of `hullTrends` here
+        │  152 │         '1000': { trend: 'NEUTRAL', value: 0 },
+        │  153 │         '2000': { trend: 'NEUTRAL', value: 0 },
+        │  154 │         '3000': { trend: 'NEUTRAL', value: 0 },
+        │  155 │         '4000': { trend: 'NEUTRAL', value: 0 }
+        │  156 │     });
+        │  157 │     const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
+        │  158 │     const [tradeHistory, setTradeHistory] = useState<Array<any>>([]);
+        │  159 │
+        │  160 │     const [status, setStatus] = useState<string>('');
+        │  161 │     const [is_running, setIsRunning] = useState(false);
+        │  162 │     const stopFlagRef = useRef<boolean>(false);
+        │  163 │     const lastOutcomeWasLossRef = useRef(false);
+        │  164 │
+        │  165 │     // Trading statistics
+        │  166 │     const [totalStake, setTotalStake] = useState(0);
+        │  167 │     const [totalPayout, setTotalPayout] = useState(0);
+        │  168 │     const [totalRuns, setTotalRuns] = useState(0);
+        │  169 │     const [contractsWon, setContractsWon] = useState(0);
+        │  170 │     const [contractsLost, setContractsLost] = useState(0);
+        │  171 │     const [totalProfitLoss, setTotalProfitLoss] = useState(0);
+        │  172 │
+        │  173 │     // Volatility scanner state
+        │  174 │     const [isScanning, setIsScanning] = useState(false);
+        │  175 │     const [volatilityRecommendations, setVolatilityRecommendations] = useState<any[]>([]);
+        │  176 │     const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
+        │  177 │     const [isPreloading, setIsPreloading] = useState<boolean>(false);
+        │  178 │
+        │  179 │     // Hull Moving Average trend analysis state - using 1000 tick increments for stability
+        │  180 │     const [hullTrends, setHullTrends] = useState({
+        │      ·            ─────┬────
+        │      ·                 ╰── `hullTrends` redefined here
+        │  181 │         '1000': { trend: 'NEUTRAL', value: 0 },
+        │  182 │         '2000': { trend: 'NEUTRAL', value: 0 },
+        │  183 │         '3000': { trend: 'NEUTRAL', value: 0 },
+        │      ╰────
+        │   × the name `setHullTrends` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/components/ml-trader/ml-trader.tsx:151:1]
+        │  148 │     const [ticksProcessed, setTicksProcessed] = useState<number>(0);
+        │  149 │
+        │  150 │     // Hull Moving Average trend analysis state - using 1000 tick increments for stability
+        │  151 │     const [hullTrends, setHullTrends] = useState({
+        │      ·                        ──────┬──────
+        │      ·                              ╰── previous definition of `setHullTrends` here
+        │  152 │         '1000': { trend: 'NEUTRAL', value: 0 },
+        │  153 │         '2000': { trend: 'NEUTRAL', value: 0 },
+        │  154 │         '3000': { trend: 'NEUTRAL', value: 0 },
+        │  155 │         '4000': { trend: 'NEUTRAL', value: 0 }
+        │  156 │     });
+        │  157 │     const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
+        │  158 │     const [tradeHistory, setTradeHistory] = useState<Array<any>>([]);
+        │  159 │
+        │  160 │     const [status, setStatus] = useState<string>('');
+        │  161 │     const [is_running, setIsRunning] = useState(false);
+        │  162 │     const stopFlagRef = useRef<boolean>(false);
+        │  163 │     const lastOutcomeWasLossRef = useRef(false);
+        │  164 │
+        │  165 │     // Trading statistics
+        │  166 │     const [totalStake, setTotalStake] = useState(0);
+        │  167 │     const [totalPayout, setTotalPayout] = useState(0);
+        │  168 │     const [totalRuns, setTotalRuns] = useState(0);
+        │  169 │     const [contractsWon, setContractsWon] = useState(0);
+        │  170 │     const [contractsLost, setContractsLost] = useState(0);
+        │  171 │     const [totalProfitLoss, setTotalProfitLoss] = useState(0);
+        │  172 │
+        │  173 │     // Volatility scanner state
+        │  174 │     const [isScanning, setIsScanning] = useState(false);
+        │  175 │     const [volatilityRecommendations, setVolatilityRecommendations] = useState<any[]>([]);
+        │  176 │     const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
+        │  177 │     const [isPreloading, setIsPreloading] = useState<boolean>(false);
+        │  178 │
+        │  179 │     // Hull Moving Average trend analysis state - using 1000 tick increments for stability
+        │  180 │     const [hullTrends, setHullTrends] = useState({
+        │      ·                        ──────┬──────
+        │      ·                              ╰── `setHullTrends` redefined here
+        │  181 │         '1000': { trend: 'NEUTRAL', value: 0 },
+        │  182 │         '2000': { trend: 'NEUTRAL', value: 0 },
+        │  183 │         '3000': { trend: 'NEUTRAL', value: 0 },
+        │      ╰────
+        │
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
