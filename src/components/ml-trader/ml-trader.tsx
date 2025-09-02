@@ -867,6 +867,16 @@ const MLTrader = observer(() => {
 
             setStatus(`${apiContractType} contract purchased successfully! Contract ID: ${buy.contract_id}`);
 
+            // If auto trading is enabled, immediately execute the next trade
+            if (isAutoTrading && applyContinuousTrading && !stopFlagRef.current) {
+                console.log('Auto trading: Contract purchased, executing next trade immediately...');
+                setTimeout(() => {
+                    if (isAutoTrading && !stopFlagRef.current) {
+                        executeNextTrade();
+                    }
+                }, 1000); // Short delay to ensure current purchase is fully processed
+            }
+
             // Subscribe to contract updates
             try {
                 const contractSubscription = await apiRef.current.send({
@@ -943,15 +953,8 @@ const MLTrader = observer(() => {
                                     setTotalPayout(prev => prev + (poc?.payout || 0));
                                     setTotalProfitLoss(prev => prev + profit); // Update total P&L
 
-                                    // If continuous trading is enabled, prepare for the next trade
-                                    if (applyContinuousTrading && isAutoTrading && !stopFlagRef.current) {
-                                        console.log('Contract completed, scheduling next trade in 3 seconds...');
-                                        setTimeout(() => {
-                                            if (isAutoTrading && !stopFlagRef.current && !isContractActive) {
-                                                executeNextTrade();
-                                            }
-                                        }, 3000); // Reduced delay for faster trading
-                                    }
+                                    // Contract completed - stats updated above
+                                    // Auto trading will continue from the purchase completion handler
                                 } else {
                                     // Contract is still running
                                     setStatus(`📈 Running: ${poc?.longcode || 'Contract'} | Current P&L: ${profit.toFixed(2)} ${account_currency}`);
@@ -1003,15 +1006,7 @@ const MLTrader = observer(() => {
     const executeNextTrade = async () => {
         if (!isAutoTrading || stopFlagRef.current) return;
 
-        // Don't execute if contract is active
-        if (isContractActive) {
-            console.log('Contract already active, waiting...');
-            // Check again in 2 seconds
-            setTimeout(() => {
-                executeNextTrade();
-            }, 2000);
-            return;
-        }
+        // Note: Allowing multiple contracts to run simultaneously for faster trading
 
         try {
             // Check for stop loss and take profit before trading
