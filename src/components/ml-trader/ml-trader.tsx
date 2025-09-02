@@ -959,6 +959,7 @@ const MLTrader = observer(() => {
                                     setStatus('Connection health check failed');
                                 }
                             }, 1000); // Wait 1 second after contract completion
+                            } else {
                                 lastOutcomeWasLossRef.current = true;
                                 lossStreak++;
                                 step = Math.min(step + 1, martingaleRuns);
