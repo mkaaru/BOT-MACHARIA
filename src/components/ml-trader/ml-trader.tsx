@@ -911,8 +911,9 @@ const MLTrader = observer(() => {
                                     apiRef.current?.connection?.removeEventListener('message', onMsg);
                                     pocSubIdRef.current = null; // Clear the ref
 
-                                    // Update martingale logic
+                                    // Update statistics
                                     if (profit > 0) {
+                                        setContractsWon(prev => prev + 1);
                                         lastOutcomeWasLossRef.current = false;
                                         lossStreak = 0;
                                         step = 0;
@@ -920,6 +921,7 @@ const MLTrader = observer(() => {
                                         setCurrentMartingaleCount(0); // Reset martingale count on win
                                         setIsInMartingaleSplit(false); // Reset mode on win
                                     } else {
+                                        setContractsLost(prev => prev + 1);
                                         lastOutcomeWasLossRef.current = true;
                                         lossStreak++;
                                         step = Math.min(step + 1, martingaleRuns); // Cap at martingaleRuns
@@ -938,13 +940,14 @@ const MLTrader = observer(() => {
                                             setIsInMartingaleSplit(false);
                                         }
                                     }
+                                    setTotalPayout(prev => prev + (poc?.payout || 0));
                                     setTotalProfitLoss(prev => prev + profit); // Update total P&L
 
                                     // If continuous trading is enabled, prepare for the next trade
                                     if (applyContinuousTrading && isAutoTrading && !stopFlagRef.current) {
                                         console.log('Contract completed, scheduling next trade in 3 seconds...');
                                         setTimeout(() => {
-                                            if (isAutoTrading && !stopFlagRef.current) {
+                                            if (isAutoTrading && !stopFlagRef.current && !isContractActive) {
                                                 executeNextTrade();
                                             }
                                         }, 3000); // Reduced delay for faster trading
@@ -1003,6 +1006,10 @@ const MLTrader = observer(() => {
         // Don't execute if contract is active
         if (isContractActive) {
             console.log('Contract already active, waiting...');
+            // Check again in 2 seconds
+            setTimeout(() => {
+                executeNextTrade();
+            }, 2000);
             return;
         }
 
@@ -1030,7 +1037,7 @@ const MLTrader = observer(() => {
             console.error('Auto trading error:', error);
             setStatus(`Auto trading error: ${error}`);
 
-            // Continue trading after error with delay
+            // Continue trading after error with delay if auto trading is still active
             if (isAutoTrading && !stopFlagRef.current) {
                 setTimeout(() => {
                     executeNextTrade();
