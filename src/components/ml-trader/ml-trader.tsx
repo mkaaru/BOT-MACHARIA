@@ -473,16 +473,35 @@ const MLTrader = observer(() => {
 
         return () => {
             try {
+                // Clean up tick stream subscription
                 if (tickStreamIdRef.current) {
                     apiRef.current?.forget({ forget: tickStreamIdRef.current });
                     tickStreamIdRef.current = null;
                 }
+                
+                // Clean up contract subscription
+                if (pocSubIdRef.current) {
+                    apiRef.current?.forget({ forget: pocSubIdRef.current });
+                    pocSubIdRef.current = null;
+                }
+                
+                // Clean up message handler
                 if (messageHandlerRef.current) {
                     apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
                     messageHandlerRef.current = null;
                 }
+                
+                // Clean up auto trading interval
+                if (autoTradingIntervalRef.current) {
+                    clearInterval(autoTradingIntervalRef.current);
+                    autoTradingIntervalRef.current = null;
+                }
+                
+                // Disconnect API
                 api?.disconnect?.();
-            } catch { /* noop */ }
+            } catch (error) {
+                console.warn('Error during cleanup:', error);
+            }
         };
     }, []);
 
@@ -802,6 +821,11 @@ const MLTrader = observer(() => {
                         run_panel.setHasOpenContract(true);
 
                         if (contractStatus === 'sold' || contract.is_sold) {
+                            // Clean up event listener immediately to prevent duplicate processing
+                            if (apiRef.current?.connection) {
+                                apiRef.current.connection.removeEventListener('message', onMessage);
+                            }
+                            
                             // For losses, ensure we show the negative stake amount
                             if (!isWin && profit === 0) {
                                 profit = -purchase_price; // Use purchase_price which is the stake
@@ -813,8 +837,16 @@ const MLTrader = observer(() => {
 
                             run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
                             run_panel.setHasOpenContract(false);
-                            if (pocSubIdRef.current) apiRef.current?.forget?.({ forget: pocSubIdRef.current });
-                            apiRef.current?.connection?.removeEventListener('message', onMessage);
+                            
+                            // Clean up subscription
+                            if (pocSubIdRef.current) {
+                                try {
+                                    apiRef.current?.forget?.({ forget: pocSubIdRef.current });
+                                } catch (forgetError) {
+                                    console.warn('Error forgetting subscription:', forgetError);
+                                }
+                                pocSubIdRef.current = null;
+                            }
 
                             // Update statistics with proper loss amounts
                             if (isWin) {
@@ -859,28 +891,39 @@ const MLTrader = observer(() => {
                             ));
 
                             // Report contract completion to transactions store
-                            transactions.onBotContractEvent({
-                                contract: {
-                                    contract_id: contract.contract_id,
-                                    profit: profit,
-                                    sell_price: isWin ? (purchase_price + profit) : 0,
-                                    buy_price: purchase_price,
-                                    currency: account_currency,
-                                    is_sold: true,
-                                    status: isWin ? 'won' : 'lost',
-                                    date_end: Math.floor(Date.now() / 1000)
-                                }
-                            });
+                            try {
+                                transactions.onBotContractEvent({
+                                    contract: {
+                                        contract_id: contract.contract_id,
+                                        profit: profit,
+                                        sell_price: isWin ? (purchase_price + profit) : 0,
+                                        buy_price: purchase_price,
+                                        currency: account_currency,
+                                        is_sold: true,
+                                        status: isWin ? 'won' : 'lost',
+                                        date_end: Math.floor(Date.now() / 1000)
+                                    }
+                                });
+                            } catch (transactionError) {
+                                console.warn('Error reporting to transactions store:', transactionError);
+                            }
                         }
                     }
                 } catch (err) {
                     console.error('Error processing contract update:', err);
                 }
             };
+            
             // Capture subscription ID for later forget
-            if (response.subscription?.id) pocSubIdRef.current = response.subscription.id;
-            apiRef.current?.connection?.addEventListener('message', onMessage);
-            messageHandlerRef.current = onMsg; // Store the handler for potential removal
+            if (response.subscription?.id) {
+                pocSubIdRef.current = response.subscription.id;
+            }
+            
+            // Add event listener
+            if (apiRef.current?.connection) {
+                apiRef.current.connection.addEventListener('message', onMessage);
+            }
+            
         } catch (error) {
             console.error('Monitor contract error:', error);
             setStatus(`Contract monitoring failed: ${error.message || 'Unknown error'}`);
