@@ -357,7 +357,7 @@ const MLTrader = observer(() => {
 
                     // Get current price from smoothed data
                     const currentPrice = decycledPrices[decycledPrices.length - 1];
-                    const priceAboveHMA = currentPrice > smoothedHMA;
+                    const priceAboveHMA = currentPrice > smoothedHMA; // Use smoothedHMA for comparison
 
                     // Calculate adaptive thresholds based on timeframe
                     const priceRange = Math.max(...decycledPrices.slice(-Math.min(50, decycledPrices.length))) -
@@ -397,7 +397,7 @@ const MLTrader = observer(() => {
 
                     newTrends[tickCountStr as keyof typeof hullTrends] = {
                         trend,
-                        value: Number(smoothedHMA.toFixed(5))
+                        value: Number(smoothedHMA.toFixed(5)) // Store smoothed value
                     };
 
                     // Update previous trends for smoothing
@@ -405,8 +405,8 @@ const MLTrader = observer(() => {
                         ...prev,
                         [tickCountStr]: {
                             trend,
-                            value: Number(hmaValue.toFixed(5)),
-                            smoothedValue: smoothedHMA
+                            value: Number(hmaValue.toFixed(5)), // Store raw HMA value
+                            smoothedValue: smoothedHMA // Store smoothed HMA value
                         }
                     }));
                 }
@@ -892,7 +892,9 @@ const MLTrader = observer(() => {
                                     ...poc,
                                     run_id: run_panel.run_id,
                                 });
-                                run_panel.setHasOpenContract(true);
+                                run_panel.setIsRunning(true); // Ensure run_panel is marked as running
+                                run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
+
 
                                 // Update status with live contract info
                                 const profit = Number(poc?.profit || 0);
@@ -947,6 +949,53 @@ const MLTrader = observer(() => {
                 };
                 apiRef.current?.connection?.addEventListener('message', onMsg);
                 messageHandlerRef.current = onMsg; // Store the handler for potential removal
+
+                                // Perform connection health check and continue auto trading after contract completion
+                                setTimeout(async () => {
+                                    try {
+                                        if (apiRef.current && !stopFlagRef.current) {
+                                            // Test API connection with a simple ping request
+                                            const healthCheck = await Promise.race([
+                                                apiRef.current.send({ ping: 1 }),
+                                                new Promise((_, reject) =>
+                                                    setTimeout(() => reject(new Error('Health check timeout')), 3000)
+                                                )
+                                            ]);
+
+                                            if (healthCheck.error) {
+                                                console.warn('API health check failed, attempting reconnection...');
+                                                setStatus('API connection issue detected, reconnecting...');
+
+                                                // Reinitialize API connection
+                                                const newApi = generateDerivApiInstance();
+                                                apiRef.current = newApi;
+
+                                                // Re-authorize if needed
+                                                try {
+                                                    await authorizeIfNeeded();
+                                                    setStatus('Connection restored successfully');
+                                                } catch (authError) {
+                                                    console.error('Re-authorization failed:', authError);
+                                                    setStatus('Failed to restore API connection');
+                                                }
+                                            } else {
+                                                console.log('API connection healthy after contract completion');
+                                            }
+
+                                            // Continue auto trading if still active
+                                            if (isAutoTrading && !stopFlagRef.current) {
+                                                setTimeout(() => {
+                                                    if (isAutoTrading && !stopFlagRef.current) {
+                                                        executeSingleTrade();
+                                                    }
+                                                }, 2000); // Wait 2 seconds before next trade
+                                            }
+                                        }
+                                    } catch (healthCheckError) {
+                                        console.error('Connection health check failed:', healthCheckError);
+                                        setStatus('Connection health check failed');
+                                    }
+                                }, 1000); // Wait 1 second after contract completion
 
             } catch (subscriptionError) {
                 console.error('Error subscribing to contract:', subscriptionError);
@@ -1345,9 +1394,9 @@ const MLTrader = observer(() => {
                                         <span className="progress-percentage">{risePercentage}%</span>
                                     </div>
                                     <div className="progress-bar">
-                                        <div 
+                                        <div
                                             className="progress-fill"
-                                            style={{ 
+                                            style={{
                                                 width: `${risePercentage}%`,
                                                 backgroundColor: '#4CAF50'
                                             }}
@@ -1363,9 +1412,9 @@ const MLTrader = observer(() => {
                                         <span className="progress-percentage">{fallPercentage}%</span>
                                     </div>
                                     <div className="progress-bar">
-                                        <div 
+                                        <div
                                             className="progress-fill"
-                                            style={{ 
+                                            style={{
                                                 width: `${fallPercentage}%`,
                                                 backgroundColor: '#f44336'
                                             }}
@@ -1381,8 +1430,8 @@ const MLTrader = observer(() => {
                         <h4>Last 10 Ticks Pattern:</h4>
                         <div className="pattern-grid">
                             {tickStream.slice(-10).map((tick, index) => (
-                                <div 
-                                    key={index} 
+                                <div
+                                    key={index}
                                     className={`digit-item ${tick.direction === 'R' ? 'rise' : tick.direction === 'F' ? 'fall' : 'neutral'}`}
                                 >
                                     {tick.direction}
