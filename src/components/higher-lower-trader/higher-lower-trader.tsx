@@ -1342,13 +1342,25 @@ const HigherLowerTrader = observer(() => {
                 { value: 'R_100', label: 'Volatility 100 Index' },
             ];
         } else {
-            // Higher/Lower mode symbols
+            // Higher/Lower mode symbols - now includes Rise/Fall volatilities
             return [
+                // 1-second volatility indices (from Rise/Fall)
+                { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
+                { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
+                { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
+                { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
+                { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
+                { value: '1HZ150V', label: 'Volatility 150 (1s) Index' },
+                { value: '1HZ200V', label: 'Volatility 200 (1s) Index' },
+                { value: '1HZ250V', label: 'Volatility 250 (1s) Index' },
+                { value: '1HZ300V', label: 'Volatility 300 (1s) Index' },
+                // Regular volatility indices
                 { value: 'R_10', label: 'Volatility 10 Index' },
                 { value: 'R_25', label: 'Volatility 25 Index' },
                 { value: 'R_50', label: 'Volatility 50 Index' },
                 { value: 'R_75', label: 'Volatility 75 Index' },
                 { value: 'R_100', label: 'Volatility 100 Index' },
+                // Other indices
                 { value: 'BOOM500', label: 'Boom 500 Index' },
                 { value: 'BOOM1000', label: 'Boom 1000 Index' },
                 { value: 'CRASH500', label: 'Crash 500 Index' },
