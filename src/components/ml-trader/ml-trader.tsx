@@ -454,8 +454,8 @@ const MLTrader = observer(() => {
         setIsPreloading(true);
         setStatus('Preloading historical data for trend analysis...');
 
-        // Updated to include only plain and 1-second volatilities
-        const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', '1HZ150V', '1HZ200V', '1HZ250V', '1HZ300V'];
+        // Use symbols from VOLATILITY_INDICES
+        const volatilitySymbols = VOLATILITY_INDICES.map(v => v.value);
 
         const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>}= {};
 
@@ -1004,8 +1004,8 @@ const MLTrader = observer(() => {
         setStatus('Scanning volatility opportunities...');
 
         const opportunities: any[] = [];
-        // Updated to include only plain and 1-second volatilities
-        const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', '1HZ150V', '1HZ200V', '1HZ250V', '1HZ300V'];
+        // Use symbols from VOLATILITY_INDICES
+        const volatilitySymbols = VOLATILITY_INDICES.map(v => v.value);
 
         try {
             for (const volatilitySymbol of volatilitySymbols) {

@@ -396,14 +396,14 @@ const VolatilityAnalyzer: React.FC = () => {
         derivWs.onclose = null;
         derivWs.close();
       }
-      
+
       // Clear all trading intervals
       Object.values(tradingIntervals).forEach(interval => {
         if (interval) {
           clearInterval(interval);
         }
       });
-      
+
       // Reset trading intervals
       setTradingIntervals({
         'rise-fall': null,
@@ -413,7 +413,7 @@ const VolatilityAnalyzer: React.FC = () => {
         'over-under-2': null,
         'matches-differs': null,
       });
-      
+
       // Reset auto trading status
       setAutoTradingStatus({
         'rise-fall': false,
@@ -452,6 +452,10 @@ const VolatilityAnalyzer: React.FC = () => {
     { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
     { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
     { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
+    { value: '1HZ150V', label: 'Volatility 150 (1s) Index' },
+    { value: '1HZ200V', label: 'Volatility 200 (1s) Index' },
+    { value: '1HZ250V', label: 'Volatility 250 (1s) Index' },
+    { value: '1HZ300V', label: 'Volatility 300 (1s) Index' },
   ];
 
   const [isConnected, setIsConnected] = useState(false);
@@ -527,7 +531,7 @@ const VolatilityAnalyzer: React.FC = () => {
         const { generateDerivApiInstance, V2GetActiveToken } = await import('@/external/bot-skeleton/services/api/appId');
         const api = generateDerivApiInstance();
         setTradingApi(api);
-        
+
         // Try to authorize if token is available
         const token = V2GetActiveToken();
         if (token) {
@@ -551,18 +555,18 @@ const VolatilityAnalyzer: React.FC = () => {
 
   const authorizeIfNeeded = async () => {
     if (isAuthorized || !tradingApi) return;
-    
+
     const { V2GetActiveToken } = await import('@/external/bot-skeleton/services/api/appId');
     const token = V2GetActiveToken();
     if (!token) {
       throw new Error('No token found. Please log in and select an account.');
     }
-    
+
     const { authorize, error } = await tradingApi.authorize(token);
     if (error) {
       throw new Error(`Authorization error: ${error.message || error.code}`);
     }
-    
+
     setIsAuthorized(true);
     console.log('✅ Trading API authorized successfully');
   };
@@ -570,7 +574,7 @@ const VolatilityAnalyzer: React.FC = () => {
   const executeTrade = async (strategyId: string, tradeType: string) => {
     const timestamp = new Date().toLocaleTimeString();
     console.log(`[${timestamp}] 🚀 Executing ${tradeType} trade for ${strategyId}`);
-    
+
     if (connectionStatus !== 'connected') {
       const errorMsg = 'Cannot trade: Not connected to API';
       console.error(`[${timestamp}] ❌ ${errorMsg}`);
@@ -595,7 +599,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
       const data = analysisData[strategyId];
       const condition = tradingConditions[strategyId];
-      
+
       if (!data?.data) {
         const errorMsg = 'No analysis data available for trading';
         console.error(`[${timestamp}] ❌ ${errorMsg}`);
@@ -620,7 +624,7 @@ const VolatilityAnalyzer: React.FC = () => {
       // Determine contract type and prediction based on strategy and manual/auto mode
       let contractType = '';
       let prediction: number | undefined;
-      
+
       if (tradeType === 'manual') {
         // For manual trades, use trading conditions to determine trade direction
         const conditionMet = checkTradingConditions(strategyId, data.data, condition);
@@ -629,9 +633,9 @@ const VolatilityAnalyzer: React.FC = () => {
           alert(`Trading conditions not met for ${strategyId}. Check your condition settings.`);
           return;
         }
-        
+
         console.log(`✅ Trading conditions met for ${strategyId}, proceeding with manual trade`);
-        
+
         // Determine trade based on the condition that was met
         switch (strategyId) {
           case 'rise-fall':
@@ -644,7 +648,7 @@ const VolatilityAnalyzer: React.FC = () => {
               contractType = parseFloat(data.data.riseRatio || '0') > parseFloat(data.data.fallRatio || '0') ? 'CALL' : 'PUT';
             }
             break;
-            
+
           case 'even-odd':
           case 'even-odd-2':
             if (condition.condition === 'Even Prob') {
@@ -658,12 +662,12 @@ const VolatilityAnalyzer: React.FC = () => {
               contractType = evenProb > oddProb ? 'DIGITEVEN' : 'DIGITODD';
             }
             break;
-            
+
           case 'over-under':
           case 'over-under-2':
             const baseBarrier = data.data.barrier || 5;
             prediction = baseBarrier;
-            
+
             if (condition.condition === 'Over Prob') {
               contractType = 'DIGITOVER';
             } else if (condition.condition === 'Under Prob') {
@@ -675,10 +679,10 @@ const VolatilityAnalyzer: React.FC = () => {
               contractType = overProb > underProb ? 'DIGITOVER' : 'DIGITUNDER';
             }
             break;
-            
+
           case 'matches-differs':
             prediction = data.data.target;
-            
+
             if (condition.condition === 'Matches Prob') {
               contractType = 'DIGITMATCH';
             } else if (condition.condition === 'Differs Prob') {
@@ -689,7 +693,7 @@ const VolatilityAnalyzer: React.FC = () => {
               contractType = matchProb > 15 ? 'DIGITMATCH' : 'DIGITDIFF';
             }
             break;
-            
+
           default:
             console.error('Unknown strategy type for manual trade');
             return;
@@ -785,7 +789,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
       // Execute the trade
       const { buy, error } = await tradingApi.buy(buy_req);
-      
+
       if (error) {
         console.error('❌ Purchase failed:', error);
         alert(`Purchase failed: ${error.message || 'Unknown error'}`);
@@ -801,15 +805,15 @@ const VolatilityAnalyzer: React.FC = () => {
           tradeType,
           prediction
         });
-        
+
         // Only show alert for manual trades to avoid spam during auto trading
         if (tradeType === 'manual') {
           alert(`${contractType} contract purchased! ID: ${buy.contract_id}, Amount: ${effectiveStake}`);
         }
-        
+
         // Track the contract outcome for martingale logic
         const contractId = buy.contract_id;
-        
+
         // Subscribe to contract updates to track win/loss
         try {
           const { subscription, error: subError } = await tradingApi.send({
@@ -830,13 +834,13 @@ const VolatilityAnalyzer: React.FC = () => {
               if (data.msg_type === 'proposal_open_contract' && 
                   data.proposal_open_contract &&
                   String(data.proposal_open_contract.contract_id) === String(contractId)) {
-                
+
                 const contract = data.proposal_open_contract;
-                
+
                 if (contract.is_sold || contract.status === 'sold') {
                   const profit = Number(contract.profit || 0);
                   const isWin = profit > 0;
-                  
+
                   if (isWin) {
                     setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: false }));
                     setLossStreaks(prev => ({ ...prev, [strategyId]: 0 }));
@@ -849,7 +853,7 @@ const VolatilityAnalyzer: React.FC = () => {
                     }));
                     console.log(`❌ Loss! Profit: ${profit}`);
                   }
-                  
+
                   // Clean up listener
                   tradingApi?.connection?.removeEventListener('message', handleContractUpdate);
                 }
@@ -861,7 +865,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
           // Add listener for contract updates
           tradingApi?.connection?.addEventListener('message', handleContractUpdate);
-          
+
           // Clean up listener after 5 minutes
           setTimeout(() => {
             tradingApi?.connection?.removeEventListener('message', handleContractUpdate);
@@ -874,14 +878,14 @@ const VolatilityAnalyzer: React.FC = () => {
 
     } catch (error) {
       console.error(`[${timestamp}] ❌ Error executing ${tradeType} trade for ${strategyId}:`, error);
-      
+
       // Only show alert for manual trades to avoid spam during auto trading
       if (tradeType === 'manual') {
         alert(`Trade execution error: ${error.message}`);
       }
-      
+
       setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
-      
+
       // For auto trading, log the error but don't stop the auto trading
       if (tradeType === 'auto') {
         console.log(`[${timestamp}] 🔄 Auto trading will continue for ${strategyId} despite this error`);
@@ -909,7 +913,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
     // Determine interval based on volatility symbol - shorter intervals for continuous trading
     let intervalMs = 1500; // 1.5 seconds for faster response
-    
+
     // For 1s volatilities, use even faster interval
     if (selectedSymbol.includes('1HZ')) {
       intervalMs = 1000; // 1 second for 1s volatilities
@@ -926,7 +930,7 @@ const VolatilityAnalyzer: React.FC = () => {
       try {
         // Use refs to get current state instead of closure
         const currentTime = Date.now();
-        
+
         // Check if enough time has passed since last trade
         if (currentTime - lastTradeTime < minTimeBetweenTrades) {
           return;
@@ -935,7 +939,7 @@ const VolatilityAnalyzer: React.FC = () => {
         // Get current state directly from DOM or use a more reliable state check
         const autoTradingButton = document.querySelector(`[data-strategy="${strategyId}"] .start-trading-btn`);
         const isAutoTradingActive = autoTradingButton?.textContent?.includes('Stop Auto Trading');
-        
+
         // Check if auto trading is still active and connected
         if (!isAutoTradingActive || connectionStatus !== 'connected') {
           console.log(`Auto trading stopped for ${strategyId} - Button state: ${autoTradingButton?.textContent}, Connection: ${connectionStatus}`);
@@ -952,11 +956,11 @@ const VolatilityAnalyzer: React.FC = () => {
 
         // Check if trading conditions are met with more robust checking
         const conditionsMet = checkTradingConditions(strategyId, data.data, condition);
-        
+
         if (conditionsMet) {
           console.log(`🔥 Auto trading conditions met for ${strategyId}, executing trade`);
           lastTradeTime = currentTime;
-          
+
           try {
             await executeTrade(strategyId, 'auto');
             console.log(`✅ Auto trade executed successfully for ${strategyId}`);
@@ -1009,10 +1013,10 @@ const VolatilityAnalyzer: React.FC = () => {
 
   const checkTradingConditions = (strategyId: string, data: any, condition: any) => {
     let currentValue = 0;
-    
+
     // More detailed logging for debugging
     const timestamp = new Date().toLocaleTimeString();
-    
+
     switch (condition.condition) {
       case 'Rise Prob':
         currentValue = parseFloat(data.riseRatio || '0');
