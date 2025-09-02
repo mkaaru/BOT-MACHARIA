@@ -895,7 +895,6 @@ const MLTrader = observer(() => {
                                 run_panel.setIsRunning(true); // Ensure run_panel is marked as running
                                 run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
 
-
                                 // Update status with live contract info
                                 const profit = Number(poc?.profit || 0);
                                 if (poc?.is_sold || poc?.status === 'sold') {
@@ -910,6 +909,7 @@ const MLTrader = observer(() => {
 
                                     // Update martingale logic
                                     if (profit > 0) {
+                                        setContractsWon(prev => prev + 1);
                                         lastOutcomeWasLossRef.current = false;
                                         lossStreak = 0;
                                         step = 0;
@@ -917,6 +917,7 @@ const MLTrader = observer(() => {
                                         setCurrentMartingaleCount(0); // Reset martingale count on win
                                         setIsInMartingaleSplit(false); // Reset mode on win
                                     } else {
+                                        setContractsLost(prev => prev + 1);
                                         lastOutcomeWasLossRef.current = true;
                                         lossStreak++;
                                         step = Math.min(step + 1, martingaleRuns); // Cap at martingaleRuns
@@ -936,6 +937,22 @@ const MLTrader = observer(() => {
                                         }
                                     }
                                     setTotalProfitLoss(prev => prev + profit); // Update total P&L
+                                    setTotalPayout(prev => prev + (profit > 0 ? profit + stake : 0));
+
+                                    // Clean up current contract subscription
+                                    if (pocSubIdRef.current) {
+                                        apiRef.current?.forget?.({ forget: pocSubIdRef.current });
+                                        pocSubIdRef.current = null;
+                                    }
+                                    if (messageHandlerRef.current) {
+                                        apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
+                                        messageHandlerRef.current = null;
+                                    }
+
+                                    // Schedule next trade if auto trading is still active
+                                    if (isAutoTrading && !stopFlagRef.current) {
+                                        scheduleNextTrade();
+                                    }
                                 } else {
                                     // Contract is still running
                                     setStatus(`📈 Running: ${poc?.longcode || 'Contract'} | Current P&L: ${profit.toFixed(2)} ${account_currency}`);
@@ -1306,6 +1323,14 @@ const MLTrader = observer(() => {
         };
     };
 
+    // Function to schedule the next trade
+    const scheduleNextTrade = () => {
+        setTimeout(() => {
+            if (isAutoTrading && !stopFlagRef.current) {
+                executeSingleTrade();
+            }
+        }, 2000); // Short delay before the next trade
+    };
 
     return (
         <div className="ml-trader">
