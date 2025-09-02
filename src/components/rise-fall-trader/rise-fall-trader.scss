@@ -47,9 +47,9 @@
     }
   }
 
-  .trading-controls {
+  .trader-controls {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 16px;
     margin-bottom: 25px;
 
@@ -141,45 +141,77 @@
         justify-content: center;
         gap: 8px;
         transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+
+        &::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+          transition: left 0.5s;
+        }
+
+        &:hover:not(:disabled) {
+          transform: translateY(-3px) scale(1.02);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+
+          &::before {
+            left: 100%;
+          }
+        }
+
+        &:active:not(:disabled) {
+          transform: translateY(-1px) scale(0.98);
+        }
 
         &:disabled {
           opacity: 0.6;
           cursor: not-allowed;
+          transform: none;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         &.auto-trade-btn {
-          background: linear-gradient(135deg, #2196F3, #1976D2);
+          background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
           color: white;
           margin-bottom: 8px;
 
           &:hover:not(:disabled) {
-            background: linear-gradient(135deg, #1976D2, #2196F3);
-            transform: translateY(-2px);
+            background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+            box-shadow: 0 8px 25px rgba(33, 150, 243, 0.4);
           }
 
           &.trading-active {
-            background: linear-gradient(135deg, #ff6b6b, #ff5252);
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%);
             animation: pulse 2s infinite;
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
           }
         }
 
         &.rise-btn {
-          background: linear-gradient(135deg, #4CAF50, #45a049);
+          background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
           color: white;
 
           &:hover:not(:disabled) {
-            background: linear-gradient(135deg, #45a049, #4CAF50);
-            transform: translateY(-2px);
+            background: linear-gradient(135deg, #45a049 0%, #4CAF50 100%);
+            box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
           }
         }
 
         &.fall-btn {
-          background: linear-gradient(135deg, #f44336, #d32f2f);
+          background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
           color: white;
 
           &:hover:not(:disabled) {
-            background: linear-gradient(135deg, #d32f2f, #f44336);
-            transform: translateY(-2px);
+            background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%);
+            box-shadow: 0 8px 25px rgba(244, 67, 54, 0.4);
           }
         }
       }
@@ -665,7 +697,7 @@
       }
     }
 
-    .trading-controls {
+    .trader-controls {
       grid-template-columns: 1fr;
       gap: 12px;
 
@@ -674,7 +706,7 @@
 
         select,
         input {
-          font-size: 16px; // Prevent zoom on iOS
+          font-size: 16px; /* Prevent zoom on iOS */
           padding: 12px;
         }
       }
@@ -810,7 +842,7 @@
       font-size: 18px;
     }
 
-    .trading-controls {
+    .trader-controls {
       gap: 10px;
     }
 
@@ -883,7 +915,7 @@
     }
   }
 
-  // Extra small screens
+  /* Extra small screens */
   @media (max-width: 360px) {
     padding: 8px;
 
@@ -902,7 +934,7 @@
   }
 }
 
-// Animation keyframes
+/* Animation keyframes */
 @keyframes pulse {
   0% {
     transform: scale(1);
