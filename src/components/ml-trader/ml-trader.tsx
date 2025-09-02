@@ -8,69 +8,82 @@ import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import './ml-trader.scss';
 
-// Mock TradingEngine for demonstration purposes. In a real scenario, this would be imported and configured.
-const tradingEngine = {
-    isEngineConnected: () => true, // Assume connected for this example
-    getProposal: async (params: any) => {
-        // Simulate a successful proposal response
-        return {
-            proposal: {
-                id: `proposal_${Math.random().toString(36).substr(2, 9)}`,
-                ask_price: parseFloat((params.amount * 1.95).toFixed(2)), // Simulate a price
-                longcode: `${params.contract_type} ${params.symbol}`,
-                // Add other necessary proposal fields if needed
-            },
-            error: null,
-        };
+// Mock ML Trading Engine for demonstration purposes. In a real scenario, this would be imported and configured.
+const mlTradingEngine = {
+    // Mock connection status
+    isConnected: false,
+    connection: null,
+
+    // Mock API instance
+    api: null,
+
+    // Initialize the engine (connect to API)
+    async initialize() {
+        this.api = generateDerivApiInstance();
+        try {
+            await this.api.connect(); // Assume connect is a method on the generated instance
+            this.isConnected = true;
+            console.log('ML Trading Engine initialized and connected.');
+            return true;
+        } catch (error) {
+            console.error('ML Trading Engine initialization failed:', error);
+            this.isConnected = false;
+            return false;
+        }
     },
-    buyContract: async (proposal_id: string, price: number) => {
-        // Simulate a successful contract purchase
-        const contract_id = `contract_${Math.random().toString(36).substr(2, 9)}`;
-        return {
-            buy: {
-                id: contract_id,
-                contract_id: contract_id,
-                buy_price: price,
-                payout: price * 1.95, // Simulate payout
-                transaction_id: `tx_${Math.random().toString(36).substr(2, 9)}`,
-                longcode: 'Simulated Rise/Fall Contract',
-                shortcode: 'RISEFALL',
-                start_time: Math.floor(Date.now() / 1000),
-                symbol: 'R_100', // Example symbol
-                contract_type: 'CALL',
-                currency: 'USD',
-                // Add other necessary purchase receipt fields
-            },
-            error: null,
-        };
+
+    // Check if the engine is connected
+    isEngineConnected() {
+        return this.isConnected && this.api;
     },
-    subscribeToContract: async (contract_id: string) => {
-        // Simulate subscription
-        console.log(`Subscribing to contract ${contract_id}`);
-        return { error: null };
+
+    // Send a request to the API
+    send(request: any) {
+        if (!this.isEngineConnected()) {
+            return Promise.reject(new Error('ML Trading Engine not connected.'));
+        }
+        return this.api.send(request);
     },
-    getWebSocket: () => {
-        // In a real implementation, this would return the actual WebSocket connection
-        // For this mock, we'll simulate it by returning an object with addEventListener and removeEventListener
-        let listeners: { [key: string]: ((event: MessageEvent) => void)[] } = {};
-        return {
-            addEventListener: (type: string, listener: (event: MessageEvent) => void) => {
-                if (!listeners[type]) listeners[type] = [];
-                listeners[type].push(listener);
-            },
-            removeEventListener: (type: string, listener: (event: MessageEvent) => void) => {
-                if (listeners[type]) {
-                    listeners[type] = listeners[type].filter(l => l !== listener);
-                }
-            },
-            // Mock dispatchEvent to simulate receiving messages
-            dispatchEvent: (event: MessageEvent) => {
-                if (listeners['message']) {
-                    listeners['message'].forEach(listener => listener(event));
-                }
-            }
-        };
+
+    // Add event listener for messages
+    addEventListener(type: string, listener: (event: MessageEvent) => void) {
+        if (this.api?.connection?.addEventListener) {
+            this.api.connection.addEventListener(type, listener);
+        }
     },
+
+    // Remove event listener for messages
+    removeEventListener(type: string, listener: (event: MessageEvent) => void) {
+        if (this.api?.connection?.removeEventListener) {
+            this.api.connection.removeEventListener(type, listener);
+        }
+    },
+
+    // Forget a subscription
+    forget(request: { forget: string }) {
+        if (this.isEngineConnected()) {
+            return this.api.send(request);
+        }
+        return Promise.reject(new Error('ML Trading Engine not connected.'));
+    },
+
+    // Authorize the connection
+    async authorize(token: string) {
+        if (!this.isEngineConnected()) {
+            await this.initialize();
+        }
+        return this.api.authorize(token);
+    },
+
+    // Disconnect the engine
+    disconnect() {
+        if (this.api) {
+            this.api.disconnect();
+            this.isConnected = false;
+            this.api = null;
+            console.log('ML Trading Engine disconnected.');
+        }
+    }
 };
 
 // Volatility indices for Rise/Fall trading
@@ -114,7 +127,6 @@ const MLTrader = observer(() => {
     const store = useStore();
     const { run_panel, transactions, client } = store;
 
-    const apiRef = useRef<any>(null);
     const tickStreamIdRef = useRef<string | null>(null);
     const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
     const pocSubIdRef = useRef<string | null>(null); // Ref for proposal_open_contract subscription ID
@@ -416,8 +428,8 @@ const MLTrader = observer(() => {
         setHullTrends(newTrends);
     };
 
-    // Fetch historical tick data for Hull Moving Average analysis
-    const fetchHistoricalTicks = async (symbolToFetch: string) => {
+    // Fetch historical tick data for Hull Moving Average analysis using the ML trading engine
+    const fetchHistoricalTicksWithEngine = async (symbolToFetch: string) => {
         try {
             const request = {
                 ticks_history: symbolToFetch,
@@ -428,7 +440,7 @@ const MLTrader = observer(() => {
                 style: "ticks"
             };
 
-            const response = await apiRef.current.send(request);
+            const response = await mlTradingEngine.send(request);
 
             if (response.error) {
                 console.error('Historical ticks fetch error:', response.error);
@@ -458,8 +470,8 @@ const MLTrader = observer(() => {
         }
     };
 
-    // Preload historical data for all volatilities
-    const preloadAllVolatilityData = async (api: any) => {
+    // Preload historical data for all volatilities using the ML trading engine
+    const preloadAllVolatilityData = async (engine: any) => {
         setIsPreloading(true);
         setStatus('Preloading historical data for trend analysis...');
 
@@ -481,7 +493,7 @@ const MLTrader = observer(() => {
                         style: "ticks"
                     };
 
-                    const response = await api.send(request);
+                    const response = await engine.send(request);
 
                     if (response.error) {
                         console.warn(`Error fetching data for ${sym}:`, response.error);
@@ -516,11 +528,15 @@ const MLTrader = observer(() => {
 
     // Effect to initialize API connection and fetch active symbols
     useEffect(() => {
-        const api = generateDerivApiInstance();
-        apiRef.current = api;
         const init = async () => {
+            const connected = await mlTradingEngine.initialize();
+            if (!connected) {
+                setStatus('Failed to connect to ML Trading Engine.');
+                return;
+            }
+
             try {
-                const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
+                const { active_symbols, error: asErr } = await mlTradingEngine.send({ active_symbols: 'brief' });
                 if (asErr) throw asErr;
                 const syn = (active_symbols || [])
                     .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol) || s.symbol.startsWith('BOOM') || s.symbol.startsWith('CRASH') || s.symbol === 'stpRNG' || s.symbol.startsWith('1HZ'))
@@ -528,7 +544,7 @@ const MLTrader = observer(() => {
                 setSymbols(syn);
 
                 // Preload historical data for all volatility indices
-                await preloadAllVolatilityData(api);
+                await preloadAllVolatilityData(mlTradingEngine);
 
                 if (!symbol && syn[0]?.symbol) {
                     setSymbol(syn[0].symbol);
@@ -537,9 +553,9 @@ const MLTrader = observer(() => {
                         setTickData(preloadedData[syn[0].symbol]);
                         updateEhlersTrends(preloadedData[syn[0].symbol]);
                     } else {
-                        await fetchHistoricalTicks(syn[0].symbol);
+                        fetchHistoricalTicksWithEngine(syn[0].symbol);
                     }
-                    startTicks(syn[0].symbol);
+                    startTicksWithEngine(syn[0].symbol);
                 }
             } catch (e: any) {
                 console.error('MLTrader init error', e);
@@ -549,33 +565,23 @@ const MLTrader = observer(() => {
         init();
 
         return () => {
-            try {
-                if (tickStreamIdRef.current) {
-                    apiRef.current?.forget({ forget: tickStreamIdRef.current });
-                    tickStreamIdRef.current = null;
-                }
-                if (messageHandlerRef.current) {
-                    apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
-                    messageHandlerRef.current = null;
-                }
-                api?.disconnect?.();
-            } catch { /* noop */ }
+            mlTradingEngine.disconnect();
         };
     }, []);
 
     // Effect to fetch historical data when symbol changes
-    useEffect(() => {
-        if (symbol && apiRef.current) {
-            // Use preloaded data if available, otherwise fetch
-            if (preloadedData[symbol] && preloadedData[symbol].length > 0) {
-                setTickData(preloadedData[symbol]);
-                updateEhlersTrends(preloadedData[symbol]);
-                console.log(`Using preloaded data for ${symbol}: ${preloadedData[symbol].length} ticks`);
-            } else {
-                fetchHistoricalTicks(symbol);
+        useEffect(() => {
+            if (symbol && mlTradingEngine.isEngineConnected()) {
+                // Use preloaded data if available, otherwise fetch
+                if (preloadedData[symbol] && preloadedData[symbol].length > 0) {
+                    setTickData(preloadedData[symbol]);
+                    updateEhlersTrends(preloadedData[symbol]);
+                    console.log(`Using preloaded data for ${symbol}: ${preloadedData[symbol].length} ticks`);
+                } else {
+                    fetchHistoricalTicksWithEngine(symbol);
+                }
             }
-        }
-    }, [symbol, preloadedData]);
+        }, [symbol, preloadedData]);
 
     // Add event listener for volatility scanner symbol selection
     useEffect(() => {
@@ -588,9 +594,9 @@ const MLTrader = observer(() => {
                 setTickData(preloadedData[defaultSymbol]);
                 updateEhlersTrends(preloadedData[defaultSymbol]);
             } else {
-                fetchHistoricalTicks(defaultSymbol);
+                fetchHistoricalTicksWithEngine(defaultSymbol);
             }
-            startTicks(defaultSymbol);
+            startTicksWithEngine(defaultSymbol);
         }
 
         // Listen for symbol selection from volatility scanner
@@ -606,9 +612,9 @@ const MLTrader = observer(() => {
                 setTickData(preloadedData[symbolToUse]);
                 updateEhlersTrends(preloadedData[symbolToUse]);
             } else {
-                fetchHistoricalTicks(symbolToUse);
+                fetchHistoricalTicksWithEngine(symbolToUse);
             }
-            startTicks(symbolToUse);
+            startTicksWithEngine(symbolToUse);
 
             console.log(`Selected symbol from scanner: ${selectedSymbol} (${displayName}) -> Trading with: ${symbolToUse}`);
         };
@@ -641,7 +647,7 @@ const MLTrader = observer(() => {
             setStatus('No token found. Please log in and select an account.');
             throw new Error('No token');
         }
-        const response = await apiRef.current.authorize(token);
+        const response = await mlTradingEngine.authorize(token);
         if (response.error) {
             setStatus(`Authorization error: ${response.error.message || response.error.code}`);
             throw response.error;
@@ -659,17 +665,17 @@ const MLTrader = observer(() => {
     const stopTicks = () => {
         try {
             if (tickStreamIdRef.current) {
-                apiRef.current?.forget({ forget: tickStreamIdRef.current });
+                mlTradingEngine.forget({ forget: tickStreamIdRef.current });
                 tickStreamIdRef.current = null;
             }
             if (messageHandlerRef.current) {
-                apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
+                mlTradingEngine.removeEventListener('message', messageHandlerRef.current);
                 messageHandlerRef.current = null;
             }
         } catch {}
     };
 
-    const startTicks = async (sym: string) => {
+    const startTicksWithEngine = async (sym: string) => {
         stopTicks();
         setTicksProcessed(0);
         setTickStream([]); // Clear tick stream on new symbol
@@ -677,7 +683,7 @@ const MLTrader = observer(() => {
         setFallPercentage(0);
 
         try {
-            const { subscription, error } = await apiRef.current.send({ ticks: sym, subscribe: 1 });
+            const { subscription, error } = await mlTradingEngine.send({ ticks: sym, subscribe: 1 });
             if (error) throw error;
             if (subscription?.id) tickStreamIdRef.current = subscription.id;
 
@@ -737,7 +743,7 @@ const MLTrader = observer(() => {
                 } catch {}
             };
             messageHandlerRef.current = onMsg;
-            apiRef.current?.connection?.addEventListener('message', onMsg);
+            mlTradingEngine.addEventListener('message', onMsg);
 
         } catch (e: any) {
             console.error('startTicks error', e);
@@ -782,7 +788,7 @@ const MLTrader = observer(() => {
 
             console.log('Getting proposal for Rise/Fall:', proposalParams);
 
-            const proposalResponse = await apiRef.current.send(proposalParams);
+            const proposalResponse = await mlTradingEngine.send(proposalParams);
 
             if (proposalResponse.error) {
                 setStatus(`Proposal failed: ${proposalResponse.error.message}`);
@@ -804,7 +810,7 @@ const MLTrader = observer(() => {
                 price: proposal.ask_price
             };
 
-            const buyResponse = await apiRef.current.send(buyParams);
+            const buyResponse = await mlTradingEngine.send(buyParams);
 
             if (buyResponse.error) {
                 setStatus(`Trade failed: ${buyResponse.error.message}`);
@@ -866,7 +872,7 @@ const MLTrader = observer(() => {
 
             // Subscribe to contract updates
             try {
-                const contractSubscription = await apiRef.current.send({
+                const contractSubscription = await mlTradingEngine.send({
                     proposal_open_contract: 1,
                     contract_id: buy.contract_id,
                     subscribe: 1
@@ -903,8 +909,8 @@ const MLTrader = observer(() => {
 
                                     run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
                                     run_panel.setHasOpenContract(false);
-                                    if (pocSubIdRef.current) apiRef.current?.forget?.({ forget: pocSubIdRef.current });
-                                    apiRef.current?.connection?.removeEventListener('message', onMsg);
+                                    if (pocSubIdRef.current) mlTradingEngine.forget({ forget: pocSubIdRef.current });
+                                    mlTradingEngine.removeEventListener('message', onMsg);
 
                                     // Update martingale logic
                                     if (profit > 0) {
@@ -945,7 +951,7 @@ const MLTrader = observer(() => {
                         console.error('Error processing contract update:', err);
                     }
                 };
-                apiRef.current?.connection?.addEventListener('message', onMsg);
+                mlTradingEngine.addEventListener('message', onMsg);
                 messageHandlerRef.current = onMsg; // Store the handler for potential removal
 
             } catch (subscriptionError) {
@@ -1002,6 +1008,56 @@ const MLTrader = observer(() => {
         setStatus('Auto trading stopped');
     };
 
+    // Continuous auto-trading execution engine - executes trades based on trend analysis
+    const executeNextTrade = async () => {
+        if (stopFlagRef.current || !isAutoTrading) return;
+
+        try {
+            // Check if ML trading engine is connected and authorized
+            if (!mlTradingEngine.isEngineConnected()) {
+                setStatus('⚠️ ML Trading engine not connected, retrying...');
+                setTimeout(() => {
+                    if (isAutoTrading && !stopFlagRef.current) {
+                        executeNextTrade();
+                    }
+                }, 3000);
+                return;
+            }
+
+            const recommendation = getMarketRecommendation();
+            if (!recommendation || recommendation.confidence < 75) {
+                setStatus(`⏳ Waiting for stronger signal (current: ${recommendation?.confidence || 0}%)...`);
+                // Wait 5 seconds before next check
+                setTimeout(() => {
+                    if (isAutoTrading && !stopFlagRef.current) {
+                        executeNextTrade();
+                    }
+                }, 5000);
+                return;
+            }
+
+            // Execute trade based on recommendation
+            const tradeType = recommendation.direction === 'BULLISH' ? 'CALL' : 'PUT';
+            console.log(`🎯 Auto-executing ${tradeType} trade with ${recommendation.confidence}% confidence`);
+
+            await purchaseRiseFallContract(tradeType);
+
+            // Wait for current contract to complete before next trade
+            // The contract completion logic in purchaseRiseFallContract will call executeNextTrade again
+        } catch (error) {
+            console.error('Auto-trading execution error:', error);
+            setStatus(`Auto-trading error: ${error.message || 'Unknown error'}`);
+
+            // Wait 10 seconds before retrying
+            setTimeout(() => {
+                if (isAutoTrading && !stopFlagRef.current) {
+                    executeNextTrade();
+                }
+            }, 10000);
+        }
+    };
+
+    // Start the auto-trading loop
     const executeAutoTradingLoop = async () => {
         while (!stopFlagRef.current && isAutoTrading) {
             try {
@@ -1017,14 +1073,8 @@ const MLTrader = observer(() => {
                     return;
                 }
 
-                // Get market recommendation to determine trade direction
-                const recommendation = getMarketRecommendation();
-                const tradeType = recommendation?.recommendation === 'FALL' ? 'PUT' : 'CALL';
-
-                setStatus(`🔄 Executing auto trade: ${tradeType} based on ML analysis...`);
-
                 // Execute the trade and wait for completion
-                await executeNextTrade(tradeType);
+                await executeNextTrade();
 
                 // Small delay before next trade to avoid spam
                 await new Promise(resolve => setTimeout(resolve, 1000));
@@ -1039,7 +1089,46 @@ const MLTrader = observer(() => {
         }
     };
 
-    const executeNextTrade = async (tradeType: string) => {
+    const executeNextTradeForAutoTradingLoop = async () => {
+        if (stopFlagRef.current || !isAutoTrading) return;
+
+        try {
+            // Check if ML trading engine is connected and authorized
+            if (!mlTradingEngine.isEngineConnected()) {
+                setStatus('⚠️ ML Trading engine not connected, retrying...');
+                setTimeout(() => {
+                    if (isAutoTrading && !stopFlagRef.current) {
+                        executeNextTradeForAutoTradingLoop();
+                    }
+                }, 3000);
+                return;
+            }
+
+            // Get market recommendation to determine trade direction
+            const recommendation = getMarketRecommendation();
+            const tradeType = recommendation?.recommendation === 'RISE' ? 'CALL' : 'PUT';
+
+            setStatus(`🔄 Executing auto trade: ${tradeType} based on ML analysis...`);
+
+            // Execute the trade and wait for completion
+            await purchaseRiseFallContract(tradeType);
+
+            // Wait for current contract to complete before next trade
+            // The contract completion logic in purchaseRiseFallContract will call executeNextTrade again
+        } catch (error) {
+            console.error('Auto-trading execution error:', error);
+            setStatus(`Trade execution error: ${error.message || 'Unknown error'}`);
+
+            // Wait 10 seconds before retrying
+            setTimeout(() => {
+                if (isAutoTrading && !stopFlagRef.current) {
+                    executeNextTradeForAutoTradingLoop();
+                }
+            }, 10000);
+        }
+    };
+
+    const executeTradeBasedOnTrend = async (tradeType: string) => {
         return new Promise<void>(async (resolve, reject) => {
             try {
                 await authorizeIfNeeded();
@@ -1065,7 +1154,7 @@ const MLTrader = observer(() => {
                     symbol: symbol,
                 };
 
-                const proposalResponse = await apiRef.current.send(proposalParams);
+                const proposalResponse = await mlTradingEngine.send(proposalParams);
 
                 if (proposalResponse.error) {
                     setStatus(`Proposal failed: ${proposalResponse.error.message}`);
@@ -1088,7 +1177,7 @@ const MLTrader = observer(() => {
                     price: proposal.ask_price
                 };
 
-                const buyResponse = await apiRef.current.send(buyParams);
+                const buyResponse = await mlTradingEngine.send(buyParams);
 
                 if (buyResponse.error) {
                     setStatus(`Trade failed: ${buyResponse.error.message}`);
@@ -1145,7 +1234,7 @@ const MLTrader = observer(() => {
 
                 // Subscribe to contract updates and wait for completion
                 try {
-                    const contractSubscription = await apiRef.current.send({
+                    const contractSubscription = await mlTradingEngine.send({
                         proposal_open_contract: 1,
                         contract_id: buy.contract_id,
                         subscribe: 1
@@ -1187,9 +1276,9 @@ const MLTrader = observer(() => {
 
                                         // Clean up subscription
                                         if (pocSubId) {
-                                            apiRef.current?.forget?.({ forget: pocSubId });
+                                            mlTradingEngine.forget({ forget: pocSubId });
                                         }
-                                        apiRef.current?.connection?.removeEventListener('message', onMsg);
+                                        mlTradingEngine.removeEventListener('message', onMsg);
 
                                         // Update statistics
                                         setTotalPayout(prev => prev + profit);
@@ -1230,16 +1319,16 @@ const MLTrader = observer(() => {
                         }
                     };
 
-                    apiRef.current?.connection?.addEventListener('message', onMsg);
+                    mlTradingEngine.addEventListener('message', onMsg);
 
                     // Set a timeout in case the contract doesn't complete normally
                     setTimeout(() => {
                         if (!contractCompleted) {
                             console.warn('Contract completion timeout, continuing...');
                             if (pocSubId) {
-                                apiRef.current?.forget?.({ forget: pocSubId });
+                                mlTradingEngine.forget({ forget: pocSubId });
                             }
-                            apiRef.current?.connection?.removeEventListener('message', onMsg);
+                            mlTradingEngine.removeEventListener('message', onMsg);
                             resolve();
                         }
                     }, 30000); // 30 second timeout
@@ -1322,7 +1411,7 @@ const MLTrader = observer(() => {
 
     // Scan all volatility indices for opportunities
     const scanVolatilityOpportunities = async () => {
-        if (!apiRef.current || isScanning) return;
+        if (!mlTradingEngine.isEngineConnected() || isScanning) return;
 
         setIsScanning(true);
         setStatus('Scanning volatility opportunities...');
@@ -1511,7 +1600,7 @@ const MLTrader = observer(() => {
                         onChange={(e) => {
                             setSymbol(e.target.value);
                             if (e.target.value && !tickStreamIdRef.current) {
-                                fetchHistoricalTicks(e.target.value);
+                                fetchHistoricalTicksWithEngine(e.target.value);
                             }
                         }}
                     >
@@ -1710,9 +1799,9 @@ const MLTrader = observer(() => {
                                                 setTickData(preloadedData[opportunity.tradingSymbol]);
                                                 updateEhlersTrends(preloadedData[opportunity.tradingSymbol]);
                                             } else {
-                                                fetchHistoricalTicks(opportunity.tradingSymbol);
+                                                fetchHistoricalTicksWithEngine(opportunity.tradingSymbol);
                                             }
-                                            startTicks(opportunity.tradingSymbol);
+                                            startTicksWithEngine(opportunity.tradingSymbol);
 
                                             // Set contract type based on signal
                                             if (opportunity.signal === 'HIGHER') {
