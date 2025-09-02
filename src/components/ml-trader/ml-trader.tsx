@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Play, Square, TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
@@ -175,6 +174,8 @@ const MLTrader = observer(() => {
     const [volatilityRecommendations, setVolatilityRecommendations] = useState<any[]>([]);
     const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
     const [isPreloading, setIsPreloading] = useState<boolean>(false);
+    const [marketRecommendation, setMarketRecommendation] = useState<any>(null);
+
 
     // State to track trend update counters for independent timing
     const [trendUpdateCounters, setTrendUpdateCounters] = useState({
@@ -605,6 +606,20 @@ const MLTrader = observer(() => {
         };
     }, [symbols, preloadedData]); // Depend on symbols and preloadedData
 
+    // Update market recommendation when trends change
+    useEffect(() => {
+        const recommendation = getMarketRecommendation();
+        setMarketRecommendation(recommendation);
+    }, [hullTrends, symbol]);
+
+    // Scan for volatility opportunities when preloaded data is available
+    useEffect(() => {
+        if (Object.keys(preloadedData).length >= 5 && !isScanning) {
+            scanVolatilityOpportunities();
+        }
+    }, [preloadedData]);
+
+
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
         const token = V2GetActiveToken();
@@ -800,6 +815,239 @@ const MLTrader = observer(() => {
         purchaseRiseFallContract();
     };
 
+    // Get market recommendation based on HMA trend analysis
+    const getMarketRecommendation = () => {
+        if (Object.keys(hullTrends).length === 0) return null;
+
+        // Count aligned trends for different timeframes
+        const trendCounts = {
+            bullishCount: 0,
+            bearishCount: 0,
+            neutralCount: 0
+        };
+
+        Object.entries(hullTrends).forEach(([timeframe, trendData]) => {
+            const { trend } = trendData;
+            if (trend === 'BULLISH') trendCounts.bullishCount++;
+            else if (trend === 'BEARISH') trendCounts.bearishCount++;
+            else trendCounts.neutralCount++;
+        });
+
+        const totalTrends = Object.keys(hullTrends).length;
+        const alignedBullish = trendCounts.bullishCount;
+        const alignedBearish = trendCounts.bearishCount;
+
+        // Determine recommendation based on trend alignment
+        let recommendation: 'RISE' | 'FALL' | 'WAIT' = 'WAIT';
+        let confidence = 0;
+        let alignedTrends = 0;
+        let reasoning = '';
+
+        if (alignedBullish >= 3) {
+            recommendation = 'RISE';
+            alignedTrends = alignedBullish;
+            confidence = Math.min(95, (alignedBullish / totalTrends) * 100);
+            reasoning = `${alignedBullish} out of ${totalTrends} Hull Moving Average timeframes show bullish trend. Strong upward momentum detected.`;
+        } else if (alignedBearish >= 3) {
+            recommendation = 'FALL';
+            alignedTrends = alignedBearish;
+            confidence = Math.min(95, (alignedBearish / totalTrends) * 100);
+            reasoning = `${alignedBearish} out of ${totalTrends} Hull Moving Average timeframes show bearish trend. Strong downward momentum detected.`;
+        } else if (alignedBullish === 2 && alignedBearish <= 1) {
+            recommendation = 'RISE';
+            alignedTrends = alignedBullish;
+            confidence = 65;
+            reasoning = `${alignedBullish} out of ${totalTrends} timeframes show bullish trend. Moderate upward momentum.`;
+        } else if (alignedBearish === 2 && alignedBullish <= 1) {
+            recommendation = 'FALL';
+            alignedTrends = alignedBearish;
+            confidence = 65;
+            reasoning = `${alignedBearish} out of ${totalTrends} timeframes show bearish trend. Moderate downward momentum.`;
+        } else {
+            alignedTrends = Math.max(alignedBullish, alignedBearish);
+            confidence = 30;
+            reasoning = `Mixed signals across timeframes. ${trendCounts.bullishCount} bullish, ${trendCounts.bearishCount} bearish, ${trendCounts.neutralCount} neutral. Market conditions unclear.`;
+        }
+
+        return {
+            symbol,
+            recommendation,
+            confidence,
+            alignedTrends,
+            totalTrends,
+            reasoning
+        };
+    };
+
+    // Scan all volatility indices for opportunities
+    const scanVolatilityOpportunities = async () => {
+        if (!apiRef.current || isScanning) return;
+
+        setIsScanning(true);
+        setStatus('Scanning volatility opportunities...');
+
+        const opportunities: any[] = [];
+        const volatilitySymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'BOOM500', 'BOOM1000', 'CRASH500', 'CRASH1000', 'stpRNG'];
+
+        try {
+            for (const volatilitySymbol of volatilitySymbols) {
+                const symbolData = preloadedData[volatilitySymbol];
+                if (!symbolData || symbolData.length < 4000) continue;
+
+                // Calculate trends for this symbol
+                const symbolTrends = calculateTrendsForSymbol(symbolData);
+
+                if (symbolTrends) {
+                    const recommendation = getRecommendationForTrends(symbolTrends);
+
+                    if (recommendation && recommendation.confidence >= 65) {
+                        opportunities.push({
+                            symbol: volatilitySymbol,
+                            displayName: VOLATILITY_INDICES.find(v => v.value === volatilitySymbol)?.label || volatilitySymbol,
+                            tradingSymbol: volatilitySymbol,
+                            confidence: recommendation.confidence,
+                            signal: recommendation.recommendation === 'RISE' ? 'HIGHER' : recommendation.recommendation === 'FALL' ? 'LOWER' : 'WAIT',
+                            alignedCount: recommendation.alignedTrends,
+                            totalCount: recommendation.totalTrends,
+                            reasoning: recommendation.reasoning
+                        });
+                    }
+                }
+            }
+
+            // Sort by confidence
+            opportunities.sort((a, b) => b.confidence - a.confidence);
+            setVolatilityRecommendations(opportunities.slice(0, 5)); // Top 5 opportunities
+
+        } catch (error) {
+            console.error('Error scanning volatility opportunities:', error);
+        } finally {
+            setIsScanning(false);
+            setStatus('Volatility scan completed');
+        }
+    };
+
+    // Calculate trends for a specific symbol's data
+    const calculateTrendsForSymbol = (symbolData: Array<{ time: number, price: number, close: number }>) => {
+        const trends = {
+            '1000': { trend: 'NEUTRAL', value: 0 },
+            '2000': { trend: 'NEUTRAL', value: 0 },
+            '3000': { trend: 'NEUTRAL', value: 0 },
+            '4000': { trend: 'NEUTRAL', value: 0 }
+        };
+
+        const timeframeConfigs = {
+            '1000': { requiredTicks: 1000, smoothingPeriod: 20 },
+            '2000': { requiredTicks: 2000, smoothingPeriod: 25 },
+            '3000': { requiredTicks: 3000, smoothingPeriod: 30 },
+            '4000': { requiredTicks: 4000, smoothingPeriod: 35 }
+        };
+
+        Object.entries(timeframeConfigs).forEach(([tickCountStr, config]) => {
+            const recentTicks = symbolData.slice(-config.requiredTicks);
+
+            if (recentTicks.length >= Math.min(15, config.requiredTicks)) {
+                const tickPrices = recentTicks.map(tick => tick.price);
+                const smoothedPrices = applySuperSmoother(tickPrices, config.smoothingPeriod);
+                const decycledPrices = applyDecycler(smoothedPrices, Math.max(10, config.smoothingPeriod));
+                const hmaPeriod = Math.max(8, Math.min(Math.floor(decycledPrices.length * 0.3), 25));
+                const hmaValue = calculateHMA(decycledPrices, hmaPeriod);
+
+                if (hmaValue !== null) {
+                    let trend = 'NEUTRAL';
+                    const hmaSlopeLookback = Math.max(3, Math.floor(hmaPeriod / 4));
+                    const prevHMA = calculateHMA(decycledPrices.slice(0, -hmaSlopeLookback), hmaPeriod);
+                    const hmaSlope = prevHMA !== null ? hmaValue - prevHMA : 0;
+                    const currentPrice = decycledPrices[decycledPrices.length - 1];
+                    const priceAboveHMA = currentPrice > hmaValue;
+
+                    const priceRange = Math.max(...decycledPrices.slice(-Math.min(50, decycledPrices.length))) -
+                                     Math.min(...decycledPrices.slice(-Math.min(50, decycledPrices.length)));
+                    const timeframeMultiplier = config.requiredTicks / 60;
+                    const adaptiveThreshold = priceRange * (0.05 + timeframeMultiplier * 0.02);
+                    const slopeThreshold = Math.max(0.000005, adaptiveThreshold * 0.2);
+
+                    const trendStrength = Math.abs(hmaSlope) / slopeThreshold;
+
+                    if (trendStrength > 1.2) {
+                        if (hmaSlope > slopeThreshold && priceAboveHMA) {
+                            trend = 'BULLISH';
+                        } else if (hmaSlope < -slopeThreshold && !priceAboveHMA) {
+                            trend = 'BEARISH';
+                        }
+                    }
+
+                    trends[tickCountStr as keyof typeof trends] = {
+                        trend,
+                        value: Number(hmaValue.toFixed(5))
+                    };
+                }
+            }
+        });
+
+        return trends;
+    };
+
+    // Get recommendation for calculated trends
+    const getRecommendationForTrends = (trends: any) => {
+        const trendCounts = {
+            bullishCount: 0,
+            bearishCount: 0,
+            neutralCount: 0
+        };
+
+        Object.entries(trends).forEach(([timeframe, trendData]: [string, any]) => {
+            const { trend } = trendData;
+            if (trend === 'BULLISH') trendCounts.bullishCount++;
+            else if (trend === 'BEARISH') trendCounts.bearishCount++;
+            else trendCounts.neutralCount++;
+        });
+
+        const totalTrends = Object.keys(trends).length;
+        const alignedBullish = trendCounts.bullishCount;
+        const alignedBearish = trendCounts.bearishCount;
+
+        let recommendation: 'RISE' | 'FALL' | 'WAIT' = 'WAIT';
+        let confidence = 0;
+        let alignedTrends = 0;
+        let reasoning = '';
+
+        if (alignedBullish >= 3) {
+            recommendation = 'RISE';
+            alignedTrends = alignedBullish;
+            confidence = Math.min(95, (alignedBullish / totalTrends) * 100);
+            reasoning = `${alignedBullish} out of ${totalTrends} timeframes bullish`;
+        } else if (alignedBearish >= 3) {
+            recommendation = 'FALL';
+            alignedTrends = alignedBearish;
+            confidence = Math.min(95, (alignedBearish / totalTrends) * 100);
+            reasoning = `${alignedBearish} out of ${totalTrends} timeframes bearish`;
+        } else if (alignedBullish === 2 && alignedBearish <= 1) {
+            recommendation = 'RISE';
+            alignedTrends = alignedBullish;
+            confidence = 65;
+            reasoning = `${alignedBullish} out of ${totalTrends} timeframes bullish (moderate)`;
+        } else if (alignedBearish === 2 && alignedBullish <= 1) {
+            recommendation = 'FALL';
+            alignedTrends = alignedBearish;
+            confidence = 65;
+            reasoning = `${alignedBearish} out of ${totalTrends} timeframes bearish (moderate)`;
+        } else {
+            alignedTrends = Math.max(alignedBullish, alignedBearish);
+            confidence = 30;
+            reasoning = 'Mixed signals across timeframes';
+        }
+
+        return {
+            recommendation,
+            confidence,
+            alignedTrends,
+            totalTrends,
+            reasoning
+        };
+    };
+
+
     return (
         <div className="ml-trader">
             <div className="ml-trader__header">
@@ -821,6 +1069,13 @@ const MLTrader = observer(() => {
                         onChange={(e) => {
                             setSymbol(e.target.value);
                             startTicks(e.target.value);
+                            // Fetch historical data for the newly selected symbol
+                            if (preloadedData[e.target.value] && preloadedData[e.target.value].length > 0) {
+                                setTickData(preloadedData[e.target.value]);
+                                updateEhlersTrends(preloadedData[e.target.value]);
+                            } else {
+                                fetchHistoricalTicks(e.target.value);
+                            }
                         }}
                     >
                         {symbols.map(s => (
@@ -867,19 +1122,129 @@ const MLTrader = observer(() => {
                 </div>
             </div>
 
-            <div className="ml-trader__trend-analysis">
-                <Text size="sm" weight="bold">Hull Moving Average Trend Analysis</Text>
-                <div className="trend-grid">
-                    {Object.entries(hullTrends).map(([period, data]) => (
-                        <div key={period} className="trend-item">
-                            <div className="trend-period">{period} Ticks</div>
-                            <div className={`trend-indicator ${data.trend.toLowerCase()}`}>
-                                <span className="trend-arrow">
-                                    {data.trend === 'BULLISH' ? '↗️' : data.trend === 'BEARISH' ? '↘️' : '➡️'}
-                                </span>
-                                <span className="trend-text">{data.trend}</span>
+            {/* Market Recommendation Display */}
+            {marketRecommendation && (
+                <div className='ml-trader__recommendation'>
+                    <h3>{localize('Current Symbol Recommendation')}</h3>
+                    <div className={`recommendation-card ${marketRecommendation.recommendation.toLowerCase()}`}>
+                        <div className='recommendation-header'>
+                            <span className='symbol'>{marketRecommendation.symbol}</span>
+                            <span className={`signal ${marketRecommendation.recommendation.toLowerCase()}`}>
+                                {marketRecommendation.recommendation}
+                            </span>
+                        </div>
+                        <div className='recommendation-details'>
+                            <div className='confidence'>
+                                <span>Confidence: {marketRecommendation.confidence.toFixed(1)}%</span>
                             </div>
-                            <div className="trend-value">HMA: {data.value.toFixed(5)}</div>
+                            <div className='alignment'>
+                                <span>Aligned Trends: {marketRecommendation.alignedTrends}/{marketRecommendation.totalTrends}</span>
+                            </div>
+                        </div>
+                        {marketRecommendation.confidence >= 65 && (
+                            <button
+                                className={`use-recommendation-btn ${marketRecommendation.recommendation.toLowerCase()}`}
+                                onClick={() => {
+                                    if (marketRecommendation.recommendation === 'RISE') {
+                                        setContractType('CALL');
+                                    } else if (marketRecommendation.recommendation === 'FALL') {
+                                        setContractType('PUT');
+                                    }
+                                }}
+                            >
+                                Use Recommendation ({marketRecommendation.recommendation})
+                            </button>
+                        )}
+                    </div>
+                    <div className='recommendation-reasoning'>
+                        <small>{marketRecommendation.reasoning}</small>
+                    </div>
+                </div>
+            )}
+
+            {/* Volatility Opportunities Scanner */}
+            <div className='ml-trader__volatility-scanner'>
+                <div className='scanner-header'>
+                    <h3>{localize('Volatility Opportunities Scanner')}</h3>
+                    <button
+                        className='scan-btn'
+                        onClick={scanVolatilityOpportunities}
+                        disabled={isScanning || Object.keys(preloadedData).length < 5}
+                    >
+                        {isScanning ? localize('Scanning...') : localize('Scan All Volatilities')}
+                    </button>
+                </div>
+
+                {volatilityRecommendations.length > 0 ? (
+                    <div className='opportunities-list'>
+                        {volatilityRecommendations.map((opportunity, index) => (
+                            <div key={opportunity.symbol} className={`opportunity-card ${opportunity.signal.toLowerCase()}`}>
+                                <div className='opportunity-header'>
+                                    <span className='symbol-name'>{opportunity.displayName}</span>
+                                    <span className={`signal-badge ${opportunity.signal.toLowerCase()}`}>
+                                        {opportunity.signal}
+                                    </span>
+                                </div>
+                                <div className='opportunity-details'>
+                                    <div className='confidence'>
+                                        Confidence: {opportunity.confidence.toFixed(1)}%
+                                    </div>
+                                    <div className='alignment'>
+                                        Trends: {opportunity.alignedCount}/{opportunity.totalCount}
+                                    </div>
+                                </div>
+                                <div className='opportunity-actions'>
+                                    <button
+                                        className='select-symbol-btn'
+                                        onClick={() => {
+                                            setSymbol(opportunity.tradingSymbol);
+                                            
+                                            // Fetch historical data and update trends for the selected symbol
+                                            if (preloadedData[opportunity.tradingSymbol] && preloadedData[opportunity.tradingSymbol].length > 0) {
+                                                setTickData(preloadedData[opportunity.tradingSymbol]);
+                                                updateEhlersTrends(preloadedData[opportunity.tradingSymbol]);
+                                            } else {
+                                                fetchHistoricalTicks(opportunity.tradingSymbol);
+                                            }
+                                            startTicks(opportunity.tradingSymbol);
+
+                                            // Set contract type based on signal
+                                            if (opportunity.signal === 'HIGHER') {
+                                                setContractType('CALL');
+                                            } else if (opportunity.signal === 'LOWER') {
+                                                setContractType('PUT');
+                                            }
+                                        }}
+                                    >
+                                        Select & Trade
+                                    </button>
+                                </div>
+                                <div className='opportunity-reasoning'>
+                                    <small>{opportunity.reasoning}</small>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className='no-opportunities'>
+                        {isScanning ? (
+                            <span>{localize('Scanning for opportunities...')}</span>
+                        ) : (
+                            <span>{localize('No volatilities currently have 3+ aligned trends.')}</span>
+                        )}
+                        <small>{localize('Scan to discover high-probability setups.')}</small>
+                    </div>
+                )}
+            </div>
+
+            <div className="ml-trader__trend-analysis">
+                <h3>{localize('Hull Moving Average Trend Analysis')}</h3>
+                <div className='trend-timeframes'>
+                    {Object.entries(hullTrends).map(([timeframe, trendData]) => (
+                        <div key={timeframe} className={`trend-item trend-${trendData.trend.toLowerCase()}`}>
+                            <span className='timeframe'>{timeframe} Ticks:</span>
+                            <span className='trend'>{trendData.trend}</span>
+                            <span className='value'>({trendData.value.toFixed(5)})</span>
                         </div>
                     ))}
                 </div>

@@ -345,6 +345,290 @@
     }
   }
 
+  &__recommendation {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px solid #dee2e6;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+    h3 {
+      margin: 0 0 15px 0;
+      color: #333;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .recommendation-card {
+      background: white;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+      &.rise {
+        border-left: 4px solid #28a745;
+      }
+
+      &.fall {
+        border-left: 4px solid #dc3545;
+      }
+
+      &.wait {
+        border-left: 4px solid #ffc107;
+      }
+
+      .recommendation-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+
+        .symbol {
+          font-weight: 700;
+          font-size: 16px;
+          color: #333;
+        }
+
+        .signal {
+          padding: 6px 12px;
+          border-radius: 20px;
+          font-weight: 700;
+          font-size: 14px;
+          text-transform: uppercase;
+
+          &.rise {
+            background: #d4edda;
+            color: #155724;
+          }
+
+          &.fall {
+            background: #f8d7da;
+            color: #721c24;
+          }
+
+          &.wait {
+            background: #fff3cd;
+            color: #856404;
+          }
+        }
+      }
+
+      .recommendation-details {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 15px;
+
+        .confidence, .alignment {
+          font-size: 14px;
+          font-weight: 600;
+          color: #666;
+        }
+      }
+
+      .use-recommendation-btn {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 14px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        &.rise {
+          background: linear-gradient(135deg, #28a745, #20c997);
+          color: white;
+
+          &:hover {
+            background: linear-gradient(135deg, #218838, #1ca085);
+            transform: translateY(-2px);
+          }
+        }
+
+        &.fall {
+          background: linear-gradient(135deg, #dc3545, #e74c3c);
+          color: white;
+
+          &:hover {
+            background: linear-gradient(135deg, #c82333, #d63031);
+            transform: translateY(-2px);
+          }
+        }
+      }
+    }
+
+    .recommendation-reasoning {
+      font-size: 13px;
+      color: #666;
+      font-style: italic;
+      text-align: center;
+    }
+  }
+
+  .ml-trader__volatility-scanner {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+    .scanner-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+
+      h3 {
+        margin: 0;
+        color: #333;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .scan-btn {
+        padding: 10px 20px;
+        background: linear-gradient(135deg, #007bff, #0056b3);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        &:hover:not(:disabled) {
+          background: linear-gradient(135deg, #0056b3, #004085);
+          transform: translateY(-2px);
+        }
+
+        &:disabled {
+          background: #6c757d;
+          cursor: not-allowed;
+          transform: none;
+        }
+      }
+    }
+
+    .opportunities-list {
+      display: grid;
+      gap: 15px;
+
+      .opportunity-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        transition: transform 0.3s ease;
+
+        &:hover {
+          transform: translateY(-2px);
+        }
+
+        &.higher {
+          border-left: 4px solid #28a745;
+        }
+
+        &.lower {
+          border-left: 4px solid #dc3545;
+        }
+
+        .opportunity-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 10px;
+
+          .symbol-name {
+            font-weight: 700;
+            color: #333;
+            font-size: 14px;
+          }
+
+          .signal-badge {
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-weight: 700;
+            font-size: 12px;
+            text-transform: uppercase;
+
+            &.higher {
+              background: #d4edda;
+              color: #155724;
+            }
+
+            &.lower {
+              background: #f8d7da;
+              color: #721c24;
+            }
+          }
+        }
+
+        .opportunity-details {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin-bottom: 15px;
+
+          .confidence, .alignment {
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+          }
+        }
+
+        .opportunity-actions {
+          margin-bottom: 10px;
+
+          .select-symbol-btn {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+
+            &:hover {
+              background: linear-gradient(135deg, #0056b3, #004085);
+              transform: translateY(-1px);
+            }
+          }
+        }
+
+        .opportunity-reasoning {
+          font-size: 12px;
+          color: #666;
+          font-style: italic;
+          text-align: center;
+        }
+      }
+    }
+
+    .no-opportunities {
+      text-align: center;
+      padding: 30px;
+      color: #666;
+
+      span {
+        display: block;
+        font-size: 16px;
+        margin-bottom: 10px;
+      }
+
+      small {
+        font-size: 14px;
+        color: #999;
+      }
+    }
+  }
+
+
   @media (max-width: 768px) {
     padding: 15px;
     min-height: auto;
