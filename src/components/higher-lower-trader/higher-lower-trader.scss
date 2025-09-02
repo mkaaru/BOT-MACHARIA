@@ -561,6 +561,52 @@
             }
         }
     }
+
+    // Trading mode toggle buttons
+    .trading-mode-toggle {
+        display: flex;
+        gap: 0;
+        border: 1px solid var(--border-normal);
+        border-radius: 4px;
+        overflow: hidden;
+        background: var(--fill-normal);
+
+        .mode-toggle-btn {
+            flex: 1;
+            padding: 8px 16px;
+            border: none;
+            background: var(--fill-normal);
+            color: var(--text-general);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+
+            &:first-child {
+                border-right: 1px solid var(--border-normal);
+            }
+
+            &:hover {
+                background: var(--fill-hover);
+            }
+
+            &.active {
+                background: var(--brand-secondary);
+                color: white;
+                font-weight: 600;
+
+                &:hover {
+                    background: var(--brand-secondary);
+                }
+            }
+
+            &:focus {
+                outline: none;
+                box-shadow: 0 0 0 2px var(--brand-secondary-transparent);
+            }
+        }
+    }
 }
     .trading-recommendation {
         background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);

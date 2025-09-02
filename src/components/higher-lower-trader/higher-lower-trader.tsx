@@ -1397,28 +1397,33 @@ const HigherLowerTrader = observer(() => {
                     <div className="higher-lower-trader__card">
                         <h3>{localize(tradingMode === 'RISE_FALL' ? 'Rise/Fall Trading' : 'Higher/Lower Trading')}</h3>
 
-                        {/* Trading Mode Selection */}
+                        {/* Trading Mode Selection - Toggle Buttons */}
                         <div className='form-group'>
                             <label>{localize('Trading Mode')}</label>
-                            <select
-                                id='hlt-trading-mode'
-                                value={tradingMode}
-                                onChange={e => {
-                                    const newMode = e.target.value as 'HIGHER_LOWER' | 'RISE_FALL';
-                                    setTradingMode(newMode);
-                                    // Reset contract type and barrier when mode changes
-                                    if (newMode === 'RISE_FALL') {
-                                        setContractType('CALL'); // Default to Rise
-                                        setBarrier('0'); // Default barrier to 0 for Rise/Fall
-                                    } else {
+                            <div className='trading-mode-toggle'>
+                                <button
+                                    type='button'
+                                    className={`mode-toggle-btn ${tradingMode === 'HIGHER_LOWER' ? 'active' : ''}`}
+                                    onClick={() => {
+                                        setTradingMode('HIGHER_LOWER');
                                         setContractType('CALL'); // Default to Higher
                                         setBarrier('+0.37'); // Default barrier for Higher/Lower
-                                    }
-                                }}
-                            >
-                                <option value='HIGHER_LOWER'>{localize('Higher/Lower')}</option>
-                                <option value='RISE_FALL'>{localize('Rise/Fall')}</option>
-                            </select>
+                                    }}
+                                >
+                                    {localize('Higher/Lower')}
+                                </button>
+                                <button
+                                    type='button'
+                                    className={`mode-toggle-btn ${tradingMode === 'RISE_FALL' ? 'active' : ''}`}
+                                    onClick={() => {
+                                        setTradingMode('RISE_FALL');
+                                        setContractType('CALL'); // Default to Rise
+                                        setBarrier('0'); // Default barrier to 0 for Rise/Fall
+                                    }}
+                                >
+                                    {localize('Rise/Fall')}
+                                </button>
+                            </div>
                         </div>
 
 
