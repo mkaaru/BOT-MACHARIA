@@ -8,6 +8,71 @@ import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import './ml-trader.scss';
 
+// Mock TradingEngine for demonstration purposes. In a real scenario, this would be imported and configured.
+const tradingEngine = {
+    isEngineConnected: () => true, // Assume connected for this example
+    getProposal: async (params: any) => {
+        // Simulate a successful proposal response
+        return {
+            proposal: {
+                id: `proposal_${Math.random().toString(36).substr(2, 9)}`,
+                ask_price: parseFloat((params.amount * 1.95).toFixed(2)), // Simulate a price
+                longcode: `${params.contract_type} ${params.symbol}`,
+                // Add other necessary proposal fields if needed
+            },
+            error: null,
+        };
+    },
+    buyContract: async (proposal_id: string, price: number) => {
+        // Simulate a successful contract purchase
+        const contract_id = `contract_${Math.random().toString(36).substr(2, 9)}`;
+        return {
+            buy: {
+                id: contract_id,
+                contract_id: contract_id,
+                buy_price: price,
+                payout: price * 1.95, // Simulate payout
+                transaction_id: `tx_${Math.random().toString(36).substr(2, 9)}`,
+                longcode: 'Simulated Rise/Fall Contract',
+                shortcode: 'RISEFALL',
+                start_time: Math.floor(Date.now() / 1000),
+                symbol: 'R_100', // Example symbol
+                contract_type: 'CALL',
+                currency: 'USD',
+                // Add other necessary purchase receipt fields
+            },
+            error: null,
+        };
+    },
+    subscribeToContract: async (contract_id: string) => {
+        // Simulate subscription
+        console.log(`Subscribing to contract ${contract_id}`);
+        return { error: null };
+    },
+    getWebSocket: () => {
+        // In a real implementation, this would return the actual WebSocket connection
+        // For this mock, we'll simulate it by returning an object with addEventListener and removeEventListener
+        let listeners: { [key: string]: ((event: MessageEvent) => void)[] } = {};
+        return {
+            addEventListener: (type: string, listener: (event: MessageEvent) => void) => {
+                if (!listeners[type]) listeners[type] = [];
+                listeners[type].push(listener);
+            },
+            removeEventListener: (type: string, listener: (event: MessageEvent) => void) => {
+                if (listeners[type]) {
+                    listeners[type] = listeners[type].filter(l => l !== listener);
+                }
+            },
+            // Mock dispatchEvent to simulate receiving messages
+            dispatchEvent: (event: MessageEvent) => {
+                if (listeners['message']) {
+                    listeners['message'].forEach(listener => listener(event));
+                }
+            }
+        };
+    },
+};
+
 // Volatility indices for Rise/Fall trading
 const VOLATILITY_INDICES = [
   { value: 'R_10', label: 'Volatility 10 (1s) Index' },
@@ -21,6 +86,29 @@ const VOLATILITY_INDICES = [
   { value: 'CRASH1000', label: 'Crash 1000 Index' },
   { value: 'stpRNG', label: 'Step Index' },
 ];
+
+// Safe version of tradeOptionToBuy without Blockly dependencies
+const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
+    const buy: any = {
+        buy: '1',
+        price: trade_option.amount,
+        parameters: {
+            amount: trade_option.amount,
+            basis: trade_option.basis || 'stake',
+            contract_type,
+            currency: trade_option.currency,
+            symbol: trade_option.symbol,
+        },
+    };
+
+    // Add duration
+    if (trade_option.duration !== undefined && trade_option.duration_unit !== undefined) {
+        buy.parameters.duration = trade_option.duration;
+        buy.parameters.duration_unit = trade_option.duration_unit;
+    }
+
+    return buy;
+};
 
 const MLTrader = observer(() => {
     const store = useStore();
@@ -43,7 +131,6 @@ const MLTrader = observer(() => {
     const [durationType, setDurationType] = useState<string>('t'); // 't' for ticks
     const [stake, setStake] = useState<number>(1.0);
     const [baseStake, setBaseStake] = useState<number>(1.0);
-    const [allowEquals, setAllowEquals] = useState<boolean>(false); // State for "Allow Equals" option
 
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
@@ -79,9 +166,7 @@ const MLTrader = observer(() => {
 
     // Hull Moving Average trend analysis state - using 1000 tick increments for stability
     const [hullTrends, setHullTrends] = useState({
-        '500': { trend: 'NEUTRAL', value: 0 },
         '1000': { trend: 'NEUTRAL', value: 0 },
-        '1500': { trend: 'NEUTRAL', value: 0 },
         '2000': { trend: 'NEUTRAL', value: 0 },
         '3000': { trend: 'NEUTRAL', value: 0 },
         '4000': { trend: 'NEUTRAL', value: 0 }
@@ -106,9 +191,7 @@ const MLTrader = observer(() => {
 
     // State to track trend update counters for independent timing
     const [trendUpdateCounters, setTrendUpdateCounters] = useState({
-        '500': 0,
         '1000': 0,
-        '1500': 0,
         '2000': 0,
         '3000': 0,
         '4000': 0
@@ -116,9 +199,7 @@ const MLTrader = observer(() => {
 
     // State to store previous trend values for smoothing
     const [previousTrends, setPreviousTrends] = useState({
-        '500': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
         '1000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
-        '1500': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
         '2000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
         '3000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
         '4000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 }
@@ -219,9 +300,7 @@ const MLTrader = observer(() => {
     const updateEhlersTrends = (newTickData: Array<{ time: number, price: number, close: number }>) => {
         // Update counters
         setTrendUpdateCounters(prev => ({
-            '500': prev['500'] + 1,
             '1000': prev['1000'] + 1,
-            '1500': prev['1500'] + 1,
             '2000': prev['2000'] + 1,
             '3000': prev['3000'] + 1,
             '4000': prev['4000'] + 1
@@ -230,11 +309,9 @@ const MLTrader = observer(() => {
         const newTrends = { ...hullTrends };
 
         // Define tick count requirements and update frequencies for different timeframes
-        // Using tick count increments for more stable trend detection
+        // Using 1000 tick increments for more stable trend detection
         const timeframeConfigs = {
-            '500': { requiredTicks: 500, updateEvery: 5, smoothingPeriod: 15 },
             '1000': { requiredTicks: 1000, updateEvery: 10, smoothingPeriod: 20 },  // Update every 10 ticks
-            '1500': { requiredTicks: 1500, updateEvery: 15, smoothingPeriod: 25 },
             '2000': { requiredTicks: 2000, updateEvery: 15, smoothingPeriod: 25 },  // Update every 15 ticks
             '3000': { requiredTicks: 3000, updateEvery: 20, smoothingPeriod: 30 },  // Update every 20 ticks
             '4000': { requiredTicks: 4000, updateEvery: 25, smoothingPeriod: 35 }   // Update every 25 ticks (most stable)
@@ -386,7 +463,7 @@ const MLTrader = observer(() => {
         setIsPreloading(true);
         setStatus('Preloading historical data for trend analysis...');
 
-        // Use only standard Deriv volatility indices
+        // Use symbols from VOLATILITY_INDICES
         const volatilitySymbols = VOLATILITY_INDICES.map(v => v.value);
 
         const preloadedDataMap: {[key: string]: Array<{ time: number, price: number, close: number }>}= {};
@@ -473,65 +550,16 @@ const MLTrader = observer(() => {
 
         return () => {
             try {
-                // Set stop flag to prevent new operations
-                stopFlagRef.current = true;
-                
-                // Clean up auto trading interval first
-                if (autoTradingIntervalRef.current) {
-                    clearInterval(autoTradingIntervalRef.current);
-                    autoTradingIntervalRef.current = null;
-                }
-                
-                // Clean up tick stream subscription
-                if (tickStreamIdRef.current && apiRef.current?.forget) {
-                    try {
-                        apiRef.current.forget({ forget: tickStreamIdRef.current });
-                    } catch (forgetError) {
-                        console.warn('Error forgetting tick stream:', forgetError);
-                    }
+                if (tickStreamIdRef.current) {
+                    apiRef.current?.forget({ forget: tickStreamIdRef.current });
                     tickStreamIdRef.current = null;
                 }
-                
-                // Clean up contract subscription
-                if (pocSubIdRef.current && apiRef.current?.forget) {
-                    try {
-                        apiRef.current.forget({ forget: pocSubIdRef.current });
-                    } catch (forgetError) {
-                        console.warn('Error forgetting contract subscription:', forgetError);
-                    }
-                    pocSubIdRef.current = null;
-                }
-                
-                // Clean up message handler
-                if (messageHandlerRef.current && apiRef.current?.connection) {
-                    try {
-                        apiRef.current.connection.removeEventListener('message', messageHandlerRef.current);
-                    } catch (handlerError) {
-                        console.warn('Error removing message handler:', handlerError);
-                    }
+                if (messageHandlerRef.current) {
+                    apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
                     messageHandlerRef.current = null;
                 }
-                
-                // Update run panel state safely
-                try {
-                    run_panel.setIsRunning(false);
-                    run_panel.setHasOpenContract(false);
-                    run_panel.setContractStage(contract_stages.NOT_RUNNING);
-                } catch (panelError) {
-                    console.warn('Error updating run panel during cleanup:', panelError);
-                }
-                
-                // Disconnect API
-                if (api?.disconnect) {
-                    try {
-                        api.disconnect();
-                    } catch (disconnectError) {
-                        console.warn('Error disconnecting API:', disconnectError);
-                    }
-                }
-            } catch (error) {
-                console.warn('Error during ML trader cleanup:', error);
-            }
+                api?.disconnect?.();
+            } catch { /* noop */ }
         };
     }, []);
 
@@ -716,382 +744,49 @@ const MLTrader = observer(() => {
         }
     };
 
-    // Execute Rise/Fall trade using real Deriv API
-    const executeRiseFallTrade = async (direction: 'RISE' | 'FALL') => {
-        if (!apiRef.current) {
-            setStatus('API not connected');
+    // Rise/Fall mode - tick-based contracts using real Deriv API
+    const purchaseRiseFallContract = async (tradeType: string) => {
+        await authorizeIfNeeded();
+
+        // Check for stop loss and take profit before trading
+        if (totalProfitLoss <= -stopLoss) {
+            setStatus(`Stop Loss hit ($${stopLoss}). Stopping trading.`);
+            stopAutoTrading();
+            return;
+        }
+        if (totalProfitLoss >= takeProfit) {
+            setStatus(`Take Profit hit ($${takeProfit}). Stopping trading.`);
+            stopAutoTrading();
             return;
         }
 
+
         try {
-            await authorizeIfNeeded();
-            setStatus(`Executing ${direction} trade...`);
+            // Map contract types correctly for Rise/Fall
+            let apiContractType = tradeType;
+            // No change needed for CALL/PUT as they directly map to Rise/Fall
 
-            // Determine contract type based on direction and allowEquals setting
-            let contractTypeToUse: string;
-            if (direction === 'RISE') {
-                contractTypeToUse = allowEquals ? 'CALLE' : 'CALL';  // CALLE allows equals for Rise
-            } else {
-                contractTypeToUse = allowEquals ? 'PUTE' : 'PUT';    // PUTE allows equals for Fall
-            }
+            setStatus(`Getting proposal for ${apiContractType} contract...`);
 
-            // Get proposal for Rise/Fall trade
+            // Get proposal using real Deriv API
             const proposalParams = {
                 proposal: 1,
                 amount: stake,
                 basis: 'stake',
-                contract_type: contractTypeToUse,
+                contract_type: apiContractType,
                 currency: account_currency,
-                duration: duration,
-                duration_unit: durationType,
+                duration: 1, // Duration is 1 tick for Rise/Fall
+                duration_unit: 't', // tick unit
                 symbol: symbol,
             };
 
-            console.log('Rise/Fall proposal params:', proposalParams);
-
-            const proposalResponse = await apiRef.current.send(proposalParams);
-
-            if (proposalResponse.error) {
-                setStatus(`Proposal error: ${proposalResponse.error.message}`);
-                return;
-            }
-
-            const proposal = proposalResponse.proposal;
-            const proposalId = proposal.id;
-            const askPrice = proposal.ask_price;
-
-            console.log('Rise/Fall proposal received:', proposal);
-
-            // Execute the purchase
-            const purchaseParams = {
-                buy: proposalId,
-                price: askPrice,
-            };
-
-            const purchaseResponse = await apiRef.current.send(purchaseParams);
-
-            if (purchaseResponse.error) {
-                setStatus(`Purchase error: ${purchaseResponse.error.message}`);
-                return;
-            }
-
-            const purchase = purchaseResponse.buy;
-            const contract_id = purchase.contract_id;
-            const purchase_price = purchase.buy_price;
-            const potential_payout = purchase.payout;
-
-            console.log('Rise/Fall purchase successful:', purchase);
-
-            // Update trading statistics
-            setTotalStake(prev => prev + purchase_price);
-            setTotalRuns(prev => prev + 1);
-            setStatus(`${direction} contract purchased: ${contract_id}`);
-
-            // Track contract value and potential payout
-            setContractValue(purchase_price);
-            setPotentialPayout(potential_payout);
-            setEntrySpot(proposal.spot); // Store entry spot for Rise/Fall
-
-            // Add to trade history
-            const tradeRecord = {
-                id: contract_id,
-                symbol: symbol,
-                contract_type: contractTypeToUse,
-                direction: direction,
-                stake: purchase_price,
-                potential_payout: potential_payout,
-                entry_spot: proposal.spot,
-                timestamp: Date.now(),
-                status: 'OPEN'
-            };
-
-            setTradeHistory(prev => [...prev, tradeRecord]);
-
-            // Monitor contract using real Deriv API
-            await monitorRiseFallContract(contract_id, purchase_price, potential_payout);
-
-        } catch (error: any) {
-            console.error('Rise/Fall purchase error:', error);
-            setStatus(`Rise/Fall purchase failed: ${error.message || 'Unknown error'}`);
-        }
-    };
-
-    // Monitor Rise/Fall contract using real Deriv API
-    const monitorRiseFallContract = async (contract_id: string, purchase_price: number, potential_payout: number) => {
-        let messageHandler: ((evt: MessageEvent) => void) | null = null;
-        let subscriptionId: string | null = null;
-        let contractCompleted = false;
-        
-        try {
-            // Subscribe to contract updates using real Deriv API
-            const response = await apiRef.current.send({
-                proposal_open_contract: 1,
-                contract_id,
-                subscribe: 1
-            });
-
-            if (response.error) {
-                console.error('Monitor contract error:', response.error);
-                setStatus(`Contract monitoring failed: ${response.error.message}`);
-                return;
-            }
-
-            // Capture subscription ID for cleanup
-            subscriptionId = response.subscription?.id || null;
-            if (subscriptionId) {
-                pocSubIdRef.current = subscriptionId;
-            }
-
-            messageHandler = (evt: MessageEvent) => {
-                try {
-                    const data = JSON.parse(evt.data);
-                    if (data.msg_type === 'proposal_open_contract' && 
-                        data.proposal_open_contract?.contract_id === contract_id) {
-                        
-                        const contract = data.proposal_open_contract;
-                        let profit = contract.profit || 0;
-                        const isWin = profit > 0;
-                        const contractStatus = contract.status;
-                        
-                        // Only process if contract hasn't been completed yet
-                        if (contractCompleted) {
-                            return;
-                        }
-
-                        const currentContractData = {
-                            ...contract,
-                            profit: profit,
-                            status: contractStatus,
-                            run_id: run_panel.run_id,
-                        };
-
-                        try {
-                            transactions.onBotContractEvent(currentContractData);
-                            run_panel.setHasOpenContract(true);
-                        } catch (storeError) {
-                            console.warn('Error updating store:', storeError);
-                        }
-
-                        if (contractStatus === 'sold' || contract.is_sold) {
-                            contractCompleted = true;
-                            
-                            // Clean up immediately to prevent duplicate processing
-                            try {
-                                if (messageHandler && apiRef.current?.connection) {
-                                    apiRef.current.connection.removeEventListener('message', messageHandler);
-                                }
-                                
-                                if (subscriptionId && apiRef.current?.forget) {
-                                    apiRef.current.forget({ forget: subscriptionId });
-                                }
-                                
-                                pocSubIdRef.current = null;
-                            } catch (cleanupError) {
-                                console.warn('Error during cleanup:', cleanupError);
-                            }
-                            
-                            // For losses, ensure we show the negative stake amount
-                            if (!isWin && profit === 0) {
-                                profit = -purchase_price;
-                            }
-
-                            const result = profit > 0 ? '✅ WIN' : '❌ LOSS';
-                            const profitText = profit > 0 ? `+${profit.toFixed(2)}` : profit.toFixed(2);
-                            setStatus(`${result}: ${profitText} ${account_currency} | Contract completed`);
-
-                            try {
-                                run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
-                                run_panel.setHasOpenContract(false);
-                            } catch (panelError) {
-                                console.warn('Error updating run panel:', panelError);
-                            }
-
-                            // Update statistics with proper loss amounts
-                            if (isWin) {
-                                setContractsWon(prev => prev + 1);
-                                setTotalPayout(prev => prev + (contract.payout || 0));
-                                lastOutcomeWasLossRef.current = false;
-
-                                // Handle martingale after win
-                                if (isInMartingaleSplit) {
-                                    setCurrentMartingaleCount(0);
-                                    setIsInMartingaleSplit(false);
-                                    setStake(baseStake);
-                                }
-                            } else {
-                                setContractsLost(prev => prev + 1);
-                            }
-
-                            // Perform connection health check after contract completion
-                            setTimeout(async () => {
-                                try {
-                                    if (apiRef.current && !stopFlagRef.current) {
-                                        // Test API connection with a simple ping request
-                                        const healthCheck = await Promise.race([
-                                            apiRef.current.send({ ping: 1 }),
-                                            new Promise((_, reject) => 
-                                                setTimeout(() => reject(new Error('Health check timeout')), 3000)
-                                            )
-                                        ]);
-                                        
-                                        if (healthCheck.error) {
-                                            console.warn('API health check failed, attempting reconnection...');
-                                            setStatus('API connection issue detected, reconnecting...');
-                                            
-                                            // Reinitialize API connection
-                                            const newApi = generateDerivApiInstance();
-                                            apiRef.current = newApi;
-                                            
-                                            // Re-authorize if needed
-                                            try {
-                                                await authorizeIfNeeded();
-                                                setStatus('Connection restored successfully');
-                                            } catch (authError) {
-                                                console.error('Re-authorization failed:', authError);
-                                                setStatus('Failed to restore API connection');
-                                            }
-                                        } else {
-                                            console.log('API connection healthy after contract completion');
-                                        }
-                                    }
-                                } catch (healthCheckError) {
-                                    console.error('Connection health check failed:', healthCheckError);
-                                    setStatus('Connection health check failed');
-                                }
-                            }, 1000); // Wait 1 second after contract completion
-                            } else {
-                                lastOutcomeWasLossRef.current = true;
-                                lossStreak++;
-                                step = Math.min(step + 1, martingaleRuns);
-                                setCurrentMartingaleCount(step);
-                                setIsInMartingaleSplit(true);
-
-                                // Adjust stake based on martingale multiplier and step
-                                const nextStake = baseStake * Math.pow(martingaleMultiplier, step);
-                                setStake(nextStake);
-
-                                // Check if max martingale runs reached
-                                if (step >= martingaleRuns) {
-                                    setStatus(`Martingale runs limit (${martingaleRuns}) reached. Resetting stake.`);
-                                    setStake(baseStake);
-                                    setCurrentMartingaleCount(0);
-                                    setIsInMartingaleSplit(false);
-                                }
-                            }
-                            
-                            setTotalProfitLoss(prev => prev + profit);
-                            setCurrentProfit(profit);
-
-                            // Update trade history safely
-                            try {
-                                setTradeHistory(prev => prev.map(trade =>
-                                    trade.id === contract.contract_id
-                                        ? { ...trade, profit: profit, status: isWin ? 'WON' : 'LOST' }
-                                        : trade
-                                ));
-                            } catch (historyError) {
-                                console.warn('Error updating trade history:', historyError);
-                            }
-
-                            // Report contract completion to transactions store safely
-                            try {
-                                transactions.onBotContractEvent({
-                                    contract: {
-                                        contract_id: contract.contract_id,
-                                        profit: profit,
-                                        sell_price: isWin ? (purchase_price + profit) : 0,
-                                        buy_price: purchase_price,
-                                        currency: account_currency,
-                                        is_sold: true,
-                                        status: isWin ? 'won' : 'lost',
-                                        date_end: Math.floor(Date.now() / 1000)
-                                    }
-                                });
-                            } catch (transactionError) {
-                                console.warn('Error reporting to transactions store:', transactionError);
-                            }
-                        }
-                    }
-                } catch (parseError) {
-                    console.warn('Error parsing contract update:', parseError);
-                }
-            };
-            
-            // Add event listener safely
-            if (apiRef.current?.connection && messageHandler) {
-                apiRef.current.connection.addEventListener('message', messageHandler);
-            }
-
-            // Set timeout for cleanup in case contract doesn't close normally
-            setTimeout(() => {
-                if (!contractCompleted) {
-                    console.warn('Contract monitoring timeout, cleaning up...');
-                    contractCompleted = true;
-                    
-                    try {
-                        if (messageHandler && apiRef.current?.connection) {
-                            apiRef.current.connection.removeEventListener('message', messageHandler);
-                        }
-                        
-                        if (subscriptionId && apiRef.current?.forget) {
-                            apiRef.current.forget({ forget: subscriptionId });
-                        }
-                        
-                        pocSubIdRef.current = null;
-                    } catch (timeoutCleanupError) {
-                        console.warn('Error during timeout cleanup:', timeoutCleanupError);
-                    }
-                }
-            }, 300000); // 5 minute timeout
-            
-        } catch (error) {
-            console.error('Monitor contract setup error:', error);
-            setStatus(`Contract monitoring setup failed: ${error.message || 'Unknown error'}`);
-            
-            // Clean up on error
-            try {
-                if (messageHandler && apiRef.current?.connection) {
-                    apiRef.current.connection.removeEventListener('message', messageHandler);
-                }
-                
-                if (subscriptionId && apiRef.current?.forget) {
-                    apiRef.current.forget({ forget: subscriptionId });
-                }
-                
-                pocSubIdRef.current = null;
-            } catch (errorCleanupError) {
-                console.warn('Error during error cleanup:', errorCleanupError);
-            }
-        }
-    };
-
-    // Auto-trading logic
-    const executeAutoTrade = async () => {
-        if (!isAutoTrading || !marketRecommendation || !symbol) {
-            return;
-        }
-
-        try {
-            setStatus('Executing auto trade...');
-
-            const proposalParams = {
-                amount: stake,
-                basis: 'stake',
-                contract_type: contractType,
-                currency: account_currency,
-                duration: duration,
-                duration_unit: durationType,
-                symbol: symbol
-            };
-
-            if (allowEquals && (contractType === 'CALL' || contractType === 'PUT')) {
-                proposalParams.contract_type = contractType === 'CALL' ? 'CALLE' : 'PUTE';
-            }
+            console.log('Getting proposal for Rise/Fall:', proposalParams);
 
             const proposalResponse = await apiRef.current.send(proposalParams);
 
             if (proposalResponse.error) {
                 setStatus(`Proposal failed: ${proposalResponse.error.message}`);
+                console.error('Proposal error:', proposalResponse.error);
                 return;
             }
 
@@ -1101,7 +796,7 @@ const MLTrader = observer(() => {
                 return;
             }
 
-            setStatus(`Purchasing ${contractType} contract...`);
+            setStatus(`Purchasing ${apiContractType} contract...`);
 
             // Buy contract using real Deriv API
             const buyParams = {
@@ -1113,41 +808,63 @@ const MLTrader = observer(() => {
 
             if (buyResponse.error) {
                 setStatus(`Trade failed: ${buyResponse.error.message}`);
+                console.error('Buy error:', buyResponse.error);
                 return;
             }
 
             const buy = buyResponse.buy;
+            console.log('Rise/Fall Contract purchased:', buy);
 
             // Update statistics
             setTotalStake(prev => prev + stake);
             setTotalRuns(prev => prev + 1);
 
             // Add to trade history
-            setTradeHistory(prev => [...prev, {
-                id: buy.contract_id,
+            const tradeRecord = {
+                id: buy?.contract_id,
                 symbol: symbol,
-                type: contractType,
-                stake: stake,
-                time: new Date().toISOString(),
-                status: 'PURCHASED'
-            }]);
+                contract_type: apiContractType,
+                buy_price: buy?.buy_price,
+                payout: buy?.payout,
+                timestamp: new Date().toISOString(),
+                status: 'purchased'
+            };
 
-            // Report to transactions store
-            transactions.onBotContractEvent({
-                contract: {
-                    contract_id: buy.contract_id,
-                    buy_price: stake,
+            setTradeHistory(prev => [tradeRecord, ...prev.slice(0, 99)]);
+
+            // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
+            try {
+                const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
+                const contractData = {
+                    contract_id: buy?.contract_id,
+                    transaction_ids: { buy: buy?.transaction_id },
+                    buy_price: buy?.buy_price,
                     currency: account_currency,
-                    contract_type: contractType,
-                    symbol: symbol,
+                    contract_type: apiContractType as any,
+                    underlying: symbol,
+                    display_name: symbol_display,
                     date_start: Math.floor(Date.now() / 1000),
-                    shortcode: `${contractType}_${symbol}_${duration}${durationType}_${stake}`
-                }
-            });
+                    status: 'open',
+                    shortcode: buy?.shortcode || `${tradeType}_${symbol}_${duration}T_${stake}`,
+                    longcode: buy?.longcode || `${tradeType} prediction on ${symbol_display}`,
+                    is_completed: false,
+                    profit: 0,
+                    payout: buy?.payout || 0,
+                    run_id: run_panel.run_id,
+                } as any;
 
-            setStatus('Auto trade executed successfully');
+                // Push to transactions store for run panel display
+                transactions.onBotContractEvent(contractData);
 
-            // Subscribe to contract updates and wait for completion
+                // Also log the trade initiation
+                setStatus(`🚀 Trade started: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
+            } catch (err) {
+                console.error('Error seeding transaction:', err);
+            }
+
+            setStatus(`${apiContractType} contract purchased successfully! Contract ID: ${buy.contract_id}`);
+
+            // Subscribe to contract updates
             try {
                 const contractSubscription = await apiRef.current.send({
                     proposal_open_contract: 1,
@@ -1157,286 +874,155 @@ const MLTrader = observer(() => {
 
                 if (contractSubscription.error) {
                     console.error('Contract subscription error:', contractSubscription.error);
-                    return;
+                } else {
+                    console.log('Subscribed to contract updates');
                 }
 
-                let contractCompleted = false;
-                let pocSubId = contractSubscription.subscription?.id;
-                let autoTradeMessageHandler: ((evt: MessageEvent) => void) | null = null;
-
-                autoTradeMessageHandler = (evt: MessageEvent) => {
+                // Listen for subsequent streaming updates
+                const onMsg = (evt: MessageEvent) => {
                     try {
                         const data = JSON.parse(evt.data as any);
                         if (data?.msg_type === 'proposal_open_contract') {
                             const poc = data.proposal_open_contract;
-                            if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
+                            // capture subscription id for later forget
+                            if (!pocSubIdRef.current && data?.subscription?.id) pocSubIdRef.current = data.subscription.id;
+                            if (String(poc?.contract_id || '') === buy.contract_id) {
+                                // Update transaction in run panel with latest contract data
+                                transactions.onBotContractEvent({
+                                    ...poc,
+                                    run_id: run_panel.run_id,
+                                });
+                                run_panel.setHasOpenContract(true);
 
-                            if (String(poc?.contract_id || '') === buy.contract_id && !contractCompleted) {
-                                try {
-                                    // Update transaction in run panel
-                                    transactions.onBotContractEvent({
-                                        ...poc,
-                                        run_id: run_panel.run_id,
-                                    });
-                                    run_panel.setHasOpenContract(true);
-                                } catch (storeError) {
-                                    console.warn('Error updating store during auto trade:', storeError);
-                                }
-
+                                // Update status with live contract info
                                 const profit = Number(poc?.profit || 0);
-
                                 if (poc?.is_sold || poc?.status === 'sold') {
-                                    contractCompleted = true;
-                                    
-                                    // Clean up immediately
-                                    try {
-                                        if (autoTradeMessageHandler && apiRef.current?.connection) {
-                                            apiRef.current.connection.removeEventListener('message', autoTradeMessageHandler);
+                                    const result = profit > 0 ? '✅ WIN' : '❌ LOSS';
+                                    const profitText = profit > 0 ? `+${profit.toFixed(2)}` : profit.toFixed(2);
+                                    setStatus(`${result}: ${profitText} ${account_currency} | Contract completed`);
+
+                                    run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                                    run_panel.setHasOpenContract(false);
+                                    if (pocSubIdRef.current) apiRef.current?.forget?.({ forget: pocSubIdRef.current });
+                                    apiRef.current?.connection?.removeEventListener('message', onMsg);
+
+                                    // Update martingale logic
+                                    if (profit > 0) {
+                                        lastOutcomeWasLossRef.current = false;
+                                        lossStreak = 0;
+                                        step = 0;
+                                        setStake(baseStake);
+                                        setCurrentMartingaleCount(0); // Reset martingale count on win
+                                        setIsInMartingaleSplit(false); // Reset mode on win
+                                    } else {
+                                        lastOutcomeWasLossRef.current = true;
+                                        lossStreak++;
+                                        step = Math.min(step + 1, martingaleRuns); // Cap at martingaleRuns
+                                        setCurrentMartingaleCount(step);
+                                        setIsInMartingaleSplit(true); // Enter split mode
+
+                                        // Adjust stake based on martingale multiplier and step
+                                        const nextStake = baseStake * Math.pow(martingaleMultiplier, step);
+                                        setStake(nextStake);
+
+                                        // Check if max martingale runs reached
+                                        if (step >= martingaleRuns) {
+                                            setStatus(`Martingale runs limit (${martingaleRuns}) reached. Resetting stake.`);
+                                            setStake(baseStake);
+                                            setCurrentMartingaleCount(0);
+                                            setIsInMartingaleSplit(false);
                                         }
-                                        
-                                        if (pocSubId && apiRef.current?.forget) {
-                                            apiRef.current.forget({ forget: pocSubId });
-                                        }
-                                    } catch (cleanupError) {
-                                        console.warn('Error during auto trade cleanup:', cleanupError);
                                     }
-
-                                    let actualProfitLoss = profit;
-                                    const isWin = profit > 0;
-
-                                    // For losses, ensure we show the negative stake amount
-                                    if (!isWin && actualProfitLoss === 0) {
-                                        actualProfitLoss = -stake;
-                                    }
-
-                                    const result = actualProfitLoss > 0 ? '✅ WIN' : '❌ LOSS';
-                                    const profitText = actualProfitLoss > 0 ? `+${actualProfitLoss.toFixed(2)}` : actualProfitLoss.toFixed(2);
-                                    setStatus(`Auto: ${result}: ${profitText} ${account_currency}`);
-
-                                    try {
-                                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
-                                        run_panel.setHasOpenContract(false);
-                                    } catch (panelError) {
-                                        console.warn('Error updating run panel during auto trade:', panelError);
-                                    }
-
-                                    // Update statistics safely
-                                    try {
-                                        setTotalProfitLoss(prev => prev + actualProfitLoss);
-
-                                        if (isWin) {
-                                            setContractsWon(prev => prev + 1);
-                                            setTotalPayout(prev => prev + (buy.payout || 0));
-                                            lastOutcomeWasLossRef.current = false;
-
-                                            // Handle martingale after win
-                                            if (isInMartingaleSplit) {
-                                                setCurrentMartingaleCount(0);
-                                                setIsInMartingaleSplit(false);
-                                                setStake(baseStake);
-                                            }
-                                        } else {
-                                            setContractsLost(prev => prev + 1);
-                                            lastOutcomeWasLossRef.current = true;
-
-                                            // Handle martingale after loss
-                                            if (currentMartingaleCount < martingaleRuns) {
-                                                setIsInMartingaleSplit(true);
-                                                setCurrentMartingaleCount(prev => prev + 1);
-                                            } else {
-                                                setCurrentMartingaleCount(0);
-                                                setIsInMartingaleSplit(false);
-                                                setStake(baseStake);
-                                            }
-                                        }
-                                    } catch (statsError) {
-                                        console.warn('Error updating statistics:', statsError);
-                                    }
-
-                                    // Report contract completion safely
-                                    try {
-                                        transactions.onBotContractEvent({
-                                            contract: {
-                                                contract_id: contract.contract_id,
-                                                profit: actualProfitLoss,
-                                                sell_price: isWin ? (purchase_price + actualProfitLoss) : 0,
-                                                buy_price: purchase_price,
-                                                currency: account_currency,
-                                                is_sold: true,
-                                                status: isWin ? 'won' : 'lost',
-                                                date_end: Math.floor(Date.now() / 1000)
-                                            }
-                                        });
-                                    } catch (transactionError) {
-                                        console.warn('Error reporting auto trade to transactions store:', transactionError);
-                                    }
+                                    setTotalProfitLoss(prev => prev + profit); // Update total P&L
+                                } else {
+                                    // Contract is still running
+                                    setStatus(`📈 Running: ${poc?.longcode || 'Contract'} | Current P&L: ${profit.toFixed(2)} ${account_currency}`);
+                                    run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
                                 }
                             }
                         }
-                    } catch (parseError) {
-                        console.warn('Error parsing auto trade contract update:', parseError);
+                    } catch (err) {
+                        console.error('Error processing contract update:', err);
                     }
                 };
-
-                // Add event listener safely
-                if (apiRef.current?.connection && autoTradeMessageHandler) {
-                    apiRef.current.connection.addEventListener('message', autoTradeMessageHandler);
-                }
-
-                // Set a timeout for cleanup
-                setTimeout(() => {
-                    if (!contractCompleted) {
-                        console.warn('Auto trade contract timeout, cleaning up...');
-                        contractCompleted = true;
-                        
-                        try {
-                            if (autoTradeMessageHandler && apiRef.current?.connection) {
-                                apiRef.current.connection.removeEventListener('message', autoTradeMessageHandler);
-                            }
-                            
-                            if (pocSubId && apiRef.current?.forget) {
-                                apiRef.current.forget({ forget: pocSubId });
-                            }
-                        } catch (timeoutCleanupError) {
-                            console.warn('Error during auto trade timeout cleanup:', timeoutCleanupError);
-                        }
-                    }
-                }, 300000); // 5 minute timeout
+                apiRef.current?.connection?.addEventListener('message', onMsg);
+                messageHandlerRef.current = onMsg; // Store the handler for potential removal
 
             } catch (subscriptionError) {
-                console.error('Auto trade contract subscription error:', subscriptionError);
+                console.error('Error subscribing to contract:', subscriptionError);
             }
 
         } catch (error) {
-            console.error('Execute trade error:', error);
-            setStatus(`Trade execution error: ${error.message || 'Unknown error'}`);
+            console.error('Purchase error:', error);
+            setStatus(`Purchase failed: ${error}`);
         }
     };
 
-    // Start auto trading based on Hull Moving Average trends and volatility scanner
-    const startAutoTrading = () => {
-        if (isAutoTrading) {
-            setStatus('Auto trading already running');
+    const executeSingleTrade = () => {
+        if (!symbol) {
+            setStatus("Please select a symbol.");
             return;
         }
+        purchaseRiseFallContract(contractType);
+    };
 
+    const startAutoTrading = () => {
+        if (!symbol) {
+            setStatus("Please select a symbol.");
+            return;
+        }
         setIsAutoTrading(true);
-        setStatus('Starting auto trading based on trend analysis and volatility opportunities...');
+        setStatus('Auto trading started.');
+        run_panel.setIsRunning(true);
+        run_panel.setContractStage(contract_stages.STARTING);
 
+        // Immediately start the first trade
+        executeSingleTrade();
+
+        // Set interval for subsequent trades
         autoTradingIntervalRef.current = setInterval(() => {
-            if (stopFlagRef.current) {
-                stopAutoTrading();
-                return;
+            if (!stopFlagRef.current && isAutoTrading) {
+                executeSingleTrade();
             }
-
-            // First check volatility opportunities from scanner
-            if (volatilityRecommendations.length > 0) {
-                // Find best volatility opportunity
-                const bestOpportunity = volatilityRecommendations.reduce((best, current) => {
-                    // Use the higher of rise/fall percentage as the score
-                    const currentScore = Math.max(current.risePercentage, current.fallPercentage);
-                    const bestScore = Math.max(best.risePercentage, best.fallPercentage);
-                    return currentScore > bestScore ? current : best;
-                }, volatilityRecommendations[0]); // Initialize with the first recommendation
-
-                // Only trade if opportunity score is above threshold
-                const threshold = 65; // 65% threshold for volatility opportunities
-                const riseScore = bestOpportunity.risePercentage;
-                const fallScore = bestOpportunity.fallPercentage;
-
-                if (riseScore > threshold || fallScore > threshold) {
-                    setSymbol(bestOpportunity.symbol);
-
-                    if (riseScore > fallScore && riseScore > threshold) {
-                        setStatus(`Auto trading: RISE on ${bestOpportunity.displayName} (Rise: ${riseScore.toFixed(1)}%)`);
-                        executeRiseFallTrade('RISE');
-                    } else if (fallScore > threshold) {
-                        setStatus(`Auto trading: FALL on ${bestOpportunity.displayName} (Fall: ${fallScore.toFixed(1)}%)`);
-                        executeRiseFallTrade('FALL');
-                    }
-                    return;
-                }
-            }
-
-            // Fallback to Hull Moving Average trends
-            const recommendation = getMarketRecommendation();
-
-            if (recommendation) {
-                const { recommendation: action, confidence, symbol: recommendedSymbol, reasoning } = recommendation;
-
-                if (confidence >= 70) { // Only trade with high confidence
-                    setSymbol(recommendedSymbol);
-                    setStatus(`Auto trading: ${action} on ${recommendedSymbol} (${reasoning})`);
-
-                    // Execute trade based on recommendation
-                    if (action === 'RISE') {
-                        executeRiseFallTrade('RISE');
-                    } else if (action === 'FALL') {
-                        executeRiseFallTrade('FALL');
-                    }
-                } else {
-                    setStatus(`Auto trading: Waiting for high confidence signal (current: ${(confidence).toFixed(1)}%)`);
-                }
-            } else {
-                setStatus('Auto trading: No clear opportunities detected, waiting...');
-            }
-        }, 30000); // Check every 30 seconds for auto trading opportunities
+        }, 5000); // Adjust interval as needed (e.g., 5 seconds)
     };
 
     const stopAutoTrading = () => {
         setIsAutoTrading(false);
-        setIsRunning(false);
-        stopFlagRef.current = true;
+        setStatus('Auto trading stopped.');
+        run_panel.setIsRunning(false);
+        run_panel.setContractStage(contract_stages.NOT_RUNNING);
         if (autoTradingIntervalRef.current) {
             clearInterval(autoTradingIntervalRef.current);
             autoTradingIntervalRef.current = null;
         }
-        run_panel.setIsRunning(false);
-        run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        setStatus('Auto trading stopped');
-    };
-
-    const toggleAutoTrading = () => {
-        if (isAutoTrading) {
-            setIsAutoTrading(false);
-            if (autoTradingIntervalRef.current) {
-                clearInterval(autoTradingIntervalRef.current);
-                autoTradingIntervalRef.current = null;
-            }
-            setStatus('Auto trading stopped');
-            run_panel.setIsRunning(false);
-            run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        } else {
-            if (!symbol || !marketRecommendation) {
-                setStatus('Please select a symbol and wait for market recommendation');
-                return;
-            }
-
-            if (!apiRef.current.connection || apiRef.current.connection.readyState !== WebSocket.OPEN) {
-                setStatus('Trading engine not connected. Please wait for connection...');
-                return;
-            }
-
-            setIsAutoTrading(true);
-            setStatus('Auto trading started');
-
-            // Update run panel state
-            run_panel.setIsRunning(true);
-            run_panel.setContractStage(contract_stages.STARTING);
-            run_panel.toggleDrawer(true);
-            run_panel.setActiveTabIndex(1); // Switch to transactions tab
-
-            // Execute first trade immediately
-            executeAutoTrade();
-
-            // Set up interval for subsequent trades
-            autoTradingIntervalRef.current = setInterval(() => {
-                if (isAutoTrading && apiRef.current.connection && apiRef.current.connection.readyState === WebSocket.OPEN) {
-                    executeAutoTrade();
-                }
-            }, 30000); // Execute every 30 seconds
+        // Clear contract subscriptions on stop
+        if (pocSubIdRef.current) {
+            apiRef.current?.forget?.({ forget: pocSubIdRef.current });
+            pocSubIdRef.current = null;
+        }
+        if (messageHandlerRef.current) {
+            apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
+            messageHandlerRef.current = null;
         }
     };
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (messageHandlerRef.current && apiRef.current) {
+                const ws = tradingEngine.getWebSocket();
+                ws.removeEventListener('message', messageHandlerRef.current);
+            }
+            if (tickStreamIdRef.current && apiRef.current) {
+                apiRef.current.send({ forget: tickStreamIdRef.current });
+            }
+            // Stop auto trading
+            if (autoTradingIntervalRef.current) {
+                clearTimeout(autoTradingIntervalRef.current);
+            }
+        };
+    }, []);
 
     // Get market recommendation based on HMA trend analysis
     const getMarketRecommendation = () => {
@@ -1510,14 +1096,13 @@ const MLTrader = observer(() => {
         setStatus('Scanning volatility opportunities...');
 
         const opportunities: any[] = [];
-        // Use only standard Deriv volatility indices
+        // Use symbols from VOLATILITY_INDICES
         const volatilitySymbols = VOLATILITY_INDICES.map(v => v.value);
 
         try {
-            // Fetch recommendations for all volatilities
-            const promises = volatilitySymbols.map(async (volatilitySymbol) => {
+            for (const volatilitySymbol of volatilitySymbols) {
                 const symbolData = preloadedData[volatilitySymbol];
-                if (!symbolData || symbolData.length < 4000) return;
+                if (!symbolData || symbolData.length < 4000) continue;
 
                 // Calculate trends for this symbol
                 const symbolTrends = calculateTrendsForSymbol(symbolData);
@@ -1525,7 +1110,7 @@ const MLTrader = observer(() => {
                 if (symbolTrends) {
                     const recommendation = getRecommendationForTrends(symbolTrends);
 
-                    if (recommendation && (recommendation.confidence >= 65 || recommendation.alignedTrends >=3)) { // Filter for high confidence or strong alignment
+                    if (recommendation && recommendation.confidence >= 65) {
                         opportunities.push({
                             symbol: volatilitySymbol,
                             displayName: VOLATILITY_INDICES.find(v => v.value === volatilitySymbol)?.label || volatilitySymbol,
@@ -1534,18 +1119,13 @@ const MLTrader = observer(() => {
                             signal: recommendation.recommendation === 'RISE' ? 'HIGHER' : recommendation.recommendation === 'FALL' ? 'LOWER' : 'WAIT',
                             alignedCount: recommendation.alignedTrends,
                             totalCount: recommendation.totalTrends,
-                            reasoning: recommendation.reasoning,
-                            // Add rise/fall percentages for auto-trading logic
-                            risePercentage: recommendation.recommendation === 'RISE' ? recommendation.confidence : (recommendation.recommendation === 'FALL' ? 100 - recommendation.confidence : 50),
-                            fallPercentage: recommendation.recommendation === 'FALL' ? recommendation.confidence : (recommendation.recommendation === 'RISE' ? 100 - recommendation.confidence : 50)
+                            reasoning: recommendation.reasoning
                         });
                     }
                 }
-            });
+            }
 
-            await Promise.all(promises);
-
-            // Sort by confidence and filter out 'WAIT' signals
+            // Sort by confidence
             opportunities.sort((a, b) => b.confidence - a.confidence);
             setVolatilityRecommendations(opportunities.slice(0, 5)); // Top 5 opportunities
 
@@ -1560,18 +1140,14 @@ const MLTrader = observer(() => {
     // Calculate trends for a specific symbol's data
     const calculateTrendsForSymbol = (symbolData: Array<{ time: number, price: number, close: number }>) => {
         const trends = {
-            '500': { trend: 'NEUTRAL', value: 0 },
             '1000': { trend: 'NEUTRAL', value: 0 },
-            '1500': { trend: 'NEUTRAL', value: 0 },
             '2000': { trend: 'NEUTRAL', value: 0 },
             '3000': { trend: 'NEUTRAL', value: 0 },
             '4000': { trend: 'NEUTRAL', value: 0 }
         };
 
         const timeframeConfigs = {
-            '500': { requiredTicks: 500, smoothingPeriod: 15 },
             '1000': { requiredTicks: 1000, smoothingPeriod: 20 },
-            '1500': { requiredTicks: 1500, smoothingPeriod: 25 },
             '2000': { requiredTicks: 2000, smoothingPeriod: 25 },
             '3000': { requiredTicks: 3000, smoothingPeriod: 30 },
             '4000': { requiredTicks: 4000, smoothingPeriod: 35 }
@@ -1681,20 +1257,6 @@ const MLTrader = observer(() => {
         };
     };
 
-    // Cleanup effect for interval and run panel state
-    useEffect(() => {
-        return () => {
-            if (autoTradingIntervalRef.current) {
-                clearInterval(autoTradingIntervalRef.current);
-            }
-            // Reset run panel state when component unmounts
-            if (isAutoTrading) {
-                run_panel.setIsRunning(false);
-                run_panel.setContractStage(contract_stages.NOT_RUNNING);
-            }
-        };
-    }, [isAutoTrading, run_panel]);
-
 
     return (
         <div className="ml-trader">
@@ -1721,8 +1283,8 @@ const MLTrader = observer(() => {
                             }
                         }}
                     >
-                        <option value="">Select Symbol</option>
-                        {VOLATILITY_INDICES.map(vol => (
+                        <option value="">Select Volatility Index</option>
+                        {VOLATILITY_INDICES.map((vol) => (
                             <option key={vol.value} value={vol.value}>
                                 {vol.label}
                             </option>
@@ -1756,28 +1318,6 @@ const MLTrader = observer(() => {
                         <option value="t">Ticks</option>
                     </select>
                 </div>
-
-                <div className="control-group">
-                    <label>Base Stake</label>
-                    <input
-                        type="number"
-                        value={baseStake}
-                        onChange={(e) => setBaseStake(Number(e.target.value))}
-                        min="0.1"
-                        step="0.1"
-                    />
-                </div>
-
-                <div className="control-group">
-                    <label>
-                        <input
-                            type="checkbox"
-                            checked={allowEquals}
-                            onChange={(e) => setAllowEquals(e.target.checked)}
-                        />
-                        Allow Equals (CALLE/PUTE)
-                    </label>
-                </div>
             </div>
 
             <div className="ml-trader__market-info">
@@ -1805,9 +1345,9 @@ const MLTrader = observer(() => {
                                         <span className="progress-percentage">{risePercentage}%</span>
                                     </div>
                                     <div className="progress-bar">
-                                        <div
+                                        <div 
                                             className="progress-fill"
-                                            style={{
+                                            style={{ 
                                                 width: `${risePercentage}%`,
                                                 backgroundColor: '#4CAF50'
                                             }}
@@ -1823,9 +1363,9 @@ const MLTrader = observer(() => {
                                         <span className="progress-percentage">{fallPercentage}%</span>
                                     </div>
                                     <div className="progress-bar">
-                                        <div
+                                        <div 
                                             className="progress-fill"
-                                            style={{
+                                            style={{ 
                                                 width: `${fallPercentage}%`,
                                                 backgroundColor: '#f44336'
                                             }}
@@ -1841,8 +1381,8 @@ const MLTrader = observer(() => {
                         <h4>Last 10 Ticks Pattern:</h4>
                         <div className="pattern-grid">
                             {tickStream.slice(-10).map((tick, index) => (
-                                <div
-                                    key={index}
+                                <div 
+                                    key={index} 
                                     className={`digit-item ${tick.direction === 'R' ? 'rise' : tick.direction === 'F' ? 'fall' : 'neutral'}`}
                                 >
                                     {tick.direction}
@@ -1855,56 +1395,6 @@ const MLTrader = observer(() => {
                     </div>
                 </div>
             </div>
-
-            {/* Volatility Scanner Recommendations */}
-            {volatilityRecommendations.length > 0 && (
-                <div className="volatility-recommendations">
-                    <h3>Volatility Opportunities</h3>
-                    <div className="recommendations-grid">
-                        {volatilityRecommendations.slice(0, 3).map((rec, index) => (
-                            <div key={rec.symbol} className="recommendation-card">
-                                <div className="rec-header">
-                                    <span className="symbol">{rec.displayName}</span>
-                                    <span className={`rank rank-${index + 1}`}>#{index + 1}</span>
-                                </div>
-                                <div className="rec-stats">
-                                    <div className={`stat ${rec.risePercentage > rec.fallPercentage ? 'dominant' : ''}`}>
-                                        <span className="label">Rise:</span>
-                                        <span className="value">{rec.risePercentage.toFixed(1)}%</span>
-                                    </div>
-                                    <div className={`stat ${rec.fallPercentage > rec.risePercentage ? 'dominant' : ''}`}>
-                                        <span className="label">Fall:</span>
-                                        <span className="value">{rec.fallPercentage.toFixed(1)}%</span>
-                                    </div>
-                                </div>
-                                <button
-                                    className="select-symbol-btn"
-                                    onClick={() => {
-                                        setSymbol(rec.symbol);
-                                        setStatus(`Selected ${rec.displayName} from volatility scanner`);
-                                        // Trigger tick updates for the new symbol
-                                        if (preloadedData[rec.symbol] && preloadedData[rec.symbol].length > 0) {
-                                            setTickData(preloadedData[rec.symbol]);
-                                            updateEhlersTrends(preloadedData[rec.symbol]);
-                                        } else {
-                                            fetchHistoricalTicks(rec.symbol);
-                                        }
-                                        startTicks(rec.symbol);
-                                        // Set contract type based on signal
-                                        if (rec.risePercentage > rec.fallPercentage) {
-                                            setContractType('CALL');
-                                        } else {
-                                            setContractType('PUT');
-                                        }
-                                    }}
-                                >
-                                    Select Symbol
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
 
             {/* Market Recommendation Display */}
             {marketRecommendation && (
@@ -1925,7 +1415,7 @@ const MLTrader = observer(() => {
                                 <span>Aligned Trends: {marketRecommendation.alignedTrends}/{marketRecommendation.totalTrends}</span>
                             </div>
                         </div>
-                        {marketRecommendation.confidence >= 70 && (
+                        {marketRecommendation.confidence >= 65 && (
                             <button
                                 className={`use-recommendation-btn ${marketRecommendation.recommendation.toLowerCase()}`}
                                 onClick={() => {
@@ -1946,13 +1436,87 @@ const MLTrader = observer(() => {
                 </div>
             )}
 
+            {/* Volatility Opportunities Scanner */}
+            <div className='ml-trader__volatility-scanner'>
+                <div className='scanner-header'>
+                    <h3>{localize('Volatility Opportunities Scanner')}</h3>
+                    <button
+                        className='scan-btn'
+                        onClick={scanVolatilityOpportunities}
+                        disabled={isScanning || Object.keys(preloadedData).length < 5}
+                    >
+                        {isScanning ? localize('Scanning...') : localize('Scan All Volatilities')}
+                    </button>
+                </div>
+
+                {volatilityRecommendations.length > 0 ? (
+                    <div className='opportunities-list'>
+                        {volatilityRecommendations.map((opportunity, index) => (
+                            <div key={opportunity.symbol} className={`opportunity-card ${opportunity.signal.toLowerCase()}`}>
+                                <div className='opportunity-header'>
+                                    <span className='symbol-name'>{opportunity.displayName}</span>
+                                    <span className={`signal-badge ${opportunity.signal.toLowerCase()}`}>
+                                        {opportunity.signal}
+                                    </span>
+                                </div>
+                                <div className='opportunity-details'>
+                                    <div className='confidence'>
+                                        Confidence: {opportunity.confidence.toFixed(1)}%
+                                    </div>
+                                    <div className='alignment'>
+                                        Trends: {opportunity.alignedCount}/{opportunity.totalCount}
+                                    </div>
+                                </div>
+                                <div className='opportunity-actions'>
+                                    <button
+                                        className='select-symbol-btn'
+                                        onClick={() => {
+                                            setSymbol(opportunity.tradingSymbol);
+
+                                            // Fetch historical data and update trends for the selected symbol
+                                            if (preloadedData[opportunity.tradingSymbol] && preloadedData[opportunity.tradingSymbol].length > 0) {
+                                                setTickData(preloadedData[opportunity.tradingSymbol]);
+                                                updateEhlersTrends(preloadedData[opportunity.tradingSymbol]);
+                                            } else {
+                                                fetchHistoricalTicks(opportunity.tradingSymbol);
+                                            }
+                                            startTicks(opportunity.tradingSymbol);
+
+                                            // Set contract type based on signal
+                                            if (opportunity.signal === 'HIGHER') {
+                                                setContractType('CALL');
+                                            } else if (opportunity.signal === 'LOWER') {
+                                                setContractType('PUT');
+                                            }
+                                        }}
+                                    >
+                                        Select & Trade
+                                    </button>
+                                </div>
+                                <div className='opportunity-reasoning'>
+                                    <small>{opportunity.reasoning}</small>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className='no-opportunities'>
+                        {isScanning ? (
+                            <span>{localize('Scanning for opportunities...')}</span>
+                        ) : (
+                            <span>{localize('No volatilities currently have 3+ aligned trends.')}</span>
+                        )}
+                        <small>{localize('Scan to discover high-probability setups.')}</small>
+                    </div>
+                )}
+            </div>
 
             <div className="ml-trader__trend-analysis">
                 <h3>{localize('Hull Moving Average Trend Analysis')}</h3>
                 <div className='trend-timeframes'>
                     {Object.entries(hullTrends).map(([timeframe, trendData]) => (
                         <div key={timeframe} className={`trend-item trend-${trendData.trend.toLowerCase()}`}>
-                            <span className='timeframe'>{timeframe} Tick:</span>
+                            <span className='timeframe'>{timeframe} Ticks:</span>
                             <span className='trend'>{trendData.trend}</span>
                             <span className='value'>({trendData.value.toFixed(5)})</span>
                         </div>
@@ -1967,7 +1531,7 @@ const MLTrader = observer(() => {
                         onClick={() => {
                             setContractType('CALL');
                             if (!isAutoTrading) {
-                                executeRiseFallTrade('RISE');
+                                executeSingleTrade();
                             }
                         }}
                         disabled={!symbol || isAutoTrading}
@@ -1979,7 +1543,7 @@ const MLTrader = observer(() => {
                         onClick={() => {
                             setContractType('PUT');
                             if (!isAutoTrading) {
-                                executeRiseFallTrade('FALL');
+                                executeSingleTrade();
                             }
                         }}
                         disabled={!symbol || isAutoTrading}
@@ -1989,7 +1553,7 @@ const MLTrader = observer(() => {
 
                     <button
                         className={`start-trading-btn ${isAutoTrading ? 'trading-active' : ''}`}
-                        onClick={toggleAutoTrading}
+                        onClick={isAutoTrading ? stopAutoTrading : startAutoTrading}
                         disabled={!symbol}
                     >
                         {isAutoTrading ? 'Stop Auto Trading' : 'Start Auto Trading'}
@@ -2046,7 +1610,7 @@ const MLTrader = observer(() => {
                         {tradeHistory.slice(0, 5).map((trade, index) => (
                             <div key={trade.id || index} className="history-item">
                                 <Text size="xs">
-                                    {trade.contract_type} - {trade.stake} {account_currency}
+                                    {trade.contract_type} - {trade.buy_price} {account_currency}
                                 </Text>
                                 <Text size="xs" color="general">
                                     {new Date(trade.timestamp).toLocaleTimeString()}
