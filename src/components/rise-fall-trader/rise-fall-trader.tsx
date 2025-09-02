@@ -785,12 +785,14 @@ const RiseFallTrader = observer(() => {
                     <h4>Last 10 Ticks Pattern:</h4>
                     <div className="pattern-grid">
                         {tickStream.slice(-10).map((tick, index) => (
-                            <div
+                            <button
                                 key={index}
-                                className={`digit-item ${tick.direction === 'R' ? 'rise' : tick.direction === 'F' ? 'fall' : 'neutral'}`}
+                                className={`tick-button ${tick.direction} ${tick.direction === 'rise' ? 'R' : 'F'}`}
+                                title={`Tick ${index + 1}: ${tick.price} (${tick.direction})`}
+                                disabled
                             >
-                                {tick.direction}
-                            </div>
+                                {tick.direction === 'R' ? 'R' : 'F'}
+                            </button>
                         ))}
                     </div>
                     <div className="pattern-info">
