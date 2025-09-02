@@ -1,0 +1,202 @@
+Compilation failed
+
+File: /home/runner/workspace/src/components/ml-trader/ml-trader.tsx:1:1
+  × Module build failed:
+  ├─▶   ×   × Expected a semicolon
+  │     │       ╭─[/home/runner/workspace/src/components/ml-trader/ml-trader.tsx:1014:1]
+  │     │  1011 │                             }
+  │     │  1012 │                         }
+  │     │  1013 │                     }
+  │     │  1014 │                 } catch (parseError) {
+  │     │       ·                 ▲
+  │     │  1015 │                     console.warn('Error parsing contract update:', parseError);
+  │     │  1016 │                 }
+  │     │  1017 │             };
+  │     │       ╰────
+  │     │   × Expected ';', '}' or <eof>
+  │     │       ╭─[/home/runner/workspace/src/components/ml-trader/ml-trader.tsx:845:1]
+  │     │   842 │                     pocSubIdRef.current = subscriptionId;
+  │     │   843 │                 }
+  │     │   844 │
+  │     │   845 │ ╭─▶             messageHandler = (evt: MessageEvent) => {
+  │     │   846 │ │                   try {
+  │     │   847 │ │                       const data = JSON.parse(evt.data);
+  │     │   848 │ │                       if (data.msg_type === 'proposal_open_contract' &&
+  │     │   849 │ │                           data.proposal_open_contract?.contract_id === contract_id) {
+  │     │   850 │ │
+  │     │   851 │ │                           const contract = data.proposal_open_contract;
+  │     │   852 │ │                           let profit = contract.profit || 0;
+  │     │   853 │ │                           const isWin = profit > 0;
+  │     │   854 │ │                           const contractStatus = contract.status;
+  │     │   855 │ │
+  │     │   856 │ │                           // Only process if contract hasn't been completed yet
+  │     │   857 │ │                           if (contractCompleted) {
+  │     │   858 │ │                               return;
+  │     │   859 │ │                           }
+  │     │   860 │ │
+  │     │   861 │ │                           const currentContractData = {
+  │     │   862 │ │                               ...contract,
+  │     │   863 │ │                               profit: profit,
+  │     │   864 │ │                               status: contractStatus,
+  │     │   865 │ │                               run_id: run_panel.run_id,
+  │     │   866 │ │                           };
+  │     │   867 │ │
+  │     │   868 │ │                           try {
+  │     │   869 │ │                               transactions.onBotContractEvent(currentContractData);
+  │     │   870 │ │                               run_panel.setHasOpenContract(true);
+  │     │   871 │ │                           } catch (storeError) {
+  │     │   872 │ │                               console.warn('Error updating store:', storeError);
+  │     │   873 │ │                           }
+  │     │   874 │ │
+  │     │   875 │ │                           if (contractStatus === 'sold' || contract.is_sold) {
+  │     │   876 │ │                               contractCompleted = true;
+  │     │   877 │ │
+  │     │   878 │ │                               // Clean up immediately to prevent duplicate processing
+  │     │   879 │ │                               try {
+  │     │   880 │ │                                   if (messageHandler && apiRef.current?.connection) {
+  │     │   881 │ │                                       apiRef.current.connection.removeEventListener('message', messageHandler);
+  │     │   882 │ │                                   }
+  │     │   883 │ │
+  │     │   884 │ │                                   if (subscriptionId && apiRef.current?.forget) {
+  │     │   885 │ │                                       apiRef.current.forget({ forget: subscriptionId });
+  │     │   886 │ │                                   }
+  │     │   887 │ │
+  │     │   888 │ │                                   pocSubIdRef.current = null;
+  │     │   889 │ │                               } catch (cleanupError) {
+  │     │   890 │ │                                   console.warn('Error during cleanup:', cleanupError);
+  │     │   891 │ │                               }
+  │     │   892 │ │
+  │     │   893 │ │                               // For losses, ensure we show the negative stake amount
+  │     │   894 │ │                               if (!isWin && profit === 0) {
+  │     │   895 │ │                                   profit = -purchase_price;
+  │     │   896 │ │                               }
+  │     │   897 │ │
+  │     │   898 │ │                               const result = profit > 0 ? '✅ WIN' : '❌ LOSS';
+  │     │   899 │ │                               const profitText = profit > 0 ? `+${profit.toFixed(2)}` : profit.toFixed(2);
+  │     │   900 │ │                               setStatus(`${result}: ${profitText} ${account_currency} | Contract completed`);
+  │     │   901 │ │
+  │     │   902 │ │                               try {
+  │     │   903 │ │                                   run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+  │     │   904 │ │                                   run_panel.setHasOpenContract(false);
+  │     │   905 │ │                               } catch (panelError) {
+  │     │   906 │ │                                   console.warn('Error updating run panel:', panelError);
+  │     │   907 │ │                               }
+  │     │   908 │ │
+  │     │   909 │ │                               // Update statistics with proper loss amounts
+  │     │   910 │ │                               if (isWin) {
+  │     │   911 │ │                                   setContractsWon(prev => prev + 1);
+  │     │   912 │ │                                   setTotalPayout(prev => prev + (contract.payout || 0));
+  │     │   913 │ │                                   lastOutcomeWasLossRef.current = false;
+  │     │   914 │ │
+  │     │   915 │ │                                   // Handle martingale after win
+  │     │   916 │ │                                   if (isInMartingaleSplit) {
+  │     │   917 │ │                                       setCurrentMartingaleCount(0);
+  │     │   918 │ │                                       setIsInMartingaleSplit(false);
+  │     │   919 │ │                                       setStake(baseStake);
+  │     │   920 │ │                                   }
+  │     │   921 │ │                               } else {
+  │     │   922 │ │                                   setContractsLost(prev => prev + 1);
+  │     │   923 │ │                               }
+  │     │   924 │ │
+  │     │   925 │ │                               // Perform connection health check after contract completion
+  │     │   926 │ │                               setTimeout(async () => {
+  │     │   927 │ │                                   try {
+  │     │   928 │ │                                       if (apiRef.current && !stopFlagRef.current) {
+  │     │   929 │ │                                           // Test API connection with a simple ping request
+  │     │   930 │ │                                           const healthCheck = await Promise.race([
+  │     │   931 │ │                                               apiRef.current.send({ ping: 1 }),
+  │     │   932 │ │                                               new Promise((_, reject) =>
+  │     │   933 │ │                                                   setTimeout(() => reject(new Error('Health check timeout')), 3000)
+  │     │   934 │ │                                               )
+  │     │   935 │ │                                           ]);
+  │     │   936 │ │
+  │     │   937 │ │                                           if (healthCheck.error) {
+  │     │   938 │ │                                               console.warn('API health check failed, attempting reconnection...');
+  │     │   939 │ │                                               setStatus('API connection issue detected, reconnecting...');
+  │     │   940 │ │
+  │     │   941 │ │                                               // Reinitialize API connection
+  │     │   942 │ │                                               const newApi = generateDerivApiInstance();
+  │     │   943 │ │                                               apiRef.current = newApi;
+  │     │   944 │ │
+  │     │   945 │ │                                               // Re-authorize if needed
+  │     │   946 │ │                                               try {
+  │     │   947 │ │                                                   await authorizeIfNeeded();
+  │     │   948 │ │                                                   setStatus('Connection restored successfully');
+  │     │   949 │ │                                               } catch (authError) {
+  │     │   950 │ │                                                   console.error('Re-authorization failed:', authError);
+  │     │   951 │ │                                                   setStatus('Failed to restore API connection');
+  │     │   952 │ │                                               }
+  │     │   953 │ │                                           } else {
+  │     │   954 │ │                                               console.log('API connection healthy after contract completion');
+  │     │   955 │ │                                           }
+  │     │   956 │ │                                       }
+  │     │   957 │ │                                   } catch (healthCheckError) {
+  │     │   958 │ │                                       console.error('Connection health check failed:', healthCheckError);
+  │     │   959 │ │                                       setStatus('Connection health check failed');
+  │     │   960 │ │                                   }
+  │     │   961 │ │                               }, 1000); // Wait 1 second after contract completion
+  │     │   962 │ │                                   lastOutcomeWasLossRef.current = true;
+  │     │   963 │ │                                   lossStreak++;
+  │     │   964 │ │                                   step = Math.min(step + 1, martingaleRuns);
+  │     │   965 │ │                                   setCurrentMartingaleCount(step);
+  │     │   966 │ │                                   setIsInMartingaleSplit(true);
+  │     │   967 │ │
+  │     │   968 │ │                                   // Adjust stake based on martingale multiplier and step
+  │     │   969 │ │                                   const nextStake = baseStake * Math.pow(martingaleMultiplier, step);
+  │     │   970 │ │                                   setStake(nextStake);
+  │     │   971 │ │
+  │     │   972 │ │                                   // Check if max martingale runs reached
+  │     │   973 │ │                                   if (step >= martingaleRuns) {
+  │     │   974 │ │                                       setStatus(`Martingale runs limit (${martingaleRuns}) reached. Resetting stake.`);
+  │     │   975 │ │                                       setStake(baseStake);
+  │     │   976 │ │                                       setCurrentMartingaleCount(0);
+  │     │   977 │ │                                       setIsInMartingaleSplit(false);
+  │     │   978 │ │                                   }
+  │     │   979 │ │                               }
+  │     │   980 │ │
+  │     │   981 │ │                               setTotalProfitLoss(prev => prev + profit);
+  │     │   982 │ │                               setCurrentProfit(profit);
+  │     │   983 │ │
+  │     │   984 │ │                               // Update trade history safely
+  │     │   985 │ │                               try {
+  │     │   986 │ │                                   setTradeHistory(prev => prev.map(trade =>
+  │     │   987 │ │                                       trade.id === contract.contract_id
+  │     │   988 │ │                                           ? { ...trade, profit: profit, status: isWin ? 'WON' : 'LOST' }
+  │     │   989 │ │                                           : trade
+  │     │   990 │ │                                   ));
+  │     │   991 │ │                               } catch (historyError) {
+  │     │   992 │ │                                   console.warn('Error updating trade history:', historyError);
+  │     │   993 │ │                               }
+  │     │   994 │ │
+  │     │   995 │ │                               // Report contract completion to transactions store safely
+  │     │   996 │ │                               try {
+  │     │   997 │ │                                   transactions.onBotContractEvent({
+  │     │   998 │ │                                       contract: {
+  │     │   999 │ │                                           contract_id: contract.contract_id,
+  │     │  1000 │ │                                           profit: profit,
+  │     │  1001 │ │                                           sell_price: isWin ? (purchase_price + profit) : 0,
+  │     │  1002 │ │                                           buy_price: purchase_price,
+  │     │  1003 │ │                                           currency: account_currency,
+  │     │  1004 │ │                                           is_sold: true,
+  │     │  1005 │ │                                           status: isWin ? 'won' : 'lost',
+  │     │  1006 │ │                                           date_end: Math.floor(Date.now() / 1000)
+  │     │  1007 │ │                                       }
+  │     │  1008 │ │                                   });
+  │     │  1009 │ │                               } catch (transactionError) {
+  │     │  1010 │ │                                   console.warn('Error reporting to transactions store:', transactionError);
+  │     │  1011 │ │                               }
+  │     │  1012 │ │                           }
+  │     │  1013 │ │                       }
+  │     │  1014 │ ├─▶                 } catch (parseError) {
+  │     │       · ╰───                  ─────
+  │     │       · ╰──── This is the expression part of an expression statement
+  │     │  1015 │                         console.warn('Error parsing contract update:', parseError);
+  │     │  1016 │                     }
+  │     │  1017 │                 };
+  │     │       ╰────
+  │     │
+  │   
+  ╰─▶ Syntax Error
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
