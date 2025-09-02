@@ -83,8 +83,6 @@ export default class JournalStore {
             clear: action.bound,
             registerReactions: action.bound,
             restoreStoredJournals: action.bound,
-            setUnfilteredMessages: action.bound,
-            addUnfilteredMessage: action.bound,
         });
 
         this.root_store = root_store;
@@ -176,9 +174,7 @@ export default class JournalStore {
         const time = formatDate(this.getServerTime(), 'HH:mm:ss [GMT]');
         const unique_id = uuidv4();
 
-        // Use action to modify the observable array
-        this.addUnfilteredMessage({ date, time, message, message_type, className, unique_id, extra });
-        // Ensure MobX detects the change if mutations are used directly
+        this.unfiltered_messages.unshift({ date, time, message, message_type, className, unique_id, extra });
         this.unfiltered_messages = this.unfiltered_messages.slice(); // force array update
     }
 
@@ -209,8 +205,7 @@ export default class JournalStore {
     }
 
     clear() {
-        // Use action to modify the observable array
-        this.setUnfilteredMessages([]);
+        this.unfiltered_messages = this.unfiltered_messages.slice(0, 0);
     }
 
     registerReactions() {
@@ -236,8 +231,7 @@ export default class JournalStore {
                     );
                     return !!has_account;
                 });
-                // Use action to modify the observable array
-                this.setUnfilteredMessages(getStoredItemsByUser(this.JOURNAL_CACHE, loginid, []));
+                this.unfiltered_messages = getStoredItemsByUser(this.JOURNAL_CACHE, loginid, []);
                 if (this.unfiltered_messages.length === 0) {
                     this.pushMessage(LogTypes.WELCOME, MessageTypes.SUCCESS, 'journal__text');
                 } else if (this.unfiltered_messages.length > 0) {

@@ -95,39 +95,6 @@ const Transactions = observer(({ is_drawer_open }: TTransactions) => {
         }
     };
 
-    const getRowItem = (index: number) => {
-        return transaction_list?.[index];
-    };
-
-    const keyMapper = (row: TTransactionItem) => {
-        return row?.data?.transaction_ids?.buy || row?.data?.transaction_ids?.sell || row?.id || Math.random();
-    };
-
-    const rowRenderer = ({ index, key, style }) => {
-        try {
-            const item = getRowItem(index);
-            if (!item || !item.data) {
-                return (
-                    <div key={key} style={style}>
-                        <div>No transaction data</div>
-                    </div>
-                );
-            }
-            return (
-                <div key={key} style={style}>
-                    <Transaction key={keyMapper(item)} data={item.data} />
-                </div>
-            );
-        } catch (error) {
-            console.error('Error rendering transaction row:', error);
-            return (
-                <div key={key} style={style}>
-                    <div>Error loading transaction</div>
-                </div>
-            );
-        }
-    };
-
     return (
         <div
             className={classnames('transactions', {
@@ -171,8 +138,26 @@ const Transactions = observer(({ is_drawer_open }: TTransactions) => {
                         <DataList
                             className='transactions'
                             data_source={transaction_list}
-                            rowRenderer={rowRenderer}
-                            keyMapper={keyMapper}
+                            rowRenderer={props => (
+                                <TransactionItem
+                                    onClickTransaction={onClickTransaction}
+                                    active_transaction_id={active_transaction_id}
+                                    {...props}
+                                />
+                            )}
+                            keyMapper={row => {
+                                switch (row.type) {
+                                    case transaction_elements.CONTRACT: {
+                                        return row.data.transaction_ids.buy;
+                                    }
+                                    case transaction_elements.DIVIDER: {
+                                        return row.data;
+                                    }
+                                    default: {
+                                        return null;
+                                    }
+                                }
+                            }}
                             getRowSize={({ index }) => {
                                 const row = transaction_list?.[index];
                                 switch (row.type) {
