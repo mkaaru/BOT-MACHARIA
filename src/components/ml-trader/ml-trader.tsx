@@ -801,7 +801,7 @@ const MLTrader = observer(() => {
                         run_panel.setHasOpenContract(true);
 
                         if (contractStatus === 'sold' || contract.is_sold) {
-                            // Calculate actual profit/loss - if loss, show negative stake amount
+                            // Calculate proper profit/loss for statistics - losses should show negative stake amount
                             const actualProfitLoss = profit > 0 ? profit : -purchase_price;
                             const result = profit > 0 ? '✅ WIN' : '❌ LOSS';
                             const profitText = actualProfitLoss > 0 ? `+${actualProfitLoss.toFixed(2)}` : actualProfitLoss.toFixed(2);
@@ -812,16 +812,17 @@ const MLTrader = observer(() => {
                             if (pocSubIdRef.current) apiRef.current?.forget?.({ forget: pocSubIdRef.current });
                             apiRef.current?.connection?.removeEventListener('message', onMessage);
 
-                            // Update statistics with actual loss amounts
+                            // Update statistics with proper loss amounts
                             if (profit > 0) {
                                 setContractsWon(prev => prev + 1);
-                                setTotalPayout(prev => prev + potential_payout);
                                 lastOutcomeWasLossRef.current = false;
-                                lossStreak = 0;
-                                step = 0;
-                                setStake(baseStake);
-                                setCurrentMartingaleCount(0); // Reset martingale count on win
-                                setIsInMartingaleSplit(false); // Reset mode on win
+
+                                // Handle martingale after win
+                                if (isInMartingaleSplit) {
+                                    setCurrentMartingaleCount(0);
+                                    setIsInMartingaleSplit(false);
+                                    setStake(baseStake);
+                                }
                             } else {
                                 setContractsLost(prev => prev + 1);
                                 lastOutcomeWasLossRef.current = true;
@@ -1137,8 +1138,8 @@ const MLTrader = observer(() => {
                                         apiRef.current?.connection?.removeEventListener('message', onMsg);
 
                                         // Update statistics
-                                        setTotalPayout(prev => prev + profit);
-                                        setTotalProfitLoss(prev => prev + profit);
+                                        setTotalPayout(prev => prev + (profit > 0 ? buy.payout : 0)); // Add payout only if won
+                                        setTotalProfitLoss(prev => prev + profit); // Profit/Loss is directly from contract
 
                                         if (profit > 0) {
                                             setContractsWon(prev => prev + 1);
