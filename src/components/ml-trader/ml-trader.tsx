@@ -1317,13 +1317,20 @@ const MLTrader = observer(() => {
 
     // Function to schedule the next trade
     const scheduleNextTrade = () => {
+        console.log('scheduleNextTrade called:', { isAutoTrading, stopFlag: stopFlagRef.current });
+
         if (!isAutoTrading || stopFlagRef.current) {
+            console.log('Not scheduling next trade - auto trading stopped');
             return;
         }
 
         setTimeout(() => {
+            console.log('Executing scheduled trade:', { isAutoTrading, stopFlag: stopFlagRef.current });
             if (isAutoTrading && !stopFlagRef.current) {
+                setStatus('🔄 Continuing auto trading...');
                 executeSingleTrade();
+            } else {
+                console.log('Auto trading was stopped during delay');
             }
         }, 1000); // 1 second delay as requested
     };
