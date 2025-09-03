@@ -651,6 +651,8 @@ const MLTrader = observer(() => {
                     if (ticks.length < 50) reasons.push(`insufficient data (${ticks.length}/50 ticks)`);
                     console.log(`⏳ AUTO TRADE WAITING for ${selectedSymbol}: ${reasons.join(', ')}`);
                 }
+            } else if (!isAutoTrading && recommendation) {
+                console.log(`📊 Analysis complete but auto trading is disabled: ${recommendation} (${confidence.toFixed(1)}% confidence)`);
             }
 
         } catch (error) {
@@ -694,13 +696,15 @@ const MLTrader = observer(() => {
 
     // Execute auto trade
     const executeAutoTrade = async (recommendation: string, confidence: number) => {
-        if (!tradingApi) {
-            setStatus('❌ Trading API not initialized - Please refresh the page');
+        // Double check that auto trading is still active before proceeding
+        if (!isAutoTrading) {
+            console.log('🛑 Auto trade cancelled - auto trading has been stopped');
+            setStatus('🛑 Trade cancelled - auto trading stopped');
             return;
         }
 
-        if (!isAutoTrading) {
-            setStatus('❌ Auto trading is not active');
+        if (!tradingApi) {
+            setStatus('❌ Trading API not initialized - Please refresh the page');
             return;
         }
 
@@ -1055,17 +1059,36 @@ const MLTrader = observer(() => {
             // Stopping auto trading
             console.log('🛑 Stopping ML Auto-trading');
             setIsAutoTrading(false);
-            setStatus('🛑 ML Auto-trading STOPPED');
+            setStatus('🛑 ML Auto-trading STOPPED - All active monitoring has been disabled');
+
+            // Reset trading state
+            setAnalysisData({});
+            setLossStreak(0);
+            setCurrentStake(baseStake);
+            setLastOutcome(null);
+
+            // Clear active contracts monitoring
+            contractsRef.current.clear();
+            setActiveContracts(new Map());
 
             // Update run panel state and emit stop event
             run_panel.setIsRunning(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
+            run_panel.toggleDrawer(false);
 
             // Emit bot stop event for run panel integration
             botObserver.emit('bot.stop', {
                 is_running: false,
-                is_ml_trader: true
+                is_ml_trader: true,
+                reason: 'User stopped auto trading'
             });
+
+            // Force a status update to confirm stop
+            setTimeout(() => {
+                if (!isAutoTrading) {
+                    setStatus('✅ Auto-trading successfully stopped');
+                }
+            }, 500);
         }
     };
 
