@@ -1037,7 +1037,7 @@ const MLTrader = observer(() => {
             setStatus("Please select a symbol.");
             return;
         }
-        
+
         console.log('executeSingleTrade called with contract type:', contractType);
         purchaseRiseFallContract(contractType);
     }, [symbol, contractType, purchaseRiseFallContract]);
@@ -1047,14 +1047,14 @@ const MLTrader = observer(() => {
             setStatus("Please select a symbol.");
             return;
         }
-        
+
         console.log('Starting auto trading...');
         setIsAutoTrading(true);
         stopFlagRef.current = false;
         lastOutcomeWasLossRef.current = false;
         setCurrentMartingaleStep(0);
         setStake(baseStake);
-        
+
         setStatus('🤖 Auto trading started - executing trades...');
         run_panel.setIsRunning(true);
         run_panel.setContractStage(contract_stages.STARTING);
@@ -1367,10 +1367,10 @@ const MLTrader = observer(() => {
             console.log('Executing scheduled trade:', { isAutoTrading, stopFlag: stopFlagRef.current });
             if (isAutoTrading && !stopFlagRef.current) {
                 setStatus('🔄 Continuing auto trading...');
-                
+
                 // Continue with current contract type without waiting for market conditions
                 setStatus(`🤖 Auto trading: ${contractType === 'CALL' ? 'RISE' : 'FALL'} direction`);
-                
+
                 // Execute the trade with the current contract type
                 executeSingleTrade();
             } else {
