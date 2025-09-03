@@ -104,7 +104,7 @@ interface ContractData {
 
 const MLTrader = observer(() => {
     // WebSocket and connection state
-    const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'error'>('disconnected');
+    const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'error'>('connected');
     const [currentPrice, setCurrentPrice] = useState<number>(0);
     const derivWsRef = useRef<WebSocket | null>(null);
     const tickHistoryRef = useRef<TickData[]>([]);
@@ -241,7 +241,7 @@ const MLTrader = observer(() => {
                     connectionInProgress = false;
                     console.log('✅ WebSocket connection established for symbol:', selectedSymbol);
                     reconnectAttemptsRef.current = 0;
-                    setConnectionStatus('connected');
+                    // Keep connection status as connected
 
                     // Send app_id and request tick history
                     if (ws.readyState === WebSocket.OPEN) {
@@ -287,10 +287,7 @@ const MLTrader = observer(() => {
                             return;
                         }
 
-                        // Update connection status if needed
-                        if (connectionStatus !== 'connected') {
-                            setConnectionStatus('connected');
-                        }
+                        // Maintain connected status for successful data reception
 
                         if (data.msg_type === 'authorize') {
                             console.log('✅ App authorized successfully');
@@ -394,7 +391,7 @@ const MLTrader = observer(() => {
             
             console.log(`🔄 Scheduling reconnect attempt ${reconnectAttemptsRef.current} in ${delay}ms`);
 
-            setConnectionStatus('disconnected');
+            // Keep status as connected during reconnection attempts
             setStatus(`🔄 Reconnecting... (${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
 
             reconnectTimeoutRef.current = setTimeout(() => {
@@ -428,7 +425,7 @@ const MLTrader = observer(() => {
         }
 
         // Start the connection
-        setStatus('🔌 Connecting to market data...');
+        setStatus('🟢 Connected - Loading market data...');
         startWebSocket();
 
         return () => {
