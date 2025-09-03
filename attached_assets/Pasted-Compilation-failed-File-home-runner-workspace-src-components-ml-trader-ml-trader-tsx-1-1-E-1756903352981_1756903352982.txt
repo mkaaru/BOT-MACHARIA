@@ -1,0 +1,87 @@
+Compilation failed
+
+File: /home/runner/workspace/src/components/ml-trader/ml-trader.tsx:1:1
+  × ESModulesLinkingError: export 'Text' (imported as 'Text') was not found in '@/components/shared_ui/text' (possible exports: default)
+     ╭─[703:58]
+ 701 │                                 className: "ml-trader__stat-item",
+ 702 │                                 children: [
+ 703 │                                     /*#__PURE__*/ _jsxDEV(Text, {
+     ·                                                           ────
+ 704 │                                         size: "xs",
+ 705 │                                         children: "Total Trades"
+     ╰────/nFile: /home/runner/workspace/src/components/ml-trader/ml-trader.tsx:1:1
+  × ESModulesLinkingError: export 'Text' (imported as 'Text') was not found in '@/components/shared_ui/text' (possible exports: default)
+     ╭─[711:58]
+ 709 │                                         columnNumber: 25
+ 710 │                                     }, this),
+ 711 │                                     /*#__PURE__*/ _jsxDEV(Text, {
+     ·                                                           ────
+ 712 │                                         size: "s",
+ 713 │                                         weight: "bold",
+     ╰────/nFile: /home/runner/workspace/src/components/ml-trader/ml-trader.tsx:1:1
+  × ESModulesLinkingError: export 'Text' (imported as 'Text') was not found in '@/components/shared_ui/text' (possible exports: default)
+     ╭─[729:58]
+ 727 │                                 className: "ml-trader__stat-item",
+ 728 │                                 children: [
+ 729 │                                     /*#__PURE__*/ _jsxDEV(Text, {
+     ·                                                           ────
+ 730 │                                         size: "xs",
+ 731 │                                         children: "Wins"
+     ╰────/nFile: /home/runner/workspace/src/components/ml-trader/ml-trader.tsx:1:1
+  × ESModulesLinkingError: export 'Text' (imported as 'Text') was not found in '@/components/shared_ui/text' (possible exports: default)
+     ╭─[737:58]
+ 735 │                                         columnNumber: 25
+ 736 │                                     }, this),
+ 737 │                                     /*#__PURE__*/ _jsxDEV(Text, {
+     ·                                                           ────
+ 738 │                                         size: "s",
+ 739 │                                         weight: "bold",
+     ╰────/nFile: /home/runner/workspace/src/components/ml-trader/ml-trader.tsx:1:1
+  × ESModulesLinkingError: export 'Text' (imported as 'Text') was not found in '@/components/shared_ui/text' (possible exports: default)
+     ╭─[756:58]
+ 754 │                                 className: "ml-trader__stat-item",
+ 755 │                                 children: [
+ 756 │                                     /*#__PURE__*/ _jsxDEV(Text, {
+     ·                                                           ────
+ 757 │                                         size: "xs",
+ 758 │                                         children: "Losses"
+     ╰────/nFile: /home/runner/workspace/src/components/ml-trader/ml-trader.tsx:1:1
+  × ESModulesLinkingError: export 'Text' (imported as 'Text') was not found in '@/components/shared_ui/text' (possible exports: default)
+     ╭─[764:58]
+ 762 │                                         columnNumber: 25
+ 763 │                                     }, this),
+ 764 │                                     /*#__PURE__*/ _jsxDEV(Text, {
+     ·                                                           ────
+ 765 │                                         size: "s",
+ 766 │                                         weight: "bold",
+     ╰────/nFile: /home/runner/workspace/src/components/ml-trader/ml-trader.tsx:1:1
+  × ESModulesLinkingError: export 'Text' (imported as 'Text') was not found in '@/components/shared_ui/text' (possible exports: default)
+     ╭─[783:58]
+ 781 │                                 className: "ml-trader__stat-item",
+ 782 │                                 children: [
+ 783 │                                     /*#__PURE__*/ _jsxDEV(Text, {
+     ·                                                           ────
+ 784 │                                         size: "xs",
+ 785 │                                         children: "Win Rate"
+     ╰────/nFile: /home/runner/workspace/src/components/ml-trader/ml-trader.tsx:1:1
+  × ESModulesLinkingError: export 'Text' (imported as 'Text') was not found in '@/components/shared_ui/text' (possible exports: default)
+     ╭─[791:58]
+ 789 │                                         columnNumber: 25
+ 790 │                                     }, this),
+ 791 │                                     /*#__PURE__*/ _jsxDEV(Text, {
+     ·                                                           ────
+ 792 │                                         size: "s",
+ 793 │                                         weight: "bold",
+     ╰────/nFile: /home/runner/workspace/src/components/ml-trader/ml-trader.tsx:1:1
+  × ESModulesLinkingError: export 'Text' (imported as 'Text') was not found in '@/components/shared_ui/text' (possible exports: default)
+     ╭─[823:48]
+ 821 │             status && /*#__PURE__*/ _jsxDEV("div", {
+ 822 │                 className: "ml-trader__status-message",
+ 823 │                 children: /*#__PURE__*/ _jsxDEV(Text, {
+     ·                                                 ────
+ 824 │                     size: "xs",
+ 825 │                     color: /error|fail/i.test(status) ? 'loss-danger' : 'prominent',
+     ╰────
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
