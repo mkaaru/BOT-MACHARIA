@@ -1,0 +1,66 @@
+🔹 Example Code Update
+// Example ML/strategy check function
+const checkTradeCondition = (latestTick) => {
+    // Replace with your ML logic / indicator check
+    // Example: only trade if tick is above moving average
+    return latestTick && (latestTick % 2 === 0); // dummy condition: even price
+};
+
+// Auto trading loop
+const scheduleNextTrade = () => {
+    console.log('scheduleNextTrade called:', { isAutoTrading, stopFlag: stopFlagRef.current });
+
+    if (!isAutoTrading || stopFlagRef.current) {
+        console.log('Not scheduling next trade - auto trading stopped');
+        return;
+    }
+
+    const waitAndCheck = () => {
+        if (!isAutoTrading || stopFlagRef.current) {
+            console.log('Stopped while waiting');
+            return;
+        }
+
+        // ✅ Check condition
+        const latestTick = tickRef.current; // assuming you store last tick somewhere
+        if (checkTradeCondition(latestTick)) {
+            console.log('✅ Condition true - executing trade');
+            setStatus('🔄 Condition met, executing trade...');
+            executeSingleTrade();
+        } else {
+            console.log('⏳ Condition not met - waiting...');
+            setTimeout(waitAndCheck, 1000); // check again after 1 second
+        }
+    };
+
+    waitAndCheck();
+};
+
+🔹 Tick Storage (so we can check conditions anytime)
+
+Inside your tick subscription:
+
+// Keep latest tick in a ref
+const tickRef = useRef(null);
+
+// Example tick subscription
+apiRef.current?.subscribe({ ticks: symbol }).then(() => {
+    apiRef.current.connection.addEventListener("message", (event) => {
+        const data = JSON.parse(event.data);
+        if (data.msg_type === "tick") {
+            tickRef.current = data.tick.quote;
+        }
+    });
+});
+
+🔹 Flow Now
+
+Auto trading starts → executes first trade.
+
+When contract ends → handleContractEnd() logs result → scheduleNextTrade() runs.
+
+scheduleNextTrade() → waits until ML condition passes → executes next trade.
+
+Keeps looping until you press Stop Auto Trading.
+
+⚡ This way your bot is continuous, condition-aware, and can run forever without human intervention.
