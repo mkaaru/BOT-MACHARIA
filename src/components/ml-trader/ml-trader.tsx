@@ -175,19 +175,28 @@ const MLTrader = observer(() => {
 
     // WebSocket connection management
     useEffect(() => {
-        const MAX_RECONNECT_ATTEMPTS = 5;
+        const MAX_RECONNECT_ATTEMPTS = 10;
+        let isComponentMounted = true;
 
         function startWebSocket() {
+            if (!isComponentMounted) return;
+            
             console.log('🔌 Connecting to WebSocket API for symbol:', selectedSymbol);
 
             if (reconnectTimeoutRef.current) {
                 clearTimeout(reconnectTimeoutRef.current);
+                reconnectTimeoutRef.current = null;
             }
 
             if (derivWsRef.current) {
                 try {
                     derivWsRef.current.onclose = null;
-                    derivWsRef.current.close();
+                    derivWsRef.current.onerror = null;
+                    derivWsRef.current.onmessage = null;
+                    derivWsRef.current.onopen = null;
+                    if (derivWsRef.current.readyState === WebSocket.OPEN || derivWsRef.current.readyState === WebSocket.CONNECTING) {
+                        derivWsRef.current.close();
+                    }
                 } catch (error) {
                     console.error('Error closing existing connection:', error);
                 }
@@ -199,33 +208,50 @@ const MLTrader = observer(() => {
             setCurrentPrice(0);
 
             try {
-                derivWsRef.current = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
+                // Use the correct app_id for public access
+                derivWsRef.current = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
 
                 derivWsRef.current.onopen = function() {
+                    if (!isComponentMounted) return;
+                    
                     console.log('✅ WebSocket connection established for symbol:', selectedSymbol);
                     reconnectAttemptsRef.current = 0;
                     setConnectionStatus('connected');
 
-                    setTimeout(() => {
+                    // Send app_id first
+                    if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
                         try {
-                            if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
-                                derivWsRef.current.send(JSON.stringify({ app_id: 75771 }));
-                                requestTickHistory();
-                            }
+                            derivWsRef.current.send(JSON.stringify({ 
+                                app_id: 1089,
+                                req_id: 1
+                            }));
+                            
+                            // Wait a bit before requesting tick history
+                            setTimeout(() => {
+                                if (isComponentMounted && derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
+                                    requestTickHistory();
+                                }
+                            }, 1000);
                         } catch (error) {
-                            console.error('Error during init requests:', error);
+                            console.error('Error sending app_id:', error);
+                            scheduleReconnect();
                         }
-                    }, 500);
+                    }
                 };
 
                 derivWsRef.current.onmessage = function(event) {
+                    if (!isComponentMounted) return;
+                    
                     try {
                         const data = JSON.parse(event.data);
 
                         if (data.error) {
                             console.error('❌ WebSocket API error:', data.error);
-                            if (data.error.code === 'DisconnectByUser' || data.error.code === 'InvalidToken') {
+                            if (data.error.code === 'MarketIsClosed' || data.error.code === 'InvalidSymbol') {
                                 setConnectionStatus('error');
+                                setStatus(`❌ Error: ${data.error.message}`);
+                            } else {
+                                scheduleReconnect();
                             }
                             return;
                         }
@@ -234,34 +260,47 @@ const MLTrader = observer(() => {
                             setConnectionStatus('connected');
                         }
 
-                        if (data.history) {
-                            console.log(`📊 Received history for ${selectedSymbol}: ${data.history.prices.length} ticks`);
-                            tickHistoryRef.current = data.history.prices.map((price: string, index: number) => ({
-                                time: data.history.times[index],
-                                quote: parseFloat(price)
-                            }));
+                        if (data.msg_type === 'authorize') {
+                            console.log('✅ App authorized successfully');
+                        } else if (data.msg_type === 'history' && data.history) {
+                            console.log(`📊 Received history for ${selectedSymbol}: ${data.history.prices?.length || 0} ticks`);
                             
-                            // Set current price from latest tick
-                            if (data.history.prices.length > 0) {
-                                setCurrentPrice(parseFloat(data.history.prices[data.history.prices.length - 1]));
+                            if (data.history.prices && data.history.times) {
+                                tickHistoryRef.current = data.history.prices.map((price: string, index: number) => ({
+                                    time: data.history.times[index],
+                                    quote: parseFloat(price)
+                                }));
+                                
+                                // Set current price from latest tick
+                                if (data.history.prices.length > 0) {
+                                    const latestPrice = parseFloat(data.history.prices[data.history.prices.length - 1]);
+                                    setCurrentPrice(latestPrice);
+                                    setStatus(`📊 Loaded ${data.history.prices.length} ticks for ${selectedSymbol}`);
+                                }
+                                
+                                updateAnalysis();
                             }
-                            
-                            updateAnalysis();
-                        } else if (data.tick && data.tick.symbol === selectedSymbol) {
+                        } else if (data.msg_type === 'tick' && data.tick && data.tick.symbol === selectedSymbol) {
                             const quote = parseFloat(data.tick.quote);
-                            tickHistoryRef.current.push({
-                                time: data.tick.epoch,
-                                quote: quote
-                            });
+                            if (!isNaN(quote)) {
+                                tickHistoryRef.current.push({
+                                    time: data.tick.epoch,
+                                    quote: quote
+                                });
 
-                            if (tickHistoryRef.current.length > tickCount) {
-                                tickHistoryRef.current.shift();
+                                // Keep only the specified number of ticks
+                                if (tickHistoryRef.current.length > tickCount) {
+                                    tickHistoryRef.current.shift();
+                                }
+
+                                setCurrentPrice(quote);
+                                updateAnalysis();
                             }
-
-                            setCurrentPrice(quote);
-                            updateAnalysis();
                         } else if (data.ping) {
-                            derivWsRef.current?.send(JSON.stringify({ pong: 1 }));
+                            // Respond to ping
+                            if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
+                                derivWsRef.current.send(JSON.stringify({ pong: 1 }));
+                            }
                         }
                     } catch (error) {
                         console.error('Error processing message:', error);
@@ -269,60 +308,73 @@ const MLTrader = observer(() => {
                 };
 
                 derivWsRef.current.onerror = function(error) {
+                    if (!isComponentMounted) return;
+                    
                     console.error('❌ WebSocket error:', error);
-                    if (reconnectAttemptsRef.current >= 2) {
-                        setConnectionStatus('error');
-                    }
+                    setConnectionStatus('error');
+                    setStatus('❌ WebSocket connection error');
                     scheduleReconnect();
                 };
 
                 derivWsRef.current.onclose = function(event) {
+                    if (!isComponentMounted) return;
+                    
                     console.log('🔄 WebSocket connection closed', event.code, event.reason);
                     setConnectionStatus('disconnected');
+                    setStatus('🔄 Connection closed, attempting to reconnect...');
                     scheduleReconnect();
                 };
 
             } catch (error) {
                 console.error('Failed to create WebSocket:', error);
                 setConnectionStatus('error');
+                setStatus('❌ Failed to create WebSocket connection');
                 scheduleReconnect();
             }
         }
 
         function scheduleReconnect() {
+            if (!isComponentMounted) return;
+            
             reconnectAttemptsRef.current++;
             if (reconnectAttemptsRef.current > MAX_RECONNECT_ATTEMPTS) {
                 console.log(`⚠️ Maximum reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Stopping attempts.`);
                 setConnectionStatus('error');
+                setStatus(`❌ Failed to connect after ${MAX_RECONNECT_ATTEMPTS} attempts`);
                 return;
             }
 
-            const delay = Math.min(1000 * Math.pow(1.5, reconnectAttemptsRef.current - 1), 30000);
+            const delay = Math.min(2000 * Math.pow(1.5, reconnectAttemptsRef.current - 1), 30000);
             console.log(`🔄 Scheduling reconnect attempt ${reconnectAttemptsRef.current} in ${delay}ms`);
 
-            if (reconnectAttemptsRef.current <= 3) {
-                setConnectionStatus('disconnected');
-            }
+            setConnectionStatus('disconnected');
+            setStatus(`🔄 Reconnecting... (${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
 
             reconnectTimeoutRef.current = setTimeout(() => {
-                console.log(`🔄 Attempting to reconnect (${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})...`);
-                startWebSocket();
+                if (isComponentMounted) {
+                    console.log(`🔄 Attempting to reconnect (${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})...`);
+                    startWebSocket();
+                }
             }, delay);
         }
 
         function requestTickHistory() {
+            if (!isComponentMounted) return;
+            
             const request = {
                 ticks_history: selectedSymbol,
                 count: tickCount,
                 end: 'latest',
                 style: 'ticks',
-                subscribe: 1
+                subscribe: 1,
+                req_id: Date.now()
             };
 
             if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
                 console.log(`📡 Requesting tick history for ${selectedSymbol} (${tickCount} ticks)`);
                 try {
                     derivWsRef.current.send(JSON.stringify(request));
+                    setStatus(`📡 Requesting data for ${selectedSymbol}...`);
                 } catch (error) {
                     console.error('Error sending tick history request:', error);
                     scheduleReconnect();
@@ -333,15 +385,27 @@ const MLTrader = observer(() => {
             }
         }
 
+        // Start the connection
+        setStatus('🔌 Connecting to market data...');
         startWebSocket();
 
         return () => {
+            isComponentMounted = false;
             if (reconnectTimeoutRef.current) {
                 clearTimeout(reconnectTimeoutRef.current);
+                reconnectTimeoutRef.current = null;
             }
             if (derivWsRef.current) {
                 derivWsRef.current.onclose = null;
-                derivWsRef.current.close();
+                derivWsRef.current.onerror = null;
+                derivWsRef.current.onmessage = null;
+                derivWsRef.current.onopen = null;
+                try {
+                    derivWsRef.current.close();
+                } catch (error) {
+                    console.error('Error closing WebSocket on cleanup:', error);
+                }
+                derivWsRef.current = null;
             }
         };
     }, [selectedSymbol, tickCount]);
