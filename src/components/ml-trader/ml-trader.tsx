@@ -581,7 +581,10 @@ const MLTrader = observer(() => {
 
         try {
             const ticks = tickHistoryRef.current;
-            console.log(`📊 Analyzing ${ticks.length} ticks for ${selectedSymbol}. Auto trading: ${isAutoTrading}`);
+            
+            // Check current auto trading state directly from ref or state
+            const currentAutoTradingState = isAutoTrading;
+            console.log(`📊 Analyzing ${ticks.length} ticks for ${selectedSymbol}. Auto trading: ${currentAutoTradingState}`);
 
             // Basic statistics for display
             let riseCount = 0;
@@ -617,7 +620,7 @@ const MLTrader = observer(() => {
                     hma50Trend: mlAnalysis.hma50Trend,
                     signalStrength: mlAnalysis.signalStrength.toFixed(1),
                     signals: `${mlAnalysis.signals}/${mlAnalysis.totalSignals}`,
-                    autoTrading: isAutoTrading
+                    autoTrading: currentAutoTradingState
                 });
             } else {
                 // Fallback to basic analysis if insufficient data
@@ -639,19 +642,19 @@ const MLTrader = observer(() => {
                 totalTicks: ticks.length
             });
 
-            // Auto trading logic - Only execute if auto trading is active AND we have sufficient data
-            if (isAutoTrading && connectionStatus === 'connected' && isAuthorized && tradingApi) {
-                if (recommendation && confidence >= mlMinConfidence && ticks.length >= 50) {
+            // Auto trading logic - Check current state when executing analysis
+            if (currentAutoTradingState && connectionStatus === 'connected' && tradingApi) {
+                if (recommendation && confidence >= mlMinConfidence && ticks.length >= 30) { // Reduced from 50 to 30 for faster trading
                     console.log(`🎯 EXECUTING AUTO TRADE: ${recommendation} with ${confidence.toFixed(1)}% confidence for ${selectedSymbol}`);
                     executeAutoTrade(recommendation, confidence);
                 } else {
                     const reasons = [];
                     if (!recommendation) reasons.push('no recommendation');
                     if (confidence < mlMinConfidence) reasons.push(`confidence too low (${confidence.toFixed(1)}% < ${mlMinConfidence}%)`);
-                    if (ticks.length < 50) reasons.push(`insufficient data (${ticks.length}/50 ticks)`);
+                    if (ticks.length < 30) reasons.push(`insufficient data (${ticks.length}/30 ticks)`);
                     console.log(`⏳ AUTO TRADE WAITING for ${selectedSymbol}: ${reasons.join(', ')}`);
                 }
-            } else if (!isAutoTrading && recommendation) {
+            } else if (!currentAutoTradingState && recommendation) {
                 console.log(`📊 Analysis complete but auto trading is disabled: ${recommendation} (${confidence.toFixed(1)}% confidence)`);
             }
 
@@ -1040,6 +1043,7 @@ const MLTrader = observer(() => {
                 isAuthorized
             });
 
+            // Set auto trading to true FIRST
             setIsAutoTrading(true);
             setStatus('🤖 ML Auto-trading STARTING - Initializing trading engine...');
 
@@ -1059,18 +1063,17 @@ const MLTrader = observer(() => {
                 start_timestamp: Date.now()
             });
 
-            // Set active status and trigger analysis
+            // Set active status and trigger analysis after state update
             setTimeout(() => {
-                if (isAutoTrading) { // Double check it's still active
-                    setStatus('🤖 ML Auto-trading ACTIVE - Monitoring for trading signals...');
-                    run_panel.setContractStage(contract_stages.RUNNING);
-                    
-                    // Trigger immediate analysis if we have any data
-                    if (tickHistoryRef.current.length > 0) {
-                        updateAnalysis();
-                    }
+                setStatus('🤖 ML Auto-trading ACTIVE - Monitoring for trading signals...');
+                run_panel.setContractStage(contract_stages.RUNNING);
+                
+                // Trigger immediate analysis if we have any data
+                if (tickHistoryRef.current.length > 0) {
+                    console.log('🔄 Triggering initial analysis after auto trading start');
+                    updateAnalysis();
                 }
-            }, 1000);
+            }, 100); // Reduced timeout to make it more responsive
 
         } else {
             // Stopping auto trading
