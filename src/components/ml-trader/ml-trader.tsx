@@ -995,6 +995,9 @@ const MLTrader = observer(() => {
             const currentAutoTradingState = isAutoTrading;
             console.log(`📊 Analyzing ${ticks.length} ticks for ${selectedSymbol}. Auto trading: ${currentAutoTradingState}`);
 
+            // Force immediate analysis if auto trading was just started
+            const forceAnalysis = currentAutoTradingState && ticks.length >= 20;
+
             // Basic statistics for display
             let riseCount = 0;
             let fallCount = 0;
@@ -1061,14 +1064,17 @@ const MLTrader = observer(() => {
 
             // Auto trading logic - Check current state when executing analysis
             if (currentAutoTradingState && connectionStatus === 'connected' && tradingApi) {
-                if (recommendation && confidence >= mlMinConfidence && ticks.length >= 30) { // Reduced from 50 to 30 for faster trading
-                    console.log(`🎯 EXECUTING AUTO TRADE: ${recommendation} with ${confidence.toFixed(1)}% confidence for ${selectedSymbol}`);
+                // Use lower threshold for forced analysis (just started auto trading)
+                const minTicksRequired = forceAnalysis ? 20 : 30;
+                
+                if (recommendation && confidence >= mlMinConfidence && ticks.length >= minTicksRequired) {
+                    console.log(`🎯 EXECUTING AUTO TRADE: ${recommendation} with ${confidence.toFixed(1)}% confidence for ${selectedSymbol} (${forceAnalysis ? 'FORCED' : 'NORMAL'} analysis)`);
                     executeAutoTrade(recommendation, confidence);
                 } else {
                     const reasons = [];
                     if (!recommendation) reasons.push('no recommendation');
                     if (confidence < mlMinConfidence) reasons.push(`confidence too low (${confidence.toFixed(1)}% < ${mlMinConfidence}%)`);
-                    if (ticks.length < 30) reasons.push(`insufficient data (${ticks.length}/30 ticks)`);
+                    if (ticks.length < minTicksRequired) reasons.push(`insufficient data (${ticks.length}/${minTicksRequired} ticks)`);
                     console.log(`⏳ AUTO TRADE WAITING for ${selectedSymbol}: ${reasons.join(', ')}`);
                 }
             } else if (!currentAutoTradingState && recommendation) {
@@ -1532,6 +1538,20 @@ const MLTrader = observer(() => {
                 if (tickHistoryRef.current.length > 0) {
                     console.log('🔄 Triggering initial analysis after auto trading start');
                     updateAnalysis();
+                } else {
+                    // If no tick data, force a new data request
+                    console.log('🔄 No tick data available, requesting fresh data...');
+                    if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
+                        const request = {
+                            ticks_history: selectedSymbol,
+                            count: tickCount,
+                            end: 'latest',
+                            style: 'ticks',
+                            subscribe: 1,
+                            req_id: Date.now()
+                        };
+                        derivWsRef.current.send(JSON.stringify(request));
+                    }
                 }
             }, 100); // Reduced timeout to make it more responsive
 
