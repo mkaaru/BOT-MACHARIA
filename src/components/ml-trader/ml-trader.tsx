@@ -1132,7 +1132,7 @@ const MLTrader = observer(() => {
 
 
     // Auto trading toggle
-    const toggleAutoTrading = () => {
+    const toggleAutoTrading = async () => {
         console.log('🔄 Toggle auto trading called. Current state:', isAutoTrading);
 
         if (!isAutoTrading) {
