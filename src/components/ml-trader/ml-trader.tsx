@@ -215,9 +215,8 @@ const MLTrader = observer(() => {
             // Clean up existing connection
             cleanupConnection();
 
-            // Clear existing tick history when changing symbols
+            // Don't clear price when reconnecting to same symbol, only clear tick history
             tickHistoryRef.current = [];
-            setCurrentPrice(0);
 
             try {
                 // Create new WebSocket connection
@@ -241,7 +240,7 @@ const MLTrader = observer(() => {
                     connectionInProgress = false;
                     console.log('✅ WebSocket connection established for symbol:', selectedSymbol);
                     reconnectAttemptsRef.current = 0;
-                    // Keep connection status as connected
+                    setConnectionStatus('connected');
 
                     // Send app_id and request tick history
                     if (ws.readyState === WebSocket.OPEN) {
@@ -304,14 +303,14 @@ const MLTrader = observer(() => {
                                 if (data.history.prices.length > 0) {
                                     const latestPrice = parseFloat(data.history.prices[data.history.prices.length - 1]);
                                     setCurrentPrice(latestPrice);
-                                    setStatus(`📊 Connected - ${data.history.prices.length} ticks loaded for ${selectedSymbol}`);
+                                    setStatus(`📊 Connected - ${data.history.prices.length} ticks loaded for ${selectedSymbol} - Price: ${latestPrice.toFixed(3)}`);
                                 }
                                 
                                 updateAnalysis();
                             }
                         } else if (data.msg_type === 'tick' && data.tick && data.tick.symbol === selectedSymbol) {
                             const quote = parseFloat(data.tick.quote);
-                            if (!isNaN(quote)) {
+                            if (!isNaN(quote) && quote > 0) {
                                 tickHistoryRef.current.push({
                                     time: data.tick.epoch,
                                     quote: quote
@@ -323,6 +322,7 @@ const MLTrader = observer(() => {
                                 }
 
                                 setCurrentPrice(quote);
+                                setStatus(`📊 Live data - ${tickHistoryRef.current.length} ticks - Price: ${quote.toFixed(3)}`);
                                 updateAnalysis();
                             }
                         } else if (data.ping) {
@@ -639,18 +639,16 @@ const MLTrader = observer(() => {
                 totalTicks: ticks.length
             });
 
-            // Auto trading logic - Only execute if auto trading is active
-            if (isAutoTrading) {
-                if (recommendation && confidence >= mlMinConfidence) {
+            // Auto trading logic - Only execute if auto trading is active AND we have sufficient data
+            if (isAutoTrading && connectionStatus === 'connected' && isAuthorized && tradingApi) {
+                if (recommendation && confidence >= mlMinConfidence && ticks.length >= 50) {
                     console.log(`🎯 EXECUTING AUTO TRADE: ${recommendation} with ${confidence.toFixed(1)}% confidence for ${selectedSymbol}`);
                     executeAutoTrade(recommendation, confidence);
                 } else {
                     const reasons = [];
                     if (!recommendation) reasons.push('no recommendation');
                     if (confidence < mlMinConfidence) reasons.push(`confidence too low (${confidence.toFixed(1)}% < ${mlMinConfidence}%)`);
-                    if (!isAuthorized) reasons.push('not authorized');
-                    if (connectionStatus !== 'connected') reasons.push('not connected');
-                    if (!tradingApi) reasons.push('trading API not ready');
+                    if (ticks.length < 50) reasons.push(`insufficient data (${ticks.length}/50 ticks)`);
                     console.log(`⏳ AUTO TRADE WAITING for ${selectedSymbol}: ${reasons.join(', ')}`);
                 }
             }
@@ -1008,19 +1006,24 @@ const MLTrader = observer(() => {
         console.log('🔄 Toggle auto trading called. Current state:', isAutoTrading);
         
         if (!isAutoTrading) {
-            // Starting auto trading
+            // Check prerequisites first
             if (!tradingApi) {
                 setStatus('❌ Trading API not initialized - Please refresh the page');
                 return;
             }
 
             if (connectionStatus !== 'connected') {
-                setStatus('❌ WebSocket not connected - Please wait for connection');
+                setStatus('❌ WebSocket not connected - Please ensure you have selected a symbol and wait for connection');
+                return;
+            }
+
+            if (currentPrice === 0) {
+                setStatus('❌ No price data available - Please wait for market data to load');
                 return;
             }
 
             if (tickHistoryRef.current.length < 50) {
-                setStatus('❌ Insufficient tick data - Please wait for more data');
+                setStatus(`❌ Insufficient tick data (${tickHistoryRef.current.length}/50) - Please wait for more data`);
                 return;
             }
 
@@ -1224,7 +1227,7 @@ const MLTrader = observer(() => {
                 <button
                     className={`ml-trader__auto-trading-btn ${isAutoTrading ? 'ml-trader__auto-trading-btn--active' : ''}`}
                     onClick={toggleAutoTrading}
-                    disabled={!isAuthorized || connectionStatus !== 'connected'}
+                    disabled={!isAuthorized || connectionStatus !== 'connected' || currentPrice === 0}
                 >
                     {isAutoTrading ? 'STOP ML AUTO TRADING' : 'START ML AUTO TRADING'}
                 </button>
@@ -1233,14 +1236,14 @@ const MLTrader = observer(() => {
                     <button
                         className='ml-trader__manual-btn ml-trader__manual-btn--rise'
                         onClick={() => executeManualTrade('Rise')}
-                        disabled={!isAuthorized || connectionStatus !== 'connected' || isAutoTrading}
+                        disabled={!isAuthorized || connectionStatus !== 'connected' || isAutoTrading || currentPrice === 0}
                     >
                         Execute Rise Trade
                     </button>
                     <button
                         className='ml-trader__manual-btn ml-trader__manual-btn--fall'
                         onClick={() => executeManualTrade('Fall')}
-                        disabled={!isAuthorized || connectionStatus !== 'connected' || isAutoTrading}
+                        disabled={!isAuthorized || connectionStatus !== 'connected' || isAutoTrading || currentPrice === 0}
                     >
                         Execute Fall Trade
                     </button>
