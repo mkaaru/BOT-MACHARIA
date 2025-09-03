@@ -550,3 +550,49 @@
     box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
   }
 }
+
+.recommendation {
+            &.rise {
+                color: var(--color-green);
+                font-weight: bold;
+            }
+
+            &.fall {
+                color: var(--color-red);
+                font-weight: bold;
+            }
+        }
+
+        .confidence {
+            color: var(--color-blue);
+            font-weight: bold;
+        }
+
+        .trend {
+            font-weight: bold;
+
+            &.bullish {
+                color: var(--color-green);
+            }
+
+            &.bearish {
+                color: var(--color-red);
+            }
+        }
+
+        .trend-strength {
+            color: var(--color-purple);
+            font-weight: bold;
+        }
+
+        .hma-trend {
+            font-size: 0.9em;
+
+            &.bullish {
+                color: var(--color-green);
+            }
+
+            &.bearish {
+                color: var(--color-red);
+            }
+        }

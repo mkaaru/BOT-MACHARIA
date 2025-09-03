@@ -72,6 +72,10 @@ interface AnalysisData {
     signalStrength?: number;
     signals?: number;
     totalSignals?: number;
+    overallTrend?: string;
+    trendStrength?: number;
+    bullishSignals?: number;
+    bearishSignals?: number;
 }
 
 interface ContractData {
@@ -187,7 +191,7 @@ const MLTrader = observer(() => {
                 ws.onmessage = null;
                 ws.onerror = null;
                 ws.onclose = null;
-                
+
                 // Close connection if it's open or connecting
                 if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
                     try {
@@ -202,7 +206,7 @@ const MLTrader = observer(() => {
 
         function startWebSocket() {
             if (!isComponentMounted || connectionInProgress) return;
-            
+
             connectionInProgress = true;
             console.log('🔌 Connecting to WebSocket API for symbol:', selectedSymbol);
 
@@ -235,7 +239,7 @@ const MLTrader = observer(() => {
 
                 ws.onopen = function() {
                     if (!isComponentMounted) return;
-                    
+
                     clearTimeout(connectionTimeout);
                     connectionInProgress = false;
                     console.log('✅ WebSocket connection established for symbol:', selectedSymbol);
@@ -245,11 +249,11 @@ const MLTrader = observer(() => {
                     // Send app_id and request tick history
                     if (ws.readyState === WebSocket.OPEN) {
                         try {
-                            ws.send(JSON.stringify({ 
+                            ws.send(JSON.stringify({
                                 app_id: 1089,
                                 req_id: 1
                             }));
-                            
+
                             // Request tick history immediately
                             setTimeout(() => {
                                 if (isComponentMounted && ws.readyState === WebSocket.OPEN) {
@@ -266,7 +270,7 @@ const MLTrader = observer(() => {
 
                 ws.onmessage = function(event) {
                     if (!isComponentMounted) return;
-                    
+
                     try {
                         const data = JSON.parse(event.data);
 
@@ -292,20 +296,20 @@ const MLTrader = observer(() => {
                             console.log('✅ App authorized successfully');
                         } else if (data.msg_type === 'history' && data.history) {
                             console.log(`📊 Received history for ${selectedSymbol}: ${data.history.prices?.length || 0} ticks`);
-                            
+
                             if (data.history.prices && data.history.times) {
                                 tickHistoryRef.current = data.history.prices.map((price: string, index: number) => ({
                                     time: data.history.times[index],
                                     quote: parseFloat(price)
                                 }));
-                                
+
                                 // Set current price from latest tick
                                 if (data.history.prices.length > 0) {
                                     const latestPrice = parseFloat(data.history.prices[data.history.prices.length - 1]);
                                     setCurrentPrice(latestPrice);
                                     setStatus(`📊 Connected - ${data.history.prices.length} ticks loaded for ${selectedSymbol} - Price: ${latestPrice.toFixed(3)}`);
                                 }
-                                
+
                                 updateAnalysis();
                             }
                         } else if (data.msg_type === 'tick' && data.tick && data.tick.symbol === selectedSymbol) {
@@ -342,7 +346,7 @@ const MLTrader = observer(() => {
 
                 ws.onerror = function(error) {
                     if (!isComponentMounted) return;
-                    
+
                     clearTimeout(connectionTimeout);
                     connectionInProgress = false;
                     console.error('❌ WebSocket error:', error);
@@ -353,10 +357,10 @@ const MLTrader = observer(() => {
 
                 ws.onclose = function(event) {
                     if (!isComponentMounted) return;
-                    
+
                     clearTimeout(connectionTimeout);
                     connectionInProgress = false;
-                    
+
                     // Only log and attempt reconnect if it wasn't a manual close
                     if (event.code !== 1000) {
                         console.log('🔄 WebSocket connection closed unexpectedly', event.code, event.reason);
@@ -376,7 +380,7 @@ const MLTrader = observer(() => {
 
         function scheduleReconnect() {
             if (!isComponentMounted || connectionInProgress) return;
-            
+
             reconnectAttemptsRef.current++;
             if (reconnectAttemptsRef.current > MAX_RECONNECT_ATTEMPTS) {
                 console.log(`⚠️ Maximum reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Stopping attempts.`);
@@ -388,7 +392,7 @@ const MLTrader = observer(() => {
             // Progressive backoff: 2s, 5s, 10s, 15s, 20s
             const delays = [2000, 5000, 10000, 15000, 20000];
             const delay = delays[Math.min(reconnectAttemptsRef.current - 1, delays.length - 1)];
-            
+
             console.log(`🔄 Scheduling reconnect attempt ${reconnectAttemptsRef.current} in ${delay}ms`);
 
             // Keep status as connected during reconnection attempts
@@ -404,7 +408,7 @@ const MLTrader = observer(() => {
 
         function requestTickHistory(ws: WebSocket) {
             if (!isComponentMounted || !ws || ws.readyState !== WebSocket.OPEN) return;
-            
+
             const request = {
                 ticks_history: selectedSymbol,
                 count: tickCount,
@@ -431,17 +435,17 @@ const MLTrader = observer(() => {
         return () => {
             isComponentMounted = false;
             connectionInProgress = false;
-            
+
             if (reconnectTimeoutRef.current) {
                 clearTimeout(reconnectTimeoutRef.current);
                 reconnectTimeoutRef.current = null;
             }
-            
+
             cleanupConnection();
         };
     }, [selectedSymbol, tickCount]);
 
-    // Hull Moving Average calculation
+    // Hull Moving Average calculation for trend determination
     const calculateHMA = (prices: number[], period: number): number[] => {
         if (prices.length < period) return [];
 
@@ -476,6 +480,74 @@ const MLTrader = observer(() => {
         // WMA of the result with sqrt(period)
         return wma(rawHMA, sqrtPeriod);
     };
+
+    // Get trend determination similar to Rise/Fall trader
+    const getTrendAnalysis = (ticks: TickData[]) => {
+        if (ticks.length < 100) return null;
+
+        const prices = ticks.map(tick => tick.quote);
+
+        // Calculate multiple Hull Moving Averages for different timeframes
+        const hma20 = calculateHMA(prices, 20);
+        const hma50 = calculateHMA(prices, 50);
+
+        if (hma20.length < 5 || hma50.length < 5) return null;
+
+        // Get recent HMA values
+        const currentHMA20 = hma20[hma20.length - 1];
+        const prevHMA20 = hma20[hma20.length - 2];
+        const currentHMA50 = hma50[hma50.length - 1];
+        const prevHMA50 = hma50[hma50.length - 2];
+
+        // Trend analysis
+        const hma20Trend = currentHMA20 > prevHMA20 ? 'BULLISH' : 'BEARISH';
+        const hma50Trend = currentHMA50 > prevHMA50 ? 'BULLISH' : 'BEARISH';
+
+        // Price position relative to HMA
+        const currentPrice = prices[prices.length - 1];
+        const priceAboveHMA20 = currentPrice > currentHMA20;
+        const priceAboveHMA50 = currentPrice > currentHMA50;
+
+        // Calculate momentum
+        const hma20Change = ((currentHMA20 - prevHMA20) / prevHMA20) * 100;
+        const hma50Change = ((currentHMA50 - prevHMA50) / prevHMA50) * 100;
+
+        // Trend strength calculation
+        let bullishSignals = 0;
+        let bearishSignals = 0;
+        const totalSignals = 4;
+
+        if (hma20Trend === 'BULLISH') bullishSignals++;
+        else bearishSignals++;
+
+        if (hma50Trend === 'BULLISH') bullishSignals++;
+        else bearishSignals++;
+
+        if (priceAboveHMA20) bullishSignals++;
+        else bearishSignals++;
+
+        if (priceAboveHMA50) bullishSignals++;
+        else bearishSignals++;
+
+        const trendStrength = Math.max(bullishSignals, bearishSignals) / totalSignals * 100;
+        const overallTrend = bullishSignals > bearishSignals ? 'BULLISH' : 'BEARISH';
+
+        return {
+            overallTrend,
+            trendStrength,
+            hma20Trend,
+            hma50Trend,
+            hma20Change,
+            hma50Change,
+            priceAboveHMA20,
+            priceAboveHMA50,
+            currentHMA20,
+            currentHMA50,
+            bullishSignals,
+            bearishSignals
+        };
+    };
+
 
     // Machine Learning Analysis with Hull Moving Average
     const performMLAnalysis = (ticks: TickData[]) => {
@@ -581,7 +653,7 @@ const MLTrader = observer(() => {
 
         try {
             const ticks = tickHistoryRef.current;
-            
+
             // Check current auto trading state directly from ref or state
             const currentAutoTradingState = isAutoTrading;
             console.log(`📊 Analyzing ${ticks.length} ticks for ${selectedSymbol}. Auto trading: ${currentAutoTradingState}`);
@@ -604,6 +676,8 @@ const MLTrader = observer(() => {
 
             // Machine Learning Analysis
             const mlAnalysis = performMLAnalysis(ticks);
+            const trendAnalysis = getTrendAnalysis(ticks);
+
 
             let recommendation = '';
             let confidence = 0;
@@ -639,7 +713,13 @@ const MLTrader = observer(() => {
                 confidence,
                 riseRatio,
                 fallRatio,
-                totalTicks: ticks.length
+                totalTicks: ticks.length,
+                overallTrend: trendAnalysis?.overallTrend,
+                trendStrength: trendAnalysis?.trendStrength,
+                hma20Trend: trendAnalysis?.hma20Trend,
+                hma50Trend: trendAnalysis?.hma50Trend,
+                bullishSignals: trendAnalysis?.bullishSignals,
+                bearishSignals: trendAnalysis?.bearishSignals,
             });
 
             // Auto trading logic - Check current state when executing analysis
@@ -917,105 +997,148 @@ const MLTrader = observer(() => {
         }
     };
 
-    // Monitor contract outcome with enhanced tracking
+    // Monitor contract outcome
     const monitorContract = async (contractId: string, stake: number, recommendation: string, confidence: number) => {
-        if (!tradingApi) return;
-
         try {
-            const proposalOpenContract = await tradingApi.proposalOpenContract({
+            console.log(`📊 Starting to monitor contract: ${contractId}`);
+
+            const contractResponse = await tradingApi.proposalOpenContract({
                 proposal_open_contract: 1,
                 contract_id: contractId,
                 subscribe: 1
             });
 
-            if (proposalOpenContract.error) {
-                setStatus(`❌ Monitoring error: ${proposalOpenContract.error.message}`);
+            if (contractResponse.error) {
+                console.error('Contract monitoring error:', contractResponse.error);
                 return;
             }
 
-            // Set up real-time contract monitoring
-            const subscription = tradingApi.subscribeToOpenContract(contractId, (response) => {
-                if (response.proposal_open_contract) {
-                    const contract = response.proposal_open_contract;
+            // Set up contract monitoring
+            const subscription = contractResponse.subscription;
+            if (subscription && subscription.id) {
+                const messageHandler = (data: any) => {
+                    if (data.proposal_open_contract && data.proposal_open_contract.contract_id === contractId) {
+                        const contract = data.proposal_open_contract;
 
-                    // Update contract in our tracking
-                    const existingContract = contractsRef.current.get(contractId);
-                    if (existingContract) {
-                        const updatedContract = {
-                            ...existingContract,
-                            contract: {
-                                ...existingContract.contract,
-                                ...contract,
-                                current_spot: contract.current_spot,
-                                current_spot_display_value: contract.current_spot_display_value,
-                                profit: contract.profit,
-                                is_sold: contract.is_sold,
-                                status: contract.status
-                            }
-                        };
+                        // Update contract in our tracking
+                        const contractData = contractsRef.current.get(contractId);
+                        if (contractData) {
+                            contractData.contract.current_spot = contract.current_spot;
+                            contractData.contract.current_spot_display_value = contract.current_spot_display_value;
+                            contractData.contract.profit = contract.profit;
+                            contractData.contract.is_sold = contract.is_sold;
+                            contractData.contract.status = contract.status;
 
-                        contractsRef.current.set(contractId, updatedContract);
-                        setActiveContracts(new Map(contractsRef.current));
-
-                        // Emit update event
-                        botObserver.emit('bot.contract', updatedContract);
-                    }
-
-                    // Check if contract is finished
-                    if (contract.is_settleable || contract.is_sold) {
-                        const isWin = contract.is_settleable && parseFloat(contract.profit || '0') > 0;
-                        const payout = parseFloat(contract.payout || '0');
-                        const profit = parseFloat(contract.profit || '0');
-
-                        // Update statistics
-                        if (isWin) {
-                            setContractsWon(prev => prev + 1);
-                            setTotalPayout(prev => prev + payout);
-                            setLossStreak(0);
-                            setCurrentStake(baseStake);
-                            setLastOutcome('win');
-                            setStatus(`✅ ML WIN: +$${profit.toFixed(2)} (${recommendation} ${confidence.toFixed(1)}%)`);
-                        } else {
-                            setContractsLost(prev => prev + 1);
-                            setLossStreak(prev => prev + 1);
-                            setLastOutcome('loss');
-                            setStatus(`❌ ML LOSS: -$${stake.toFixed(2)} (${recommendation} ${confidence.toFixed(1)}%)`);
+                            contractsRef.current.set(contractId, contractData);
+                            setActiveContracts(new Map(contractsRef.current));
                         }
 
-                        // Emit contract sold event
-                        const soldContract = {
-                            id: 'contract.sold',
-                            contract: contract,
-                            transaction_id: contract.transaction_id
-                        };
+                        // Check if contract is finished
+                        if (contract.is_sold || contract.status === 'sold') {
+                            const profit = contract.profit || 0;
+                            const isWin = profit > 0;
 
-                        botObserver.emit('bot.contract', soldContract);
-                        botObserver.emit('contract.status', soldContract);
+                            console.log(`📈 Contract ${contractId} finished: ${isWin ? 'WIN' : 'LOSS'} - Profit: ${profit}`);
 
-                        // Remove from active contracts
-                        contractsRef.current.delete(contractId);
-                        setActiveContracts(new Map(contractsRef.current));
+                            // Update statistics
+                            if (isWin) {
+                                setContractsWon(prev => prev + 1);
+                                setTotalPayout(prev => prev + (contract.payout || 0));
+                                setLossStreak(0);
+                                setCurrentStake(baseStake);
+                                setLastOutcome('win');
+                                setStatus(`✅ Contract won! Profit: $${profit.toFixed(2)}`);
+                            } else {
+                                setContractsLost(prev => prev + 1);
+                                setLossStreak(prev => prev + 1);
+                                setLastOutcome('loss');
+                                setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
 
-                        // Unsubscribe
-                        subscription?.unsubscribe();
+                                // Increase stake for next trade (martingale)
+                                const nextStake = Math.min(currentStake * martingaleSteps, baseStake * 10);
+                                setCurrentStake(nextStake);
+                            }
+
+                            // Remove from active contracts
+                            contractsRef.current.delete(contractId);
+                            setActiveContracts(new Map(contractsRef.current));
+
+                            // Emit completion event
+                            botObserver.emit('contract.finished', {
+                                contract_id: contractId,
+                                profit,
+                                is_win: isWin
+                            });
+
+                            // Clean up subscription
+                            tradingApi.forget({ forget: subscription.id });
+                        }
                     }
-                }
-            });
+                };
+
+                // Add message listener
+                tradingApi.connection.addEventListener('message', messageHandler);
+            }
 
         } catch (error) {
-            console.error('Error monitoring contract:', error);
-            setStatus(`❌ Monitoring setup error: ${error.message}`);
+            console.error('❌ Contract monitoring error:', error);
         }
     };
+
+
+    // Kill all active trades
+    const killAllActiveTrades = async () => {
+        console.log('🛑 Killing all active trades...');
+        const activeContractIds = Array.from(contractsRef.current.keys());
+
+        if (activeContractIds.length === 0) {
+            console.log('No active contracts to kill');
+            return;
+        }
+
+        let killedCount = 0;
+
+        for (const contractId of activeContractIds) {
+            try {
+                const sellResponse = await tradingApi.sell({
+                    sell: contractId,
+                    price: 0 // Sell at market price
+                });
+
+                if (sellResponse.error) {
+                    console.error(`Failed to sell contract ${contractId}:`, sellResponse.error);
+                } else {
+                    console.log(`✅ Successfully sold contract: ${contractId}`);
+                    killedCount++;
+
+                    // Remove from tracking
+                    contractsRef.current.delete(contractId);
+                }
+            } catch (error) {
+                console.error(`Error selling contract ${contractId}:`, error);
+            }
+        }
+
+        // Update UI
+        setActiveContracts(new Map());
+        setStatus(`🛑 Killed ${killedCount} active contracts`);
+
+        // Emit event
+        botObserver.emit('contracts.killed', {
+            killed_count: killedCount,
+            total_contracts: activeContractIds.length
+        });
+    };
+
 
     // Auto trading toggle
     const toggleAutoTrading = () => {
         console.log('🔄 Toggle auto trading called. Current state:', isAutoTrading);
-        
+
         if (!isAutoTrading) {
             // Starting auto trading - perform validation checks
             console.log('🔍 Validating prerequisites for starting auto trading...');
-            
+
             // Check trading API
             if (!tradingApi) {
                 console.log('❌ Trading API not initialized');
@@ -1067,7 +1190,7 @@ const MLTrader = observer(() => {
             setTimeout(() => {
                 setStatus('🤖 ML Auto-trading ACTIVE - Monitoring for trading signals...');
                 run_panel.setContractStage(contract_stages.RUNNING);
-                
+
                 // Trigger immediate analysis if we have any data
                 if (tickHistoryRef.current.length > 0) {
                     console.log('🔄 Triggering initial analysis after auto trading start');
@@ -1079,7 +1202,10 @@ const MLTrader = observer(() => {
             // Stopping auto trading
             console.log('🛑 Stopping ML Auto-trading');
             setIsAutoTrading(false);
-            setStatus('🛑 ML Auto-trading STOPPED - All active monitoring has been disabled');
+            setStatus('🛑 ML Auto-trading STOPPING - Killing all active trades...');
+
+            // Kill all active trades first
+            await killAllActiveTrades();
 
             // Reset trading state
             setAnalysisData({});
@@ -1100,14 +1226,15 @@ const MLTrader = observer(() => {
             botObserver.emit('bot.stop', {
                 is_running: false,
                 is_ml_trader: true,
-                reason: 'User stopped auto trading',
-                stop_timestamp: Date.now()
+                reason: 'User stopped auto trading - all trades killed'
             });
 
             // Force a status update to confirm stop
             setTimeout(() => {
-                setStatus('✅ Auto-trading successfully stopped');
-            }, 500);
+                if (!isAutoTrading) {
+                    setStatus('✅ Auto-trading successfully stopped - All trades killed');
+                }
+            }, 1000);
         }
     };
 
@@ -1183,14 +1310,50 @@ const MLTrader = observer(() => {
                 </div>
 
                 {analysisData.recommendation && (
-                    <div className='ml-trader__recommendation'>
-                        <strong>🤖 ML Recommendation:</strong> {analysisData.recommendation}
-                        <span className='ml-trader__confidence'>
-                            ({analysisData.confidence?.toFixed(1)}% confidence)
-                        </span>
-                        {analysisData.confidence && analysisData.confidence >= 60 && (
-                            <span className='ml-trader__ml-ready'> ✅ Ready to Trade</span>
-                        )}
+                    <div className="ml-trader__analysis-results">
+                        <h3>🤖 ML Analysis Results</h3>
+                        <div className="analysis-grid">
+                            <div className="analysis-item">
+                                <strong>Recommendation:</strong>
+                                <span className={`recommendation ${analysisData.recommendation?.toLowerCase()}`}>
+                                    {analysisData.recommendation}
+                                </span>
+                            </div>
+                            <div className="analysis-item">
+                                <strong>Confidence:</strong>
+                                <span className="confidence">{analysisData.confidence?.toFixed(1)}%</span>
+                            </div>
+                            <div className="analysis-item">
+                                <strong>Overall Trend:</strong>
+                                <span className={`trend ${analysisData.overallTrend?.toLowerCase()}`}>
+                                    {analysisData.overallTrend}
+                                </span>
+                            </div>
+                            <div className="analysis-item">
+                                <strong>Trend Strength:</strong>
+                                <span className="trend-strength">{analysisData.trendStrength?.toFixed(1)}%</span>
+                            </div>
+                            <div className="analysis-item">
+                                <strong>HMA20 Trend:</strong>
+                                <span className={`hma-trend ${analysisData.hma20Trend?.toLowerCase()}`}>
+                                    {analysisData.hma20Trend}
+                                </span>
+                            </div>
+                            <div className="analysis-item">
+                                <strong>HMA50 Trend:</strong>
+                                <span className={`hma-trend ${analysisData.hma50Trend?.toLowerCase()}`}>
+                                    {analysisData.hma50Trend}
+                                </span>
+                            </div>
+                            <div className="analysis-item">
+                                <strong>Data Points:</strong>
+                                <span>{analysisData.totalTicks} ticks</span>
+                            </div>
+                            <div className="analysis-item">
+                                <strong>Signal Alignment:</strong>
+                                <span>{analysisData.bullishSignals}B / {analysisData.bearishSignals}B</span>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
