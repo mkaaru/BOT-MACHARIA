@@ -1093,30 +1093,25 @@ const MLTrader = observer(() => {
         // Get current market recommendation
         const recommendation = getMarketRecommendation();
         
-        if (!recommendation) return false;
-        
-        // Only trade if we have high confidence (>=65%)
-        if (recommendation.confidence < 65) {
-            console.log(`⏳ Confidence too low: ${recommendation.confidence}% < 65%`);
+        if (!recommendation) {
+            console.log('⏳ No market recommendation available');
             return false;
         }
         
-        // Check if trends are aligned (at least 2 out of 4 timeframes)
-        if (recommendation.alignedTrends < 2) {
-            console.log(`⏳ Not enough aligned trends: ${recommendation.alignedTrends} < 2`);
+        // Lowered confidence threshold to be more realistic (45% instead of 65%)
+        if (recommendation.confidence < 45) {
+            console.log(`⏳ Confidence too low: ${recommendation.confidence}% < 45%`);
             return false;
         }
         
-        // Additional condition: only trade if price movement is stable
-        // (you can add more sophisticated ML logic here)
-        const priceStable = Math.abs(latestTick - currentPrice) < (currentPrice * 0.001); // 0.1% threshold
-        
-        if (!priceStable) {
-            console.log(`⏳ Price not stable: ${Math.abs(latestTick - currentPrice)} > ${currentPrice * 0.001}`);
+        // More lenient trend alignment (at least 1 out of 4 timeframes instead of 2)
+        if (recommendation.alignedTrends < 1) {
+            console.log(`⏳ Not enough aligned trends: ${recommendation.alignedTrends} < 1`);
             return false;
         }
         
-        console.log(`✅ All conditions met - Recommendation: ${recommendation.recommendation}, Confidence: ${recommendation.confidence}%`);
+        // Removed strict price stability check - let it trade more freely
+        console.log(`✅ Conditions met - Recommendation: ${recommendation.recommendation}, Confidence: ${recommendation.confidence}%, Aligned: ${recommendation.alignedTrends}`);
         
         // Update contract type based on recommendation
         if (recommendation.recommendation === 'RISE') {
@@ -1124,6 +1119,7 @@ const MLTrader = observer(() => {
         } else if (recommendation.recommendation === 'FALL') {
             setContractType('PUT');
         } else {
+            console.log('⏳ WAIT signal - skipping this cycle');
             return false; // WAIT signal
         }
         
@@ -1372,11 +1368,16 @@ const MLTrader = observer(() => {
             return;
         }
 
+        let waitCycles = 0;
+        const maxWaitCycles = 30; // Max 60 seconds of waiting (30 * 2 seconds)
+
         const waitAndCheck = () => {
             if (!isAutoTrading || stopFlagRef.current) {
                 console.log('Stopped while waiting for conditions');
                 return;
             }
+
+            waitCycles++;
 
             // Check if trading conditions are met
             const latestTick = tickRef.current;
@@ -1385,9 +1386,16 @@ const MLTrader = observer(() => {
                 console.log('✅ Trading conditions met - executing trade');
                 setStatus('🔄 Conditions met, executing trade...');
                 executeSingleTrade();
+            } else if (waitCycles >= maxWaitCycles) {
+                // Fallback: execute trade anyway after max wait time
+                console.log('⚡ Fallback triggered - executing trade after max wait');
+                setStatus('⚡ Max wait reached, executing fallback trade...');
+                // Use current contract type or default to CALL
+                if (!contractType) setContractType('CALL');
+                executeSingleTrade();
             } else {
-                console.log('⏳ Trading conditions not met - waiting...');
-                setStatus('⏳ Waiting for optimal trading conditions...');
+                console.log(`⏳ Trading conditions not met - waiting... (${waitCycles}/${maxWaitCycles})`);
+                setStatus(`⏳ Waiting for conditions... (${waitCycles}/${maxWaitCycles})`);
                 
                 // Check again after 2 seconds
                 setTimeout(waitAndCheck, 2000);
