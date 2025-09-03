@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Play, Square, TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
@@ -1045,8 +1046,7 @@ const MLTrader = observer(() => {
         run_panel.setIsRunning(true);
         run_panel.setContractStage(contract_stages.STARTING);
 
-        // Immediately start the first trade
-        executeSingleTrade();
+        scheduleNextTrade();
     };
 
     const stopAutoTrading = () => {
@@ -1315,6 +1315,58 @@ const MLTrader = observer(() => {
         };
     };
 
+    // Check trading conditions to determine if it's a good time to trade
+    const checkTradeCondition = () => {
+        const latestTick = ticksProcessed; // Current tick number
+
+        const recommendation = getMarketRecommendation();
+        
+        if (!recommendation) {
+            console.log('⏳ No market recommendation available - using fallback');
+            // Fallback: simple tick-based decision if no recommendation
+            const shouldTrade = Math.random() > 0.7; // 30% chance to trade
+            if (shouldTrade) {
+                // Random decision between CALL and PUT
+                setContractType(latestTick % 2 === 0 ? 'CALL' : 'PUT');
+                console.log('✅ Fallback conditions met - Random trade decision');
+                return true;
+            }
+            return false;
+        }
+        
+        // Much lower confidence threshold (25% instead of 45%)
+        if (recommendation.confidence < 25) {
+            console.log(`⏳ Confidence too low: ${recommendation.confidence}% < 25%`);
+            return false;
+        }
+        
+        // Accept any trend alignment (even 0 trends)
+        console.log(`✅ Conditions met - Recommendation: ${recommendation.recommendation}, Confidence: ${recommendation.confidence}%, Aligned: ${recommendation.alignedTrends}`);
+        
+        // Update contract type based on recommendation
+        if (recommendation.recommendation === 'RISE') {
+            setContractType('CALL');
+        } else if (recommendation.recommendation === 'FALL') {
+            setContractType('PUT');
+        } else {
+            // Even for WAIT signal, let's trade with current trend
+            const currentTrend = Object.values(hullTrends).filter(t => t.trend !== 'NEUTRAL');
+            if (currentTrend.length > 0) {
+                const dominantTrend = currentTrend[0].trend;
+                setContractType(dominantTrend === 'BULLISH' ? 'CALL' : 'PUT');
+                console.log(`✅ WAIT signal but trading based on dominant trend: ${dominantTrend}`);
+                return true;
+            } else {
+                // Last resort: trade based on tick number
+                setContractType(latestTick % 2 === 0 ? 'CALL' : 'PUT');
+                console.log('✅ No clear trend - using tick-based decision');
+                return true;
+            }
+        }
+        
+        return true;
+    };
+
     // Function to schedule the next trade
     const scheduleNextTrade = () => {
         console.log('scheduleNextTrade called:', { isAutoTrading, stopFlag: stopFlagRef.current });
@@ -1324,15 +1376,37 @@ const MLTrader = observer(() => {
             return;
         }
 
-        setTimeout(() => {
-            console.log('Executing scheduled trade:', { isAutoTrading, stopFlag: stopFlagRef.current });
-            if (isAutoTrading && !stopFlagRef.current) {
-                setStatus('🔄 Continuing auto trading...');
+        let waitCycles = 0;
+        const maxWaitCycles = 10; // Max 20 seconds of waiting (10 * 2 seconds)
+
+        const waitAndCheck = () => {
+            if (!isAutoTrading || stopFlagRef.current) {
+                console.log('Auto trading was stopped during wait cycle');
+                return;
+            }
+
+            waitCycles++;
+            setStatus(`⏳ Waiting for optimal conditions... (${waitCycles}/${maxWaitCycles})`);
+
+            if (checkTradeCondition()) {
+                console.log(`✅ Conditions met - executing trade after ${waitCycles} wait cycles`);
+                executeSingleTrade();
+            } else if (waitCycles >= maxWaitCycles) {
+                // Fallback: execute trade anyway after max wait time
+                console.log('⚡ Fallback triggered - executing trade after max wait');
+                setStatus('⚡ Max wait reached, executing fallback trade...');
+                // Force a trade with current settings
+                setContractType(ticksProcessed % 2 === 0 ? 'CALL' : 'PUT');
                 executeSingleTrade();
             } else {
-                console.log('Auto trading was stopped during delay');
+                console.log(`⏳ Trading conditions not met - waiting... (${waitCycles}/${maxWaitCycles})`);
+                // Continue checking every 2 seconds
+                setTimeout(waitAndCheck, 2000);
             }
-        }, 1000); // 1 second delay as requested
+        };
+
+        // Shorter initial delay
+        setTimeout(waitAndCheck, 500);
     };
 
     return (
