@@ -1529,31 +1529,61 @@ const MLTrader = observer(() => {
                 start_timestamp: Date.now()
             });
 
-            // Set active status and trigger analysis after state update
-            setTimeout(() => {
-                setStatus('🤖 ML Auto-trading ACTIVE - Monitoring for trading signals...');
-                run_panel.setContractStage(contract_stages.RUNNING);
+            // Set active status and trigger analysis immediately
+            setStatus('🤖 ML Auto-trading ACTIVE - Monitoring for trading signals...');
+            run_panel.setContractStage(contract_stages.RUNNING);
 
-                // Trigger immediate analysis if we have any data
-                if (tickHistoryRef.current.length > 0) {
-                    console.log('🔄 Triggering initial analysis after auto trading start');
-                    updateAnalysis();
-                } else {
-                    // If no tick data, force a new data request
-                    console.log('🔄 No tick data available, requesting fresh data...');
-                    if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
-                        const request = {
-                            ticks_history: selectedSymbol,
-                            count: tickCount,
-                            end: 'latest',
-                            style: 'ticks',
-                            subscribe: 1,
-                            req_id: Date.now()
-                        };
-                        derivWsRef.current.send(JSON.stringify(request));
-                    }
+            // Force immediate analysis - this is the key fix
+            console.log('🔄 Auto trading started - forcing immediate analysis');
+            console.log(`📊 Current tick data: ${tickHistoryRef.current.length} ticks available`);
+            
+            if (tickHistoryRef.current.length >= 20) {
+                // We have sufficient data, trigger analysis immediately
+                console.log('✅ Sufficient tick data available, executing immediate analysis');
+                updateAnalysis();
+            } else if (tickHistoryRef.current.length > 0) {
+                // We have some data but not enough, still try analysis but also request more
+                console.log('⚠️ Limited tick data, analyzing what we have and requesting more');
+                updateAnalysis();
+                
+                // Request fresh data to supplement
+                if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
+                    const request = {
+                        ticks_history: selectedSymbol,
+                        count: tickCount,
+                        end: 'latest',
+                        style: 'ticks',
+                        subscribe: 1,
+                        req_id: Date.now()
+                    };
+                    derivWsRef.current.send(JSON.stringify(request));
                 }
-            }, 100); // Reduced timeout to make it more responsive
+            } else {
+                // No tick data, force a fresh request
+                console.log('🔄 No tick data available, requesting fresh data...');
+                if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
+                    const request = {
+                        ticks_history: selectedSymbol,
+                        count: tickCount,
+                        end: 'latest',
+                        style: 'ticks',
+                        subscribe: 1,
+                        req_id: Date.now()
+                    };
+                    derivWsRef.current.send(JSON.stringify(request));
+                    
+                    // Set up a fallback analysis trigger
+                    setTimeout(() => {
+                        if (isAutoTrading && tickHistoryRef.current.length > 0) {
+                            console.log('🔄 Fallback analysis trigger after data request');
+                            updateAnalysis();
+                        }
+                    }, 2000);
+                } else {
+                    console.log('❌ WebSocket not connected, cannot request data');
+                    setStatus('❌ WebSocket not connected - Please wait for connection');
+                }
+            }
 
         } else {
             // Stopping auto trading
