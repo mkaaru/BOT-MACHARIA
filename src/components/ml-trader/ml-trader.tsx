@@ -271,7 +271,7 @@ const MLTrader = observer(() => {
     // Hull Moving Average calculation
     const calculateHMA = (prices: number[], period: number): number[] => {
         if (prices.length < period) return [];
-        
+
         const wma = (data: number[], length: number): number[] => {
             const result: number[] = [];
             for (let i = length - 1; i < data.length; i++) {
@@ -289,17 +289,17 @@ const MLTrader = observer(() => {
 
         const halfPeriod = Math.floor(period / 2);
         const sqrtPeriod = Math.floor(Math.sqrt(period));
-        
+
         const wma1 = wma(prices, halfPeriod);
         const wma2 = wma(prices, period);
-        
+
         // 2*WMA(n/2) - WMA(n)
         const rawHMA: number[] = [];
         const minLength = Math.min(wma1.length, wma2.length);
         for (let i = 0; i < minLength; i++) {
             rawHMA.push(2 * wma1[i] - wma2[i]);
         }
-        
+
         // WMA of the result with sqrt(period)
         return wma(rawHMA, sqrtPeriod);
     };
@@ -309,11 +309,11 @@ const MLTrader = observer(() => {
         if (ticks.length < 50) return null; // Need sufficient data
 
         const prices = ticks.map(tick => tick.quote);
-        
+
         // Calculate multiple Hull Moving Averages for different timeframes
         const hma20 = calculateHMA(prices, 20);
         const hma50 = calculateHMA(prices, 50);
-        
+
         if (hma20.length < 5 || hma50.length < 5) return null;
 
         // Get recent HMA values
@@ -321,20 +321,20 @@ const MLTrader = observer(() => {
         const prevHMA20 = hma20[hma20.length - 2];
         const currentHMA50 = hma50[hma50.length - 1];
         const prevHMA50 = hma50[hma50.length - 2];
-        
+
         // Trend analysis
         const hma20Trend = currentHMA20 > prevHMA20 ? 'BULLISH' : 'BEARISH';
         const hma50Trend = currentHMA50 > prevHMA50 ? 'BULLISH' : 'BEARISH';
-        
+
         // Price position relative to HMA
         const currentPrice = prices[prices.length - 1];
         const priceAboveHMA20 = currentPrice > currentHMA20;
         const priceAboveHMA50 = currentPrice > currentHMA50;
-        
+
         // Calculate momentum and strength
         const hma20Change = ((currentHMA20 - prevHMA20) / prevHMA20) * 100;
         const hma50Change = ((currentHMA50 - prevHMA50) / prevHMA50) * 100;
-        
+
         // Machine Learning Decision Logic
         let recommendation = '';
         let confidence = 0;
@@ -344,19 +344,19 @@ const MLTrader = observer(() => {
         // Signal 1: HMA20 trend
         totalSignals++;
         if (hma20Trend === 'BULLISH') signals++;
-        
+
         // Signal 2: HMA50 trend
         totalSignals++;
         if (hma50Trend === 'BULLISH') signals++;
-        
+
         // Signal 3: Price above HMA20
         totalSignals++;
         if (priceAboveHMA20) signals++;
-        
+
         // Signal 4: Price above HMA50
         totalSignals++;
         if (priceAboveHMA50) signals++;
-        
+
         // Signal 5: HMA momentum
         totalSignals++;
         if (Math.abs(hma20Change) > 0.001) { // Significant momentum
@@ -365,7 +365,7 @@ const MLTrader = observer(() => {
 
         // Calculate confidence based on signal consensus
         const signalStrength = (signals / totalSignals) * 100;
-        
+
         if (signalStrength >= 70) {
             recommendation = 'Rise';
             confidence = signalStrength;
@@ -405,7 +405,7 @@ const MLTrader = observer(() => {
 
         try {
             const ticks = tickHistoryRef.current;
-            
+
             // Basic statistics for display
             let riseCount = 0;
             let fallCount = 0;
@@ -424,14 +424,14 @@ const MLTrader = observer(() => {
 
             // Machine Learning Analysis
             const mlAnalysis = performMLAnalysis(ticks);
-            
+
             let recommendation = '';
             let confidence = 0;
 
             if (mlAnalysis) {
                 recommendation = mlAnalysis.recommendation;
-                confidence = mlAnalysis.confidence;
-                
+                confidence = Number(mlAnalysis.confidence) || 0;
+
                 console.log('🤖 ML Analysis:', {
                     recommendation,
                     confidence: confidence.toFixed(1),
@@ -501,7 +501,7 @@ const MLTrader = observer(() => {
         }
 
         console.log('🔐 Authorizing trading API...');
-        
+
         try {
             const { authorize, error } = await tradingApi.authorize(token);
             if (error) {
@@ -613,7 +613,7 @@ const MLTrader = observer(() => {
             console.error('❌ Auto trade error:', error);
             const errorMessage = error.message || 'Unknown error occurred';
             setStatus(`❌ AUTO ERROR: ${errorMessage}`);
-            
+
             // If authorization fails, try to re-authorize
             if (errorMessage.includes('Authorization') || errorMessage.includes('InvalidToken')) {
                 setIsAuthorized(false);
