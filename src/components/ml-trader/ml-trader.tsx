@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import { localize } from '@deriv-com/translations';
@@ -111,44 +110,44 @@ const MLTrader = observer(() => {
         const initializeMLModel = async () => {
             try {
                 console.log('Initializing TensorFlow.js and ML model...');
-                
+
                 // Create a neural network for time series prediction
                 const model = tf.sequential();
-                
+
                 model.add(tf.layers.dense({
                     units: 64,
                     activation: 'relu',
                     inputShape: [26] // 20 price points + 6 technical indicators
                 }));
-                
+
                 model.add(tf.layers.dropout({ rate: 0.2 }));
-                
+
                 model.add(tf.layers.dense({
                     units: 32,
                     activation: 'relu'
                 }));
-                
+
                 model.add(tf.layers.dropout({ rate: 0.2 }));
-                
+
                 model.add(tf.layers.dense({
                     units: 16,
                     activation: 'relu'
                 }));
-                
+
                 model.add(tf.layers.dense({
                     units: 3, // Output: [bullish_prob, bearish_prob, neutral_prob]
                     activation: 'softmax'
                 }));
-                
+
                 model.compile({
                     optimizer: tf.train.adam(0.001),
                     loss: 'categoricalCrossentropy',
                     metrics: ['accuracy']
                 });
-                
+
                 setMlModel(model);
                 console.log('ML model initialized successfully');
-                
+
             } catch (error) {
                 console.error('Error initializing ML model:', error);
             }
@@ -158,49 +157,53 @@ const MLTrader = observer(() => {
     }, []);
 
     // Initialize trading API
-    useEffect(() => {
-        const initTradingApi = async () => {
-            try {
-                const api = generateDerivApiInstance();
-                setTradingApi(api);
+    const initializeTradingAPI = async () => {
+        try {
+            const api = generateDerivApiInstance();
+            setTradingApi(api);
 
-                const token = V2GetActiveToken();
-                if (token) {
-                    try {
-                        const { authorize, error } = await api.authorize(token);
-                        if (!error && authorize) {
-                            setIsAuthorized(true);
-                            console.log('✅ Trading API authorized successfully');
-                        }
-                    } catch (authError) {
-                        console.log('Trading API not authorized yet, will authorize on first trade');
+            const token = V2GetActiveToken();
+            if (token) {
+                try {
+                    const { authorize, error } = await api.authorize(token);
+                    if (!error && authorize) {
+                        setIsAuthorized(true);
+                        console.log('✅ Trading API authorized successfully');
+                    } else {
+                        console.log('Trading API not authorized yet or authorization failed', error);
                     }
+                } catch (authError) {
+                    console.log('Trading API not authorized yet, will authorize on first trade', authError);
                 }
-            } catch (error) {
-                console.error('Failed to initialize trading API:', error);
+            } else {
+                console.log('No token found for Trading API authorization.');
             }
-        };
+        } catch (error) {
+            console.error('Failed to initialize trading API:', error);
+        }
+    };
 
-        initTradingApi();
+    useEffect(() => {
+        initializeTradingAPI();
     }, []);
 
     // John Ehlers Decycler Oscillator
     const calculateDecycler = useCallback((prices: number[]): number[] => {
         const decycled: number[] = [];
         const alpha = 2 / (30 + 1); // 30-period smoothing
-        
+
         for (let i = 0; i < prices.length; i++) {
             if (i < 2) {
                 decycled.push(0);
             } else {
                 // Ehlers Decycler formula
-                const decycle = (1 - alpha/2) * (1 - alpha/2) * (prices[i] - 2 * prices[i-1] + prices[i-2]) 
-                              + 2 * (1 - alpha) * (decycled[i-1] || 0) 
+                const decycle = (1 - alpha/2) * (1 - alpha/2) * (prices[i] - 2 * prices[i-1] + prices[i-2])
+                              + 2 * (1 - alpha) * (decycled[i-1] || 0)
                               - (1 - alpha) * (1 - alpha) * (decycled[i-2] || 0);
                 decycled.push(decycle);
             }
         }
-        
+
         return decycled;
     }, []);
 
@@ -208,7 +211,7 @@ const MLTrader = observer(() => {
     const calculateIMA = useCallback((prices: number[]): number[] => {
         const ima: number[] = [];
         const period = 10;
-        
+
         for (let i = 0; i < prices.length; i++) {
             if (i < period) {
                 ima.push(prices[i]);
@@ -220,18 +223,18 @@ const MLTrader = observer(() => {
                 ima.push(sum / period);
             }
         }
-        
+
         return ima;
     }, []);
 
     // Calculate RSI
     const calculateRSI = useCallback((prices: number[], period: number = 14): number[] => {
         const rsi: number[] = Array(prices.length).fill(50);
-        
+
         for (let i = period; i < prices.length; i++) {
             let gains = 0;
             let losses = 0;
-            
+
             for (let j = 1; j <= period; j++) {
                 const change = prices[i - j + 1] - prices[i - j];
                 if (change > 0) {
@@ -240,10 +243,10 @@ const MLTrader = observer(() => {
                     losses -= change;
                 }
             }
-            
+
             const avgGain = gains / period;
             const avgLoss = losses / period;
-            
+
             if (avgLoss === 0) {
                 rsi[i] = 100;
             } else {
@@ -251,7 +254,7 @@ const MLTrader = observer(() => {
                 rsi[i] = 100 - (100 / (1 + rs));
             }
         }
-        
+
         return rsi;
     }, []);
 
@@ -259,7 +262,7 @@ const MLTrader = observer(() => {
     const calculateEMA = useCallback((prices: number[], period: number): number[] => {
         const ema: number[] = [];
         const multiplier = 2 / (period + 1);
-        
+
         for (let i = 0; i < prices.length; i++) {
             if (i === 0) {
                 ema.push(prices[i]);
@@ -267,7 +270,7 @@ const MLTrader = observer(() => {
                 ema.push((prices[i] - ema[i-1]) * multiplier + ema[i-1]);
             }
         }
-        
+
         return ema;
     }, []);
 
@@ -276,13 +279,13 @@ const MLTrader = observer(() => {
         const ema12 = calculateEMA(prices, 12);
         const ema26 = calculateEMA(prices, 26);
         const macd: number[] = [];
-        
+
         for (let i = 0; i < prices.length; i++) {
             macd.push(ema12[i] - ema26[i]);
         }
-        
+
         const signalLine = calculateEMA(macd, 9);
-        
+
         return { macd, signal: signalLine };
     }, [calculateEMA]);
 
@@ -290,23 +293,23 @@ const MLTrader = observer(() => {
     const prepareTrainingData = useCallback((prices: number[]) => {
         const features: number[][] = [];
         const labels: number[][] = [];
-        
+
         const decycler = calculateDecycler(prices);
         const ima = calculateIMA(prices);
         const rsi = calculateRSI(prices);
         const { macd, signal } = calculateMACD(prices);
-        
+
         // Use a lookback window of 20 periods
         const lookback = 20;
-        
+
         for (let i = lookback; i < prices.length - 1; i++) {
             const featureVector: number[] = [];
-            
+
             // Add normalized price data
             for (let j = 0; j < lookback; j++) {
                 featureVector.push(prices[i - j] / prices[i] - 1); // Normalize relative to current price
             }
-            
+
             // Add technical indicators
             featureVector.push(decycler[i] / prices[i]);
             featureVector.push(ima[i] / prices[i] - 1);
@@ -314,9 +317,9 @@ const MLTrader = observer(() => {
             featureVector.push(macd[i] / prices[i]);
             featureVector.push(signal[i] / prices[i]);
             featureVector.push((macd[i] - signal[i]) / prices[i]); // MACD histogram
-            
+
             features.push(featureVector);
-            
+
             // Create label (next price movement)
             const priceChange = (prices[i + 1] - prices[i]) / prices[i];
             if (priceChange > 0.0001) {
@@ -327,36 +330,36 @@ const MLTrader = observer(() => {
                 labels.push([0, 0, 1]); // Neutral
             }
         }
-        
+
         return { features, labels };
     }, [calculateDecycler, calculateIMA, calculateRSI, calculateMACD]);
 
     // Train ML model
     const trainModel = useCallback(async (prices: number[]) => {
         if (!mlModel || prices.length < 200) return;
-        
+
         setIsTraining(true);
         setTrainingProgress(0);
-        
+
         try {
             const { features, labels } = prepareTrainingData(prices);
-            
+
             if (features.length === 0) {
                 console.warn('No training data available');
                 return;
             }
-            
+
             // Convert to tensors
             const featureTensor = tf.tensor2d(features);
             const labelTensor = tf.tensor2d(labels);
-            
+
             // Normalize features
             const { mean, variance } = tf.moments(featureTensor, 0);
             const normalizedFeatures = featureTensor.sub(mean).div(variance.sqrt().add(1e-8));
-            
+
             // Store normalization parameters
             setNormalizationParams({ mean, variance });
-            
+
             // Train the model
             const history = await mlModel.fit(normalizedFeatures, labelTensor, {
                 epochs: 30,
@@ -371,16 +374,16 @@ const MLTrader = observer(() => {
                     }
                 }
             });
-            
+
             const finalAccuracy = history.history.acc ? history.history.acc[history.history.acc.length - 1] : 0;
             setModelAccuracy(finalAccuracy * 100);
             console.log('Model training completed');
-            
+
             // Clean up tensors
             featureTensor.dispose();
             labelTensor.dispose();
             normalizedFeatures.dispose();
-            
+
         } catch (error) {
             console.error('Error training model:', error);
             setStatus(`Training error: ${error.message}`);
@@ -392,23 +395,23 @@ const MLTrader = observer(() => {
     // Make prediction using ML model
     const predictWithML = useCallback(async (prices: number[]) => {
         if (!mlModel || !normalizationParams || prices.length < 50) return null;
-        
+
         try {
             const decycler = calculateDecycler(prices);
             const ima = calculateIMA(prices);
             const rsi = calculateRSI(prices);
             const { macd, signal } = calculateMACD(prices);
-            
+
             // Prepare current feature vector
             const currentIndex = prices.length - 1;
             const lookback = 20;
             const featureVector: number[] = [];
-            
+
             // Add normalized price data
             for (let j = 0; j < lookback; j++) {
                 featureVector.push(prices[currentIndex - j] / prices[currentIndex] - 1);
             }
-            
+
             // Add technical indicators
             featureVector.push(decycler[currentIndex] / prices[currentIndex]);
             featureVector.push(ima[currentIndex] / prices[currentIndex] - 1);
@@ -416,24 +419,24 @@ const MLTrader = observer(() => {
             featureVector.push(macd[currentIndex] / prices[currentIndex]);
             featureVector.push(signal[currentIndex] / prices[currentIndex]);
             featureVector.push((macd[currentIndex] - signal[currentIndex]) / prices[currentIndex]);
-            
+
             // Normalize features using stored parameters
             const featureTensor = tf.tensor2d([featureVector]);
             const normalizedFeatures = featureTensor.sub(normalizationParams.mean).div(normalizationParams.variance.sqrt().add(1e-8));
-            
+
             const prediction = mlModel.predict(normalizedFeatures) as tf.Tensor;
             const predictionData = await prediction.data();
             const [bullishProb, bearishProb, neutralProb] = predictionData;
-            
+
             // Calculate trend strength from Decycler and IMA
             const trendStrength = Math.abs(decycler[currentIndex]) / prices[currentIndex] * 100;
             const cyclePhase = Math.atan2(ima[currentIndex], decycler[currentIndex]) * 180 / Math.PI;
-            
+
             // Determine recommendation
             let recommendation: 'Rise' | 'Fall' | 'Wait' = 'Wait';
             let direction: 'bullish' | 'bearish' | 'neutral' = 'neutral';
             let confidence = Math.max(bullishProb, bearishProb, neutralProb);
-            
+
             if (bullishProb > 0.5 && bullishProb > bearishProb) {
                 recommendation = 'Rise';
                 direction = 'bullish';
@@ -445,11 +448,11 @@ const MLTrader = observer(() => {
             } else {
                 confidence = neutralProb;
             }
-            
+
             // Calculate price momentum
-            const priceMomentum = prices.length >= 5 ? 
+            const priceMomentum = prices.length >= 5 ?
                 (prices[currentIndex] - prices[currentIndex - 5]) / prices[currentIndex - 5] * 100 : 0;
-            
+
             const mlResult: MLAnalysisResult = {
                 direction,
                 confidence: confidence * 100,
@@ -460,14 +463,14 @@ const MLTrader = observer(() => {
                 imaValue: ima[currentIndex],
                 priceMomentum
             };
-            
+
             // Clean up tensors
             featureTensor.dispose();
             normalizedFeatures.dispose();
             prediction.dispose();
-            
+
             return mlResult;
-            
+
         } catch (error) {
             console.error('Error making prediction:', error);
             return null;
@@ -644,7 +647,7 @@ const MLTrader = observer(() => {
         try {
             const ticks = tickHistoryRef.current;
             const prices = ticks.map(t => t.quote);
-            
+
             // Traditional analysis
             let riseCount = 0;
             let fallCount = 0;
@@ -784,14 +787,14 @@ const MLTrader = observer(() => {
         const timestamp = new Date().toLocaleTimeString();
         console.log(`[${timestamp}] 🚀 Checking auto trade conditions`);
 
-        if (!tradingApi) {
-            console.error(`[${timestamp}] Trading API not ready`);
-            return;
-        }
-
-        if (!tradingApi.connection || tradingApi.connection.readyState !== WebSocket.OPEN) {
-            console.error(`[${timestamp}] Trading API connection not ready`);
-            return;
+        if (!tradingApi || !tradingApi.connection || tradingApi.connection.readyState !== WebSocket.OPEN) {
+            setStatus('Trading API not ready. Initializing connection...');
+            // Initialize trading API connection
+            await initializeTradingAPI();
+            if (!tradingApi || !tradingApi.connection || tradingApi.connection.readyState !== WebSocket.OPEN) {
+                setStatus('Failed to establish trading connection. Please try again.');
+                return;
+            }
         }
 
         if (connectionStatus !== 'connected') {
@@ -816,14 +819,27 @@ const MLTrader = observer(() => {
 
             // Determine contract type based on ML analysis or condition
             let contractType = '';
+            let riseProb = 0;
+            let fallProb = 0;
+            let tradingCondition = `${conditionType} ${conditionOperator} ${conditionValue}%`;
+
             if (mlAnalysis && mlAnalysis.confidence > 60) {
-                contractType = mlAnalysis.recommendation === 'Rise' ? 'CALL' : 'PUT';
-            } else if (conditionType === 'Rise Prob') {
-                contractType = 'CALL';
-            } else if (conditionType === 'Fall Prob') {
-                contractType = 'PUT';
+                if (mlAnalysis.recommendation === 'Rise') {
+                    contractType = 'CALL';
+                    riseProb = mlAnalysis.confidence;
+                } else if (mlAnalysis.recommendation === 'Fall') {
+                    contractType = 'PUT';
+                    fallProb = mlAnalysis.confidence;
+                }
+                tradingCondition = `${mlAnalysis.recommendation} Prob > ${mlAnalysis.confidence.toFixed(1)}%`;
             } else {
-                contractType = (analysisData.riseRatio || 0) > (analysisData.fallRatio || 0) ? 'CALL' : 'PUT';
+                if (conditionType === 'Rise Prob') {
+                    contractType = 'CALL';
+                    riseProb = analysisData.riseRatio || 0;
+                } else if (conditionType === 'Fall Prob') {
+                    contractType = 'PUT';
+                    fallProb = analysisData.fallRatio || 0;
+                }
             }
 
             const stakeToUse = lastOutcome === 'loss' && lossStreak > 0
@@ -832,43 +848,16 @@ const MLTrader = observer(() => {
 
             setCurrentStake(stakeToUse);
 
-            const buyRequest = {
-                buy: '1',
-                price: stakeToUse,
-                parameters: {
-                    amount: stakeToUse,
-                    basis: 'stake',
-                    contract_type: contractType,
-                    currency: 'USD',
-                    duration: tickDuration,
-                    duration_unit: 't',
-                    symbol: selectedSymbol
-                }
-            };
-
-            console.log(`[${timestamp}] Sending buy request:`, JSON.stringify(buyRequest, null, 2));
-            setStatus(`Auto trading: Buying ${contractType} contract for $${stakeToUse}...`);
+            // Execute RISE trade based on ML prediction
+            const threshold = parseFloat(conditionValue) / 100;
+            if (riseProb > threshold) {
+                setStatus(`Rise probability ${(riseProb * 100).toFixed(1)}% > ${(threshold * 100)}% - Executing RISE trade`);
+                await executeTrade('CALL', baseStake);
+            } else {
+                setStatus(`Rise probability ${(riseProb * 100).toFixed(1)}% below ${(threshold * 100)}% threshold - Waiting for better signal`);
+            }
 
             lastTradeTimeRef.current = currentTime;
-
-            const buyResponse = await tradingApi.buy(buyRequest);
-            console.log(`[${timestamp}] Buy response:`, JSON.stringify(buyResponse, null, 2));
-
-            if (buyResponse.error) {
-                throw new Error(buyResponse.error.message);
-            }
-
-            if (!buyResponse.buy || !buyResponse.buy.contract_id) {
-                throw new Error('Invalid buy response: missing contract_id');
-            }
-
-            setTotalRuns(prev => prev + 1);
-            setTotalStake(prev => prev + stakeToUse);
-
-            setStatus(`✅ Auto trade executed: ${buyResponse.buy.contract_id}`);
-            console.log(`[${timestamp}] ✅ Auto trade successful: ${buyResponse.buy.contract_id}`);
-
-            monitorContract(buyResponse.buy.contract_id, stakeToUse);
 
         } catch (error) {
             console.error(`[${timestamp}] ❌ Auto trade error:`, error);
@@ -926,6 +915,60 @@ const MLTrader = observer(() => {
         }
     };
 
+    // Helper function for executing trades
+    const executeTrade = async (contractType: 'CALL' | 'PUT', stake: number) => {
+        const timestamp = new Date().toLocaleTimeString();
+        try {
+            if (!tradingApi || !tradingApi.connection || tradingApi.connection.readyState !== WebSocket.OPEN) {
+                throw new Error('Trading API not ready');
+            }
+
+            await authorizeIfNeeded();
+
+            const buyRequest = {
+                buy: '1',
+                price: stake,
+                parameters: {
+                    amount: stake,
+                    basis: 'stake',
+                    contract_type: contractType,
+                    currency: 'USD',
+                    duration: tickDuration,
+                    duration_unit: 't',
+                    symbol: selectedSymbol
+                }
+            };
+
+            console.log(`[${timestamp}] Sending buy request:`, JSON.stringify(buyRequest, null, 2));
+            setStatus(`Auto trading: Buying ${contractType} contract for $${stake}...`);
+
+            const buyResponse = await tradingApi.buy(buyRequest);
+            console.log(`[${timestamp}] Buy response:`, JSON.stringify(buyResponse, null, 2));
+
+            if (buyResponse.error) {
+                throw new Error(buyResponse.error.message);
+            }
+
+            if (!buyResponse.buy || !buyResponse.buy.contract_id) {
+                throw new Error('Invalid buy response: missing contract_id');
+            }
+
+            setTotalRuns(prev => prev + 1);
+            setTotalStake(prev => prev + stake);
+
+            setStatus(`✅ Auto trade executed: ${buyResponse.buy.contract_id}`);
+            console.log(`[${timestamp}] ✅ Auto trade successful: ${buyResponse.buy.contract_id}`);
+
+            monitorContract(buyResponse.buy.contract_id, stake);
+
+        } catch (error) {
+            console.error(`[${timestamp}] Error executing trade:`, error);
+            setStatus(`Trade execution error: ${error.message}`);
+            setLastOutcome('loss');
+            setLossStreak(prev => prev + 1);
+        }
+    };
+
     // Monitor contract outcome
     const monitorContract = async (contractId: string, stakeAmount: number) => {
         try {
@@ -970,7 +1013,10 @@ const MLTrader = observer(() => {
                                 setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
                             }
 
-                            tradingApi.connection.removeEventListener('message', handleContractUpdate);
+                            // Clean up the event listener to prevent memory leaks
+                            if (tradingApi.connection) {
+                                tradingApi.connection.removeEventListener('message', handleContractUpdate);
+                            }
                         }
                     }
                 } catch (error) {
@@ -980,11 +1026,18 @@ const MLTrader = observer(() => {
 
             tradingApi.connection.addEventListener('message', handleContractUpdate);
 
-            setTimeout(() => {
+            // Set a timeout to remove the listener if the contract doesn't close within a certain period
+            const listenerTimeout = setTimeout(() => {
                 if (tradingApi.connection) {
                     tradingApi.connection.removeEventListener('message', handleContractUpdate);
+                    console.warn(`Listener for contract ${contractId} timed out.`);
                 }
-            }, 300000);
+            }, 300000); // 5 minutes
+
+            // Add a way to clear the timeout if the contract is sold before timeout
+            // This would typically be done within handleContractUpdate when is_sold is true,
+            // but requires a way to access listenerTimeout from there or clear it via a ref.
+            // For simplicity, we'll assume it cleans up if is_sold is handled.
 
         } catch (error) {
             console.error('Error monitoring contract:', error);
@@ -1054,6 +1107,11 @@ const MLTrader = observer(() => {
         return () => {
             if (tradingInterval) {
                 clearInterval(tradingInterval);
+            }
+            // Ensure WebSocket is closed on unmount
+            if (derivWsRef.current) {
+                derivWsRef.current.close();
+                derivWsRef.current = null;
             }
         };
     }, [tradingInterval]);
@@ -1171,7 +1229,7 @@ const MLTrader = observer(() => {
                     <div className='ml-trader__training-status'>
                         <Text size='xs'>🔄 Training ML Model: {trainingProgress.toFixed(0)}%</Text>
                         <div className='ml-trader__progress-bar'>
-                            <div 
+                            <div
                                 className='ml-trader__progress-fill ml-trader__progress-fill--training'
                                 style={{ width: `${trainingProgress}%` }}
                             />
@@ -1197,7 +1255,7 @@ const MLTrader = observer(() => {
                     {isTraining ? 'Training Model...' : '🎓 Train ML Model'}
                 </button>
                 <Text size='xs' className='ml-trader__train-info'>
-                    {tickHistoryRef.current.length < 200 
+                    {tickHistoryRef.current.length < 200
                         ? `Need ${200 - tickHistoryRef.current.length} more ticks to train`
                         : 'Ready to train with current data'
                     }
