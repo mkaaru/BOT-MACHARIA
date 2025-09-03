@@ -141,7 +141,7 @@ const MLTrader = observer(() => {
 
     // Contract tracking state
     const [currentProfit, setCurrentProfit] = useState<number>(0);
-    const [contractValue, setContractValue] = useState<number>(0);
+    const [currentContractValue, setCurrentContractValue] = useState<number>(0); // Renamed for clarity
     const [potentialPayout, setPotentialPayout] = useState<number>(0);
     const [contractDuration, setContractDuration] = useState<string>('00:00:00');
 
@@ -933,8 +933,8 @@ const MLTrader = observer(() => {
                                         setStake(baseStake); // Revert to original stake
                                     } else {
                                         setContractsLost(prev => prev + 1);
-                                        lastOutcomeWasLossRef.current = true;
                                         setConsecutiveWins(0); // Reset consecutive wins on loss
+                                        lastOutcomeWasLossRef.current = true;
                                         setCurrentMartingaleStep(prev => Math.min(prev + 1, martingaleMaxRuns)); // Increment martingale step, capped by max runs
                                         setStake(baseStake * Math.pow(martingaleMultiplier, Math.min(currentMartingaleStep + 1, martingaleMaxRuns))); // Calculate next stake, capped
                                     }
