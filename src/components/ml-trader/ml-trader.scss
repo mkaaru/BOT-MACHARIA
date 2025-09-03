@@ -326,6 +326,48 @@
         }
     }
 
+    .ml-trader__scanner-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    .ml-trader__scanner-btn {
+        padding: 12px 20px;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        width: 100%;
+
+        &--primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+            &:hover:not(:disabled) {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+            }
+        }
+
+        &--secondary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+
+            &:hover:not(:disabled) {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px rgba(79, 172, 254, 0.4);
+            }
+        }
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+    }
+
   &__trading-controls {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
