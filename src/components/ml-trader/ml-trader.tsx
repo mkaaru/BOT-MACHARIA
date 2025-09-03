@@ -83,6 +83,30 @@ const MLTrader = observer(() => {
     const lastTradeTimeRef = useRef(0);
     const minTimeBetweenTrades = 3000; // 3 seconds minimum between trades
 
+    // Assume run_panel, transactions, and contract_stages are available globally or passed as props
+    // For this example, we'll mock them to avoid errors
+    const run_panel = (globalThis as any)?.run_panel || {
+        setIsRunning: () => {},
+        setContractStage: () => {},
+        toggleDrawer: () => {},
+        setHasOpenContract: () => {},
+        dbot: {
+            observer: {
+                register: () => {},
+                unregisterAll: () => {},
+            }
+        }
+    };
+    const transactions = (globalThis as any)?.transactions || {
+        onBotContractEvent: () => {},
+    };
+    const contract_stages = (globalThis as any)?.contract_stages || {
+        STARTING: 'STARTING',
+        PURCHASE_SENT: 'PURCHASE_SENT',
+        NOT_RUNNING: 'NOT_RUNNING',
+    };
+
+
     const totalProfitLoss = totalPayout - totalStake;
 
     // Initialize trading API
@@ -478,13 +502,40 @@ const MLTrader = observer(() => {
                 throw new Error('Invalid buy response: missing contract_id');
             }
 
+            console.log(`✅ Contract purchased successfully:`, buyResponse.buy);
+            setStatus(`Contract purchased: ${buyResponse.buy.contract_id}`);
+
+            // Update statistics
             setTotalRuns(prev => prev + 1);
             setTotalStake(prev => prev + stakeToUse);
 
-            setStatus(`✅ Auto trade executed: ${buyResponse.buy.contract_id}`);
-            console.log(`[${timestamp}] ✅ Auto trade successful: ${buyResponse.buy.contract_id}`);
+            // Create contract data for Run Panel
+            const contractData = {
+                contract_id: buyResponse.buy.contract_id,
+                transaction_ids: {
+                    buy: buyResponse.buy.transaction_id
+                },
+                buy_price: stakeToUse,
+                currency: 'USD', // You might want to get this from the API
+                contract_type: contractType,
+                shortcode: buyResponse.buy.shortcode || `${contractType}_${selectedSymbol}_${tickDuration}T`,
+                date_start: Date.now() / 1000,
+                longcode: buyResponse.buy.longcode || `${contractType} contract for ${selectedSymbol}`,
+                is_completed: false,
+                profit: 0,
+                payout: 0,
+                run_id: `ml-trader-${Date.now()}`
+            };
 
-            monitorContract(buyResponse.buy.contract_id, stakeToUse);
+            // Notify Run Panel about the contract
+            transactions.onBotContractEvent(contractData);
+            run_panel.setHasOpenContract(true);
+            run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+
+            // Monitor the contract
+            monitorContract(buyResponse.buy.contract_id, stakeToUse, contractData);
+
+            lastTradeTimeRef.current = currentTime;
 
         } catch (error) {
             console.error(`[${timestamp}] ❌ Auto trade error:`, error);
@@ -543,7 +594,7 @@ const MLTrader = observer(() => {
     };
 
     // Monitor contract outcome with proper MessageEvent handling
-    const monitorContract = async (contractId: string, stakeAmount: number) => {
+    const monitorContract = async (contractId: string, stakeAmount: number, initialContractData?: any) => {
         try {
             // Check if trading API connection is available
             if (!tradingApi?.connection) {
@@ -568,29 +619,62 @@ const MLTrader = observer(() => {
                         data.proposal_open_contract &&
                         String(data.proposal_open_contract.contract_id) === String(contractId)) {
 
-                        const contract = data.proposal_open_contract;
+                        if (data.proposal_open_contract.is_sold || data.proposal_open_contract.status === 'sold') {
+                            const profit = parseFloat(data.proposal_open_contract.profit || '0');
+                            const payout = parseFloat(data.proposal_open_contract.payout || '0');
 
-                        if (contract.is_sold || contract.status === 'sold') {
-                            const profit = Number(contract.profit || 0);
-                            const payout = Number(contract.payout || 0);
+                            console.log(`📊 Contract ${contractId} completed. Profit: ${profit}`);
 
+                            // Update contract data for Run Panel
+                            const completedContractData = {
+                                ...initialContractData,
+                                is_completed: true,
+                                profit: profit,
+                                payout: payout,
+                                bid_price: payout,
+                                exit_tick: data.proposal_open_contract.exit_tick,
+                                exit_tick_display_value: data.proposal_open_contract.exit_tick_display_value,
+                                exit_tick_time: data.proposal_open_contract.exit_tick_time,
+                                entry_tick: data.proposal_open_contract.entry_tick,
+                                entry_tick_display_value: data.proposal_open_contract.entry_tick_display_value,
+                                entry_tick_time: data.proposal_open_contract.entry_tick_time,
+                                status: data.proposal_open_contract.status
+                            };
+
+                            // Update Run Panel
+                            transactions.onBotContractEvent(completedContractData);
+                            run_panel.setHasOpenContract(false);
+                            run_panel.setContractStage(contract_stages.NOT_RUNNING);
+
+                            // Update statistics
                             setTotalPayout(prev => prev + payout);
 
                             if (profit > 0) {
                                 setContractsWon(prev => prev + 1);
-                                setLastOutcome('win');
                                 setLossStreak(0);
-                                setCurrentStake(baseStake);
-                                setStatus(`✅ Contract won! Profit: $${profit.toFixed(2)}`);
+                                setLastOutcome('win');
+                                setCurrentStake(baseStake); // Reset stake on win
+                                setStatus(`✅ Won: +${profit.toFixed(2)}`);
                             } else {
                                 setContractsLost(prev => prev + 1);
-                                setLastOutcome('loss');
                                 setLossStreak(prev => prev + 1);
-                                setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
+                                setLastOutcome('loss');
+
+                                // Apply martingale if within steps limit
+                                if (lossStreak < martingaleSteps) {
+                                    const newStake = currentStake * 2;
+                                    setCurrentStake(newStake);
+                                    setStatus(`❌ Lost: ${profit.toFixed(2)} | Next stake: ${newStake}`);
+                                } else {
+                                    setCurrentStake(baseStake);
+                                    setStatus(`❌ Lost: ${profit.toFixed(2)} | Stake reset`);
+                                }
                             }
 
-                            // Remove listener
-                            tradingApi.connection.removeEventListener('message', handleContractUpdate);
+                            // Cleanup
+                            if (tradingApi?.connection) {
+                                tradingApi.connection.removeEventListener('message', handleContractUpdate);
+                            }
                         }
                     }
                 } catch (error) {
@@ -616,54 +700,27 @@ const MLTrader = observer(() => {
 
     // NEW: Auto trading management (combining start/stop)
     const startAutoTrading = () => {
-        if (connectionStatus !== 'connected') {
-            alert('Cannot start auto trading: Not connected to market data API');
-            return;
+        if (!isAutoTrading && connectionStatus === 'connected') {
+            setIsAutoTrading(true);
+            setStatus('Auto trading started');
+            console.log('🚀 Auto trading started');
+
+            // Update Run Panel state
+            run_panel.setIsRunning(true);
+            run_panel.setContractStage(contract_stages.STARTING);
+            run_panel.toggleDrawer(true);
         }
-
-        if (!tradingApi) {
-            alert('Trading API not initialized');
-            return;
-        }
-
-        if (!tradingApi.connection || tradingApi.connection.readyState !== WebSocket.OPEN) {
-            alert('Trading API connection not ready. Please wait...');
-            return;
-        }
-
-        // Clear existing interval if any
-        if (tradingInterval) {
-            clearInterval(tradingInterval);
-            setTradingInterval(null);
-        }
-
-        setIsAutoTrading(true);
-        setStatus('Auto trading started - checking conditions...');
-
-        // More conservative interval timing
-        let intervalMs = 2000; // 2 seconds default
-        if (selectedSymbol.includes('1HZ')) {
-            intervalMs = 1500; // 1.5 seconds for 1s volatilities
-        }
-
-        console.log(`Starting auto trading with ${intervalMs}ms interval`);
-
-        // Create the trading interval
-        const interval = setInterval(executeAutoTrade, intervalMs);
-        setTradingInterval(interval);
-
-        console.log('✅ Auto trading started');
     };
 
     const stopAutoTrading = () => {
-        if (tradingInterval) {
-            clearInterval(tradingInterval);
-            setTradingInterval(null);
-        }
-
         setIsAutoTrading(false);
         setStatus('Auto trading stopped');
-        console.log('Auto trading stopped');
+        console.log('🛑 Auto trading stopped');
+
+        // Update Run Panel state
+        run_panel.setIsRunning(false);
+        run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        run_panel.setHasOpenContract(false);
     };
 
     // NEW: Toggle auto trading (combining start/stop)
@@ -696,6 +753,29 @@ const MLTrader = observer(() => {
         return () => clearInterval(interval);
     }, [tradingApi]);
 
+    // Listen for Run Panel stop events
+    useEffect(() => {
+        const handleRunPanelStop = () => {
+            if (isAutoTrading) {
+                stopAutoTrading();
+            }
+        };
+
+        // Register listener for Run Panel stop button
+        if (run_panel?.dbot?.observer) {
+            run_panel.dbot.observer.register('bot.stop', handleRunPanelStop);
+            run_panel.dbot.observer.register('bot.click_stop', handleRunPanelStop);
+        }
+
+        return () => {
+            // Cleanup listeners
+            if (run_panel?.dbot?.observer) {
+                run_panel.dbot.observer.unregisterAll('bot.stop');
+                run_panel.dbot.observer.unregisterAll('bot.click_stop');
+            }
+        };
+    }, [isAutoTrading, run_panel]);
+
     // Cleanup interval on unmount
     useEffect(() => {
         return () => {
@@ -704,6 +784,19 @@ const MLTrader = observer(() => {
             }
         };
     }, [tradingInterval]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current);
+            }
+            if (derivWsRef.current) {
+                derivWsRef.current.onclose = null;
+                derivWsRef.current.close();
+            }
+        };
+    }, [selectedSymbol, tickCount]);
 
     const winRate = totalRuns > 0 ? ((contractsWon / totalRuns) * 100).toFixed(1) : '0.0';
 
