@@ -175,71 +175,97 @@ const MLTrader = observer(() => {
 
     // WebSocket connection management
     useEffect(() => {
-        const MAX_RECONNECT_ATTEMPTS = 10;
+        const MAX_RECONNECT_ATTEMPTS = 5;
         let isComponentMounted = true;
+        let connectionInProgress = false;
+
+        function cleanupConnection() {
+            if (derivWsRef.current) {
+                const ws = derivWsRef.current;
+                // Remove all event listeners first
+                ws.onopen = null;
+                ws.onmessage = null;
+                ws.onerror = null;
+                ws.onclose = null;
+                
+                // Close connection if it's open or connecting
+                if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                    try {
+                        ws.close(1000, 'Component cleanup');
+                    } catch (error) {
+                        console.error('Error closing WebSocket:', error);
+                    }
+                }
+                derivWsRef.current = null;
+            }
+        }
 
         function startWebSocket() {
-            if (!isComponentMounted) return;
+            if (!isComponentMounted || connectionInProgress) return;
             
+            connectionInProgress = true;
             console.log('🔌 Connecting to WebSocket API for symbol:', selectedSymbol);
 
+            // Clear any pending reconnection
             if (reconnectTimeoutRef.current) {
                 clearTimeout(reconnectTimeoutRef.current);
                 reconnectTimeoutRef.current = null;
             }
 
-            if (derivWsRef.current) {
-                try {
-                    derivWsRef.current.onclose = null;
-                    derivWsRef.current.onerror = null;
-                    derivWsRef.current.onmessage = null;
-                    derivWsRef.current.onopen = null;
-                    if (derivWsRef.current.readyState === WebSocket.OPEN || derivWsRef.current.readyState === WebSocket.CONNECTING) {
-                        derivWsRef.current.close();
-                    }
-                } catch (error) {
-                    console.error('Error closing existing connection:', error);
-                }
-                derivWsRef.current = null;
-            }
+            // Clean up existing connection
+            cleanupConnection();
 
             // Clear existing tick history when changing symbols
             tickHistoryRef.current = [];
             setCurrentPrice(0);
 
             try {
-                // Use the correct app_id for public access
-                derivWsRef.current = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+                // Create new WebSocket connection
+                const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+                derivWsRef.current = ws;
 
-                derivWsRef.current.onopen = function() {
+                // Set up connection timeout
+                const connectionTimeout = setTimeout(() => {
+                    if (ws.readyState === WebSocket.CONNECTING) {
+                        console.log('❌ Connection timeout');
+                        ws.close();
+                        connectionInProgress = false;
+                        scheduleReconnect();
+                    }
+                }, 10000); // 10 second timeout
+
+                ws.onopen = function() {
                     if (!isComponentMounted) return;
                     
+                    clearTimeout(connectionTimeout);
+                    connectionInProgress = false;
                     console.log('✅ WebSocket connection established for symbol:', selectedSymbol);
                     reconnectAttemptsRef.current = 0;
                     setConnectionStatus('connected');
 
-                    // Send app_id first
-                    if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
+                    // Send app_id and request tick history
+                    if (ws.readyState === WebSocket.OPEN) {
                         try {
-                            derivWsRef.current.send(JSON.stringify({ 
+                            ws.send(JSON.stringify({ 
                                 app_id: 1089,
                                 req_id: 1
                             }));
                             
-                            // Wait a bit before requesting tick history
+                            // Request tick history immediately
                             setTimeout(() => {
-                                if (isComponentMounted && derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
-                                    requestTickHistory();
+                                if (isComponentMounted && ws.readyState === WebSocket.OPEN) {
+                                    requestTickHistory(ws);
                                 }
-                            }, 1000);
+                            }, 500);
                         } catch (error) {
-                            console.error('Error sending app_id:', error);
+                            console.error('Error sending initial requests:', error);
+                            connectionInProgress = false;
                             scheduleReconnect();
                         }
                     }
                 };
 
-                derivWsRef.current.onmessage = function(event) {
+                ws.onmessage = function(event) {
                     if (!isComponentMounted) return;
                     
                     try {
@@ -247,15 +273,21 @@ const MLTrader = observer(() => {
 
                         if (data.error) {
                             console.error('❌ WebSocket API error:', data.error);
+                            // Only show error for critical issues, don't reconnect for market closed
                             if (data.error.code === 'MarketIsClosed' || data.error.code === 'InvalidSymbol') {
                                 setConnectionStatus('error');
                                 setStatus(`❌ Error: ${data.error.message}`);
+                                return; // Don't reconnect for these errors
+                            } else if (data.error.code === 'RateLimit') {
+                                setStatus('⏳ Rate limited, waiting...');
+                                return; // Don't reconnect immediately for rate limits
                             } else {
                                 scheduleReconnect();
                             }
                             return;
                         }
 
+                        // Update connection status if needed
                         if (connectionStatus !== 'connected') {
                             setConnectionStatus('connected');
                         }
@@ -275,7 +307,7 @@ const MLTrader = observer(() => {
                                 if (data.history.prices.length > 0) {
                                     const latestPrice = parseFloat(data.history.prices[data.history.prices.length - 1]);
                                     setCurrentPrice(latestPrice);
-                                    setStatus(`📊 Loaded ${data.history.prices.length} ticks for ${selectedSymbol}`);
+                                    setStatus(`📊 Connected - ${data.history.prices.length} ticks loaded for ${selectedSymbol}`);
                                 }
                                 
                                 updateAnalysis();
@@ -297,9 +329,13 @@ const MLTrader = observer(() => {
                                 updateAnalysis();
                             }
                         } else if (data.ping) {
-                            // Respond to ping
-                            if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
-                                derivWsRef.current.send(JSON.stringify({ pong: 1 }));
+                            // Respond to ping to keep connection alive
+                            if (ws.readyState === WebSocket.OPEN) {
+                                try {
+                                    ws.send(JSON.stringify({ pong: 1 }));
+                                } catch (error) {
+                                    console.error('Error sending pong:', error);
+                                }
                             }
                         }
                     } catch (error) {
@@ -307,26 +343,34 @@ const MLTrader = observer(() => {
                     }
                 };
 
-                derivWsRef.current.onerror = function(error) {
+                ws.onerror = function(error) {
                     if (!isComponentMounted) return;
                     
+                    clearTimeout(connectionTimeout);
+                    connectionInProgress = false;
                     console.error('❌ WebSocket error:', error);
                     setConnectionStatus('error');
-                    setStatus('❌ WebSocket connection error');
+                    setStatus('❌ Connection error occurred');
                     scheduleReconnect();
                 };
 
-                derivWsRef.current.onclose = function(event) {
+                ws.onclose = function(event) {
                     if (!isComponentMounted) return;
                     
-                    console.log('🔄 WebSocket connection closed', event.code, event.reason);
-                    setConnectionStatus('disconnected');
-                    setStatus('🔄 Connection closed, attempting to reconnect...');
-                    scheduleReconnect();
+                    clearTimeout(connectionTimeout);
+                    connectionInProgress = false;
+                    
+                    // Only log and attempt reconnect if it wasn't a manual close
+                    if (event.code !== 1000) {
+                        console.log('🔄 WebSocket connection closed unexpectedly', event.code, event.reason);
+                        setConnectionStatus('disconnected');
+                        scheduleReconnect();
+                    }
                 };
 
             } catch (error) {
                 console.error('Failed to create WebSocket:', error);
+                connectionInProgress = false;
                 setConnectionStatus('error');
                 setStatus('❌ Failed to create WebSocket connection');
                 scheduleReconnect();
@@ -334,32 +378,35 @@ const MLTrader = observer(() => {
         }
 
         function scheduleReconnect() {
-            if (!isComponentMounted) return;
+            if (!isComponentMounted || connectionInProgress) return;
             
             reconnectAttemptsRef.current++;
             if (reconnectAttemptsRef.current > MAX_RECONNECT_ATTEMPTS) {
                 console.log(`⚠️ Maximum reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Stopping attempts.`);
                 setConnectionStatus('error');
-                setStatus(`❌ Failed to connect after ${MAX_RECONNECT_ATTEMPTS} attempts`);
+                setStatus(`❌ Failed to connect after ${MAX_RECONNECT_ATTEMPTS} attempts. Please refresh to retry.`);
                 return;
             }
 
-            const delay = Math.min(2000 * Math.pow(1.5, reconnectAttemptsRef.current - 1), 30000);
+            // Progressive backoff: 2s, 5s, 10s, 15s, 20s
+            const delays = [2000, 5000, 10000, 15000, 20000];
+            const delay = delays[Math.min(reconnectAttemptsRef.current - 1, delays.length - 1)];
+            
             console.log(`🔄 Scheduling reconnect attempt ${reconnectAttemptsRef.current} in ${delay}ms`);
 
             setConnectionStatus('disconnected');
             setStatus(`🔄 Reconnecting... (${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
 
             reconnectTimeoutRef.current = setTimeout(() => {
-                if (isComponentMounted) {
+                if (isComponentMounted && !connectionInProgress) {
                     console.log(`🔄 Attempting to reconnect (${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})...`);
                     startWebSocket();
                 }
             }, delay);
         }
 
-        function requestTickHistory() {
-            if (!isComponentMounted) return;
+        function requestTickHistory(ws: WebSocket) {
+            if (!isComponentMounted || !ws || ws.readyState !== WebSocket.OPEN) return;
             
             const request = {
                 ticks_history: selectedSymbol,
@@ -370,17 +417,12 @@ const MLTrader = observer(() => {
                 req_id: Date.now()
             };
 
-            if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
+            try {
                 console.log(`📡 Requesting tick history for ${selectedSymbol} (${tickCount} ticks)`);
-                try {
-                    derivWsRef.current.send(JSON.stringify(request));
-                    setStatus(`📡 Requesting data for ${selectedSymbol}...`);
-                } catch (error) {
-                    console.error('Error sending tick history request:', error);
-                    scheduleReconnect();
-                }
-            } else {
-                console.error('❌ WebSocket not ready to request history');
+                ws.send(JSON.stringify(request));
+                setStatus(`📡 Requesting data for ${selectedSymbol}...`);
+            } catch (error) {
+                console.error('Error sending tick history request:', error);
                 scheduleReconnect();
             }
         }
@@ -391,22 +433,14 @@ const MLTrader = observer(() => {
 
         return () => {
             isComponentMounted = false;
+            connectionInProgress = false;
+            
             if (reconnectTimeoutRef.current) {
                 clearTimeout(reconnectTimeoutRef.current);
                 reconnectTimeoutRef.current = null;
             }
-            if (derivWsRef.current) {
-                derivWsRef.current.onclose = null;
-                derivWsRef.current.onerror = null;
-                derivWsRef.current.onmessage = null;
-                derivWsRef.current.onopen = null;
-                try {
-                    derivWsRef.current.close();
-                } catch (error) {
-                    console.error('Error closing WebSocket on cleanup:', error);
-                }
-                derivWsRef.current = null;
-            }
+            
+            cleanupConnection();
         };
     }, [selectedSymbol, tickCount]);
 
