@@ -296,10 +296,10 @@ const MLTrader = observer(() => {
             let recommendation = '';
             let confidence = 0;
 
-            if (riseRatio > 55) {
+            if (riseRatio > 50) {
                 recommendation = 'Rise';
                 confidence = riseRatio;
-            } else if (fallRatio > 55) {
+            } else if (fallRatio > 50) {
                 recommendation = 'Fall';
                 confidence = fallRatio;
             }
