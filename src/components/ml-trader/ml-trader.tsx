@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import { localize } from '@deriv-com/translations';
@@ -182,7 +181,7 @@ const MLTrader = observer(() => {
                             if (tickHistoryRef.current.length > tickCount) {
                                 tickHistoryRef.current.shift();
                             }
-                            
+
                             setCurrentPrice(quote);
                             updateAnalysis();
                         } else if (data.ping) {
@@ -331,10 +330,15 @@ const MLTrader = observer(() => {
                 const shouldTrade = 
                     (conditionType === 'Rise Prob' && recommendation === 'Rise' && confidence >= conditionValue) ||
                     (conditionType === 'Fall Prob' && recommendation === 'Fall' && confidence >= conditionValue);
-                
+
                 if (shouldTrade) {
+                    console.log(`🤖 AUTO TRADE CONDITIONS MET: ${recommendation} with ${confidence}% confidence`);
                     executeAutoTrade(recommendation, confidence);
+                } else {
+                    console.log(`⏳ AUTO TRADE CONDITIONS NOT MET: ${conditionType} requires ${conditionOperator} ${conditionValue}%, got ${confidence}%`);
                 }
+            } else if (isAutoTrading) {
+                console.log(`⏳ AUTO TRADE WAITING: recommendation=${recommendation}, confidence=${confidence}, required=${conditionValue}%`);
             }
 
         } catch (error) {
@@ -376,7 +380,7 @@ const MLTrader = observer(() => {
             await authorizeIfNeeded();
 
             const contractType = recommendation === 'Rise' ? 'CALL' : 'PUT';
-            
+
             // Calculate stake with martingale
             const stakeToUse = lastOutcome === 'loss' && lossStreak > 0 
                 ? Math.min(currentStake * martingaleSteps, baseStake * 10) 
@@ -405,9 +409,9 @@ const MLTrader = observer(() => {
             });
 
             setStatus(`🤖 AUTO: Getting proposal for ${recommendation} (${confidence.toFixed(1)}% confidence)...`);
-            
+
             const proposalResponse = await tradingApi.proposal(tradeParams);
-            
+
             if (proposalResponse.error) {
                 throw new Error(proposalResponse.error.message);
             }
@@ -428,7 +432,7 @@ const MLTrader = observer(() => {
             setTotalStake(prev => prev + stakeToUse);
 
             setStatus(`🤖 AUTO: Contract purchased: ${buyResponse.buy.transaction_id}`);
-            
+
             // Monitor contract outcome
             monitorContract(buyResponse.buy.contract_id, stakeToUse);
 
@@ -463,9 +467,9 @@ const MLTrader = observer(() => {
             };
 
             setStatus(`Getting proposal for ${tradeType}...`);
-            
+
             const proposalResponse = await tradingApi.proposal(tradeParams);
-            
+
             if (proposalResponse.error) {
                 throw new Error(proposalResponse.error.message);
             }
@@ -486,7 +490,7 @@ const MLTrader = observer(() => {
             setTotalStake(prev => prev + stakeToUse);
 
             setStatus(`Contract purchased: ${buyResponse.buy.transaction_id}`);
-            
+
             // Monitor contract outcome
             monitorContract(buyResponse.buy.contract_id, stakeToUse);
 
@@ -500,16 +504,16 @@ const MLTrader = observer(() => {
     const monitorContract = async (contractId: string, stakeAmount: number) => {
         try {
             const subscription = await tradingApi.subscribeToOpenContract(contractId);
-            
+
             subscription.subscribe(({ proposal_open_contract }: any) => {
                 const contract = proposal_open_contract;
-                
+
                 if (contract.is_sold) {
                     const profit = contract.profit || 0;
                     const payout = contract.payout || 0;
-                    
+
                     setTotalPayout(prev => prev + payout);
-                    
+
                     if (profit > 0) {
                         setContractsWon(prev => prev + 1);
                         setLastOutcome('win');
@@ -522,7 +526,7 @@ const MLTrader = observer(() => {
                         setLossStreak(prev => prev + 1);
                         setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
                     }
-                    
+
                     subscription.unsubscribe();
                 }
             });
