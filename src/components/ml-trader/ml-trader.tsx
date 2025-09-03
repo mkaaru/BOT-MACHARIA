@@ -562,6 +562,9 @@ const MLTrader = observer(() => {
         };
     }, []);
 
+    // Ref to store latest tick for condition checking
+    const tickRef = useRef<number>(0);
+
     // Effect to fetch historical data when symbol changes
     useEffect(() => {
         if (symbol && apiRef.current) {
@@ -686,6 +689,9 @@ const MLTrader = observer(() => {
                     if (data?.msg_type === 'tick' && data?.tick?.symbol === sym) {
                         const quote = data.tick.quote;
                         const tickTime = data.tick.epoch * 1000;
+
+                        // Store latest tick for condition checking
+                        tickRef.current = quote;
 
                         setCurrentPrice(quote);
                         setEntrySpot(quote); // Update entry spot for Rise/Fall
@@ -1041,12 +1047,12 @@ const MLTrader = observer(() => {
         }
         setIsAutoTrading(true);
         stopFlagRef.current = false;
-        setStatus('Auto trading started.');
+        setStatus('Auto trading started - waiting for optimal conditions...');
         run_panel.setIsRunning(true);
         run_panel.setContractStage(contract_stages.STARTING);
 
-        // Immediately start the first trade
-        executeSingleTrade();
+        // Start condition-based trading instead of immediate execution
+        scheduleNextTrade();
     };
 
     const stopAutoTrading = () => {
@@ -1081,6 +1087,48 @@ const MLTrader = observer(() => {
             stopFlagRef.current = true;
         };
     }, []);
+
+    // ML/Strategy condition checking function
+    const checkTradeCondition = (latestTick: number) => {
+        // Get current market recommendation
+        const recommendation = getMarketRecommendation();
+        
+        if (!recommendation) return false;
+        
+        // Only trade if we have high confidence (>=65%)
+        if (recommendation.confidence < 65) {
+            console.log(`⏳ Confidence too low: ${recommendation.confidence}% < 65%`);
+            return false;
+        }
+        
+        // Check if trends are aligned (at least 2 out of 4 timeframes)
+        if (recommendation.alignedTrends < 2) {
+            console.log(`⏳ Not enough aligned trends: ${recommendation.alignedTrends} < 2`);
+            return false;
+        }
+        
+        // Additional condition: only trade if price movement is stable
+        // (you can add more sophisticated ML logic here)
+        const priceStable = Math.abs(latestTick - currentPrice) < (currentPrice * 0.001); // 0.1% threshold
+        
+        if (!priceStable) {
+            console.log(`⏳ Price not stable: ${Math.abs(latestTick - currentPrice)} > ${currentPrice * 0.001}`);
+            return false;
+        }
+        
+        console.log(`✅ All conditions met - Recommendation: ${recommendation.recommendation}, Confidence: ${recommendation.confidence}%`);
+        
+        // Update contract type based on recommendation
+        if (recommendation.recommendation === 'RISE') {
+            setContractType('CALL');
+        } else if (recommendation.recommendation === 'FALL') {
+            setContractType('PUT');
+        } else {
+            return false; // WAIT signal
+        }
+        
+        return true;
+    };
 
     // Get market recommendation based on HMA trend analysis
     const getMarketRecommendation = () => {
@@ -1324,15 +1372,30 @@ const MLTrader = observer(() => {
             return;
         }
 
-        setTimeout(() => {
-            console.log('Executing scheduled trade:', { isAutoTrading, stopFlag: stopFlagRef.current });
-            if (isAutoTrading && !stopFlagRef.current) {
-                setStatus('🔄 Continuing auto trading...');
+        const waitAndCheck = () => {
+            if (!isAutoTrading || stopFlagRef.current) {
+                console.log('Stopped while waiting for conditions');
+                return;
+            }
+
+            // Check if trading conditions are met
+            const latestTick = tickRef.current;
+            
+            if (checkTradeCondition(latestTick)) {
+                console.log('✅ Trading conditions met - executing trade');
+                setStatus('🔄 Conditions met, executing trade...');
                 executeSingleTrade();
             } else {
-                console.log('Auto trading was stopped during delay');
+                console.log('⏳ Trading conditions not met - waiting...');
+                setStatus('⏳ Waiting for optimal trading conditions...');
+                
+                // Check again after 2 seconds
+                setTimeout(waitAndCheck, 2000);
             }
-        }, 1000); // 1 second delay as requested
+        };
+
+        // Initial delay before checking conditions
+        setTimeout(waitAndCheck, 1000);
     };
 
     return (
