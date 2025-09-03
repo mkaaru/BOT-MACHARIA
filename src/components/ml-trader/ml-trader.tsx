@@ -919,6 +919,9 @@ const MLTrader = observer(() => {
                                     const profitText = profit > 0 ? `+${profit.toFixed(2)}` : profit.toFixed(2);
                                     setStatus(`${result}: ${profitText} ${account_currency} | Contract completed`);
 
+                                    // Track contract completion time for watchdog
+                                    (window as any).lastContractTime = Date.now();
+
                                     run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
                                     run_panel.setHasOpenContract(false);
                                     if (pocSubIdRef.current) apiRef.current?.forget?.({ forget: pocSubIdRef.current });
@@ -1037,7 +1040,7 @@ const MLTrader = observer(() => {
         
         console.log('executeSingleTrade called with contract type:', contractType);
         purchaseRiseFallContract(contractType);
-    }, [symbol, contractType]);
+    }, [symbol, contractType, purchaseRiseFallContract]);
 
     const startAutoTrading = () => {
         if (!symbol) {
@@ -1059,6 +1062,24 @@ const MLTrader = observer(() => {
         // Execute trade immediately with current contract type (Rise/Fall)
         setStatus(`🚀 Starting auto trading with ${contractType === 'CALL' ? 'RISE' : 'FALL'} direction`);
         executeSingleTrade();
+
+        // Set up a watchdog timer to ensure continuous trading
+        const watchdogInterval = setInterval(() => {
+            if (isAutoTrading && !stopFlagRef.current) {
+                // Check if we haven't had a contract completion in the last 60 seconds
+                const lastTradeTime = Date.now();
+                if (lastTradeTime - (window.lastContractTime || 0) > 60000) {
+                    console.log('Watchdog: No recent contract activity, restarting trade...');
+                    setStatus('🔄 Watchdog: Restarting trade cycle...');
+                    executeSingleTrade();
+                }
+            } else {
+                clearInterval(watchdogInterval);
+            }
+        }, 30000); // Check every 30 seconds
+
+        // Store watchdog reference for cleanup
+        (window as any).tradingWatchdog = watchdogInterval;
     };
 
     const stopAutoTrading = () => {
@@ -1067,6 +1088,12 @@ const MLTrader = observer(() => {
         setStatus('Auto trading stopped.');
         run_panel.setIsRunning(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
+
+        // Clear watchdog timer
+        if ((window as any).tradingWatchdog) {
+            clearInterval((window as any).tradingWatchdog);
+            (window as any).tradingWatchdog = null;
+        }
 
         // Clear contract subscriptions on stop
         if (pocSubIdRef.current) {
@@ -1345,14 +1372,14 @@ const MLTrader = observer(() => {
                 setStatus(`🤖 Auto trading: ${contractType === 'CALL' ? 'RISE' : 'FALL'} direction`);
                 
                 // Execute the trade with the current contract type
-                purchaseRiseFallContract(contractType);
+                executeSingleTrade();
             } else {
                 console.log('Auto trading was stopped during delay');
             }
-        }, 2000); // 2 second delay for better stability
+        }, 3000); // 3 second delay for better stability
 
         return tradeTimeout;
-    }, [isAutoTrading, symbol, contractType]);
+    }, [isAutoTrading, symbol, contractType, executeSingleTrade]);
 
     return (
         <div className="ml-trader">
