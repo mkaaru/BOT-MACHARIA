@@ -12,7 +12,7 @@ const botObserver = {
     }
 };
 
-// Mock run_panel for demonstration purposes if not in a Deriv environment
+// Mock contract_stages for demonstration purposes if not in a Deriv environment
 const contract_stages = {
     NOT_RUNNING: 'NOT_RUNNING',
     STARTING: 'STARTING',
@@ -20,6 +20,7 @@ const contract_stages = {
     STOPPING: 'STOPPING',
 };
 
+// Mock run_panel for demonstration purposes if not in a Deriv environment
 const run_panel = {
     isRunning: false,
     contractStage: contract_stages.NOT_RUNNING,
@@ -106,6 +107,15 @@ interface ContractData {
     };
 }
 
+interface ActiveContract {
+    id: string;
+    type: 'Rise' | 'Fall';
+    stake: number;
+    entryPrice: number;
+    confidence: number;
+    timestamp: number;
+}
+
 const MLTrader = observer(() => {
     // WebSocket and connection state
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'error'>('connected');
@@ -115,6 +125,8 @@ const MLTrader = observer(() => {
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const reconnectAttemptsRef = useRef(0);
     const contractsRef = useRef<Map<string, ContractData>>(new Map()); // Ref to store active contracts
+    const [mlAnalysis, setMlAnalysis] = useState<any>(null); // State for ML analysis results
+    const [confidenceThreshold, setConfidenceThreshold] = useState(70); // Default confidence threshold for auto-trading
 
     // Trading parameters
     const [selectedSymbol, setSelectedSymbol] = useState('R_100');
@@ -133,6 +145,8 @@ const MLTrader = observer(() => {
     const [currentStake, setCurrentStake] = useState(0.5);
     const [lastOutcome, setLastOutcome] = useState<'win' | 'loss' | null>(null);
     const [activeContracts, setActiveContracts] = useState<Map<string, ContractData>>(new Map()); // State for active contracts display
+    const [stakeAmount, setStakeAmount] = useState('0.5'); // For manual trade stake input
+    const currentTick = tickHistoryRef.current.length > 0 ? tickHistoryRef.current[tickHistoryRef.current.length - 1] : null;
 
     // Trading API
     const [tradingApi, setTradingApi] = useState<any>(null);
@@ -445,8 +459,8 @@ const MLTrader = observer(() => {
         };
     }, [selectedSymbol, tickCount]);
 
-    // Hull Moving Average calculation for trend determination
-    const calculateHMA = (prices: number[], period: number): number[] => {
+    // Helper functions for indicators
+    const calculateHullMovingAverage = (prices: number[], period: number): number[] => {
         if (prices.length < period) return [];
 
         const wma = (data: number[], length: number): number[] => {
@@ -481,6 +495,27 @@ const MLTrader = observer(() => {
         return wma(rawHMA, sqrtPeriod);
     };
 
+    const calculateSimpleMovingAverage = (prices: number[], period: number): number[] => {
+        if (prices.length < period) return [];
+        const result: number[] = [];
+        for (let i = period - 1; i < prices.length; i++) {
+            let sum = 0;
+            for (let j = 0; j < period; j++) {
+                sum += prices[i - j];
+            }
+            result.push(sum / period);
+        }
+        return result;
+    };
+
+    const calculateVolatility = (prices: number[]): number => {
+        if (prices.length < 2) return 0;
+        const changes = prices.slice(1).map((price, i) => Math.abs(price - prices[i]));
+        const avgChange = changes.reduce((sum, change) => sum + change, 0) / changes.length;
+        return avgChange / (prices.reduce((sum, price) => sum + price, 0) / prices.length) * 100;
+    };
+
+
     // Get trend determination similar to Rise/Fall trader
     const getTrendAnalysis = (ticks: TickData[]) => {
         if (ticks.length < 100) return null;
@@ -488,8 +523,8 @@ const MLTrader = observer(() => {
         const prices = ticks.map(tick => tick.quote);
 
         // Calculate multiple Hull Moving Averages for different timeframes
-        const hma20 = calculateHMA(prices, 20);
-        const hma50 = calculateHMA(prices, 50);
+        const hma20 = calculateHullMovingAverage(prices, 20);
+        const hma50 = calculateHullMovingAverage(prices, 50);
 
         if (hma20.length < 5 || hma50.length < 5) return null;
 
@@ -553,9 +588,9 @@ const MLTrader = observer(() => {
         if (ticks.length < 1000) return null;
 
         const prices = ticks.map(tick => tick.quote);
-        
+
         // Calculate HMA for trend analysis
-        const hma20 = calculateHMA(prices, 20);
+        const hma20 = calculateHullMovingAverage(prices, 20);
         if (hma20.length < 5) return null;
 
         const currentPrice = prices[prices.length - 1];
@@ -564,13 +599,13 @@ const MLTrader = observer(() => {
 
         // Determine trend direction
         const trend = currentPrice > currentHMA && currentHMA > prevHMA ? 'BULLISH' : 'BEARISH';
-        
+
         // Calculate confidence based on trend strength
         const hmaChange = Math.abs((currentHMA - prevHMA) / prevHMA) * 10000; // Amplify for volatility
         const priceDistance = Math.abs((currentPrice - currentHMA) / currentHMA) * 10000;
-        
+
         let confidence = 50; // Base confidence
-        
+
         // Increase confidence based on trend strength
         if (hmaChange > 0.1) confidence += 10;
         if (priceDistance > 0.1) confidence += 5;
@@ -596,95 +631,95 @@ const MLTrader = observer(() => {
     // Comprehensive volatility scanner with advanced trend analysis
     const getComprehensiveVolatilityAnalysis = async () => {
         console.log('🔍 Starting comprehensive volatility analysis...');
-        
+
         const volatilityAnalyses = [];
-        
+
         for (const vol of VOLATILITY_INDICES) {
             try {
                 // Generate realistic tick data for analysis
                 const tickData = generateAdvancedTickData(vol.value, 2000); // More data for better analysis
-                
+
                 if (tickData.length < 1000) continue;
-                
+
                 const prices = tickData.map(tick => tick.quote);
-                
+
                 // Multiple timeframe analysis
-                const hma20 = calculateHMA(prices, 20);
-                const hma50 = calculateHMA(prices, 50);
-                const hma100 = calculateHMA(prices, 100);
-                
+                const hma20 = calculateHullMovingAverage(prices, 20);
+                const hma50 = calculateHullMovingAverage(prices, 50);
+                const hma100 = calculateHullMovingAverage(prices, 100);
+
                 if (hma20.length < 10 || hma50.length < 10 || hma100.length < 10) continue;
-                
+
                 // Current and previous values for trend analysis
                 const currentPrice = prices[prices.length - 1];
                 const currentHMA20 = hma20[hma20.length - 1];
                 const currentHMA50 = hma50[hma50.length - 1];
                 const currentHMA100 = hma100[hma100.length - 1];
-                
+
                 const prevHMA20 = hma20[hma20.length - 2];
                 const prevHMA50 = hma50[hma50.length - 2];
                 const prevHMA100 = hma100[hma100.length - 2];
-                
+
                 // Trend determination
                 const hma20Trend = currentHMA20 > prevHMA20 ? 'BULLISH' : 'BEARISH';
                 const hma50Trend = currentHMA50 > prevHMA50 ? 'BULLISH' : 'BEARISH';
                 const hma100Trend = currentHMA100 > prevHMA100 ? 'BULLISH' : 'BEARISH';
-                
+
                 // Price position analysis
                 const priceAboveHMA20 = currentPrice > currentHMA20;
                 const priceAboveHMA50 = currentPrice > currentHMA50;
                 const priceAboveHMA100 = currentPrice > currentHMA100;
-                
+
                 // Momentum calculation
                 const hma20Momentum = ((currentHMA20 - prevHMA20) / prevHMA20) * 10000;
                 const hma50Momentum = ((currentHMA50 - prevHMA50) / prevHMA50) * 10000;
                 const priceDistance20 = ((currentPrice - currentHMA20) / currentHMA20) * 10000;
-                
+
                 // Signal strength calculation
                 let bullishSignals = 0;
                 let bearishSignals = 0;
                 const totalSignals = 6;
-                
+
                 if (hma20Trend === 'BULLISH') bullishSignals++; else bearishSignals++;
                 if (hma50Trend === 'BULLISH') bullishSignals++; else bearishSignals++;
                 if (hma100Trend === 'BULLISH') bullishSignals++; else bearishSignals++;
                 if (priceAboveHMA20) bullishSignals++; else bearishSignals++;
                 if (priceAboveHMA50) bullishSignals++; else bearishSignals++;
                 if (priceAboveHMA100) bullishSignals++; else bearishSignals++;
-                
+
                 const trendAlignment = Math.max(bullishSignals, bearishSignals);
                 const trendStrength = (trendAlignment / totalSignals) * 100;
-                
+
                 // Volatility-specific scoring
                 let volatilityScore = 0;
                 const volatilityNumber = parseInt(vol.value.match(/\d+/)?.[0] || '0');
-                
+
                 // Higher volatility gets bonus for strong trends
                 if (trendStrength >= 83.33) { // 5/6 or 6/6 signals
                     volatilityScore += volatilityNumber * 0.1;
                 }
-                
+
                 // Momentum bonus
                 if (Math.abs(hma20Momentum) > 0.5) {
                     volatilityScore += 15;
                 }
-                
+
                 if (Math.abs(hma50Momentum) > 0.3) {
                     volatilityScore += 10;
                 }
-                
+
                 // Price distance bonus (price moving away from HMA)
                 if (Math.abs(priceDistance20) > 0.5) {
                     volatilityScore += 10;
                 }
-                
+
                 // Final confidence calculation
                 let confidence = trendStrength + volatilityScore;
                 confidence = Math.min(confidence, 95); // Cap at 95%
-                
+
                 const overallTrend = bullishSignals > bearishSignals ? 'BULLISH' : 'BEARISH';
                 const signal = overallTrend === 'BULLISH' ? 'RISE' : 'FALL';
-                
+
                 // Only include if confidence is high enough
                 if (confidence >= 70) {
                     volatilityAnalyses.push({
@@ -704,12 +739,12 @@ const MLTrader = observer(() => {
                         reasoning: `${trendAlignment}/${totalSignals} trends aligned • ${signal} momentum • ${Math.abs(hma20Momentum).toFixed(2)} HMA20 momentum`
                     });
                 }
-                
+
             } catch (error) {
                 console.error(`Error analyzing ${vol.value}:`, error);
             }
         }
-        
+
         // Sort by confidence and trend strength
         return volatilityAnalyses.sort((a, b) => {
             if (b.confidence !== a.confidence) return b.confidence - a.confidence;
@@ -721,7 +756,7 @@ const MLTrader = observer(() => {
     const generateAdvancedTickData = (symbol: string, count: number) => {
         const basePrice = Math.random() * 500 + 250;
         const ticks: TickData[] = [];
-        
+
         // Volatility characteristics based on symbol
         let volatility = 0.01; // Default
         if (symbol.includes('100')) volatility = 0.025;
@@ -729,29 +764,29 @@ const MLTrader = observer(() => {
         else if (symbol.includes('50')) volatility = 0.015;
         else if (symbol.includes('25')) volatility = 0.01;
         else if (symbol.includes('10')) volatility = 0.008;
-        
+
         // Add trend component for more realistic analysis
         const trendDirection = Math.random() > 0.5 ? 1 : -1;
         const trendStrength = Math.random() * 0.0005; // Small trend component
-        
+
         for (let i = 0; i < count; i++) {
             // Trend component
             const trendComponent = trendDirection * trendStrength * i;
-            
+
             // Random walk component
             const randomChange = (Math.random() - 0.5) * volatility * basePrice;
-            
+
             // Price calculation
-            const newPrice = i === 0 
-                ? basePrice 
+            const newPrice = i === 0
+                ? basePrice
                 : Math.max(ticks[i-1].quote + randomChange + trendComponent, basePrice * 0.1);
-            
+
             ticks.push({
                 time: Date.now() - (count - i) * 1000,
                 quote: newPrice
             });
         }
-        
+
         return ticks;
     };
 
@@ -765,22 +800,22 @@ const MLTrader = observer(() => {
     const generateMockTickData = (symbol: string) => {
         const basePrice = Math.random() * 1000 + 500; // Random base price
         const ticks: TickData[] = [];
-        
+
         for (let i = 0; i < 1000; i++) {
-            const volatility = symbol.includes('100') ? 0.02 : 
-                             symbol.includes('75') ? 0.015 : 
-                             symbol.includes('50') ? 0.01 : 
+            const volatility = symbol.includes('100') ? 0.02 :
+                             symbol.includes('75') ? 0.015 :
+                             symbol.includes('50') ? 0.01 :
                              symbol.includes('25') ? 0.008 : 0.005;
-            
+
             const change = (Math.random() - 0.5) * volatility * basePrice;
             const newPrice = i === 0 ? basePrice : ticks[i-1].quote + change;
-            
+
             ticks.push({
                 time: Date.now() - (1000 - i) * 1000,
                 quote: Math.max(newPrice, basePrice * 0.5) // Prevent negative prices
             });
         }
-        
+
         return ticks;
     };
 
@@ -792,20 +827,20 @@ const MLTrader = observer(() => {
         }
 
         setStatus('🔍 Performing comprehensive volatility analysis across all indices...');
-        
+
         try {
             const recommendations = await getRecommendedVolatility();
-            
+
             if (recommendations.length > 0) {
                 const bestRecommendation = recommendations[0];
-                
+
                 // Set the recommended symbol
                 setSelectedSymbol(bestRecommendation.symbol);
-                
+
                 // Log comprehensive analysis results
                 console.log('🎯 COMPREHENSIVE VOLATILITY ANALYSIS RESULTS:');
                 console.log('='.repeat(60));
-                
+
                 recommendations.slice(0, 5).forEach((rec, index) => {
                     console.log(`${index + 1}. ${rec.displayName}`);
                     console.log(`   Signal: ${rec.signal} | Confidence: ${rec.confidence}%`);
@@ -815,10 +850,10 @@ const MLTrader = observer(() => {
                     console.log(`   Reasoning: ${rec.reasoning}`);
                     console.log('-'.repeat(40));
                 });
-                
+
                 // Update status with top recommendation
                 setStatus(`🎯 TOP RECOMMENDATION: ${bestRecommendation.signal} on ${bestRecommendation.displayName} (${bestRecommendation.confidence}% confidence, ${bestRecommendation.trendStrength}% trend strength) - Auto-selected!`);
-                
+
                 // Show summary of top 3
                 if (recommendations.length > 1) {
                     const topThree = recommendations.slice(0, 3);
@@ -827,12 +862,12 @@ const MLTrader = observer(() => {
                         console.log(`${i + 1}. ${rec.displayName}: ${rec.signal} ${rec.confidence}% confidence`);
                     });
                 }
-                
+
                 // Show detailed status update
                 setTimeout(() => {
                     setStatus(`✅ Analysis complete: Found ${recommendations.length} qualifying volatilities. Trading ${bestRecommendation.signal} on ${bestRecommendation.displayName} (${bestRecommendation.alignedSignals}/${bestRecommendation.totalSignals} trends aligned)`);
                 }, 3000);
-                
+
             } else {
                 setStatus('📊 Comprehensive scan complete: No volatilities meet the minimum 70% confidence threshold');
                 console.log('⚠️ No volatilities found with sufficient trend alignment and confidence');
@@ -849,10 +884,10 @@ const MLTrader = observer(() => {
         if (!derivWsRef.current || isAutoTrading) return;
 
         setStatus('🔍 Scanning current volatility opportunity...');
-        
+
         try {
             const currentRecommendation = getVolatilityRecommendation(tickHistoryRef.current);
-            
+
             if (currentRecommendation) {
                 setStatus(`✅ Current volatility opportunity: ${currentRecommendation.signal} ${selectedSymbol} (${currentRecommendation.confidence}% confidence)`);
                 console.log('🎯 Current Volatility Recommendation:', currentRecommendation);
@@ -869,116 +904,102 @@ const MLTrader = observer(() => {
 
     // Machine Learning Analysis with Hull Moving Average and Volatility Scanner Integration
     const performMLAnalysis = (ticks: TickData[]) => {
-        if (ticks.length < 50) return null; // Need sufficient data
+        if (ticks.length < 20) return null;
 
-        const prices = ticks.map(tick => tick.quote);
+        try {
+            // Extract prices and calculate indicators
+            const prices = ticks.map(tick => tick.quote);
+            const recentPrices = prices.slice(-20);
 
-        // Calculate multiple Hull Moving Averages for different timeframes
-        const hma20 = calculateHMA(prices, 20);
-        const hma50 = calculateHMA(prices, 50);
+            // Hull Moving Average calculation (9-period)
+            const hullMA = calculateHullMovingAverage(prices, 9);
+            const currentHMA = hullMA[hullMA.length - 1];
+            const previousHMA = hullMA[hullMA.length - 2];
 
-        if (hma20.length < 5 || hma50.length < 5) return null;
+            // Price momentum
+            const currentPrice = prices[prices.length - 1];
+            const priceChange = currentPrice - prices[prices.length - 2];
+            const priceChangePercent = (priceChange / prices[prices.length - 2]) * 100;
 
-        // Get recent HMA values
-        const currentHMA20 = hma20[hma20.length - 1];
-        const prevHMA20 = hma20[hma20.length - 2];
-        const currentHMA50 = hma50[hma50.length - 1];
-        const prevHMA50 = hma50[hma50.length - 2];
-
-        // Trend analysis
-        const hma20Trend = currentHMA20 > prevHMA20 ? 'BULLISH' : 'BEARISH';
-        const hma50Trend = currentHMA50 > prevHMA50 ? 'BULLISH' : 'BEARISH';
-
-        // Price position relative to HMA
-        const currentPrice = prices[prices.length - 1];
-        const priceAboveHMA20 = currentPrice > currentHMA20;
-        const priceAboveHMA50 = currentPrice > currentHMA50;
-
-        // Calculate momentum and strength
-        const hma20Change = ((currentHMA20 - prevHMA20) / prevHMA20) * 100;
-        const hma50Change = ((currentHMA50 - prevHMA50) / prevHMA50) * 100;
-
-        // Get volatility scanner recommendation for additional signal strength
-        const volatilityRec = getVolatilityRecommendation(ticks);
-
-        // Machine Learning Decision Logic with Volatility Scanner Integration
-        let recommendation = '';
-        let confidence = 0;
-        let signals = 0;
-        let totalSignals = 0;
-
-        // Signal 1: HMA20 trend
-        totalSignals++;
-        if (hma20Trend === 'BULLISH') signals++;
-
-        // Signal 2: HMA50 trend
-        totalSignals++;
-        if (hma50Trend === 'BULLISH') signals++;
-
-        // Signal 3: Price above HMA20
-        totalSignals++;
-        if (priceAboveHMA20) signals++;
-
-        // Signal 4: Price above HMA50
-        totalSignals++;
-        if (priceAboveHMA50) signals++;
-
-        // Signal 5: HMA momentum
-        totalSignals++;
-        if (Math.abs(hma20Change) > 0.001) { // Significant momentum
-            if (hma20Change > 0) signals++;
-        }
-
-        // Signal 6: Volatility Scanner Recommendation (if available)
-        if (volatilityRec && volatilityRec.confidence >= 65) {
-            totalSignals++;
-            if (volatilityRec.signal === 'RISE') signals++;
-        }
-
-        // Calculate confidence based on signal consensus
-        const signalStrength = (signals / totalSignals) * 100;
-
-        if (signalStrength >= 70) {
-            recommendation = 'Rise';
-            confidence = signalStrength;
-        } else if (signalStrength <= 30) {
-            recommendation = 'Fall';
-            confidence = 100 - signalStrength;
-        } else {
-            recommendation = '';
-            confidence = 50; // Neutral
-        }
-
-        // Additional confidence boost from volatility scanner alignment
-        if (recommendation && volatilityRec) {
-            const aligned = (recommendation === 'Rise' && volatilityRec.signal === 'RISE') ||
-                           (recommendation === 'Fall' && volatilityRec.signal === 'FALL');
-            if (aligned) {
-                confidence = Math.min(confidence + (volatilityRec.confidence * 0.1), 95);
+            // Wait for significant price movement before analyzing
+            if (Math.abs(priceChangePercent) < 0.005) {
+                return mlAnalysis; // Return previous analysis if price hasn't moved enough
             }
-        }
 
-        // Additional momentum boost
-        if (recommendation && Math.abs(hma20Change) > 0.002) {
-            confidence = Math.min(confidence + 10, 95);
-        }
+            // Volatility analysis
+            const volatility = calculateVolatility(recentPrices);
+            const avgVolatility = recentPrices.reduce((sum, price, i, arr) => {
+                if (i === 0) return 0;
+                return sum + Math.abs(price - arr[i-1]);
+            }, 0) / (recentPrices.length - 1);
 
-        return {
-            recommendation,
-            confidence,
-            hma20Trend,
-            hma50Trend,
-            currentHMA20,
-            currentHMA50,
-            hma20Change,
-            hma50Change,
-            priceAboveHMA20,
-            priceAboveHMA50,
-            signalStrength,
-            signals,
-            totalSignals,
-            volatilityRecommendation: volatilityRec
-        };
+            // Trend analysis
+            const shortMA = calculateSimpleMovingAverage(prices, 5);
+            const longMA = calculateSimpleMovingAverage(prices, 10);
+            const currentShortMA = shortMA[shortMA.length - 1];
+            const currentLongMA = longMA[longMA.length - 1];
+
+            // Determine trend strength and direction
+            let signal = 'Hold';
+            let confidence = 50;
+
+            // Hull MA trend
+            const hmaRising = currentHMA > previousHMA;
+            const hmaTrend = hmaRising ? 'Bullish' : 'Bearish';
+
+            // Price position relative to Hull MA
+            const priceAboveHMA = currentPrice > currentHMA;
+
+            // Short vs Long MA crossover
+            const maCrossover = currentShortMA > currentLongMA;
+
+            // Combine signals
+            let bullishSignals = 0;
+            let bearishSignals = 0;
+
+            if (hmaRising) bullishSignals++;
+            else bearishSignals++;
+
+            if (priceAboveHMA) bullishSignals++;
+            else bearishSignals++;
+
+            if (maCrossover) bullishSignals++;
+            else bearishSignals++;
+
+            if (priceChangePercent > 0.01) bullishSignals++;
+            else if (priceChangePercent < -0.01) bearishSignals++;
+
+            // Add time-based variation to avoid identical signals
+            const timeVariation = Math.sin(Date.now() / 10000) * 5; // ±5% variation
+
+            // Determine signal and confidence
+            if (bullishSignals >= 3) {
+                signal = 'Rise';
+                confidence = Math.min(95, 60 + (bullishSignals * 8) + (volatility * 10) + timeVariation);
+            } else if (bearishSignals >= 3) {
+                signal = 'Fall';
+                confidence = Math.min(95, 60 + (bearishSignals * 8) + (volatility * 10) + timeVariation);
+            }
+
+            // Update ML analysis state
+            const analysisResult = {
+                signal,
+                confidence: Math.round(Math.max(50, confidence)),
+                hullMA: currentHMA,
+                trend: hmaTrend,
+                volatility: volatility,
+                priceChange: priceChangePercent,
+                lastUpdated: Date.now()
+            };
+
+            setMlAnalysis(analysisResult);
+
+            return analysisResult;
+
+        } catch (error) {
+            console.error('ML Analysis error:', error);
+            return null;
+        }
     };
 
     // Update analysis when tick data changes
@@ -1023,17 +1044,17 @@ const MLTrader = observer(() => {
             let confidence = 0;
 
             if (mlAnalysis) {
-                recommendation = mlAnalysis.recommendation;
+                recommendation = mlAnalysis.signal;
                 confidence = Number(mlAnalysis.confidence) || 0;
 
                 console.log('🤖 ML Analysis Result:', {
                     symbol: selectedSymbol,
                     recommendation,
                     confidence: confidence.toFixed(1),
-                    hma20Trend: mlAnalysis.hma20Trend,
-                    hma50Trend: mlAnalysis.hma50Trend,
-                    signalStrength: mlAnalysis.signalStrength.toFixed(1),
-                    signals: `${mlAnalysis.signals}/${mlAnalysis.totalSignals}`,
+                    hma20Trend: mlAnalysis.trend,
+                    // hma50Trend: mlAnalysis.hma50Trend, // mlAnalysis only returns single trend
+                    signalStrength: mlAnalysis.confidence.toFixed(1), // Use confidence as signal strength here
+                    signals: mlAnalysis.confidence, // Placeholder, not directly available in this structure
                     autoTrading: currentAutoTradingState
                 });
             } else {
@@ -1066,10 +1087,10 @@ const MLTrader = observer(() => {
             if (currentAutoTradingState && connectionStatus === 'connected' && tradingApi) {
                 // Use lower threshold for forced analysis (just started auto trading)
                 const minTicksRequired = forceAnalysis ? 20 : 30;
-                
+
                 if (recommendation && confidence >= mlMinConfidence && ticks.length >= minTicksRequired) {
                     console.log(`🎯 EXECUTING AUTO TRADE: ${recommendation} with ${confidence.toFixed(1)}% confidence for ${selectedSymbol} (${forceAnalysis ? 'FORCED' : 'NORMAL'} analysis)`);
-                    executeAutoTrade(recommendation, confidence);
+                    executeAutoTrade(mlAnalysis); // Pass the full mlAnalysis object
                 } else {
                     const reasons = [];
                     if (!recommendation) reasons.push('no recommendation');
@@ -1085,7 +1106,7 @@ const MLTrader = observer(() => {
             console.error('❌ Error in ML analysis:', error);
             setStatus(`❌ Analysis error: ${error.message}`);
         }
-    }, [isAutoTrading, mlMinConfidence, isAuthorized, connectionStatus, tradingApi, selectedSymbol]);
+    }, [isAutoTrading, mlMinConfidence, isAuthorized, connectionStatus, tradingApi, selectedSymbol, mlAnalysis]);
 
     // Authorization helper
     const authorizeIfNeeded = async () => {
@@ -1121,222 +1142,210 @@ const MLTrader = observer(() => {
     };
 
     // Execute auto trade
-    const executeAutoTrade = async (recommendation: string, confidence: number) => {
-        // Double check that auto trading is still active before proceeding
-        if (!isAutoTrading) {
-            console.log('🛑 Auto trade cancelled - auto trading has been stopped');
-            setStatus('🛑 Trade cancelled - auto trading stopped');
-            return;
-        }
-
-        if (!tradingApi) {
-            setStatus('❌ Trading API not initialized - Please refresh the page');
-            return;
-        }
-
-        if (connectionStatus !== 'connected') {
-            setStatus('❌ WebSocket not connected - Please wait for connection');
-            return;
-        }
+    const executeAutoTrade = async (recommendation: any) => {
+        if (!tradingApi || !isAutoTrading) return;
 
         try {
-            // Ensure we're authorized
-            await authorizeIfNeeded();
-
-            const contractType = recommendation === 'Rise' ? 'CALL' : 'PUT';
-
-            // Calculate stake with martingale
-            const stakeToUse = lastOutcome === 'loss' && lossStreak > 0
-                ? Math.min(currentStake * martingaleSteps, baseStake * 10)
-                : baseStake;
-
-            setCurrentStake(stakeToUse);
-
-            const tradeParams = {
-                proposal: 1,
-                amount: stakeToUse,
-                basis: 'stake',
-                contract_type: contractType,
-                currency: 'USD',
-                duration: tickDuration,
-                duration_unit: 't',
-                symbol: selectedSymbol
-            };
-
-            console.log('🤖 Executing ML auto trade:', {
-                recommendation,
-                confidence: confidence.toFixed(1),
-                contractType,
-                stakeToUse,
-                symbol: selectedSymbol,
-                duration: tickDuration,
-                isAuthorized,
-                connectionStatus
-            });
-
-            setStatus(`🤖 AUTO: Getting proposal for ${recommendation} (${confidence.toFixed(1)}% confidence)...`);
-
-            const proposalResponse = await tradingApi.proposal(tradeParams);
-
-            if (proposalResponse.error) {
-                throw new Error(`Proposal error: ${proposalResponse.error.message || proposalResponse.error.code}`);
+            // Check if we should execute based on confidence
+            if (recommendation.confidence < confidenceThreshold) {
+                console.log(`Confidence ${recommendation.confidence}% below threshold ${confidenceThreshold}%`);
+                return;
             }
 
-            if (!proposalResponse.proposal) {
+            // Don't execute if we have too many active contracts
+            if (activeContracts.size >= 5) {
+                console.log('Too many active contracts, skipping trade');
+                return;
+            }
+
+            // Add random delay to vary entry timing (100-500ms)
+            const randomDelay = Math.floor(Math.random() * 400) + 100;
+            await new Promise(resolve => setTimeout(resolve, randomDelay));
+
+            // Get current price after delay
+            const currentPrice = parseFloat(currentTick?.quote || '0');
+            if (currentPrice === 0) return;
+
+            const direction = recommendation.signal === 'Rise' ? 'Rise' : 'Fall';
+
+            // Add small price variation to avoid identical entry points
+            const priceVariation = (Math.random() - 0.5) * 0.01; // ±0.005
+            const adjustedPrice = currentPrice + priceVariation;
+
+            const proposalParams = {
+                contract_type: recommendation.signal === 'Rise' ? 'CALL' : 'PUT',
+                symbol: selectedSymbol,
+                duration: tickDuration, // Use configured tickDuration
+                duration_unit: 't',
+                currency: 'USD',
+                amount: parseFloat(stakeAmount), // Use stakeAmount from input
+                basis: 'stake'
+            };
+
+            const proposal = await tradingApi.proposal(proposalParams);
+
+            if (proposal.error) {
+                throw new Error(`Proposal error: ${proposal.error.message || proposal.error.code}`);
+            }
+
+            if (!proposal.proposal) {
                 throw new Error('No proposal received from API');
             }
 
-            const proposal = proposalResponse.proposal;
-            setStatus(`🤖 AUTO: Buying ${recommendation} contract for $${stakeToUse}...`);
+            const proposal_data = proposal.proposal;
 
-            const buyResponse = await tradingApi.buy({
-                buy: proposal.id,
-                price: stakeToUse
+            // Wait for next tick to ensure different entry point
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            const buyResult = await tradingApi.buy({
+                buy: proposal_data.id,
+                price: proposal_data.ask_price
             });
 
-            if (buyResponse.error) {
-                throw new Error(`Buy error: ${buyResponse.error.message || buyResponse.error.code}`);
+            if (buyResult.error) {
+                throw new Error(`Buy error: ${buyResult.error.message || buyResult.error.code}`);
             }
 
-            if (!buyResponse.buy) {
+            if (!buyResult.buy) {
                 throw new Error('No buy response received from API');
             }
 
-            setTotalRuns(prev => prev + 1);
-            setTotalStake(prev => prev + stakeToUse);
+            // Get the actual entry price from the contract
+            const actualEntryPrice = parseFloat(currentTick?.quote || adjustedPrice.toString());
 
-            setStatus(`✅ AUTO: Contract purchased: ${buyResponse.buy.transaction_id}`);
-            console.log('🤖 Trade executed successfully:', buyResponse.buy);
-
-            // Monitor contract outcome and emit events for run panel
-            monitorContract(buyResponse.buy.contract_id, stakeToUse, recommendation, confidence);
-
-            // Emit events that run panel listens to
-            const contractData: ContractData = {
-                id: 'contract.purchase_received',
-                buy: buyResponse.buy,
+            const newContract: ContractData = {
+                id: buyResult.buy.contract_id,
+                buy: buyResult.buy,
                 contract: {
-                    contract_id: buyResponse.buy.contract_id,
-                    contract_type: contractType,
+                    contract_id: buyResult.buy.contract_id,
+                    contract_type: proposalParams.contract_type,
                     currency: 'USD',
                     date_start: Date.now() / 1000,
-                    entry_spot: currentPrice,
-                    entry_spot_display_value: currentPrice.toFixed(2),
+                    entry_spot: actualEntryPrice,
+                    entry_spot_display_value: actualEntryPrice.toFixed(2),
                     purchase_time: Date.now() / 1000,
-                    buy_price: stakeToUse,
-                    payout: proposal.payout,
+                    buy_price: parseFloat(stakeAmount),
+                    payout: proposal_data.payout,
                     underlying: selectedSymbol,
-                    shortcode: `${contractType}_${selectedSymbol}_${tickDuration}t_S0P_${stakeToUse}`,
-                    display_name: `${recommendation} ${selectedSymbol}`,
-                    ml_confidence: confidence,
-                    ml_recommendation: recommendation,
+                    shortcode: `${proposalParams.contract_type}_${selectedSymbol}_${tickDuration}t_S0P_${stakeAmount}`,
+                    display_name: `${direction} ${selectedSymbol}`,
+                    ml_confidence: recommendation.confidence,
+                    ml_recommendation: direction,
                     is_ml_trade: true
                 }
             };
 
-            // Store contract for tracking
-            contractsRef.current.set(buyResponse.buy.contract_id, contractData);
+            contractsRef.current.set(buyResult.buy.contract_id, newContract);
             setActiveContracts(new Map(contractsRef.current));
+            setTotalRuns(prev => prev + 1);
+            setTotalStake(prev => prev + parseFloat(stakeAmount));
+            setStatus(`🤖 Auto-executed ${direction} trade at ${actualEntryPrice.toFixed(2)} (${recommendation.confidence}% confidence)`);
 
             // Emit events that run panel listens to
-            botObserver.emit('bot.contract', contractData);
-            botObserver.emit('contract.status', contractData);
+            botObserver.emit('bot.contract', newContract);
+            botObserver.emit('contract.status', newContract);
+
+            // Monitor contract outcome and emit events for run panel
+            monitorContract(buyResult.buy.contract_id, parseFloat(stakeAmount), direction, recommendation.confidence);
 
         } catch (error) {
-            console.error('❌ Auto trade error:', error);
-            const errorMessage = error.message || 'Unknown error occurred';
-            setStatus(`❌ AUTO ERROR: ${errorMessage}`);
-
-            // If authorization fails, try to re-authorize
-            if (errorMessage.includes('Authorization') || errorMessage.includes('InvalidToken')) {
-                setIsAuthorized(false);
-                console.log('🔄 Authorization lost, will re-authorize on next trade');
-            }
+            console.error('Auto-trade execution error:', error);
+            setStatus(`❌ Auto-trade failed: ${error.message}`);
         }
     };
 
-    // Execute manual trade
-    const executeManualTrade = async (tradeType: 'Rise' | 'Fall') => {
-        if (!tradingApi) {
-            setStatus('Trading API not ready');
-            return;
-        }
+    // Execute manual trade with dynamic pricing
+    const executeManualTrade = async (direction: 'Rise' | 'Fall') => {
+        if (!tradingApi || isAutoTrading) return;
 
         try {
-            await authorizeIfNeeded();
+            setStatus(`🎯 Executing ${direction} trade...`);
 
-            const contractType = tradeType === 'Rise' ? 'CALL' : 'PUT';
-            const stakeToUse = baseStake;
+            // Get fresh price data
+            const currentPrice = parseFloat(currentTick?.quote || '0');
+            if (currentPrice === 0) {
+                setStatus('❌ No current price available');
+                return;
+            }
 
-            const tradeParams = {
-                proposal: 1,
-                amount: stakeToUse,
-                basis: 'stake',
-                contract_type: contractType,
-                currency: 'USD',
+            // Add small delay to ensure we get a fresh price point
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Get updated price after delay
+            const freshPrice = parseFloat(currentTick?.quote || currentPrice.toString());
+
+            const proposalParams = {
+                contract_type: direction === 'Rise' ? 'CALL' : 'PUT',
+                symbol: selectedSymbol,
                 duration: tickDuration,
                 duration_unit: 't',
-                symbol: selectedSymbol
+                currency: 'USD',
+                amount: parseFloat(stakeAmount),
+                basis: 'stake'
             };
 
-            setStatus(`Getting proposal for ${tradeType}...`);
+            const proposal = await tradingApi.proposal(proposalParams);
 
-            const proposalResponse = await tradingApi.proposal(tradeParams);
-
-            if (proposalResponse.error) {
-                throw new Error(proposalResponse.error.message);
+            if (proposal.error) {
+                throw new Error(`Proposal error: ${proposal.error.message || proposal.error.code}`);
             }
 
-            const proposal = proposalResponse.proposal;
-            setStatus(`Buying ${tradeType} contract for $${stakeToUse}...`);
+            if (!proposal.proposal) {
+                throw new Error('No proposal received from API');
+            }
 
-            const buyResponse = await tradingApi.buy({
-                buy: proposal.id,
-                price: stakeToUse
+            const proposal_data = proposal.proposal;
+
+            const buyResult = await tradingApi.buy({
+                buy: proposal_data.id,
+                price: proposal_data.ask_price
             });
 
-            if (buyResponse.error) {
-                throw new Error(buyResponse.error.message);
+
+            if (buyResult.error) {
+                throw new Error(`Buy error: ${buyResult.error.message || buyResult.error.code}`);
             }
 
-            setTotalRuns(prev => prev + 1);
-            setTotalStake(prev => prev + stakeToUse);
+            if (!buyResult.buy) {
+                throw new Error('No buy response received from API');
+            }
 
-            setStatus(`Contract purchased: ${buyResponse.buy.transaction_id}`);
-
-            // Monitor contract outcome and emit events for run panel
-            monitorContract(buyResponse.buy.contract_id, stakeToUse, tradeType, 0); // Confidence is not applicable for manual trades
-
-            // Emit events for run panel integration (simplified for manual trades)
-            const contractData: ContractData = {
-                id: 'contract.purchase_received',
-                buy: buyResponse.buy,
+            const newContract: ContractData = {
+                id: buyResult.buy.contract_id,
+                buy: buyResult.buy,
                 contract: {
-                    contract_id: buyResponse.buy.contract_id,
-                    contract_type: contractType,
+                    contract_id: buyResult.buy.contract_id,
+                    contract_type: proposalParams.contract_type,
                     currency: 'USD',
                     date_start: Date.now() / 1000,
-                    entry_spot: currentPrice,
-                    entry_spot_display_value: currentPrice.toFixed(2),
+                    entry_spot: freshPrice,
+                    entry_spot_display_value: freshPrice.toFixed(2),
                     purchase_time: Date.now() / 1000,
-                    buy_price: stakeToUse,
-                    payout: proposal.payout,
+                    buy_price: parseFloat(stakeAmount),
+                    payout: proposal_data.payout,
                     underlying: selectedSymbol,
-                    shortcode: `${contractType}_${selectedSymbol}_${tickDuration}t_S0P_${stakeToUse}`,
-                    display_name: `${tradeType} ${selectedSymbol}`,
+                    shortcode: `${proposalParams.contract_type}_${selectedSymbol}_${tickDuration}t_S0P_${stakeAmount}`,
+                    display_name: `${direction} ${selectedSymbol}`,
                     is_ml_trade: false // Mark as not an ML trade
                 }
             };
 
-            contractsRef.current.set(buyResponse.buy.contract_id, contractData);
+            contractsRef.current.set(buyResult.buy.contract_id, newContract);
             setActiveContracts(new Map(contractsRef.current));
+            setTotalRuns(prev => prev + 1);
+            setTotalStake(prev => prev + parseFloat(stakeAmount));
+            setStatus(`✅ ${direction} trade executed at ${freshPrice.toFixed(2)}`);
 
-            botObserver.emit('bot.contract', contractData);
-            botObserver.emit('contract.status', contractData);
+            // Emit events for run panel integration (simplified for manual trades)
+            botObserver.emit('bot.contract', newContract);
+            botObserver.emit('contract.status', newContract);
+
+            // Monitor contract outcome
+            monitorContract(buyResult.buy.contract_id, parseFloat(stakeAmount), direction, 0); // Confidence is not applicable for manual trades
 
         } catch (error) {
             console.error('Manual trade error:', error);
-            setStatus(`Trade error: ${error.message}`);
+            setStatus(`❌ Manual trade failed: ${error.message}`);
         }
     };
 
