@@ -5,6 +5,13 @@ import Text from '@/components/shared_ui/text';
 import { generateDerivApiInstance, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
 import './ml-trader.scss';
 
+// Mock botObserver for demonstration purposes if not in a Deriv environment
+const botObserver = {
+    emit: (event, data) => {
+        console.log(`Event: ${event}`, data);
+    }
+};
+
 // Volatility indices for Rise/Fall trading
 const VOLATILITY_INDICES = [
     { value: 'R_10', label: 'Volatility 10 Index' },
@@ -34,6 +41,45 @@ interface AnalysisData {
     riseRatio?: number;
     fallRatio?: number;
     totalTicks?: number;
+    hma20Trend?: string;
+    hma50Trend?: string;
+    currentHMA20?: number;
+    currentHMA50?: number;
+    hma20Change?: number;
+    hma50Change?: number;
+    priceAboveHMA20?: boolean;
+    priceAboveHMA50?: boolean;
+    signalStrength?: number;
+    signals?: number;
+    totalSignals?: number;
+}
+
+interface ContractData {
+    id: string;
+    buy: any;
+    contract: {
+        contract_id: string;
+        contract_type: string;
+        currency: string;
+        date_start: number;
+        entry_spot: number;
+        entry_spot_display_value: string;
+        purchase_time: number;
+        buy_price: number;
+        payout: number;
+        underlying: string;
+        shortcode: string;
+        display_name: string;
+        ml_confidence?: number;
+        ml_recommendation?: string;
+        is_ml_trade?: boolean;
+        current_spot?: number;
+        current_spot_display_value?: string;
+        profit?: number;
+        is_sold?: boolean;
+        status?: string;
+        transaction_id?: string;
+    };
 }
 
 const MLTrader = observer(() => {
@@ -44,6 +90,7 @@ const MLTrader = observer(() => {
     const tickHistoryRef = useRef<TickData[]>([]);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const reconnectAttemptsRef = useRef(0);
+    const contractsRef = useRef<Map<string, ContractData>>(new Map()); // Ref to store active contracts
 
     // Trading parameters
     const [selectedSymbol, setSelectedSymbol] = useState('R_100');
@@ -61,6 +108,7 @@ const MLTrader = observer(() => {
     const [lossStreak, setLossStreak] = useState(0);
     const [currentStake, setCurrentStake] = useState(0.5);
     const [lastOutcome, setLastOutcome] = useState<'win' | 'loss' | null>(null);
+    const [activeContracts, setActiveContracts] = useState<Map<string, ContractData>>(new Map()); // State for active contracts display
 
     // Trading API
     const [tradingApi, setTradingApi] = useState<any>(null);
@@ -545,8 +593,8 @@ const MLTrader = observer(() => {
             const contractType = recommendation === 'Rise' ? 'CALL' : 'PUT';
 
             // Calculate stake with martingale
-            const stakeToUse = lastOutcome === 'loss' && lossStreak > 0 
-                ? Math.min(currentStake * martingaleSteps, baseStake * 10) 
+            const stakeToUse = lastOutcome === 'loss' && lossStreak > 0
+                ? Math.min(currentStake * martingaleSteps, baseStake * 10)
                 : baseStake;
 
             setCurrentStake(stakeToUse);
@@ -607,8 +655,39 @@ const MLTrader = observer(() => {
             setStatus(`✅ AUTO: Contract purchased: ${buyResponse.buy.transaction_id}`);
             console.log('🤖 Trade executed successfully:', buyResponse.buy);
 
-            // Monitor contract outcome
-            monitorContract(buyResponse.buy.contract_id, stakeToUse);
+            // Monitor contract outcome and emit events for run panel
+            monitorContract(buyResponse.buy.contract_id, stakeToUse, recommendation, confidence);
+
+            // Emit events for run panel integration
+            const contractData: ContractData = {
+                id: 'contract.purchase_received',
+                buy: buyResponse.buy,
+                contract: {
+                    contract_id: buyResponse.buy.contract_id,
+                    contract_type: contractType,
+                    currency: 'USD',
+                    date_start: Date.now() / 1000,
+                    entry_spot: currentPrice,
+                    entry_spot_display_value: currentPrice.toFixed(2),
+                    purchase_time: Date.now() / 1000,
+                    buy_price: stakeToUse,
+                    payout: proposal.payout,
+                    underlying: selectedSymbol,
+                    shortcode: `${contractType}_${selectedSymbol}_${tickDuration}t_S0P_${stakeToUse}`,
+                    display_name: `${recommendation} ${selectedSymbol}`,
+                    ml_confidence: confidence,
+                    ml_recommendation: recommendation,
+                    is_ml_trade: true
+                }
+            };
+
+            // Store contract for tracking
+            contractsRef.current.set(buyResponse.buy.contract_id, contractData);
+            setActiveContracts(new Map(contractsRef.current));
+
+            // Emit events that run panel listens to
+            botObserver.emit('bot.contract', contractData);
+            botObserver.emit('contract.status', contractData);
 
         } catch (error) {
             console.error('❌ Auto trade error:', error);
@@ -672,8 +751,35 @@ const MLTrader = observer(() => {
 
             setStatus(`Contract purchased: ${buyResponse.buy.transaction_id}`);
 
-            // Monitor contract outcome
-            monitorContract(buyResponse.buy.contract_id, stakeToUse);
+            // Monitor contract outcome and emit events for run panel
+            monitorContract(buyResponse.buy.contract_id, stakeToUse, tradeType, 0); // Confidence is not applicable for manual trades
+
+            // Emit events for run panel integration (simplified for manual trades)
+            const contractData: ContractData = {
+                id: 'contract.purchase_received',
+                buy: buyResponse.buy,
+                contract: {
+                    contract_id: buyResponse.buy.contract_id,
+                    contract_type: contractType,
+                    currency: 'USD',
+                    date_start: Date.now() / 1000,
+                    entry_spot: currentPrice,
+                    entry_spot_display_value: currentPrice.toFixed(2),
+                    purchase_time: Date.now() / 1000,
+                    buy_price: stakeToUse,
+                    payout: proposal.payout,
+                    underlying: selectedSymbol,
+                    shortcode: `${contractType}_${selectedSymbol}_${tickDuration}t_S0P_${stakeToUse}`,
+                    display_name: `${tradeType} ${selectedSymbol}`,
+                    is_ml_trade: false // Mark as not an ML trade
+                }
+            };
+
+            contractsRef.current.set(buyResponse.buy.contract_id, contractData);
+            setActiveContracts(new Map(contractsRef.current));
+
+            botObserver.emit('bot.contract', contractData);
+            botObserver.emit('contract.status', contractData);
 
         } catch (error) {
             console.error('Manual trade error:', error);
@@ -681,54 +787,97 @@ const MLTrader = observer(() => {
         }
     };
 
-    // Monitor contract outcome
-    const monitorContract = async (contractId: string, stakeAmount: number) => {
+    // Monitor contract outcome with enhanced tracking
+    const monitorContract = async (contractId: string, stake: number, recommendation: string, confidence: number) => {
+        if (!tradingApi) return;
+
         try {
-            // Subscribe to proposal_open_contract for the specific contract
-            const subscription = tradingApi.proposal_open_contract({
+            const proposalOpenContract = await tradingApi.proposalOpenContract({
+                proposal_open_contract: 1,
                 contract_id: contractId,
                 subscribe: 1
             });
 
-            subscription.onmessage = (data: any) => {
-                if (data.error) {
-                    console.error('Contract monitoring error:', data.error);
-                    setStatus(`Monitoring error: ${data.error.message}`);
-                    return;
-                }
+            if (proposalOpenContract.error) {
+                setStatus(`❌ Monitoring error: ${proposalOpenContract.error.message}`);
+                return;
+            }
 
-                if (data.proposal_open_contract) {
-                    const contract = data.proposal_open_contract;
+            // Set up real-time contract monitoring
+            const subscription = tradingApi.subscribeToOpenContract(contractId, (response) => {
+                if (response.proposal_open_contract) {
+                    const contract = response.proposal_open_contract;
 
-                    if (contract.is_sold) {
-                        const profit = contract.profit || 0;
-                        const payout = contract.payout || 0;
+                    // Update contract in our tracking
+                    const existingContract = contractsRef.current.get(contractId);
+                    if (existingContract) {
+                        const updatedContract = {
+                            ...existingContract,
+                            contract: {
+                                ...existingContract.contract,
+                                ...contract,
+                                current_spot: contract.current_spot,
+                                current_spot_display_value: contract.current_spot_display_value,
+                                profit: contract.profit,
+                                is_sold: contract.is_sold,
+                                status: contract.status
+                            }
+                        };
 
-                        setTotalPayout(prev => prev + payout);
+                        contractsRef.current.set(contractId, updatedContract);
+                        setActiveContracts(new Map(contractsRef.current));
 
-                        if (profit > 0) {
+                        // Emit update event
+                        botObserver.emit('bot.contract', updatedContract);
+                    }
+
+                    // Check if contract is finished
+                    if (contract.is_settleable || contract.is_sold) {
+                        const isWin = contract.is_settleable && parseFloat(contract.profit || '0') > 0;
+                        const payout = parseFloat(contract.payout || '0');
+                        const profit = parseFloat(contract.profit || '0');
+
+                        // Update statistics
+                        if (isWin) {
                             setContractsWon(prev => prev + 1);
-                            setLastOutcome('win');
+                            setTotalPayout(prev => prev + payout);
                             setLossStreak(0);
                             setCurrentStake(baseStake);
-                            setStatus(`✅ Contract won! Profit: $${profit.toFixed(2)}`);
+                            setLastOutcome('win');
+                            setStatus(`✅ ML WIN: +$${profit.toFixed(2)} (${recommendation} ${confidence.toFixed(1)}%)`);
                         } else {
                             setContractsLost(prev => prev + 1);
-                            setLastOutcome('loss');
                             setLossStreak(prev => prev + 1);
-                            setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
+                            setLastOutcome('loss');
+                            setStatus(`❌ ML LOSS: -$${stake.toFixed(2)} (${recommendation} ${confidence.toFixed(1)}%)`);
                         }
 
-                        // Unsubscribe from this contract
-                        subscription.unsubscribe?.();
+                        // Emit contract sold event
+                        const soldContract = {
+                            id: 'contract.sold',
+                            contract: contract,
+                            transaction_id: contract.transaction_id
+                        };
+
+                        botObserver.emit('bot.contract', soldContract);
+                        botObserver.emit('contract.status', soldContract);
+
+                        // Remove from active contracts
+                        contractsRef.current.delete(contractId);
+                        setActiveContracts(new Map(contractsRef.current));
+
+                        // Unsubscribe
+                        subscription?.unsubscribe();
                     }
                 }
-            };
+            });
+
         } catch (error) {
             console.error('Error monitoring contract:', error);
-            setStatus(`Monitoring error: ${error.message}`);
+            setStatus(`❌ Monitoring setup error: ${error.message}`);
         }
     };
+
 
     // Toggle auto trading
     const toggleAutoTrading = () => {
@@ -791,7 +940,7 @@ const MLTrader = observer(() => {
                             <span>{analysisData.riseRatio?.toFixed(1) || '0.0'}%</span>
                         </div>
                         <div className='ml-trader__progress-bar'>
-                            <div 
+                            <div
                                 className='ml-trader__progress-fill ml-trader__progress-fill--rise'
                                 style={{ width: `${analysisData.riseRatio || 0}%` }}
                             />
@@ -803,7 +952,7 @@ const MLTrader = observer(() => {
                             <span>{analysisData.fallRatio?.toFixed(1) || '0.0'}%</span>
                         </div>
                         <div className='ml-trader__progress-bar'>
-                            <div 
+                            <div
                                 className='ml-trader__progress-fill ml-trader__progress-fill--fall'
                                 style={{ width: `${analysisData.fallRatio || 0}%` }}
                             />
@@ -813,7 +962,7 @@ const MLTrader = observer(() => {
 
                 {analysisData.recommendation && (
                     <div className='ml-trader__recommendation'>
-                        <strong>🤖 ML Recommendation:</strong> {analysisData.recommendation} 
+                        <strong>🤖 ML Recommendation:</strong> {analysisData.recommendation}
                         <span className='ml-trader__confidence'>
                             ({analysisData.confidence?.toFixed(1)}% confidence)
                         </span>
@@ -921,30 +1070,71 @@ const MLTrader = observer(() => {
                 </div>
             </div>
 
+            {/* Active Contracts */}
+            {activeContracts.size > 0 && (
+                <div className='ml-trader__active-contracts'>
+                    <h3>{localize('Active ML Contracts')}</h3>
+                    {Array.from(activeContracts.values()).map((contractData) => (
+                        <div key={contractData.contract.contract_id} className='ml-trader__contract-item'>
+                            <div className='ml-trader__contract-header'>
+                                <span className='ml-trader__contract-type'>
+                                    {contractData.contract.ml_recommendation} {contractData.contract.underlying}
+                                </span>
+                                <span className='ml-trader__contract-confidence'>
+                                    {contractData.contract.ml_confidence?.toFixed(1)}%
+                                </span>
+                            </div>
+                            <div className='ml-trader__contract-details'>
+                                <span>Stake: ${contractData.contract.buy_price}</span>
+                                <span>Entry: {contractData.contract.entry_spot_display_value}</span>
+                                {contractData.contract.current_spot_display_value && (
+                                    <span>Current: {contractData.contract.current_spot_display_value}</span>
+                                )}
+                                {contractData.contract.profit && (
+                                    <span className={parseFloat(contractData.contract.profit) >= 0 ? 'profit' : 'loss'}>
+                                        P&L: ${parseFloat(contractData.contract.profit).toFixed(2)}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Trading Statistics */}
             <div className='ml-trader__statistics'>
-                <h4>Trading Statistics</h4>
+                <h3>{localize('Trading Statistics')}</h3>
                 <div className='ml-trader__stats-grid'>
                     <div className='ml-trader__stat-item'>
-                        <Text size='xs' weight='bold'>Total Stake: ${totalStake.toFixed(2)}</Text>
+                        <span>{localize('Total Stakes:')}</span>
+                        <span>${totalStake.toFixed(2)}</span>
                     </div>
                     <div className='ml-trader__stat-item'>
-                        <Text size='xs' weight='bold'>Total Payout: ${totalPayout.toFixed(2)}</Text>
+                        <span>{localize('Total Payout:')}</span>
+                        <span>${totalPayout.toFixed(2)}</span>
                     </div>
                     <div className='ml-trader__stat-item'>
-                        <Text size='xs' weight='bold'>Total Runs: {totalRuns}</Text>
+                        <span>{localize('Total Runs:')}</span>
+                        <span>{totalRuns}</span>
                     </div>
                     <div className='ml-trader__stat-item'>
-                        <Text size='xs' weight='bold'>Won: {contractsWon}</Text>
+                        <span>{localize('Won:')}</span>
+                        <span>{contractsWon}</span>
                     </div>
                     <div className='ml-trader__stat-item'>
-                        <Text size='xs' weight='bold'>Lost: {contractsLost}</Text>
+                        <span>{localize('Lost:')}</span>
+                        <span>{contractsLost}</span>
                     </div>
                     <div className='ml-trader__stat-item'>
-                        <Text size='xs' weight='bold'>Win Rate: {winRate}%</Text>
+                        <span>{localize('Win Rate:')}</span>
+                        <span>{totalRuns > 0 ? ((contractsWon / totalRuns) * 100).toFixed(1) : 0}%</span>
                     </div>
-                    <div className='ml-trader__stat-item'>
-                        <Text size='xs' weight='bold'>P&L: ${totalProfitLoss.toFixed(2)}</Text>
-                    </div>
+                </div>
+                <div className='ml-trader__profit-loss'>
+                    <span>{localize('Total P&L:')}</span>
+                    <span className={totalProfitLoss >= 0 ? 'profit' : 'loss'}>
+                        ${totalProfitLoss.toFixed(2)}
+                    </span>
                 </div>
             </div>
 

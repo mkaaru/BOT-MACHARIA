@@ -434,17 +434,14 @@
   }
 
   &__statistics {
-    background: white;
-    border: 1px solid var(--border-normal);
+    background: var(--general-section-1);
     border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
+    padding: 16px;
 
-    h4 {
+    h3 {
       margin: 0 0 16px 0;
-      font-size: 16px;
-      font-weight: 600;
       color: var(--text-prominent);
+      font-size: 16px;
     }
   }
 
@@ -474,6 +471,72 @@
     font-size: 14px;
     color: var(--text-general);
   }
+
+  &__active-contracts {
+        background: var(--general-section-1);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+
+        h3 {
+            margin: 0 0 16px 0;
+            color: var(--text-prominent);
+            font-size: 16px;
+        }
+    }
+
+    &__contract-item {
+        background: var(--general-main-1);
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 8px;
+        border-left: 4px solid var(--brand-blue);
+
+        &:last-child {
+            margin-bottom: 0;
+        }
+    }
+
+    &__contract-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+
+        .ml-trader__contract-type {
+            font-weight: 600;
+            color: var(--text-prominent);
+        }
+
+        .ml-trader__contract-confidence {
+            background: var(--status-success);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+    }
+
+    &__contract-details {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        font-size: 12px;
+        color: var(--text-general);
+
+        span {
+            &.profit {
+                color: var(--status-success);
+                font-weight: 600;
+            }
+
+            &.loss {
+                color: var(--status-danger);
+                font-weight: 600;
+            }
+        }
+    }
 }
 
 @keyframes pulse {
