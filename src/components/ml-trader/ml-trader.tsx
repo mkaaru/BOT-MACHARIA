@@ -311,9 +311,30 @@ const MLTrader = observer(() => {
                 totalTicks: ticks.length
             });
 
+            // Debug logging for auto trading
+            if (isAutoTrading) {
+                console.log('Auto Trading Debug:', {
+                    isAutoTrading,
+                    recommendation,
+                    confidence: confidence.toFixed(1),
+                    conditionType,
+                    conditionValue,
+                    shouldTrade: recommendation && confidence >= conditionValue,
+                    isAuthorized,
+                    tradingApiReady: !!tradingApi
+                });
+            }
+
             // Auto trading logic
             if (isAutoTrading && recommendation && confidence >= conditionValue) {
-                executeAutoTrade(recommendation, confidence);
+                // Check if conditions match the trading condition type
+                const shouldTrade = 
+                    (conditionType === 'Rise Prob' && recommendation === 'Rise' && confidence >= conditionValue) ||
+                    (conditionType === 'Fall Prob' && recommendation === 'Fall' && confidence >= conditionValue);
+                
+                if (shouldTrade) {
+                    executeAutoTrade(recommendation, confidence);
+                }
             }
 
         } catch (error) {
@@ -342,7 +363,12 @@ const MLTrader = observer(() => {
     // Execute auto trade
     const executeAutoTrade = async (recommendation: string, confidence: number) => {
         if (!tradingApi || !isAuthorized) {
-            setStatus('Trading API not ready');
+            setStatus('Trading API not ready - Please ensure you are logged in');
+            return;
+        }
+
+        if (!isAutoTrading) {
+            setStatus('Auto trading is not active');
             return;
         }
 
@@ -369,7 +395,16 @@ const MLTrader = observer(() => {
                 symbol: selectedSymbol
             };
 
-            setStatus(`Getting proposal for ${recommendation} with ${confidence.toFixed(1)}% confidence...`);
+            console.log('Executing auto trade:', {
+                recommendation,
+                confidence: confidence.toFixed(1),
+                contractType,
+                stakeToUse,
+                conditionType,
+                conditionValue
+            });
+
+            setStatus(`🤖 AUTO: Getting proposal for ${recommendation} (${confidence.toFixed(1)}% confidence)...`);
             
             const proposalResponse = await tradingApi.proposal(tradeParams);
             
@@ -378,7 +413,7 @@ const MLTrader = observer(() => {
             }
 
             const proposal = proposalResponse.proposal;
-            setStatus(`Buying ${recommendation} contract for $${stakeToUse}...`);
+            setStatus(`🤖 AUTO: Buying ${recommendation} contract for $${stakeToUse}...`);
 
             const buyResponse = await tradingApi.buy({
                 buy: proposal.id,
@@ -392,14 +427,14 @@ const MLTrader = observer(() => {
             setTotalRuns(prev => prev + 1);
             setTotalStake(prev => prev + stakeToUse);
 
-            setStatus(`Contract purchased: ${buyResponse.buy.transaction_id}`);
+            setStatus(`🤖 AUTO: Contract purchased: ${buyResponse.buy.transaction_id}`);
             
             // Monitor contract outcome
             monitorContract(buyResponse.buy.contract_id, stakeToUse);
 
         } catch (error) {
             console.error('Auto trade error:', error);
-            setStatus(`Trade error: ${error.message}`);
+            setStatus(`🤖 AUTO ERROR: ${error.message}`);
         }
     };
 
