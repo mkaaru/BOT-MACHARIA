@@ -48,7 +48,7 @@ const MLTrader = observer(() => {
 
     // Trading parameters
     const [selectedSymbol, setSelectedSymbol] = useState('R_100');
-    const [tickCount, setTickCount] = useState(120);
+    const [tickCount, setTickCount] = useState(4500);
     const [baseStake, setBaseStake] = useState(0.5);
     const [tickDuration, setTickDuration] = useState(1);
     const [martingaleSteps, setMartingaleSteps] = useState(1);
@@ -179,8 +179,9 @@ const MLTrader = observer(() => {
                                 quote: quote
                             });
 
-                            if (tickHistoryRef.current.length > tickCount) {
-                                tickHistoryRef.current.shift();
+                            // Keep tick history within reasonable bounds to prevent memory issues
+                            if (tickHistoryRef.current.length > Math.max(tickCount, 5000)) {
+                                tickHistoryRef.current = tickHistoryRef.current.slice(-tickCount);
                             }
                             
                             setCurrentPrice(quote);
@@ -537,7 +538,7 @@ const MLTrader = observer(() => {
                     <input
                         type='number'
                         min={50}
-                        max={500}
+                        max={5000}
                         value={tickCount}
                         onChange={(e) => setTickCount(Number(e.target.value))}
                     />
