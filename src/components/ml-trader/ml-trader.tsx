@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import { localize } from '@deriv-com/translations';
@@ -78,6 +79,11 @@ const MLTrader = observer(() => {
 
     // Status messages
     const [status, setStatus] = useState('');
+
+    // Auto trading interval - KEY ADDITION FROM WORKING CODE
+    const [tradingInterval, setTradingInterval] = useState<NodeJS.Timeout | null>(null);
+    const lastTradeTimeRef = useRef(0);
+    const minTimeBetweenTrades = 3000; // 3 seconds minimum between trades
 
     const totalProfitLoss = totalPayout - totalStake;
 
@@ -179,7 +185,6 @@ const MLTrader = observer(() => {
                                 quote: quote
                             });
 
-                            // Keep tick history within reasonable bounds to prevent memory issues
                             if (tickHistoryRef.current.length > Math.max(tickCount, 5000)) {
                                 tickHistoryRef.current = tickHistoryRef.current.slice(-tickCount);
                             }
@@ -272,7 +277,7 @@ const MLTrader = observer(() => {
         };
     }, [selectedSymbol, tickCount]);
 
-    // Update analysis when tick data changes
+    // Update analysis when tick data changes - REMOVED AUTO TRADING LOGIC FROM HERE
     const updateAnalysis = useCallback(() => {
         if (tickHistoryRef.current.length === 0) return;
 
@@ -312,15 +317,64 @@ const MLTrader = observer(() => {
                 totalTicks: ticks.length
             });
 
-            // Auto trading logic
-            if (isAutoTrading && recommendation && confidence >= conditionValue) {
-                executeAutoTrade(recommendation, confidence);
-            }
-
         } catch (error) {
             console.error('Error in analysis:', error);
         }
-    }, [isAutoTrading, conditionValue]);
+    }, []);
+
+    // NEW: Separate auto-trading condition checker (from working VolatilityAnalyzer)
+    const checkTradingConditions = useCallback(() => {
+        if (!analysisData || Object.keys(analysisData).length === 0) {
+            return false;
+        }
+
+        let currentValue = 0;
+        const timestamp = new Date().toLocaleTimeString();
+
+        switch (conditionType) {
+            case 'Rise Prob':
+                currentValue = analysisData.riseRatio || 0;
+                break;
+            case 'Fall Prob':
+                currentValue = analysisData.fallRatio || 0;
+                break;
+            default:
+                console.warn(`[${timestamp}] Unknown condition type:`, conditionType);
+                return false;
+        }
+
+        if (isNaN(currentValue) || currentValue === 0) {
+            console.log(`[${timestamp}] Invalid or zero value for ${conditionType}:`, currentValue);
+            return false;
+        }
+
+        const result = (() => {
+            switch (conditionOperator) {
+                case '>':
+                    return currentValue > conditionValue;
+                case '>=':
+                    return currentValue >= conditionValue;
+                case '<':
+                    return currentValue < conditionValue;
+                case '=':
+                    return Math.abs(currentValue - conditionValue) < 0.1;
+                default:
+                    console.warn(`[${timestamp}] Unknown operator:`, conditionOperator);
+                    return false;
+            }
+        })();
+
+        const logStyle = result ? '🟢' : '🔴';
+        console.log(`[${timestamp}] ${logStyle} Condition check:`, {
+            condition: conditionType,
+            currentValue: currentValue.toFixed(2),
+            operator: conditionOperator,
+            threshold: conditionValue,
+            result: result ? 'MET ✅' : 'NOT MET ❌'
+        });
+
+        return result;
+    }, [analysisData, conditionType, conditionOperator, conditionValue]);
 
     // Authorization helper
     const authorizeIfNeeded = async () => {
@@ -340,17 +394,47 @@ const MLTrader = observer(() => {
         console.log('✅ Trading API authorized successfully');
     };
 
-    // Execute auto trade
-    const executeAutoTrade = async (recommendation: string, confidence: number) => {
+    // NEW: Auto trade execution with proper condition checking (from working VolatilityAnalyzer)
+    const executeAutoTrade = async () => {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`[${timestamp}] 🚀 Checking auto trade conditions`);
+
         if (!tradingApi) {
-            setStatus('Trading API not ready');
+            console.error(`[${timestamp}] Trading API not ready`);
+            return;
+        }
+
+        if (connectionStatus !== 'connected') {
+            console.error(`[${timestamp}] Not connected to API`);
+            return;
+        }
+
+        // Check if enough time has passed since last trade
+        const currentTime = Date.now();
+        if (currentTime - lastTradeTimeRef.current < minTimeBetweenTrades) {
+            return;
+        }
+
+        // Check trading conditions
+        const conditionsMet = checkTradingConditions();
+        if (!conditionsMet) {
+            console.log(`[${timestamp}] Trading conditions not met`);
             return;
         }
 
         try {
             await authorizeIfNeeded();
 
-            const contractType = recommendation === 'Rise' ? 'CALL' : 'PUT';
+            // Determine contract type based on condition
+            let contractType = '';
+            if (conditionType === 'Rise Prob') {
+                contractType = 'CALL';
+            } else if (conditionType === 'Fall Prob') {
+                contractType = 'PUT';
+            } else {
+                // Default based on current analysis
+                contractType = (analysisData.riseRatio || 0) > (analysisData.fallRatio || 0) ? 'CALL' : 'PUT';
+            }
             
             // Calculate stake with martingale
             const stakeToUse = lastOutcome === 'loss' && lossStreak > 0 
@@ -359,7 +443,6 @@ const MLTrader = observer(() => {
 
             setCurrentStake(stakeToUse);
 
-            // Use direct buy approach like VolatilityAnalyzer
             const buyRequest = {
                 buy: '1',
                 price: stakeToUse,
@@ -374,7 +457,14 @@ const MLTrader = observer(() => {
                 }
             };
 
-            setStatus(`Buying ${recommendation} contract for $${stakeToUse}...`);
+            setStatus(`Auto trading: Buying ${contractType} contract for $${stakeToUse}...`);
+            console.log(`[${timestamp}] 🔥 Auto trade executing:`, {
+                contractType,
+                amount: stakeToUse,
+                lossStreak
+            });
+
+            lastTradeTimeRef.current = currentTime;
 
             const buyResponse = await tradingApi.buy(buyRequest);
 
@@ -385,20 +475,20 @@ const MLTrader = observer(() => {
             setTotalRuns(prev => prev + 1);
             setTotalStake(prev => prev + stakeToUse);
 
-            setStatus(`Contract purchased: ${buyResponse.buy.contract_id}`);
+            setStatus(`✅ Auto trade executed: ${buyResponse.buy.contract_id}`);
+            console.log(`[${timestamp}] ✅ Auto trade successful: ${buyResponse.buy.contract_id}`);
             
-            // Monitor contract outcome using proper method
             monitorContract(buyResponse.buy.contract_id, stakeToUse);
 
         } catch (error) {
-            console.error('Auto trade error:', error);
-            setStatus(`Trade error: ${error.message}`);
+            console.error(`[${timestamp}] ❌ Auto trade error:`, error);
+            setStatus(`Auto trade error: ${error.message}`);
             setLastOutcome('loss');
             setLossStreak(prev => prev + 1);
         }
     };
 
-    // Execute manual trade
+    // Execute manual trade (unchanged)
     const executeManualTrade = async (tradeType: 'Rise' | 'Fall') => {
         if (!tradingApi) {
             setStatus('Trading API not ready');
@@ -411,7 +501,6 @@ const MLTrader = observer(() => {
             const contractType = tradeType === 'Rise' ? 'CALL' : 'PUT';
             const stakeToUse = baseStake;
 
-            // Use direct buy approach like VolatilityAnalyzer
             const buyRequest = {
                 buy: '1',
                 price: stakeToUse,
@@ -439,7 +528,6 @@ const MLTrader = observer(() => {
 
             setStatus(`Contract purchased: ${buyResponse.buy.contract_id}`);
             
-            // Monitor contract outcome using proper method
             monitorContract(buyResponse.buy.contract_id, stakeToUse);
 
         } catch (error) {
@@ -448,20 +536,17 @@ const MLTrader = observer(() => {
         }
     };
 
-    // Monitor contract outcome
+    // Monitor contract outcome (unchanged)
     const monitorContract = async (contractId: string, stakeAmount: number) => {
         try {
-            // Use the same approach as VolatilityAnalyzer
             const subscribeRequest = {
                 proposal_open_contract: 1,
                 contract_id: contractId,
                 subscribe: 1
             };
 
-            // Send subscription request
             await tradingApi.send(subscribeRequest);
             
-            // Listen for contract updates
             const handleContractUpdate = (data: any) => {
                 if (data.msg_type === 'proposal_open_contract' && 
                     data.proposal_open_contract &&
@@ -488,16 +573,13 @@ const MLTrader = observer(() => {
                             setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
                         }
                         
-                        // Remove listener
                         tradingApi.connection.removeEventListener('message', handleContractUpdate);
                     }
                 }
             };
 
-            // Add event listener
             tradingApi.connection.addEventListener('message', handleContractUpdate);
             
-            // Auto cleanup after 5 minutes
             setTimeout(() => {
                 tradingApi.connection.removeEventListener('message', handleContractUpdate);
             }, 300000);
@@ -508,15 +590,69 @@ const MLTrader = observer(() => {
         }
     };
 
-    // Toggle auto trading
+    // NEW: Auto trading management (from working VolatilityAnalyzer)
+    const startAutoTrading = () => {
+        if (connectionStatus !== 'connected') {
+            alert('Cannot start auto trading: Not connected to API');
+            return;
+        }
+
+        if (!tradingApi || !isAuthorized) {
+            alert('Trading API not ready. Please ensure you are logged in.');
+            return;
+        }
+
+        // Clear existing interval if any
+        if (tradingInterval) {
+            clearInterval(tradingInterval);
+        }
+
+        setIsAutoTrading(true);
+        setStatus('Auto trading started');
+
+        // Determine interval based on symbol
+        let intervalMs = 1500; // 1.5 seconds default
+        if (selectedSymbol.includes('1HZ')) {
+            intervalMs = 1000; // 1 second for 1s volatilities
+        }
+
+        console.log(`Starting auto trading with ${intervalMs}ms interval`);
+
+        // Create the trading interval
+        const interval = setInterval(executeAutoTrade, intervalMs);
+        setTradingInterval(interval);
+
+        console.log('✅ Auto trading started');
+    };
+
+    const stopAutoTrading = () => {
+        if (tradingInterval) {
+            clearInterval(tradingInterval);
+            setTradingInterval(null);
+        }
+
+        setIsAutoTrading(false);
+        setStatus('Auto trading stopped');
+        console.log('Auto trading stopped');
+    };
+
+    // NEW: Toggle auto trading (combining start/stop)
     const toggleAutoTrading = () => {
-        setIsAutoTrading(!isAutoTrading);
-        if (!isAutoTrading) {
-            setStatus('Auto trading started');
+        if (isAutoTrading) {
+            stopAutoTrading();
         } else {
-            setStatus('Auto trading stopped');
+            startAutoTrading();
         }
     };
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (tradingInterval) {
+                clearInterval(tradingInterval);
+            }
+        };
+    }, [tradingInterval]);
 
     const winRate = totalRuns > 0 ? ((contractsWon / totalRuns) * 100).toFixed(1) : '0.0';
 
@@ -736,3 +872,4 @@ const MLTrader = observer(() => {
 });
 
 export default MLTrader;
+
