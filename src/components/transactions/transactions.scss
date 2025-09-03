@@ -1,3 +1,4 @@
+
 @use 'sass:string';
 @use 'components/shared/styles/mixins' as *;
 
@@ -151,6 +152,28 @@
             &:hover {
                 background-color: var(--state-hover);
             }
+
+            &--sell {
+                background-color: var(--status-danger);
+            }
+
+            &--ml {
+                border-left: 3px solid var(--status-info);
+                position: relative;
+
+                &::before {
+                    content: '🤖';
+                    position: absolute;
+                    top: 2px;
+                    right: 2px;
+                    font-size: 12px;
+                }
+            }
+        }
+
+        &--ml {
+            background: linear-gradient(90deg, rgba(var(--status-info-rgb), 0.05) 0%, transparent 100%);
+            border-left: 2px solid var(--status-info);
         }
     }
 
@@ -268,24 +291,6 @@
         }
     }
 
-    &--sell {
-            background-color: var(--status-danger);
-        }
-
-        &--ml {
-            border-left: 3px solid var(--status-info);
-            position: relative;
-
-            &::before {
-                content: '🤖';
-                position: absolute;
-                top: 2px;
-                right: 2px;
-                font-size: 12px;
-            }
-        }
-    }
-
     &__ml-badge {
         margin-right: 4px;
         font-size: 12px;
@@ -302,10 +307,5 @@
         color: var(--text-less-prominent);
         text-transform: uppercase;
         font-weight: bold;
-    }
-
-    &__item--ml {
-        background: linear-gradient(90deg, rgba(var(--status-info-rgb), 0.05) 0%, transparent 100%);
-        border-left: 2px solid var(--status-info);
     }
 }
