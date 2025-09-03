@@ -1,0 +1,163 @@
+1. Fix the monitorContract Function
+jsx
+const monitorContract = async (contractId: string, stakeAmount: number) => {
+    try {
+        // Use the trading API's connection for contract monitoring
+        if (!tradingApi?.connection) {
+            throw new Error('Trading API connection not available');
+        }
+
+        const subscribeRequest = {
+            proposal_open_contract: 1,
+            contract_id: contractId,
+            subscribe: 1
+        };
+
+        // Send subscription request
+        await tradingApi.send(subscribeRequest);
+        
+        // Create message handler
+        const handleContractUpdate = (event: MessageEvent) => {
+            try {
+                const data = JSON.parse(event.data);
+                
+                if (data.msg_type === 'proposal_open_contract' && 
+                    data.proposal_open_contract &&
+                    String(data.proposal_open_contract.contract_id) === String(contractId)) {
+                    
+                    const contract = data.proposal_open_contract;
+                    
+                    if (contract.is_sold || contract.status === 'sold') {
+                        const profit = Number(contract.profit || 0);
+                        const payout = Number(contract.payout || 0);
+                        
+                        setTotalPayout(prev => prev + payout);
+                        
+                        if (profit > 0) {
+                            setContractsWon(prev => prev + 1);
+                            setLastOutcome('win');
+                            setLossStreak(0);
+                            setCurrentStake(baseStake);
+                            setStatus(`✅ Contract won! Profit: $${profit.toFixed(2)}`);
+                        } else {
+                            setContractsLost(prev => prev + 1);
+                            setLastOutcome('loss');
+                            setLossStreak(prev => prev + 1);
+                            setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
+                        }
+                        
+                        // Remove listener
+                        tradingApi.connection.removeEventListener('message', handleContractUpdate);
+                    }
+                }
+            } catch (error) {
+                console.error('Error parsing contract update:', error);
+            }
+        };
+
+        // Add event listener to trading API connection
+        tradingApi.connection.addEventListener('message', handleContractUpdate);
+        
+        // Auto cleanup after 5 minutes
+        setTimeout(() => {
+            if (tradingApi.connection) {
+                tradingApi.connection.removeEventListener('message', handleContractUpdate);
+            }
+        }, 300000);
+
+    } catch (error) {
+        console.error('Error monitoring contract:', error);
+        setStatus(`Monitoring error: ${error.message}`);
+    }
+};
+2. Add Proper Error Handling for Trading API
+jsx
+const executeAutoTrade = async (recommendation: string, confidence: number) => {
+    if (!tradingApi) {
+        setStatus('Trading API not ready');
+        return;
+    }
+
+    try {
+        await authorizeIfNeeded();
+
+        // Check if API is properly connected
+        if (!tradingApi.connection || tradingApi.connection.readyState !== WebSocket.OPEN) {
+            throw new Error('Trading API connection not established');
+        }
+
+        const contractType = recommendation === 'Rise' ? 'CALL' : 'PUT';
+        
+        // Calculate stake with martingale
+        const stakeToUse = lastOutcome === 'loss' && lossStreak > 0 
+            ? Math.min(currentStake * martingaleSteps, baseStake * 10) 
+            : baseStake;
+
+        setCurrentStake(stakeToUse);
+
+        const buyRequest = {
+            buy: '1',
+            price: stakeToUse,
+            parameters: {
+                amount: stakeToUse,
+                basis: 'stake',
+                contract_type: contractType,
+                currency: 'USD',
+                duration: tickDuration,
+                duration_unit: 't',
+                symbol: selectedSymbol
+            }
+        };
+
+        setStatus(`Buying ${recommendation} contract for $${stakeToUse}...`);
+
+        const buyResponse = await tradingApi.buy(buyRequest);
+
+        if (buyResponse.error) {
+            throw new Error(buyResponse.error.message || 'Unknown buy error');
+        }
+
+        if (!buyResponse.buy || !buyResponse.buy.contract_id) {
+            throw new Error('Invalid buy response: missing contract_id');
+        }
+
+        setTotalRuns(prev => prev + 1);
+        setTotalStake(prev => prev + stakeToUse);
+
+        setStatus(`Contract purchased: ${buyResponse.buy.contract_id}`);
+        
+        // Monitor contract outcome
+        monitorContract(buyResponse.buy.contract_id, stakeToUse);
+
+    } catch (error) {
+        console.error('Auto trade error:', error);
+        setStatus(`Trade error: ${error.message}`);
+        setLastOutcome('loss');
+        setLossStreak(prev => prev + 1);
+    }
+};
+3. Add Debug Logging
+Add detailed logging to understand what's happening:
+
+jsx
+// In executeAutoTrade, add debug logs:
+console.log('Sending buy request:', JSON.stringify(buyRequest, null, 2));
+const buyResponse = await tradingApi.buy(buyRequest);
+console.log('Buy response:', JSON.stringify(buyResponse, null, 2));
+4. Check Trading API Initialization
+Make sure the trading API is properly initialized:
+
+jsx
+useEffect(() => {
+    console.log('Trading API state:', { tradingApi, isAuthorized });
+}, [tradingApi, isAuthorized]);
+Testing Steps:
+Check if trading API is properly initialized - look for console logs
+
+Test manual trading first - if manual trades work, auto trading should work too
+
+Check browser console for errors - look for any API errors or connection issues
+
+Verify authorization - make sure the token is being retrieved correctly
+
+The structure is now correct, but the contract monitoring implementation needs to be fixed as shown above. The main issue is likely in how the contract updates are being handled - the original code was trying to parse the data directly instead of handling the MessageEvent properly.
