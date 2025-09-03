@@ -191,19 +191,6 @@ const MLTrader = observer(() => {
         initTradingApi();
     }, []);
 
-    // Add periodic analysis checking when auto-trading is active
-    useEffect(() => {
-        if (isAutoTrading) {
-            const interval = setInterval(() => {
-                if (tickHistoryRef.current.length >= 5) { // Very low threshold
-                    updateAnalysis();
-                }
-            }, 2000); // Check every 2 seconds
-            
-            return () => clearInterval(interval);
-        }
-    }, [isAutoTrading, updateAnalysis]);
-
     // WebSocket connection management
     useEffect(() => {
         const MAX_RECONNECT_ATTEMPTS = 5;
@@ -917,28 +904,26 @@ const MLTrader = observer(() => {
 
     // Machine Learning Analysis with Hull Moving Average and Volatility Scanner Integration
     const performMLAnalysis = (ticks: TickData[]) => {
-        if (ticks.length < 5) return null; // Reduced from 20 to 5
+        if (ticks.length < 20) return null;
 
         try {
             // Extract prices and calculate indicators
             const prices = ticks.map(tick => tick.quote);
-            const recentPrices = prices.slice(-Math.min(20, prices.length));
+            const recentPrices = prices.slice(-20);
 
-            // Adaptive Hull Moving Average calculation based on available data
-            const hmaLength = Math.min(9, Math.floor(prices.length / 2));
-            const hullMA = hmaLength >= 3 ? calculateHullMovingAverage(prices, hmaLength) : [];
-            const currentHMA = hullMA.length > 0 ? hullMA[hullMA.length - 1] : prices[prices.length - 1];
-            const previousHMA = hullMA.length > 1 ? hullMA[hullMA.length - 2] : (prices.length > 1 ? prices[prices.length - 2] : currentHMA);
+            // Hull Moving Average calculation (9-period)
+            const hullMA = calculateHullMovingAverage(prices, 9);
+            const currentHMA = hullMA[hullMA.length - 1];
+            const previousHMA = hullMA[hullMA.length - 2];
 
             // Price momentum
             const currentPrice = prices[prices.length - 1];
-            const priceChange = prices.length > 1 ? currentPrice - prices[prices.length - 2] : 0;
-            const priceChangePercent = prices.length > 1 ? (priceChange / prices[prices.length - 2]) * 100 : 0;
+            const priceChange = currentPrice - prices[prices.length - 2];
+            const priceChangePercent = (priceChange / prices[prices.length - 2]) * 100;
 
-            // Lower threshold for price movement analysis for immediate execution
-            if (Math.abs(priceChangePercent) < 0.001) {
-                // For immediate execution, analyze even with minimal movement
-                console.log('⚡ Analyzing with minimal price movement for immediate execution');
+            // Wait for significant price movement before analyzing
+            if (Math.abs(priceChangePercent) < 0.005) {
+                return mlAnalysis; // Return previous analysis if price hasn't moved enough
             }
 
             // Volatility analysis
@@ -1031,8 +1016,8 @@ const MLTrader = observer(() => {
             const currentAutoTradingState = isAutoTrading;
             console.log(`📊 Analyzing ${ticks.length} ticks for ${selectedSymbol}. Auto trading: ${currentAutoTradingState}`);
 
-            // Force immediate analysis if auto trading was just started - reduced requirements
-            const forceAnalysis = currentAutoTradingState && ticks.length >= 5;
+            // Force immediate analysis if auto trading was just started
+            const forceAnalysis = currentAutoTradingState && ticks.length >= 20;
 
             // Basic statistics for display
             let riseCount = 0;
@@ -1067,8 +1052,9 @@ const MLTrader = observer(() => {
                     recommendation,
                     confidence: confidence.toFixed(1),
                     hma20Trend: mlAnalysis.trend,
-                    signalStrength: mlAnalysis.confidence.toFixed(1),
-                    signals: mlAnalysis.confidence,
+                    // hma50Trend: mlAnalysis.hma50Trend, // mlAnalysis only returns single trend
+                    signalStrength: mlAnalysis.confidence.toFixed(1), // Use confidence as signal strength here
+                    signals: mlAnalysis.confidence, // Placeholder, not directly available in this structure
                     autoTrading: currentAutoTradingState
                 });
             } else {
@@ -1099,8 +1085,8 @@ const MLTrader = observer(() => {
 
             // Auto trading logic - Check current state when executing analysis
             if (currentAutoTradingState && connectionStatus === 'connected' && tradingApi) {
-                // Significantly reduced minimum tick requirements
-                const minTicksRequired = forceAnalysis ? 5 : 10;
+                // Use lower threshold for forced analysis (just started auto trading)
+                const minTicksRequired = forceAnalysis ? 20 : 30;
 
                 if (recommendation && confidence >= mlMinConfidence && ticks.length >= minTicksRequired) {
                     console.log(`🎯 EXECUTING AUTO TRADE: ${recommendation} with ${confidence.toFixed(1)}% confidence for ${selectedSymbol} (${forceAnalysis ? 'FORCED' : 'NORMAL'} analysis)`);
@@ -1160,14 +1146,9 @@ const MLTrader = observer(() => {
         if (!tradingApi || !isAutoTrading) return;
 
         try {
-            // Progressive confidence threshold - lower for first trade
-            const effectiveConfidenceThreshold = activeContracts.size === 0 ? 
-                Math.max(55, confidenceThreshold - 15) : // Lower threshold for first trade
-                confidenceThreshold;
-
-            // Check if we should execute based on progressive confidence
-            if (recommendation.confidence < effectiveConfidenceThreshold) {
-                console.log(`Confidence ${recommendation.confidence}% below threshold ${effectiveConfidenceThreshold}% (${activeContracts.size === 0 ? 'first trade' : 'regular'})`);
+            // Check if we should execute based on confidence
+            if (recommendation.confidence < confidenceThreshold) {
+                console.log(`Confidence ${recommendation.confidence}% below threshold ${confidenceThreshold}%`);
                 return;
             }
 
@@ -1502,14 +1483,6 @@ const MLTrader = observer(() => {
     };
 
 
-    // Immediate analysis trigger function
-    const triggerImmediateAnalysis = () => {
-        if (tickHistoryRef.current.length >= 5) {
-            console.log('⚡ Triggering immediate forced analysis');
-            updateAnalysis();
-        }
-    };
-
     // Auto trading toggle
     const toggleAutoTrading = async () => {
         console.log('🔄 Toggle auto trading called. Current state:', isAutoTrading);
@@ -1531,6 +1504,12 @@ const MLTrader = observer(() => {
                 setConnectionStatus('connected');
             }
 
+            // Allow trading even with limited data - we'll build it up
+            if (tickHistoryRef.current.length < 20) {
+                console.log(`⚠️ Limited tick data (${tickHistoryRef.current.length} ticks), but starting anyway`);
+                setStatus(`⚠️ Starting with limited data (${tickHistoryRef.current.length} ticks) - Will improve as data accumulates`);
+            }
+
             console.log('✅ Starting ML Auto-trading with current conditions:', {
                 tradingApiReady: !!tradingApi,
                 connectionStatus,
@@ -1541,20 +1520,7 @@ const MLTrader = observer(() => {
 
             // Set auto trading to true FIRST
             setIsAutoTrading(true);
-            setStatus('🤖 ML Auto-trading STARTING - Collecting initial data...');
-
-            // Force immediate data collection with more ticks
-            if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
-                const request = {
-                    ticks_history: selectedSymbol,
-                    count: 100, // Request more ticks initially
-                    end: 'latest',
-                    style: 'ticks',
-                    subscribe: 1,
-                    req_id: Date.now()
-                };
-                derivWsRef.current.send(JSON.stringify(request));
-            }
+            setStatus('🤖 ML Auto-trading STARTING - Initializing trading engine...');
 
             // Update run panel state and register with bot system
             run_panel.setIsRunning(true);
@@ -1572,22 +1538,31 @@ const MLTrader = observer(() => {
                 start_timestamp: Date.now()
             });
 
-            // Set active status and trigger immediate analysis
+            // Set active status and trigger analysis after state update
             setTimeout(() => {
                 setStatus('🤖 ML Auto-trading ACTIVE - Monitoring for trading signals...');
                 run_panel.setContractStage(contract_stages.RUNNING);
 
-                // Trigger immediate analysis with whatever data we have
-                triggerImmediateAnalysis();
-            }, 500); // Faster response time
-
-            // Set a timeout to force analysis even with minimal data
-            setTimeout(() => {
-                if (isAutoTrading && tickHistoryRef.current.length > 0) {
-                    console.log('🔄 Forcing initial analysis with available data');
+                // Trigger immediate analysis if we have any data
+                if (tickHistoryRef.current.length > 0) {
+                    console.log('🔄 Triggering initial analysis after auto trading start');
                     updateAnalysis();
+                } else {
+                    // If no tick data, force a new data request
+                    console.log('🔄 No tick data available, requesting fresh data...');
+                    if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
+                        const request = {
+                            ticks_history: selectedSymbol,
+                            count: tickCount,
+                            end: 'latest',
+                            style: 'ticks',
+                            subscribe: 1,
+                            req_id: Date.now()
+                        };
+                        derivWsRef.current.send(JSON.stringify(request));
+                    }
                 }
-            }, 2000); // Wait 2 seconds for initial data
+            }, 100); // Reduced timeout to make it more responsive
 
         } else {
             // Stopping auto trading
