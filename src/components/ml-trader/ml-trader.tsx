@@ -118,7 +118,6 @@ const MLTrader = observer(() => {
     const tickStreamIdRef = useRef<string | null>(null);
     const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
     const pocSubIdRef = useRef<string | null>(null); // Ref for proposal_open_contract subscription ID
-    const autoTradingIntervalRef = useRef<NodeJS.Timeout | null>(null); // Ref for auto-trading interval
 
     const [is_authorized, setIsAuthorized] = useState(false);
     const [account_currency, setAccountCurrency] = useState<string>('USD');
@@ -1038,30 +1037,22 @@ const MLTrader = observer(() => {
             return;
         }
         setIsAutoTrading(true);
+        stopFlagRef.current = false;
         setStatus('Auto trading started.');
         run_panel.setIsRunning(true);
         run_panel.setContractStage(contract_stages.STARTING);
 
         // Immediately start the first trade
         executeSingleTrade();
-
-        // Set interval for subsequent trades
-        autoTradingIntervalRef.current = setInterval(() => {
-            if (!stopFlagRef.current && isAutoTrading) {
-                executeSingleTrade();
-            }
-        }, 5000); // Adjust interval as needed (e.g., 5 seconds)
     };
 
     const stopAutoTrading = () => {
         setIsAutoTrading(false);
+        stopFlagRef.current = true;
         setStatus('Auto trading stopped.');
         run_panel.setIsRunning(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        if (autoTradingIntervalRef.current) {
-            clearInterval(autoTradingIntervalRef.current);
-            autoTradingIntervalRef.current = null;
-        }
+        
         // Clear contract subscriptions on stop
         if (pocSubIdRef.current) {
             apiRef.current?.forget?.({ forget: pocSubIdRef.current });
@@ -1084,9 +1075,7 @@ const MLTrader = observer(() => {
                 apiRef.current.send({ forget: tickStreamIdRef.current });
             }
             // Stop auto trading
-            if (autoTradingIntervalRef.current) {
-                clearTimeout(autoTradingIntervalRef.current);
-            }
+            stopFlagRef.current = true;
         };
     }, []);
 
@@ -1325,11 +1314,15 @@ const MLTrader = observer(() => {
 
     // Function to schedule the next trade
     const scheduleNextTrade = () => {
+        if (!isAutoTrading || stopFlagRef.current) {
+            return;
+        }
+        
         setTimeout(() => {
             if (isAutoTrading && !stopFlagRef.current) {
                 executeSingleTrade();
             }
-        }, 2000); // Short delay before the next trade
+        }, 3000); // 3 second delay before the next trade
     };
 
     return (
