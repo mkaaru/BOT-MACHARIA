@@ -5,7 +5,7 @@ import { Localize } from '@deriv-com/translations';
 import { useStore } from '@/hooks/useStore';
 import { contract_stages } from '@/constants/contract-stage';
 import { tradingEngine } from '@/components/volatility-analyzer/trading-engine';
-import { Text } from '@/components/shared_ui/text';
+import Text from '@/components/shared_ui/text';
 import './ml-trader.scss';
 
 const MLTrader = observer(() => {
