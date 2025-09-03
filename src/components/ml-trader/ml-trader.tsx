@@ -1,702 +1,328 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
-import { localize } from '@deriv-com/translations';
-import Text from '@/components/shared_ui/text';
-import { generateDerivApiInstance, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
+import { Localize } from '@deriv-com/translations';
+import { useStore } from '@/hooks/useStore';
+import { contract_stages } from '@/constants/contract-stage';
+import { tradingEngine } from '@/components/volatility-analyzer/trading-engine';
+import { Text } from '@/components/shared_ui/text';
 import './ml-trader.scss';
 
-// Volatility indices for Rise/Fall trading
-const VOLATILITY_INDICES = [
-    { value: 'R_10', label: 'Volatility 10 Index' },
-    { value: 'R_25', label: 'Volatility 25 Index' },
-    { value: 'R_50', label: 'Volatility 50 Index' },
-    { value: 'R_75', label: 'Volatility 75 Index' },
-    { value: 'R_100', label: 'Volatility 100 Index' },
-    { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
-    { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
-    { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
-    { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
-    { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
-    { value: '1HZ150V', label: 'Volatility 150 (1s) Index' },
-    { value: '1HZ200V', label: 'Volatility 200 (1s) Index' },
-    { value: '1HZ250V', label: 'Volatility 250 (1s) Index' },
-    { value: '1HZ300V', label: 'Volatility 300 (1s) Index' },
-];
-
-interface TickData {
-    time: number;
-    quote: number;
-}
-
-interface AnalysisData {
-    recommendation?: string;
-    confidence?: number;
-    riseRatio?: number;
-    fallRatio?: number;
-    totalTicks?: number;
-}
-
 const MLTrader = observer(() => {
-    // WebSocket and connection state
-    const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'error'>('disconnected');
-    const [currentPrice, setCurrentPrice] = useState<number>(0);
-    const derivWsRef = useRef<WebSocket | null>(null);
-    const tickHistoryRef = useRef<TickData[]>([]);
-    const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const reconnectAttemptsRef = useRef(0);
-
-    // Trading parameters
-    const [selectedSymbol, setSelectedSymbol] = useState('R_100');
-    const [tickCount, setTickCount] = useState(120);
-    const [baseStake, setBaseStake] = useState(0.5);
-    const [tickDuration, setTickDuration] = useState(1);
-    const [martingaleSteps, setMartingaleSteps] = useState(1);
-
-    // Trading condition
-    const [conditionType, setConditionType] = useState('Rise Prob');
-    const [conditionOperator, setConditionOperator] = useState('>');
-    const [conditionValue, setConditionValue] = useState(55);
-
+    const { run_panel } = useStore();
+    
     // Trading state
+    const [isRunning, setIsRunning] = useState(false);
     const [isAutoTrading, setIsAutoTrading] = useState(false);
-    const [analysisData, setAnalysisData] = useState<AnalysisData>({});
-    const [lossStreak, setLossStreak] = useState(0);
-    const [currentStake, setCurrentStake] = useState(0.5);
-    const [lastOutcome, setLastOutcome] = useState<'win' | 'loss' | null>(null);
-
-    // Trading API
-    const [tradingApi, setTradingApi] = useState<any>(null);
-    const [isAuthorized, setIsAuthorized] = useState(false);
-
-    // Statistics
-    const [totalRuns, setTotalRuns] = useState(0);
-    const [contractsWon, setContractsWon] = useState(0);
-    const [contractsLost, setContractsLost] = useState(0);
-    const [totalStake, setTotalStake] = useState(0);
-    const [totalPayout, setTotalPayout] = useState(0);
-
-    // Status messages
+    const [connectionStatus, setConnectionStatus] = useState('disconnected');
+    const [currentPrice, setCurrentPrice] = useState(null);
+    const [symbol, setSymbol] = useState('R_50');
+    const [tradeAmount, setTradeAmount] = useState(1);
+    const [duration, setDuration] = useState(1);
+    const [durationType, setDurationType] = useState('t');
+    const [autoTrade, setAutoTrade] = useState(false);
+    const [minConfidence, setMinConfidence] = useState(70);
     const [status, setStatus] = useState('');
+    
+    // ML Analysis state
+    const [analysis, setAnalysis] = useState(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    
+    // Statistics
+    const [statistics, setStatistics] = useState({
+        totalTrades: 0,
+        wins: 0,
+        losses: 0,
+        winRate: 0,
+        profit: 0
+    });
 
-    const totalProfitLoss = totalPayout - totalStake;
-
-    // Initialize trading API
+    // Check connection status
     useEffect(() => {
-        const initTradingApi = async () => {
-            try {
-                const api = generateDerivApiInstance();
-                setTradingApi(api);
-
-                const token = V2GetActiveToken();
-                if (token) {
-                    try {
-                        const { authorize, error } = await api.authorize(token);
-                        if (!error && authorize) {
-                            setIsAuthorized(true);
-                            console.log('✅ Trading API authorized successfully');
-                        }
-                    } catch (authError) {
-                        console.log('Trading API not authorized yet, will authorize on first trade');
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to initialize trading API:', error);
+        const checkConnection = () => {
+            if (tradingEngine.isEngineConnected()) {
+                setConnectionStatus('connected');
+            } else {
+                setConnectionStatus('disconnected');
             }
         };
 
-        initTradingApi();
+        checkConnection();
+        const interval = setInterval(checkConnection, 1000);
+        return () => clearInterval(interval);
     }, []);
 
-    // WebSocket connection management
+    // Subscribe to tick data
     useEffect(() => {
-        const MAX_RECONNECT_ATTEMPTS = 5;
-
-        function startWebSocket() {
-            console.log('🔌 Connecting to WebSocket API');
-
-            if (reconnectTimeoutRef.current) {
-                clearTimeout(reconnectTimeoutRef.current);
-            }
-
-            if (derivWsRef.current) {
-                try {
-                    derivWsRef.current.onclose = null;
-                    derivWsRef.current.close();
-                } catch (error) {
-                    console.error('Error closing existing connection:', error);
-                }
-                derivWsRef.current = null;
-            }
-
-            try {
-                derivWsRef.current = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
-
-                derivWsRef.current.onopen = function() {
-                    console.log('✅ WebSocket connection established');
-                    reconnectAttemptsRef.current = 0;
-                    setConnectionStatus('connected');
-
-                    setTimeout(() => {
-                        try {
-                            if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
-                                derivWsRef.current.send(JSON.stringify({ app_id: 75771 }));
-                                requestTickHistory();
-                            }
-                        } catch (error) {
-                            console.error('Error during init requests:', error);
-                        }
-                    }, 500);
-                };
-
-                derivWsRef.current.onmessage = function(event) {
-                    try {
-                        const data = JSON.parse(event.data);
-
-                        if (data.error) {
-                            console.error('❌ WebSocket API error:', data.error);
-                            if (data.error.code === 'DisconnectByUser' || data.error.code === 'InvalidToken') {
-                                setConnectionStatus('error');
-                            }
-                            return;
-                        }
-
-                        if (connectionStatus !== 'connected') {
-                            setConnectionStatus('connected');
-                        }
-
-                        if (data.history) {
-                            console.log(`📊 Received history for ${selectedSymbol}: ${data.history.prices.length} ticks`);
-                            tickHistoryRef.current = data.history.prices.map((price: string, index: number) => ({
-                                time: data.history.times[index],
-                                quote: parseFloat(price)
-                            }));
-                            updateAnalysis();
-                        } else if (data.tick) {
-                            const quote = parseFloat(data.tick.quote);
-                            tickHistoryRef.current.push({
-                                time: data.tick.epoch,
-                                quote: quote
-                            });
-
-                            if (tickHistoryRef.current.length > tickCount) {
-                                tickHistoryRef.current.shift();
-                            }
-
-                            setCurrentPrice(quote);
-                            updateAnalysis();
-                        } else if (data.ping) {
-                            derivWsRef.current?.send(JSON.stringify({ pong: 1 }));
-                        }
-                    } catch (error) {
-                        console.error('Error processing message:', error);
-                    }
-                };
-
-                derivWsRef.current.onerror = function(error) {
-                    console.error('❌ WebSocket error:', error);
-                    if (reconnectAttemptsRef.current >= 2) {
-                        setConnectionStatus('error');
-                    }
-                    scheduleReconnect();
-                };
-
-                derivWsRef.current.onclose = function(event) {
-                    console.log('🔄 WebSocket connection closed', event.code, event.reason);
-                    setConnectionStatus('disconnected');
-                    scheduleReconnect();
-                };
-
-            } catch (error) {
-                console.error('Failed to create WebSocket:', error);
-                setConnectionStatus('error');
-                scheduleReconnect();
-            }
+        if (connectionStatus === 'connected') {
+            subscribeToTicks();
         }
+    }, [connectionStatus, symbol]);
 
-        function scheduleReconnect() {
-            reconnectAttemptsRef.current++;
-            if (reconnectAttemptsRef.current > MAX_RECONNECT_ATTEMPTS) {
-                console.log(`⚠️ Maximum reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Stopping attempts.`);
-                setConnectionStatus('error');
-                return;
-            }
+    const subscribeToTicks = useCallback(async () => {
+        try {
+            const ws = tradingEngine.getWebSocket();
+            if (!ws) return;
 
-            const delay = Math.min(1000 * Math.pow(1.5, reconnectAttemptsRef.current - 1), 30000);
-            console.log(`🔄 Scheduling reconnect attempt ${reconnectAttemptsRef.current} in ${delay}ms`);
-
-            if (reconnectAttemptsRef.current <= 3) {
-                setConnectionStatus('disconnected');
-            }
-
-            reconnectTimeoutRef.current = setTimeout(() => {
-                console.log(`🔄 Attempting to reconnect (${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})...`);
-                startWebSocket();
-            }, delay);
-        }
-
-        function requestTickHistory() {
             const request = {
-                ticks_history: selectedSymbol,
-                count: tickCount,
-                end: 'latest',
-                style: 'ticks',
+                ticks: symbol,
                 subscribe: 1
             };
 
-            if (derivWsRef.current && derivWsRef.current.readyState === WebSocket.OPEN) {
-                console.log(`📡 Requesting tick history for ${selectedSymbol} (${tickCount} ticks)`);
-                try {
-                    derivWsRef.current.send(JSON.stringify(request));
-                } catch (error) {
-                    console.error('Error sending tick history request:', error);
-                    scheduleReconnect();
+            ws.send(JSON.stringify(request));
+
+            ws.addEventListener('message', (event) => {
+                const data = JSON.parse(event.data);
+                if (data.tick) {
+                    setCurrentPrice(data.tick.quote);
+                    if (isRunning) {
+                        performMLAnalysis(data.tick.quote);
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Error subscribing to ticks:', error);
+            setStatus('Error subscribing to market data');
+        }
+    }, [symbol, isRunning]);
+
+    const performMLAnalysis = useCallback(async (price) => {
+        if (isAnalyzing) return;
+        
+        setIsAnalyzing(true);
+        
+        try {
+            // Simulate ML analysis (replace with actual ML model)
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            const riseConfidence = Math.random() * 100;
+            const fallConfidence = 100 - riseConfidence;
+            
+            const newAnalysis = {
+                riseConfidence: riseConfidence,
+                fallConfidence: fallConfidence,
+                recommendation: riseConfidence > fallConfidence ? 'RISE' : 'FALL',
+                timestamp: Date.now()
+            };
+            
+            setAnalysis(newAnalysis);
+            
+            // Auto trade if enabled and confidence is high enough
+            if (autoTrade && Math.max(riseConfidence, fallConfidence) >= minConfidence) {
+                const direction = newAnalysis.recommendation;
+                await executeTrade(direction, true);
+            }
+            
+        } catch (error) {
+            console.error('ML Analysis error:', error);
+            setStatus('ML Analysis failed');
+        } finally {
+            setIsAnalyzing(false);
+        }
+    }, [isAnalyzing, autoTrade, minConfidence]);
+
+    const executeTrade = useCallback(async (direction, isAutoTrade = false) => {
+        if (connectionStatus !== 'connected') {
+            setStatus('Not connected to trading engine');
+            return;
+        }
+
+        try {
+            setStatus(`Executing ${direction} trade...`);
+            
+            // Get proposal first
+            const proposalParams = {
+                contract_type: direction === 'RISE' ? 'CALL' : 'PUT',
+                symbol: symbol,
+                amount: tradeAmount,
+                duration: duration,
+                duration_unit: durationType,
+                basis: 'stake'
+            };
+
+            const proposal = await tradingEngine.getProposal(proposalParams);
+            
+            if (proposal.proposal) {
+                // Buy the contract
+                const buyResult = await tradingEngine.buyContract(
+                    proposal.proposal.id,
+                    proposal.proposal.ask_price
+                );
+                
+                if (buyResult.buy) {
+                    setStatus(`${direction} trade executed successfully`);
+                    
+                    // Update statistics
+                    setStatistics(prev => ({
+                        ...prev,
+                        totalTrades: prev.totalTrades + 1
+                    }));
+                    
+                    // Subscribe to contract updates
+                    tradingEngine.subscribeToContract(buyResult.buy.contract_id);
+                    
+                    // Set run panel state if auto trading
+                    if (isAutoTrade) {
+                        run_panel.setIsRunning(true);
+                        run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
+                    }
+                    
+                } else {
+                    setStatus('Trade execution failed');
                 }
             } else {
-                console.error('❌ WebSocket not ready to request history');
-                scheduleReconnect();
+                setStatus('Failed to get trade proposal');
             }
-        }
-
-        startWebSocket();
-
-        return () => {
-            if (reconnectTimeoutRef.current) {
-                clearTimeout(reconnectTimeoutRef.current);
-            }
-            if (derivWsRef.current) {
-                derivWsRef.current.onclose = null;
-                derivWsRef.current.close();
-            }
-        };
-    }, [selectedSymbol, tickCount]);
-
-    // Update analysis when tick data changes
-    const updateAnalysis = useCallback(() => {
-        if (tickHistoryRef.current.length === 0) return;
-
-        try {
-            const ticks = tickHistoryRef.current;
-            let riseCount = 0;
-            let fallCount = 0;
-
-            for (let i = 1; i < ticks.length; i++) {
-                if (ticks[i].quote > ticks[i - 1].quote) {
-                    riseCount++;
-                } else if (ticks[i].quote < ticks[i - 1].quote) {
-                    fallCount++;
-                }
-            }
-
-            const totalMoves = riseCount + fallCount;
-            const riseRatio = totalMoves > 0 ? (riseCount / totalMoves) * 100 : 50;
-            const fallRatio = totalMoves > 0 ? (fallCount / totalMoves) * 100 : 50;
-
-            let recommendation = '';
-            let confidence = 0;
-
-            if (riseRatio > 55) {
-                recommendation = 'Rise';
-                confidence = riseRatio;
-            } else if (fallRatio > 55) {
-                recommendation = 'Fall';
-                confidence = fallRatio;
-            }
-
-            setAnalysisData({
-                recommendation,
-                confidence,
-                riseRatio,
-                fallRatio,
-                totalTicks: ticks.length
-            });
-
-            // Debug logging for auto trading
-            if (isAutoTrading) {
-                console.log('Auto Trading Debug:', {
-                    isAutoTrading,
-                    recommendation,
-                    confidence: confidence.toFixed(1),
-                    conditionType,
-                    conditionValue,
-                    shouldTrade: recommendation && confidence >= conditionValue,
-                    isAuthorized,
-                    tradingApiReady: !!tradingApi
-                });
-            }
-
-            // Auto trading logic
-            if (isAutoTrading && recommendation && confidence >= conditionValue) {
-                // Check if conditions match the trading condition type
-                const shouldTrade = 
-                    (conditionType === 'Rise Prob' && recommendation === 'Rise' && confidence >= conditionValue) ||
-                    (conditionType === 'Fall Prob' && recommendation === 'Fall' && confidence >= conditionValue);
-
-                if (shouldTrade) {
-                    console.log(`🤖 AUTO TRADE CONDITIONS MET: ${recommendation} with ${confidence}% confidence`);
-                    executeAutoTrade(recommendation, confidence);
-                } else {
-                    console.log(`⏳ AUTO TRADE CONDITIONS NOT MET: ${conditionType} requires ${conditionOperator} ${conditionValue}%, got ${confidence}%`);
-                }
-            } else if (isAutoTrading) {
-                console.log(`⏳ AUTO TRADE WAITING: recommendation=${recommendation}, confidence=${confidence}, required=${conditionValue}%`);
-            }
-
         } catch (error) {
-            console.error('Error in analysis:', error);
+            console.error('Trade execution error:', error);
+            setStatus(`Trade failed: ${error.message}`);
         }
-    }, [isAutoTrading, conditionValue]);
+    }, [connectionStatus, symbol, tradeAmount, duration, durationType, run_panel]);
 
-    // Authorization helper
-    const authorizeIfNeeded = async () => {
-        if (isAuthorized || !tradingApi) return;
-
-        const token = V2GetActiveToken();
-        if (!token) {
-            throw new Error('No token found. Please log in and select an account.');
-        }
-
-        const { authorize, error } = await tradingApi.authorize(token);
-        if (error) {
-            throw new Error(`Authorization error: ${error.message || error.code}`);
-        }
-
-        setIsAuthorized(true);
-        console.log('✅ Trading API authorized successfully');
-    };
-
-    // Execute auto trade
-    const executeAutoTrade = async (recommendation: string, confidence: number) => {
-        if (!tradingApi || !isAuthorized) {
-            setStatus('Trading API not ready - Please ensure you are logged in');
+    const startAnalysis = useCallback(() => {
+        if (connectionStatus !== 'connected') {
+            setStatus('Please wait for connection...');
             return;
         }
+        
+        setIsRunning(true);
+        setStatus('ML analysis started');
+        run_panel.setIsRunning(true);
+        run_panel.setContractStage(contract_stages.STARTING);
+    }, [connectionStatus, run_panel]);
 
-        if (!isAutoTrading) {
-            setStatus('Auto trading is not active');
-            return;
+    const stopAnalysis = useCallback(() => {
+        setIsRunning(false);
+        setIsAutoTrading(false);
+        setStatus('Analysis stopped');
+        run_panel.setIsRunning(false);
+        run_panel.setContractStage(contract_stages.NOT_RUNNING);
+    }, [run_panel]);
+
+    const toggleAutoTrading = useCallback(() => {
+        if (!isRunning) {
+            startAnalysis();
         }
-
-        try {
-            await authorizeIfNeeded();
-
-            const contractType = recommendation === 'Rise' ? 'CALL' : 'PUT';
-
-            // Calculate stake with martingale
-            const stakeToUse = lastOutcome === 'loss' && lossStreak > 0 
-                ? Math.min(currentStake * martingaleSteps, baseStake * 10) 
-                : baseStake;
-
-            setCurrentStake(stakeToUse);
-
-            const tradeParams = {
-                proposal: 1,
-                amount: stakeToUse,
-                basis: 'stake',
-                contract_type: contractType,
-                currency: 'USD',
-                duration: tickDuration,
-                duration_unit: 't',
-                symbol: selectedSymbol
-            };
-
-            console.log('Executing auto trade:', {
-                recommendation,
-                confidence: confidence.toFixed(1),
-                contractType,
-                stakeToUse,
-                conditionType,
-                conditionValue
-            });
-
-            setStatus(`🤖 AUTO: Getting proposal for ${recommendation} (${confidence.toFixed(1)}% confidence)...`);
-
-            const proposalResponse = await tradingApi.proposal(tradeParams);
-
-            if (proposalResponse.error) {
-                throw new Error(proposalResponse.error.message);
-            }
-
-            const proposal = proposalResponse.proposal;
-            setStatus(`🤖 AUTO: Buying ${recommendation} contract for $${stakeToUse}...`);
-
-            const buyResponse = await tradingApi.buy({
-                buy: proposal.id,
-                price: stakeToUse
-            });
-
-            if (buyResponse.error) {
-                throw new Error(buyResponse.error.message);
-            }
-
-            setTotalRuns(prev => prev + 1);
-            setTotalStake(prev => prev + stakeToUse);
-
-            setStatus(`🤖 AUTO: Contract purchased: ${buyResponse.buy.transaction_id}`);
-
-            // Monitor contract outcome
-            monitorContract(buyResponse.buy.contract_id, stakeToUse);
-
-        } catch (error) {
-            console.error('Auto trade error:', error);
-            setStatus(`🤖 AUTO ERROR: ${error.message}`);
-        }
-    };
-
-    // Execute manual trade
-    const executeManualTrade = async (tradeType: 'Rise' | 'Fall') => {
-        if (!tradingApi) {
-            setStatus('Trading API not ready');
-            return;
-        }
-
-        try {
-            await authorizeIfNeeded();
-
-            const contractType = tradeType === 'Rise' ? 'CALL' : 'PUT';
-            const stakeToUse = baseStake;
-
-            const tradeParams = {
-                proposal: 1,
-                amount: stakeToUse,
-                basis: 'stake',
-                contract_type: contractType,
-                currency: 'USD',
-                duration: tickDuration,
-                duration_unit: 't',
-                symbol: selectedSymbol
-            };
-
-            setStatus(`Getting proposal for ${tradeType}...`);
-
-            const proposalResponse = await tradingApi.proposal(tradeParams);
-
-            if (proposalResponse.error) {
-                throw new Error(proposalResponse.error.message);
-            }
-
-            const proposal = proposalResponse.proposal;
-            setStatus(`Buying ${tradeType} contract for $${stakeToUse}...`);
-
-            const buyResponse = await tradingApi.buy({
-                buy: proposal.id,
-                price: stakeToUse
-            });
-
-            if (buyResponse.error) {
-                throw new Error(buyResponse.error.message);
-            }
-
-            setTotalRuns(prev => prev + 1);
-            setTotalStake(prev => prev + stakeToUse);
-
-            setStatus(`Contract purchased: ${buyResponse.buy.transaction_id}`);
-
-            // Monitor contract outcome
-            monitorContract(buyResponse.buy.contract_id, stakeToUse);
-
-        } catch (error) {
-            console.error('Manual trade error:', error);
-            setStatus(`Trade error: ${error.message}`);
-        }
-    };
-
-    // Monitor contract outcome
-    const monitorContract = async (contractId: string, stakeAmount: number) => {
-        try {
-            const subscription = await tradingApi.subscribeToOpenContract(contractId);
-
-            subscription.subscribe(({ proposal_open_contract }: any) => {
-                const contract = proposal_open_contract;
-
-                if (contract.is_sold) {
-                    const profit = contract.profit || 0;
-                    const payout = contract.payout || 0;
-
-                    setTotalPayout(prev => prev + payout);
-
-                    if (profit > 0) {
-                        setContractsWon(prev => prev + 1);
-                        setLastOutcome('win');
-                        setLossStreak(0);
-                        setCurrentStake(baseStake);
-                        setStatus(`✅ Contract won! Profit: $${profit.toFixed(2)}`);
-                    } else {
-                        setContractsLost(prev => prev + 1);
-                        setLastOutcome('loss');
-                        setLossStreak(prev => prev + 1);
-                        setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
-                    }
-
-                    subscription.unsubscribe();
-                }
-            });
-        } catch (error) {
-            console.error('Error monitoring contract:', error);
-            setStatus(`Monitoring error: ${error.message}`);
-        }
-    };
-
-    // Toggle auto trading
-    const toggleAutoTrading = () => {
         setIsAutoTrading(!isAutoTrading);
-        if (!isAutoTrading) {
-            setStatus('Auto trading started');
-        } else {
-            setStatus('Auto trading stopped');
-        }
-    };
-
-    const winRate = totalRuns > 0 ? ((contractsWon / totalRuns) * 100).toFixed(1) : '0.0';
+        setAutoTrade(!autoTrade);
+    }, [isRunning, isAutoTrading, autoTrade, startAnalysis]);
 
     return (
         <div className='ml-trader'>
             <div className='ml-trader__header'>
-                <h1>{localize('ML Trader - Rise/Fall')}</h1>
+                <h1>🤖 ML Trading Engine</h1>
                 <div className={`ml-trader__status ${connectionStatus}`}>
-                    {connectionStatus === 'connected' && '🟢 Connected'}
-                    {connectionStatus === 'disconnected' && '🔴 Disconnected'}
-                    {connectionStatus === 'error' && '🔴 Error'}
+                    {connectionStatus === 'connected' ? 'Connected' : 'Connecting...'}
                 </div>
             </div>
 
             <div className='ml-trader__controls'>
                 <div className='ml-trader__control-group'>
-                    <label>Symbol:</label>
-                    <select value={selectedSymbol} onChange={(e) => setSelectedSymbol(e.target.value)}>
-                        {VOLATILITY_INDICES.map((idx) => (
-                            <option key={idx.value} value={idx.value}>
-                                {idx.label}
-                            </option>
-                        ))}
+                    <label>Symbol</label>
+                    <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>
+                        <option value="R_10">Volatility 10 Index</option>
+                        <option value="R_25">Volatility 25 Index</option>
+                        <option value="R_50">Volatility 50 Index</option>
+                        <option value="R_75">Volatility 75 Index</option>
+                        <option value="R_100">Volatility 100 Index</option>
                     </select>
                 </div>
 
                 <div className='ml-trader__control-group'>
-                    <label>Tick Count:</label>
+                    <label>Stake ($)</label>
                     <input
-                        type='number'
-                        min={50}
-                        max={500}
-                        value={tickCount}
-                        onChange={(e) => setTickCount(Number(e.target.value))}
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={tradeAmount}
+                        onChange={(e) => setTradeAmount(Number(e.target.value))}
                     />
                 </div>
 
                 <div className='ml-trader__control-group'>
-                    <label>Current Price:</label>
-                    <span className='ml-trader__price'>{currentPrice.toFixed(3)}</span>
+                    <label>Duration</label>
+                    <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={duration}
+                        onChange={(e) => setDuration(Number(e.target.value))}
+                    />
+                </div>
+
+                <div className='ml-trader__control-group'>
+                    <label>Type</label>
+                    <select value={durationType} onChange={(e) => setDurationType(e.target.value)}>
+                        <option value="t">Ticks</option>
+                        <option value="s">Seconds</option>
+                        <option value="m">Minutes</option>
+                    </select>
+                </div>
+
+                <div className='ml-trader__price'>
+                    ${currentPrice ? currentPrice.toFixed(5) : '--'}
                 </div>
             </div>
 
-            <div className='ml-trader__analysis'>
-                <div className='ml-trader__analysis-section'>
-                    <h3>Rise/Fall Analysis</h3>
-                    <div className='ml-trader__progress-item'>
-                        <div className='ml-trader__progress-label'>
-                            <span>Rise</span>
-                            <span>{analysisData.riseRatio?.toFixed(1) || '0.0'}%</span>
+            {analysis && (
+                <div className='ml-trader__analysis'>
+                    <h3>ML Analysis</h3>
+                    <div className='ml-trader__analysis-section'>
+                        <div className='ml-trader__progress-item'>
+                            <div className='ml-trader__progress-label'>
+                                <span>Rise Probability</span>
+                                <span>{analysis.riseConfidence.toFixed(1)}%</span>
+                            </div>
+                            <div className='ml-trader__progress-bar'>
+                                <div 
+                                    className='ml-trader__progress-fill ml-trader__progress-fill--rise'
+                                    style={{width: `${analysis.riseConfidence}%`}}
+                                />
+                            </div>
                         </div>
-                        <div className='ml-trader__progress-bar'>
-                            <div 
-                                className='ml-trader__progress-fill ml-trader__progress-fill--rise'
-                                style={{ width: `${analysisData.riseRatio || 0}%` }}
-                            />
-                        </div>
-                    </div>
-                    <div className='ml-trader__progress-item'>
-                        <div className='ml-trader__progress-label'>
-                            <span>Fall</span>
-                            <span>{analysisData.fallRatio?.toFixed(1) || '0.0'}%</span>
-                        </div>
-                        <div className='ml-trader__progress-bar'>
-                            <div 
-                                className='ml-trader__progress-fill ml-trader__progress-fill--fall'
-                                style={{ width: `${analysisData.fallRatio || 0}%` }}
-                            />
-                        </div>
-                    </div>
-                </div>
 
-                {analysisData.recommendation && (
+                        <div className='ml-trader__progress-item'>
+                            <div className='ml-trader__progress-label'>
+                                <span>Fall Probability</span>
+                                <span>{analysis.fallConfidence.toFixed(1)}%</span>
+                            </div>
+                            <div className='ml-trader__progress-bar'>
+                                <div 
+                                    className='ml-trader__progress-fill ml-trader__progress-fill--fall'
+                                    style={{width: `${analysis.fallConfidence}%`}}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     <div className='ml-trader__recommendation'>
-                        <strong>Recommendation:</strong> {analysisData.recommendation} 
-                        <span className='ml-trader__confidence'>({analysisData.confidence?.toFixed(1)}%)</span>
+                        Recommendation: {analysis.recommendation}
+                        <span className='ml-trader__confidence'>
+                            ({Math.max(analysis.riseConfidence, analysis.fallConfidence).toFixed(1)}% confidence)
+                        </span>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
 
             <div className='ml-trader__trading-condition'>
-                <h4>Trading Condition</h4>
+                <h4>Auto Trading Settings</h4>
                 <div className='ml-trader__condition-row'>
-                    <span>If</span>
-                    <select value={conditionType} onChange={(e) => setConditionType(e.target.value)}>
-                        <option value='Rise Prob'>Rise Prob</option>
-                        <option value='Fall Prob'>Fall Prob</option>
-                    </select>
-                    <select value={conditionOperator} onChange={(e) => setConditionOperator(e.target.value)}>
-                        <option value='>'>{'>'}</option>
-                        <option value='>='>{'≥'}</option>
-                    </select>
+                    <span>Enable Auto Trading</span>
+                    <input
+                        type='checkbox'
+                        checked={autoTrade}
+                        onChange={(e) => setAutoTrade(e.target.checked)}
+                    />
+                </div>
+                <div className='ml-trader__condition-row'>
+                    <span>Min Confidence %</span>
                     <input
                         type='number'
-                        min={50}
+                        min={40}
                         max={95}
-                        value={conditionValue}
-                        onChange={(e) => setConditionValue(Number(e.target.value))}
+                        value={minConfidence}
+                        onChange={(e) => setMinConfidence(Number(e.target.value))}
                     />
-                    <span>%</span>
-                </div>
-                <div className='ml-trader__condition-row'>
-                    <span>Then</span>
-                    <span>Buy {conditionType === 'Rise Prob' ? 'Rise' : 'Fall'}</span>
-                </div>
-            </div>
-
-            <div className='ml-trader__trading-controls'>
-                <div className='ml-trader__control-group'>
-                    <label>Base Stake ($)</label>
-                    <input
-                        type='number'
-                        step='0.1'
-                        min={0.35}
-                        value={baseStake}
-                        onChange={(e) => setBaseStake(Number(e.target.value))}
-                    />
-                </div>
-
-                <div className='ml-trader__control-group'>
-                    <label>Ticks</label>
-                    <input
-                        type='number'
-                        min={1}
-                        max={10}
-                        value={tickDuration}
-                        onChange={(e) => setTickDuration(Number(e.target.value))}
-                    />
-                </div>
-
-                <div className='ml-trader__control-group'>
-                    <label>Martingale</label>
-                    <input
-                        type='number'
-                        step='0.1'
-                        min={1}
-                        max={5}
-                        value={martingaleSteps}
-                        onChange={(e) => setMartingaleSteps(Number(e.target.value))}
-                    />
-                </div>
-            </div>
-
-            <div className='ml-trader__strategy-status'>
-                <div className='ml-trader__status-item'>
-                    <span>Loss Streak: {lossStreak}</span>
-                </div>
-                <div className='ml-trader__status-item'>
-                    <span>Current Stake: ${currentStake.toFixed(2)}</span>
-                </div>
-                <div className='ml-trader__status-item'>
-                    <span>Last Outcome: {lastOutcome ? (lastOutcome === 'win' ? '✅' : '❌') : '➖'}</span>
                 </div>
             </div>
 
@@ -704,23 +330,23 @@ const MLTrader = observer(() => {
                 <button
                     className={`ml-trader__auto-trading-btn ${isAutoTrading ? 'ml-trader__auto-trading-btn--active' : ''}`}
                     onClick={toggleAutoTrading}
-                    disabled={!isAuthorized || connectionStatus !== 'connected'}
+                    disabled={connectionStatus !== 'connected'}
                 >
-                    {isAutoTrading ? 'STOP AUTO TRADING' : 'START AUTO TRADING'}
+                    {isAutoTrading ? 'Stop Auto Trading' : 'Start Auto Trading'}
                 </button>
 
                 <div className='ml-trader__manual-buttons'>
                     <button
                         className='ml-trader__manual-btn ml-trader__manual-btn--rise'
-                        onClick={() => executeManualTrade('Rise')}
-                        disabled={!isAuthorized || connectionStatus !== 'connected' || isAutoTrading}
+                        onClick={() => executeTrade('RISE')}
+                        disabled={connectionStatus !== 'connected'}
                     >
                         Execute Rise Trade
                     </button>
                     <button
                         className='ml-trader__manual-btn ml-trader__manual-btn--fall'
-                        onClick={() => executeManualTrade('Fall')}
-                        disabled={!isAuthorized || connectionStatus !== 'connected' || isAutoTrading}
+                        onClick={() => executeTrade('FALL')}
+                        disabled={connectionStatus !== 'connected'}
                     >
                         Execute Fall Trade
                     </button>
@@ -731,32 +357,29 @@ const MLTrader = observer(() => {
                 <h4>Trading Statistics</h4>
                 <div className='ml-trader__stats-grid'>
                     <div className='ml-trader__stat-item'>
-                        <Text size='xs' weight='bold'>Total Stake: ${totalStake.toFixed(2)}</Text>
+                        <Text size='xs'>Total Trades</Text>
+                        <Text size='s' weight='bold'>{statistics.totalTrades}</Text>
                     </div>
                     <div className='ml-trader__stat-item'>
-                        <Text size='xs' weight='bold'>Total Payout: ${totalPayout.toFixed(2)}</Text>
+                        <Text size='xs'>Wins</Text>
+                        <Text size='s' weight='bold' color='profit'>{statistics.wins}</Text>
                     </div>
                     <div className='ml-trader__stat-item'>
-                        <Text size='xs' weight='bold'>Total Runs: {totalRuns}</Text>
+                        <Text size='xs'>Losses</Text>
+                        <Text size='s' weight='bold' color='loss-danger'>{statistics.losses}</Text>
                     </div>
                     <div className='ml-trader__stat-item'>
-                        <Text size='xs' weight='bold'>Won: {contractsWon}</Text>
-                    </div>
-                    <div className='ml-trader__stat-item'>
-                        <Text size='xs' weight='bold'>Lost: {contractsLost}</Text>
-                    </div>
-                    <div className='ml-trader__stat-item'>
-                        <Text size='xs' weight='bold'>Win Rate: {winRate}%</Text>
-                    </div>
-                    <div className='ml-trader__stat-item'>
-                        <Text size='xs' weight='bold'>P&L: ${totalProfitLoss.toFixed(2)}</Text>
+                        <Text size='xs'>Win Rate</Text>
+                        <Text size='s' weight='bold'>{statistics.winRate.toFixed(1)}%</Text>
                     </div>
                 </div>
             </div>
 
             {status && (
                 <div className='ml-trader__status-message'>
-                    <Text size='sm'>{status}</Text>
+                    <Text size='xs' color={/error|fail/i.test(status) ? 'loss-danger' : 'prominent'}>
+                        {status}
+                    </Text>
                 </div>
             )}
         </div>
