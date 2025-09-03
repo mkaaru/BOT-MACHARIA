@@ -460,32 +460,33 @@ const MLTrader = observer(() => {
             });
 
             // Auto trading logic - ML based
-            if (isAutoTrading) {
+            if (isAutoTrading && recommendation && confidence >= mlMinConfidence) {
                 console.log(`🤖 ML AUTO TRADE CHECK:`, {
                     isAutoTrading,
                     recommendation,
                     confidence: confidence?.toFixed(1),
-                    meetsCriteria: recommendation && confidence >= 60,
+                    meetsCriteria: recommendation && confidence >= mlMinConfidence,
                     isAuthorized,
                     connectionStatus,
                     tradingApiReady: !!tradingApi
                 });
 
-                if (recommendation && confidence >= 60) {
-                    console.log(`✅ ML AUTO TRADE CONDITIONS MET: ${recommendation} with ${confidence.toFixed(1)}% confidence`);
-                    executeAutoTrade(recommendation, confidence);
-                } else {
-                    const reasons = [];
-                    if (!recommendation) reasons.push('no recommendation');
-                    if (confidence < 60) reasons.push(`confidence too low (${confidence.toFixed(1)}%)`);
-                    console.log(`⏳ ML AUTO TRADE WAITING: ${reasons.join(', ')}`);
-                }
+                console.log(`✅ ML AUTO TRADE CONDITIONS MET: ${recommendation} with ${confidence.toFixed(1)}% confidence`);
+                executeAutoTrade(recommendation, confidence);
+            } else if (isAutoTrading) {
+                const reasons = [];
+                if (!recommendation) reasons.push('no recommendation');
+                if (confidence < mlMinConfidence) reasons.push(`confidence too low (${confidence.toFixed(1)}% < ${mlMinConfidence}%)`);
+                if (!isAuthorized) reasons.push('not authorized');
+                if (connectionStatus !== 'connected') reasons.push('not connected');
+                if (!tradingApi) reasons.push('trading API not ready');
+                console.log(`⏳ ML AUTO TRADE WAITING: ${reasons.join(', ')}`);
             }
 
         } catch (error) {
             console.error('Error in ML analysis:', error);
         }
-    }, [isAutoTrading]);
+    }, [isAutoTrading, mlMinConfidence, isAuthorized, connectionStatus, tradingApi]);
 
     // Authorization helper
     const authorizeIfNeeded = async () => {
@@ -683,33 +684,46 @@ const MLTrader = observer(() => {
     // Monitor contract outcome
     const monitorContract = async (contractId: string, stakeAmount: number) => {
         try {
-            const subscription = await tradingApi.subscribeToOpenContract(contractId);
-
-            subscription.subscribe(({ proposal_open_contract }: any) => {
-                const contract = proposal_open_contract;
-
-                if (contract.is_sold) {
-                    const profit = contract.profit || 0;
-                    const payout = contract.payout || 0;
-
-                    setTotalPayout(prev => prev + payout);
-
-                    if (profit > 0) {
-                        setContractsWon(prev => prev + 1);
-                        setLastOutcome('win');
-                        setLossStreak(0);
-                        setCurrentStake(baseStake);
-                        setStatus(`✅ Contract won! Profit: $${profit.toFixed(2)}`);
-                    } else {
-                        setContractsLost(prev => prev + 1);
-                        setLastOutcome('loss');
-                        setLossStreak(prev => prev + 1);
-                        setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
-                    }
-
-                    subscription.unsubscribe();
-                }
+            // Subscribe to proposal_open_contract for the specific contract
+            const subscription = tradingApi.proposal_open_contract({
+                contract_id: contractId,
+                subscribe: 1
             });
+
+            subscription.onmessage = (data: any) => {
+                if (data.error) {
+                    console.error('Contract monitoring error:', data.error);
+                    setStatus(`Monitoring error: ${data.error.message}`);
+                    return;
+                }
+
+                if (data.proposal_open_contract) {
+                    const contract = data.proposal_open_contract;
+
+                    if (contract.is_sold) {
+                        const profit = contract.profit || 0;
+                        const payout = contract.payout || 0;
+
+                        setTotalPayout(prev => prev + payout);
+
+                        if (profit > 0) {
+                            setContractsWon(prev => prev + 1);
+                            setLastOutcome('win');
+                            setLossStreak(0);
+                            setCurrentStake(baseStake);
+                            setStatus(`✅ Contract won! Profit: $${profit.toFixed(2)}`);
+                        } else {
+                            setContractsLost(prev => prev + 1);
+                            setLastOutcome('loss');
+                            setLossStreak(prev => prev + 1);
+                            setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
+                        }
+
+                        // Unsubscribe from this contract
+                        subscription.unsubscribe?.();
+                    }
+                }
+            };
         } catch (error) {
             console.error('Error monitoring contract:', error);
             setStatus(`Monitoring error: ${error.message}`);
