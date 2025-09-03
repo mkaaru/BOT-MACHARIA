@@ -393,7 +393,7 @@ const MLTrader = observer(() => {
         console.log('✅ Trading API authorized successfully');
     };
 
-    // NEW: Auto trade execution with proper condition checking (from working VolatilityAnalyzer)
+    // Auto trade execution with enhanced debugging and connection checks
     const executeAutoTrade = async () => {
         const timestamp = new Date().toLocaleTimeString();
         console.log(`[${timestamp}] 🚀 Checking auto trade conditions`);
@@ -403,14 +403,21 @@ const MLTrader = observer(() => {
             return;
         }
 
+        // Add connection check
+        if (!tradingApi.connection || tradingApi.connection.readyState !== WebSocket.OPEN) {
+            console.error(`[${timestamp}] Trading API connection not ready`);
+            return;
+        }
+
         if (connectionStatus !== 'connected') {
-            console.error(`[${timestamp}] Not connected to API`);
+            console.error(`[${timestamp}] Not connected to market data API`);
             return;
         }
 
         // Check if enough time has passed since last trade
         const currentTime = Date.now();
         if (currentTime - lastTradeTimeRef.current < minTimeBetweenTrades) {
+            console.log(`[${timestamp}] Too soon since last trade, skipping`);
             return;
         }
 
@@ -456,19 +463,20 @@ const MLTrader = observer(() => {
                 }
             };
 
+            console.log(`[${timestamp}] Sending buy request:`, JSON.stringify(buyRequest, null, 2));
             setStatus(`Auto trading: Buying ${contractType} contract for $${stakeToUse}...`);
-            console.log(`[${timestamp}] 🔥 Auto trade executing:`, {
-                contractType,
-                amount: stakeToUse,
-                lossStreak
-            });
 
             lastTradeTimeRef.current = currentTime;
 
             const buyResponse = await tradingApi.buy(buyRequest);
+            console.log(`[${timestamp}] Buy response:`, JSON.stringify(buyResponse, null, 2));
 
             if (buyResponse.error) {
                 throw new Error(buyResponse.error.message);
+            }
+
+            if (!buyResponse.buy || !buyResponse.buy.contract_id) {
+                throw new Error('Invalid buy response: missing contract_id');
             }
 
             setTotalRuns(prev => prev + 1);
@@ -535,52 +543,70 @@ const MLTrader = observer(() => {
         }
     };
 
-    // Monitor contract outcome (unchanged)
+    // Monitor contract outcome with proper MessageEvent handling
     const monitorContract = async (contractId: string, stakeAmount: number) => {
         try {
+            // Check if trading API connection is available
+            if (!tradingApi?.connection) {
+                throw new Error('Trading API connection not available');
+            }
+
             const subscribeRequest = {
                 proposal_open_contract: 1,
                 contract_id: contractId,
                 subscribe: 1
             };
 
+            // Send subscription request
             await tradingApi.send(subscribeRequest);
             
-            const handleContractUpdate = (data: any) => {
-                if (data.msg_type === 'proposal_open_contract' && 
-                    data.proposal_open_contract &&
-                    String(data.proposal_open_contract.contract_id) === String(contractId)) {
+            // Create proper message handler for WebSocket events
+            const handleContractUpdate = (event: MessageEvent) => {
+                try {
+                    const data = JSON.parse(event.data);
                     
-                    const contract = data.proposal_open_contract;
-                    
-                    if (contract.is_sold || contract.status === 'sold') {
-                        const profit = Number(contract.profit || 0);
-                        const payout = Number(contract.payout || 0);
+                    if (data.msg_type === 'proposal_open_contract' && 
+                        data.proposal_open_contract &&
+                        String(data.proposal_open_contract.contract_id) === String(contractId)) {
                         
-                        setTotalPayout(prev => prev + payout);
+                        const contract = data.proposal_open_contract;
                         
-                        if (profit > 0) {
-                            setContractsWon(prev => prev + 1);
-                            setLastOutcome('win');
-                            setLossStreak(0);
-                            setCurrentStake(baseStake);
-                            setStatus(`✅ Contract won! Profit: $${profit.toFixed(2)}`);
-                        } else {
-                            setContractsLost(prev => prev + 1);
-                            setLastOutcome('loss');
-                            setLossStreak(prev => prev + 1);
-                            setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
+                        if (contract.is_sold || contract.status === 'sold') {
+                            const profit = Number(contract.profit || 0);
+                            const payout = Number(contract.payout || 0);
+                            
+                            setTotalPayout(prev => prev + payout);
+                            
+                            if (profit > 0) {
+                                setContractsWon(prev => prev + 1);
+                                setLastOutcome('win');
+                                setLossStreak(0);
+                                setCurrentStake(baseStake);
+                                setStatus(`✅ Contract won! Profit: $${profit.toFixed(2)}`);
+                            } else {
+                                setContractsLost(prev => prev + 1);
+                                setLastOutcome('loss');
+                                setLossStreak(prev => prev + 1);
+                                setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
+                            }
+                            
+                            // Remove listener
+                            tradingApi.connection.removeEventListener('message', handleContractUpdate);
                         }
-                        
-                        tradingApi.connection.removeEventListener('message', handleContractUpdate);
                     }
+                } catch (error) {
+                    console.error('Error parsing contract update:', error);
                 }
             };
 
+            // Add event listener to the actual connection
             tradingApi.connection.addEventListener('message', handleContractUpdate);
             
+            // Auto cleanup after 5 minutes
             setTimeout(() => {
-                tradingApi.connection.removeEventListener('message', handleContractUpdate);
+                if (tradingApi.connection) {
+                    tradingApi.connection.removeEventListener('message', handleContractUpdate);
+                }
             }, 300000);
 
         } catch (error) {
@@ -592,27 +618,33 @@ const MLTrader = observer(() => {
     // NEW: Auto trading management (from working VolatilityAnalyzer)
     const startAutoTrading = () => {
         if (connectionStatus !== 'connected') {
-            alert('Cannot start auto trading: Not connected to API');
+            alert('Cannot start auto trading: Not connected to market data API');
             return;
         }
 
-        if (!tradingApi || !isAuthorized) {
-            alert('Trading API not ready. Please ensure you are logged in.');
+        if (!tradingApi) {
+            alert('Trading API not initialized');
+            return;
+        }
+
+        if (!tradingApi.connection || tradingApi.connection.readyState !== WebSocket.OPEN) {
+            alert('Trading API connection not ready. Please wait...');
             return;
         }
 
         // Clear existing interval if any
         if (tradingInterval) {
             clearInterval(tradingInterval);
+            setTradingInterval(null);
         }
 
         setIsAutoTrading(true);
-        setStatus('Auto trading started');
+        setStatus('Auto trading started - checking conditions...');
 
-        // Determine interval based on symbol
-        let intervalMs = 1500; // 1.5 seconds default
+        // More conservative interval timing
+        let intervalMs = 2000; // 2 seconds default
         if (selectedSymbol.includes('1HZ')) {
-            intervalMs = 1000; // 1 second for 1s volatilities
+            intervalMs = 1500; // 1.5 seconds for 1s volatilities
         }
 
         console.log(`Starting auto trading with ${intervalMs}ms interval`);
@@ -643,6 +675,27 @@ const MLTrader = observer(() => {
             startAutoTrading();
         }
     };
+
+    // Add trading API status monitoring
+    useEffect(() => {
+        console.log('Trading API status:', {
+            hasTradingApi: !!tradingApi,
+            isAuthorized,
+            connectionReady: tradingApi?.connection?.readyState === WebSocket.OPEN
+        });
+    }, [tradingApi, isAuthorized]);
+
+    // Add connection status monitoring
+    useEffect(() => {
+        const checkConnection = () => {
+            if (tradingApi?.connection) {
+                console.log('Trading API connection state:', tradingApi.connection.readyState);
+            }
+        };
+
+        const interval = setInterval(checkConnection, 5000);
+        return () => clearInterval(interval);
+    }, [tradingApi]);
 
     // Cleanup on unmount
     useEffect(() => {
