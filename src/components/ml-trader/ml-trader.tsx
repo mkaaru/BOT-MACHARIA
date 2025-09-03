@@ -133,7 +133,7 @@ const MLTrader = observer(() => {
 
     // Martingale/recovery and trading limits
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.5); // Win with 1.5 multiplier
-    const [martingaleMaxRuns, setMartingaleMaxRuns] = useState<number>(5); // Default to 5 max martingale runs before resetting
+    const [martingaleMaxRuns, setMartingaleMaxRuns] = useState<number>(5); // Default to 5 martingale runs before resetting
     const [stopLoss, setStopLoss] = useState<number>(50.0);
     const [takeProfit, setTakeProfit] = useState<number>(100.0);
     const [currentMartingaleStep, setCurrentMartingaleStep] = useState<number>(0); // Current step in martingale sequence
@@ -1335,9 +1335,13 @@ const MLTrader = observer(() => {
                     Rise/Fall Trader
                 </Text>
                 <div className="ml-trader__status">
-                    <Text size="sm" color={is_running ? 'success' : 'general'}>
-                        {is_running ? 'Active' : 'Inactive'}
-                    </Text>
+                    <Text size="sm" weight="bold">Status</Text>
+                    <Text size="xs">{status}</Text>
+                    {isAutoTrading && (
+                        <Text size="xs" color="success">
+                            🔄 Continuous Auto Trading Active | Next: {stake.toFixed(2)} {account_currency}
+                        </Text>
+                    )}
                 </div>
             </div>
 
@@ -1681,43 +1685,47 @@ const MLTrader = observer(() => {
                 <Text size="sm" weight="bold">Trading Statistics</Text>
                 <div className="stats-grid">
                     <div className="stat-item">
-                        <Text size="xs">Total Runs</Text>
-                        <Text size="sm" weight="bold">{totalRuns}</Text>
+                        <span>Total Stake:</span>
+                        <span>${totalStake.toFixed(2)}</span>
                     </div>
                     <div className="stat-item">
-                        <Text size="xs">Won</Text>
-                        <Text size="sm" weight="bold" color="success">{contractsWon}</Text>
+                        <span>Total Payout:</span>
+                        <span>${totalPayout.toFixed(2)}</span>
                     </div>
                     <div className="stat-item">
-                        <Text size="xs">Lost</Text>
-                        <Text size="sm" weight="bold" color="danger">{contractsLost}</Text>
+                        <span>Total Runs:</span>
+                        <span>{totalRuns}</span>
                     </div>
                     <div className="stat-item">
-                        <Text size="xs">Total Stake</Text>
-                        <Text size="sm" weight="bold">{totalStake.toFixed(2)} {account_currency}</Text>
+                        <span>Contracts Won:</span>
+                        <span className="win">{contractsWon}</span>
                     </div>
                     <div className="stat-item">
-                        <Text size="xs">Total Payout</Text>
-                        <Text size="sm" weight="bold">{totalPayout.toFixed(2)} {account_currency}</Text>
+                        <span>Contracts Lost:</span>
+                        <span className="loss">{contractsLost}</span>
                     </div>
                     <div className="stat-item">
-                        <Text size="xs">P&L</Text>
-                        <Text
-                            size="sm"
-                            weight="bold"
-                            color={totalProfitLoss >= 0 ? 'success' : 'danger'}
-                        >
-                            {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)} {account_currency}
-                        </Text>
+                        <span>Win Rate:</span>
+                        <span>{totalRuns > 0 ? ((contractsWon / totalRuns) * 100).toFixed(1) : 0}%</span>
+                    </div>
+                    <div className="stat-item">
+                        <span>Net P&L:</span>
+                        <span className={totalProfitLoss >= 0 ? 'profit' : 'loss'}>
+                            ${totalProfitLoss.toFixed(2)}
+                        </span>
                     </div>
                     {/* Added display for consecutive wins */}
                     <div className="stat-item">
-                        <Text size="xs">Loss Streak</Text>
-                        <Text size="sm" weight="bold">{currentMartingaleStep}</Text>
+                        <span>Consecutive Wins:</span>
+                        <span className="win">{consecutiveWins}</span>
                     </div>
                     <div className="stat-item">
-                        <Text size="xs">Consecutive Wins</Text>
-                        <Text size="sm" weight="bold">{consecutiveWins}</Text>
+                        <span>Current Stake:</span>
+                        <span>${stake.toFixed(2)}</span>
+                    </div>
+                    <div className="stat-item">
+                        <span>Base Stake:</span>
+                        <span>${baseStake.toFixed(2)}</span>
                     </div>
                 </div>
             </div>
