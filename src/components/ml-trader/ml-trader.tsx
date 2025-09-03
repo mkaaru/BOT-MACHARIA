@@ -131,13 +131,13 @@ const MLTrader = observer(() => {
     const [stake, setStake] = useState<number>(1.0);
     const [baseStake, setBaseStake] = useState<number>(1.0);
 
-    // Martingale/recovery
-    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
-    const [martingaleRuns, setMartingaleRuns] = useState<number>(10); // Default to 10 runs
+    // Martingale/recovery and trading limits
+    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.5); // Win with 1.5 multiplier
+    const [martingaleMaxRuns, setMartingaleMaxRuns] = useState<number>(5); // Default to 5 max martingale runs before resetting
     const [stopLoss, setStopLoss] = useState<number>(50.0);
     const [takeProfit, setTakeProfit] = useState<number>(100.0);
-    const [currentMartingaleCount, setCurrentMartingaleCount] = useState<number>(0);
-    const [isInMartingaleSplit, setIsInMartingaleSplit] = useState<boolean>(false);
+    const [currentMartingaleStep, setCurrentMartingaleStep] = useState<number>(0); // Current step in martingale sequence
+    const [consecutiveWins, setConsecutiveWins] = useState<number>(0); // Track consecutive wins
 
     // Contract tracking state
     const [currentProfit, setCurrentProfit] = useState<number>(0);
@@ -154,7 +154,7 @@ const MLTrader = observer(() => {
     const [isScanning, setIsScanning] = useState(false);
     const [volatilityRecommendations, setVolatilityRecommendations] = useState<any[]>([]);
     const [preloadedData, setPreloadedData] = useState<{[key: string]: Array<{ time: number, price: number, close: number }>}>({});
-    const [isPreloading, setIsPreloading] = useState<boolean>(false);
+    const [isPreloading, setIsPreloading] = useState(false);
     const [marketRecommendation, setMarketRecommendation] = useState<any>(null);
     const [isAutoTrading, setIsAutoTrading] = useState<boolean>(false); // State to manage auto-trading status
 
@@ -177,8 +177,8 @@ const MLTrader = observer(() => {
     const [is_running, setIsRunning] = useState(false);
     const stopFlagRef = useRef<boolean>(false);
     const lastOutcomeWasLossRef = useRef(false);
-    let lossStreak = 0;
-    let step = 0;
+    let lossStreak = 0; // This variable seems to be declared but not fully utilized in the original code logic.
+    let step = 0; // This variable seems to be declared but not fully utilized in the original code logic.
 
     // Trading statistics
     const [totalStake, setTotalStake] = useState(0);
@@ -759,6 +759,24 @@ const MLTrader = observer(() => {
             return;
         }
 
+        // Martingale logic check before placing a trade
+        if (currentMartingaleStep > 0 && lastOutcomeWasLossRef.current) {
+            // If last trade was a loss, calculate next stake using multiplier
+            const nextStake = baseStake * Math.pow(martingaleMultiplier, currentMartingaleStep);
+            setStake(nextStake);
+        } else if (lastOutcomeWasLossRef.current && currentMartingaleStep === 0) {
+            // If last trade was a loss and we are not in martingale, reset to base stake (redundant but for clarity)
+             setStake(baseStake);
+        } else if (!lastOutcomeWasLossRef.current && currentMartingaleStep > 0) {
+            // If last trade was a win, reset to base stake
+             setStake(baseStake);
+             setConsecutiveWins(prev => prev + 1);
+             setCurrentMartingaleStep(0); // Reset martingale step
+        } else {
+            // Default or initial trade, use base stake
+            setStake(baseStake);
+        }
+
 
         try {
             // Map contract types correctly for Rise/Fall
@@ -906,37 +924,22 @@ const MLTrader = observer(() => {
                                     if (pocSubIdRef.current) apiRef.current?.forget?.({ forget: pocSubIdRef.current });
                                     apiRef.current?.connection?.removeEventListener('message', onMsg);
 
-                                    // Update martingale logic
+                                    // Update martingale logic based on win/loss
                                     if (profit > 0) {
                                         setContractsWon(prev => prev + 1);
                                         lastOutcomeWasLossRef.current = false;
-                                        lossStreak = 0;
-                                        step = 0;
-                                        setStake(baseStake);
-                                        setCurrentMartingaleCount(0); // Reset martingale count on win
-                                        setIsInMartingaleSplit(false); // Reset mode on win
+                                        setConsecutiveWins(prev => prev + 1); // Increment consecutive wins
+                                        setCurrentMartingaleStep(0); // Reset martingale step on win
+                                        setStake(baseStake); // Revert to original stake
                                     } else {
                                         setContractsLost(prev => prev + 1);
                                         lastOutcomeWasLossRef.current = true;
-                                        lossStreak++;
-                                        step = Math.min(step + 1, martingaleRuns); // Cap at martingaleRuns
-                                        setCurrentMartingaleCount(step);
-                                        setIsInMartingaleSplit(true); // Enter split mode
-
-                                        // Adjust stake based on martingale multiplier and step
-                                        const nextStake = baseStake * Math.pow(martingaleMultiplier, step);
-                                        setStake(nextStake);
-
-                                        // Check if max martingale runs reached
-                                        if (step >= martingaleRuns) {
-                                            setStatus(`Martingale runs limit (${martingaleRuns}) reached. Resetting stake.`);
-                                            setStake(baseStake);
-                                            setCurrentMartingaleCount(0);
-                                            setIsInMartingaleSplit(false);
-                                        }
+                                        setConsecutiveWins(0); // Reset consecutive wins on loss
+                                        setCurrentMartingaleStep(prev => Math.min(prev + 1, martingaleMaxRuns)); // Increment martingale step, capped by max runs
+                                        setStake(baseStake * Math.pow(martingaleMultiplier, Math.min(currentMartingaleStep + 1, martingaleMaxRuns))); // Calculate next stake, capped
                                     }
                                     setTotalProfitLoss(prev => prev + profit); // Update total P&L
-                                    setTotalPayout(prev => prev + (profit > 0 ? profit + stake : 0));
+                                    setTotalPayout(prev => prev + (profit > 0 ? profit + stake : 0)); // Update total payout
 
                                     // Clean up current contract subscription
                                     if (pocSubIdRef.current) {
@@ -1004,7 +1007,7 @@ const MLTrader = observer(() => {
                                                     if (isAutoTrading && !stopFlagRef.current) {
                                                         executeSingleTrade();
                                                     }
-                                                }, 2000); // Wait 2 seconds before next trade
+                                                }, 1000); // 1 second delay as requested
                                             }
                                         }
                                     } catch (healthCheckError) {
@@ -1052,7 +1055,7 @@ const MLTrader = observer(() => {
         setStatus('Auto trading stopped.');
         run_panel.setIsRunning(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
-        
+
         // Clear contract subscriptions on stop
         if (pocSubIdRef.current) {
             apiRef.current?.forget?.({ forget: pocSubIdRef.current });
@@ -1317,12 +1320,12 @@ const MLTrader = observer(() => {
         if (!isAutoTrading || stopFlagRef.current) {
             return;
         }
-        
+
         setTimeout(() => {
             if (isAutoTrading && !stopFlagRef.current) {
                 executeSingleTrade();
             }
-        }, 3000); // 3 second delay before the next trade
+        }, 1000); // 1 second delay as requested
     };
 
     return (
@@ -1384,6 +1387,52 @@ const MLTrader = observer(() => {
                     >
                         <option value="t">Ticks</option>
                     </select>
+                </div>
+
+                {/* Stop Loss and Take Profit Inputs */}
+                <div className="control-group">
+                    <Text size="sm" weight="bold">Stop Loss ({account_currency})</Text>
+                    <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={stopLoss}
+                        onChange={(e) => setStopLoss(parseFloat(e.target.value) || 0)}
+                    />
+                </div>
+                <div className="control-group">
+                    <Text size="sm" weight="bold">Take Profit ({account_currency})</Text>
+                    <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={takeProfit}
+                        onChange={(e) => setTakeProfit(parseFloat(e.target.value) || 0)}
+                    />
+                </div>
+
+                {/* Martingale Multiplier Input */}
+                <div className="control-group">
+                    <Text size="sm" weight="bold">Martingale Multiplier</Text>
+                    <input
+                        type="number"
+                        step="0.1"
+                        min="1.0"
+                        value={martingaleMultiplier}
+                        onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value) || 1.0)}
+                    />
+                </div>
+
+                 {/* Max Martingale Runs Input */}
+                 <div className="control-group">
+                    <Text size="sm" weight="bold">Max Martingale Runs</Text>
+                    <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={martingaleMaxRuns}
+                        onChange={(e) => setMartingaleMaxRuns(parseInt(e.target.value) || 0)}
+                    />
                 </div>
             </div>
 
@@ -1660,6 +1709,15 @@ const MLTrader = observer(() => {
                         >
                             {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)} {account_currency}
                         </Text>
+                    </div>
+                    {/* Added display for consecutive wins */}
+                    <div className="stat-item">
+                        <Text size="xs">Loss Streak</Text>
+                        <Text size="sm" weight="bold">{currentMartingaleStep}</Text>
+                    </div>
+                    <div className="stat-item">
+                        <Text size="xs">Consecutive Wins</Text>
+                        <Text size="sm" weight="bold">{consecutiveWins}</Text>
                     </div>
                 </div>
             </div>
