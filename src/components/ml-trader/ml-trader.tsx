@@ -717,7 +717,30 @@ const MLTrader = observer(() => {
         });
     };
 
-    // Generate more realistic tick data with volatility-appropriate characteristics
+    // Generate mock tick data for demonstration (replace with real API calls)
+    const generateMockTickData = (symbol: string) => {
+        const basePrice = Math.random() * 1000 + 500; // Random base price
+        const ticks: TickData[] = [];
+
+        for (let i = 0; i < 1000; i++) {
+            const volatility = symbol.includes('100') ? 0.02 :
+                             symbol.includes('75') ? 0.015 :
+                             symbol.includes('50') ? 0.01 :
+                             symbol.includes('25') ? 0.008 : 0.005;
+
+            const change = (Math.random() - 0.5) * volatility * basePrice;
+            const newPrice = i === 0 ? basePrice : ticks[i-1].quote + change;
+
+            ticks.push({
+                time: Date.now() - (1000 - i) * 1000,
+                quote: Math.max(newPrice, basePrice * 0.5) // Prevent negative prices
+            });
+        }
+
+        return ticks;
+    };
+
+    // Generate tick data with volatility-appropriate characteristics
     const generateAdvancedTickData = (symbol: string, count: number) => {
         const basePrice = Math.random() * 500 + 250;
         const ticks: TickData[] = [];
@@ -761,29 +784,6 @@ const MLTrader = observer(() => {
         return analyses;
     };
 
-    // Generate mock tick data for demonstration (replace with real API calls)
-    const generateMockTickData = (symbol: string) => {
-        const basePrice = Math.random() * 1000 + 500; // Random base price
-        const ticks: TickData[] = [];
-
-        for (let i = 0; i < 1000; i++) {
-            const volatility = symbol.includes('100') ? 0.02 :
-                             symbol.includes('75') ? 0.015 :
-                             symbol.includes('50') ? 0.01 :
-                             symbol.includes('25') ? 0.008 : 0.005;
-
-            const change = (Math.random() - 0.5) * volatility * basePrice;
-            const newPrice = i === 0 ? basePrice : ticks[i-1].quote + change;
-
-            ticks.push({
-                time: Date.now() - (1000 - i) * 1000,
-                quote: Math.max(newPrice, basePrice * 0.5) // Prevent negative prices
-            });
-        }
-
-        return ticks;
-    };
-
     // Apply recommended volatility and trade direction with comprehensive results
     const applyRecommendedVolatility = async () => {
         if (isAutoTrading) {
@@ -809,7 +809,7 @@ const MLTrader = observer(() => {
                 recommendations.slice(0, 5).forEach((rec, index) => {
                     console.log(`${index + 1}. ${rec.displayName}`);
                     console.log(`   Signal: ${rec.signal} | Confidence: ${rec.confidence}%`);
-                    console.log(`   Trend Strength: ${rec.trendStrength}% (${rec.alignedSignals}/${rec.totalSignals} aligned)`);
+                    console.log(`   Trend Strength: ${rec.trendStrength}% (${rec.alignedSignals}/${rec.totalSignals})`);
                     console.log(`   HMA Trends: 20(${rec.hma20Trend}) 50(${rec.hma50Trend}) 100(${rec.hma100Trend})`);
                     console.log(`   Momentum: ${rec.momentum} | Volatility: ${rec.volatilityNumber}`);
                     console.log(`   Reasoning: ${rec.reasoning}`);
@@ -990,13 +990,10 @@ const MLTrader = observer(() => {
 
         try {
             const ticks = tickHistoryRef.current;
-
-            // Check current auto trading state directly from ref or state
-            const currentAutoTradingState = isAutoTrading;
-            console.log(`📊 Analyzing ${ticks.length} ticks for ${selectedSymbol}. Auto trading: ${currentAutoTradingState}`);
+            console.log(`📊 Analyzing ${ticks.length} ticks for ${selectedSymbol}. Auto trading: ${isAutoTrading}`);
 
             // Force immediate analysis if auto trading was just started
-            const forceAnalysis = currentAutoTradingState && ticks.length >= 20;
+            const forceAnalysis = isAutoTrading && ticks.length >= 20;
 
             // Basic statistics for display
             let riseCount = 0;
@@ -1034,7 +1031,7 @@ const MLTrader = observer(() => {
                     hma50Trend: mlAnalysis.hma50Trend,
                     signalStrength: mlAnalysis.signalStrength.toFixed(1),
                     signals: `${mlAnalysis.signals}/${mlAnalysis.totalSignals}`,
-                    autoTrading: currentAutoTradingState
+                    autoTrading: isAutoTrading
                 });
             } else {
                 // Fallback to basic analysis if insufficient data
@@ -1063,7 +1060,7 @@ const MLTrader = observer(() => {
             });
 
             // Auto trading logic - Check current state when executing analysis
-            if (currentAutoTradingState && connectionStatus === 'connected' && tradingApi) {
+            if (isAutoTrading && connectionStatus === 'connected' && tradingApi) {
                 // Use lower threshold for forced analysis (just started auto trading)
                 const minTicksRequired = forceAnalysis ? 20 : 30;
 
@@ -1077,7 +1074,7 @@ const MLTrader = observer(() => {
                     if (ticks.length < minTicksRequired) reasons.push(`insufficient data (${ticks.length}/${minTicksRequired} ticks)`);
                     console.log(`⏳ AUTO TRADE WAITING for ${selectedSymbol}: ${reasons.join(', ')}`);
                 }
-            } else if (!currentAutoTradingState && recommendation) {
+            } else if (!isAutoTrading && recommendation) {
                 console.log(`📊 Analysis complete but auto trading is disabled: ${recommendation} (${confidence.toFixed(1)}% confidence)`);
             }
 
@@ -1085,7 +1082,7 @@ const MLTrader = observer(() => {
             console.error('❌ Error in ML analysis:', error);
             setStatus(`❌ Analysis error: ${error.message}`);
         }
-    }, [isAutoTrading, mlMinConfidence, isAuthorized, connectionStatus, tradingApi, selectedSymbol]);
+    }, [isAutoTrading, mlMinConfidence, isAuthorized, connectionStatus, tradingApi, selectedSymbol, executeMLTrade]);
 
     // Authorization helper
     const authorizeIfNeeded = async () => {
@@ -1251,24 +1248,29 @@ const MLTrader = observer(() => {
         }
     };
 
-    // Execute manual trade
-    const executeManualTrade = async (direction: 'RISE' | 'FALL') => {
-        const tradeType = direction === 'RISE' ? 'CALL' : 'PUT';
-        setStatus(`📱 Manual ${direction} trade initiated...`);
+    // Manual trade execution
+    const executeManualTrade = useCallback(async (direction: 'RISE' | 'FALL') => {
+        if (!tradingApi || !isAuthorized) {
+            setStatus('❌ Trading API not authorized. Please check your token.');
+            return;
+        }
+
+        if (!analysisData.totalTicks || analysisData.totalTicks < 50) {
+            setStatus('⏳ Waiting for sufficient market data...');
+            return;
+        }
 
         try {
-            const result = await purchaseRiseFallContract(tradeType);
+            setStatus(`🔄 Executing manual ${direction} trade...`);
 
-            if (result.success) {
-                setStatus(`✅ Manual ${direction} contract purchased! ID: ${result.data.contract_id}`);
-            } else {
-                setStatus(`❌ Manual ${direction} trade failed: ${result.error?.message || 'Unknown error'}`);
-            }
+            const confidence = analysisData.confidence || 50;
+            await executeContractPurchase(direction, confidence);
+
         } catch (error) {
-            console.error('Manual trade error:', error);
-            setStatus(`❌ Manual ${direction} trade error: ${error.message}`);
+            console.error('Manual trade execution failed:', error);
+            setStatus(`❌ Manual trade failed: ${error.message}`);
         }
-    };
+    }, [tradingApi, isAuthorized, analysisData, executeContractPurchase]);
 
     // Monitor contract outcome
     const monitorContract = async (contractId: string, stake: number, recommendation: string, confidence: number) => {
@@ -1325,7 +1327,6 @@ const MLTrader = observer(() => {
                                 setContractsLost(prev => prev + 1);
                                 setLossStreak(prev => prev + 1);
                                 setLastOutcome('loss');
-                                setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
 
                                 // Increase stake for next trade (martingale)
                                 const nextStake = Math.min(currentStake * martingaleSteps, baseStake * 10);
@@ -1734,7 +1735,7 @@ const MLTrader = observer(() => {
                         existingContract.contract.profit = profit;
                         existingContract.contract.status = contractStatus;
 
-                        contractsRef.current.set(contract_id, existingContract);
+                        contractsRef.current.set(contractId, existingContract);
                         setActiveContracts(new Map(contractsRef.current));
                     }
 
@@ -1742,7 +1743,7 @@ const MLTrader = observer(() => {
                         console.log(`📈 Contract ${contract_id} finished with status: ${contractStatus}`);
 
                         // Remove from active contracts
-                        contractsRef.current.delete(contract_id);
+                        contractsRef.current.delete(contractId);
                         setActiveContracts(new Map(contractsRef.current));
 
                         // Update statistics
@@ -1854,6 +1855,302 @@ const MLTrader = observer(() => {
     };
 
     const winRate = totalRuns > 0 ? ((contractsWon / totalRuns) * 100).toFixed(1) : '0.0';
+
+    // --- Contract Purchase and Monitoring Implementations ---
+
+    // Execute contract purchase based on ML analysis
+    const executeContractPurchase = useCallback(async (recommendation: string, confidence: number) => {
+        if (!tradingApi || !isAuthorized) {
+            setStatus('❌ Trading API not authorized. Please check your token.');
+            return;
+        }
+
+        try {
+            setStatus(`🔄 Executing ${recommendation} contract...`);
+
+            // Contract parameters for Rise/Fall
+            const contractParams = {
+                symbol: selectedSymbol,
+                contract_type: recommendation === 'RISE' ? 'CALL' : 'PUT',
+                currency: 'USD',
+                amount: currentStake,
+                duration: tickDuration,
+                duration_unit: 't',
+                basis: 'stake',
+                proposal: 1
+            };
+
+            // Get proposal first
+            console.log('Getting proposal with params:', contractParams);
+            const proposalResponse = await tradingApi.proposal(contractParams);
+
+            if (proposalResponse.error) {
+                throw new Error(proposalResponse.error.message);
+            }
+
+            const proposal = proposalResponse.proposal;
+            if (!proposal) {
+                throw new Error('No proposal received');
+            }
+
+            // Execute the purchase
+            console.log('Purchasing contract with proposal:', proposal.id);
+            const buyResponse = await tradingApi.buy({
+                buy: proposal.id,
+                price: proposal.ask_price
+            });
+
+            if (buyResponse.error) {
+                throw new Error(buyResponse.error.message);
+            }
+
+            const contract = buyResponse.buy;
+            console.log('✅ Contract purchased successfully:', contract);
+
+            // Store contract data
+            const contractData: ContractData = {
+                id: contract.contract_id,
+                buy: buyResponse,
+                contract: {
+                    contract_id: contract.contract_id,
+                    contract_type: recommendation,
+                    currency: 'USD',
+                    date_start: contract.start_time,
+                    entry_spot: parseFloat(contract.start_spot || '0'),
+                    entry_spot_display_value: contract.start_spot_display_value || contract.start_spot || '0',
+                    purchase_time: contract.purchase_time,
+                    buy_price: parseFloat(contract.buy_price || '0'),
+                    payout: parseFloat(contract.payout || '0'),
+                    underlying: selectedSymbol,
+                    shortcode: contract.shortcode || '',
+                    display_name: `${recommendation} on ${selectedSymbol}`,
+                    ml_confidence: confidence,
+                    ml_recommendation: recommendation,
+                    is_ml_trade: true,
+                    transaction_id: contract.transaction_id
+                }
+            };
+
+            // Add to contracts tracking
+            contractsRef.current.set(contract.contract_id, contractData);
+            setActiveContracts(new Map(contractsRef.current));
+
+            // Update statistics immediately on purchase
+            setTotalRuns(prev => prev + 1);
+            setTotalStake(prev => prev + currentStake);
+
+            // Notify bot observer of contract purchase
+            botObserver.emit('contract_purchased', {
+                contract_id: contract.contract_id,
+                contract_type: recommendation,
+                buy_price: contract.buy_price,
+                payout: contract.payout,
+                underlying: selectedSymbol,
+                is_ml_trade: true,
+                ml_confidence: confidence
+            });
+
+            setStatus(`✅ ${recommendation} contract purchased - ID: ${contract.contract_id}`);
+
+            // Subscribe to contract updates to track outcome
+            subscribeToContract(contract.contract_id);
+
+        } catch (error) {
+            console.error('Contract purchase failed:', error);
+            setStatus(`❌ Contract purchase failed: ${error.message}`);
+
+            // Update loss statistics since purchase failed
+            setContractsLost(prev => prev + 1);
+            setLossStreak(prev => prev + 1);
+            setLastOutcome('loss');
+
+            // Reset stake after failed purchase
+            if (lossStreak >= martingaleSteps) {
+                setCurrentStake(baseStake);
+                setLossStreak(0);
+            } else {
+                setCurrentStake(prev => prev * 2); // Martingale progression
+            }
+        }
+    }, [tradingApi, isAuthorized, selectedSymbol, tickDuration, currentStake, baseStake, lossStreak, martingaleSteps, subscribeToContract]);
+
+    // Subscribe to contract updates
+    const subscribeToContract = useCallback(async (contractId: string) => {
+        if (!tradingApi) return;
+
+        try {
+            console.log('Subscribing to contract:', contractId);
+
+            // Subscribe to contract updates
+            const subscription = await tradingApi.subscribeToOpenContract(contractId);
+
+            // Handle contract updates
+            subscription.subscribe((response: any) => {
+                if (response.error) {
+                    console.error('Contract subscription error:', response.error);
+                    return;
+                }
+
+                if (response.proposal_open_contract) {
+                    const contract = response.proposal_open_contract;
+                    console.log('Contract update:', contract);
+
+                    // Update contract in storage
+                    const existingContract = contractsRef.current.get(contractId);
+                    if (existingContract) {
+                        existingContract.contract.current_spot = contract.current_spot;
+                        existingContract.contract.current_spot_display_value = contract.current_spot_display_value;
+                        existingContract.contract.profit = contract.profit;
+                        existingContract.contract.is_sold = contract.is_sold;
+                        existingContract.contract.status = contract.status;
+
+                        contractsRef.current.set(contractId, existingContract);
+                        setActiveContracts(new Map(contractsRef.current));
+
+                        // Check if contract is finished
+                        if (contract.is_sold) {
+                            handleContractFinished(contractId, contract);
+                        }
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error('Failed to subscribe to contract:', error);
+        }
+    }, [tradingApi, handleContractFinished]); // Ensure handleContractFinished is a dependency if it's redefined or changed
+
+    // Handle contract completion and update balance/statistics
+    const handleContractFinished = useCallback((contractId: string, contract: any) => {
+        console.log('Contract finished:', contractId, contract);
+
+        const contractData = contractsRef.current.get(contractId);
+        if (!contractData) return;
+
+        const profit = parseFloat(contract.profit || '0');
+        const isWin = profit > 0;
+
+        // Update statistics based on outcome
+        if (isWin) {
+            setContractsWon(prev => prev + 1);
+            setTotalPayout(prev => prev + profit + contractData.contract.buy_price); // Add back stake + profit
+            setLossStreak(0); // Reset loss streak on win
+            setCurrentStake(baseStake); // Reset stake to base amount
+            setLastOutcome('win');
+            setStatus(`🎉 Contract WON! Profit: $${profit.toFixed(2)}`);
+        } else {
+            setContractsLost(prev => prev + 1);
+            setLossStreak(prev => prev + 1);
+            setLastOutcome('loss');
+
+            // Apply Martingale progression on loss
+            if (lossStreak >= martingaleSteps) {
+                setCurrentStake(baseStake); // Reset after max martingale steps
+                setLossStreak(0);
+            } else {
+                setCurrentStake(prev => Math.min(prev * 2, baseStake * Math.pow(2, martingaleSteps))); // Double stake but cap it
+            }
+
+            setStatus(`💔 Contract LOST. Loss: $${Math.abs(profit).toFixed(2)}`);
+        }
+
+        // Update total payout (this includes both wins and losses)
+        setTotalPayout(prev => prev + profit);
+
+        // Remove from active contracts
+        contractsRef.current.delete(contractId);
+        setActiveContracts(new Map(contractsRef.current));
+
+        // Emit contract result to bot observer
+        botObserver.emit('contract_finished', {
+            contract_id: contractId,
+            profit: profit,
+            is_win: isWin,
+            contract_type: contractData.contract.contract_type,
+            buy_price: contractData.contract.buy_price,
+            payout: contractData.contract.payout,
+            underlying: selectedSymbol,
+            is_ml_trade: true
+        });
+
+        // Schedule next trade if auto trading is enabled
+        if (isAutoTrading) {
+            setTimeout(() => {
+                if (isAutoTrading) { // Check again in case user stopped auto trading
+                    performMLAnalysisAndTrade();
+                }
+            }, 3000); // Wait 3 seconds before next trade
+        }
+
+    }, [baseStake, lossStreak, martingaleSteps, isAutoTrading, selectedSymbol, performMLAnalysisAndTrade]);
+
+    // Auto trading logic with ML analysis
+    const performMLAnalysisAndTrade = useCallback(async () => {
+        if (!isAutoTrading || !tradingApi || !isAuthorized) return;
+
+        // Check if there are active contracts (wait for them to finish)
+        if (contractsRef.current.size > 0) {
+            setStatus('⏳ Waiting for active contracts to finish...');
+            setTimeout(() => {
+                if (isAutoTrading) performMLAnalysisAndTrade();
+            }, 2000);
+            return;
+        }
+
+        try {
+            const ticks = tickHistoryRef.current;
+            if (ticks.length < 100) {
+                setStatus('⏳ Collecting market data...');
+                setTimeout(() => {
+                    if (isAutoTrading) performMLAnalysisAndTrade();
+                }, 3000);
+                return;
+            }
+
+            const analysis = getTrendAnalysis(ticks);
+            if (!analysis) {
+                setStatus('❌ Unable to perform trend analysis');
+                return;
+            }
+
+            // Update analysis data
+            setAnalysisData({
+                recommendation: analysis.overallTrend === 'BULLISH' ? 'RISE' : 'FALL',
+                confidence: analysis.trendStrength,
+                totalTicks: ticks.length,
+                ...analysis
+            });
+
+            // Check if confidence meets minimum threshold
+            if (analysis.trendStrength >= mlMinConfidence) {
+                const recommendation = analysis.overallTrend === 'BULLISH' ? 'RISE' : 'FALL';
+                console.log(`🎯 ML Signal detected: ${recommendation} with ${analysis.trendStrength}% confidence`);
+
+                await executeContractPurchase(recommendation, analysis.trendStrength);
+            } else {
+                setStatus(`⏳ Waiting for stronger signal (${analysis.trendStrength}% < ${mlMinConfidence}%)`);
+
+                // Continue monitoring if auto trading is still enabled
+                if (isAutoTrading) {
+                    setTimeout(() => {
+                        if (isAutoTrading) performMLAnalysisAndTrade();
+                    }, 5000);
+                }
+            }
+
+        } catch (error) {
+            console.error('ML analysis and trade failed:', error);
+            setStatus(`❌ ML analysis failed: ${error.message}`);
+
+            // Continue auto trading after error
+            if (isAutoTrading) {
+                setTimeout(() => {
+                    if (isAutoTrading) performMLAnalysisAndTrade();
+                }, 10000);
+            }
+        }
+    }, [isAutoTrading, tradingApi, isAuthorized, mlMinConfidence, executeContractPurchase]);
+
 
     return (
         <div className='ml-trader'>
