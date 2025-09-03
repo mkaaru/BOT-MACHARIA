@@ -162,6 +162,8 @@ const MLTrader = observer(() => {
     const [tickStream, setTickStream] = useState<Array<{ price: number; direction: 'R' | 'F' | 'N'; time: number }>>([]);
     const [risePercentage, setRisePercentage] = useState<number>(0);
     const [fallPercentage, setFallPercentage] = useState<number>(0);
+    const [riseCount, setRiseCount] = useState<number>(0); // Add riseCount state
+    const [fallCount, setFallCount] = useState<number>(0); // Add fallCount state
 
     // Hull Moving Average trend analysis state - using 1000 tick increments for stability
     const [hullTrends, setHullTrends] = useState({
@@ -674,6 +676,8 @@ const MLTrader = observer(() => {
         setTickStream([]); // Clear tick stream on new symbol
         setRisePercentage(0);
         setFallPercentage(0);
+        setRiseCount(0); // Reset counts
+        setFallCount(0);
 
         try {
             const { subscription, error } = await apiRef.current.send({ ticks: sym, subscribe: 1 });
@@ -705,14 +709,17 @@ const MLTrader = observer(() => {
                             const newTick = { price: quote, direction, time: tickTime };
                             const updatedStream = [...prev, newTick].slice(-120); // Keep last 120 ticks
 
-                            // Calculate rise/fall percentages
-                            const riseCount = updatedStream.filter(t => t.direction === 'R').length;
-                            const fallCount = updatedStream.filter(t => t.direction === 'F').length;
-                            const totalDirectional = riseCount + fallCount;
+                            // Calculate rise/fall percentages and counts
+                            const currentRiseCount = updatedStream.filter(t => t.direction === 'R').length;
+                            const currentFallCount = updatedStream.filter(t => t.direction === 'F').length;
+                            setRiseCount(currentRiseCount); // Update rise count state
+                            setFallCount(currentFallCount); // Update fall count state
+
+                            const totalDirectional = currentRiseCount + currentFallCount;
 
                             if (totalDirectional > 0) {
-                                setRisePercentage(Math.round((riseCount / totalDirectional) * 100));
-                                setFallPercentage(Math.round((fallCount / totalDirectional) * 100));
+                                setRisePercentage(Math.round((currentRiseCount / totalDirectional) * 100));
+                                setFallPercentage(Math.round((currentFallCount / totalDirectional) * 100));
                             } else {
                                 setRisePercentage(0);
                                 setFallPercentage(0);
@@ -1507,7 +1514,7 @@ const MLTrader = observer(() => {
                         </Text>
                     </div>
 
-                    {/* Rise/Fall Analytics borrowed from volatility analyzer */}
+                    {/* Rise/Fall Analytics */}
                     <div className="rise-fall-analytics">
                         <h3>Rise/Fall Analysis</h3>
                         <div className="analytics-grid">
