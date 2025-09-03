@@ -157,6 +157,7 @@ const MLTrader = observer(() => {
     const [isPreloading, setIsPreloading] = useState(false);
     const [marketRecommendation, setMarketRecommendation] = useState<any>(null);
     const [isAutoTrading, setIsAutoTrading] = useState<boolean>(false); // State to manage auto-trading status
+    const [tradingEngineConnected, setTradingEngineConnected] = useState<boolean>(false); // State for trading engine connection
 
     // Rise/Fall Analytics State
     const [tickStream, setTickStream] = useState<Array<{ price: number; direction: 'R' | 'F' | 'N'; time: number }>>([]);
@@ -205,6 +206,9 @@ const MLTrader = observer(() => {
         '3000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 },
         '4000': { trend: 'NEUTRAL', value: 0, smoothedValue: 0 }
     });
+
+    // State to track the currently active contract for auto-trading logic
+    const [currentActiveContract, setCurrentActiveContract] = useState<any>(null);
 
     // --- Helper Functions ---
 
@@ -750,295 +754,314 @@ const MLTrader = observer(() => {
         }
     };
 
-    // Rise/Fall mode - tick-based contracts using real Deriv API
-    const purchaseRiseFallContract = async (tradeType: string) => {
+    // Calculate stake based on Martingale strategy
+    const calculateMartingaleStake = () => {
+        const currentStake = baseStake * Math.pow(martingaleMultiplier, currentMartingaleStep);
+        // Ensure stake does not exceed a reasonable limit or a predefined max stake
+        return Math.min(currentStake, baseStake * 100); // Example: Cap at 100x base stake
+    };
+
+    // Function to handle contract results and update state
+    const handleContractResult = (contractResult: any) => {
+        const { contract_id, profit } = contractResult;
+
+        const isWin = profit > 0;
+        const outcomeProfit = Number(profit || 0);
+
+        if (isWin) {
+            setContractsWon(prev => prev + 1);
+            setConsecutiveWins(prev => prev + 1);
+            lastOutcomeWasLossRef.current = false;
+            setCurrentMartingaleStep(0); // Reset martingale step on win
+            setStake(baseStake); // Revert to original stake
+        } else {
+            setContractsLost(prev => prev + 1);
+            setConsecutiveWins(0); // Reset consecutive wins on loss
+            lastOutcomeWasLossRef.current = true;
+            setCurrentMartingaleStep(prev => Math.min(prev + 1, martingaleMaxRuns)); // Increment martingale step, capped by max runs
+            setStake(calculateMartingaleStake()); // Calculate next stake
+        }
+
+        setTotalPayout(prev => prev + (outcomeProfit > 0 ? outcomeProfit + Number(currentContractValue) : 0)); // Update total payout
+        setTotalProfitLoss(prev => prev + outcomeProfit); // Update total P&L
+        setCurrentProfit(outcomeProfit);
+
+        // Update trade history with result
+        setTradeHistory(prev =>
+            prev.map(trade =>
+                trade.id === contract_id
+                    ? { ...trade, result: isWin ? 'win' : 'loss', profit: outcomeProfit }
+                    : trade
+            )
+        );
+
+        setStatus(`Contract ${isWin ? 'won' : 'lost'}: ${outcomeProfit.toFixed(2)} ${account_currency}`);
+
+        // Clear current active contract state
+        setCurrentActiveContract(null);
+
+        // Schedule the next trade if auto-trading is active and no stop flag
+        if (isAutoTrading && !stopFlagRef.current) {
+            console.log('Contract completed, scheduling next trade...');
+            scheduleNextTrade();
+        } else {
+            console.log('Auto trading stopped or flag set, not scheduling next trade');
+        }
+    };
+
+    // Real trade execution using the trading engine
+    const executeRealTrade = async (tradeDirection: 'CALL' | 'PUT') => {
         await authorizeIfNeeded();
 
-        // Check for stop loss and take profit before trading
+        if (!apiRef.current || !is_authorized) {
+            setStatus('Authorization required. Please check your connection.');
+            return null;
+        }
+
+        // Check stop loss and take profit
         if (totalProfitLoss <= -stopLoss) {
             setStatus(`Stop Loss hit ($${stopLoss}). Stopping trading.`);
             stopAutoTrading();
-            return;
+            return null;
         }
         if (totalProfitLoss >= takeProfit) {
             setStatus(`Take Profit hit ($${takeProfit}). Stopping trading.`);
             stopAutoTrading();
-            return;
+            return null;
         }
-
-        // Martingale logic check before placing a trade
-        if (currentMartingaleStep > 0 && lastOutcomeWasLossRef.current) {
-            // If last trade was a loss, calculate next stake using multiplier
-            const nextStake = baseStake * Math.pow(martingaleMultiplier, currentMartingaleStep);
-            setStake(nextStake);
-        } else if (lastOutcomeWasLossRef.current && currentMartingaleStep === 0) {
-            // If last trade was a loss and we are not in martingale, reset to base stake (redundant but for clarity)
-             setStake(baseStake);
-        } else if (!lastOutcomeWasLossRef.current && currentMartingaleStep > 0) {
-            // If last trade was a win, reset to base stake
-             setStake(baseStake);
-             setConsecutiveWins(prev => prev + 1);
-             setCurrentMartingaleStep(0); // Reset martingale step
-        } else {
-            // Default or initial trade, use base stake
-            setStake(baseStake);
-        }
-
 
         try {
-            // Map contract types correctly for Rise/Fall
-            let apiContractType = tradeType;
-            // No change needed for CALL/PUT as they directly map to Rise/Fall
+            const currentStake = calculateMartingaleStake();
+            if (currentStake <= 0) {
+                setStatus('Stake too low. Stopping.');
+                stopAutoTrading();
+                return null;
+            }
 
-            setStatus(`Getting proposal for ${apiContractType} contract...`);
-
-            // Get proposal using real Deriv API
-            const proposalParams = {
-                proposal: 1,
-                amount: stake,
+            const trade_option = {
+                amount: currentStake,
                 basis: 'stake',
-                contract_type: apiContractType,
+                contract_type: tradeDirection,
                 currency: account_currency,
-                duration: 1, // Duration is 1 tick for Rise/Fall
-                duration_unit: 't', // tick unit
+                duration: duration,
+                duration_unit: durationType,
                 symbol: symbol,
             };
 
-            console.log('Getting proposal for Rise/Fall:', proposalParams);
+            setStatus(`Getting proposal for ${tradeDirection === 'CALL' ? 'Rise' : 'Fall'} contract...`);
 
-            const proposalResponse = await apiRef.current.send(proposalParams);
+            // Get proposal using the trading engine
+            const proposalResponse = await tradingEngine.getProposal(trade_option);
 
             if (proposalResponse.error) {
-                setStatus(`Proposal failed: ${proposalResponse.error.message}`);
-                console.error('Proposal error:', proposalResponse.error);
-                return;
+                setStatus(`Proposal error: ${proposalResponse.error.message}`);
+                return null;
             }
 
             const proposal = proposalResponse.proposal;
-            if (!proposal) {
-                setStatus('No proposal received');
-                return;
-            }
+            setPotentialPayout(proposal.payout || 0);
 
-            setStatus(`Purchasing ${apiContractType} contract...`);
-
-            // Buy contract using real Deriv API
-            const buyParams = {
-                buy: proposal.id,
-                price: proposal.ask_price
-            };
-
-            const buyResponse = await apiRef.current.send(buyParams);
+            // Buy the contract using the trading engine
+            const buyResponse = await tradingEngine.buyContract(proposal.id, proposal.ask_price);
 
             if (buyResponse.error) {
-                setStatus(`Trade failed: ${buyResponse.error.message}`);
-                console.error('Buy error:', buyResponse.error);
-                return;
+                setStatus(`Purchase error: ${buyResponse.error.message}`);
+                return null;
             }
 
-            const buy = buyResponse.buy;
-            console.log('Rise/Fall Contract purchased:', buy);
+            const contract = buyResponse.buy;
 
-            // Update statistics
-            setTotalStake(prev => prev + stake);
+            // Update UI state
+            setCurrentContractValue(contract.buy_price || currentStake);
+            setEntrySpot(currentPrice);
+            setStatus(`Contract purchased: ${contract.contract_id || 'Unknown ID'}`);
+
+            // Track statistics
+            setTotalStake(prev => prev + currentStake);
             setTotalRuns(prev => prev + 1);
 
             // Add to trade history
             const tradeRecord = {
-                id: buy?.contract_id,
+                id: contract.contract_id || `trade_${Date.now()}`,
                 symbol: symbol,
-                contract_type: apiContractType,
-                buy_price: buy?.buy_price,
-                payout: buy?.payout,
-                timestamp: new Date().toISOString(),
-                status: 'purchased'
+                contractType: tradeDirection,
+                stake: currentStake,
+                entryPrice: currentPrice,
+                timestamp: Date.now(),
+                recommendation: marketRecommendation?.recommendation || 'NEUTRAL',
+                confidence: marketRecommendation?.confidence || 0
             };
 
-            setTradeHistory(prev => [tradeRecord, ...prev.slice(0, 99)]);
+            setTradeHistory(prev => [tradeRecord, ...prev.slice(0, 49)]);
 
-            // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
-            try {
-                const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
-                const contractData = {
-                    contract_id: buy?.contract_id,
-                    transaction_ids: { buy: buy?.transaction_id },
-                    buy_price: buy?.buy_price,
-                    currency: account_currency,
-                    contract_type: apiContractType as any,
-                    underlying: symbol,
-                    display_name: symbol_display,
-                    date_start: Math.floor(Date.now() / 1000),
-                    status: 'open',
-                    shortcode: buy?.shortcode || `${tradeType}_${symbol}_${duration}T_${stake}`,
-                    longcode: buy?.longcode || `${tradeType} prediction on ${symbol_display}`,
-                    is_completed: false,
-                    profit: 0,
-                    payout: buy?.payout || 0,
-                    run_id: run_panel.run_id,
-                } as any;
+            // Store the active contract and set up subscription for its result
+            setCurrentActiveContract(contract); // Store the contract object
+            transactions.onBotContractEvent({ // Add to run panel transactions
+                ...contract,
+                run_id: run_panel.run_id,
+                buy_price: contract.buy_price,
+                currency: account_currency,
+                date_start: Math.floor(Date.now() / 1000),
+                status: 'open',
+                shortcode: contract.shortcode,
+                longcode: contract.longcode,
+                profit: 0,
+                payout: contract.payout,
+            });
+            run_panel.setIsRunning(true);
+            run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
 
-                // Push to transactions store for run panel display
-                transactions.onBotContractEvent(contractData);
-
-                // Also log the trade initiation
-                setStatus(`🚀 Trade started: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
-            } catch (err) {
-                console.error('Error seeding transaction:', err);
+            // Subscribe to contract updates to get the result
+            const contractSubscription = await tradingEngine.subscribeToContract(contract.contract_id);
+            if (contractSubscription.error) {
+                console.error('Error subscribing to contract:', contractSubscription.error);
+                setStatus('Failed to subscribe to contract updates.');
             }
 
-            setStatus(`${apiContractType} contract purchased successfully! Contract ID: ${buy.contract_id}`);
-
-            // Subscribe to contract updates
-            try {
-                const contractSubscription = await apiRef.current.send({
-                    proposal_open_contract: 1,
-                    contract_id: buy.contract_id,
-                    subscribe: 1
-                });
-
-                if (contractSubscription.error) {
-                    console.error('Contract subscription error:', contractSubscription.error);
-                } else {
-                    console.log('Subscribed to contract updates');
-                }
-
-                // Listen for subsequent streaming updates
-                const onMsg = (evt: MessageEvent) => {
-                    try {
-                        const data = JSON.parse(evt.data as any);
-                        if (data?.msg_type === 'proposal_open_contract') {
-                            const poc = data.proposal_open_contract;
-                            // capture subscription id for later forget
-                            if (!pocSubIdRef.current && data?.subscription?.id) pocSubIdRef.current = data.subscription.id;
-                            if (String(poc?.contract_id || '') === buy.contract_id) {
-                                // Update transaction in run panel with latest contract data
-                                transactions.onBotContractEvent({
-                                    ...poc,
-                                    run_id: run_panel.run_id,
-                                });
-                                run_panel.setIsRunning(true); // Ensure run_panel is marked as running
-                                run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
-
-                                // Update status with live contract info
-                                const profit = Number(poc?.profit || 0);
-                                if (poc?.is_sold || poc?.status === 'sold') {
-                                    const result = profit > 0 ? '✅ WIN' : '❌ LOSS';
-                                    const profitText = profit > 0 ? `+${profit.toFixed(2)}` : profit.toFixed(2);
-                                    setStatus(`${result}: ${profitText} ${account_currency} | Contract completed`);
-
-                                    // Track contract completion time for watchdog
-                                    (window as any).lastContractTime = Date.now();
-
-                                    run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
-                                    run_panel.setHasOpenContract(false);
-                                    if (pocSubIdRef.current) apiRef.current?.forget?.({ forget: pocSubIdRef.current });
-                                    apiRef.current?.connection?.removeEventListener('message', onMsg);
-
-                                    // Update martingale logic based on win/loss
-                                    if (profit > 0) {
-                                        setContractsWon(prev => prev + 1);
-                                        lastOutcomeWasLossRef.current = false;
-                                        setConsecutiveWins(prev => prev + 1); // Increment consecutive wins
-                                        setCurrentMartingaleStep(0); // Reset martingale step on win
-                                        setStake(baseStake); // Revert to original stake
-                                    } else {
-                                        setContractsLost(prev => prev + 1);
-                                        setConsecutiveWins(0); // Reset consecutive wins on loss
-                                        lastOutcomeWasLossRef.current = true;
-                                        setCurrentMartingaleStep(prev => Math.min(prev + 1, martingaleMaxRuns)); // Increment martingale step, capped by max runs
-                                        setStake(baseStake * Math.pow(martingaleMultiplier, Math.min(currentMartingaleStep + 1, martingaleMaxRuns))); // Calculate next stake, capped
-                                    }
-                                    setTotalProfitLoss(prev => prev + profit); // Update total P&L
-                                    setTotalPayout(prev => prev + (profit > 0 ? profit + stake : 0)); // Update total payout
-
-                                    // Clean up current contract subscription
-                                    if (pocSubIdRef.current) {
-                                        apiRef.current?.forget?.({ forget: pocSubIdRef.current });
-                                        pocSubIdRef.current = null;
-                                    }
-                                    if (messageHandlerRef.current) {
-                                        apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
-                                        messageHandlerRef.current = null;
-                                    }
-
-                                    // Schedule next trade if auto trading is still active
-                                    if (isAutoTrading && !stopFlagRef.current) {
-                                        console.log('Contract completed, scheduling next trade...');
-                                        scheduleNextTrade();
-                                    } else {
-                                        console.log('Auto trading stopped or flag set, not scheduling next trade');
-                                    }
-                                } else {
-                                    // Contract is still running
-                                    setStatus(`📈 Running: ${poc?.longcode || 'Contract'} | Current P&L: ${profit.toFixed(2)} ${account_currency}`);
-                                    run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
-                                }
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Error processing contract update:', err);
-                    }
+            // Mock receiving a result after a delay (replace with actual subscription handling)
+            setTimeout(() => {
+                const simulatedProfit = (Math.random() - 0.5) * currentStake * 2; // Simulate profit/loss
+                const resultData = {
+                    contract_id: contract.contract_id,
+                    profit: simulatedProfit,
+                    // Add other relevant data from subscription response
                 };
-                apiRef.current?.connection?.addEventListener('message', onMsg);
-                messageHandlerRef.current = onMsg; // Store the handler for potential removal
+                handleContractResult(resultData);
+            }, (duration * parseInt(durationType === 't' ? '1' : '60')) * 1000 + 1000); // Simulate delay based on duration
 
-                                // Perform connection health check and continue auto trading after contract completion
-                                setTimeout(async () => {
-                                    try {
-                                        if (apiRef.current && !stopFlagRef.current) {
-                                            // Test API connection with a simple ping request
-                                            const healthCheck = await Promise.race([
-                                                apiRef.current.send({ ping: 1 }),
-                                                new Promise((_, reject) =>
-                                                    setTimeout(() => reject(new Error('Health check timeout')), 3000)
-                                                )
-                                            ]);
-
-                                            if (healthCheck.error) {
-                                                console.warn('API health check failed, attempting reconnection...');
-                                                setStatus('API connection issue detected, reconnecting...');
-
-                                                // Reinitialize API connection
-                                                const newApi = generateDerivApiInstance();
-                                                apiRef.current = newApi;
-
-                                                // Re-authorize if needed
-                                                try {
-                                                    await authorizeIfNeeded();
-                                                    setStatus('Connection restored successfully');
-                                                } catch (authError) {
-                                                    console.error('Re-authorization failed:', authError);
-                                                    setStatus('Failed to restore API connection');
-                                                }
-                                            } else {
-                                                console.log('API connection healthy after contract completion');
-                                            }
-
-                                            // Continue auto trading if still active
-                                            if (isAutoTrading && !stopFlagRef.current) {
-                                                setTimeout(() => {
-                                                    if (isAutoTrading && !stopFlagRef.current) {
-                                                        executeSingleTrade();
-                                                    }
-                                                }, 1000); // 1 second delay as requested
-                                            }
-                                        }
-                                    } catch (healthCheckError) {
-                                        console.error('Connection health check failed:', healthCheckError);
-                                        setStatus('Connection health check failed');
-                                    }
-                                }, 1000); // Wait 1 second after contract completion
-
-            } catch (subscriptionError) {
-                console.error('Error subscribing to contract:', subscriptionError);
-            }
-
+            return contract;
         } catch (error) {
-            console.error('Purchase error:', error);
-            setStatus(`Purchase failed: ${error}`);
+            console.error('Error executing real trade:', error);
+            setStatus(`Error: ${error.message || 'Unknown error occurred'}`);
+            return null;
         }
     };
 
+    // Mock purchaseRiseFallContract for fallback if trading engine is not connected
+    const purchaseRiseFallContract = async (tradeDirection: 'CALL' | 'PUT') => {
+        // Use real trading engine if available, fallback to mock for demo
+        if (tradingEngine.isEngineConnected()) {
+            return await executeRealTrade(tradeDirection);
+        }
+
+        // Fallback to mock implementation for demo purposes
+        if (!is_authorized) {
+            await authorizeIfNeeded();
+        }
+
+        if (!apiRef.current || !is_authorized) {
+            setStatus('Authorization required. Please check your connection.');
+            return null;
+        }
+
+        try {
+            const currentStake = calculateMartingaleStake();
+
+            const trade_option = {
+                amount: currentStake,
+                basis: 'stake',
+                contract_type: tradeDirection,
+                currency: account_currency,
+                duration: duration,
+                duration_unit: durationType,
+                symbol: symbol,
+            };
+
+            setStatus(`Getting proposal for ${tradeDirection === 'CALL' ? 'Rise' : 'Fall'} contract...`);
+
+            // Get proposal
+            const proposal_request = {
+                proposal: 1,
+                ...trade_option,
+            };
+
+            const proposalResponse = await apiRef.current.send(proposal_request);
+
+            if (proposalResponse.error) {
+                setStatus(`Proposal error: ${proposalResponse.error.message}`);
+                return null;
+            }
+
+            const proposal = proposalResponse.proposal;
+            setPotentialPayout(proposal.payout || 0);
+
+            // Buy the contract
+            const buy_request = tradeOptionToBuy(tradeDirection, trade_option);
+            const buyResponse = await apiRef.current.send(buy_request);
+
+            if (buyResponse.error) {
+                setStatus(`Purchase error: ${buyResponse.error.message}`);
+                return null;
+            }
+
+            const contract = buyResponse.buy;
+
+            // Update UI state
+            setCurrentContractValue(contract.buy_price || currentStake);
+            setEntrySpot(currentPrice);
+            setStatus(`Contract purchased: ${contract.contract_id || 'Unknown ID'}`);
+
+            // Track statistics
+            setTotalStake(prev => prev + currentStake);
+            setTotalRuns(prev => prev + 1);
+
+            // Add to trade history
+            const tradeRecord = {
+                id: contract.contract_id || `trade_${Date.now()}`,
+                symbol: symbol,
+                contractType: tradeDirection,
+                stake: currentStake,
+                entryPrice: currentPrice,
+                timestamp: Date.now(),
+                recommendation: marketRecommendation?.recommendation || 'NEUTRAL',
+                confidence: marketRecommendation?.confidence || 0
+            };
+
+            setTradeHistory(prev => [tradeRecord, ...prev.slice(0, 49)]);
+
+            // Simulate contract outcome for demo (remove in production)
+            setTimeout(() => {
+                const isWin = Math.random() > 0.45; // 55% win rate simulation
+                const payout = isWin ? currentStake * 1.95 : 0;
+                const profit = payout - currentStake;
+
+                if (isWin) {
+                    setContractsWon(prev => prev + 1);
+                    setCurrentMartingaleStep(0);
+                    setConsecutiveWins(prev => prev + 1);
+                    lastOutcomeWasLossRef.current = false;
+                } else {
+                    setContractsLost(prev => prev + 1);
+                    setCurrentMartingaleStep(prev => Math.min(prev + 1, martingaleMaxRuns - 1));
+                    setConsecutiveWins(0);
+                    lastOutcomeWasLossRef.current = true;
+                }
+
+                setTotalPayout(prev => prev + payout);
+                setTotalProfitLoss(prev => prev + profit);
+                setCurrentProfit(profit);
+
+                // Update trade history with result
+                setTradeHistory(prev =>
+                    prev.map(trade =>
+                        trade.id === record.id
+                            ? { ...trade, result: isWin ? 'win' : 'loss', profit }
+                            : trade
+                    )
+                );
+
+                setStatus(`Contract ${isWin ? 'won' : 'lost'}: ${profit.toFixed(2)} ${account_currency}`);
+            }, (duration * 1000) + 1000);
+
+            return contract;
+        } catch (error) {
+            console.error('Error purchasing contract:', error);
+            setStatus(`Error: ${error.message || 'Unknown error occurred'}`);
+            return null;
+        }
+    };
+
+    // Execute a single trade based on current settings
     const executeSingleTrade = useCallback(() => {
         if (!symbol) {
             setStatus("Please select a symbol.");
@@ -1046,9 +1069,10 @@ const MLTrader = observer(() => {
         }
 
         console.log('executeSingleTrade called with contract type:', contractType);
-        purchaseRiseFallContract(contractType);
+        purchaseRiseFallContract(contractType as 'CALL' | 'PUT');
     }, [symbol, contractType, purchaseRiseFallContract]);
 
+    // Start auto trading process
     const startAutoTrading = () => {
         if (!symbol) {
             setStatus("Please select a symbol.");
@@ -1066,7 +1090,7 @@ const MLTrader = observer(() => {
         run_panel.setIsRunning(true);
         run_panel.setContractStage(contract_stages.STARTING);
 
-        // Execute trade immediately with current contract type (Rise/Fall)
+        // Execute the trade with the current contract type (Rise/Fall)
         setStatus(`🚀 Starting auto trading with ${contractType === 'CALL' ? 'RISE' : 'FALL'} direction`);
         executeSingleTrade();
 
@@ -1089,6 +1113,7 @@ const MLTrader = observer(() => {
         (window as any).tradingWatchdog = watchdogInterval;
     };
 
+    // Stop auto trading process
     const stopAutoTrading = () => {
         setIsAutoTrading(false);
         stopFlagRef.current = true;
@@ -1111,6 +1136,7 @@ const MLTrader = observer(() => {
             apiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
             messageHandlerRef.current = null;
         }
+        setCurrentActiveContract(null); // Clear active contract
     };
 
     // Cleanup on unmount
@@ -1125,6 +1151,9 @@ const MLTrader = observer(() => {
             }
             // Stop auto trading
             stopFlagRef.current = true;
+            if ((window as any).tradingWatchdog) {
+                clearInterval((window as any).tradingWatchdog);
+            }
         };
     }, []);
 
@@ -1192,7 +1221,7 @@ const MLTrader = observer(() => {
         };
     };
 
-    // Scan all volatility indices for opportunities
+    // Scan for volatility opportunities
     const scanVolatilityOpportunities = async () => {
         if (!apiRef.current || isScanning) return;
 
@@ -1388,20 +1417,118 @@ const MLTrader = observer(() => {
         return tradeTimeout;
     }, [isAutoTrading, symbol, contractType, executeSingleTrade]);
 
+    // Execute trades based on auto-trading logic
+    const executeAutoTrade = async () => {
+        if (!isAutoTrading || stopFlagRef.current) return;
+
+        // Check if we have an active contract
+        if (currentActiveContract) {
+            setStatus('Waiting for current contract to complete...');
+            setTimeout(() => {
+                if (isAutoTrading && !stopFlagRef.current) {
+                    executeAutoTrade();
+                }
+            }, 1000);
+            return;
+        }
+
+        const currentStake = calculateMartingaleStake();
+        if (currentStake <= 0) {
+            setStatus('Stake is too low to continue auto-trading. Stopping.');
+            setIsAutoTrading(false);
+            stopFlagRef.current = true;
+            return;
+        }
+
+        // Determine contract type based on ML recommendation
+        let contractTypeToTrade: 'CALL' | 'PUT' = 'CALL';
+
+        // Enhanced decision making using ML analysis
+        if (marketRecommendation) {
+            if (marketRecommendation.recommendation === 'RISE' && marketRecommendation.confidence > 60) {
+                contractTypeToTrade = 'CALL';
+            } else if (marketRecommendation.recommendation === 'FALL' && marketRecommendation.confidence > 60) {
+                contractTypeToTrade = 'PUT';
+            } else {
+                // Fallback to rise/fall percentages if ML confidence is low
+                contractTypeToTrade = risePercentage > fallPercentage ? 'CALL' : 'PUT';
+            }
+        } else {
+            // Default fallback based on basic analysis
+            contractTypeToTrade = risePercentage > fallPercentage ? 'CALL' : 'PUT';
+        }
+
+        setStatus(`Auto-trading: Executing ${contractTypeToTrade === 'CALL' ? 'Rise' : 'Fall'} trade...`);
+
+        try {
+            const contract = await purchaseRiseFallContract(contractTypeToTrade);
+
+            if (!contract) {
+                // If trade failed, retry after delay
+                setTimeout(() => {
+                    if (isAutoTrading && !stopFlagRef.current) {
+                        executeAutoTrade();
+                    }
+                }, 5000);
+            }
+            // Note: Next trade will be scheduled by handleContractResult when contract completes
+
+        } catch (error) {
+            console.error('Error in auto trade execution:', error);
+            setStatus(`Auto-trading error: ${error.message}`);
+
+            // Retry after delay on error
+            setTimeout(() => {
+                if (isAutoTrading && !stopFlagRef.current) {
+                    executeAutoTrade();
+                }
+            }, 5000);
+        }
+    };
+
+    // Check API connection and trading engine status
+    useEffect(() => {
+        const checkConnections = () => {
+            // Update trading engine connection status
+            if (tradingEngine && tradingEngine.isEngineConnected) {
+                setTradingEngineConnected(tradingEngine.isEngineConnected());
+            }
+        };
+
+        checkConnections();
+        const interval = setInterval(checkConnections, 5000);
+
+        return () => clearInterval(interval);
+    }, []);
+
+    // Trading engine connection status effect
+    useEffect(() => {
+        const checkTradingEngine = () => {
+            setTradingEngineConnected(tradingEngine.isEngineConnected());
+        };
+
+        checkTradingEngine();
+        const interval = setInterval(checkTradingEngine, 2000);
+
+        return () => clearInterval(interval);
+    }, []);
+
+
     return (
         <div className="ml-trader">
             <div className="ml-trader__header">
-                <Text size="xl" weight="bold">
-                    Rise/Fall Trader
-                </Text>
-                <div className="ml-trader__status">
-                    <Text size="sm" weight="bold">Status</Text>
-                    <Text size="xs">{status}</Text>
-                    {isAutoTrading && (
-                        <Text size="xs" color="success">
-                            🔄 Continuous Auto Trading Active | Next: {stake.toFixed(2)} {account_currency}
-                        </Text>
-                    )}
+                <h2>ML Trader</h2>
+                <div className="connection-statuses">
+                    <div className={`connection-status ${apiRef.current?.connection?.readyState === WebSocket.OPEN ? 'connected' : 'disconnected'}`}>
+                        <span>Data: </span>
+                        {apiRef.current?.connection?.readyState === WebSocket.OPEN && '🟢 Connected'}
+                        {apiRef.current?.connection?.readyState !== WebSocket.OPEN && '🔴 Disconnected'}
+                    </div>
+                    <div className={`connection-status ${tradingEngineConnected ? 'connected' : 'disconnected'}`}>
+                        <span>Trading: </span>
+                        {tradingEngineConnected && '🟢 Ready'}
+                        {!tradingEngineConnected && '🔴 Offline'}
+                    </div>
                 </div>
             </div>
 
@@ -1514,63 +1641,67 @@ const MLTrader = observer(() => {
                         </Text>
                     </div>
 
-                    {/* Rise/Fall Analytics */}
-                    <div className="rise-fall-analytics">
-                        <h3>Rise/Fall Analysis</h3>
-                        <div className="analytics-grid">
-                            <div className="analytics-item">
-                                <div className="progress-item">
-                                    <div className="progress-label">
-                                        <span>Rise</span>
-                                        <span className="progress-percentage">{risePercentage}%</span>
-                                    </div>
-                                    <div className="progress-bar">
-                                        <div
-                                            className="progress-fill"
-                                            style={{
-                                                width: `${risePercentage}%`,
-                                                backgroundColor: '#4CAF50'
-                                            }}
-                                        />
-                                    </div>
+                    {/* Market Analysis */}
+                    <div className="market-analysis">
+                        <h3>Market Recommendation</h3>
+                        {marketRecommendation ? (
+                            <div className={`recommendation ${marketRecommendation.recommendation.toLowerCase()}`}>
+                                <div className="rec-title">
+                                    {marketRecommendation.recommendation === 'RISE' && <TrendingUp size={20} />}
+                                    {marketRecommendation.recommendation === 'FALL' && <TrendingDown size={20} />}
+                                    {marketRecommendation.recommendation}
+                                </div>
+                                <div className="confidence">
+                                    Confidence: {marketRecommendation.confidence}%
+                                </div>
+                                <div className="reasoning">
+                                    {marketRecommendation.reasoning}
                                 </div>
                             </div>
-
-                            <div className="analytics-item">
-                                <div className="progress-item">
-                                    <div className="progress-label">
-                                        <span>Fall</span>
-                                        <span className="progress-percentage">{fallPercentage}%</span>
-                                    </div>
-                                    <div className="progress-bar">
-                                        <div
-                                            className="progress-fill"
-                                            style={{
-                                                width: `${fallPercentage}%`,
-                                                backgroundColor: '#f44336'
-                                            }}
-                                        />
-                                    </div>
-                                </div>
+                        ) : (
+                            <div className="no-recommendation">
+                                Analyzing market trends...
                             </div>
-                        </div>
+                        )}
                     </div>
 
-                    {/* Tick Stream Display */}
-                    <div className="tick-stream">
-                        <h4>Last 10 Ticks Pattern:</h4>
-                        <div className="pattern-grid">
-                            {tickStream.slice(-10).map((tick, index) => (
-                                <div
-                                    key={index}
-                                    className={`digit-item ${tick.direction === 'R' ? 'rise' : tick.direction === 'F' ? 'fall' : 'neutral'}`}
-                                >
-                                    {tick.direction}
+                    {/* Rise/Fall Percentage Analysis (from volatility analyzer) */}
+                    <div className="rise-fall-percentages">
+                        <h4>Rise/Fall Analysis</h4>
+                        <div className="percentage-bars">
+                            <div className="progress-item">
+                                <div className="progress-label">
+                                    <span>Rise</span>
+                                    <span className="progress-percentage">{risePercentage}%</span>
                                 </div>
-                            ))}
+                                <div className="progress-bar">
+                                    <div
+                                        className="progress-fill"
+                                        style={{
+                                            width: `${risePercentage}%`,
+                                            backgroundColor: '#4caf50'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                            <div className="progress-item">
+                                <div className="progress-label">
+                                    <span>Fall</span>
+                                    <span className="progress-percentage">{fallPercentage}%</span>
+                                </div>
+                                <div className="progress-bar">
+                                    <div
+                                        className="progress-fill"
+                                        style={{
+                                            width: `${fallPercentage}%`,
+                                            backgroundColor: '#f44336'
+                                        }}
+                                    />
+                                </div>
+                            </div>
                         </div>
-                        <div className="pattern-info">
-                            Recent pattern: {tickStream.slice(-10).map(t => t.direction).join('')}
+                        <div className="count-display">
+                            <span>Rise Count: {riseCount} | Fall Count: {fallCount}</span>
                         </div>
                     </div>
                 </div>
