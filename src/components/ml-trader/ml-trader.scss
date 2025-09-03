@@ -1,3 +1,4 @@
+
 .ml-trader {
   padding: 20px;
   max-width: 1400px;
@@ -237,137 +238,6 @@
     }
   }
 
-  &__ml-analysis {
-        background: var(--general-section-1);
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 20px;
-        border: 1px solid var(--border-normal);
-
-        h4 {
-            margin: 0 0 15px 0;
-            color: var(--brand-blue-coral);
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-
-        .ml-trader__ml-info {
-            .ml-trader__ml-row {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 8px;
-                font-size: 0.9rem;
-
-                span:first-child {
-                    color: var(--text-less-prominent);
-                }
-
-                span:last-child {
-                    color: var(--text-general);
-                    font-weight: 500;
-                }
-            }
-        }
-    }
-
-    .ml-trader__volatility-scanner {
-        background: var(--general-section-1);
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 20px;
-        border: 1px solid var(--border-normal);
-
-        h4 {
-            margin: 0 0 15px 0;
-            color: var(--brand-blue-coral);
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-
-        .ml-trader__scanner-btn {
-            width: 100%;
-            background: var(--brand-blue-coral);
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: 15px;
-            transition: background-color 0.2s;
-
-            &:hover:not(:disabled) {
-                background: var(--brand-blue-coral-hover, #2563eb);
-            }
-
-            &:disabled {
-                background: var(--text-less-prominent);
-                cursor: not-allowed;
-            }
-        }
-
-        .ml-trader__scanner-info {
-            .ml-trader__scanner-row {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 8px;
-                font-size: 0.9rem;
-
-                span:first-child {
-                    color: var(--text-less-prominent);
-                }
-
-                span:last-child {
-                    color: var(--text-general);
-                    font-weight: 500;
-                }
-            }
-        }
-    }
-
-    .ml-trader__scanner-buttons {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        margin-bottom: 15px;
-    }
-
-    .ml-trader__scanner-btn {
-        padding: 12px 20px;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        width: 100%;
-
-        &--primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-
-            &:hover:not(:disabled) {
-                transform: translateY(-2px);
-                box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-            }
-        }
-
-        &--secondary {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-
-            &:hover:not(:disabled) {
-                transform: translateY(-2px);
-                box-shadow: 0 8px 20px rgba(79, 172, 254, 0.4);
-            }
-        }
-
-        &:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-    }
-
   &__trading-controls {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -499,14 +369,17 @@
   }
 
   &__statistics {
-    background: var(--general-section-1);
+    background: white;
+    border: 1px solid var(--border-normal);
     border-radius: 8px;
-    padding: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
 
-    h3 {
+    h4 {
       margin: 0 0 16px 0;
-      color: var(--text-prominent);
       font-size: 16px;
+      font-weight: 600;
+      color: var(--text-prominent);
     }
   }
 
@@ -536,72 +409,6 @@
     font-size: 14px;
     color: var(--text-general);
   }
-
-  &__active-contracts {
-        background: var(--general-section-1);
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 16px;
-
-        h3 {
-            margin: 0 0 16px 0;
-            color: var(--text-prominent);
-            font-size: 16px;
-        }
-    }
-
-    &__contract-item {
-        background: var(--general-main-1);
-        border-radius: 6px;
-        padding: 12px;
-        margin-bottom: 8px;
-        border-left: 4px solid var(--brand-blue);
-
-        &:last-child {
-            margin-bottom: 0;
-        }
-    }
-
-    &__contract-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 8px;
-
-        .ml-trader__contract-type {
-            font-weight: 600;
-            color: var(--text-prominent);
-        }
-
-        .ml-trader__contract-confidence {
-            background: var(--status-success);
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-    }
-
-    &__contract-details {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        font-size: 12px;
-        color: var(--text-general);
-
-        span {
-            &.profit {
-                color: var(--status-success);
-                font-weight: 600;
-            }
-
-            &.loss {
-                color: var(--status-danger);
-                font-weight: 600;
-            }
-        }
-    }
 }
 
 @keyframes pulse {
@@ -615,49 +422,3 @@
     box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
   }
 }
-
-.recommendation {
-            &.rise {
-                color: var(--color-green);
-                font-weight: bold;
-            }
-
-            &.fall {
-                color: var(--color-red);
-                font-weight: bold;
-            }
-        }
-
-        .confidence {
-            color: var(--color-blue);
-            font-weight: bold;
-        }
-
-        .trend {
-            font-weight: bold;
-
-            &.bullish {
-                color: var(--color-green);
-            }
-
-            &.bearish {
-                color: var(--color-red);
-            }
-        }
-
-        .trend-strength {
-            color: var(--color-purple);
-            font-weight: bold;
-        }
-
-        .hma-trend {
-            font-size: 0.9em;
-
-            &.bullish {
-                color: var(--color-green);
-            }
-
-            &.bearish {
-                color: var(--color-red);
-            }
-        }
