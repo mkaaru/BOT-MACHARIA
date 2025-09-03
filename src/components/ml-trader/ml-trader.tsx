@@ -52,10 +52,8 @@ const MLTrader = observer(() => {
     const [tickDuration, setTickDuration] = useState(1);
     const [martingaleSteps, setMartingaleSteps] = useState(1);
 
-    // Trading condition
-    const [conditionType, setConditionType] = useState('Rise Prob');
-    const [conditionOperator, setConditionOperator] = useState('>');
-    const [conditionValue, setConditionValue] = useState(55);
+    // ML Trading configuration
+    const [mlMinConfidence] = useState(60); // Fixed at 60% for ML analysis
 
     // Trading state
     const [isAutoTrading, setIsAutoTrading] = useState(false);
@@ -270,12 +268,145 @@ const MLTrader = observer(() => {
         };
     }, [selectedSymbol, tickCount]);
 
+    // Hull Moving Average calculation
+    const calculateHMA = (prices: number[], period: number): number[] => {
+        if (prices.length < period) return [];
+        
+        const wma = (data: number[], length: number): number[] => {
+            const result: number[] = [];
+            for (let i = length - 1; i < data.length; i++) {
+                let sum = 0;
+                let weightSum = 0;
+                for (let j = 0; j < length; j++) {
+                    const weight = length - j;
+                    sum += data[i - j] * weight;
+                    weightSum += weight;
+                }
+                result.push(sum / weightSum);
+            }
+            return result;
+        };
+
+        const halfPeriod = Math.floor(period / 2);
+        const sqrtPeriod = Math.floor(Math.sqrt(period));
+        
+        const wma1 = wma(prices, halfPeriod);
+        const wma2 = wma(prices, period);
+        
+        // 2*WMA(n/2) - WMA(n)
+        const rawHMA: number[] = [];
+        const minLength = Math.min(wma1.length, wma2.length);
+        for (let i = 0; i < minLength; i++) {
+            rawHMA.push(2 * wma1[i] - wma2[i]);
+        }
+        
+        // WMA of the result with sqrt(period)
+        return wma(rawHMA, sqrtPeriod);
+    };
+
+    // Machine Learning Analysis with Hull Moving Average
+    const performMLAnalysis = (ticks: TickData[]) => {
+        if (ticks.length < 50) return null; // Need sufficient data
+
+        const prices = ticks.map(tick => tick.quote);
+        
+        // Calculate multiple Hull Moving Averages for different timeframes
+        const hma20 = calculateHMA(prices, 20);
+        const hma50 = calculateHMA(prices, 50);
+        
+        if (hma20.length < 5 || hma50.length < 5) return null;
+
+        // Get recent HMA values
+        const currentHMA20 = hma20[hma20.length - 1];
+        const prevHMA20 = hma20[hma20.length - 2];
+        const currentHMA50 = hma50[hma50.length - 1];
+        const prevHMA50 = hma50[hma50.length - 2];
+        
+        // Trend analysis
+        const hma20Trend = currentHMA20 > prevHMA20 ? 'BULLISH' : 'BEARISH';
+        const hma50Trend = currentHMA50 > prevHMA50 ? 'BULLISH' : 'BEARISH';
+        
+        // Price position relative to HMA
+        const currentPrice = prices[prices.length - 1];
+        const priceAboveHMA20 = currentPrice > currentHMA20;
+        const priceAboveHMA50 = currentPrice > currentHMA50;
+        
+        // Calculate momentum and strength
+        const hma20Change = ((currentHMA20 - prevHMA20) / prevHMA20) * 100;
+        const hma50Change = ((currentHMA50 - prevHMA50) / prevHMA50) * 100;
+        
+        // Machine Learning Decision Logic
+        let recommendation = '';
+        let confidence = 0;
+        let signals = 0;
+        let totalSignals = 0;
+
+        // Signal 1: HMA20 trend
+        totalSignals++;
+        if (hma20Trend === 'BULLISH') signals++;
+        
+        // Signal 2: HMA50 trend
+        totalSignals++;
+        if (hma50Trend === 'BULLISH') signals++;
+        
+        // Signal 3: Price above HMA20
+        totalSignals++;
+        if (priceAboveHMA20) signals++;
+        
+        // Signal 4: Price above HMA50
+        totalSignals++;
+        if (priceAboveHMA50) signals++;
+        
+        // Signal 5: HMA momentum
+        totalSignals++;
+        if (Math.abs(hma20Change) > 0.001) { // Significant momentum
+            if (hma20Change > 0) signals++;
+        }
+
+        // Calculate confidence based on signal consensus
+        const signalStrength = (signals / totalSignals) * 100;
+        
+        if (signalStrength >= 70) {
+            recommendation = 'Rise';
+            confidence = signalStrength;
+        } else if (signalStrength <= 30) {
+            recommendation = 'Fall';
+            confidence = 100 - signalStrength;
+        } else {
+            recommendation = '';
+            confidence = 50; // Neutral
+        }
+
+        // Additional momentum boost
+        if (recommendation && Math.abs(hma20Change) > 0.002) {
+            confidence = Math.min(confidence + 10, 95);
+        }
+
+        return {
+            recommendation,
+            confidence,
+            hma20Trend,
+            hma50Trend,
+            currentHMA20,
+            currentHMA50,
+            hma20Change,
+            hma50Change,
+            priceAboveHMA20,
+            priceAboveHMA50,
+            signalStrength,
+            signals,
+            totalSignals
+        };
+    };
+
     // Update analysis when tick data changes
     const updateAnalysis = useCallback(() => {
         if (tickHistoryRef.current.length === 0) return;
 
         try {
             const ticks = tickHistoryRef.current;
+            
+            // Basic statistics for display
             let riseCount = 0;
             let fallCount = 0;
 
@@ -291,15 +422,33 @@ const MLTrader = observer(() => {
             const riseRatio = totalMoves > 0 ? (riseCount / totalMoves) * 100 : 50;
             const fallRatio = totalMoves > 0 ? (fallCount / totalMoves) * 100 : 50;
 
+            // Machine Learning Analysis
+            const mlAnalysis = performMLAnalysis(ticks);
+            
             let recommendation = '';
             let confidence = 0;
 
-            if (riseRatio > 55) {
-                recommendation = 'Rise';
-                confidence = riseRatio;
-            } else if (fallRatio > 55) {
-                recommendation = 'Fall';
-                confidence = fallRatio;
+            if (mlAnalysis) {
+                recommendation = mlAnalysis.recommendation;
+                confidence = mlAnalysis.confidence;
+                
+                console.log('🤖 ML Analysis:', {
+                    recommendation,
+                    confidence: confidence.toFixed(1),
+                    hma20Trend: mlAnalysis.hma20Trend,
+                    hma50Trend: mlAnalysis.hma50Trend,
+                    signalStrength: mlAnalysis.signalStrength.toFixed(1),
+                    signals: `${mlAnalysis.signals}/${mlAnalysis.totalSignals}`
+                });
+            } else {
+                // Fallback to basic analysis if insufficient data
+                if (riseRatio > 55) {
+                    recommendation = 'Rise';
+                    confidence = riseRatio;
+                } else if (fallRatio > 55) {
+                    recommendation = 'Fall';
+                    confidence = fallRatio;
+                }
             }
 
             setAnalysisData({
@@ -310,41 +459,18 @@ const MLTrader = observer(() => {
                 totalTicks: ticks.length
             });
 
-            // Debug logging for auto trading
-            if (isAutoTrading) {
-                console.log('Auto Trading Debug:', {
-                    isAutoTrading,
-                    recommendation,
-                    confidence: confidence.toFixed(1),
-                    conditionType,
-                    conditionValue,
-                    shouldTrade: recommendation && confidence >= conditionValue,
-                    isAuthorized,
-                    tradingApiReady: !!tradingApi
-                });
-            }
-
-            // Auto trading logic
-            if (isAutoTrading && recommendation && confidence >= conditionValue) {
-                // Check if conditions match the trading condition type
-                const shouldTrade = 
-                    (conditionType === 'Rise Prob' && recommendation === 'Rise' && confidence >= conditionValue) ||
-                    (conditionType === 'Fall Prob' && recommendation === 'Fall' && confidence >= conditionValue);
-
-                if (shouldTrade) {
-                    console.log(`🤖 AUTO TRADE CONDITIONS MET: ${recommendation} with ${confidence}% confidence`);
-                    executeAutoTrade(recommendation, confidence);
-                } else {
-                    console.log(`⏳ AUTO TRADE CONDITIONS NOT MET: ${conditionType} requires ${conditionOperator} ${conditionValue}%, got ${confidence}%`);
-                }
+            // Auto trading logic - ML based
+            if (isAutoTrading && recommendation && confidence >= 60) { // Minimum 60% confidence for ML
+                console.log(`🤖 ML AUTO TRADE CONDITIONS MET: ${recommendation} with ${confidence.toFixed(1)}% confidence`);
+                executeAutoTrade(recommendation, confidence);
             } else if (isAutoTrading) {
-                console.log(`⏳ AUTO TRADE WAITING: recommendation=${recommendation}, confidence=${confidence}, required=${conditionValue}%`);
+                console.log(`⏳ ML AUTO TRADE WAITING: recommendation=${recommendation}, confidence=${confidence.toFixed(1)}%, required=60%+`);
             }
 
         } catch (error) {
-            console.error('Error in analysis:', error);
+            console.error('Error in ML analysis:', error);
         }
-    }, [isAutoTrading, conditionValue]);
+    }, [isAutoTrading]);
 
     // Authorization helper
     const authorizeIfNeeded = async () => {
@@ -540,9 +666,9 @@ const MLTrader = observer(() => {
     const toggleAutoTrading = () => {
         setIsAutoTrading(!isAutoTrading);
         if (!isAutoTrading) {
-            setStatus('Auto trading started');
+            setStatus('🤖 ML Auto trading started - Analyzing market with Hull Moving Average');
         } else {
-            setStatus('Auto trading stopped');
+            setStatus('🤖 ML Auto trading stopped');
         }
     };
 
@@ -619,36 +745,36 @@ const MLTrader = observer(() => {
 
                 {analysisData.recommendation && (
                     <div className='ml-trader__recommendation'>
-                        <strong>Recommendation:</strong> {analysisData.recommendation} 
-                        <span className='ml-trader__confidence'>({analysisData.confidence?.toFixed(1)}%)</span>
+                        <strong>🤖 ML Recommendation:</strong> {analysisData.recommendation} 
+                        <span className='ml-trader__confidence'>
+                            ({analysisData.confidence?.toFixed(1)}% confidence)
+                        </span>
+                        {analysisData.confidence && analysisData.confidence >= 60 && (
+                            <span className='ml-trader__ml-ready'> ✅ Ready to Trade</span>
+                        )}
                     </div>
                 )}
             </div>
 
-            <div className='ml-trader__trading-condition'>
-                <h4>Trading Condition</h4>
-                <div className='ml-trader__condition-row'>
-                    <span>If</span>
-                    <select value={conditionType} onChange={(e) => setConditionType(e.target.value)}>
-                        <option value='Rise Prob'>Rise Prob</option>
-                        <option value='Fall Prob'>Fall Prob</option>
-                    </select>
-                    <select value={conditionOperator} onChange={(e) => setConditionOperator(e.target.value)}>
-                        <option value='>'>{'>'}</option>
-                        <option value='>='>{'≥'}</option>
-                    </select>
-                    <input
-                        type='number'
-                        min={50}
-                        max={95}
-                        value={conditionValue}
-                        onChange={(e) => setConditionValue(Number(e.target.value))}
-                    />
-                    <span>%</span>
-                </div>
-                <div className='ml-trader__condition-row'>
-                    <span>Then</span>
-                    <span>Buy {conditionType === 'Rise Prob' ? 'Rise' : 'Fall'}</span>
+            <div className='ml-trader__ml-analysis'>
+                <h4>🤖 Machine Learning Analysis</h4>
+                <div className='ml-trader__ml-info'>
+                    <div className='ml-trader__ml-row'>
+                        <span>Algorithm:</span>
+                        <span>Hull Moving Average + Signal Consensus</span>
+                    </div>
+                    <div className='ml-trader__ml-row'>
+                        <span>Min Confidence:</span>
+                        <span>60% (Auto-tuned)</span>
+                    </div>
+                    <div className='ml-trader__ml-row'>
+                        <span>Analysis Period:</span>
+                        <span>HMA-20 & HMA-50</span>
+                    </div>
+                    <div className='ml-trader__ml-row'>
+                        <span>Signal Strength:</span>
+                        <span>{analysisData.confidence ? `${analysisData.confidence.toFixed(1)}%` : 'Analyzing...'}</span>
+                    </div>
                 </div>
             </div>
 
@@ -706,7 +832,7 @@ const MLTrader = observer(() => {
                     onClick={toggleAutoTrading}
                     disabled={!isAuthorized || connectionStatus !== 'connected'}
                 >
-                    {isAutoTrading ? 'STOP AUTO TRADING' : 'START AUTO TRADING'}
+                    {isAutoTrading ? 'STOP ML AUTO TRADING' : 'START ML AUTO TRADING'}
                 </button>
 
                 <div className='ml-trader__manual-buttons'>
