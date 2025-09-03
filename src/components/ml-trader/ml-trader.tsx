@@ -898,7 +898,6 @@ const MLTrader = observer(() => {
         }
     };
 
-
     // Auto trading toggle
     const toggleAutoTrading = () => {
         if (!isAutoTrading) {
@@ -908,7 +907,7 @@ const MLTrader = observer(() => {
             }
 
             setIsAutoTrading(true);
-            setStatus('🤖 ML Auto-trading enabled - monitoring for signals...');
+            setStatus('ML Auto-trading enabled - monitoring for signals...');
 
             // Update run panel state and register with bot system
             run_panel.setIsRunning(true);
