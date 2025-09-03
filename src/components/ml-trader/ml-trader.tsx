@@ -548,8 +548,84 @@ const MLTrader = observer(() => {
         };
     };
 
+    // Volatility Scanner Recommendation Logic (from Rise/Fall trader)
+    const getVolatilityRecommendation = (ticks: TickData[]) => {
+        if (ticks.length < 1000) return null;
 
-    // Machine Learning Analysis with Hull Moving Average
+        const prices = ticks.map(tick => tick.quote);
+        
+        // Calculate HMA for trend analysis
+        const hma20 = calculateHMA(prices, 20);
+        if (hma20.length < 5) return null;
+
+        const currentPrice = prices[prices.length - 1];
+        const currentHMA = hma20[hma20.length - 1];
+        const prevHMA = hma20[hma20.length - 2];
+
+        // Determine trend direction
+        const trend = currentPrice > currentHMA && currentHMA > prevHMA ? 'BULLISH' : 'BEARISH';
+        
+        // Calculate confidence based on trend strength
+        const hmaChange = Math.abs((currentHMA - prevHMA) / prevHMA) * 10000; // Amplify for volatility
+        const priceDistance = Math.abs((currentPrice - currentHMA) / currentHMA) * 10000;
+        
+        let confidence = 50; // Base confidence
+        
+        // Increase confidence based on trend strength
+        if (hmaChange > 0.1) confidence += 10;
+        if (priceDistance > 0.1) confidence += 5;
+        if (trend === 'BULLISH' && currentPrice > currentHMA * 1.0001) confidence += 10;
+        if (trend === 'BEARISH' && currentPrice < currentHMA * 0.9999) confidence += 10;
+
+        // Cap confidence at 85% for volatility recommendations
+        confidence = Math.min(confidence, 85);
+
+        if (confidence >= 65) {
+            return {
+                symbol: selectedSymbol,
+                displayName: VOLATILITY_INDICES.find(v => v.value === selectedSymbol)?.label || selectedSymbol,
+                confidence: Math.round(confidence),
+                signal: trend === 'BULLISH' ? 'RISE' : 'FALL',
+                reasoning: `HMA analysis suggests ${trend.toLowerCase()} momentum with ${confidence.toFixed(1)}% confidence`
+            };
+        }
+
+        return null;
+    };
+
+    // Scan volatility opportunities for recommendations
+    const scanVolatilityOpportunities = async () => {
+        if (!derivWsRef.current || isAutoTrading) return;
+
+        setStatus('🔍 Scanning volatility opportunities...');
+        
+        const opportunities: any[] = [];
+
+        try {
+            // Analyze current symbol
+            const currentRecommendation = getVolatilityRecommendation(tickHistoryRef.current);
+            if (currentRecommendation) {
+                opportunities.push(currentRecommendation);
+            }
+
+            // For demonstration, we could expand this to check other volatility indices
+            // but for now, we'll focus on the current symbol
+            
+            if (opportunities.length > 0) {
+                setStatus(`✅ Found ${opportunities.length} volatility opportunity: ${opportunities[0].signal} ${opportunities[0].symbol} (${opportunities[0].confidence}% confidence)`);
+                console.log('🎯 Volatility Scanner Recommendation:', opportunities[0]);
+            } else {
+                setStatus('📊 No high-confidence volatility opportunities found');
+            }
+
+        } catch (error) {
+            console.error('Error scanning volatility opportunities:', error);
+            setStatus('❌ Error scanning volatility opportunities');
+        }
+    };
+
+
+    // Machine Learning Analysis with Hull Moving Average and Volatility Scanner Integration
     const performMLAnalysis = (ticks: TickData[]) => {
         if (ticks.length < 50) return null; // Need sufficient data
 
@@ -580,7 +656,10 @@ const MLTrader = observer(() => {
         const hma20Change = ((currentHMA20 - prevHMA20) / prevHMA20) * 100;
         const hma50Change = ((currentHMA50 - prevHMA50) / prevHMA50) * 100;
 
-        // Machine Learning Decision Logic
+        // Get volatility scanner recommendation for additional signal strength
+        const volatilityRec = getVolatilityRecommendation(ticks);
+
+        // Machine Learning Decision Logic with Volatility Scanner Integration
         let recommendation = '';
         let confidence = 0;
         let signals = 0;
@@ -608,6 +687,12 @@ const MLTrader = observer(() => {
             if (hma20Change > 0) signals++;
         }
 
+        // Signal 6: Volatility Scanner Recommendation (if available)
+        if (volatilityRec && volatilityRec.confidence >= 65) {
+            totalSignals++;
+            if (volatilityRec.signal === 'RISE') signals++;
+        }
+
         // Calculate confidence based on signal consensus
         const signalStrength = (signals / totalSignals) * 100;
 
@@ -620,6 +705,15 @@ const MLTrader = observer(() => {
         } else {
             recommendation = '';
             confidence = 50; // Neutral
+        }
+
+        // Additional confidence boost from volatility scanner alignment
+        if (recommendation && volatilityRec) {
+            const aligned = (recommendation === 'Rise' && volatilityRec.signal === 'RISE') ||
+                           (recommendation === 'Fall' && volatilityRec.signal === 'FALL');
+            if (aligned) {
+                confidence = Math.min(confidence + (volatilityRec.confidence * 0.1), 95);
+            }
         }
 
         // Additional momentum boost
@@ -640,7 +734,8 @@ const MLTrader = observer(() => {
             priceAboveHMA50,
             signalStrength,
             signals,
-            totalSignals
+            totalSignals,
+            volatilityRecommendation: volatilityRec
         };
     };
 
@@ -1425,6 +1520,31 @@ const MLTrader = observer(() => {
                 </div>
                 <div className='ml-trader__status-item'>
                     <span>Last Outcome: {lastOutcome ? (lastOutcome === 'win' ? '✅' : '❌') : '➖'}</span>
+                </div>
+            </div>
+
+            <div className='ml-trader__volatility-scanner'>
+                <h4>🔍 Volatility Scanner</h4>
+                <button
+                    className='ml-trader__scanner-btn'
+                    onClick={scanVolatilityOpportunities}
+                    disabled={isAutoTrading || tickHistoryRef.current.length < 100}
+                >
+                    Scan Volatility Opportunities
+                </button>
+                <div className='ml-trader__scanner-info'>
+                    <div className='ml-trader__scanner-row'>
+                        <span>Minimum Confidence:</span>
+                        <span>65%</span>
+                    </div>
+                    <div className='ml-trader__scanner-row'>
+                        <span>Analysis Method:</span>
+                        <span>Hull Moving Average + Momentum</span>
+                    </div>
+                    <div className='ml-trader__scanner-row'>
+                        <span>Current Symbol:</span>
+                        <span>{VOLATILITY_INDICES.find(v => v.value === selectedSymbol)?.label || selectedSymbol}</span>
+                    </div>
                 </div>
             </div>
 
