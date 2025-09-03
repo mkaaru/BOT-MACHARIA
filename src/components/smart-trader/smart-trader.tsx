@@ -11,14 +11,14 @@ import './smart-trader.scss';
 
 // Minimal trade types we will support initially
 const TRADE_TYPES = [
+    { value: 'CALL', label: 'Rise' },
+    { value: 'PUT', label: 'Fall' },
     { value: 'DIGITOVER', label: 'Digits Over' },
     { value: 'DIGITUNDER', label: 'Digits Under' },
     { value: 'DIGITEVEN', label: 'Even' },
     { value: 'DIGITODD', label: 'Odd' },
     { value: 'DIGITMATCH', label: 'Matches' },
     { value: 'DIGITDIFF', label: 'Differs' },
-    { value: 'CALL', label: 'Higher' },
-    { value: 'PUT', label: 'Lower' },
 ];
 // Safe version of tradeOptionToBuy without Blockly dependencies
 const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
@@ -35,15 +35,15 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
             symbol: trade_option.symbol,
         },
     };
-    if (trade_option.prediction !== undefined) {
+
+    // Handle digit-based contracts
+    if (trade_option.prediction !== undefined && !['CALL', 'PUT'].includes(contract_type)) {
         buy.parameters.selected_tick = trade_option.prediction;
+        if (!['TICKLOW', 'TICKHIGH'].includes(contract_type)) {
+            buy.parameters.barrier = trade_option.prediction;
+        }
     }
-    if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
-        buy.parameters.barrier = trade_option.prediction;
-    }
-    if (trade_option.barrier !== undefined) {
-        buy.parameters.barrier = trade_option.barrier;
-    }
+
     return buy;
 };
 
@@ -532,14 +532,10 @@ const SmartTrader = observer(() => {
     };
 
     const purchaseOnce = async () => {
-        return await purchaseOnceWithStake(stake);
-    };
-
-    const purchaseOnceWithStake = async (stakeAmount: number) => {
         await authorizeIfNeeded();
 
         const trade_option: any = {
-            amount: Number(stakeAmount),
+            amount: Number(stake),
             basis: 'stake',
             contractTypes: [tradeType],
             currency: account_currency,
@@ -547,19 +543,20 @@ const SmartTrader = observer(() => {
             duration_unit: durationType,
             symbol,
         };
+
         // Choose prediction based on trade type and last outcome
+        // Rise/Fall contracts don't need prediction parameters
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
-        } else if (tradeType === 'CALL' || tradeType === 'PUT') {
-            trade_option.barrier = barrier;
         }
+        // CALL and PUT contracts don't need prediction parameters
 
         const buy_req = tradeOptionToBuy(tradeType, trade_option);
         const { buy, error } = await apiRef.current.buy(buy_req);
         if (error) throw error;
-        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
+        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stake}`);
         return buy;
     };
 
@@ -583,7 +580,8 @@ const SmartTrader = observer(() => {
                     const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
 
                     const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
-                    if (isOU) {
+                    const isRiseFall = tradeType === 'CALL' || tradeType === 'PUT';
+                    if (isOU || isRiseFall) {
                         lastOutcomeWasLossRef.current = lossStreak > 0;
                     }
 
@@ -893,7 +891,15 @@ const SmartTrader = observer(() => {
                             </div>
 
                             {/* Strategy controls */}
-                            {(tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') ? (
+                            {tradeType === 'CALL' || tradeType === 'PUT' ? (
+                                <div className='smart-trader__row smart-trader__row--single'>
+                                    <div className='smart-trader__field'>
+                                        <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
+                                        <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
+                                            onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
+                                    </div>
+                                </div>
+                            ) : tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF' ? (
                                 <div className='smart-trader__row smart-trader__row--two'>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-md-pred'>{localize('Match/Diff prediction digit')}</label>
@@ -906,7 +912,7 @@ const SmartTrader = observer(() => {
                                             onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
                                     </div>
                                 </div>
-                            ) : (tradeType !== 'CALL' && tradeType !== 'PUT') ? (
+                            ) : (
                                 <div className='smart-trader__row smart-trader__row--compact'>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-ou-pred-pre'>{localize('Over/Under prediction (pre-loss)')}</label>
@@ -924,7 +930,7 @@ const SmartTrader = observer(() => {
                                             onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
                                     </div>
                                 </div>
-                            ) : null}
+                            )}
 
                         </div>
 
