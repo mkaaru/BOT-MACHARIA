@@ -953,7 +953,10 @@ const MLTrader = observer(() => {
 
                                     // Schedule next trade if auto trading is still active
                                     if (isAutoTrading && !stopFlagRef.current) {
+                                        console.log('Contract completed, scheduling next trade...');
                                         scheduleNextTrade();
+                                    } else {
+                                        console.log('Auto trading stopped or flag set, not scheduling next trade');
                                     }
                                 } else {
                                     // Contract is still running
@@ -1026,27 +1029,46 @@ const MLTrader = observer(() => {
         }
     };
 
-    const executeSingleTrade = () => {
+    const executeSingleTrade = useCallback(() => {
         if (!symbol) {
             setStatus("Please select a symbol.");
             return;
         }
+        
+        console.log('executeSingleTrade called with contract type:', contractType);
         purchaseRiseFallContract(contractType);
-    };
+    }, [symbol, contractType]);
 
     const startAutoTrading = () => {
         if (!symbol) {
             setStatus("Please select a symbol.");
             return;
         }
+        
+        console.log('Starting auto trading...');
         setIsAutoTrading(true);
         stopFlagRef.current = false;
-        setStatus('Auto trading started.');
+        lastOutcomeWasLossRef.current = false;
+        setCurrentMartingaleStep(0);
+        setStake(baseStake);
+        
+        setStatus('🤖 Auto trading started - analyzing market...');
         run_panel.setIsRunning(true);
         run_panel.setContractStage(contract_stages.STARTING);
 
-        // Immediately start the first trade
-        executeSingleTrade();
+        // Get market recommendation before starting
+        const recommendation = getMarketRecommendation();
+        
+        if (recommendation && recommendation.confidence >= 65) {
+            const recommendedType = recommendation.recommendation === 'RISE' ? 'CALL' : 'PUT';
+            setContractType(recommendedType);
+            setStatus(`🚀 Starting with ${recommendation.recommendation} (${recommendation.confidence}% confidence)`);
+            executeSingleTrade();
+        } else {
+            setStatus('⏳ Waiting for optimal market conditions...');
+            // Schedule next check
+            scheduleNextTrade();
+        }
     };
 
     const stopAutoTrading = () => {
@@ -1316,7 +1338,7 @@ const MLTrader = observer(() => {
     };
 
     // Function to schedule the next trade
-    const scheduleNextTrade = () => {
+    const scheduleNextTrade = useCallback(() => {
         console.log('scheduleNextTrade called:', { isAutoTrading, stopFlag: stopFlagRef.current });
 
         if (!isAutoTrading || stopFlagRef.current) {
@@ -1324,16 +1346,34 @@ const MLTrader = observer(() => {
             return;
         }
 
-        setTimeout(() => {
+        const tradeTimeout = setTimeout(() => {
             console.log('Executing scheduled trade:', { isAutoTrading, stopFlag: stopFlagRef.current });
             if (isAutoTrading && !stopFlagRef.current) {
                 setStatus('🔄 Continuing auto trading...');
-                executeSingleTrade();
+                
+                // Get fresh market recommendation before trading
+                const currentRecommendation = getMarketRecommendation();
+                
+                if (currentRecommendation && currentRecommendation.confidence >= 65) {
+                    // Set contract type based on recommendation
+                    const recommendedType = currentRecommendation.recommendation === 'RISE' ? 'CALL' : 'PUT';
+                    setContractType(recommendedType);
+                    setStatus(`🤖 Auto trading: ${currentRecommendation.recommendation} (${currentRecommendation.confidence}% confidence)`);
+                    
+                    // Execute the trade with the recommended type
+                    purchaseRiseFallContract(recommendedType);
+                } else {
+                    setStatus('⏳ Waiting for better market conditions...');
+                    // Schedule another check in 2 seconds if conditions aren't met
+                    scheduleNextTrade();
+                }
             } else {
                 console.log('Auto trading was stopped during delay');
             }
-        }, 1000); // 1 second delay as requested
-    };
+        }, 2000); // 2 second delay for better stability
+
+        return tradeTimeout;
+    }, [isAutoTrading, symbol, getMarketRecommendation]);
 
     return (
         <div className="ml-trader">
