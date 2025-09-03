@@ -1,0 +1,98 @@
+✅ How to Integrate Continuous Auto-Trading
+
+On every contract close → call scheduleNextTrade().
+
+Ensure conditions are re-checked before purchasing the next contract.
+
+Respect the isAutoTrading and stopFlagRef states so the loop can be stopped cleanly.
+
+🔹 Example Update
+
+Here’s how you can wire it up:
+
+// When contract ends (inside your proposal_open_contract subscription or result handler)
+const handleContractEnd = (contract) => {
+    console.log("Contract ended:", contract);
+
+    // Log profit/loss
+    if (contract.profit !== undefined) {
+        setStatus(`✅ Contract ended. Result: ${contract.profit >= 0 ? 'Win' : 'Loss'} | Payout: ${contract.payout}`);
+    } else {
+        setStatus('⚠️ Contract ended but no profit info available.');
+    }
+
+    // If auto trading is active, schedule the next trade
+    scheduleNextTrade();
+};
+
+🔹 Inside executeSingleTrade
+
+Make sure you subscribe to the contract and bind handleContractEnd:
+
+const executeSingleTrade = async () => {
+    if (!apiRef.current) return;
+
+    try {
+        // Request proposal & buy
+        const proposal = await apiRef.current.proposal({
+            proposal: 1,
+            amount: stake,
+            basis: "stake",
+            contract_type: contractType,
+            currency: "USD",
+            duration: duration,
+            duration_unit: "t",
+            symbol: symbol,
+        });
+
+        if (!proposal?.proposal?.id) {
+            setStatus("❌ Proposal failed.");
+            return;
+        }
+
+        const buyResp = await apiRef.current.buy({
+            buy: proposal.proposal.id,
+            price: stake,
+        });
+
+        const contractId = buyResp.buy?.contract_id;
+        if (contractId) {
+            setStatus(`📈 Trade started: ${contractType} on ${symbol}`);
+
+            // Subscribe to contract updates
+            if (pocSubIdRef.current) {
+                await apiRef.current.forget({ forget: pocSubIdRef.current });
+            }
+            pocSubIdRef.current = await apiRef.current.proposal_open_contract({
+                contract_id: contractId,
+                subscribe: 1,
+            });
+
+            // Set handler for contract updates
+            messageHandlerRef.current = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.msg_type === "proposal_open_contract" && data.proposal_open_contract.contract_id === contractId) {
+                    if (data.proposal_open_contract.is_sold) {
+                        // Contract closed
+                        handleContractEnd(data.proposal_open_contract);
+                    }
+                }
+            };
+            apiRef.current.connection.addEventListener("message", messageHandlerRef.current);
+        }
+    } catch (err) {
+        console.error("Trade error:", err);
+        setStatus("❌ Trade execution error.");
+    }
+};
+
+🔹 Flow Summary
+
+Start Auto Trading → sets flag + executes first trade.
+
+When contract closes → handleContractEnd() logs result + calls scheduleNextTrade().
+
+scheduleNextTrade() waits (1s delay) → calls executeSingleTrade() again.
+
+Loop continues until Stop Auto Trading is pressed (which flips stopFlagRef and clears listeners).
