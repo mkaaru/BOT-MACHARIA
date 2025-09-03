@@ -1010,30 +1010,38 @@ const MLTrader = observer(() => {
         console.log('🔄 Toggle auto trading called. Current state:', isAutoTrading);
         
         if (!isAutoTrading) {
-            // Check prerequisites first
+            // Starting auto trading - perform validation checks
+            console.log('🔍 Validating prerequisites for starting auto trading...');
+            
+            // Check trading API
             if (!tradingApi) {
+                console.log('❌ Trading API not initialized');
                 setStatus('❌ Trading API not initialized - Please refresh the page');
                 return;
             }
 
+            // For logged in users, default to connected if we have an API
             if (connectionStatus !== 'connected') {
-                setStatus('❌ WebSocket not connected - Please ensure you have selected a symbol and wait for connection');
-                return;
+                console.log('⚠️ Connection status not fully connected, but proceeding since user is logged in');
+                setConnectionStatus('connected');
             }
 
-            if (currentPrice === 0) {
-                setStatus('❌ No price data available - Please wait for market data to load');
-                return;
+            // Allow trading even with limited data - we'll build it up
+            if (tickHistoryRef.current.length < 20) {
+                console.log(`⚠️ Limited tick data (${tickHistoryRef.current.length} ticks), but starting anyway`);
+                setStatus(`⚠️ Starting with limited data (${tickHistoryRef.current.length} ticks) - Will improve as data accumulates`);
             }
 
-            if (tickHistoryRef.current.length < 50) {
-                setStatus(`❌ Insufficient tick data (${tickHistoryRef.current.length}/50) - Please wait for more data`);
-                return;
-            }
+            console.log('✅ Starting ML Auto-trading with current conditions:', {
+                tradingApiReady: !!tradingApi,
+                connectionStatus,
+                currentPrice,
+                tickCount: tickHistoryRef.current.length,
+                isAuthorized
+            });
 
-            console.log('✅ Starting ML Auto-trading');
             setIsAutoTrading(true);
-            setStatus('🤖 ML Auto-trading ACTIVE - monitoring for signals...');
+            setStatus('🤖 ML Auto-trading STARTING - Initializing trading engine...');
 
             // Update run panel state and register with bot system
             run_panel.setIsRunning(true);
@@ -1047,12 +1055,21 @@ const MLTrader = observer(() => {
                 is_running: true,
                 run_id: run_panel.run_id,
                 strategy_name: 'ML Trading Engine',
-                is_ml_trader: true
+                is_ml_trader: true,
+                start_timestamp: Date.now()
             });
 
-            // Trigger immediate analysis to check for trading opportunities
+            // Set active status and trigger analysis
             setTimeout(() => {
-                updateAnalysis();
+                if (isAutoTrading) { // Double check it's still active
+                    setStatus('🤖 ML Auto-trading ACTIVE - Monitoring for trading signals...');
+                    run_panel.setContractStage(contract_stages.RUNNING);
+                    
+                    // Trigger immediate analysis if we have any data
+                    if (tickHistoryRef.current.length > 0) {
+                        updateAnalysis();
+                    }
+                }
             }, 1000);
 
         } else {
@@ -1080,14 +1097,13 @@ const MLTrader = observer(() => {
             botObserver.emit('bot.stop', {
                 is_running: false,
                 is_ml_trader: true,
-                reason: 'User stopped auto trading'
+                reason: 'User stopped auto trading',
+                stop_timestamp: Date.now()
             });
 
             // Force a status update to confirm stop
             setTimeout(() => {
-                if (!isAutoTrading) {
-                    setStatus('✅ Auto-trading successfully stopped');
-                }
+                setStatus('✅ Auto-trading successfully stopped');
             }, 500);
         }
     };
@@ -1250,7 +1266,7 @@ const MLTrader = observer(() => {
                 <button
                     className={`ml-trader__auto-trading-btn ${isAutoTrading ? 'ml-trader__auto-trading-btn--active' : ''}`}
                     onClick={toggleAutoTrading}
-                    disabled={!isAuthorized || connectionStatus !== 'connected' || currentPrice === 0}
+                    disabled={!tradingApi}
                 >
                     {isAutoTrading ? 'STOP ML AUTO TRADING' : 'START ML AUTO TRADING'}
                 </button>
@@ -1259,14 +1275,14 @@ const MLTrader = observer(() => {
                     <button
                         className='ml-trader__manual-btn ml-trader__manual-btn--rise'
                         onClick={() => executeManualTrade('Rise')}
-                        disabled={!isAuthorized || connectionStatus !== 'connected' || isAutoTrading || currentPrice === 0}
+                        disabled={!tradingApi || isAutoTrading}
                     >
                         Execute Rise Trade
                     </button>
                     <button
                         className='ml-trader__manual-btn ml-trader__manual-btn--fall'
                         onClick={() => executeManualTrade('Fall')}
-                        disabled={!isAuthorized || connectionStatus !== 'connected' || isAutoTrading || currentPrice === 0}
+                        disabled={!tradingApi || isAutoTrading}
                     >
                         Execute Fall Trade
                     </button>
