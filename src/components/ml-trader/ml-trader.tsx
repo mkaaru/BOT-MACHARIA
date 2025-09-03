@@ -1094,23 +1094,25 @@ const MLTrader = observer(() => {
         const recommendation = getMarketRecommendation();
         
         if (!recommendation) {
-            console.log('⏳ No market recommendation available');
+            console.log('⏳ No market recommendation available - using fallback');
+            // Fallback: simple tick-based decision if no recommendation
+            const shouldTrade = Math.random() > 0.7; // 30% chance to trade
+            if (shouldTrade) {
+                // Random decision between CALL and PUT
+                setContractType(latestTick % 2 === 0 ? 'CALL' : 'PUT');
+                console.log('✅ Fallback conditions met - Random trade decision');
+                return true;
+            }
             return false;
         }
         
-        // Lowered confidence threshold to be more realistic (45% instead of 65%)
-        if (recommendation.confidence < 45) {
-            console.log(`⏳ Confidence too low: ${recommendation.confidence}% < 45%`);
+        // Much lower confidence threshold (25% instead of 45%)
+        if (recommendation.confidence < 25) {
+            console.log(`⏳ Confidence too low: ${recommendation.confidence}% < 25%`);
             return false;
         }
         
-        // More lenient trend alignment (at least 1 out of 4 timeframes instead of 2)
-        if (recommendation.alignedTrends < 1) {
-            console.log(`⏳ Not enough aligned trends: ${recommendation.alignedTrends} < 1`);
-            return false;
-        }
-        
-        // Removed strict price stability check - let it trade more freely
+        // Accept any trend alignment (even 0 trends)
         console.log(`✅ Conditions met - Recommendation: ${recommendation.recommendation}, Confidence: ${recommendation.confidence}%, Aligned: ${recommendation.alignedTrends}`);
         
         // Update contract type based on recommendation
@@ -1119,8 +1121,19 @@ const MLTrader = observer(() => {
         } else if (recommendation.recommendation === 'FALL') {
             setContractType('PUT');
         } else {
-            console.log('⏳ WAIT signal - skipping this cycle');
-            return false; // WAIT signal
+            // Even for WAIT signal, let's trade with current trend
+            const currentTrend = Object.values(hullTrends).filter(t => t.trend !== 'NEUTRAL');
+            if (currentTrend.length > 0) {
+                const dominantTrend = currentTrend[0].trend;
+                setContractType(dominantTrend === 'BULLISH' ? 'CALL' : 'PUT');
+                console.log(`✅ WAIT signal but trading based on dominant trend: ${dominantTrend}`);
+                return true;
+            } else {
+                // Last resort: trade based on tick number
+                setContractType(latestTick % 2 === 0 ? 'CALL' : 'PUT');
+                console.log('✅ No clear trend - using tick-based decision');
+                return true;
+            }
         }
         
         return true;
@@ -1369,7 +1382,7 @@ const MLTrader = observer(() => {
         }
 
         let waitCycles = 0;
-        const maxWaitCycles = 30; // Max 60 seconds of waiting (30 * 2 seconds)
+        const maxWaitCycles = 10; // Max 20 seconds of waiting (10 * 2 seconds)
 
         const waitAndCheck = () => {
             if (!isAutoTrading || stopFlagRef.current) {
@@ -1390,8 +1403,8 @@ const MLTrader = observer(() => {
                 // Fallback: execute trade anyway after max wait time
                 console.log('⚡ Fallback triggered - executing trade after max wait');
                 setStatus('⚡ Max wait reached, executing fallback trade...');
-                // Use current contract type or default to CALL
-                if (!contractType) setContractType('CALL');
+                // Force a trade with current settings
+                setContractType(ticksProcessed % 2 === 0 ? 'CALL' : 'PUT');
                 executeSingleTrade();
             } else {
                 console.log(`⏳ Trading conditions not met - waiting... (${waitCycles}/${maxWaitCycles})`);
@@ -1402,8 +1415,8 @@ const MLTrader = observer(() => {
             }
         };
 
-        // Initial delay before checking conditions
-        setTimeout(waitAndCheck, 1000);
+        // Shorter initial delay
+        setTimeout(waitAndCheck, 500);
     };
 
     return (
