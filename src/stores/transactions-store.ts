@@ -17,6 +17,43 @@ type TElement = {
     [key: string]: TTransaction[];
 };
 
+// Define the TTransactionDataLog interface with ML properties
+export type TTransactionDataLog = {
+    type: string;
+    longcode?: string;
+    currency?: string;
+    buy_price?: number;
+    sell_price?: number;
+    profit?: number;
+    contract_id?: string;
+    reference?: string | number;
+    purchase_time?: number;
+    sell_time?: number;
+    is_ml_trade?: boolean;
+    ml_confidence?: number;
+    ml_recommendation?: string;
+    id?: string;
+    timestamp?: number;
+};
+
+// Mock TContractState for the purpose of this example, assuming it contains necessary fields
+type TContractState = {
+    buy?: {
+        buy_price: number;
+        transaction_id: string;
+    };
+    contract: TContractInfo & {
+        is_sold?: boolean;
+        is_ml_trade?: boolean;
+        ml_confidence?: number;
+        ml_recommendation?: string;
+        display_name?: string;
+    };
+    id: string;
+};
+
+const max_items = 5000; // Assuming max_items is defined elsewhere or needs to be defined
+
 export default class TransactionsStore {
     root_store: RootStore;
     core: TStores;
@@ -99,75 +136,69 @@ export default class TransactionsStore {
         this.is_transaction_details_modal_open = is_open;
     };
 
-    onBotContractEvent(data: TContractInfo) {
-        this.pushTransaction(data);
-    }
+    onBotContractEvent = (contract: TContractState) => {
+        const { buy, contract: contract_info, id } = contract;
+        if (buy) {
+            const { buy_price, transaction_id } = buy;
+            const { contract_id, longcode, currency, purchase_time, is_ml_trade, ml_confidence, ml_recommendation } = contract_info || {};
 
-    pushTransaction(data: TContractInfo) {
-        const is_completed = isEnded(data as ProposalOpenContract);
-        const { run_id } = this.root_store.run_panel;
-        const current_account = this.core?.client?.loginid as string;
+            // Add ML prefix for ML Trader contracts
+            const displayLongcode = is_ml_trade ?
+                `ML ${ml_recommendation} (${ml_confidence?.toFixed(1)}%) - ${longcode || contract_info?.display_name || 'ML Trade'}` :
+                longcode;
 
-        const contract: TContractInfo = {
-            ...data,
-            is_completed,
-            run_id,
-            date_start: formatDate(data.date_start, 'YYYY-M-D HH:mm:ss [GMT]'),
-            entry_tick: data.entry_tick_display_value,
-            entry_tick_time: data.entry_tick_time && formatDate(data.entry_tick_time, 'YYYY-M-D HH:mm:ss [GMT]'),
-            exit_tick: data.exit_tick_display_value,
-            exit_tick_time: data.exit_tick_time && formatDate(data.exit_tick_time, 'YYYY-M-D HH:mm:ss [GMT]'),
-            profit: is_completed ? data.profit : 0,
+            this.pushTransaction({
+                type: localize('Buy'),
+                reference: transaction_id,
+                contract_id,
+                longcode: displayLongcode,
+                currency,
+                buy_price,
+                purchase_time,
+                is_ml_trade,
+                ml_confidence,
+                ml_recommendation
+            });
+        }
+
+        if (contract_info?.is_sold) {
+            const { sell_price, sell_time, profit, contract_id, longcode, currency, is_ml_trade, ml_confidence, ml_recommendation } = contract_info;
+
+            // Add ML prefix for ML Trader contracts
+            const displayLongcode = is_ml_trade ?
+                `ML ${ml_recommendation} (${ml_confidence?.toFixed(1)}%) - ${longcode || contract_info?.display_name || 'ML Trade'}` :
+                longcode;
+
+            this.pushTransaction({
+                type: localize('Sell'),
+                reference: contract_id,
+                contract_id,
+                longcode: displayLongcode,
+                currency,
+                sell_price,
+                profit,
+                sell_time,
+                is_ml_trade,
+                ml_confidence,
+                ml_recommendation
+            });
+        }
+    };
+
+    pushTransaction = (transaction: TTransactionDataLog) => {
+        if (this.transactions.length >= max_items) {
+            this.transactions.pop();
+        }
+
+        // Add ML trade indicator to transaction data
+        const enhancedTransaction = {
+            ...transaction,
+            id: transaction.reference || transaction.contract_id || Date.now().toString(),
+            timestamp: transaction.purchase_time || transaction.sell_time || Date.now() / 1000
         };
 
-        if (!this.elements[current_account]) {
-            this.elements = {
-                ...this.elements,
-                [current_account]: [],
-            };
-        }
-
-        const same_contract_index = this.elements[current_account]?.findIndex(c => {
-            if (typeof c.data === 'string') return false;
-            return (
-                c.type === transaction_elements.CONTRACT &&
-                c.data?.transaction_ids &&
-                c.data.transaction_ids.buy === data.transaction_ids?.buy
-            );
-        });
-
-        if (same_contract_index === -1) {
-            // Render a divider if the "run_id" for this contract is different.
-            if (this.elements[current_account]?.length > 0) {
-                const temp_contract = this.elements[current_account]?.[0];
-                const is_contract = temp_contract.type === transaction_elements.CONTRACT;
-                const is_new_run =
-                    is_contract &&
-                    typeof temp_contract.data === 'object' &&
-                    contract.run_id !== temp_contract?.data?.run_id;
-
-                if (is_new_run) {
-                    this.elements[current_account]?.unshift({
-                        type: transaction_elements.DIVIDER,
-                        data: contract.run_id,
-                    });
-                }
-            }
-
-            this.elements[current_account]?.unshift({
-                type: transaction_elements.CONTRACT,
-                data: contract,
-            });
-        } else {
-            // If data belongs to existing contract in memory, update it.
-            this.elements[current_account]?.splice(same_contract_index, 1, {
-                type: transaction_elements.CONTRACT,
-                data: contract,
-            });
-        }
-
-        this.elements = { ...this.elements }; // force update
-    }
+        this.transactions.unshift(enhancedTransaction);
+    };
 
     clear() {
         if (this.elements && this.elements[this.core?.client?.loginid as string]?.length > 0) {
@@ -224,7 +255,7 @@ export default class TransactionsStore {
         const { currency, profit } = contract;
 
         if (contract.contract_id !== contract_info?.contract_id) {
-            this.onBotContractEvent(contract);
+            this.onBotContractEvent(contract as TContractState); // Cast to TContractState for onBotContractEvent
 
             if (contract.contract_id && !this.recovered_transactions.includes(contract.contract_id)) {
                 this.recovered_transactions.push(contract.contract_id);

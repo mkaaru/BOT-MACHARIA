@@ -12,6 +12,26 @@ const botObserver = {
     }
 };
 
+// Mock run_panel for demonstration purposes if not in a Deriv environment
+const contract_stages = {
+    NOT_RUNNING: 'NOT_RUNNING',
+    STARTING: 'STARTING',
+    RUNNING: 'RUNNING',
+    STOPPING: 'STOPPING',
+};
+
+const run_panel = {
+    isRunning: false,
+    contractStage: contract_stages.NOT_RUNNING,
+    run_id: '',
+    activeTabIndex: 0,
+    isDrawerVisible: false,
+    setIsRunning: function(isRunning) { this.isRunning = isRunning; },
+    setContractStage: function(stage) { this.contractStage = stage; },
+    toggleDrawer: function(isVisible) { this.isDrawerVisible = isVisible; },
+    setActiveTabIndex: function(index) { this.activeTabIndex = index; },
+};
+
 // Volatility indices for Rise/Fall trading
 const VOLATILITY_INDICES = [
     { value: 'R_10', label: 'Volatility 10 Index' },
@@ -658,7 +678,7 @@ const MLTrader = observer(() => {
             // Monitor contract outcome and emit events for run panel
             monitorContract(buyResponse.buy.contract_id, stakeToUse, recommendation, confidence);
 
-            // Emit events for run panel integration
+            // Emit events that run panel listens to
             const contractData: ContractData = {
                 id: 'contract.purchase_received',
                 buy: buyResponse.buy,
@@ -879,13 +899,45 @@ const MLTrader = observer(() => {
     };
 
 
-    // Toggle auto trading
+    // Auto trading toggle
     const toggleAutoTrading = () => {
-        setIsAutoTrading(!isAutoTrading);
         if (!isAutoTrading) {
-            setStatus('🤖 ML Auto trading started - Analyzing market with Hull Moving Average');
+            if (!tradingApi || !isAuthorized) {
+                setStatus('Please ensure API is connected and authorized first');
+                return;
+            }
+
+            setIsAutoTrading(true);
+            setStatus('🤖 ML Auto-trading enabled - monitoring for signals...');
+
+            // Update run panel state and register with bot system
+            run_panel.setIsRunning(true);
+            run_panel.setContractStage(contract_stages.STARTING);
+            run_panel.toggleDrawer(true);
+            run_panel.setActiveTabIndex(1); // Show transactions tab
+            run_panel.run_id = `ml-trader-${Date.now()}`;
+
+            // Emit bot running event for run panel integration
+            botObserver.emit('bot.running', {
+                is_running: true,
+                run_id: run_panel.run_id,
+                strategy_name: 'ML Trading Engine',
+                is_ml_trader: true
+            });
+
         } else {
-            setStatus('🤖 ML Auto trading stopped');
+            setIsAutoTrading(false);
+            setStatus('ML Auto-trading disabled');
+
+            // Update run panel state and emit stop event
+            run_panel.setIsRunning(false);
+            run_panel.setContractStage(contract_stages.NOT_RUNNING);
+
+            // Emit bot stop event for run panel integration
+            botObserver.emit('bot.stop', {
+                is_running: false,
+                is_ml_trader: true
+            });
         }
     };
 

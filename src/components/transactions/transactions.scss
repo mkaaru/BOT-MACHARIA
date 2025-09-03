@@ -267,4 +267,45 @@
             }
         }
     }
+
+    &--sell {
+            background-color: var(--status-danger);
+        }
+
+        &--ml {
+            border-left: 3px solid var(--status-info);
+            position: relative;
+
+            &::before {
+                content: '🤖';
+                position: absolute;
+                top: 2px;
+                right: 2px;
+                font-size: 12px;
+            }
+        }
+    }
+
+    &__ml-badge {
+        margin-right: 4px;
+        font-size: 12px;
+    }
+
+    &__ml-info {
+        font-size: 11px;
+        color: var(--text-less-prominent);
+        font-style: italic;
+    }
+
+    &__ml-result {
+        font-size: 10px;
+        color: var(--text-less-prominent);
+        text-transform: uppercase;
+        font-weight: bold;
+    }
+
+    &__item--ml {
+        background: linear-gradient(90deg, rgba(var(--status-info-rgb), 0.05) 0%, transparent 100%);
+        border-left: 2px solid var(--status-info);
+    }
 }
