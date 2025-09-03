@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import { localize } from '@deriv-com/translations';
@@ -187,7 +186,7 @@ const MLTrader = observer(() => {
                             if (tickHistoryRef.current.length > Math.max(tickCount, 5000)) {
                                 tickHistoryRef.current = tickHistoryRef.current.slice(-tickCount);
                             }
-                            
+
                             setCurrentPrice(quote);
                             updateAnalysis();
                         } else if (data.ping) {
@@ -441,10 +440,10 @@ const MLTrader = observer(() => {
                 // Default based on current analysis
                 contractType = (analysisData.riseRatio || 0) > (analysisData.fallRatio || 0) ? 'CALL' : 'PUT';
             }
-            
+
             // Calculate stake with martingale
-            const stakeToUse = lastOutcome === 'loss' && lossStreak > 0 
-                ? Math.min(currentStake * martingaleSteps, baseStake * 10) 
+            const stakeToUse = lastOutcome === 'loss' && lossStreak > 0
+                ? Math.min(currentStake * martingaleSteps, baseStake * 10)
                 : baseStake;
 
             setCurrentStake(stakeToUse);
@@ -484,7 +483,7 @@ const MLTrader = observer(() => {
 
             setStatus(`✅ Auto trade executed: ${buyResponse.buy.contract_id}`);
             console.log(`[${timestamp}] ✅ Auto trade successful: ${buyResponse.buy.contract_id}`);
-            
+
             monitorContract(buyResponse.buy.contract_id, stakeToUse);
 
         } catch (error) {
@@ -534,7 +533,7 @@ const MLTrader = observer(() => {
             setTotalStake(prev => prev + stakeToUse);
 
             setStatus(`Contract purchased: ${buyResponse.buy.contract_id}`);
-            
+
             monitorContract(buyResponse.buy.contract_id, stakeToUse);
 
         } catch (error) {
@@ -559,24 +558,24 @@ const MLTrader = observer(() => {
 
             // Send subscription request
             await tradingApi.send(subscribeRequest);
-            
+
             // Create proper message handler for WebSocket events
             const handleContractUpdate = (event: MessageEvent) => {
                 try {
                     const data = JSON.parse(event.data);
-                    
-                    if (data.msg_type === 'proposal_open_contract' && 
+
+                    if (data.msg_type === 'proposal_open_contract' &&
                         data.proposal_open_contract &&
                         String(data.proposal_open_contract.contract_id) === String(contractId)) {
-                        
+
                         const contract = data.proposal_open_contract;
-                        
+
                         if (contract.is_sold || contract.status === 'sold') {
                             const profit = Number(contract.profit || 0);
                             const payout = Number(contract.payout || 0);
-                            
+
                             setTotalPayout(prev => prev + payout);
-                            
+
                             if (profit > 0) {
                                 setContractsWon(prev => prev + 1);
                                 setLastOutcome('win');
@@ -589,19 +588,19 @@ const MLTrader = observer(() => {
                                 setLossStreak(prev => prev + 1);
                                 setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
                             }
-                            
+
                             // Remove listener
                             tradingApi.connection.removeEventListener('message', handleContractUpdate);
                         }
                     }
                 } catch (error) {
-                    console.error('Error parsing contract update:', error);
+                    console.error('Error processing contract update:', error);
                 }
             };
 
             // Add event listener to the actual connection
             tradingApi.connection.addEventListener('message', handleContractUpdate);
-            
+
             // Auto cleanup after 5 minutes
             setTimeout(() => {
                 if (tradingApi.connection) {
@@ -615,7 +614,7 @@ const MLTrader = observer(() => {
         }
     };
 
-    // NEW: Auto trading management (from working VolatilityAnalyzer)
+    // NEW: Auto trading management (combining start/stop)
     const startAutoTrading = () => {
         if (connectionStatus !== 'connected') {
             alert('Cannot start auto trading: Not connected to market data API');
@@ -697,7 +696,7 @@ const MLTrader = observer(() => {
         return () => clearInterval(interval);
     }, [tradingApi]);
 
-    // Cleanup on unmount
+    // Cleanup interval on unmount
     useEffect(() => {
         return () => {
             if (tradingInterval) {
@@ -757,7 +756,7 @@ const MLTrader = observer(() => {
                             <span>{analysisData.riseRatio?.toFixed(1) || '0.0'}%</span>
                         </div>
                         <div className='ml-trader__progress-bar'>
-                            <div 
+                            <div
                                 className='ml-trader__progress-fill ml-trader__progress-fill--rise'
                                 style={{ width: `${analysisData.riseRatio || 0}%` }}
                             />
@@ -769,7 +768,7 @@ const MLTrader = observer(() => {
                             <span>{analysisData.fallRatio?.toFixed(1) || '0.0'}%</span>
                         </div>
                         <div className='ml-trader__progress-bar'>
-                            <div 
+                            <div
                                 className='ml-trader__progress-fill ml-trader__progress-fill--fall'
                                 style={{ width: `${analysisData.fallRatio || 0}%` }}
                             />
@@ -779,7 +778,7 @@ const MLTrader = observer(() => {
 
                 {analysisData.recommendation && (
                     <div className='ml-trader__recommendation'>
-                        <strong>Recommendation:</strong> {analysisData.recommendation} 
+                        <strong>Recommendation:</strong> {analysisData.recommendation}
                         <span className='ml-trader__confidence'>({analysisData.confidence?.toFixed(1)}%)</span>
                     </div>
                 )}
