@@ -342,7 +342,7 @@ const MLTrader = observer(() => {
 
     // Execute auto trade
     const executeAutoTrade = async (recommendation: string, confidence: number) => {
-        if (!tradingApi || !isAuthorized) {
+        if (!tradingApi) {
             setStatus('Trading API not ready');
             return;
         }
@@ -359,32 +359,24 @@ const MLTrader = observer(() => {
 
             setCurrentStake(stakeToUse);
 
-            const tradeParams = {
-                proposal: 1,
-                amount: stakeToUse,
-                basis: 'stake',
-                contract_type: contractType,
-                currency: 'USD',
-                duration: tickDuration,
-                duration_unit: 't',
-                symbol: selectedSymbol
+            // Use direct buy approach like VolatilityAnalyzer
+            const buyRequest = {
+                buy: '1',
+                price: stakeToUse,
+                parameters: {
+                    amount: stakeToUse,
+                    basis: 'stake',
+                    contract_type: contractType,
+                    currency: 'USD',
+                    duration: tickDuration,
+                    duration_unit: 't',
+                    symbol: selectedSymbol
+                }
             };
 
-            setStatus(`Getting proposal for ${recommendation} with ${confidence.toFixed(1)}% confidence...`);
-            
-            const proposalResponse = await tradingApi.proposal(tradeParams);
-            
-            if (proposalResponse.error) {
-                throw new Error(proposalResponse.error.message);
-            }
-
-            const proposal = proposalResponse.proposal;
             setStatus(`Buying ${recommendation} contract for $${stakeToUse}...`);
 
-            const buyResponse = await tradingApi.buy({
-                buy: proposal.id,
-                price: stakeToUse
-            });
+            const buyResponse = await tradingApi.buy(buyRequest);
 
             if (buyResponse.error) {
                 throw new Error(buyResponse.error.message);
@@ -393,14 +385,16 @@ const MLTrader = observer(() => {
             setTotalRuns(prev => prev + 1);
             setTotalStake(prev => prev + stakeToUse);
 
-            setStatus(`Contract purchased: ${buyResponse.buy.transaction_id}`);
+            setStatus(`Contract purchased: ${buyResponse.buy.contract_id}`);
             
-            // Monitor contract outcome
+            // Monitor contract outcome using proper method
             monitorContract(buyResponse.buy.contract_id, stakeToUse);
 
         } catch (error) {
             console.error('Auto trade error:', error);
             setStatus(`Trade error: ${error.message}`);
+            setLastOutcome('loss');
+            setLossStreak(prev => prev + 1);
         }
     };
 
@@ -417,32 +411,24 @@ const MLTrader = observer(() => {
             const contractType = tradeType === 'Rise' ? 'CALL' : 'PUT';
             const stakeToUse = baseStake;
 
-            const tradeParams = {
-                proposal: 1,
-                amount: stakeToUse,
-                basis: 'stake',
-                contract_type: contractType,
-                currency: 'USD',
-                duration: tickDuration,
-                duration_unit: 't',
-                symbol: selectedSymbol
+            // Use direct buy approach like VolatilityAnalyzer
+            const buyRequest = {
+                buy: '1',
+                price: stakeToUse,
+                parameters: {
+                    amount: stakeToUse,
+                    basis: 'stake',
+                    contract_type: contractType,
+                    currency: 'USD',
+                    duration: tickDuration,
+                    duration_unit: 't',
+                    symbol: selectedSymbol
+                }
             };
 
-            setStatus(`Getting proposal for ${tradeType}...`);
-            
-            const proposalResponse = await tradingApi.proposal(tradeParams);
-            
-            if (proposalResponse.error) {
-                throw new Error(proposalResponse.error.message);
-            }
-
-            const proposal = proposalResponse.proposal;
             setStatus(`Buying ${tradeType} contract for $${stakeToUse}...`);
 
-            const buyResponse = await tradingApi.buy({
-                buy: proposal.id,
-                price: stakeToUse
-            });
+            const buyResponse = await tradingApi.buy(buyRequest);
 
             if (buyResponse.error) {
                 throw new Error(buyResponse.error.message);
@@ -451,9 +437,9 @@ const MLTrader = observer(() => {
             setTotalRuns(prev => prev + 1);
             setTotalStake(prev => prev + stakeToUse);
 
-            setStatus(`Contract purchased: ${buyResponse.buy.transaction_id}`);
+            setStatus(`Contract purchased: ${buyResponse.buy.contract_id}`);
             
-            // Monitor contract outcome
+            // Monitor contract outcome using proper method
             monitorContract(buyResponse.buy.contract_id, stakeToUse);
 
         } catch (error) {
@@ -465,33 +451,57 @@ const MLTrader = observer(() => {
     // Monitor contract outcome
     const monitorContract = async (contractId: string, stakeAmount: number) => {
         try {
-            const subscription = await tradingApi.subscribeToOpenContract(contractId);
+            // Use the same approach as VolatilityAnalyzer
+            const subscribeRequest = {
+                proposal_open_contract: 1,
+                contract_id: contractId,
+                subscribe: 1
+            };
+
+            // Send subscription request
+            await tradingApi.send(subscribeRequest);
             
-            subscription.subscribe(({ proposal_open_contract }: any) => {
-                const contract = proposal_open_contract;
-                
-                if (contract.is_sold) {
-                    const profit = contract.profit || 0;
-                    const payout = contract.payout || 0;
+            // Listen for contract updates
+            const handleContractUpdate = (data: any) => {
+                if (data.msg_type === 'proposal_open_contract' && 
+                    data.proposal_open_contract &&
+                    String(data.proposal_open_contract.contract_id) === String(contractId)) {
                     
-                    setTotalPayout(prev => prev + payout);
+                    const contract = data.proposal_open_contract;
                     
-                    if (profit > 0) {
-                        setContractsWon(prev => prev + 1);
-                        setLastOutcome('win');
-                        setLossStreak(0);
-                        setCurrentStake(baseStake);
-                        setStatus(`✅ Contract won! Profit: $${profit.toFixed(2)}`);
-                    } else {
-                        setContractsLost(prev => prev + 1);
-                        setLastOutcome('loss');
-                        setLossStreak(prev => prev + 1);
-                        setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
+                    if (contract.is_sold || contract.status === 'sold') {
+                        const profit = Number(contract.profit || 0);
+                        const payout = Number(contract.payout || 0);
+                        
+                        setTotalPayout(prev => prev + payout);
+                        
+                        if (profit > 0) {
+                            setContractsWon(prev => prev + 1);
+                            setLastOutcome('win');
+                            setLossStreak(0);
+                            setCurrentStake(baseStake);
+                            setStatus(`✅ Contract won! Profit: $${profit.toFixed(2)}`);
+                        } else {
+                            setContractsLost(prev => prev + 1);
+                            setLastOutcome('loss');
+                            setLossStreak(prev => prev + 1);
+                            setStatus(`❌ Contract lost. Loss: $${Math.abs(profit).toFixed(2)}`);
+                        }
+                        
+                        // Remove listener
+                        tradingApi.connection.removeEventListener('message', handleContractUpdate);
                     }
-                    
-                    subscription.unsubscribe();
                 }
-            });
+            };
+
+            // Add event listener
+            tradingApi.connection.addEventListener('message', handleContractUpdate);
+            
+            // Auto cleanup after 5 minutes
+            setTimeout(() => {
+                tradingApi.connection.removeEventListener('message', handleContractUpdate);
+            }, 300000);
+
         } catch (error) {
             console.error('Error monitoring contract:', error);
             setStatus(`Monitoring error: ${error.message}`);
