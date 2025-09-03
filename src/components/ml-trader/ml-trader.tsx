@@ -460,11 +460,26 @@ const MLTrader = observer(() => {
             });
 
             // Auto trading logic - ML based
-            if (isAutoTrading && recommendation && confidence >= 60) { // Minimum 60% confidence for ML
-                console.log(`🤖 ML AUTO TRADE CONDITIONS MET: ${recommendation} with ${confidence.toFixed(1)}% confidence`);
-                executeAutoTrade(recommendation, confidence);
-            } else if (isAutoTrading) {
-                console.log(`⏳ ML AUTO TRADE WAITING: recommendation=${recommendation}, confidence=${confidence.toFixed(1)}%, required=60%+`);
+            if (isAutoTrading) {
+                console.log(`🤖 ML AUTO TRADE CHECK:`, {
+                    isAutoTrading,
+                    recommendation,
+                    confidence: confidence?.toFixed(1),
+                    meetsCriteria: recommendation && confidence >= 60,
+                    isAuthorized,
+                    connectionStatus,
+                    tradingApiReady: !!tradingApi
+                });
+
+                if (recommendation && confidence >= 60) {
+                    console.log(`✅ ML AUTO TRADE CONDITIONS MET: ${recommendation} with ${confidence.toFixed(1)}% confidence`);
+                    executeAutoTrade(recommendation, confidence);
+                } else {
+                    const reasons = [];
+                    if (!recommendation) reasons.push('no recommendation');
+                    if (confidence < 60) reasons.push(`confidence too low (${confidence.toFixed(1)}%)`);
+                    console.log(`⏳ ML AUTO TRADE WAITING: ${reasons.join(', ')}`);
+                }
             }
 
         } catch (error) {
@@ -474,35 +489,56 @@ const MLTrader = observer(() => {
 
     // Authorization helper
     const authorizeIfNeeded = async () => {
-        if (isAuthorized || !tradingApi) return;
+        if (isAuthorized && tradingApi) return;
+
+        if (!tradingApi) {
+            throw new Error('Trading API not initialized');
+        }
 
         const token = V2GetActiveToken();
         if (!token) {
-            throw new Error('No token found. Please log in and select an account.');
+            throw new Error('No authentication token found. Please log in and select an account.');
         }
 
-        const { authorize, error } = await tradingApi.authorize(token);
-        if (error) {
-            throw new Error(`Authorization error: ${error.message || error.code}`);
-        }
+        console.log('🔐 Authorizing trading API...');
+        
+        try {
+            const { authorize, error } = await tradingApi.authorize(token);
+            if (error) {
+                throw new Error(`Authorization failed: ${error.message || error.code}`);
+            }
 
-        setIsAuthorized(true);
-        console.log('✅ Trading API authorized successfully');
+            if (!authorize) {
+                throw new Error('Authorization response is empty');
+            }
+
+            setIsAuthorized(true);
+            console.log('✅ Trading API authorized successfully for account:', authorize.loginid);
+        } catch (authError) {
+            setIsAuthorized(false);
+            throw new Error(`Authorization error: ${authError.message}`);
+        }
     };
 
     // Execute auto trade
     const executeAutoTrade = async (recommendation: string, confidence: number) => {
-        if (!tradingApi || !isAuthorized) {
-            setStatus('Trading API not ready - Please ensure you are logged in');
+        if (!tradingApi) {
+            setStatus('❌ Trading API not initialized - Please refresh the page');
             return;
         }
 
         if (!isAutoTrading) {
-            setStatus('Auto trading is not active');
+            setStatus('❌ Auto trading is not active');
+            return;
+        }
+
+        if (connectionStatus !== 'connected') {
+            setStatus('❌ WebSocket not connected - Please wait for connection');
             return;
         }
 
         try {
+            // Ensure we're authorized
             await authorizeIfNeeded();
 
             const contractType = recommendation === 'Rise' ? 'CALL' : 'PUT';
@@ -525,13 +561,15 @@ const MLTrader = observer(() => {
                 symbol: selectedSymbol
             };
 
-            console.log('Executing auto trade:', {
+            console.log('🤖 Executing ML auto trade:', {
                 recommendation,
                 confidence: confidence.toFixed(1),
                 contractType,
                 stakeToUse,
-                conditionType,
-                conditionValue
+                symbol: selectedSymbol,
+                duration: tickDuration,
+                isAuthorized,
+                connectionStatus
             });
 
             setStatus(`🤖 AUTO: Getting proposal for ${recommendation} (${confidence.toFixed(1)}% confidence)...`);
@@ -539,7 +577,11 @@ const MLTrader = observer(() => {
             const proposalResponse = await tradingApi.proposal(tradeParams);
 
             if (proposalResponse.error) {
-                throw new Error(proposalResponse.error.message);
+                throw new Error(`Proposal error: ${proposalResponse.error.message || proposalResponse.error.code}`);
+            }
+
+            if (!proposalResponse.proposal) {
+                throw new Error('No proposal received from API');
             }
 
             const proposal = proposalResponse.proposal;
@@ -551,20 +593,32 @@ const MLTrader = observer(() => {
             });
 
             if (buyResponse.error) {
-                throw new Error(buyResponse.error.message);
+                throw new Error(`Buy error: ${buyResponse.error.message || buyResponse.error.code}`);
+            }
+
+            if (!buyResponse.buy) {
+                throw new Error('No buy response received from API');
             }
 
             setTotalRuns(prev => prev + 1);
             setTotalStake(prev => prev + stakeToUse);
 
-            setStatus(`🤖 AUTO: Contract purchased: ${buyResponse.buy.transaction_id}`);
+            setStatus(`✅ AUTO: Contract purchased: ${buyResponse.buy.transaction_id}`);
+            console.log('🤖 Trade executed successfully:', buyResponse.buy);
 
             // Monitor contract outcome
             monitorContract(buyResponse.buy.contract_id, stakeToUse);
 
         } catch (error) {
-            console.error('Auto trade error:', error);
-            setStatus(`🤖 AUTO ERROR: ${error.message}`);
+            console.error('❌ Auto trade error:', error);
+            const errorMessage = error.message || 'Unknown error occurred';
+            setStatus(`❌ AUTO ERROR: ${errorMessage}`);
+            
+            // If authorization fails, try to re-authorize
+            if (errorMessage.includes('Authorization') || errorMessage.includes('InvalidToken')) {
+                setIsAuthorized(false);
+                console.log('🔄 Authorization lost, will re-authorize on next trade');
+            }
         }
     };
 
