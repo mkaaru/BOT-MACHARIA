@@ -178,7 +178,7 @@ const MLTrader = observer(() => {
         const MAX_RECONNECT_ATTEMPTS = 5;
 
         function startWebSocket() {
-            console.log('🔌 Connecting to WebSocket API');
+            console.log('🔌 Connecting to WebSocket API for symbol:', selectedSymbol);
 
             if (reconnectTimeoutRef.current) {
                 clearTimeout(reconnectTimeoutRef.current);
@@ -194,11 +194,15 @@ const MLTrader = observer(() => {
                 derivWsRef.current = null;
             }
 
+            // Clear existing tick history when changing symbols
+            tickHistoryRef.current = [];
+            setCurrentPrice(0);
+
             try {
                 derivWsRef.current = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
 
                 derivWsRef.current.onopen = function() {
-                    console.log('✅ WebSocket connection established');
+                    console.log('✅ WebSocket connection established for symbol:', selectedSymbol);
                     reconnectAttemptsRef.current = 0;
                     setConnectionStatus('connected');
 
@@ -236,8 +240,14 @@ const MLTrader = observer(() => {
                                 time: data.history.times[index],
                                 quote: parseFloat(price)
                             }));
+                            
+                            // Set current price from latest tick
+                            if (data.history.prices.length > 0) {
+                                setCurrentPrice(parseFloat(data.history.prices[data.history.prices.length - 1]));
+                            }
+                            
                             updateAnalysis();
-                        } else if (data.tick) {
+                        } else if (data.tick && data.tick.symbol === selectedSymbol) {
                             const quote = parseFloat(data.tick.quote);
                             tickHistoryRef.current.push({
                                 time: data.tick.epoch,
@@ -469,10 +479,14 @@ const MLTrader = observer(() => {
 
     // Update analysis when tick data changes
     const updateAnalysis = useCallback(() => {
-        if (tickHistoryRef.current.length === 0) return;
+        if (tickHistoryRef.current.length === 0) {
+            console.log('⏳ No tick data available for analysis');
+            return;
+        }
 
         try {
             const ticks = tickHistoryRef.current;
+            console.log(`📊 Analyzing ${ticks.length} ticks for ${selectedSymbol}. Auto trading: ${isAutoTrading}`);
 
             // Basic statistics for display
             let riseCount = 0;
@@ -500,16 +514,19 @@ const MLTrader = observer(() => {
                 recommendation = mlAnalysis.recommendation;
                 confidence = Number(mlAnalysis.confidence) || 0;
 
-                console.log('🤖 ML Analysis:', {
+                console.log('🤖 ML Analysis Result:', {
+                    symbol: selectedSymbol,
                     recommendation,
                     confidence: confidence.toFixed(1),
                     hma20Trend: mlAnalysis.hma20Trend,
                     hma50Trend: mlAnalysis.hma50Trend,
                     signalStrength: mlAnalysis.signalStrength.toFixed(1),
-                    signals: `${mlAnalysis.signals}/${mlAnalysis.totalSignals}`
+                    signals: `${mlAnalysis.signals}/${mlAnalysis.totalSignals}`,
+                    autoTrading: isAutoTrading
                 });
             } else {
                 // Fallback to basic analysis if insufficient data
+                console.log('⚠️ Insufficient data for ML analysis, using basic analysis');
                 if (riseRatio > 55) {
                     recommendation = 'Rise';
                     confidence = riseRatio;
@@ -527,34 +544,27 @@ const MLTrader = observer(() => {
                 totalTicks: ticks.length
             });
 
-            // Auto trading logic - ML based
-            if (isAutoTrading && recommendation && confidence >= mlMinConfidence) {
-                console.log(`🤖 ML AUTO TRADE CHECK:`, {
-                    isAutoTrading,
-                    recommendation,
-                    confidence: confidence?.toFixed(1),
-                    meetsCriteria: recommendation && confidence >= mlMinConfidence,
-                    isAuthorized,
-                    connectionStatus,
-                    tradingApiReady: !!tradingApi
-                });
-
-                console.log(`✅ ML AUTO TRADE CONDITIONS MET: ${recommendation} with ${confidence.toFixed(1)}% confidence`);
-                executeAutoTrade(recommendation, confidence);
-            } else if (isAutoTrading) {
-                const reasons = [];
-                if (!recommendation) reasons.push('no recommendation');
-                if (confidence < mlMinConfidence) reasons.push(`confidence too low (${confidence.toFixed(1)}% < ${mlMinConfidence}%)`);
-                if (!isAuthorized) reasons.push('not authorized');
-                if (connectionStatus !== 'connected') reasons.push('not connected');
-                if (!tradingApi) reasons.push('trading API not ready');
-                console.log(`⏳ ML AUTO TRADE WAITING: ${reasons.join(', ')}`);
+            // Auto trading logic - Only execute if auto trading is active
+            if (isAutoTrading) {
+                if (recommendation && confidence >= mlMinConfidence) {
+                    console.log(`🎯 EXECUTING AUTO TRADE: ${recommendation} with ${confidence.toFixed(1)}% confidence for ${selectedSymbol}`);
+                    executeAutoTrade(recommendation, confidence);
+                } else {
+                    const reasons = [];
+                    if (!recommendation) reasons.push('no recommendation');
+                    if (confidence < mlMinConfidence) reasons.push(`confidence too low (${confidence.toFixed(1)}% < ${mlMinConfidence}%)`);
+                    if (!isAuthorized) reasons.push('not authorized');
+                    if (connectionStatus !== 'connected') reasons.push('not connected');
+                    if (!tradingApi) reasons.push('trading API not ready');
+                    console.log(`⏳ AUTO TRADE WAITING for ${selectedSymbol}: ${reasons.join(', ')}`);
+                }
             }
 
         } catch (error) {
-            console.error('Error in ML analysis:', error);
+            console.error('❌ Error in ML analysis:', error);
+            setStatus(`❌ Analysis error: ${error.message}`);
         }
-    }, [isAutoTrading, mlMinConfidence, isAuthorized, connectionStatus, tradingApi]);
+    }, [isAutoTrading, mlMinConfidence, isAuthorized, connectionStatus, tradingApi, selectedSymbol]);
 
     // Authorization helper
     const authorizeIfNeeded = async () => {
@@ -900,14 +910,28 @@ const MLTrader = observer(() => {
 
     // Auto trading toggle
     const toggleAutoTrading = () => {
+        console.log('🔄 Toggle auto trading called. Current state:', isAutoTrading);
+        
         if (!isAutoTrading) {
-            if (!tradingApi || !isAuthorized) {
-                setStatus('Please ensure API is connected and authorized first');
+            // Starting auto trading
+            if (!tradingApi) {
+                setStatus('❌ Trading API not initialized - Please refresh the page');
                 return;
             }
 
+            if (connectionStatus !== 'connected') {
+                setStatus('❌ WebSocket not connected - Please wait for connection');
+                return;
+            }
+
+            if (tickHistoryRef.current.length < 50) {
+                setStatus('❌ Insufficient tick data - Please wait for more data');
+                return;
+            }
+
+            console.log('✅ Starting ML Auto-trading');
             setIsAutoTrading(true);
-            setStatus('ML Auto-trading enabled - monitoring for signals...');
+            setStatus('🤖 ML Auto-trading ACTIVE - monitoring for signals...');
 
             // Update run panel state and register with bot system
             run_panel.setIsRunning(true);
@@ -924,9 +948,16 @@ const MLTrader = observer(() => {
                 is_ml_trader: true
             });
 
+            // Trigger immediate analysis to check for trading opportunities
+            setTimeout(() => {
+                updateAnalysis();
+            }, 1000);
+
         } else {
+            // Stopping auto trading
+            console.log('🛑 Stopping ML Auto-trading');
             setIsAutoTrading(false);
-            setStatus('ML Auto-trading disabled');
+            setStatus('🛑 ML Auto-trading STOPPED');
 
             // Update run panel state and emit stop event
             run_panel.setIsRunning(false);
