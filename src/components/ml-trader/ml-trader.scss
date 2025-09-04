@@ -1,10 +1,12 @@
+
 .ml-trader {
   padding: 20px;
-  max-width: 1600px;
+  max-width: 1400px;
   margin: 0 auto;
+  background: var(--general-main-1);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
 
   &__header {
     display: flex;
@@ -406,110 +408,6 @@
     text-align: center;
     font-size: 14px;
     color: var(--text-general);
-  }
-
-  &__auto-bot {
-    margin: 20px 0;
-    padding: 15px;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    background: #f9f9f9;
-    color: #333;
-  }
-
-  &__bot-controls {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
-  }
-
-  &__scan-btn, &__scan-now-btn, &__smart-trade-btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-
-    &:hover:not(:disabled) {
-      opacity: 0.8;
-    }
-
-    &:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-  }
-
-  &__scan-btn {
-    background: #2196f3;
-    color: white;
-
-    &--active {
-      background: #f44336;
-    }
-  }
-
-  &__scan-now-btn {
-    background: #4caf50;
-    color: white;
-  }
-
-  &__smart-trade-btn {
-    background: #ff9800;
-    color: white;
-    margin-top: 10px;
-  }
-
-  &__scan-progress {
-    margin: 10px 0;
-  }
-
-  &__best-market {
-    margin: 15px 0;
-    padding: 10px;
-    background: white;
-    border-radius: 6px;
-    border: 1px solid #e0e0e0;
-  }
-
-  &__market-info {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 5px;
-    margin-bottom: 10px;
-  }
-
-  &__market-list {
-    margin-top: 15px;
-    max-height: 200px;
-    overflow-y: auto;
-  }
-
-  &__market-item {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
-    gap: 10px;
-    padding: 5px;
-    border-bottom: 1px solid #eee;
-    font-size: 11px;
-
-    &:nth-child(even) {
-      background: #f5f5f5;
-    }
-  }
-
-  &__progress-bar {
-    width: 100%;
-    height: 8px;
-    background: #e0e0e0;
-    border-radius: 4px;
-    overflow: hidden;
-  }
-
-  &__progress-fill {
-    height: 100%;
-    background: #4caf50;
-    transition: width 0.3s ease;
   }
 }
 
