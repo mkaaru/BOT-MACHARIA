@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import classNames from 'classnames';
@@ -277,6 +276,39 @@ const SmartTradingDisplay = observer(() => {
         // Listen for messages from the volatility analyzer
     }, []);
 
+    // Effect to handle messages from the volatility analyzer
+    useEffect(() => {
+        const messageHandler = (event: MessageEvent) => {
+            // Ensure the message is from our domain and relevant
+            if (event.origin !== window.location.origin) return;
+
+            const { type, data } = event.data;
+
+            if (type === 'ANALYSIS_DATA') {
+                setAnalysisData(prevData => ({
+                    ...prevData,
+                    [data.strategyId]: {
+                        ...prevData[data.strategyId], // Preserve existing data if any
+                        ...data.analysis, // Update with new analysis data
+                    }
+                }));
+            } else if (type === 'PRICE_UPDATE') {
+                setCurrentPrice(data.price.toFixed(4)); // Assuming price is a number
+            } else if (type === 'STATUS_RESPONSE') {
+                console.log('Status Response:', data);
+                // Handle status response if needed, e.g., check connection status
+            }
+        };
+
+        window.addEventListener('message', messageHandler);
+
+        // Cleanup the event listener when the component unmounts
+        return () => {
+            window.removeEventListener('message', messageHandler);
+        };
+    }, []); // Empty dependency array ensures this effect runs only once on mount
+
+
     return (
         <div className="smart-trading-display">
             <div className="smart-trading-header">
@@ -285,7 +317,13 @@ const SmartTradingDisplay = observer(() => {
                 <div className="controls-container">
                     <div className="control-item">
                         <label>Symbol</label>
-                        <select value={selectedSymbol} onChange={(e) => setSelectedSymbol(e.target.value)}>
+                        <select value={selectedSymbol} onChange={(e) => {
+                            setSelectedSymbol(e.target.value);
+                            window.postMessage({
+                                type: 'UPDATE_SYMBOL',
+                                symbol: e.target.value
+                            }, '*');
+                        }}>
                             <option value="R_10">Volatility 10 Index</option>
                             <option value="R_25">Volatility 25 Index</option>
                             <option value="R_50">Volatility 50 Index</option>
@@ -295,10 +333,20 @@ const SmartTradingDisplay = observer(() => {
                     </div>
                     <div className="control-item">
                         <label>Ticks</label>
-                        <input 
-                            type="number" 
+                        <input
+                            type="number"
                             value={tickCountInput}
-                            onChange={(e) => setTickCountInput(e.target.value)}
+                            onChange={(e) => {
+                                setTickCountInput(e.target.value);
+                                const newTickCount = parseInt(e.target.value, 10);
+                                if (!isNaN(newTickCount)) {
+                                    setTickCount(newTickCount);
+                                    window.postMessage({
+                                        type: 'UPDATE_TICK_COUNT',
+                                        tickCount: newTickCount
+                                    }, '*');
+                                }
+                            }}
                         />
                     </div>
                     <div className="price-display">
@@ -314,13 +362,105 @@ const SmartTradingDisplay = observer(() => {
                             <h4 className="strategy-card__name">{strategy.name}</h4>
                         </div>
                         <div className="strategy-card__analysis-content">
-                            <Text size="sm" color="general">Analysis data will appear here</Text>
+                            {analysisData[strategy.id] ? (
+                                <div>
+                                    {analysisData[strategy.id].recommendation && (
+                                        <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#2c5aa0', marginBottom: '8px' }}>
+                                            📈 {analysisData[strategy.id].recommendation}
+                                        </div>
+                                    )}
+                                    {analysisData[strategy.id].confidence && (
+                                        <div style={{ fontSize: '14px', marginBottom: '8px' }}>
+                                            Confidence: {analysisData[strategy.id].confidence}%
+                                        </div>
+                                    )}
+
+                                    {/* Strategy-specific data displays */}
+                                    {strategy.id === 'rise-fall' && analysisData[strategy.id].riseRatio && (
+                                        <div style={{ fontSize: '13px' }}>
+                                            <div>📊 Rise: {analysisData[strategy.id].riseRatio}% | Fall: {analysisData[strategy.id].fallRatio}%</div>
+                                            {analysisData[strategy.id].pattern && (
+                                                <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                    Recent: {analysisData[strategy.id].pattern}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {strategy.id === 'even-odd' && analysisData[strategy.id].evenProbability && (
+                                        <div style={{ fontSize: '13px' }}>
+                                            <div>📊 Even: {analysisData[strategy.id].evenProbability}% | Odd: {analysisData[strategy.id].oddProbability}%</div>
+                                            {analysisData[strategy.id].pattern && (
+                                                <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                    Pattern: {analysisData[strategy.id].pattern}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {strategy.id === 'even-odd-2' && analysisData[strategy.id].evenOddPattern && (
+                                        <div style={{ fontSize: '13px' }}>
+                                            <div>📊 Even: {analysisData[strategy.id].evenProbability}% | Odd: {analysisData[strategy.id].oddProbability}%</div>
+                                            <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                Pattern: {analysisData[strategy.id].evenOddPattern.slice(-5).join('')}
+                                            </div>
+                                            {analysisData[strategy.id].streak > 1 && (
+                                                <div style={{ marginTop: '4px', fontSize: '12px', color: '#e67e22' }}>
+                                                    🔥 Streak: {analysisData[strategy.id].streak} {analysisData[strategy.id].streakType}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {strategy.id === 'over-under' && analysisData[strategy.id].overProbability && (
+                                        <div style={{ fontSize: '13px' }}>
+                                            <div>📊 Over: {analysisData[strategy.id].overProbability}% | Under: {analysisData[strategy.id].underProbability}%</div>
+                                            <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                Barrier: {analysisData[strategy.id].barrier}
+                                            </div>
+                                            {analysisData[strategy.id].pattern && (
+                                                <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                    Recent: {analysisData[strategy.id].pattern}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {strategy.id === 'over-under-2' && analysisData[strategy.id].overUnderPattern && (
+                                        <div style={{ fontSize: '13px' }}>
+                                            <div>📊 Over: {analysisData[strategy.id].overProbability}% | Under: {analysisData[strategy.id].underProbability}%</div>
+                                            <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                Pattern: {analysisData[strategy.id].overUnderPattern.slice(-5).join('')} | Barrier: {analysisData[strategy.id].barrier}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {strategy.id === 'matches-differs' && analysisData[strategy.id].matchProbability && (
+                                        <div style={{ fontSize: '13px' }}>
+                                            <div>📊 Matches: {analysisData[strategy.id].matchProbability}% | Differs: {analysisData[strategy.id].differProbability}%</div>
+                                            <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                Target: {analysisData[strategy.id].targetDigit}
+                                            </div>
+                                            {analysisData[strategy.id].pattern && (
+                                                <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                    Recent: {analysisData[strategy.id].pattern}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center', color: '#666', padding: '20px' }}>
+                                    <div style={{ fontSize: '14px', marginBottom: '8px' }}>📊 Loading analysis...</div>
+                                    <div style={{ fontSize: '12px' }}>Connecting to market data</div>
+                                </div>
+                            )}
                         </div>
                         <div className="strategy-card__settings">
                             <div className="control-item">
                                 <label>Stake</label>
-                                <input 
-                                    type="number" 
+                                <input
+                                    type="number"
                                     step="0.1"
                                     value={strategy.settings.stake}
                                     onChange={(e) => {
@@ -333,8 +473,8 @@ const SmartTradingDisplay = observer(() => {
                             </div>
                             <div className="control-item">
                                 <label>Ticks</label>
-                                <input 
-                                    type="number" 
+                                <input
+                                    type="number"
                                     value={strategy.settings.ticks}
                                     onChange={(e) => {
                                         const newStrategies = [...analysisStrategies];
@@ -346,8 +486,8 @@ const SmartTradingDisplay = observer(() => {
                             </div>
                             <div className="control-item">
                                 <label>Martingale</label>
-                                <input 
-                                    type="number" 
+                                <input
+                                    type="number"
                                     step="0.1"
                                     value={strategy.settings.martingaleMultiplier}
                                     onChange={(e) => {
@@ -369,9 +509,17 @@ const SmartTradingDisplay = observer(() => {
                                     // Toggle trading for this strategy
                                     const newStrategies = [...analysisStrategies];
                                     const strategyIndex = newStrategies.findIndex(s => s.id === strategy.id);
-                                    newStrategies[strategyIndex].activeContractType = 
-                                        strategy.activeContractType ? null : strategy.settings.conditionAction || 'Rise';
+                                    const newActiveContractType = strategy.activeContractType ? null : strategy.settings.conditionAction || 'Rise';
+                                    newStrategies[strategyIndex].activeContractType = newActiveContractType;
                                     setAnalysisStrategies(newStrategies);
+
+                                    // Inform the analyzer about the trading status change
+                                    window.postMessage({
+                                        type: 'UPDATE_TRADING_STATUS',
+                                        strategyId: strategy.id,
+                                        isActive: !!newActiveContractType,
+                                        contractType: newActiveContractType
+                                    }, '*');
                                 }}
                             >
                                 {strategy.activeContractType ? 'Stop Auto Trading' : 'Start Auto Trading'}
