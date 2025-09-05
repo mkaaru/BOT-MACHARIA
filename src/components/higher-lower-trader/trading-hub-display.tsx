@@ -614,31 +614,39 @@ const TradingHubDisplay: React.FC = () => {
 
                 {/* Trading Controls */}
                 <div className="trading-controls">
-                    <div className="main-controls">
-                        <button
-                            className={`auto-trading-toggle ${isAutoTradingEnabled ? 'active' : ''}`}
-                            onClick={toggleAutoTrading}
-                            disabled={!canTrade}
-                        >
-                            {isAutoTradingEnabled ? 'Stop Auto Trading' : 'Start Auto Trading'}
-                        </button>
+                        <div className="main-controls">
+                            <button 
+                                className={`control-btn primary ${isTrading ? 'stop' : ''}`}
+                                onClick={isTrading ? stopContinuousTrading : startContinuousTrading}
+                                disabled={!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active}
+                            >
+                                {isTrading ? 'Stop Auto Trading' : 'Start Auto Trading'}
+                            </button>
 
-                        <button
-                            className="manual-trade-btn manual-trade-btn--rise"
-                            onClick={() => handleManualTrade('Rise')}
-                            disabled={isTradeInProgress || !canTrade || isAutoTradingEnabled}
-                        >
-                            Manual Rise Trade
-                        </button>
-                        <button
-                            className="manual-trade-btn manual-trade-btn--fall"
-                            onClick={() => handleManualTrade('Fall')}
-                            disabled={isTradeInProgress || !canTrade || isAutoTradingEnabled}
-                        >
-                            Manual Fall Trade
-                        </button>
+                            <button 
+                                className='control-btn secondary'
+                                onClick={() => executeTrade('Rise')}
+                                disabled={isTradeInProgress}
+                            >
+                                Manual Rise
+                            </button>
+
+                            <button 
+                                className='control-btn secondary'
+                                onClick={() => executeTrade('Fall')}
+                                disabled={isTradeInProgress}
+                            >
+                                Manual Fall
+                            </button>
+
+                            <button 
+                                className='control-btn secondary'
+                                onClick={() => setCopyTradingEnabled(!copyTradingEnabled)}
+                            >
+                                {copyTradingEnabled ? 'Stop Copy Trading' : 'Copy Trading Off'}
+                            </button>
+                        </div>
                     </div>
-                </div>
 
                 {/* Statistics Panel */}
                 <div className="statistics-panel">
