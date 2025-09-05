@@ -1,0 +1,44 @@
+Reconnecting market analyzer... (1/5)
+connection-monitor.ts:59  Trading engine connection health check failed
+performHealthCheck @ connection-monitor.ts:59
+(anonymous) @ connection-monitor.ts:29
+setInterval
+start @ connection-monitor.ts:28
+(anonymous) @ App.tsx:151
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+connection-monitor.ts:123 Reconnecting trading engine... (2/5)
+market-analyzer.ts:101 Market Analyzer WebSocket disconnected
+market-analyzer.ts:121 Attempting to reconnect... (1/5)
+trading-engine.ts:57 Trading Engine disconnected
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+market-analyzer.ts:85 Market Analyzer connected to Deriv WebSocket
+market-analyzer.ts:151  WebSocket error: {code: 'InputValidationFailed', details: {…}, message: 'Input validation failed: req_id'}
+handleMessage @ market-analyzer.ts:151
+ws.onmessage @ market-analyzer.ts:94
+market-analyzer.ts:151  WebSocket error: {code: 'InputValidationFailed', details: {…}, message: 'Input validation failed: req_id'}
+handleMessage @ market-analyzer.ts:151
+ws.onmessage @ market-analyzer.ts:94
+market-analyzer.ts:151  WebSocket error: {code: 'InputValidationFailed', details: {…}, message: 'Input validation failed: req_id'}
+handleMessage @ market-analyzer.ts:151
+ws.onmessage @ market-analyzer.ts:94
+market-analyzer.ts:151  WebSocket error: {code: 'InputValidationFailed', details: {…}, message: 'Input validation failed: req_id'}
+handleMessage @ market-analyzer.ts:151
+ws.onmessage @ market-analyzer.ts:94
+market-analyzer.ts:151  WebSocket error: {code: 'InputValidationFailed', details: {…}, message: 'Input validation failed: req_id'}
+handleMessage @ market-analyzer.ts:151
+ws.onmessage @ market-analyzer.ts:94
+trading-engine.ts:43 Trading Engine connected
+api-base.ts:148 connection state:  1
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
