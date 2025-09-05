@@ -82,12 +82,12 @@ class MarketAnalyzer {
         try {
             this.ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=75771');
 
-            this.ws.onopen = () => {
+            this.ws.onopen = action(() => {
                 console.log('Market Analyzer connected to Deriv WebSocket');
                 this.isConnected = true;
                 this.reconnectAttempts = 0;
                 this.subscribeToTicks();
-            };
+            });
 
             this.ws.onmessage = (event) => {
                 try {
@@ -98,17 +98,17 @@ class MarketAnalyzer {
                 }
             };
 
-            this.ws.onclose = () => {
+            this.ws.onclose = action(() => {
                 console.log('Market Analyzer WebSocket disconnected');
                 this.isConnected = false;
                 this.activeSubscriptions.clear();
                 this.attemptReconnect();
-            };
+            });
 
-            this.ws.onerror = (error) => {
+            this.ws.onerror = action((error) => {
                 console.error('Market Analyzer WebSocket error:', error);
                 this.isConnected = false;
-            };
+            });
 
         } catch (error) {
             console.error('Failed to create Market Analyzer WebSocket:', error);
@@ -153,7 +153,7 @@ class MarketAnalyzer {
         }
     }
 
-    private processTick(tick: any) {
+    private processTick = action((tick: any) => {
         const symbol = tick.symbol;
         const price = parseFloat(tick.quote);
         const last_digit = Math.floor((price * 100) % 10);
@@ -176,9 +176,9 @@ class MarketAnalyzer {
         } catch (error) {
             // Ignore if connection monitor is not available
         }
-    }
+    })
 
-    updateSymbolData(symbol: string, tickData: TickData) {
+    updateSymbolData = action((symbol: string, tickData: TickData) => {
         const symbolData = this.symbolData.get(symbol);
         if (!symbolData) return;
 
@@ -213,7 +213,7 @@ class MarketAnalyzer {
 
         // Calculate volatility
         symbolData.volatility = this.calculateVolatility(symbolData.ticks);
-    }
+    })
 
     private calculateDigitFrequency(ticks: TickData[]): { [key: number]: number } {
         const frequency: { [key: number]: number } = {};
@@ -377,8 +377,8 @@ class MarketAnalyzer {
         return Array.from(this.symbolData.values());
     }
 
-    private generateReqId(): string {
-        return `req_${this.reqIdCounter++}`;
+    private generateReqId(): number {
+        return this.reqIdCounter++;
     }
 
     disconnect() {

@@ -1,4 +1,3 @@
-
 import { marketAnalyzer } from './market-analyzer';
 import { tradingEngine } from './trading-engine';
 
@@ -16,6 +15,16 @@ class ConnectionMonitor {
     private readonly CONNECTION_TIMEOUT = 60000; // 1 minute
     private reconnectionAttempts = 0;
     private readonly MAX_RECONNECTION_ATTEMPTS = 5;
+
+    private lastMarketActivity = 0; // Track last activity for market analyzer
+    private lastTradingActivity = 0; // Track last activity for trading engine
+    private activityTimeout = 60000; // Timeout for activity
+
+    // Mock properties to satisfy the type checker based on the provided changes
+    private marketAnalyzer: any = marketAnalyzer;
+    private tradingEngine: any = tradingEngine;
+
+
     private status: ConnectionStatus = {
         marketAnalyzer: false,
         tradingEngine: false,
@@ -40,30 +49,42 @@ class ConnectionMonitor {
     }
 
     private performHealthCheck() {
-        const now = Date.now();
-        
-        // Update connection statuses
-        this.status.marketAnalyzer = marketAnalyzer.isConnected;
-        this.status.tradingEngine = tradingEngine.isEngineConnected();
-        
-        // Check market analyzer health
-        const marketStale = now - this.status.lastMarketUpdate > this.CONNECTION_TIMEOUT;
-        const tradingStale = now - this.status.lastTradingUpdate > this.CONNECTION_TIMEOUT;
-        
+        // Check market analyzer
+        if (!this.marketAnalyzer?.isConnected ||
+            (this.lastMarketActivity > 0 && Date.now() - this.lastMarketActivity > this.activityTimeout)) {
+            console.log('📊 Market analyzer connection health check failed');
+            this.reconnectMarketAnalyzer();
+        }
+
+        // Check trading engine
+        if (!this.tradingEngine?.isEngineConnected() ||
+            (this.lastTradingActivity > 0 && Date.now() - this.lastTradingActivity > this.activityTimeout)) {
+            console.log('🔧 Trading engine connection health check failed');
+            this.reconnectTradingEngine();
+        }
+
+        // Update connection statuses based on current state
+        this.status.marketAnalyzer = this.marketAnalyzer?.isConnected || false;
+        this.status.tradingEngine = this.tradingEngine?.isEngineConnected() || false;
+
+        // Check market analyzer health based on explicit status
+        const marketStale = Date.now() - this.status.lastMarketUpdate > this.CONNECTION_TIMEOUT;
+        const tradingStale = Date.now() - this.status.lastTradingUpdate > this.CONNECTION_TIMEOUT;
+
         if (marketStale || !this.status.marketAnalyzer) {
             console.warn('Market analyzer connection health check failed');
             this.reconnectMarketAnalyzer();
         }
-        
+
         if (tradingStale || !this.status.tradingEngine) {
             console.warn('Trading engine connection health check failed');
             this.reconnectTradingEngine();
         }
-        
+
         // Clear old data from memory to prevent content limit issues
         this.performMemoryCleanup();
-        
-        this.lastHealthCheck = now;
+
+        this.lastHealthCheck = Date.now();
     }
 
     private performMemoryCleanup() {
@@ -71,7 +92,7 @@ class ConnectionMonitor {
         if (this.reconnectionAttempts % 3 === 0) {
             console.clear();
         }
-        
+
         // Clean up market analyzer old data
         try {
             marketAnalyzer.symbolData.forEach(symbolData => {
@@ -82,7 +103,7 @@ class ConnectionMonitor {
         } catch (error) {
             // Ignore cleanup errors
         }
-        
+
         // Force garbage collection if available
         if (typeof window !== 'undefined' && (window as any).gc) {
             try {
@@ -128,13 +149,13 @@ class ConnectionMonitor {
     }
 
     updateMarketActivity() {
-        this.status.lastMarketUpdate = Date.now();
-        this.reconnectionAttempts = 0; // Reset on successful activity
+        this.lastMarketActivity = Date.now();
+        console.log('📊 Market analyzer activity updated');
     }
 
     updateTradingActivity() {
-        this.status.lastTradingUpdate = Date.now();
-        this.reconnectionAttempts = 0; // Reset on successful activity
+        this.lastTradingActivity = Date.now();
+        console.log('🔧 Trading engine activity updated');
     }
 
     getConnectionStatus(): ConnectionStatus {
