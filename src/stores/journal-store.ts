@@ -64,6 +64,7 @@ export default class JournalStore {
     root_store: RootStore;
     core: RootStore['core'];
     disposeReactionsFn: () => void;
+    disposeJournalMessageListener: () => void;
     constructor(root_store: RootStore, core: RootStore['core']) {
         makeObservable(this, {
             is_filter_dialog_visible: observable,

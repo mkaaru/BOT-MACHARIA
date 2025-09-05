@@ -130,10 +130,11 @@ const TradingHubDisplay: React.FC = observer(() => {
     }, [autoDifferEnabled, overUnderEnabled, o5u4Enabled]);
 
     const updateRecommendations = () => {
-        if (!mockMarketAnalyzer.isMarketAnalysisReady) {
-            setStatusMessage('Waiting for market data...');
-            return;
-        }
+        try {
+            if (!mockMarketAnalyzer.isMarketAnalysisReady) {
+                setStatusMessage('Waiting for market data...');
+                return;
+            }
 
         const recommendations: any = {};
 
@@ -151,6 +152,10 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         setCurrentRecommendations(recommendations);
         setStatusMessage('Market analysis active');
+        } catch (error) {
+            console.error('Error updating recommendations:', error);
+            setStatusMessage('Error in market analysis');
+        }
     };
 
     const executeAutomatedTrades = async () => {
