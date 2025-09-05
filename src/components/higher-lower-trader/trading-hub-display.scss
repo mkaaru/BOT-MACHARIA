@@ -223,10 +223,12 @@
       }
     }
 
-        margin: 20px 0;
+        .trading-button-container {
+        margin: 30px 0;
         display: flex;
         justify-content: center;
         align-items: center;
+        padding: 20px;
 
         .main-trade-btn {
             background: linear-gradient(135deg, #4CAF50, #45a049);
@@ -234,12 +236,15 @@
             border-radius: 12px;
             padding: 16px 32px;
             color: white;
-            font-size: 16px;
-            font-weight: 600;
+            font-size: 18px;
+            font-weight: 700;
             cursor: pointer;
             transition: all 0.3s ease;
-            min-width: 200px;
+            min-width: 220px;
+            min-height: 60px;
             box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
 
             &:hover:not(:disabled) {
                 background: linear-gradient(135deg, #45a049, #4CAF50);

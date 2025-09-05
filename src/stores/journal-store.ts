@@ -1,4 +1,4 @@
-import { action, computed, makeObservable, observable, reaction, when } from 'mobx';
+import { action, computed, makeObservable, observable, reaction, when, runInAction } from 'mobx';
 import { v4 as uuidv4 } from 'uuid';
 import { formatDate } from '@/components/shared';
 import { LogTypes, MessageTypes } from '@/external/bot-skeleton';
@@ -175,8 +175,10 @@ export default class JournalStore {
         const time = formatDate(this.getServerTime(), 'HH:mm:ss [GMT]');
         const unique_id = uuidv4();
 
-        this.unfiltered_messages.unshift({ date, time, message, message_type, className, unique_id, extra });
-        this.unfiltered_messages = this.unfiltered_messages.slice(); // force array update
+        runInAction(() => {
+            this.unfiltered_messages.unshift({ date, time, message, message_type, className, unique_id, extra });
+            this.unfiltered_messages = this.unfiltered_messages.slice(); // force array update
+        });
     }
 
     get filtered_messages() {
@@ -196,17 +198,21 @@ export default class JournalStore {
     }
 
     filterMessage(checked: boolean, item_id: string) {
-        if (checked) {
-            this.journal_filters.push(item_id);
-        } else {
-            this.journal_filters.splice(this.journal_filters.indexOf(item_id), 1);
-        }
+        runInAction(() => {
+            if (checked) {
+                this.journal_filters.push(item_id);
+            } else {
+                this.journal_filters.splice(this.journal_filters.indexOf(item_id), 1);
+            }
 
-        storeSetting('journal_filter', this.journal_filters);
+            storeSetting('journal_filter', this.journal_filters);
+        });
     }
 
     clear() {
-        this.unfiltered_messages = this.unfiltered_messages.slice(0, 0);
+        runInAction(() => {
+            this.unfiltered_messages = this.unfiltered_messages.slice(0, 0);
+        });
     }
 
     registerReactions() {

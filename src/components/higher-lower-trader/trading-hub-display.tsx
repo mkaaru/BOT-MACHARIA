@@ -116,12 +116,16 @@ const TradingHubDisplay: React.FC = observer(() => {
         if (isContinuousTrading) {
             // Stop trading
             setIsContinuousTrading(false);
+            setIsTrading(false);
             setStatusMessage('Trading stopped by user');
         } else {
             // Start trading
             if (isStrategyActive) {
                 setIsContinuousTrading(true);
+                setIsTrading(true);
                 setStatusMessage('Starting automated trading...');
+            } else {
+                setStatusMessage('Please enable at least one strategy first');
             }
         }
     };
@@ -523,6 +527,24 @@ const TradingHubDisplay: React.FC = observer(() => {
                         max="10"
                     />
                 </div>
+            </div>
+
+            {/* Main Trading Button */}
+            <div className="trading-button-container">
+                <button
+                    className={`main-trade-btn ${isContinuousTrading ? 'stop' : ''} ${!isStrategyActive ? 'disabled' : ''}`}
+                    onClick={handleTrade}
+                    disabled={!isStrategyActive && !isContinuousTrading}
+                >
+                    <div className="btn-content">
+                        <div className="btn-icon">
+                            {isContinuousTrading ? '⏹️' : '▶️'}
+                        </div>
+                        <div className="btn-text">
+                            {isContinuousTrading ? 'Stop Trading' : 'Start Trading'}
+                        </div>
+                    </div>
+                </button>
             </div>
 
             <div className="trading-statistics">
