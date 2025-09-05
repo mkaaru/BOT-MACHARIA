@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import classNames from 'classnames';
 import { useStore } from '@/hooks/useStore';
@@ -211,7 +211,462 @@ const SmartTradingDisplay = observer(() => {
     // CRITICAL FIX: Add ref for activeContracts to avoid stale state in event handlers
     const activeContractsRef = useRef<Record<string, any>>({});
 
-    // Effect to load and initialize volatility analyzer
+    // API and WebSocket refs
+    const apiRef = useRef<any>(null);
+    const tickStreamIdRef = useRef<string | null>(null);
+    const contractSubscriptionRef = useRef<string | null>(null);
+
+    // Trading data state
+    const [tickData, setTickData] = useState<Array<{ time: number, price: number, close: number }>>([]);
+    const [allVolatilitiesData, setAllVolatilitiesData] = useState<Record<string, Array<{ time: number, price: number, close: number }>>>({});
+    const [contractStatus, setContractStatus] = useState<string>('');
+    const [isApiConnected, setIsApiConnected] = useState(false);
+
+    // Initialize Deriv API connection
+    const initializeAPI = useCallback(async () => {
+        try {
+            const token = await getToken();
+            if (!token) {
+                console.error('No token available for API connection');
+                return;
+            }
+
+            // Create API instance
+            const api = await generateDerivApiInstance();
+            apiRef.current = api;
+
+            // Set up connection handlers
+            api.onopen = () => {
+                console.log('✅ Smart Trading API connection established');
+                setIsApiConnected(true);
+                authorizeAPI();
+            };
+
+            api.onclose = () => {
+                console.log('❌ Smart Trading API connection closed');
+                setIsApiConnected(false);
+            };
+
+            api.onerror = (error: any) => {
+                console.error('Smart Trading API error:', error);
+                setIsApiConnected(false);
+            };
+
+            // Handle incoming messages
+            api.onmessage = handleAPIMessage;
+
+        } catch (error) {
+            console.error('Failed to initialize Smart Trading API:', error);
+        }
+    }, []);
+
+    // Authorize API connection
+    const authorizeAPI = async () => {
+        try {
+            const token = await getToken();
+            if (!apiRef.current || !token) return;
+
+            const authResponse = await apiRef.current.send({
+                authorize: token
+            });
+
+            if (authResponse.error) {
+                console.error('Authorization failed:', authResponse.error);
+                return;
+            }
+
+            console.log('✅ Smart Trading API authorized');
+            // Load available symbols after authorization
+            await loadActiveSymbols();
+
+        } catch (error) {
+            console.error('Authorization error:', error);
+        }
+    };
+
+    // Load available trading symbols
+    const loadActiveSymbols = async () => {
+        try {
+            if (!apiRef.current) return;
+
+            const response = await apiRef.current.send({
+                active_symbols: 'brief',
+                product_type: 'basic'
+            });
+
+            if (response.error) {
+                console.error('Failed to load symbols:', response.error);
+                return;
+            }
+
+            if (response.active_symbols) {
+                const volatilitySymbols = response.active_symbols.filter((s: any) =>
+                    s.symbol.startsWith('R_') && s.market === 'synthetic_index'
+                );
+
+                console.log('Loaded volatility symbols:', volatilitySymbols.length);
+
+                // Load historical data for all volatilities
+                await loadAllVolatilitiesHistoricalData(volatilitySymbols);
+            }
+        } catch (error) {
+            console.error('Error loading active symbols:', error);
+        }
+    };
+
+    // Load historical data for all volatility indices
+    const loadAllVolatilitiesHistoricalData = async (volatilities: Array<{ symbol: string; display_name: string }>) => {
+        if (!apiRef.current) return;
+
+        console.log('Loading historical data for all volatilities...');
+
+        try {
+            const allData: Record<string, Array<{ time: number, price: number, close: number }>> = {};
+
+            // Load historical data in batches to avoid overwhelming the API
+            const batchSize = 3;
+            for (let i = 0; i < volatilities.length; i += batchSize) {
+                const batch = volatilities.slice(i, i + batchSize);
+
+                const batchPromises = batch.map(async (vol) => {
+                    try {
+                        const request = {
+                            ticks_history: vol.symbol,
+                            adjust_start_time: 1,
+                            count: 5000,
+                            end: "latest",
+                            start: 1,
+                            style: "ticks"
+                        };
+
+                        const response = await apiRef.current.send(request);
+
+                        if (response.error) {
+                            console.error(`Historical ticks fetch error for ${vol.symbol}:`, response.error);
+                            return;
+                        }
+
+                        if (response.history && response.history.prices && response.history.times) {
+                            const historicalData = response.history.prices.map((price: string, index: number) => ({
+                                time: response.history.times[index] * 1000,
+                                price: parseFloat(price),
+                                close: parseFloat(price)
+                            }));
+
+                            allData[vol.symbol] = historicalData;
+                            console.log(`Loaded ${historicalData.length} historical ticks for ${vol.symbol}`);
+                        }
+                    } catch (error) {
+                        console.error(`Error loading historical data for ${vol.symbol}:`, error);
+                    }
+                });
+
+                await Promise.all(batchPromises);
+
+                // Small delay between batches
+                if (i + batchSize < volatilities.length) {
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+            }
+
+            setAllVolatilitiesData(allData);
+            console.log('All volatilities historical data loaded:', Object.keys(allData));
+
+        } catch (error) {
+            console.error('Error loading all volatilities historical data:', error);
+        }
+    };
+
+    // Handle API messages
+    const handleAPIMessage = (event: any) => {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+
+        if (data.error) {
+            console.error('API Error:', data.error);
+            return;
+        }
+
+        // Handle tick stream
+        if (data.tick && selectedSymbol && data.tick.symbol === selectedSymbol) {
+            const newTick = {
+                time: data.tick.epoch * 1000,
+                price: parseFloat(data.tick.quote),
+                close: parseFloat(data.tick.quote)
+            };
+
+            setTickData(prev => {
+                const updated = [...prev, newTick].slice(-2000); // Keep last 2000 ticks
+                return updated;
+            });
+
+            setCurrentPrice(data.tick.quote);
+        }
+
+        // Handle contract updates
+        if (data.proposal_open_contract) {
+            handleContractUpdate(data.proposal_open_contract);
+        }
+
+        // Handle buy response
+        if (data.buy) {
+            console.log('Contract purchased:', data.buy);
+            subscribeToContract(data.buy.contract_id);
+        }
+    };
+
+    // Subscribe to contract updates
+    const subscribeToContract = async (contractId: string) => {
+        if (!apiRef.current) return;
+
+        try {
+            const response = await apiRef.current.send({
+                proposal_open_contract: 1,
+                contract_id: contractId,
+                subscribe: 1
+            });
+
+            if (response.error) {
+                console.error('Contract subscription error:', response.error);
+                return;
+            }
+
+            contractSubscriptionRef.current = contractId;
+            console.log('Subscribed to contract:', contractId);
+
+        } catch (error) {
+            console.error('Error subscribing to contract:', error);
+        }
+    };
+
+    // Handle contract updates
+    const handleContractUpdate = (contract: any) => {
+        setContractStatus(contract.status || '');
+
+        if (contract.status === 'won' || contract.status === 'lost') {
+            console.log(`Contract ${contract.status}:`, contract);
+
+            // Update strategy based on outcome
+            updateStrategyAfterTrade(contract);
+
+            // Unsubscribe from this contract
+            if (contractSubscriptionRef.current) {
+                apiRef.current?.send({
+                    forget: contractSubscriptionRef.current
+                });
+                contractSubscriptionRef.current = null;
+            }
+        }
+    };
+
+    // Update strategy settings after trade outcome
+    const updateStrategyAfterTrade = (contract: any) => {
+        const isWin = contract.status === 'won';
+
+        setAnalysisStrategies(prevStrategies =>
+            prevStrategies.map(strategy => {
+                if (strategy.activeContractType) {
+                    const updatedStrategy = { ...strategy };
+
+                    // Update last trade result
+                    updatedStrategy.lastTradeResult = contract.status.toUpperCase();
+
+                    // Apply martingale logic
+                    if (isWin) {
+                        // Reset stake on win
+                        updatedStrategy.currentStake = updatedStrategy.settings.stake;
+                        setConsecutiveLosses(prev => ({ ...prev, [strategy.id]: 0 }));
+                    } else {
+                        // Increase stake on loss
+                        const currentLosses = consecutiveLosses[strategy.id] || 0;
+                        const newLossCount = currentLosses + 1;
+                        setConsecutiveLosses(prev => ({ ...prev, [strategy.id]: newLossCount }));
+
+                        const newStake = updatedStrategy.settings.stake *
+                            Math.pow(updatedStrategy.settings.martingaleMultiplier, newLossCount);
+                        updatedStrategy.currentStake = newStake;
+                    }
+
+                    // Reset active contract type
+                    updatedStrategy.activeContractType = null;
+
+                    return updatedStrategy;
+                }
+                return strategy;
+            })
+        );
+    };
+
+    // Execute trade for a strategy
+    const executeTrade = async (strategy: AnalysisStrategy, contractType: string) => {
+        if (!apiRef.current || !isApiConnected) {
+            console.error('API not connected');
+            return;
+        }
+
+        const effectiveStake = strategy.currentStake || strategy.settings.stake;
+
+        // Build trade parameters
+        const tradeParams: any = {
+            amount: effectiveStake,
+            basis: 'stake',
+            contract_type: contractType,
+            currency: 'USD', // Should come from account settings
+            duration: strategy.settings.ticks,
+            duration_unit: 't',
+            symbol: selectedSymbol,
+        };
+
+        // Add specific parameters based on contract type
+        if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(contractType)) {
+            // Add barrier/prediction for digit contracts
+            if (strategy.settings.tradingBarrier !== undefined) {
+                tradeParams.barrier = strategy.settings.tradingBarrier;
+            } else if (strategy.settings.conditionDigit !== undefined) {
+                tradeParams.barrier = strategy.settings.conditionDigit; // For matches/differs
+            }
+        }
+
+        try {
+            console.log('Executing trade:', tradeParams);
+
+            const buyRequest = {
+                buy: '1',
+                price: effectiveStake,
+                parameters: tradeParams
+            };
+
+            const response = await apiRef.current.send(buyRequest);
+
+            if (response.error) {
+                console.error('Trade execution failed:', response.error);
+                return;
+            }
+
+            // Update strategy state
+            setAnalysisStrategies(prevStrategies =>
+                prevStrategies.map(s =>
+                    s.id === strategy.id
+                        ? { ...s, activeContractType: contractType }
+                        : s
+                )
+            );
+
+            console.log('Trade executed successfully:', response.buy);
+
+        } catch (error) {
+            console.error('Error executing trade:', error);
+        }
+    };
+
+    // Get token from client store
+    const getToken = async () => {
+        try {
+            // Try to get token from client store
+            const token = client?.loginid ? await doUntilDone(() => {
+                // Ensure api_base.api is initialized before use
+                if (api_base.api) {
+                    return api_base.api.send({ authorize: client.token });
+                }
+                return Promise.reject(new Error("API not initialized"));
+            }).then(() => client.token) : null;
+
+            return token;
+        } catch (error) {
+            console.error('Error getting token:', error);
+            return null;
+        }
+    };
+
+    // Initialize API on component mount
+    useEffect(() => {
+        initializeAPI();
+
+        return () => {
+            // Cleanup on unmount
+            if (apiRef.current) {
+                apiRef.current.disconnect?.();
+            }
+        };
+    }, [initializeAPI]);
+
+    // Effect to handle message listening from analyzer
+    useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+            if (!event.data || typeof event.data !== 'object') return;
+
+            // Check origin before processing message
+            if (event.origin !== window.location.origin) {
+                console.warn("Ignoring message from different origin:", event.origin);
+                return;
+            }
+
+            const { type, strategyId, data } = event.data;
+
+            switch (type) {
+                case 'ANALYSIS_DATA':
+                    if (data && strategyId) {
+                        console.log(`Received analysis for ${strategyId}:`, data);
+                        setAnalysisData(prev => ({
+                            ...prev,
+                            [strategyId]: {
+                                ...data,
+                                timestamp: Date.now()
+                            }
+                        }));
+
+                        // Auto-execute trades if conditions are met
+                        if (data.recommendation && isApiConnected) {
+                            const strategy = analysisStrategies.find(s => s.id === strategyId);
+                            if (strategy && !strategy.activeContractType) {
+                                // Map recommendation to contract type
+                                const contractType = mapRecommendationToContractType(data.recommendation);
+                                if (contractType) {
+                                    // Check if already trading to prevent multiple trades
+                                    if (!strategy.activeContractType) {
+                                        executeTrade(strategy, contractType);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+
+                case 'PRICE_UPDATE':
+                    if (data?.price) {
+                        setCurrentPrice(data.price);
+                    }
+                    break;
+
+                case 'ANALYZER_CONNECTION_STATUS':
+                    console.log('Analyzer connection status:', data.status);
+                    break;
+
+                default:
+                    break;
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, [analysisStrategies, isApiConnected]); // Dependencies updated
+
+    // Map analysis recommendation to contract type
+    const mapRecommendationToContractType = (recommendation: string): string | null => {
+        const mapping: Record<string, string> = {
+            'Rise': 'CALL',
+            'Fall': 'PUT',
+            'Even': 'DIGITEVEN',
+            'Odd': 'DIGITODD',
+            'Over': 'DIGITOVER',
+            'Under': 'DIGITUNDER',
+            'Matches': 'DIGITMATCH',
+            'Differs': 'DIGITDIFF'
+        };
+
+        return mapping[recommendation] || null;
+    };
+
+    // Effect to load and initialize volatility analyzer (original effect)
     useEffect(() => {
         if (!volatilityAnalyzerLoaded.current) {
             const script = document.createElement('script');
@@ -238,7 +693,7 @@ const SmartTradingDisplay = observer(() => {
                 enhancerScript.async = true;
                 enhancerScript.onload = () => {
                     console.log('Analyzer enhancer loaded');
-                    
+
                     // Send initial configuration immediately after enhancer loads
                     setTimeout(() => {
                         console.log('Sending initial configuration');
@@ -261,7 +716,7 @@ const SmartTradingDisplay = observer(() => {
                             type: 'REQUEST_ANALYSIS'
                         }, '*');
                     }, 500);
-                    
+
                     // Set up a connection timeout
                     setTimeout(() => {
                         if (Object.keys(analysisData).length === 0) {
@@ -281,43 +736,7 @@ const SmartTradingDisplay = observer(() => {
 
             document.body.appendChild(script);
         }
-
-        // Listen for messages from the volatility analyzer
-    }, []);
-
-    // Effect to handle messages from the volatility analyzer
-    useEffect(() => {
-        const messageHandler = (event: MessageEvent) => {
-            // Ensure the message is from our domain and relevant
-            if (event.origin !== window.location.origin) return;
-
-            const { type, data } = event.data;
-
-            if (type === 'ANALYSIS_DATA') {
-                console.log('Received analysis data for strategy:', data.strategyId);
-                setAnalysisData(prevData => ({
-                    ...prevData,
-                    [data.strategyId]: {
-                        ...prevData[data.strategyId], // Preserve existing data if any
-                        ...data.analysis, // Update with new analysis data
-                    }
-                }));
-            } else if (type === 'PRICE_UPDATE') {
-                setCurrentPrice(data.price.toFixed(4)); // Assuming price is a number
-            } else if (type === 'STATUS_RESPONSE') {
-                console.log('Status Response:', data);
-                // Handle status response if needed, e.g., check connection status
-            }
-        };
-
-        window.addEventListener('message', messageHandler);
-
-        // Cleanup the event listener when the component unmounts
-        return () => {
-            window.removeEventListener('message', messageHandler);
-        };
-    }, []); // Empty dependency array ensures this effect runs only once on mount
-
+    }, [analysisData, selectedSymbol, tickCount, barrierValue]); // Added dependencies
 
     return (
         <div className="smart-trading-display">
@@ -508,6 +927,29 @@ const SmartTradingDisplay = observer(() => {
                                     }}
                                 />
                             </div>
+                            {/* Add barrier input for relevant strategies */}
+                            {(strategy.id === 'over-under' || strategy.id === 'over-under-2' || strategy.id === 'matches-differs') && (
+                                <div className="control-item">
+                                    <label>{strategy.id === 'matches-differs' ? 'Target Digit' : 'Barrier'}</label>
+                                    <input
+                                        type="number"
+                                        value={strategy.settings.tradingBarrier !== undefined ? strategy.settings.tradingBarrier : strategy.settings.conditionDigit ?? ''}
+                                        onChange={(e) => {
+                                            const newStrategies = [...analysisStrategies];
+                                            const strategyIndex = newStrategies.findIndex(s => s.id === strategy.id);
+                                            const barrierValue = parseInt(e.target.value, 10);
+                                            if (!isNaN(barrierValue)) {
+                                                if (strategy.id === 'matches-differs') {
+                                                    newStrategies[strategyIndex].settings.conditionDigit = barrierValue;
+                                                } else {
+                                                    newStrategies[strategyIndex].settings.tradingBarrier = barrierValue;
+                                                }
+                                                setAnalysisStrategies(newStrategies);
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            )}
                         </div>
                         <div className="strategy-card__actions">
                             <Button
@@ -519,7 +961,23 @@ const SmartTradingDisplay = observer(() => {
                                     // Toggle trading for this strategy
                                     const newStrategies = [...analysisStrategies];
                                     const strategyIndex = newStrategies.findIndex(s => s.id === strategy.id);
-                                    const newActiveContractType = strategy.activeContractType ? null : strategy.settings.conditionAction || 'Rise';
+                                    
+                                    let newActiveContractType: string | null = null;
+                                    let actionToPerform: 'executeTrade' | 'stopAutoTrading' | null = null;
+
+                                    if (!strategy.activeContractType) {
+                                        // Determine contract type from strategy settings or analysis data
+                                        const determinedContractType = strategy.settings.conditionAction || 
+                                                                       (analysisData[strategy.id]?.recommendation ? mapRecommendationToContractType(analysisData[strategy.id].recommendation) : null);
+                                        
+                                        if (determinedContractType) {
+                                            newActiveContractType = determinedContractType;
+                                            actionToPerform = 'executeTrade';
+                                        } else {
+                                            console.warn(`Could not determine contract type for ${strategy.name}. Please check settings or analysis data.`);
+                                        }
+                                    }
+
                                     newStrategies[strategyIndex].activeContractType = newActiveContractType;
                                     setAnalysisStrategies(newStrategies);
 
@@ -530,6 +988,11 @@ const SmartTradingDisplay = observer(() => {
                                         isActive: !!newActiveContractType,
                                         contractType: newActiveContractType
                                     }, '*');
+                                    
+                                    // If starting auto trading and we have a contract type, execute the first trade
+                                    if (actionToPerform === 'executeTrade' && newActiveContractType) {
+                                        executeTrade(strategy, newActiveContractType);
+                                    }
                                 }}
                             >
                                 {strategy.activeContractType ? 'Stop Auto Trading' : 'Start Auto Trading'}
