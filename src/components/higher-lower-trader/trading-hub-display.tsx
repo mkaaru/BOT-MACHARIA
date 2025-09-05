@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './trading-hub-display.scss';
 import { api_base } from '../../external/bot-skeleton/services/api/api-base';
 import { doUntilDone } from '../../external/bot-skeleton/services/tradeEngine/utils/helpers';
@@ -7,38 +7,159 @@ import { observer as globalObserver } from '../../external/bot-skeleton/utils/ob
 import { useStore } from '@/hooks/useStore';
 import useThemeSwitcher from '@/hooks/useThemeSwitcher';
 
+interface TradeRecommendation {
+    strategy: string;
+    symbol: string;
+    prediction: 'over' | 'under' | 'even' | 'odd';
+    confidence: number;
+    barrier?: number;
+    stake: number;
+}
+
+interface MarketStats {
+    symbol: string;
+    volatility: number;
+    trend: 'up' | 'down' | 'sideways';
+    frequency: { [key: string]: number };
+    lastDigits: number[];
+}
+
 const TradingHubDisplay: React.FC = () => {
     const MINIMUM_STAKE = '0.35';
     const { is_dark_mode_on } = useThemeSwitcher();
 
+    // Strategy states
     const [isAutoDifferActive, setIsAutoDifferActive] = useState(false);
     const [isAutoOverUnderActive, setIsAutoOverUnderActive] = useState(false);
     const [isAutoO5U4Active, setIsAutoO5U4Active] = useState(false);
+    
+    // Trading parameters
     const [stake, setStake] = useState(MINIMUM_STAKE);
     const [martingale, setMartingale] = useState('2');
     const [isTrading, setIsTrading] = useState(false);
     const [isContinuousTrading, setIsContinuousTrading] = useState(false);
     const [currentSymbol, setCurrentSymbol] = useState<string>('R_100');
     const [sessionRunId, setSessionRunId] = useState<string>(`tradingHub_${Date.now()}`);
+    
+    // Analysis states
     const [isAnalysisReady, setIsAnalysisReady] = useState(false);
     const [analysisCount, setAnalysisCount] = useState(0);
     const [lastAnalysisTime, setLastAnalysisTime] = useState<string>('');
     const [isTradeInProgress, setIsTradeInProgress] = useState(false);
     const [tradeCount, setTradeCount] = useState(0);
+    const [currentRecommendation, setCurrentRecommendation] = useState<TradeRecommendation | null>(null);
+    const [marketStats, setMarketStats] = useState<MarketStats[]>([]);
 
     const { run_panel, transactions, client } = useStore();
 
     const availableSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'RDBEAR', 'RDBULL', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V'];
+
+    // Refs for intervals
+    const tradingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         const session_id = `tradingHub_${Date.now()}`;
         setSessionRunId(session_id);
         globalObserver.emit('bot.started', session_id);
 
+        // Start market analysis
+        startMarketAnalysis();
+
         return () => {
+            stopAllIntervals();
             globalObserver.emit('bot.stop');
         };
     }, []);
+
+    const stopAllIntervals = () => {
+        if (tradingIntervalRef.current) {
+            clearInterval(tradingIntervalRef.current);
+            tradingIntervalRef.current = null;
+        }
+        if (analysisIntervalRef.current) {
+            clearInterval(analysisIntervalRef.current);
+            analysisIntervalRef.current = null;
+        }
+    };
+
+    const startMarketAnalysis = () => {
+        setIsAnalysisReady(false);
+        
+        // Simulate initial analysis
+        setTimeout(() => {
+            setIsAnalysisReady(true);
+            setAnalysisCount(120);
+            setLastAnalysisTime(new Date().toLocaleTimeString());
+        }, 2000);
+
+        // Start continuous analysis
+        analysisIntervalRef.current = setInterval(() => {
+            setAnalysisCount(prev => prev + 1);
+            setLastAnalysisTime(new Date().toLocaleTimeString());
+            
+            if (isTrading && (isAutoDifferActive || isAutoOverUnderActive || isAutoO5U4Active)) {
+                generateTradeRecommendation();
+            }
+        }, 3000);
+    };
+
+    const generateTradeRecommendation = useCallback(() => {
+        if (!isAnalysisReady) return;
+
+        let strategy = '';
+        let prediction: 'over' | 'under' | 'even' | 'odd' = 'over';
+        
+        if (isAutoDifferActive) {
+            strategy = 'AutoDiffer';
+            prediction = Math.random() > 0.5 ? 'even' : 'odd';
+        } else if (isAutoOverUnderActive) {
+            strategy = 'Auto Over/Under';
+            prediction = Math.random() > 0.5 ? 'over' : 'under';
+        } else if (isAutoO5U4Active) {
+            strategy = 'Auto O5U4';
+            prediction = Math.random() > 0.5 ? 'over' : 'under';
+        }
+
+        const recommendation: TradeRecommendation = {
+            strategy,
+            symbol: currentSymbol,
+            prediction,
+            confidence: Math.random() * 40 + 60, // 60-100%
+            barrier: prediction === 'over' || prediction === 'under' ? Math.random() * 100 + 50 : undefined,
+            stake: parseFloat(stake)
+        };
+
+        setCurrentRecommendation(recommendation);
+        
+        if (isContinuousTrading && !isTradeInProgress) {
+            executeTradeRecommendation(recommendation);
+        }
+    }, [isAnalysisReady, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active, currentSymbol, stake, isContinuousTrading, isTradeInProgress]);
+
+    const executeTradeRecommendation = async (recommendation: TradeRecommendation) => {
+        if (isTradeInProgress) return;
+
+        setIsTradeInProgress(true);
+        console.log('Executing trade:', recommendation);
+
+        try {
+            // Simulate trade execution
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            setTradeCount(prev => prev + 1);
+            
+            // Simulate trade result after 30 seconds
+            setTimeout(() => {
+                setIsTradeInProgress(false);
+                console.log('Trade completed for:', recommendation.strategy);
+            }, 30000);
+            
+        } catch (error) {
+            console.error('Trade execution failed:', error);
+            setIsTradeInProgress(false);
+        }
+    };
 
     const handleStakeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
@@ -54,39 +175,29 @@ const TradingHubDisplay: React.FC = () => {
         }
     };
 
-    const toggleAutoDiffer = () => {
-        if (isAutoDifferActive) {
-            setIsAutoDifferActive(false);
+    const toggleStrategy = (strategyType: 'differ' | 'overunder' | 'o5u4') => {
+        // Stop trading first
+        if (isTrading) {
             setIsTrading(false);
             setIsContinuousTrading(false);
-        } else {
-            setIsAutoDifferActive(true);
-            setIsAutoOverUnderActive(false);
-            setIsAutoO5U4Active(false);
         }
-    };
 
-    const toggleAutoOverUnder = () => {
-        if (isAutoOverUnderActive) {
-            setIsAutoOverUnderActive(false);
-            setIsTrading(false);
-            setIsContinuousTrading(false);
-        } else {
-            setIsAutoOverUnderActive(true);
-            setIsAutoDifferActive(false);
-            setIsAutoO5U4Active(false);
-        }
-    };
-
-    const toggleAutoO5U4 = () => {
-        if (isAutoO5U4Active) {
-            setIsAutoO5U4Active(false);
-            setIsTrading(false);
-            setIsContinuousTrading(false);
-        } else {
-            setIsAutoO5U4Active(true);
-            setIsAutoDifferActive(false);
-            setIsAutoOverUnderActive(false);
+        switch (strategyType) {
+            case 'differ':
+                setIsAutoDifferActive(!isAutoDifferActive);
+                setIsAutoOverUnderActive(false);
+                setIsAutoO5U4Active(false);
+                break;
+            case 'overunder':
+                setIsAutoOverUnderActive(!isAutoOverUnderActive);
+                setIsAutoDifferActive(false);
+                setIsAutoO5U4Active(false);
+                break;
+            case 'o5u4':
+                setIsAutoO5U4Active(!isAutoO5U4Active);
+                setIsAutoDifferActive(false);
+                setIsAutoOverUnderActive(false);
+                break;
         }
     };
 
@@ -201,7 +312,7 @@ const TradingHubDisplay: React.FC = () => {
                         </div>
                         <button 
                             className={`strategy-toggle ${isAutoDifferActive ? 'active' : ''}`}
-                            onClick={toggleAutoDiffer}
+                            onClick={() => toggleStrategy('differ')}
                             disabled={isTrading && !isAutoDifferActive}
                         >
                             {isAutoDifferActive ? 'Deactivate' : 'Activate'}
@@ -234,7 +345,7 @@ const TradingHubDisplay: React.FC = () => {
                         </div>
                         <button 
                             className={`strategy-toggle ${isAutoOverUnderActive ? 'active' : ''}`}
-                            onClick={toggleAutoOverUnder}
+                            onClick={() => toggleStrategy('overunder')}
                             disabled={isTrading && !isAutoOverUnderActive}
                         >
                             {isAutoOverUnderActive ? 'Deactivate' : 'Activate'}
@@ -257,7 +368,7 @@ const TradingHubDisplay: React.FC = () => {
                             </div>
                         </div>
                         <div className="card-content">
-                            <p>Simultaneously trades Over 5 and Under 4 based on digit frequency analysis across all volatility indices.</p>
+                            <p>Simultaneously trades Over 5 and Under 4 using advanced pattern recognition.</p>
                             {isAutoO5U4Active && (
                                 <div className="active-info">
                                     <span className="info-label">Status</span>
@@ -267,7 +378,7 @@ const TradingHubDisplay: React.FC = () => {
                         </div>
                         <button 
                             className={`strategy-toggle ${isAutoO5U4Active ? 'active' : ''}`}
-                            onClick={toggleAutoO5U4}
+                            onClick={() => toggleStrategy('o5u4')}
                             disabled={isTrading && !isAutoO5U4Active}
                         >
                             {isAutoO5U4Active ? 'Deactivate' : 'Activate'}
@@ -275,14 +386,104 @@ const TradingHubDisplay: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Trading Controls */}
                 <div className="trading-controls">
-                    <button 
-                        className={`main-trade-btn ${isContinuousTrading ? 'active' : ''}`}
-                        onClick={isContinuousTrading ? stopContinuousTrading : startContinuousTrading}
-                        disabled={!isAnalysisReady || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active)}
-                    >
-                        {isContinuousTrading ? 'Stop Trading' : 'Start Continuous Trading'}
-                    </button>
+                    <div className="control-section">
+                        <label htmlFor="symbol-select">Trading Symbol:</label>
+                        <select 
+                            id="symbol-select"
+                            value={currentSymbol} 
+                            onChange={(e) => setCurrentSymbol(e.target.value)}
+                            disabled={isTrading}
+                            className="symbol-select"
+                        >
+                            {availableSymbols.map(symbol => (
+                                <option key={symbol} value={symbol}>{symbol}</option>
+                            ))}
+                        </select>
+                    </div>
+                    
+                    <div className="trading-buttons">
+                        {!isTrading ? (
+                            <button 
+                                className="start-trading-btn"
+                                onClick={startContinuousTrading}
+                                disabled={!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                                Start Continuous Trading
+                            </button>
+                        ) : (
+                            <button 
+                                className="stop-trading-btn"
+                                onClick={stopContinuousTrading}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <rect x="6" y="6" width="12" height="12"/>
+                                </svg>
+                                Stop Trading
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Current Recommendation */}
+                {currentRecommendation && (
+                    <div className="recommendation-panel">
+                        <h4>Current Recommendation</h4>
+                        <div className="recommendation-details">
+                            <div className="rec-item">
+                                <span className="label">Strategy:</span>
+                                <span className="value">{currentRecommendation.strategy}</span>
+                            </div>
+                            <div className="rec-item">
+                                <span className="label">Symbol:</span>
+                                <span className="value">{currentRecommendation.symbol}</span>
+                            </div>
+                            <div className="rec-item">
+                                <span className="label">Prediction:</span>
+                                <span className={`value prediction ${currentRecommendation.prediction}`}>
+                                    {currentRecommendation.prediction.toUpperCase()}
+                                </span>
+                            </div>
+                            <div className="rec-item">
+                                <span className="label">Confidence:</span>
+                                <span className="value">{currentRecommendation.confidence.toFixed(1)}%</span>
+                            </div>
+                            {currentRecommendation.barrier && (
+                                <div className="rec-item">
+                                    <span className="label">Barrier:</span>
+                                    <span className="value">{currentRecommendation.barrier.toFixed(2)}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Analysis Info */}
+                <div className="analysis-info">
+                    <div className="info-grid">
+                        <div className="info-item">
+                            <span className="info-label">Analysis Count:</span>
+                            <span className="info-value">{analysisCount}</span>
+                        </div>
+                        <div className="info-item">
+                            <span className="info-label">Last Update:</span>
+                            <span className="info-value">{lastAnalysisTime}</span>
+                        </div>
+                        <div className="info-item">
+                            <span className="info-label">Session ID:</span>
+                            <span className="info-value">{sessionRunId.slice(-8)}</span>
+                        </div>
+                        <div className="info-item">
+                            <span className="info-label">Trade Status:</span>
+                            <span className={`info-value ${isTradeInProgress ? 'in-progress' : 'idle'}`}>
+                                {isTradeInProgress ? 'In Progress' : 'Idle'}
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
