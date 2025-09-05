@@ -1,0 +1,98 @@
+.chart-display-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    transition:
+        width 0.3s ease,
+        margin-right 0.3s ease;
+    position: relative;
+
+    &.run-panel-active {
+        width: calc(100% - 366px); // 366px is the width of the run panel drawer
+        margin-right: 366px;
+
+        @media screen and (max-width: 1024px) {
+            width: 100%;
+            margin-right: 0;
+        }
+    }
+}
+
+.chart-display-toggle {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+    padding: 8px;
+    background: var(--general-section-1, rgba(0, 0, 0, 0.1));
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+
+    &__button {
+        padding: 10px 20px;
+        margin: 0 5px;
+        min-width: 120px;
+        font-weight: 700;
+        font-size: 14px;
+        letter-spacing: 0.25px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: var(--general-section-1);
+        color: var(--text-general);
+        position: relative;
+        overflow: hidden;
+
+        &:hover {
+            background-color: var(--general-section-2);
+            transform: translateY(-1px);
+        }
+
+        &:active {
+            transform: translateY(1px);
+        }
+
+        &.active {
+            background-color: var(--brand-red-coral);
+            color: white;
+            box-shadow: 0 4px 12px rgba(var(--brand-red-coral-rgb), 0.3);
+
+            &:after {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 40px;
+                height: 3px;
+                background-color: white;
+                border-radius: 3px 3px 0 0;
+            }
+        }
+
+        &:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(var(--brand-red-coral-rgb), 0.5);
+        }
+    }
+}
+
+// Responsive adjustments
+@media screen and (max-width: 768px) {
+    .chart-display-toggle {
+        &__button {
+            min-width: 90px;
+            padding: 8px 10px;
+            font-size: 12px;
+            margin: 0 2px;
+        }
+    }
+}
+
+.chart-display-content {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+}
