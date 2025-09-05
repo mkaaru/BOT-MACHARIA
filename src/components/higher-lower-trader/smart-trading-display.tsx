@@ -238,32 +238,41 @@ const SmartTradingDisplay = observer(() => {
                 enhancerScript.async = true;
                 enhancerScript.onload = () => {
                     console.log('Analyzer enhancer loaded');
+                    
+                    // Send initial configuration immediately after enhancer loads
+                    setTimeout(() => {
+                        console.log('Sending initial configuration');
+                        window.postMessage({
+                            type: 'UPDATE_SYMBOL',
+                            symbol: selectedSymbol
+                        }, '*');
+                        window.postMessage({
+                            type: 'UPDATE_TICK_COUNT',
+                            tickCount: tickCount
+                        }, '*');
+                        window.postMessage({
+                            type: 'UPDATE_BARRIER',
+                            barrier: barrierValue
+                        }, '*');
+                        setHasSentInitCommands(true);
+
+                        // Request immediate analysis
+                        window.postMessage({
+                            type: 'REQUEST_ANALYSIS'
+                        }, '*');
+                    }, 500);
+                    
+                    // Set up a connection timeout
+                    setTimeout(() => {
+                        if (Object.keys(analysisData).length === 0) {
+                            console.log('No data received, attempting reconnection...');
+                            if (window.volatilityAnalyzer?.reconnect) {
+                                window.volatilityAnalyzer.reconnect();
+                            }
+                        }
+                    }, 10000); // 10 second timeout
                 };
                 document.body.appendChild(enhancerScript);
-
-                // Wait a bit to ensure everything is initialized
-                setTimeout(() => {
-                    // Send initial configuration
-                    console.log('Sending initial configuration');
-                    window.postMessage({
-                        type: 'UPDATE_SYMBOL',
-                        symbol: selectedSymbol
-                    }, '*');
-                    window.postMessage({
-                        type: 'UPDATE_TICK_COUNT',
-                        tickCount: tickCount
-                    }, '*');
-                    window.postMessage({
-                        type: 'UPDATE_BARRIER',
-                        barrier: barrierValue
-                    }, '*');
-                    setHasSentInitCommands(true);
-
-                    // Force a status check
-                    window.postMessage({
-                        type: 'REQUEST_STATUS'
-                    }, '*');
-                }, 1000); // Wait longer to ensure both scripts are loaded
             };
 
             script.onerror = (e) => {
@@ -285,6 +294,7 @@ const SmartTradingDisplay = observer(() => {
             const { type, data } = event.data;
 
             if (type === 'ANALYSIS_DATA') {
+                console.log('Received analysis data for strategy:', data.strategyId);
                 setAnalysisData(prevData => ({
                     ...prevData,
                     [data.strategyId]: {

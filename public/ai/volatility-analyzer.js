@@ -72,18 +72,17 @@ function startWebSocket() {
             reconnectAttempts = 0;
             notifyConnectionStatus('connected');
             
-            // Wait a moment before sending requests to ensure connection is fully established
+            // Send immediate tick history request
             setTimeout(() => {
                 try {
                     if (derivWs && derivWs.readyState === WebSocket.OPEN) {
-                        console.log("Sending initial request");
-                        derivWs.send(JSON.stringify({app_id: 70827}));
+                        console.log("Sending tick history request for", currentSymbol);
                         requestTickHistory();
                     }
                 } catch (e) {
                     console.error("Error during init requests:", e);
                 }
-            }, 500);
+            }, 100); // Reduced delay
         };
 
         derivWs.onmessage = function(event) {
@@ -104,13 +103,23 @@ function startWebSocket() {
                     }));
 
                     detectDecimalPlaces();
-                    updateUI();
+                    
+                    // Immediately send analysis data after receiving history
+                    setTimeout(() => {
+                        updateUI();
+                        sendAnalysisData();
+                    }, 100);
+                    
                 } else if (data.tick) {
                     const tickQuote = parseFloat(data.tick.quote);
                     tickHistory.push({ time: data.tick.epoch, quote: tickQuote });
 
                     if (tickHistory.length > tickCount) tickHistory.shift();
+                    
+                    // Send updates for live ticks
                     updateUI();
+                    sendAnalysisData();
+                    
                 } else if (data.ping) {
                     // Respond to ping with pong to keep connection alive
                     derivWs.send(JSON.stringify({pong: 1}));
@@ -301,7 +310,12 @@ function notifyConnectionStatus(status, error = null) {
 
 // Function to send analysis data
 function sendAnalysisData(specificStrategy = null) {
-    if (!tickHistory || tickHistory.length === 0) return;
+    if (!tickHistory || tickHistory.length === 0) {
+        console.log("No tick history available for analysis");
+        return;
+    }
+    
+    console.log(`Sending analysis data for ${tickHistory.length} ticks`);
 
     // Calculate base statistics needed for all analyses
     const digitCounts = new Array(10).fill(0);

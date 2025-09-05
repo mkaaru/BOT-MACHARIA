@@ -48,6 +48,8 @@ let enhancerConnected = false;
     }, 500);
 
     function initEnhancer() {
+        console.log('🔧 Initializing analyzer enhancer');
+        
         // Listen for messages from the React app
         window.addEventListener('message', function (event) {
             if (!event.data || typeof event.data !== 'object') return;
@@ -137,6 +139,13 @@ let enhancerConnected = false;
                 sendAnalysisData();
             };
         }
+        
+        // Send periodic status updates
+        setInterval(() => {
+            if (window.tickHistory && window.tickHistory.length > 0) {
+                sendAnalysisData();
+            }
+        }, 2000); // Send updates every 2 seconds
     }
 
     function sendAnalysisData(specificStrategy = null) {
