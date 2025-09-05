@@ -43,7 +43,7 @@ const TradingHubDisplay: React.FC = () => {
         };
 
         globalObserver.register('balance.update', handleBalanceUpdate);
-        
+
         return () => {
             globalObserver.unregister('balance.update', handleBalanceUpdate);
         };
@@ -60,7 +60,7 @@ const TradingHubDisplay: React.FC = () => {
         const handleContractUpdate = (contract: any) => {
             if (contract && contract.contract_id) {
                 setTradeCount(prev => prev + 1);
-                
+
                 if (contract.is_sold && contract.profit !== undefined) {
                     if (contract.profit > 0) {
                         setWinCount(prev => prev + 1);
@@ -70,7 +70,7 @@ const TradingHubDisplay: React.FC = () => {
                         setConsecutiveLosses(prev => prev + 1);
                     }
                     setTotalProfit(prev => prev + contract.profit);
-                    
+
                     // Apply martingale logic
                     if (contract.profit <= 0) {
                         const martingaleMultiplier = parseFloat(martingale);
@@ -156,14 +156,14 @@ const TradingHubDisplay: React.FC = () => {
 
     const executeRealTrade = async () => {
         if (isTradeInProgress) return;
-        
+
         try {
             setIsTradeInProgress(true);
-            
+
             // Determine trade parameters based on active strategy
             let tradeType = 'CALL';
             let barrier = null;
-            
+
             if (isAutoDifferActive) {
                 // For differs, we need a barrier
                 barrier = '+0.005'; // Small barrier for quick execution
@@ -191,16 +191,16 @@ const TradingHubDisplay: React.FC = () => {
 
             // Send proposal via API
             const response = await api_base.api.send(proposalRequest);
-            
+
             if (response.proposal && response.proposal.id) {
                 // Execute the trade
                 const buyRequest = {
                     buy: response.proposal.id,
                     price: response.proposal.ask_price
                 };
-                
+
                 const buyResponse = await api_base.api.send(buyRequest);
-                
+
                 if (buyResponse.buy) {
                     // Trade executed successfully
                     globalObserver.emit('contract.purchase', buyResponse.buy);
@@ -221,14 +221,14 @@ const TradingHubDisplay: React.FC = () => {
         setIsTrading(true);
         setIsContinuousTrading(true);
         globalObserver.emit('bot.running');
-        
+
         // Start automated trading cycle
         const tradingInterval = setInterval(() => {
             if (isContinuousTrading && !isTradeInProgress) {
                 executeRealTrade();
             }
         }, 10000); // Execute trade every 10 seconds
-        
+
         // Store interval reference for cleanup
         window.tradingHubInterval = tradingInterval;
     };
@@ -237,13 +237,13 @@ const TradingHubDisplay: React.FC = () => {
         setIsTrading(false);
         setIsContinuousTrading(false);
         setIsTradeInProgress(false);
-        
+
         // Clear trading interval
         if (window.tradingHubInterval) {
             clearInterval(window.tradingHubInterval);
             window.tradingHubInterval = null;
         }
-        
+
         globalObserver.emit('bot.stop');
     };
 
@@ -514,11 +514,11 @@ const TradingHubDisplay: React.FC = () => {
 
                 <div className="control-actions">
                     <button 
-                        className={`action-button start-button ${isContinuousTrading ? 'trading' : ''}`}
-                        onClick={startContinuousTrading}
-                        disabled={!isAnalysisReady || isTrading || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active)}
+                        className={`action-button start-button`}
+                        onClick={isTrading ? stopContinuousTrading : startContinuousTrading}
+                        disabled={(!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active)}
                     >
-                        {isContinuousTrading ? 'Trading...' : 'Start Continuous Trading'}
+                        {isTrading ? 'Stop Trading' : 'Start Continuous Trading'}
                     </button>
 
                     <button 
