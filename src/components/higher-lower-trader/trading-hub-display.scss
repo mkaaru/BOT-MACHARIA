@@ -1,37 +1,4 @@
-.trading-hub-display {
-    padding: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
-    background: var(--general-section-1);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 
-    &__header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-
-    &__title {
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: var(--text-general);
-    }
-
-    &__content {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-    }
-
-    &__placeholder {
-        text-align: center;
-        padding: 40px;
-        color: var(--text-less-prominent);
-        font-style: italic;
-    }
-}
 .trading-hub-display {
   padding: 20px;
   max-width: 1200px;
@@ -222,76 +189,77 @@
         color: #4caf50;
       }
     }
+  }
 
-        .trading-button-container {
-        margin: 30px 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding: 20px;
+  .trading-button-container {
+    margin: 30px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
 
-        .main-trade-btn {
-            background: linear-gradient(135deg, #4CAF50, #45a049);
-            border: none;
-            border-radius: 12px;
-            padding: 16px 32px;
-            color: white;
-            font-size: 18px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            min-width: 220px;
-            min-height: 60px;
-            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
-            text-transform: uppercase;
-            letter-spacing: 1px;
+    .main-trade-btn {
+      background: linear-gradient(135deg, #4CAF50, #45a049);
+      border: none;
+      border-radius: 12px;
+      padding: 16px 32px;
+      color: white;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 220px;
+      min-height: 60px;
+      box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 1px;
 
-            &:hover:not(:disabled) {
-                background: linear-gradient(135deg, #45a049, #4CAF50);
-                transform: translateY(-2px);
-                box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
-            }
+      &:hover:not(:disabled) {
+        background: linear-gradient(135deg, #45a049, #4CAF50);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+      }
 
-            &.stop {
-                background: linear-gradient(135deg, #f44336, #d32f2f);
-                box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
+      &.stop {
+        background: linear-gradient(135deg, #f44336, #d32f2f);
+        box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
 
-                &:hover:not(:disabled) {
-                    background: linear-gradient(135deg, #d32f2f, #f44336);
-                    box-shadow: 0 6px 20px rgba(244, 67, 54, 0.4);
-                }
-            }
-
-            &.disabled, &:disabled {
-                background: #ccc;
-                cursor: not-allowed;
-                transform: none;
-                box-shadow: none;
-            }
-
-            .btn-content {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 8px;
-
-                .btn-icon {
-                    display: flex;
-                    align-items: center;
-
-                    svg {
-                        width: 20px;
-                        height: 20px;
-                    }
-                }
-
-                .btn-text {
-                    font-weight: 600;
-                    letter-spacing: 0.5px;
-                }
-            }
+        &:hover:not(:disabled) {
+          background: linear-gradient(135deg, #d32f2f, #f44336);
+          box-shadow: 0 6px 20px rgba(244, 67, 54, 0.4);
         }
+      }
+
+      &.disabled, &:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .btn-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+
+        .btn-icon {
+          display: flex;
+          align-items: center;
+
+          svg {
+            width: 20px;
+            height: 20px;
+          }
+        }
+
+        .btn-text {
+          font-weight: 600;
+          letter-spacing: 0.5px;
+        }
+      }
     }
+  }
 
   .trading-statistics {
     background: var(--fill-normal);
