@@ -1,5 +1,6 @@
 
 import React from 'react';
+import useThemeSwitcher from '@/hooks/useThemeSwitcher';
 import './display-toggle.scss';
 
 interface DisplayToggleProps {
@@ -8,8 +9,10 @@ interface DisplayToggleProps {
 }
 
 const DisplayToggle: React.FC<DisplayToggleProps> = ({ currentDisplay, onDisplayChange }) => {
+    const { is_dark_mode_on } = useThemeSwitcher();
+
     return (
-        <div className="display-toggle">
+        <div className={`display-toggle ${is_dark_mode_on ? 'theme--dark' : 'theme--light'}`}>
             <div className="toggle-container">
                 <button
                     className={`toggle-button ${currentDisplay === 'trading-hub' ? 'active' : ''}`}
@@ -28,9 +31,9 @@ const DisplayToggle: React.FC<DisplayToggleProps> = ({ currentDisplay, onDisplay
                 >
                     <div className="button-content">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                            <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
                         </svg>
-                        <span>Advanced</span>
+                        <span>Advanced Charts</span>
                     </div>
                 </button>
             </div>
