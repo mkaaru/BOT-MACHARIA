@@ -36,10 +36,10 @@ export const getMenuItems = () => [
         login_only: true,
     },
     {
-        id: 'ml-trader',
-        icon: 'IcAnalysis',
-        text: localize('ML Trader'),
-        link_to: '/ml-trader',
+        id: 'auto',
+        icon: 'IcPlay',
+        text: localize('Auto'),
+        link_to: '/auto',
         login_only: true,
     },
     {

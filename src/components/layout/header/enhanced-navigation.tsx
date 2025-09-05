@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
@@ -30,7 +29,7 @@ const EnhancedNavigation = observer(({ is_mobile = false, onItemClick }: Enhance
 
     const renderMenuItem = (item: any) => {
         const should_show = !item.login_only || is_logged_in;
-        
+
         if (!should_show) return null;
 
         return (
@@ -58,7 +57,7 @@ const EnhancedNavigation = observer(({ is_mobile = false, onItemClick }: Enhance
                     {menuItems.slice(0, 6).map(renderMenuItem)}
                 </div>
             </div>
-            
+
             <div className="enhanced-nav__section">
                 <h3 className="enhanced-nav__section-title">Analysis & Reports</h3>
                 <div className="enhanced-nav__items">

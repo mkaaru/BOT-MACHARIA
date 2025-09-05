@@ -1,0 +1,190 @@
+
+.auto-trader {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    background: var(--general-main-1);
+    
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        
+        h2 {
+            color: var(--text-prominent);
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0;
+        }
+    }
+    
+    &__content {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        
+        @media (max-width: 768px) {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    &__section {
+        background: var(--general-section-1);
+        border-radius: 8px;
+        padding: 20px;
+        border: 1px solid var(--border-normal);
+        
+        h3 {
+            color: var(--text-prominent);
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 0 16px 0;
+        }
+    }
+    
+    &__field {
+        margin-bottom: 16px;
+        
+        label {
+            display: block;
+            color: var(--text-general);
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-normal);
+            border-radius: 4px;
+            background: var(--general-main-1);
+            color: var(--text-prominent);
+            font-size: 14px;
+            
+            &:focus {
+                outline: none;
+                border-color: var(--brand-blue);
+            }
+        }
+    }
+    
+    &__controls {
+        display: flex;
+        gap: 12px;
+        margin-top: 20px;
+        
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            
+            &.primary {
+                background: var(--brand-blue);
+                color: white;
+                
+                &:hover {
+                    background: var(--brand-blue-dark);
+                }
+                
+                &:disabled {
+                    background: var(--border-disabled);
+                    cursor: not-allowed;
+                }
+            }
+            
+            &.secondary {
+                background: var(--general-section-1);
+                color: var(--text-prominent);
+                border: 1px solid var(--border-normal);
+                
+                &:hover {
+                    background: var(--general-hover);
+                }
+            }
+            
+            &.danger {
+                background: var(--status-danger);
+                color: white;
+                
+                &:hover {
+                    background: var(--status-danger-dark);
+                }
+            }
+        }
+    }
+    
+    &__status {
+        margin-top: 16px;
+        padding: 12px;
+        border-radius: 4px;
+        font-size: 14px;
+        
+        &--success {
+            background: var(--status-success-transparent);
+            color: var(--status-success);
+            border: 1px solid var(--status-success);
+        }
+        
+        &--error {
+            background: var(--status-danger-transparent);
+            color: var(--status-danger);
+            border: 1px solid var(--status-danger);
+        }
+        
+        &--info {
+            background: var(--status-info-transparent);
+            color: var(--status-info);
+            border: 1px solid var(--status-info);
+        }
+    }
+    
+    &__strategy-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        
+        .strategy-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: var(--general-main-1);
+            border: 1px solid var(--border-normal);
+            border-radius: 4px;
+            
+            &.active {
+                border-color: var(--brand-blue);
+                background: var(--brand-blue-transparent);
+            }
+            
+            .strategy-name {
+                font-weight: 600;
+                color: var(--text-prominent);
+            }
+            
+            .strategy-status {
+                font-size: 12px;
+                padding: 4px 8px;
+                border-radius: 12px;
+                
+                &.running {
+                    background: var(--status-success-transparent);
+                    color: var(--status-success);
+                }
+                
+                &.stopped {
+                    background: var(--status-danger-transparent);
+                    color: var(--status-danger);
+                }
+            }
+        }
+    }
+}

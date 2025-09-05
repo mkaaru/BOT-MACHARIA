@@ -26,6 +26,8 @@ import VolatilityAnalyzer from '@/components/volatility-analyzer';
 import SmartTrader from '@/components/smart-trader';
 import MLTrader from '@/components/ml-trader';
 import HigherLowerTrader from '@/components/higher-lower-trader';
+import AutoTrader from '@/components/auto-trader';
+
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
@@ -1275,8 +1277,8 @@ if __name__ == "__main__":
 
                         </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
-                        <div label={<><AITraderIcon /><Localize i18n_default_text='🤖 ML Trader' /></>} id='id-ml-trader'>
-                            <MLTrader />
+                        <div label={<><AITraderIcon /><Localize i18n_default_text='Auto Trader' /></>} id='id-auto-trader'>
+                            <AutoTrader />
                         </div>
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Higher/Lower & Rise/Fall' /></>} id='id-Trading-Hub'>
                             <div className={classNames('dashboard__chart-wrapper', {
