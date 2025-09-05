@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import classNames from 'classnames';
@@ -9,279 +10,378 @@ import { doUntilDone } from '../../external/bot-skeleton/services/tradeEngine/ut
 import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
 import './smart-trading-display.scss';
 
-const SmartTradingDisplay = observer(() => {
-  const { run_panel, transactions, client } = useStore();
-  const { is_drawer_open } = run_panel;
-
-  // State management for trading strategies
-  const [selectedSymbol, setSelectedSymbol] = useState('R_10');
-  const [tickCount, setTickCount] = useState(120);
-  const [barrier, setBarrier] = useState(5);
-  const [connectionStatus, setConnectionStatus] = useState('connected');
-  const [analysisData, setAnalysisData] = useState({
-    'rise-fall': {
-      prediction: 'Rise',
-      confidence: 68,
-      lastChange: 0.002,
-      isTrading: false
-    },
-    'even-odd': {
-      prediction: 'Even',
-      confidence: 72,
-      lastDigit: 4,
-      isTrading: false
-    },
-    'even-odd-patterns': {
-      prediction: 'Odd',
-      confidence: 65,
-      pattern: [2, 4, 6],
-      isTrading: false
-    },
-    'over-under': {
-      prediction: 'Over',
-      confidence: 58,
-      barrier: 5,
-      isTrading: false
-    },
-    'over-under-patterns': {
-      prediction: 'Under',
-      confidence: 61,
-      pattern: [3, 7, 2],
-      isTrading: false
-    },
-    'matches-differs': {
-      prediction: 'Differs',
-      confidence: 75,
-      targetDigit: 5,
-      isTrading: false
+// Extend Window interface for volatility analyzer
+declare global {
+    interface Window {
+        volatilityAnalyzer?: {
+            reconnect?: () => void;
+        };
+        initVolatilityAnalyzer?: () => void;
     }
-  });
+}
 
-  const [tradingPerformance, setTradingPerformance] = useState({
-    'rise-fall': { totalTrades: 24, wins: 16, totalProfit: 12.50 },
-    'even-odd': { totalTrades: 18, wins: 13, totalProfit: 8.75 },
-    'even-odd-patterns': { totalTrades: 15, wins: 9, totalProfit: 5.25 },
-    'over-under': { totalTrades: 21, wins: 12, totalProfit: 3.80 },
-    'over-under-patterns': { totalTrades: 12, wins: 8, totalProfit: 6.40 },
-    'matches-differs': { totalTrades: 9, wins: 7, totalProfit: 15.20 }
-  });
+// Trading Engine Class
+class TradingEngine {
+    private ws: WebSocket | null = null;
+    private isConnected = false;
+    private reconnectAttempts = 0;
+    private maxReconnectAttempts = 5;
+    private reconnectInterval = 3000;
+    private messageHandlers: Map<string, (data: any) => void> = new Map();
+    private tickHistory: any[] = [];
 
-  const [currentPrice, setCurrentPrice] = useState('4,521.23');
-
-  // Trading strategies configuration
-  const tradingStrategies = [
-    {
-      id: 'rise-fall',
-      name: 'Rise/Fall',
-      description: 'AI-powered trading strategies analyzing price movements'
-    },
-    {
-      id: 'even-odd',
-      name: 'Even/Odd',
-      description: 'Predict if the last digit will be even or odd'
-    },
-    {
-      id: 'even-odd-patterns',
-      name: 'Even/Odd Patterns',
-      description: 'Advanced pattern recognition for even/odd predictions'
-    },
-    {
-      id: 'over-under',
-      name: 'Over/Under',
-      description: 'Predict if the last digit will be over or under the barrier'
-    },
-    {
-      id: 'over-under-patterns',
-      name: 'Over/Under Patterns',
-      description: 'Pattern-based over/under predictions'
-    },
-    {
-      id: 'matches-differs',
-      name: 'Matches/Differs',
-      description: 'Predict if the last digit matches or differs from target'
+    constructor() {
+        this.connect();
     }
-  ];
 
-  // Auto trading functions
-  const startAutoTrading = useCallback((strategyId) => {
-    setAnalysisData(prev => ({
-      ...prev,
-      [strategyId]: {
-        ...prev[strategyId],
-        isTrading: true
-      }
-    }));
-    console.log(`Starting auto trading for ${strategyId}`);
-  }, []);
+    connect() {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            return;
+        }
 
-  const stopAutoTrading = useCallback((strategyId) => {
-    setAnalysisData(prev => ({
-      ...prev,
-      [strategyId]: {
-        ...prev[strategyId],
-        isTrading: false
-      }
-    }));
-    console.log(`Stopping auto trading for ${strategyId}`);
-  }, []);
+        try {
+            this.ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=1089');
+            
+            this.ws.onopen = () => {
+                console.log('WebSocket connected');
+                this.isConnected = true;
+                this.reconnectAttempts = 0;
+                this.onConnectionChange?.('connected');
+            };
 
-  // Execute manual trade
-  const executeTrade = useCallback((strategyId) => {
-    console.log(`Executing manual trade for ${strategyId}`);
-    // Add manual trade logic here
-  }, []);
+            this.ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    this.handleMessage(data);
+                } catch (error) {
+                    console.error('Error parsing WebSocket message:', error);
+                }
+            };
 
-  const getConfidenceColor = (confidence) => {
-    if (confidence >= 70) return 'high';
-    if (confidence >= 60) return 'medium';
-    return 'low';
-  };
+            this.ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                this.isConnected = false;
+                this.onConnectionChange?.('disconnected');
+                this.scheduleReconnect();
+            };
 
-  const getPredictionColor = (prediction) => {
-    if (prediction === 'Rise' || prediction === 'Over') return 'rise';
-    if (prediction === 'Fall' || prediction === 'Under') return 'fall';
-    return 'neutral';
-  };
+            this.ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                this.onConnectionChange?.('error');
+            };
+        } catch (error) {
+            console.error('Failed to create WebSocket connection:', error);
+            this.onConnectionChange?.('error');
+        }
+    }
 
-  return (
-    <div className={classNames('smart-trading-analytics', { 'smart-trading-analytics--drawer-open': is_drawer_open })}>
-      <div className="analyzer-header">
-        <div className="header-content">
-          <h2>{localize('Smart Trading Analytics')}</h2>
-          <div className="header-actions">
-            <button className="reconnect-btn">{localize('Reconnect')}</button>
-          </div>
-        </div>
-        <div className="connection-info">
-          <div className="connection-status connected">
-            <span className="status-dot"></span>
-            {localize('Connected')}
-          </div>
-        </div>
-      </div>
+    private scheduleReconnect() {
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            setTimeout(() => {
+                console.log(`Reconnection attempt ${this.reconnectAttempts}`);
+                this.connect();
+            }, this.reconnectInterval);
+        }
+    }
 
-      <div className="analyzer-controls">
-        <div className="control-group">
-          <label>{localize('Symbol')}</label>
-          <select 
-            value={selectedSymbol} 
-            onChange={(e) => setSelectedSymbol(e.target.value)}
-          >
-            <option value="R_10">Volatility 10 Index</option>
-            <option value="R_25">Volatility 25 Index</option>
-            <option value="R_50">Volatility 50 Index</option>
-            <option value="R_75">Volatility 75 Index</option>
-            <option value="R_100">Volatility 100 Index</option>
-          </select>
-        </div>
-        <div className="control-group">
-          <label>{localize('Ticks')}</label>
-          <input 
-            type="number" 
-            value={tickCount} 
-            onChange={(e) => setTickCount(Number(e.target.value))}
-            min="10"
-            max="1000"
-          />
-        </div>
-        <div className="control-group">
-          <label>{localize('Current Price')}</label>
-          <div className="current-price">{currentPrice}</div>
-        </div>
-      </div>
+    private handleMessage(data: any) {
+        if (data.msg_type && this.messageHandlers.has(data.msg_type)) {
+            const handler = this.messageHandlers.get(data.msg_type);
+            handler?.(data);
+        }
 
-      <div className="trading-cards-grid">
-        {tradingStrategies.map((strategy) => {
-          const analysis = analysisData[strategy.id];
-          const performance = tradingPerformance[strategy.id];
-          const winRate = performance ? Math.round((performance.wins / performance.totalTrades) * 100) : 0;
+        // Handle tick data
+        if (data.msg_type === 'tick') {
+            this.tickHistory.push({
+                ...data.tick,
+                timestamp: Date.now()
+            });
+            // Keep only last 1000 ticks
+            if (this.tickHistory.length > 1000) {
+                this.tickHistory = this.tickHistory.slice(-1000);
+            }
+        }
+    }
 
-          return (
-            <div key={strategy.id} className="trading-card">
-              <div className="card-header">
-                <h3>{strategy.name}</h3>
-                <div className={`status-indicator ${connectionStatus}`}></div>
-              </div>
+    subscribe(msgType: string, handler: (data: any) => void) {
+        this.messageHandlers.set(msgType, handler);
+    }
 
-              <div className="card-content">
-                <div className="prediction-section">
-                  <div className="prediction-display">
-                    <div className={`prediction-value ${getPredictionColor(analysis.prediction)}`}>
-                      {analysis.prediction}
+    send(message: any) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(message));
+        } else {
+            console.warn('WebSocket not connected, cannot send message');
+        }
+    }
+
+    subscribeToTicks(symbol: string) {
+        this.send({
+            ticks: symbol,
+            subscribe: 1
+        });
+    }
+
+    disconnect() {
+        if (this.ws) {
+            this.ws.close();
+        }
+    }
+
+    getTickHistory() {
+        return this.tickHistory;
+    }
+
+    onConnectionChange?: (status: 'connected' | 'disconnected' | 'error') => void;
+}
+
+const SmartTradingDisplay: React.FC = observer(() => {
+    const { run_panel } = useStore();
+    const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'error'>('disconnected');
+    const [tradingEngine] = useState(() => new TradingEngine());
+    const [selectedSymbol, setSelectedSymbol] = useState('R_10');
+    const [tickCount, setTickCount] = useState(100);
+    const [barrier, setBarrier] = useState(0);
+    const [strategies, setStrategies] = useState<Record<string, any>>({});
+    const [autoTradingStatus, setAutoTradingStatus] = useState<Record<string, boolean>>({});
+    const [tickData, setTickData] = useState<any[]>([]);
+
+    const volatilitySymbols = [
+        { value: 'R_10', label: 'Volatility 10 Index' },
+        { value: 'R_25', label: 'Volatility 25 Index' },
+        { value: 'R_50', label: 'Volatility 50 Index' },
+        { value: 'R_75', label: 'Volatility 75 Index' },
+        { value: 'R_100', label: 'Volatility 100 Index' }
+    ];
+
+    useEffect(() => {
+        tradingEngine.onConnectionChange = setConnectionStatus;
+
+        tradingEngine.subscribe('tick', (data) => {
+            setTickData(prev => [...prev.slice(-99), data.tick]);
+        });
+
+        tradingEngine.subscribeToTicks(selectedSymbol);
+
+        return () => {
+            tradingEngine.disconnect();
+        };
+    }, [tradingEngine]);
+
+    useEffect(() => {
+        tradingEngine.subscribeToTicks(selectedSymbol);
+    }, [selectedSymbol, tradingEngine]);
+
+    const updateSymbol = useCallback((symbol: string) => {
+        setSelectedSymbol(symbol);
+    }, []);
+
+    const updateTickCount = useCallback((count: number) => {
+        setTickCount(count);
+    }, []);
+
+    const updateBarrier = useCallback((value: number) => {
+        setBarrier(value);
+    }, []);
+
+    const generateStrategyAnalysis = (strategyId: string) => {
+        const recentTicks = tickData.slice(-20);
+        if (recentTicks.length === 0) {
+            return {
+                prediction: 'No data',
+                confidence: 0,
+                winRate: 0,
+                trend: 'neutral'
+            };
+        }
+
+        // Simple analysis based on recent tick patterns
+        const lastTick = recentTicks[recentTicks.length - 1];
+        const avgPrice = recentTicks.reduce((sum, tick) => sum + tick.quote, 0) / recentTicks.length;
+        
+        let prediction = 'Hold';
+        let confidence = Math.random() * 100;
+        let winRate = 50 + Math.random() * 40;
+        let trend = 'neutral';
+
+        switch (strategyId) {
+            case 'rise-fall':
+                prediction = lastTick.quote > avgPrice ? 'Rise' : 'Fall';
+                trend = lastTick.quote > avgPrice ? 'bullish' : 'bearish';
+                break;
+            case 'even-odd':
+                const lastDigit = Math.floor(lastTick.quote * 100) % 10;
+                prediction = lastDigit % 2 === 0 ? 'Even' : 'Odd';
+                break;
+            case 'over-under':
+                prediction = lastTick.quote > barrier ? 'Over' : 'Under';
+                break;
+            default:
+                prediction = Math.random() > 0.5 ? 'Buy' : 'Sell';
+        }
+
+        return { prediction, confidence, winRate, trend };
+    };
+
+    const startAutoTrading = (strategyId: string) => {
+        setAutoTradingStatus(prev => ({ ...prev, [strategyId]: true }));
+        console.log(`Auto trading started for ${strategyId}`);
+    };
+
+    const stopAutoTrading = (strategyId: string) => {
+        setAutoTradingStatus(prev => ({ ...prev, [strategyId]: false }));
+        console.log(`Auto trading stopped for ${strategyId}`);
+    };
+
+    const executeTrade = (strategyId: string, type: 'manual' | 'auto') => {
+        console.log(`Executing ${type} trade for ${strategyId}`);
+        // Here you would implement the actual trading logic
+    };
+
+    const renderTradingCard = (title: string, strategyId: string) => {
+        const analysis = generateStrategyAnalysis(strategyId);
+        const isAutoTrading = autoTradingStatus[strategyId];
+
+        return (
+            <div key={strategyId} className={`trading-card ${analysis.trend}`}>
+                <div className="card-header">
+                    <h3>{title}</h3>
+                    <div className={`status-indicator ${isAutoTrading ? 'active' : 'inactive'}`}>
+                        {isAutoTrading ? '🟢 Auto' : '⚫ Manual'}
                     </div>
-                    <div className={`confidence-bar confidence-${getConfidenceColor(analysis.confidence)}`}>
-                      <div 
-                        className="confidence-fill"
-                        style={{ width: `${analysis.confidence}%` }}
-                      ></div>
-                      <span className="confidence-text">{analysis.confidence}%</span>
+                </div>
+
+                <div className="card-content">
+                    <div className="prediction-section">
+                        <div className="prediction-label">Current Prediction:</div>
+                        <div className={`prediction-value ${analysis.trend}`}>
+                            {analysis.prediction}
+                        </div>
                     </div>
-                  </div>
-                </div>
 
-                <div className="trading-conditions">
-                  <div className="condition-item">
-                    <span className="label">{localize('Trading Condition')}</span>
-                    <div className="condition-controls">
-                      <select>
-                        <option>{localize('2 tick')}</option>
-                        <option>{localize('3 tick')}</option>
-                        <option>{localize('5 tick')}</option>
-                      </select>
+                    <div className="metrics-grid">
+                        <div className="metric">
+                            <span className="metric-label">Confidence:</span>
+                            <span className="metric-value">{analysis.confidence.toFixed(1)}%</span>
+                        </div>
+                        <div className="metric">
+                            <span className="metric-label">Win Rate:</span>
+                            <span className="metric-value">{analysis.winRate.toFixed(1)}%</span>
+                        </div>
+                        <div className="metric">
+                            <span className="metric-label">Status:</span>
+                            <span className={`metric-value ${analysis.winRate > 60 ? 'positive' : 'negative'}`}>
+                                {analysis.winRate > 60 ? '✅ Win/None' : '❌ Loss'}
+                            </span>
+                        </div>
                     </div>
-                  </div>
                 </div>
 
-                <div className="analysis-details">
-                  <div className="detail-row">
-                    <span className="label">{localize('Analysis')}</span>
-                    <span className="value">{strategy.description}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="label">{localize('Performance')}</span>
-                    <span className="value">
-                      {performance?.totalTrades || 0} trades, {winRate}% win rate
-                    </span>
-                  </div>
+                <div className="card-footer">
+                    <button 
+                        className={`start-trading-btn ${isAutoTrading ? 'trading-active' : ''}`}
+                        onClick={() => {
+                            if (isAutoTrading) {
+                                stopAutoTrading(strategyId);
+                            } else {
+                                startAutoTrading(strategyId);
+                            }
+                        }}
+                        disabled={connectionStatus !== 'connected'}
+                    >
+                        {isAutoTrading ? 'Stop Auto Trading' : 'Start Auto Trading'}
+                    </button>
+                    <button 
+                        className="manual-trade-btn"
+                        onClick={() => executeTrade(strategyId, 'manual')}
+                        disabled={connectionStatus !== 'connected' || isAutoTrading}
+                    >
+                        Execute Manual Trade
+                    </button>
                 </div>
-
-                <div className="stats-section">
-                  <div className="stat-item">
-                    <span className="stat-label">{localize('Last Result')}</span>
-                    <span className="stat-value win">Win</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">{localize('Contract Value')}</span>
-                    <span className="stat-value">0.5</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">{localize('Last Profit')}</span>
-                    <span className="stat-value profit">+{(performance?.totalProfit / performance?.totalTrades || 0).toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="card-footer">
-                <button 
-                  className={`start-trading-btn ${analysis.isTrading ? 'trading-active' : ''}`}
-                  onClick={() => analysis.isTrading ? stopAutoTrading(strategy.id) : startAutoTrading(strategy.id)}
-                >
-                  {analysis.isTrading ? localize('STOP AUTO TRADING') : localize('START AUTO TRADING')}
-                </button>
-                <button 
-                  className="manual-trade-btn"
-                  onClick={() => executeTrade(strategy.id)}
-                  disabled={analysis.isTrading}
-                >
-                  {localize('Manual Trade')}
-                </button>
-              </div>
             </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+        );
+    };
+
+    return (
+        <div className="volatility-analyzer">
+            <div className="analyzer-header">
+                <h2>Smart Trading Analytics</h2>
+                <div className={`connection-status ${connectionStatus}`}>
+                    {connectionStatus === 'connected' && '🟢 Connected'}
+                    {connectionStatus === 'disconnected' && '🔴 Disconnected'}
+                    {connectionStatus === 'error' && '⚠️ Error'}
+                </div>
+            </div>
+
+            <div className="analyzer-controls">
+                <div className="control-group">
+                    <label>Symbol:</label>
+                    <select
+                        value={selectedSymbol}
+                        onChange={(e) => updateSymbol(e.target.value)}
+                    >
+                        {volatilitySymbols.map((symbol) => (
+                            <option key={symbol.value} value={symbol.value}>
+                                {symbol.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="control-group">
+                    <label>Tick Count:</label>
+                    <input
+                        type="number"
+                        min="10"
+                        max="1000"
+                        value={tickCount}
+                        onChange={(e) => updateTickCount(parseInt(e.target.value))}
+                    />
+                </div>
+
+                <div className="control-group">
+                    <label>Barrier:</label>
+                    <input
+                        type="number"
+                        value={barrier}
+                        onChange={(e) => updateBarrier(parseInt(e.target.value))}
+                    />
+                </div>
+            </div>
+
+            <div className="trading-cards-grid">
+                {renderTradingCard('Rise/Fall', 'rise-fall')}
+                {renderTradingCard('Even/Odd', 'even-odd')}
+                {renderTradingCard('Even/Odd Pattern', 'even-odd-2')}
+                {renderTradingCard('Over/Under', 'over-under')}
+                {renderTradingCard('Over/Under Pattern', 'over-under-2')}
+                {renderTradingCard('Matches/Differs', 'matches-differs')}
+                {renderTradingCard('Touch/No Touch', 'touch-no-touch')}
+                {renderTradingCard('Ends Between/Outside', 'ends-between-outside')}
+                {renderTradingCard('Stays Between/Goes Outside', 'stays-between-goes-outside')}
+            </div>
+
+            {tickData.length > 0 && (
+                <div className="live-data-section">
+                    <h3>Live Market Data</h3>
+                    <div className="tick-display">
+                        <div className="current-price">
+                            <span className="price-label">Current Price:</span>
+                            <span className="price-value">
+                                {tickData[tickData.length - 1]?.quote?.toFixed(5) || 'N/A'}
+                            </span>
+                        </div>
+                        <div className="tick-count">
+                            <span className="count-label">Ticks Received:</span>
+                            <span className="count-value">{tickData.length}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 });
 
 export default SmartTradingDisplay;
