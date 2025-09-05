@@ -1,0 +1,2384 @@
+Compilation failed
+
+File: /home/runner/workspace/src/components/higher-lower-trader/higher-lower-trader.scss:1:1
+  × Module build failed:
+  ╰─▶   × Error: HookWebpackError:   × Module build failed:
+        │   ╰─▶   × Undefined mixin.
+        │         │    ╷
+        │         │ 25 │ ┌         @include desktop {
+        │         │ 26 │ │             height: calc(100vh - var(--core-size-560));
+        │         │ 27 │ └         }
+        │         │    ╵
+        │         │   ../../../../src/components/higher-lower-trader/higher-lower-trader.scss 25:9  root stylesheet
+        │         │
+        │
+        │
+        │     at tryRunOrWebpackError (/home/runner/workspace/node_modules/@rspack/core/dist/index.js:8138:11)
+        │     at __webpack_require__ (/home/runner/workspace/node_modules/@rspack/core/dist/index.js:17601:13)
+        │     at /home/runner/workspace/node_modules/@rspack/core/dist/index.js:17625:33
+        │     at last.function (/home/runner/workspace/node_modules/@rspack/core/dist/index.js:17936:25)
+        │/nFile: /home/runner/workspace/src/components/higher-lower-trader/advanced-display.tsx:1:1
+  × Module build failed:
+  ╰─▶   ×   × the name `React` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/components/higher-lower-trader/advanced-display.tsx:2:1]
+        │    1 │
+        │    2 │ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+        │      ·        ──┬──
+        │      ·          ╰── previous definition of `React` here
+        │    3 │ import { observer } from 'mobx-react-lite';
+        │    4 │ import classNames from 'classnames';
+        │    5 │ import { ProposalOpenContract } from '@deriv/api-types';
+        │    6 │ import './advanced-display.scss';
+        │    7 │ import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
+        │    8 │ import { useStore } from '@/hooks/useStore';
+        │    9 │
+        │   10 │ // Symbol type for multi-symbol analysis
+        │   11 │ type SymbolType = 'R_10' | 'R_25' | 'R_50' | 'R_75' | 'R_100' | '1HZ10V' | '1HZ25V' | '1HZ50V' | '1HZ75V' | '1HZ100V';
+        │   12 │
+        │   13 │ // Trading settings interface
+        │   14 │ interface TradingSettings {
+        │   15 │     stake: number;
+        │   16 │     martingale: number;
+        │   17 │     takeProfit: number;
+        │   18 │     stopLoss: number;
+        │   19 │ }
+        │   20 │
+        │   21 │ // Trade result interface
+        │   22 │ interface TradeResult {
+        │   23 │     id: number;
+        │   24 │     contractId: number;
+        │   25 │     type: string;
+        │   26 │     symbol: SymbolType;
+        │   27 │     entrySpot?: string;
+        │   28 │     exitSpot?: string;
+        │   29 │     stake: number;
+        │   30 │     payout?: number;
+        │   31 │     profit?: number;
+        │   32 │     isWin?: boolean;
+        │   33 │     timestamp: number;
+        │   34 │     status?: 'open' | 'won' | 'lost' | 'pending';
+        │   35 │ }
+        │   36 │
+        │   37 │ // Constants
+        │   38 │ const STORAGE_KEYS = {
+        │   39 │     TRADING_SETTINGS: 'trading_settings',
+        │   40 │     TOTAL_PROFIT: 'total_profit',
+        │   41 │     AUTH_TOKEN: 'authToken',
+        │   42 │ };
+        │   43 │
+        │   44 │ const AdvancedDisplay = observer(() => {
+        │   45 │     // Get transactions store
+        │   46 │     const { transactions } = useStore();
+        │   47 │
+        │   48 │     // State
+        │   49 │     const [isRunning, setIsRunning] = useState(false);
+        │   50 │     const [status, setStatus] = useState('');
+        │   51 │     const [referenceDigit, setReferenceDigit] = useState(5);
+        │   52 │     const [analysisCount, setAnalysisCount] = useState(120);
+        │   53 │     const [sessionRunId, setSessionRunId] = useState<string>(`advanced_${Date.now()}`);
+        │   54 │
+        │   55 │     // Trading settings
+        │   56 │     const [tradingSettings, setTradingSettings] = useState<TradingSettings>(() => {
+        │   57 │         try {
+        │   58 │             const savedSettings = localStorage.getItem(STORAGE_KEYS.TRADING_SETTINGS);
+        │   59 │             if (savedSettings) {
+        │   60 │                 const parsedSettings = JSON.parse(savedSettings) as TradingSettings;
+        │   61 │                 return {
+        │   62 │                     stake: parsedSettings.stake || 1,
+        │   63 │                     martingale: parsedSettings.martingale || 2.0,
+        │   64 │                     takeProfit: parsedSettings.takeProfit || 10,
+        │   65 │                     stopLoss: parsedSettings.stopLoss || 5,
+        │   66 │                 };
+        │   67 │             }
+        │   68 │         } catch (error) {
+        │   69 │             console.error('Error loading trading settings from localStorage:', error);
+        │   70 │         }
+        │   71 │
+        │   72 │         return {
+        │   73 │             stake: 1,
+        │   74 │             martingale: 2.0,
+        │   75 │             takeProfit: 10,
+        │   76 │             stopLoss: 5,
+        │   77 │         };
+        │   78 │     });
+        │   79 │
+        │   80 │     // Input states
+        │   81 │     const [referenceDigitInput, setReferenceDigitInput] = useState('5');
+        │   82 │     const [analysisCountInput, setAnalysisCountInput] = useState('120');
+        │   83 │     const [stakeInput, setStakeInput] = useState('1');
+        │   84 │
+        │   85 │     // Trade history and stats
+        │   86 │     const [tradeHistory, setTradeHistory] = useState<TradeResult[]>([]);
+        │   87 │     const [totalWins, setTotalWins] = useState(0);
+        │   88 │     const [totalLosses, setTotalLosses] = useState(0);
+        │   89 │     const [totalProfit, setTotalProfit] = useState(0);
+        │   90 │
+        │   91 │     const tradeIdCounter = useRef(0);
+        │   92 │
+        │   93 │     // Function to handle settings changes
+        │   94 │     const handleSettingChange = useCallback((field: keyof TradingSettings, value: string) => {
+        │   95 │         setTradingSettings(prev => {
+        │   96 │             const updatedSettings = { ...prev };
+        │   97 │             const numValue = parseFloat(value);
+        │   98 │             if (!isNaN(numValue)) {
+        │   99 │                 updatedSettings[field] = numValue;
+        │  100 │             }
+        │  101 │
+        │  102 │             try {
+        │  103 │                 localStorage.setItem(STORAGE_KEYS.TRADING_SETTINGS, JSON.stringify(updatedSettings));
+        │  104 │             } catch (error) {
+        │  105 │                 console.error('Error saving trading settings to localStorage:', error);
+        │  106 │             }
+        │  107 │
+        │  108 │             return updatedSettings;
+        │  109 │         });
+        │  110 │     }, []);
+        │  111 │
+        │  112 │     // Start/stop trading functions
+        │  113 │     const startTrading = useCallback(() => {
+        │  114 │         if (isRunning) return;
+        │  115 │
+        │  116 │         setIsRunning(true);
+        │  117 │         setStatus('Starting advanced trading analysis...');
+        │  118 │
+        │  119 │         const session_id = `advanced_${Date.now()}`;
+        │  120 │         setSessionRunId(session_id);
+        │  121 │         globalObserver.emit('bot.started', session_id);
+        │  122 │
+        │  123 │         // Simulate some trading activity
+        │  124 │         setTimeout(() => {
+        │  125 │             setStatus('Analysis complete. Ready for trading.');
+        │  126 │         }, 2000);
+        │  127 │     }, [isRunning]);
+        │  128 │
+        │  129 │     const stopTrading = useCallback(() => {
+        │  130 │         if (!isRunning) return;
+        │  131 │
+        │  132 │         setIsRunning(false);
+        │  133 │         setStatus('Trading stopped.');
+        │  134 │         globalObserver.emit('bot.stop');
+        │  135 │     }, [isRunning]);
+        │  136 │
+        │  137 │     // Format money function
+        │  138 │     const formatMoney = (amount: number) => {
+        │  139 │         return new Intl.NumberFormat('en-US', {
+        │  140 │             style: 'currency',
+        │  141 │             currency: 'USD',
+        │  142 │         }).format(Math.abs(amount));
+        │  143 │     };
+        │  144 │
+        │  145 │     return (
+        │  146 │         <div className="advanced-display">
+        │  147 │             <div className="advanced-display__title">
+        │  148 │                 Advanced Trading Display
+        │  149 │             </div>
+        │  150 │
+        │  151 │             <div className="advanced-display__subtitle">
+        │  152 │                 AI-Powered Market Analysis & Trading
+        │  153 │             </div>
+        │  154 │
+        │  155 │             <div className="advanced-display__workspace">
+        │  156 │                 <div className="advanced-display__action-bar">
+        │  157 │                     <div className="action-buttons-group">
+        │  158 │                         <button
+        │  159 │                             className={`action-button ${isRunning ? 'active' : ''}`}
+        │  160 │                             onClick={isRunning ? stopTrading : startTrading}
+        │  161 │                         >
+        │  162 │                             {isRunning ? 'Stop Analysis' : 'Start Analysis'}
+        │  163 │                         </button>
+        │  164 │                     </div>
+        │  165 │                 </div>
+        │  166 │
+        │  167 │                 <div className="settings-panel">
+        │  168 │                     <div className="setting-group">
+        │  169 │                         <label>Reference Digit:</label>
+        │  170 │                         <input
+        │  171 │                             type="number"
+        │  172 │                             value={referenceDigitInput}
+        │  173 │                             onChange={(e) => {
+        │  174 │                                 setReferenceDigitInput(e.target.value);
+        │  175 │                                 const num = parseInt(e.target.value);
+        │  176 │                                 if (!isNaN(num) && num >= 0 && num <= 9) {
+        │  177 │                                     setReferenceDigit(num);
+        │  178 │                                 }
+        │  179 │                             }}
+        │  180 │                             min="0"
+        │  181 │                             max="9"
+        │  182 │                             className="setting-input"
+        │  183 │                         />
+        │  184 │                     </div>
+        │  185 │
+        │  186 │                     <div className="setting-group">
+        │  187 │                         <label>Analysis Count:</label>
+        │  188 │                         <input
+        │  189 │                             type="number"
+        │  190 │                             value={analysisCountInput}
+        │  191 │                             onChange={(e) => {
+        │  192 │                                 setAnalysisCountInput(e.target.value);
+        │  193 │                                 const num = parseInt(e.target.value);
+        │  194 │                                 if (!isNaN(num) && num > 0) {
+        │  195 │                                     setAnalysisCount(num);
+        │  196 │                                 }
+        │  197 │                             }}
+        │  198 │                             min="1"
+        │  199 │                             className="setting-input"
+        │  200 │                         />
+        │  201 │                     </div>
+        │  202 │
+        │  203 │                     <div className="setting-group">
+        │  204 │                         <label>Stake ($):</label>
+        │  205 │                         <input
+        │  206 │                             type="number"
+        │  207 │                             value={stakeInput}
+        │  208 │                             onChange={(e) => {
+        │  209 │                                 setStakeInput(e.target.value);
+        │  210 │                                 handleSettingChange('stake', e.target.value);
+        │  211 │                             }}
+        │  212 │                             min="0.35"
+        │  213 │                             step="0.01"
+        │  214 │                             className="setting-input"
+        │  215 │                         />
+        │  216 │                     </div>
+        │  217 │
+        │  218 │                     <div className="setting-group">
+        │  219 │                         <label>Martingale:</label>
+        │  220 │                         <input
+        │  221 │                             type="number"
+        │  222 │                             value={tradingSettings.martingale}
+        │  223 │                             onChange={(e) => handleSettingChange('martingale', e.target.value)}
+        │  224 │                             min="1"
+        │  225 │                             step="0.1"
+        │  226 │                             className="setting-input"
+        │  227 │                         />
+        │  228 │                     </div>
+        │  229 │                 </div>
+        │  230 │
+        │  231 │                 <div className="trade-history-summary">
+        │  232 │                     <div className="summary-item wins">
+        │  233 │                         <span>Wins</span>
+        │  234 │                         <span>{totalWins}</span>
+        │  235 │                     </div>
+        │  236 │                     <div className="summary-item losses">
+        │  237 │                         <span>Losses</span>
+        │  238 │                         <span>{totalLosses}</span>
+        │  239 │                     </div>
+        │  240 │                     <div className="summary-item profit">
+        │  241 │                         <span>Total Profit</span>
+        │  242 │                         <span className={totalProfit >= 0 ? 'positive' : 'negative'}>
+        │  243 │                             {formatMoney(totalProfit)}
+        │  244 │                         </span>
+        │  245 │                     </div>
+        │  246 │                 </div>
+        │  247 │             </div>
+        │  248 │
+        │  249 │             {status && (
+        │  250 │                 <div className={classNames('advanced-display__status', {
+        │  251 │                     'advanced-display__status--success': status.includes('complete') || status.includes('Ready'),
+        │  252 │                     'advanced-display__status--info': status.includes('Starting') || status.includes('Analysis'),
+        │  253 │                     'advanced-display__status--error': status.includes('stopped') || status.includes('Error')
+        │  254 │                 })}>
+        │  255 │                     {status}
+        │  256 │                 </div>
+        │  257 │             )}
+        │  258 │         </div>
+        │  259 │     );
+        │  260 │ });
+        │  261 │
+        │  262 │ export default AdvancedDisplay;
+        │  263 │ import React, { useState, useEffect, useRef } from 'react';
+        │      ·        ──┬──
+        │      ·          ╰── `React` redefined here
+        │  264 │ import classNames from 'classnames';
+        │  265 │ import { observer } from 'mobx-react-lite';
+        │  266 │ import chart_api from '@/external/bot-skeleton/services/api/chart-api';
+        │      ╰────
+        │   × the name `useState` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/components/higher-lower-trader/advanced-display.tsx:2:1]
+        │    1 │
+        │    2 │ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+        │      ·                 ────┬───
+        │      ·                     ╰── previous definition of `useState` here
+        │    3 │ import { observer } from 'mobx-react-lite';
+        │    4 │ import classNames from 'classnames';
+        │    5 │ import { ProposalOpenContract } from '@deriv/api-types';
+        │    6 │ import './advanced-display.scss';
+        │    7 │ import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
+        │    8 │ import { useStore } from '@/hooks/useStore';
+        │    9 │
+        │   10 │ // Symbol type for multi-symbol analysis
+        │   11 │ type SymbolType = 'R_10' | 'R_25' | 'R_50' | 'R_75' | 'R_100' | '1HZ10V' | '1HZ25V' | '1HZ50V' | '1HZ75V' | '1HZ100V';
+        │   12 │
+        │   13 │ // Trading settings interface
+        │   14 │ interface TradingSettings {
+        │   15 │     stake: number;
+        │   16 │     martingale: number;
+        │   17 │     takeProfit: number;
+        │   18 │     stopLoss: number;
+        │   19 │ }
+        │   20 │
+        │   21 │ // Trade result interface
+        │   22 │ interface TradeResult {
+        │   23 │     id: number;
+        │   24 │     contractId: number;
+        │   25 │     type: string;
+        │   26 │     symbol: SymbolType;
+        │   27 │     entrySpot?: string;
+        │   28 │     exitSpot?: string;
+        │   29 │     stake: number;
+        │   30 │     payout?: number;
+        │   31 │     profit?: number;
+        │   32 │     isWin?: boolean;
+        │   33 │     timestamp: number;
+        │   34 │     status?: 'open' | 'won' | 'lost' | 'pending';
+        │   35 │ }
+        │   36 │
+        │   37 │ // Constants
+        │   38 │ const STORAGE_KEYS = {
+        │   39 │     TRADING_SETTINGS: 'trading_settings',
+        │   40 │     TOTAL_PROFIT: 'total_profit',
+        │   41 │     AUTH_TOKEN: 'authToken',
+        │   42 │ };
+        │   43 │
+        │   44 │ const AdvancedDisplay = observer(() => {
+        │   45 │     // Get transactions store
+        │   46 │     const { transactions } = useStore();
+        │   47 │
+        │   48 │     // State
+        │   49 │     const [isRunning, setIsRunning] = useState(false);
+        │   50 │     const [status, setStatus] = useState('');
+        │   51 │     const [referenceDigit, setReferenceDigit] = useState(5);
+        │   52 │     const [analysisCount, setAnalysisCount] = useState(120);
+        │   53 │     const [sessionRunId, setSessionRunId] = useState<string>(`advanced_${Date.now()}`);
+        │   54 │
+        │   55 │     // Trading settings
+        │   56 │     const [tradingSettings, setTradingSettings] = useState<TradingSettings>(() => {
+        │   57 │         try {
+        │   58 │             const savedSettings = localStorage.getItem(STORAGE_KEYS.TRADING_SETTINGS);
+        │   59 │             if (savedSettings) {
+        │   60 │                 const parsedSettings = JSON.parse(savedSettings) as TradingSettings;
+        │   61 │                 return {
+        │   62 │                     stake: parsedSettings.stake || 1,
+        │   63 │                     martingale: parsedSettings.martingale || 2.0,
+        │   64 │                     takeProfit: parsedSettings.takeProfit || 10,
+        │   65 │                     stopLoss: parsedSettings.stopLoss || 5,
+        │   66 │                 };
+        │   67 │             }
+        │   68 │         } catch (error) {
+        │   69 │             console.error('Error loading trading settings from localStorage:', error);
+        │   70 │         }
+        │   71 │
+        │   72 │         return {
+        │   73 │             stake: 1,
+        │   74 │             martingale: 2.0,
+        │   75 │             takeProfit: 10,
+        │   76 │             stopLoss: 5,
+        │   77 │         };
+        │   78 │     });
+        │   79 │
+        │   80 │     // Input states
+        │   81 │     const [referenceDigitInput, setReferenceDigitInput] = useState('5');
+        │   82 │     const [analysisCountInput, setAnalysisCountInput] = useState('120');
+        │   83 │     const [stakeInput, setStakeInput] = useState('1');
+        │   84 │
+        │   85 │     // Trade history and stats
+        │   86 │     const [tradeHistory, setTradeHistory] = useState<TradeResult[]>([]);
+        │   87 │     const [totalWins, setTotalWins] = useState(0);
+        │   88 │     const [totalLosses, setTotalLosses] = useState(0);
+        │   89 │     const [totalProfit, setTotalProfit] = useState(0);
+        │   90 │
+        │   91 │     const tradeIdCounter = useRef(0);
+        │   92 │
+        │   93 │     // Function to handle settings changes
+        │   94 │     const handleSettingChange = useCallback((field: keyof TradingSettings, value: string) => {
+        │   95 │         setTradingSettings(prev => {
+        │   96 │             const updatedSettings = { ...prev };
+        │   97 │             const numValue = parseFloat(value);
+        │   98 │             if (!isNaN(numValue)) {
+        │   99 │                 updatedSettings[field] = numValue;
+        │  100 │             }
+        │  101 │
+        │  102 │             try {
+        │  103 │                 localStorage.setItem(STORAGE_KEYS.TRADING_SETTINGS, JSON.stringify(updatedSettings));
+        │  104 │             } catch (error) {
+        │  105 │                 console.error('Error saving trading settings to localStorage:', error);
+        │  106 │             }
+        │  107 │
+        │  108 │             return updatedSettings;
+        │  109 │         });
+        │  110 │     }, []);
+        │  111 │
+        │  112 │     // Start/stop trading functions
+        │  113 │     const startTrading = useCallback(() => {
+        │  114 │         if (isRunning) return;
+        │  115 │
+        │  116 │         setIsRunning(true);
+        │  117 │         setStatus('Starting advanced trading analysis...');
+        │  118 │
+        │  119 │         const session_id = `advanced_${Date.now()}`;
+        │  120 │         setSessionRunId(session_id);
+        │  121 │         globalObserver.emit('bot.started', session_id);
+        │  122 │
+        │  123 │         // Simulate some trading activity
+        │  124 │         setTimeout(() => {
+        │  125 │             setStatus('Analysis complete. Ready for trading.');
+        │  126 │         }, 2000);
+        │  127 │     }, [isRunning]);
+        │  128 │
+        │  129 │     const stopTrading = useCallback(() => {
+        │  130 │         if (!isRunning) return;
+        │  131 │
+        │  132 │         setIsRunning(false);
+        │  133 │         setStatus('Trading stopped.');
+        │  134 │         globalObserver.emit('bot.stop');
+        │  135 │     }, [isRunning]);
+        │  136 │
+        │  137 │     // Format money function
+        │  138 │     const formatMoney = (amount: number) => {
+        │  139 │         return new Intl.NumberFormat('en-US', {
+        │  140 │             style: 'currency',
+        │  141 │             currency: 'USD',
+        │  142 │         }).format(Math.abs(amount));
+        │  143 │     };
+        │  144 │
+        │  145 │     return (
+        │  146 │         <div className="advanced-display">
+        │  147 │             <div className="advanced-display__title">
+        │  148 │                 Advanced Trading Display
+        │  149 │             </div>
+        │  150 │
+        │  151 │             <div className="advanced-display__subtitle">
+        │  152 │                 AI-Powered Market Analysis & Trading
+        │  153 │             </div>
+        │  154 │
+        │  155 │             <div className="advanced-display__workspace">
+        │  156 │                 <div className="advanced-display__action-bar">
+        │  157 │                     <div className="action-buttons-group">
+        │  158 │                         <button
+        │  159 │                             className={`action-button ${isRunning ? 'active' : ''}`}
+        │  160 │                             onClick={isRunning ? stopTrading : startTrading}
+        │  161 │                         >
+        │  162 │                             {isRunning ? 'Stop Analysis' : 'Start Analysis'}
+        │  163 │                         </button>
+        │  164 │                     </div>
+        │  165 │                 </div>
+        │  166 │
+        │  167 │                 <div className="settings-panel">
+        │  168 │                     <div className="setting-group">
+        │  169 │                         <label>Reference Digit:</label>
+        │  170 │                         <input
+        │  171 │                             type="number"
+        │  172 │                             value={referenceDigitInput}
+        │  173 │                             onChange={(e) => {
+        │  174 │                                 setReferenceDigitInput(e.target.value);
+        │  175 │                                 const num = parseInt(e.target.value);
+        │  176 │                                 if (!isNaN(num) && num >= 0 && num <= 9) {
+        │  177 │                                     setReferenceDigit(num);
+        │  178 │                                 }
+        │  179 │                             }}
+        │  180 │                             min="0"
+        │  181 │                             max="9"
+        │  182 │                             className="setting-input"
+        │  183 │                         />
+        │  184 │                     </div>
+        │  185 │
+        │  186 │                     <div className="setting-group">
+        │  187 │                         <label>Analysis Count:</label>
+        │  188 │                         <input
+        │  189 │                             type="number"
+        │  190 │                             value={analysisCountInput}
+        │  191 │                             onChange={(e) => {
+        │  192 │                                 setAnalysisCountInput(e.target.value);
+        │  193 │                                 const num = parseInt(e.target.value);
+        │  194 │                                 if (!isNaN(num) && num > 0) {
+        │  195 │                                     setAnalysisCount(num);
+        │  196 │                                 }
+        │  197 │                             }}
+        │  198 │                             min="1"
+        │  199 │                             className="setting-input"
+        │  200 │                         />
+        │  201 │                     </div>
+        │  202 │
+        │  203 │                     <div className="setting-group">
+        │  204 │                         <label>Stake ($):</label>
+        │  205 │                         <input
+        │  206 │                             type="number"
+        │  207 │                             value={stakeInput}
+        │  208 │                             onChange={(e) => {
+        │  209 │                                 setStakeInput(e.target.value);
+        │  210 │                                 handleSettingChange('stake', e.target.value);
+        │  211 │                             }}
+        │  212 │                             min="0.35"
+        │  213 │                             step="0.01"
+        │  214 │                             className="setting-input"
+        │  215 │                         />
+        │  216 │                     </div>
+        │  217 │
+        │  218 │                     <div className="setting-group">
+        │  219 │                         <label>Martingale:</label>
+        │  220 │                         <input
+        │  221 │                             type="number"
+        │  222 │                             value={tradingSettings.martingale}
+        │  223 │                             onChange={(e) => handleSettingChange('martingale', e.target.value)}
+        │  224 │                             min="1"
+        │  225 │                             step="0.1"
+        │  226 │                             className="setting-input"
+        │  227 │                         />
+        │  228 │                     </div>
+        │  229 │                 </div>
+        │  230 │
+        │  231 │                 <div className="trade-history-summary">
+        │  232 │                     <div className="summary-item wins">
+        │  233 │                         <span>Wins</span>
+        │  234 │                         <span>{totalWins}</span>
+        │  235 │                     </div>
+        │  236 │                     <div className="summary-item losses">
+        │  237 │                         <span>Losses</span>
+        │  238 │                         <span>{totalLosses}</span>
+        │  239 │                     </div>
+        │  240 │                     <div className="summary-item profit">
+        │  241 │                         <span>Total Profit</span>
+        │  242 │                         <span className={totalProfit >= 0 ? 'positive' : 'negative'}>
+        │  243 │                             {formatMoney(totalProfit)}
+        │  244 │                         </span>
+        │  245 │                     </div>
+        │  246 │                 </div>
+        │  247 │             </div>
+        │  248 │
+        │  249 │             {status && (
+        │  250 │                 <div className={classNames('advanced-display__status', {
+        │  251 │                     'advanced-display__status--success': status.includes('complete') || status.includes('Ready'),
+        │  252 │                     'advanced-display__status--info': status.includes('Starting') || status.includes('Analysis'),
+        │  253 │                     'advanced-display__status--error': status.includes('stopped') || status.includes('Error')
+        │  254 │                 })}>
+        │  255 │                     {status}
+        │  256 │                 </div>
+        │  257 │             )}
+        │  258 │         </div>
+        │  259 │     );
+        │  260 │ });
+        │  261 │
+        │  262 │ export default AdvancedDisplay;
+        │  263 │ import React, { useState, useEffect, useRef } from 'react';
+        │      ·                 ────┬───
+        │      ·                     ╰── `useState` redefined here
+        │  264 │ import classNames from 'classnames';
+        │  265 │ import { observer } from 'mobx-react-lite';
+        │  266 │ import chart_api from '@/external/bot-skeleton/services/api/chart-api';
+        │      ╰────
+        │   × the name `useEffect` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/components/higher-lower-trader/advanced-display.tsx:2:1]
+        │    1 │
+        │    2 │ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+        │      ·                           ────┬────
+        │      ·                               ╰── previous definition of `useEffect` here
+        │    3 │ import { observer } from 'mobx-react-lite';
+        │    4 │ import classNames from 'classnames';
+        │    5 │ import { ProposalOpenContract } from '@deriv/api-types';
+        │    6 │ import './advanced-display.scss';
+        │    7 │ import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
+        │    8 │ import { useStore } from '@/hooks/useStore';
+        │    9 │
+        │   10 │ // Symbol type for multi-symbol analysis
+        │   11 │ type SymbolType = 'R_10' | 'R_25' | 'R_50' | 'R_75' | 'R_100' | '1HZ10V' | '1HZ25V' | '1HZ50V' | '1HZ75V' | '1HZ100V';
+        │   12 │
+        │   13 │ // Trading settings interface
+        │   14 │ interface TradingSettings {
+        │   15 │     stake: number;
+        │   16 │     martingale: number;
+        │   17 │     takeProfit: number;
+        │   18 │     stopLoss: number;
+        │   19 │ }
+        │   20 │
+        │   21 │ // Trade result interface
+        │   22 │ interface TradeResult {
+        │   23 │     id: number;
+        │   24 │     contractId: number;
+        │   25 │     type: string;
+        │   26 │     symbol: SymbolType;
+        │   27 │     entrySpot?: string;
+        │   28 │     exitSpot?: string;
+        │   29 │     stake: number;
+        │   30 │     payout?: number;
+        │   31 │     profit?: number;
+        │   32 │     isWin?: boolean;
+        │   33 │     timestamp: number;
+        │   34 │     status?: 'open' | 'won' | 'lost' | 'pending';
+        │   35 │ }
+        │   36 │
+        │   37 │ // Constants
+        │   38 │ const STORAGE_KEYS = {
+        │   39 │     TRADING_SETTINGS: 'trading_settings',
+        │   40 │     TOTAL_PROFIT: 'total_profit',
+        │   41 │     AUTH_TOKEN: 'authToken',
+        │   42 │ };
+        │   43 │
+        │   44 │ const AdvancedDisplay = observer(() => {
+        │   45 │     // Get transactions store
+        │   46 │     const { transactions } = useStore();
+        │   47 │
+        │   48 │     // State
+        │   49 │     const [isRunning, setIsRunning] = useState(false);
+        │   50 │     const [status, setStatus] = useState('');
+        │   51 │     const [referenceDigit, setReferenceDigit] = useState(5);
+        │   52 │     const [analysisCount, setAnalysisCount] = useState(120);
+        │   53 │     const [sessionRunId, setSessionRunId] = useState<string>(`advanced_${Date.now()}`);
+        │   54 │
+        │   55 │     // Trading settings
+        │   56 │     const [tradingSettings, setTradingSettings] = useState<TradingSettings>(() => {
+        │   57 │         try {
+        │   58 │             const savedSettings = localStorage.getItem(STORAGE_KEYS.TRADING_SETTINGS);
+        │   59 │             if (savedSettings) {
+        │   60 │                 const parsedSettings = JSON.parse(savedSettings) as TradingSettings;
+        │   61 │                 return {
+        │   62 │                     stake: parsedSettings.stake || 1,
+        │   63 │                     martingale: parsedSettings.martingale || 2.0,
+        │   64 │                     takeProfit: parsedSettings.takeProfit || 10,
+        │   65 │                     stopLoss: parsedSettings.stopLoss || 5,
+        │   66 │                 };
+        │   67 │             }
+        │   68 │         } catch (error) {
+        │   69 │             console.error('Error loading trading settings from localStorage:', error);
+        │   70 │         }
+        │   71 │
+        │   72 │         return {
+        │   73 │             stake: 1,
+        │   74 │             martingale: 2.0,
+        │   75 │             takeProfit: 10,
+        │   76 │             stopLoss: 5,
+        │   77 │         };
+        │   78 │     });
+        │   79 │
+        │   80 │     // Input states
+        │   81 │     const [referenceDigitInput, setReferenceDigitInput] = useState('5');
+        │   82 │     const [analysisCountInput, setAnalysisCountInput] = useState('120');
+        │   83 │     const [stakeInput, setStakeInput] = useState('1');
+        │   84 │
+        │   85 │     // Trade history and stats
+        │   86 │     const [tradeHistory, setTradeHistory] = useState<TradeResult[]>([]);
+        │   87 │     const [totalWins, setTotalWins] = useState(0);
+        │   88 │     const [totalLosses, setTotalLosses] = useState(0);
+        │   89 │     const [totalProfit, setTotalProfit] = useState(0);
+        │   90 │
+        │   91 │     const tradeIdCounter = useRef(0);
+        │   92 │
+        │   93 │     // Function to handle settings changes
+        │   94 │     const handleSettingChange = useCallback((field: keyof TradingSettings, value: string) => {
+        │   95 │         setTradingSettings(prev => {
+        │   96 │             const updatedSettings = { ...prev };
+        │   97 │             const numValue = parseFloat(value);
+        │   98 │             if (!isNaN(numValue)) {
+        │   99 │                 updatedSettings[field] = numValue;
+        │  100 │             }
+        │  101 │
+        │  102 │             try {
+        │  103 │                 localStorage.setItem(STORAGE_KEYS.TRADING_SETTINGS, JSON.stringify(updatedSettings));
+        │  104 │             } catch (error) {
+        │  105 │                 console.error('Error saving trading settings to localStorage:', error);
+        │  106 │             }
+        │  107 │
+        │  108 │             return updatedSettings;
+        │  109 │         });
+        │  110 │     }, []);
+        │  111 │
+        │  112 │     // Start/stop trading functions
+        │  113 │     const startTrading = useCallback(() => {
+        │  114 │         if (isRunning) return;
+        │  115 │
+        │  116 │         setIsRunning(true);
+        │  117 │         setStatus('Starting advanced trading analysis...');
+        │  118 │
+        │  119 │         const session_id = `advanced_${Date.now()}`;
+        │  120 │         setSessionRunId(session_id);
+        │  121 │         globalObserver.emit('bot.started', session_id);
+        │  122 │
+        │  123 │         // Simulate some trading activity
+        │  124 │         setTimeout(() => {
+        │  125 │             setStatus('Analysis complete. Ready for trading.');
+        │  126 │         }, 2000);
+        │  127 │     }, [isRunning]);
+        │  128 │
+        │  129 │     const stopTrading = useCallback(() => {
+        │  130 │         if (!isRunning) return;
+        │  131 │
+        │  132 │         setIsRunning(false);
+        │  133 │         setStatus('Trading stopped.');
+        │  134 │         globalObserver.emit('bot.stop');
+        │  135 │     }, [isRunning]);
+        │  136 │
+        │  137 │     // Format money function
+        │  138 │     const formatMoney = (amount: number) => {
+        │  139 │         return new Intl.NumberFormat('en-US', {
+        │  140 │             style: 'currency',
+        │  141 │             currency: 'USD',
+        │  142 │         }).format(Math.abs(amount));
+        │  143 │     };
+        │  144 │
+        │  145 │     return (
+        │  146 │         <div className="advanced-display">
+        │  147 │             <div className="advanced-display__title">
+        │  148 │                 Advanced Trading Display
+        │  149 │             </div>
+        │  150 │
+        │  151 │             <div className="advanced-display__subtitle">
+        │  152 │                 AI-Powered Market Analysis & Trading
+        │  153 │             </div>
+        │  154 │
+        │  155 │             <div className="advanced-display__workspace">
+        │  156 │                 <div className="advanced-display__action-bar">
+        │  157 │                     <div className="action-buttons-group">
+        │  158 │                         <button
+        │  159 │                             className={`action-button ${isRunning ? 'active' : ''}`}
+        │  160 │                             onClick={isRunning ? stopTrading : startTrading}
+        │  161 │                         >
+        │  162 │                             {isRunning ? 'Stop Analysis' : 'Start Analysis'}
+        │  163 │                         </button>
+        │  164 │                     </div>
+        │  165 │                 </div>
+        │  166 │
+        │  167 │                 <div className="settings-panel">
+        │  168 │                     <div className="setting-group">
+        │  169 │                         <label>Reference Digit:</label>
+        │  170 │                         <input
+        │  171 │                             type="number"
+        │  172 │                             value={referenceDigitInput}
+        │  173 │                             onChange={(e) => {
+        │  174 │                                 setReferenceDigitInput(e.target.value);
+        │  175 │                                 const num = parseInt(e.target.value);
+        │  176 │                                 if (!isNaN(num) && num >= 0 && num <= 9) {
+        │  177 │                                     setReferenceDigit(num);
+        │  178 │                                 }
+        │  179 │                             }}
+        │  180 │                             min="0"
+        │  181 │                             max="9"
+        │  182 │                             className="setting-input"
+        │  183 │                         />
+        │  184 │                     </div>
+        │  185 │
+        │  186 │                     <div className="setting-group">
+        │  187 │                         <label>Analysis Count:</label>
+        │  188 │                         <input
+        │  189 │                             type="number"
+        │  190 │                             value={analysisCountInput}
+        │  191 │                             onChange={(e) => {
+        │  192 │                                 setAnalysisCountInput(e.target.value);
+        │  193 │                                 const num = parseInt(e.target.value);
+        │  194 │                                 if (!isNaN(num) && num > 0) {
+        │  195 │                                     setAnalysisCount(num);
+        │  196 │                                 }
+        │  197 │                             }}
+        │  198 │                             min="1"
+        │  199 │                             className="setting-input"
+        │  200 │                         />
+        │  201 │                     </div>
+        │  202 │
+        │  203 │                     <div className="setting-group">
+        │  204 │                         <label>Stake ($):</label>
+        │  205 │                         <input
+        │  206 │                             type="number"
+        │  207 │                             value={stakeInput}
+        │  208 │                             onChange={(e) => {
+        │  209 │                                 setStakeInput(e.target.value);
+        │  210 │                                 handleSettingChange('stake', e.target.value);
+        │  211 │                             }}
+        │  212 │                             min="0.35"
+        │  213 │                             step="0.01"
+        │  214 │                             className="setting-input"
+        │  215 │                         />
+        │  216 │                     </div>
+        │  217 │
+        │  218 │                     <div className="setting-group">
+        │  219 │                         <label>Martingale:</label>
+        │  220 │                         <input
+        │  221 │                             type="number"
+        │  222 │                             value={tradingSettings.martingale}
+        │  223 │                             onChange={(e) => handleSettingChange('martingale', e.target.value)}
+        │  224 │                             min="1"
+        │  225 │                             step="0.1"
+        │  226 │                             className="setting-input"
+        │  227 │                         />
+        │  228 │                     </div>
+        │  229 │                 </div>
+        │  230 │
+        │  231 │                 <div className="trade-history-summary">
+        │  232 │                     <div className="summary-item wins">
+        │  233 │                         <span>Wins</span>
+        │  234 │                         <span>{totalWins}</span>
+        │  235 │                     </div>
+        │  236 │                     <div className="summary-item losses">
+        │  237 │                         <span>Losses</span>
+        │  238 │                         <span>{totalLosses}</span>
+        │  239 │                     </div>
+        │  240 │                     <div className="summary-item profit">
+        │  241 │                         <span>Total Profit</span>
+        │  242 │                         <span className={totalProfit >= 0 ? 'positive' : 'negative'}>
+        │  243 │                             {formatMoney(totalProfit)}
+        │  244 │                         </span>
+        │  245 │                     </div>
+        │  246 │                 </div>
+        │  247 │             </div>
+        │  248 │
+        │  249 │             {status && (
+        │  250 │                 <div className={classNames('advanced-display__status', {
+        │  251 │                     'advanced-display__status--success': status.includes('complete') || status.includes('Ready'),
+        │  252 │                     'advanced-display__status--info': status.includes('Starting') || status.includes('Analysis'),
+        │  253 │                     'advanced-display__status--error': status.includes('stopped') || status.includes('Error')
+        │  254 │                 })}>
+        │  255 │                     {status}
+        │  256 │                 </div>
+        │  257 │             )}
+        │  258 │         </div>
+        │  259 │     );
+        │  260 │ });
+        │  261 │
+        │  262 │ export default AdvancedDisplay;
+        │  263 │ import React, { useState, useEffect, useRef } from 'react';
+        │      ·                           ────┬────
+        │      ·                               ╰── `useEffect` redefined here
+        │  264 │ import classNames from 'classnames';
+        │  265 │ import { observer } from 'mobx-react-lite';
+        │  266 │ import chart_api from '@/external/bot-skeleton/services/api/chart-api';
+        │      ╰────
+        │   × the name `useRef` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/components/higher-lower-trader/advanced-display.tsx:2:1]
+        │    1 │
+        │    2 │ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+        │      ·                                      ───┬──
+        │      ·                                         ╰── previous definition of `useRef` here
+        │    3 │ import { observer } from 'mobx-react-lite';
+        │    4 │ import classNames from 'classnames';
+        │    5 │ import { ProposalOpenContract } from '@deriv/api-types';
+        │    6 │ import './advanced-display.scss';
+        │    7 │ import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
+        │    8 │ import { useStore } from '@/hooks/useStore';
+        │    9 │
+        │   10 │ // Symbol type for multi-symbol analysis
+        │   11 │ type SymbolType = 'R_10' | 'R_25' | 'R_50' | 'R_75' | 'R_100' | '1HZ10V' | '1HZ25V' | '1HZ50V' | '1HZ75V' | '1HZ100V';
+        │   12 │
+        │   13 │ // Trading settings interface
+        │   14 │ interface TradingSettings {
+        │   15 │     stake: number;
+        │   16 │     martingale: number;
+        │   17 │     takeProfit: number;
+        │   18 │     stopLoss: number;
+        │   19 │ }
+        │   20 │
+        │   21 │ // Trade result interface
+        │   22 │ interface TradeResult {
+        │   23 │     id: number;
+        │   24 │     contractId: number;
+        │   25 │     type: string;
+        │   26 │     symbol: SymbolType;
+        │   27 │     entrySpot?: string;
+        │   28 │     exitSpot?: string;
+        │   29 │     stake: number;
+        │   30 │     payout?: number;
+        │   31 │     profit?: number;
+        │   32 │     isWin?: boolean;
+        │   33 │     timestamp: number;
+        │   34 │     status?: 'open' | 'won' | 'lost' | 'pending';
+        │   35 │ }
+        │   36 │
+        │   37 │ // Constants
+        │   38 │ const STORAGE_KEYS = {
+        │   39 │     TRADING_SETTINGS: 'trading_settings',
+        │   40 │     TOTAL_PROFIT: 'total_profit',
+        │   41 │     AUTH_TOKEN: 'authToken',
+        │   42 │ };
+        │   43 │
+        │   44 │ const AdvancedDisplay = observer(() => {
+        │   45 │     // Get transactions store
+        │   46 │     const { transactions } = useStore();
+        │   47 │
+        │   48 │     // State
+        │   49 │     const [isRunning, setIsRunning] = useState(false);
+        │   50 │     const [status, setStatus] = useState('');
+        │   51 │     const [referenceDigit, setReferenceDigit] = useState(5);
+        │   52 │     const [analysisCount, setAnalysisCount] = useState(120);
+        │   53 │     const [sessionRunId, setSessionRunId] = useState<string>(`advanced_${Date.now()}`);
+        │   54 │
+        │   55 │     // Trading settings
+        │   56 │     const [tradingSettings, setTradingSettings] = useState<TradingSettings>(() => {
+        │   57 │         try {
+        │   58 │             const savedSettings = localStorage.getItem(STORAGE_KEYS.TRADING_SETTINGS);
+        │   59 │             if (savedSettings) {
+        │   60 │                 const parsedSettings = JSON.parse(savedSettings) as TradingSettings;
+        │   61 │                 return {
+        │   62 │                     stake: parsedSettings.stake || 1,
+        │   63 │                     martingale: parsedSettings.martingale || 2.0,
+        │   64 │                     takeProfit: parsedSettings.takeProfit || 10,
+        │   65 │                     stopLoss: parsedSettings.stopLoss || 5,
+        │   66 │                 };
+        │   67 │             }
+        │   68 │         } catch (error) {
+        │   69 │             console.error('Error loading trading settings from localStorage:', error);
+        │   70 │         }
+        │   71 │
+        │   72 │         return {
+        │   73 │             stake: 1,
+        │   74 │             martingale: 2.0,
+        │   75 │             takeProfit: 10,
+        │   76 │             stopLoss: 5,
+        │   77 │         };
+        │   78 │     });
+        │   79 │
+        │   80 │     // Input states
+        │   81 │     const [referenceDigitInput, setReferenceDigitInput] = useState('5');
+        │   82 │     const [analysisCountInput, setAnalysisCountInput] = useState('120');
+        │   83 │     const [stakeInput, setStakeInput] = useState('1');
+        │   84 │
+        │   85 │     // Trade history and stats
+        │   86 │     const [tradeHistory, setTradeHistory] = useState<TradeResult[]>([]);
+        │   87 │     const [totalWins, setTotalWins] = useState(0);
+        │   88 │     const [totalLosses, setTotalLosses] = useState(0);
+        │   89 │     const [totalProfit, setTotalProfit] = useState(0);
+        │   90 │
+        │   91 │     const tradeIdCounter = useRef(0);
+        │   92 │
+        │   93 │     // Function to handle settings changes
+        │   94 │     const handleSettingChange = useCallback((field: keyof TradingSettings, value: string) => {
+        │   95 │         setTradingSettings(prev => {
+        │   96 │             const updatedSettings = { ...prev };
+        │   97 │             const numValue = parseFloat(value);
+        │   98 │             if (!isNaN(numValue)) {
+        │   99 │                 updatedSettings[field] = numValue;
+        │  100 │             }
+        │  101 │
+        │  102 │             try {
+        │  103 │                 localStorage.setItem(STORAGE_KEYS.TRADING_SETTINGS, JSON.stringify(updatedSettings));
+        │  104 │             } catch (error) {
+        │  105 │                 console.error('Error saving trading settings to localStorage:', error);
+        │  106 │             }
+        │  107 │
+        │  108 │             return updatedSettings;
+        │  109 │         });
+        │  110 │     }, []);
+        │  111 │
+        │  112 │     // Start/stop trading functions
+        │  113 │     const startTrading = useCallback(() => {
+        │  114 │         if (isRunning) return;
+        │  115 │
+        │  116 │         setIsRunning(true);
+        │  117 │         setStatus('Starting advanced trading analysis...');
+        │  118 │
+        │  119 │         const session_id = `advanced_${Date.now()}`;
+        │  120 │         setSessionRunId(session_id);
+        │  121 │         globalObserver.emit('bot.started', session_id);
+        │  122 │
+        │  123 │         // Simulate some trading activity
+        │  124 │         setTimeout(() => {
+        │  125 │             setStatus('Analysis complete. Ready for trading.');
+        │  126 │         }, 2000);
+        │  127 │     }, [isRunning]);
+        │  128 │
+        │  129 │     const stopTrading = useCallback(() => {
+        │  130 │         if (!isRunning) return;
+        │  131 │
+        │  132 │         setIsRunning(false);
+        │  133 │         setStatus('Trading stopped.');
+        │  134 │         globalObserver.emit('bot.stop');
+        │  135 │     }, [isRunning]);
+        │  136 │
+        │  137 │     // Format money function
+        │  138 │     const formatMoney = (amount: number) => {
+        │  139 │         return new Intl.NumberFormat('en-US', {
+        │  140 │             style: 'currency',
+        │  141 │             currency: 'USD',
+        │  142 │         }).format(Math.abs(amount));
+        │  143 │     };
+        │  144 │
+        │  145 │     return (
+        │  146 │         <div className="advanced-display">
+        │  147 │             <div className="advanced-display__title">
+        │  148 │                 Advanced Trading Display
+        │  149 │             </div>
+        │  150 │
+        │  151 │             <div className="advanced-display__subtitle">
+        │  152 │                 AI-Powered Market Analysis & Trading
+        │  153 │             </div>
+        │  154 │
+        │  155 │             <div className="advanced-display__workspace">
+        │  156 │                 <div className="advanced-display__action-bar">
+        │  157 │                     <div className="action-buttons-group">
+        │  158 │                         <button
+        │  159 │                             className={`action-button ${isRunning ? 'active' : ''}`}
+        │  160 │                             onClick={isRunning ? stopTrading : startTrading}
+        │  161 │                         >
+        │  162 │                             {isRunning ? 'Stop Analysis' : 'Start Analysis'}
+        │  163 │                         </button>
+        │  164 │                     </div>
+        │  165 │                 </div>
+        │  166 │
+        │  167 │                 <div className="settings-panel">
+        │  168 │                     <div className="setting-group">
+        │  169 │                         <label>Reference Digit:</label>
+        │  170 │                         <input
+        │  171 │                             type="number"
+        │  172 │                             value={referenceDigitInput}
+        │  173 │                             onChange={(e) => {
+        │  174 │                                 setReferenceDigitInput(e.target.value);
+        │  175 │                                 const num = parseInt(e.target.value);
+        │  176 │                                 if (!isNaN(num) && num >= 0 && num <= 9) {
+        │  177 │                                     setReferenceDigit(num);
+        │  178 │                                 }
+        │  179 │                             }}
+        │  180 │                             min="0"
+        │  181 │                             max="9"
+        │  182 │                             className="setting-input"
+        │  183 │                         />
+        │  184 │                     </div>
+        │  185 │
+        │  186 │                     <div className="setting-group">
+        │  187 │                         <label>Analysis Count:</label>
+        │  188 │                         <input
+        │  189 │                             type="number"
+        │  190 │                             value={analysisCountInput}
+        │  191 │                             onChange={(e) => {
+        │  192 │                                 setAnalysisCountInput(e.target.value);
+        │  193 │                                 const num = parseInt(e.target.value);
+        │  194 │                                 if (!isNaN(num) && num > 0) {
+        │  195 │                                     setAnalysisCount(num);
+        │  196 │                                 }
+        │  197 │                             }}
+        │  198 │                             min="1"
+        │  199 │                             className="setting-input"
+        │  200 │                         />
+        │  201 │                     </div>
+        │  202 │
+        │  203 │                     <div className="setting-group">
+        │  204 │                         <label>Stake ($):</label>
+        │  205 │                         <input
+        │  206 │                             type="number"
+        │  207 │                             value={stakeInput}
+        │  208 │                             onChange={(e) => {
+        │  209 │                                 setStakeInput(e.target.value);
+        │  210 │                                 handleSettingChange('stake', e.target.value);
+        │  211 │                             }}
+        │  212 │                             min="0.35"
+        │  213 │                             step="0.01"
+        │  214 │                             className="setting-input"
+        │  215 │                         />
+        │  216 │                     </div>
+        │  217 │
+        │  218 │                     <div className="setting-group">
+        │  219 │                         <label>Martingale:</label>
+        │  220 │                         <input
+        │  221 │                             type="number"
+        │  222 │                             value={tradingSettings.martingale}
+        │  223 │                             onChange={(e) => handleSettingChange('martingale', e.target.value)}
+        │  224 │                             min="1"
+        │  225 │                             step="0.1"
+        │  226 │                             className="setting-input"
+        │  227 │                         />
+        │  228 │                     </div>
+        │  229 │                 </div>
+        │  230 │
+        │  231 │                 <div className="trade-history-summary">
+        │  232 │                     <div className="summary-item wins">
+        │  233 │                         <span>Wins</span>
+        │  234 │                         <span>{totalWins}</span>
+        │  235 │                     </div>
+        │  236 │                     <div className="summary-item losses">
+        │  237 │                         <span>Losses</span>
+        │  238 │                         <span>{totalLosses}</span>
+        │  239 │                     </div>
+        │  240 │                     <div className="summary-item profit">
+        │  241 │                         <span>Total Profit</span>
+        │  242 │                         <span className={totalProfit >= 0 ? 'positive' : 'negative'}>
+        │  243 │                             {formatMoney(totalProfit)}
+        │  244 │                         </span>
+        │  245 │                     </div>
+        │  246 │                 </div>
+        │  247 │             </div>
+        │  248 │
+        │  249 │             {status && (
+        │  250 │                 <div className={classNames('advanced-display__status', {
+        │  251 │                     'advanced-display__status--success': status.includes('complete') || status.includes('Ready'),
+        │  252 │                     'advanced-display__status--info': status.includes('Starting') || status.includes('Analysis'),
+        │  253 │                     'advanced-display__status--error': status.includes('stopped') || status.includes('Error')
+        │  254 │                 })}>
+        │  255 │                     {status}
+        │  256 │                 </div>
+        │  257 │             )}
+        │  258 │         </div>
+        │  259 │     );
+        │  260 │ });
+        │  261 │
+        │  262 │ export default AdvancedDisplay;
+        │  263 │ import React, { useState, useEffect, useRef } from 'react';
+        │      ·                                      ───┬──
+        │      ·                                         ╰── `useRef` redefined here
+        │  264 │ import classNames from 'classnames';
+        │  265 │ import { observer } from 'mobx-react-lite';
+        │  266 │ import chart_api from '@/external/bot-skeleton/services/api/chart-api';
+        │      ╰────
+        │   × the name `classNames` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/components/higher-lower-trader/advanced-display.tsx:4:1]
+        │    1 │
+        │    2 │ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+        │    3 │ import { observer } from 'mobx-react-lite';
+        │    4 │ import classNames from 'classnames';
+        │      ·        ─────┬────
+        │      ·             ╰── previous definition of `classNames` here
+        │    5 │ import { ProposalOpenContract } from '@deriv/api-types';
+        │    6 │ import './advanced-display.scss';
+        │    7 │ import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
+        │    8 │ import { useStore } from '@/hooks/useStore';
+        │    9 │
+        │   10 │ // Symbol type for multi-symbol analysis
+        │   11 │ type SymbolType = 'R_10' | 'R_25' | 'R_50' | 'R_75' | 'R_100' | '1HZ10V' | '1HZ25V' | '1HZ50V' | '1HZ75V' | '1HZ100V';
+        │   12 │
+        │   13 │ // Trading settings interface
+        │   14 │ interface TradingSettings {
+        │   15 │     stake: number;
+        │   16 │     martingale: number;
+        │   17 │     takeProfit: number;
+        │   18 │     stopLoss: number;
+        │   19 │ }
+        │   20 │
+        │   21 │ // Trade result interface
+        │   22 │ interface TradeResult {
+        │   23 │     id: number;
+        │   24 │     contractId: number;
+        │   25 │     type: string;
+        │   26 │     symbol: SymbolType;
+        │   27 │     entrySpot?: string;
+        │   28 │     exitSpot?: string;
+        │   29 │     stake: number;
+        │   30 │     payout?: number;
+        │   31 │     profit?: number;
+        │   32 │     isWin?: boolean;
+        │   33 │     timestamp: number;
+        │   34 │     status?: 'open' | 'won' | 'lost' | 'pending';
+        │   35 │ }
+        │   36 │
+        │   37 │ // Constants
+        │   38 │ const STORAGE_KEYS = {
+        │   39 │     TRADING_SETTINGS: 'trading_settings',
+        │   40 │     TOTAL_PROFIT: 'total_profit',
+        │   41 │     AUTH_TOKEN: 'authToken',
+        │   42 │ };
+        │   43 │
+        │   44 │ const AdvancedDisplay = observer(() => {
+        │   45 │     // Get transactions store
+        │   46 │     const { transactions } = useStore();
+        │   47 │
+        │   48 │     // State
+        │   49 │     const [isRunning, setIsRunning] = useState(false);
+        │   50 │     const [status, setStatus] = useState('');
+        │   51 │     const [referenceDigit, setReferenceDigit] = useState(5);
+        │   52 │     const [analysisCount, setAnalysisCount] = useState(120);
+        │   53 │     const [sessionRunId, setSessionRunId] = useState<string>(`advanced_${Date.now()}`);
+        │   54 │
+        │   55 │     // Trading settings
+        │   56 │     const [tradingSettings, setTradingSettings] = useState<TradingSettings>(() => {
+        │   57 │         try {
+        │   58 │             const savedSettings = localStorage.getItem(STORAGE_KEYS.TRADING_SETTINGS);
+        │   59 │             if (savedSettings) {
+        │   60 │                 const parsedSettings = JSON.parse(savedSettings) as TradingSettings;
+        │   61 │                 return {
+        │   62 │                     stake: parsedSettings.stake || 1,
+        │   63 │                     martingale: parsedSettings.martingale || 2.0,
+        │   64 │                     takeProfit: parsedSettings.takeProfit || 10,
+        │   65 │                     stopLoss: parsedSettings.stopLoss || 5,
+        │   66 │                 };
+        │   67 │             }
+        │   68 │         } catch (error) {
+        │   69 │             console.error('Error loading trading settings from localStorage:', error);
+        │   70 │         }
+        │   71 │
+        │   72 │         return {
+        │   73 │             stake: 1,
+        │   74 │             martingale: 2.0,
+        │   75 │             takeProfit: 10,
+        │   76 │             stopLoss: 5,
+        │   77 │         };
+        │   78 │     });
+        │   79 │
+        │   80 │     // Input states
+        │   81 │     const [referenceDigitInput, setReferenceDigitInput] = useState('5');
+        │   82 │     const [analysisCountInput, setAnalysisCountInput] = useState('120');
+        │   83 │     const [stakeInput, setStakeInput] = useState('1');
+        │   84 │
+        │   85 │     // Trade history and stats
+        │   86 │     const [tradeHistory, setTradeHistory] = useState<TradeResult[]>([]);
+        │   87 │     const [totalWins, setTotalWins] = useState(0);
+        │   88 │     const [totalLosses, setTotalLosses] = useState(0);
+        │   89 │     const [totalProfit, setTotalProfit] = useState(0);
+        │   90 │
+        │   91 │     const tradeIdCounter = useRef(0);
+        │   92 │
+        │   93 │     // Function to handle settings changes
+        │   94 │     const handleSettingChange = useCallback((field: keyof TradingSettings, value: string) => {
+        │   95 │         setTradingSettings(prev => {
+        │   96 │             const updatedSettings = { ...prev };
+        │   97 │             const numValue = parseFloat(value);
+        │   98 │             if (!isNaN(numValue)) {
+        │   99 │                 updatedSettings[field] = numValue;
+        │  100 │             }
+        │  101 │
+        │  102 │             try {
+        │  103 │                 localStorage.setItem(STORAGE_KEYS.TRADING_SETTINGS, JSON.stringify(updatedSettings));
+        │  104 │             } catch (error) {
+        │  105 │                 console.error('Error saving trading settings to localStorage:', error);
+        │  106 │             }
+        │  107 │
+        │  108 │             return updatedSettings;
+        │  109 │         });
+        │  110 │     }, []);
+        │  111 │
+        │  112 │     // Start/stop trading functions
+        │  113 │     const startTrading = useCallback(() => {
+        │  114 │         if (isRunning) return;
+        │  115 │
+        │  116 │         setIsRunning(true);
+        │  117 │         setStatus('Starting advanced trading analysis...');
+        │  118 │
+        │  119 │         const session_id = `advanced_${Date.now()}`;
+        │  120 │         setSessionRunId(session_id);
+        │  121 │         globalObserver.emit('bot.started', session_id);
+        │  122 │
+        │  123 │         // Simulate some trading activity
+        │  124 │         setTimeout(() => {
+        │  125 │             setStatus('Analysis complete. Ready for trading.');
+        │  126 │         }, 2000);
+        │  127 │     }, [isRunning]);
+        │  128 │
+        │  129 │     const stopTrading = useCallback(() => {
+        │  130 │         if (!isRunning) return;
+        │  131 │
+        │  132 │         setIsRunning(false);
+        │  133 │         setStatus('Trading stopped.');
+        │  134 │         globalObserver.emit('bot.stop');
+        │  135 │     }, [isRunning]);
+        │  136 │
+        │  137 │     // Format money function
+        │  138 │     const formatMoney = (amount: number) => {
+        │  139 │         return new Intl.NumberFormat('en-US', {
+        │  140 │             style: 'currency',
+        │  141 │             currency: 'USD',
+        │  142 │         }).format(Math.abs(amount));
+        │  143 │     };
+        │  144 │
+        │  145 │     return (
+        │  146 │         <div className="advanced-display">
+        │  147 │             <div className="advanced-display__title">
+        │  148 │                 Advanced Trading Display
+        │  149 │             </div>
+        │  150 │
+        │  151 │             <div className="advanced-display__subtitle">
+        │  152 │                 AI-Powered Market Analysis & Trading
+        │  153 │             </div>
+        │  154 │
+        │  155 │             <div className="advanced-display__workspace">
+        │  156 │                 <div className="advanced-display__action-bar">
+        │  157 │                     <div className="action-buttons-group">
+        │  158 │                         <button
+        │  159 │                             className={`action-button ${isRunning ? 'active' : ''}`}
+        │  160 │                             onClick={isRunning ? stopTrading : startTrading}
+        │  161 │                         >
+        │  162 │                             {isRunning ? 'Stop Analysis' : 'Start Analysis'}
+        │  163 │                         </button>
+        │  164 │                     </div>
+        │  165 │                 </div>
+        │  166 │
+        │  167 │                 <div className="settings-panel">
+        │  168 │                     <div className="setting-group">
+        │  169 │                         <label>Reference Digit:</label>
+        │  170 │                         <input
+        │  171 │                             type="number"
+        │  172 │                             value={referenceDigitInput}
+        │  173 │                             onChange={(e) => {
+        │  174 │                                 setReferenceDigitInput(e.target.value);
+        │  175 │                                 const num = parseInt(e.target.value);
+        │  176 │                                 if (!isNaN(num) && num >= 0 && num <= 9) {
+        │  177 │                                     setReferenceDigit(num);
+        │  178 │                                 }
+        │  179 │                             }}
+        │  180 │                             min="0"
+        │  181 │                             max="9"
+        │  182 │                             className="setting-input"
+        │  183 │                         />
+        │  184 │                     </div>
+        │  185 │
+        │  186 │                     <div className="setting-group">
+        │  187 │                         <label>Analysis Count:</label>
+        │  188 │                         <input
+        │  189 │                             type="number"
+        │  190 │                             value={analysisCountInput}
+        │  191 │                             onChange={(e) => {
+        │  192 │                                 setAnalysisCountInput(e.target.value);
+        │  193 │                                 const num = parseInt(e.target.value);
+        │  194 │                                 if (!isNaN(num) && num > 0) {
+        │  195 │                                     setAnalysisCount(num);
+        │  196 │                                 }
+        │  197 │                             }}
+        │  198 │                             min="1"
+        │  199 │                             className="setting-input"
+        │  200 │                         />
+        │  201 │                     </div>
+        │  202 │
+        │  203 │                     <div className="setting-group">
+        │  204 │                         <label>Stake ($):</label>
+        │  205 │                         <input
+        │  206 │                             type="number"
+        │  207 │                             value={stakeInput}
+        │  208 │                             onChange={(e) => {
+        │  209 │                                 setStakeInput(e.target.value);
+        │  210 │                                 handleSettingChange('stake', e.target.value);
+        │  211 │                             }}
+        │  212 │                             min="0.35"
+        │  213 │                             step="0.01"
+        │  214 │                             className="setting-input"
+        │  215 │                         />
+        │  216 │                     </div>
+        │  217 │
+        │  218 │                     <div className="setting-group">
+        │  219 │                         <label>Martingale:</label>
+        │  220 │                         <input
+        │  221 │                             type="number"
+        │  222 │                             value={tradingSettings.martingale}
+        │  223 │                             onChange={(e) => handleSettingChange('martingale', e.target.value)}
+        │  224 │                             min="1"
+        │  225 │                             step="0.1"
+        │  226 │                             className="setting-input"
+        │  227 │                         />
+        │  228 │                     </div>
+        │  229 │                 </div>
+        │  230 │
+        │  231 │                 <div className="trade-history-summary">
+        │  232 │                     <div className="summary-item wins">
+        │  233 │                         <span>Wins</span>
+        │  234 │                         <span>{totalWins}</span>
+        │  235 │                     </div>
+        │  236 │                     <div className="summary-item losses">
+        │  237 │                         <span>Losses</span>
+        │  238 │                         <span>{totalLosses}</span>
+        │  239 │                     </div>
+        │  240 │                     <div className="summary-item profit">
+        │  241 │                         <span>Total Profit</span>
+        │  242 │                         <span className={totalProfit >= 0 ? 'positive' : 'negative'}>
+        │  243 │                             {formatMoney(totalProfit)}
+        │  244 │                         </span>
+        │  245 │                     </div>
+        │  246 │                 </div>
+        │  247 │             </div>
+        │  248 │
+        │  249 │             {status && (
+        │  250 │                 <div className={classNames('advanced-display__status', {
+        │  251 │                     'advanced-display__status--success': status.includes('complete') || status.includes('Ready'),
+        │  252 │                     'advanced-display__status--info': status.includes('Starting') || status.includes('Analysis'),
+        │  253 │                     'advanced-display__status--error': status.includes('stopped') || status.includes('Error')
+        │  254 │                 })}>
+        │  255 │                     {status}
+        │  256 │                 </div>
+        │  257 │             )}
+        │  258 │         </div>
+        │  259 │     );
+        │  260 │ });
+        │  261 │
+        │  262 │ export default AdvancedDisplay;
+        │  263 │ import React, { useState, useEffect, useRef } from 'react';
+        │  264 │ import classNames from 'classnames';
+        │      ·        ─────┬────
+        │      ·             ╰── `classNames` redefined here
+        │  265 │ import { observer } from 'mobx-react-lite';
+        │  266 │ import chart_api from '@/external/bot-skeleton/services/api/chart-api';
+        │  267 │ import { useStore } from '@/hooks/useStore';
+        │      ╰────
+        │   × the name `observer` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/components/higher-lower-trader/advanced-display.tsx:3:1]
+        │    1 │
+        │    2 │ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+        │    3 │ import { observer } from 'mobx-react-lite';
+        │      ·          ────┬───
+        │      ·              ╰── previous definition of `observer` here
+        │    4 │ import classNames from 'classnames';
+        │    5 │ import { ProposalOpenContract } from '@deriv/api-types';
+        │    6 │ import './advanced-display.scss';
+        │    7 │ import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
+        │    8 │ import { useStore } from '@/hooks/useStore';
+        │    9 │
+        │   10 │ // Symbol type for multi-symbol analysis
+        │   11 │ type SymbolType = 'R_10' | 'R_25' | 'R_50' | 'R_75' | 'R_100' | '1HZ10V' | '1HZ25V' | '1HZ50V' | '1HZ75V' | '1HZ100V';
+        │   12 │
+        │   13 │ // Trading settings interface
+        │   14 │ interface TradingSettings {
+        │   15 │     stake: number;
+        │   16 │     martingale: number;
+        │   17 │     takeProfit: number;
+        │   18 │     stopLoss: number;
+        │   19 │ }
+        │   20 │
+        │   21 │ // Trade result interface
+        │   22 │ interface TradeResult {
+        │   23 │     id: number;
+        │   24 │     contractId: number;
+        │   25 │     type: string;
+        │   26 │     symbol: SymbolType;
+        │   27 │     entrySpot?: string;
+        │   28 │     exitSpot?: string;
+        │   29 │     stake: number;
+        │   30 │     payout?: number;
+        │   31 │     profit?: number;
+        │   32 │     isWin?: boolean;
+        │   33 │     timestamp: number;
+        │   34 │     status?: 'open' | 'won' | 'lost' | 'pending';
+        │   35 │ }
+        │   36 │
+        │   37 │ // Constants
+        │   38 │ const STORAGE_KEYS = {
+        │   39 │     TRADING_SETTINGS: 'trading_settings',
+        │   40 │     TOTAL_PROFIT: 'total_profit',
+        │   41 │     AUTH_TOKEN: 'authToken',
+        │   42 │ };
+        │   43 │
+        │   44 │ const AdvancedDisplay = observer(() => {
+        │   45 │     // Get transactions store
+        │   46 │     const { transactions } = useStore();
+        │   47 │
+        │   48 │     // State
+        │   49 │     const [isRunning, setIsRunning] = useState(false);
+        │   50 │     const [status, setStatus] = useState('');
+        │   51 │     const [referenceDigit, setReferenceDigit] = useState(5);
+        │   52 │     const [analysisCount, setAnalysisCount] = useState(120);
+        │   53 │     const [sessionRunId, setSessionRunId] = useState<string>(`advanced_${Date.now()}`);
+        │   54 │
+        │   55 │     // Trading settings
+        │   56 │     const [tradingSettings, setTradingSettings] = useState<TradingSettings>(() => {
+        │   57 │         try {
+        │   58 │             const savedSettings = localStorage.getItem(STORAGE_KEYS.TRADING_SETTINGS);
+        │   59 │             if (savedSettings) {
+        │   60 │                 const parsedSettings = JSON.parse(savedSettings) as TradingSettings;
+        │   61 │                 return {
+        │   62 │                     stake: parsedSettings.stake || 1,
+        │   63 │                     martingale: parsedSettings.martingale || 2.0,
+        │   64 │                     takeProfit: parsedSettings.takeProfit || 10,
+        │   65 │                     stopLoss: parsedSettings.stopLoss || 5,
+        │   66 │                 };
+        │   67 │             }
+        │   68 │         } catch (error) {
+        │   69 │             console.error('Error loading trading settings from localStorage:', error);
+        │   70 │         }
+        │   71 │
+        │   72 │         return {
+        │   73 │             stake: 1,
+        │   74 │             martingale: 2.0,
+        │   75 │             takeProfit: 10,
+        │   76 │             stopLoss: 5,
+        │   77 │         };
+        │   78 │     });
+        │   79 │
+        │   80 │     // Input states
+        │   81 │     const [referenceDigitInput, setReferenceDigitInput] = useState('5');
+        │   82 │     const [analysisCountInput, setAnalysisCountInput] = useState('120');
+        │   83 │     const [stakeInput, setStakeInput] = useState('1');
+        │   84 │
+        │   85 │     // Trade history and stats
+        │   86 │     const [tradeHistory, setTradeHistory] = useState<TradeResult[]>([]);
+        │   87 │     const [totalWins, setTotalWins] = useState(0);
+        │   88 │     const [totalLosses, setTotalLosses] = useState(0);
+        │   89 │     const [totalProfit, setTotalProfit] = useState(0);
+        │   90 │
+        │   91 │     const tradeIdCounter = useRef(0);
+        │   92 │
+        │   93 │     // Function to handle settings changes
+        │   94 │     const handleSettingChange = useCallback((field: keyof TradingSettings, value: string) => {
+        │   95 │         setTradingSettings(prev => {
+        │   96 │             const updatedSettings = { ...prev };
+        │   97 │             const numValue = parseFloat(value);
+        │   98 │             if (!isNaN(numValue)) {
+        │   99 │                 updatedSettings[field] = numValue;
+        │  100 │             }
+        │  101 │
+        │  102 │             try {
+        │  103 │                 localStorage.setItem(STORAGE_KEYS.TRADING_SETTINGS, JSON.stringify(updatedSettings));
+        │  104 │             } catch (error) {
+        │  105 │                 console.error('Error saving trading settings to localStorage:', error);
+        │  106 │             }
+        │  107 │
+        │  108 │             return updatedSettings;
+        │  109 │         });
+        │  110 │     }, []);
+        │  111 │
+        │  112 │     // Start/stop trading functions
+        │  113 │     const startTrading = useCallback(() => {
+        │  114 │         if (isRunning) return;
+        │  115 │
+        │  116 │         setIsRunning(true);
+        │  117 │         setStatus('Starting advanced trading analysis...');
+        │  118 │
+        │  119 │         const session_id = `advanced_${Date.now()}`;
+        │  120 │         setSessionRunId(session_id);
+        │  121 │         globalObserver.emit('bot.started', session_id);
+        │  122 │
+        │  123 │         // Simulate some trading activity
+        │  124 │         setTimeout(() => {
+        │  125 │             setStatus('Analysis complete. Ready for trading.');
+        │  126 │         }, 2000);
+        │  127 │     }, [isRunning]);
+        │  128 │
+        │  129 │     const stopTrading = useCallback(() => {
+        │  130 │         if (!isRunning) return;
+        │  131 │
+        │  132 │         setIsRunning(false);
+        │  133 │         setStatus('Trading stopped.');
+        │  134 │         globalObserver.emit('bot.stop');
+        │  135 │     }, [isRunning]);
+        │  136 │
+        │  137 │     // Format money function
+        │  138 │     const formatMoney = (amount: number) => {
+        │  139 │         return new Intl.NumberFormat('en-US', {
+        │  140 │             style: 'currency',
+        │  141 │             currency: 'USD',
+        │  142 │         }).format(Math.abs(amount));
+        │  143 │     };
+        │  144 │
+        │  145 │     return (
+        │  146 │         <div className="advanced-display">
+        │  147 │             <div className="advanced-display__title">
+        │  148 │                 Advanced Trading Display
+        │  149 │             </div>
+        │  150 │
+        │  151 │             <div className="advanced-display__subtitle">
+        │  152 │                 AI-Powered Market Analysis & Trading
+        │  153 │             </div>
+        │  154 │
+        │  155 │             <div className="advanced-display__workspace">
+        │  156 │                 <div className="advanced-display__action-bar">
+        │  157 │                     <div className="action-buttons-group">
+        │  158 │                         <button
+        │  159 │                             className={`action-button ${isRunning ? 'active' : ''}`}
+        │  160 │                             onClick={isRunning ? stopTrading : startTrading}
+        │  161 │                         >
+        │  162 │                             {isRunning ? 'Stop Analysis' : 'Start Analysis'}
+        │  163 │                         </button>
+        │  164 │                     </div>
+        │  165 │                 </div>
+        │  166 │
+        │  167 │                 <div className="settings-panel">
+        │  168 │                     <div className="setting-group">
+        │  169 │                         <label>Reference Digit:</label>
+        │  170 │                         <input
+        │  171 │                             type="number"
+        │  172 │                             value={referenceDigitInput}
+        │  173 │                             onChange={(e) => {
+        │  174 │                                 setReferenceDigitInput(e.target.value);
+        │  175 │                                 const num = parseInt(e.target.value);
+        │  176 │                                 if (!isNaN(num) && num >= 0 && num <= 9) {
+        │  177 │                                     setReferenceDigit(num);
+        │  178 │                                 }
+        │  179 │                             }}
+        │  180 │                             min="0"
+        │  181 │                             max="9"
+        │  182 │                             className="setting-input"
+        │  183 │                         />
+        │  184 │                     </div>
+        │  185 │
+        │  186 │                     <div className="setting-group">
+        │  187 │                         <label>Analysis Count:</label>
+        │  188 │                         <input
+        │  189 │                             type="number"
+        │  190 │                             value={analysisCountInput}
+        │  191 │                             onChange={(e) => {
+        │  192 │                                 setAnalysisCountInput(e.target.value);
+        │  193 │                                 const num = parseInt(e.target.value);
+        │  194 │                                 if (!isNaN(num) && num > 0) {
+        │  195 │                                     setAnalysisCount(num);
+        │  196 │                                 }
+        │  197 │                             }}
+        │  198 │                             min="1"
+        │  199 │                             className="setting-input"
+        │  200 │                         />
+        │  201 │                     </div>
+        │  202 │
+        │  203 │                     <div className="setting-group">
+        │  204 │                         <label>Stake ($):</label>
+        │  205 │                         <input
+        │  206 │                             type="number"
+        │  207 │                             value={stakeInput}
+        │  208 │                             onChange={(e) => {
+        │  209 │                                 setStakeInput(e.target.value);
+        │  210 │                                 handleSettingChange('stake', e.target.value);
+        │  211 │                             }}
+        │  212 │                             min="0.35"
+        │  213 │                             step="0.01"
+        │  214 │                             className="setting-input"
+        │  215 │                         />
+        │  216 │                     </div>
+        │  217 │
+        │  218 │                     <div className="setting-group">
+        │  219 │                         <label>Martingale:</label>
+        │  220 │                         <input
+        │  221 │                             type="number"
+        │  222 │                             value={tradingSettings.martingale}
+        │  223 │                             onChange={(e) => handleSettingChange('martingale', e.target.value)}
+        │  224 │                             min="1"
+        │  225 │                             step="0.1"
+        │  226 │                             className="setting-input"
+        │  227 │                         />
+        │  228 │                     </div>
+        │  229 │                 </div>
+        │  230 │
+        │  231 │                 <div className="trade-history-summary">
+        │  232 │                     <div className="summary-item wins">
+        │  233 │                         <span>Wins</span>
+        │  234 │                         <span>{totalWins}</span>
+        │  235 │                     </div>
+        │  236 │                     <div className="summary-item losses">
+        │  237 │                         <span>Losses</span>
+        │  238 │                         <span>{totalLosses}</span>
+        │  239 │                     </div>
+        │  240 │                     <div className="summary-item profit">
+        │  241 │                         <span>Total Profit</span>
+        │  242 │                         <span className={totalProfit >= 0 ? 'positive' : 'negative'}>
+        │  243 │                             {formatMoney(totalProfit)}
+        │  244 │                         </span>
+        │  245 │                     </div>
+        │  246 │                 </div>
+        │  247 │             </div>
+        │  248 │
+        │  249 │             {status && (
+        │  250 │                 <div className={classNames('advanced-display__status', {
+        │  251 │                     'advanced-display__status--success': status.includes('complete') || status.includes('Ready'),
+        │  252 │                     'advanced-display__status--info': status.includes('Starting') || status.includes('Analysis'),
+        │  253 │                     'advanced-display__status--error': status.includes('stopped') || status.includes('Error')
+        │  254 │                 })}>
+        │  255 │                     {status}
+        │  256 │                 </div>
+        │  257 │             )}
+        │  258 │         </div>
+        │  259 │     );
+        │  260 │ });
+        │  261 │
+        │  262 │ export default AdvancedDisplay;
+        │  263 │ import React, { useState, useEffect, useRef } from 'react';
+        │  264 │ import classNames from 'classnames';
+        │  265 │ import { observer } from 'mobx-react-lite';
+        │      ·          ────┬───
+        │      ·              ╰── `observer` redefined here
+        │  266 │ import chart_api from '@/external/bot-skeleton/services/api/chart-api';
+        │  267 │ import { useStore } from '@/hooks/useStore';
+        │  268 │ import {
+        │      ╰────
+        │   × the name `useStore` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/components/higher-lower-trader/advanced-display.tsx:8:1]
+        │    5 │ import { ProposalOpenContract } from '@deriv/api-types';
+        │    6 │ import './advanced-display.scss';
+        │    7 │ import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
+        │    8 │ import { useStore } from '@/hooks/useStore';
+        │      ·          ────┬───
+        │      ·              ╰── previous definition of `useStore` here
+        │    9 │
+        │   10 │ // Symbol type for multi-symbol analysis
+        │   11 │ type SymbolType = 'R_10' | 'R_25' | 'R_50' | 'R_75' | 'R_100' | '1HZ10V' | '1HZ25V' | '1HZ50V' | '1HZ75V' | '1HZ100V';
+        │   12 │
+        │   13 │ // Trading settings interface
+        │   14 │ interface TradingSettings {
+        │   15 │     stake: number;
+        │   16 │     martingale: number;
+        │   17 │     takeProfit: number;
+        │   18 │     stopLoss: number;
+        │   19 │ }
+        │   20 │
+        │   21 │ // Trade result interface
+        │   22 │ interface TradeResult {
+        │   23 │     id: number;
+        │   24 │     contractId: number;
+        │   25 │     type: string;
+        │   26 │     symbol: SymbolType;
+        │   27 │     entrySpot?: string;
+        │   28 │     exitSpot?: string;
+        │   29 │     stake: number;
+        │   30 │     payout?: number;
+        │   31 │     profit?: number;
+        │   32 │     isWin?: boolean;
+        │   33 │     timestamp: number;
+        │   34 │     status?: 'open' | 'won' | 'lost' | 'pending';
+        │   35 │ }
+        │   36 │
+        │   37 │ // Constants
+        │   38 │ const STORAGE_KEYS = {
+        │   39 │     TRADING_SETTINGS: 'trading_settings',
+        │   40 │     TOTAL_PROFIT: 'total_profit',
+        │   41 │     AUTH_TOKEN: 'authToken',
+        │   42 │ };
+        │   43 │
+        │   44 │ const AdvancedDisplay = observer(() => {
+        │   45 │     // Get transactions store
+        │   46 │     const { transactions } = useStore();
+        │   47 │
+        │   48 │     // State
+        │   49 │     const [isRunning, setIsRunning] = useState(false);
+        │   50 │     const [status, setStatus] = useState('');
+        │   51 │     const [referenceDigit, setReferenceDigit] = useState(5);
+        │   52 │     const [analysisCount, setAnalysisCount] = useState(120);
+        │   53 │     const [sessionRunId, setSessionRunId] = useState<string>(`advanced_${Date.now()}`);
+        │   54 │
+        │   55 │     // Trading settings
+        │   56 │     const [tradingSettings, setTradingSettings] = useState<TradingSettings>(() => {
+        │   57 │         try {
+        │   58 │             const savedSettings = localStorage.getItem(STORAGE_KEYS.TRADING_SETTINGS);
+        │   59 │             if (savedSettings) {
+        │   60 │                 const parsedSettings = JSON.parse(savedSettings) as TradingSettings;
+        │   61 │                 return {
+        │   62 │                     stake: parsedSettings.stake || 1,
+        │   63 │                     martingale: parsedSettings.martingale || 2.0,
+        │   64 │                     takeProfit: parsedSettings.takeProfit || 10,
+        │   65 │                     stopLoss: parsedSettings.stopLoss || 5,
+        │   66 │                 };
+        │   67 │             }
+        │   68 │         } catch (error) {
+        │   69 │             console.error('Error loading trading settings from localStorage:', error);
+        │   70 │         }
+        │   71 │
+        │   72 │         return {
+        │   73 │             stake: 1,
+        │   74 │             martingale: 2.0,
+        │   75 │             takeProfit: 10,
+        │   76 │             stopLoss: 5,
+        │   77 │         };
+        │   78 │     });
+        │   79 │
+        │   80 │     // Input states
+        │   81 │     const [referenceDigitInput, setReferenceDigitInput] = useState('5');
+        │   82 │     const [analysisCountInput, setAnalysisCountInput] = useState('120');
+        │   83 │     const [stakeInput, setStakeInput] = useState('1');
+        │   84 │
+        │   85 │     // Trade history and stats
+        │   86 │     const [tradeHistory, setTradeHistory] = useState<TradeResult[]>([]);
+        │   87 │     const [totalWins, setTotalWins] = useState(0);
+        │   88 │     const [totalLosses, setTotalLosses] = useState(0);
+        │   89 │     const [totalProfit, setTotalProfit] = useState(0);
+        │   90 │
+        │   91 │     const tradeIdCounter = useRef(0);
+        │   92 │
+        │   93 │     // Function to handle settings changes
+        │   94 │     const handleSettingChange = useCallback((field: keyof TradingSettings, value: string) => {
+        │   95 │         setTradingSettings(prev => {
+        │   96 │             const updatedSettings = { ...prev };
+        │   97 │             const numValue = parseFloat(value);
+        │   98 │             if (!isNaN(numValue)) {
+        │   99 │                 updatedSettings[field] = numValue;
+        │  100 │             }
+        │  101 │
+        │  102 │             try {
+        │  103 │                 localStorage.setItem(STORAGE_KEYS.TRADING_SETTINGS, JSON.stringify(updatedSettings));
+        │  104 │             } catch (error) {
+        │  105 │                 console.error('Error saving trading settings to localStorage:', error);
+        │  106 │             }
+        │  107 │
+        │  108 │             return updatedSettings;
+        │  109 │         });
+        │  110 │     }, []);
+        │  111 │
+        │  112 │     // Start/stop trading functions
+        │  113 │     const startTrading = useCallback(() => {
+        │  114 │         if (isRunning) return;
+        │  115 │
+        │  116 │         setIsRunning(true);
+        │  117 │         setStatus('Starting advanced trading analysis...');
+        │  118 │
+        │  119 │         const session_id = `advanced_${Date.now()}`;
+        │  120 │         setSessionRunId(session_id);
+        │  121 │         globalObserver.emit('bot.started', session_id);
+        │  122 │
+        │  123 │         // Simulate some trading activity
+        │  124 │         setTimeout(() => {
+        │  125 │             setStatus('Analysis complete. Ready for trading.');
+        │  126 │         }, 2000);
+        │  127 │     }, [isRunning]);
+        │  128 │
+        │  129 │     const stopTrading = useCallback(() => {
+        │  130 │         if (!isRunning) return;
+        │  131 │
+        │  132 │         setIsRunning(false);
+        │  133 │         setStatus('Trading stopped.');
+        │  134 │         globalObserver.emit('bot.stop');
+        │  135 │     }, [isRunning]);
+        │  136 │
+        │  137 │     // Format money function
+        │  138 │     const formatMoney = (amount: number) => {
+        │  139 │         return new Intl.NumberFormat('en-US', {
+        │  140 │             style: 'currency',
+        │  141 │             currency: 'USD',
+        │  142 │         }).format(Math.abs(amount));
+        │  143 │     };
+        │  144 │
+        │  145 │     return (
+        │  146 │         <div className="advanced-display">
+        │  147 │             <div className="advanced-display__title">
+        │  148 │                 Advanced Trading Display
+        │  149 │             </div>
+        │  150 │
+        │  151 │             <div className="advanced-display__subtitle">
+        │  152 │                 AI-Powered Market Analysis & Trading
+        │  153 │             </div>
+        │  154 │
+        │  155 │             <div className="advanced-display__workspace">
+        │  156 │                 <div className="advanced-display__action-bar">
+        │  157 │                     <div className="action-buttons-group">
+        │  158 │                         <button
+        │  159 │                             className={`action-button ${isRunning ? 'active' : ''}`}
+        │  160 │                             onClick={isRunning ? stopTrading : startTrading}
+        │  161 │                         >
+        │  162 │                             {isRunning ? 'Stop Analysis' : 'Start Analysis'}
+        │  163 │                         </button>
+        │  164 │                     </div>
+        │  165 │                 </div>
+        │  166 │
+        │  167 │                 <div className="settings-panel">
+        │  168 │                     <div className="setting-group">
+        │  169 │                         <label>Reference Digit:</label>
+        │  170 │                         <input
+        │  171 │                             type="number"
+        │  172 │                             value={referenceDigitInput}
+        │  173 │                             onChange={(e) => {
+        │  174 │                                 setReferenceDigitInput(e.target.value);
+        │  175 │                                 const num = parseInt(e.target.value);
+        │  176 │                                 if (!isNaN(num) && num >= 0 && num <= 9) {
+        │  177 │                                     setReferenceDigit(num);
+        │  178 │                                 }
+        │  179 │                             }}
+        │  180 │                             min="0"
+        │  181 │                             max="9"
+        │  182 │                             className="setting-input"
+        │  183 │                         />
+        │  184 │                     </div>
+        │  185 │
+        │  186 │                     <div className="setting-group">
+        │  187 │                         <label>Analysis Count:</label>
+        │  188 │                         <input
+        │  189 │                             type="number"
+        │  190 │                             value={analysisCountInput}
+        │  191 │                             onChange={(e) => {
+        │  192 │                                 setAnalysisCountInput(e.target.value);
+        │  193 │                                 const num = parseInt(e.target.value);
+        │  194 │                                 if (!isNaN(num) && num > 0) {
+        │  195 │                                     setAnalysisCount(num);
+        │  196 │                                 }
+        │  197 │                             }}
+        │  198 │                             min="1"
+        │  199 │                             className="setting-input"
+        │  200 │                         />
+        │  201 │                     </div>
+        │  202 │
+        │  203 │                     <div className="setting-group">
+        │  204 │                         <label>Stake ($):</label>
+        │  205 │                         <input
+        │  206 │                             type="number"
+        │  207 │                             value={stakeInput}
+        │  208 │                             onChange={(e) => {
+        │  209 │                                 setStakeInput(e.target.value);
+        │  210 │                                 handleSettingChange('stake', e.target.value);
+        │  211 │                             }}
+        │  212 │                             min="0.35"
+        │  213 │                             step="0.01"
+        │  214 │                             className="setting-input"
+        │  215 │                         />
+        │  216 │                     </div>
+        │  217 │
+        │  218 │                     <div className="setting-group">
+        │  219 │                         <label>Martingale:</label>
+        │  220 │                         <input
+        │  221 │                             type="number"
+        │  222 │                             value={tradingSettings.martingale}
+        │  223 │                             onChange={(e) => handleSettingChange('martingale', e.target.value)}
+        │  224 │                             min="1"
+        │  225 │                             step="0.1"
+        │  226 │                             className="setting-input"
+        │  227 │                         />
+        │  228 │                     </div>
+        │  229 │                 </div>
+        │  230 │
+        │  231 │                 <div className="trade-history-summary">
+        │  232 │                     <div className="summary-item wins">
+        │  233 │                         <span>Wins</span>
+        │  234 │                         <span>{totalWins}</span>
+        │  235 │                     </div>
+        │  236 │                     <div className="summary-item losses">
+        │  237 │                         <span>Losses</span>
+        │  238 │                         <span>{totalLosses}</span>
+        │  239 │                     </div>
+        │  240 │                     <div className="summary-item profit">
+        │  241 │                         <span>Total Profit</span>
+        │  242 │                         <span className={totalProfit >= 0 ? 'positive' : 'negative'}>
+        │  243 │                             {formatMoney(totalProfit)}
+        │  244 │                         </span>
+        │  245 │                     </div>
+        │  246 │                 </div>
+        │  247 │             </div>
+        │  248 │
+        │  249 │             {status && (
+        │  250 │                 <div className={classNames('advanced-display__status', {
+        │  251 │                     'advanced-display__status--success': status.includes('complete') || status.includes('Ready'),
+        │  252 │                     'advanced-display__status--info': status.includes('Starting') || status.includes('Analysis'),
+        │  253 │                     'advanced-display__status--error': status.includes('stopped') || status.includes('Error')
+        │  254 │                 })}>
+        │  255 │                     {status}
+        │  256 │                 </div>
+        │  257 │             )}
+        │  258 │         </div>
+        │  259 │     );
+        │  260 │ });
+        │  261 │
+        │  262 │ export default AdvancedDisplay;
+        │  263 │ import React, { useState, useEffect, useRef } from 'react';
+        │  264 │ import classNames from 'classnames';
+        │  265 │ import { observer } from 'mobx-react-lite';
+        │  266 │ import chart_api from '@/external/bot-skeleton/services/api/chart-api';
+        │  267 │ import { useStore } from '@/hooks/useStore';
+        │      ·          ────┬───
+        │      ·              ╰── `useStore` redefined here
+        │  268 │ import {
+        │  269 │     ActiveSymbolsRequest,
+        │  270 │     ServerTimeRequest,
+        │      ╰────
+        │   × the name `AdvancedDisplay` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/components/higher-lower-trader/advanced-display.tsx:44:1]
+        │   41 │     AUTH_TOKEN: 'authToken',
+        │   42 │ };
+        │   43 │
+        │   44 │ const AdvancedDisplay = observer(() => {
+        │      ·       ───────┬───────
+        │      ·              ╰── previous definition of `AdvancedDisplay` here
+        │   45 │     // Get transactions store
+        │   46 │     const { transactions } = useStore();
+        │   47 │
+        │   48 │     // State
+        │   49 │     const [isRunning, setIsRunning] = useState(false);
+        │   50 │     const [status, setStatus] = useState('');
+        │   51 │     const [referenceDigit, setReferenceDigit] = useState(5);
+        │   52 │     const [analysisCount, setAnalysisCount] = useState(120);
+        │   53 │     const [sessionRunId, setSessionRunId] = useState<string>(`advanced_${Date.now()}`);
+        │   54 │
+        │   55 │     // Trading settings
+        │   56 │     const [tradingSettings, setTradingSettings] = useState<TradingSettings>(() => {
+        │   57 │         try {
+        │   58 │             const savedSettings = localStorage.getItem(STORAGE_KEYS.TRADING_SETTINGS);
+        │   59 │             if (savedSettings) {
+        │   60 │                 const parsedSettings = JSON.parse(savedSettings) as TradingSettings;
+        │   61 │                 return {
+        │   62 │                     stake: parsedSettings.stake || 1,
+        │   63 │                     martingale: parsedSettings.martingale || 2.0,
+        │   64 │                     takeProfit: parsedSettings.takeProfit || 10,
+        │   65 │                     stopLoss: parsedSettings.stopLoss || 5,
+        │   66 │                 };
+        │   67 │             }
+        │   68 │         } catch (error) {
+        │   69 │             console.error('Error loading trading settings from localStorage:', error);
+        │   70 │         }
+        │   71 │
+        │   72 │         return {
+        │   73 │             stake: 1,
+        │   74 │             martingale: 2.0,
+        │   75 │             takeProfit: 10,
+        │   76 │             stopLoss: 5,
+        │   77 │         };
+        │   78 │     });
+        │   79 │
+        │   80 │     // Input states
+        │   81 │     const [referenceDigitInput, setReferenceDigitInput] = useState('5');
+        │   82 │     const [analysisCountInput, setAnalysisCountInput] = useState('120');
+        │   83 │     const [stakeInput, setStakeInput] = useState('1');
+        │   84 │
+        │   85 │     // Trade history and stats
+        │   86 │     const [tradeHistory, setTradeHistory] = useState<TradeResult[]>([]);
+        │   87 │     const [totalWins, setTotalWins] = useState(0);
+        │   88 │     const [totalLosses, setTotalLosses] = useState(0);
+        │   89 │     const [totalProfit, setTotalProfit] = useState(0);
+        │   90 │
+        │   91 │     const tradeIdCounter = useRef(0);
+        │   92 │
+        │   93 │     // Function to handle settings changes
+        │   94 │     const handleSettingChange = useCallback((field: keyof TradingSettings, value: string) => {
+        │   95 │         setTradingSettings(prev => {
+        │   96 │             const updatedSettings = { ...prev };
+        │   97 │             const numValue = parseFloat(value);
+        │   98 │             if (!isNaN(numValue)) {
+        │   99 │                 updatedSettings[field] = numValue;
+        │  100 │             }
+        │  101 │
+        │  102 │             try {
+        │  103 │                 localStorage.setItem(STORAGE_KEYS.TRADING_SETTINGS, JSON.stringify(updatedSettings));
+        │  104 │             } catch (error) {
+        │  105 │                 console.error('Error saving trading settings to localStorage:', error);
+        │  106 │             }
+        │  107 │
+        │  108 │             return updatedSettings;
+        │  109 │         });
+        │  110 │     }, []);
+        │  111 │
+        │  112 │     // Start/stop trading functions
+        │  113 │     const startTrading = useCallback(() => {
+        │  114 │         if (isRunning) return;
+        │  115 │
+        │  116 │         setIsRunning(true);
+        │  117 │         setStatus('Starting advanced trading analysis...');
+        │  118 │
+        │  119 │         const session_id = `advanced_${Date.now()}`;
+        │  120 │         setSessionRunId(session_id);
+        │  121 │         globalObserver.emit('bot.started', session_id);
+        │  122 │
+        │  123 │         // Simulate some trading activity
+        │  124 │         setTimeout(() => {
+        │  125 │             setStatus('Analysis complete. Ready for trading.');
+        │  126 │         }, 2000);
+        │  127 │     }, [isRunning]);
+        │  128 │
+        │  129 │     const stopTrading = useCallback(() => {
+        │  130 │         if (!isRunning) return;
+        │  131 │
+        │  132 │         setIsRunning(false);
+        │  133 │         setStatus('Trading stopped.');
+        │  134 │         globalObserver.emit('bot.stop');
+        │  135 │     }, [isRunning]);
+        │  136 │
+        │  137 │     // Format money function
+        │  138 │     const formatMoney = (amount: number) => {
+        │  139 │         return new Intl.NumberFormat('en-US', {
+        │  140 │             style: 'currency',
+        │  141 │             currency: 'USD',
+        │  142 │         }).format(Math.abs(amount));
+        │  143 │     };
+        │  144 │
+        │  145 │     return (
+        │  146 │         <div className="advanced-display">
+        │  147 │             <div className="advanced-display__title">
+        │  148 │                 Advanced Trading Display
+        │  149 │             </div>
+        │  150 │
+        │  151 │             <div className="advanced-display__subtitle">
+        │  152 │                 AI-Powered Market Analysis & Trading
+        │  153 │             </div>
+        │  154 │
+        │  155 │             <div className="advanced-display__workspace">
+        │  156 │                 <div className="advanced-display__action-bar">
+        │  157 │                     <div className="action-buttons-group">
+        │  158 │                         <button
+        │  159 │                             className={`action-button ${isRunning ? 'active' : ''}`}
+        │  160 │                             onClick={isRunning ? stopTrading : startTrading}
+        │  161 │                         >
+        │  162 │                             {isRunning ? 'Stop Analysis' : 'Start Analysis'}
+        │  163 │                         </button>
+        │  164 │                     </div>
+        │  165 │                 </div>
+        │  166 │
+        │  167 │                 <div className="settings-panel">
+        │  168 │                     <div className="setting-group">
+        │  169 │                         <label>Reference Digit:</label>
+        │  170 │                         <input
+        │  171 │                             type="number"
+        │  172 │                             value={referenceDigitInput}
+        │  173 │                             onChange={(e) => {
+        │  174 │                                 setReferenceDigitInput(e.target.value);
+        │  175 │                                 const num = parseInt(e.target.value);
+        │  176 │                                 if (!isNaN(num) && num >= 0 && num <= 9) {
+        │  177 │                                     setReferenceDigit(num);
+        │  178 │                                 }
+        │  179 │                             }}
+        │  180 │                             min="0"
+        │  181 │                             max="9"
+        │  182 │                             className="setting-input"
+        │  183 │                         />
+        │  184 │                     </div>
+        │  185 │
+        │  186 │                     <div className="setting-group">
+        │  187 │                         <label>Analysis Count:</label>
+        │  188 │                         <input
+        │  189 │                             type="number"
+        │  190 │                             value={analysisCountInput}
+        │  191 │                             onChange={(e) => {
+        │  192 │                                 setAnalysisCountInput(e.target.value);
+        │  193 │                                 const num = parseInt(e.target.value);
+        │  194 │                                 if (!isNaN(num) && num > 0) {
+        │  195 │                                     setAnalysisCount(num);
+        │  196 │                                 }
+        │  197 │                             }}
+        │  198 │                             min="1"
+        │  199 │                             className="setting-input"
+        │  200 │                         />
+        │  201 │                     </div>
+        │  202 │
+        │  203 │                     <div className="setting-group">
+        │  204 │                         <label>Stake ($):</label>
+        │  205 │                         <input
+        │  206 │                             type="number"
+        │  207 │                             value={stakeInput}
+        │  208 │                             onChange={(e) => {
+        │  209 │                                 setStakeInput(e.target.value);
+        │  210 │                                 handleSettingChange('stake', e.target.value);
+        │  211 │                             }}
+        │  212 │                             min="0.35"
+        │  213 │                             step="0.01"
+        │  214 │                             className="setting-input"
+        │  215 │                         />
+        │  216 │                     </div>
+        │  217 │
+        │  218 │                     <div className="setting-group">
+        │  219 │                         <label>Martingale:</label>
+        │  220 │                         <input
+        │  221 │                             type="number"
+        │  222 │                             value={tradingSettings.martingale}
+        │  223 │                             onChange={(e) => handleSettingChange('martingale', e.target.value)}
+        │  224 │                             min="1"
+        │  225 │                             step="0.1"
+        │  226 │                             className="setting-input"
+        │  227 │                         />
+        │  228 │                     </div>
+        │  229 │                 </div>
+        │  230 │
+        │  231 │                 <div className="trade-history-summary">
+        │  232 │                     <div className="summary-item wins">
+        │  233 │                         <span>Wins</span>
+        │  234 │                         <span>{totalWins}</span>
+        │  235 │                     </div>
+        │  236 │                     <div className="summary-item losses">
+        │  237 │                         <span>Losses</span>
+        │  238 │                         <span>{totalLosses}</span>
+        │  239 │                     </div>
+        │  240 │                     <div className="summary-item profit">
+        │  241 │                         <span>Total Profit</span>
+        │  242 │                         <span className={totalProfit >= 0 ? 'positive' : 'negative'}>
+        │  243 │                             {formatMoney(totalProfit)}
+        │  244 │                         </span>
+        │  245 │                     </div>
+        │  246 │                 </div>
+        │  247 │             </div>
+        │  248 │
+        │  249 │             {status && (
+        │  250 │                 <div className={classNames('advanced-display__status', {
+        │  251 │                     'advanced-display__status--success': status.includes('complete') || status.includes('Ready'),
+        │  252 │                     'advanced-display__status--info': status.includes('Starting') || status.includes('Analysis'),
+        │  253 │                     'advanced-display__status--error': status.includes('stopped') || status.includes('Error')
+        │  254 │                 })}>
+        │  255 │                     {status}
+        │  256 │                 </div>
+        │  257 │             )}
+        │  258 │         </div>
+        │  259 │     );
+        │  260 │ });
+        │  261 │
+        │  262 │ export default AdvancedDisplay;
+        │  263 │ import React, { useState, useEffect, useRef } from 'react';
+        │  264 │ import classNames from 'classnames';
+        │  265 │ import { observer } from 'mobx-react-lite';
+        │  266 │ import chart_api from '@/external/bot-skeleton/services/api/chart-api';
+        │  267 │ import { useStore } from '@/hooks/useStore';
+        │  268 │ import {
+        │  269 │     ActiveSymbolsRequest,
+        │  270 │     ServerTimeRequest,
+        │  271 │     TicksHistoryResponse,
+        │  272 │     TicksStreamRequest,
+        │  273 │     TradingTimesRequest,
+        │  274 │ } from '@deriv/api-types';
+        │  275 │ import { ChartTitle, SmartChart } from '@deriv/deriv-charts';
+        │  276 │ import { useDevice } from '@deriv-com/ui';
+        │  277 │ import ToolbarWidgets from './toolbar-widgets';
+        │  278 │ import ChartToggle from './chart-toggle';
+        │  279 │ import './advanced-display.scss';
+        │  280 │ import '@deriv/deriv-charts/dist/smartcharts.css';
+        │  281 │
+        │  282 │ type TSubscription = {
+        │  283 │     [key: string]: null | {
+        │  284 │         unsubscribe?: () => void;
+        │  285 │     };
+        │  286 │ };
+        │  287 │
+        │  288 │ type TError = null | {
+        │  289 │     error?: {
+        │  290 │         code?: string;
+        │  291 │         message?: string;
+        │  292 │     };
+        │  293 │ };
+        │  294 │
+        │  295 │ const subscriptions: TSubscription = {};
+        │  296 │
+        │  297 │ const AdvancedDisplay = observer(({ show_digits_stats = false }: { show_digits_stats?: boolean }) => {
+        │      ·       ───────┬───────
+        │      ·              ╰── `AdvancedDisplay` redefined here
+        │  298 │     const barriers: [] = [];
+        │  299 │     const { common, ui } = useStore();
+        │  300 │     const { chart_store, run_panel, dashboard } = useStore();
+        │      ╰────
+        │   × the name `default` is exported multiple times
+        │      ╭─[/home/runner/workspace/src/components/higher-lower-trader/advanced-display.tsx:262:1]
+        │  259 │     );
+        │  260 │ });
+        │  261 │
+        │  262 │ export default AdvancedDisplay;
+        │      · ───────────────┬───────────────
+        │      ·                ╰── previous exported here
+        │  263 │ import React, { useState, useEffect, useRef } from 'react';
+        │  264 │ import classNames from 'classnames';
+        │  265 │ import { observer } from 'mobx-react-lite';
+        │  266 │ import chart_api from '@/external/bot-skeleton/services/api/chart-api';
+        │  267 │ import { useStore } from '@/hooks/useStore';
+        │  268 │ import {
+        │  269 │     ActiveSymbolsRequest,
+        │  270 │     ServerTimeRequest,
+        │  271 │     TicksHistoryResponse,
+        │  272 │     TicksStreamRequest,
+        │  273 │     TradingTimesRequest,
+        │  274 │ } from '@deriv/api-types';
+        │  275 │ import { ChartTitle, SmartChart } from '@deriv/deriv-charts';
+        │  276 │ import { useDevice } from '@deriv-com/ui';
+        │  277 │ import ToolbarWidgets from './toolbar-widgets';
+        │  278 │ import ChartToggle from './chart-toggle';
+        │  279 │ import './advanced-display.scss';
+        │  280 │ import '@deriv/deriv-charts/dist/smartcharts.css';
+        │  281 │
+        │  282 │ type TSubscription = {
+        │  283 │     [key: string]: null | {
+        │  284 │         unsubscribe?: () => void;
+        │  285 │     };
+        │  286 │ };
+        │  287 │
+        │  288 │ type TError = null | {
+        │  289 │     error?: {
+        │  290 │         code?: string;
+        │  291 │         message?: string;
+        │  292 │     };
+        │  293 │ };
+        │  294 │
+        │  295 │ const subscriptions: TSubscription = {};
+        │  296 │
+        │  297 │ const AdvancedDisplay = observer(({ show_digits_stats = false }: { show_digits_stats?: boolean }) => {
+        │  298 │     const barriers: [] = [];
+        │  299 │     const { common, ui } = useStore();
+        │  300 │     const { chart_store, run_panel, dashboard } = useStore();
+        │  301 │
+        │  302 │     const {
+        │  303 │         chart_type,
+        │  304 │         getMarketsOrder,
+        │  305 │         granularity,
+        │  306 │         onSymbolChange,
+        │  307 │         setChartStatus,
+        │  308 │         symbol,
+        │  309 │         updateChartType,
+        │  310 │         updateGranularity,
+        │  311 │         updateSymbol,
+        │  312 │         setChartSubscriptionId,
+        │  313 │         chart_subscription_id,
+        │  314 │     } = chart_store;
+        │  315 │     const chartSubscriptionIdRef = useRef(chart_subscription_id);
+        │  316 │     const { isDesktop, isMobile } = useDevice();
+        │  317 │     const { is_drawer_open } = run_panel;
+        │  318 │     const { is_chart_modal_visible } = dashboard;
+        │  319 │     const settings = {
+        │  320 │         assetInformation: false, // ui.is_chart_asset_info_visible,
+        │  321 │         countdown: true,
+        │  322 │         isHighestLowestMarkerEnabled: false, // TODO: Pending UI,
+        │  323 │         language: common.current_language.toLowerCase(),
+        │  324 │         position: ui.is_chart_layout_default ? 'bottom' : 'left',
+        │  325 │         theme: ui.is_dark_mode_on ? 'dark' : 'light',
+        │  326 │     };
+        │  327 │
+        │  328 │     useEffect(() => {
+        │  329 │         return () => {
+        │  330 │             chart_api.api.forgetAll('ticks');
+        │  331 │         };
+        │  332 │     }, []);
+        │  333 │
+        │  334 │     useEffect(() => {
+        │  335 │         chartSubscriptionIdRef.current = chart_subscription_id;
+        │  336 │     }, [chart_subscription_id]);
+        │  337 │
+        │  338 │     useEffect(() => {
+        │  339 │         if (!symbol) updateSymbol();
+        │  340 │     }, [symbol, updateSymbol]);
+        │  341 │
+        │  342 │     const requestAPI = (req: ServerTimeRequest | ActiveSymbolsRequest | TradingTimesRequest) => {
+        │  343 │         return chart_api.api.send(req);
+        │  344 │     };
+        │  345 │     const requestForgetStream = (subscription_id: string) => {
+        │  346 │         subscription_id && chart_api.api.forget(subscription_id);
+        │  347 │     };
+        │  348 │
+        │  349 │     const requestSubscribe = async (req: TicksStreamRequest, callback: (data: any) => void) => {
+        │  350 │         try {
+        │  351 │             requestForgetStream(chartSubscriptionIdRef.current);
+        │  352 │             const history = await chart_api.api.send(req);
+        │  353 │             setChartSubscriptionId(history?.subscription.id);
+        │  354 │             if (history) callback(history);
+        │  355 │             if (req.subscribe === 1) {
+        │  356 │                 subscriptions[history?.subscription.id] = chart_api.api
+        │  357 │                     .onMessage()
+        │  358 │                     ?.subscribe(({ data }: { data: TicksHistoryResponse }) => {
+        │  359 │                         callback(data);
+        │  360 │                     });
+        │  361 │             }
+        │  362 │         } catch (e) {
+        │  363 │             // eslint-disable-next-line no-console
+        │  364 │             (e as TError)?.error?.code === 'MarketIsClosed' && callback([]); //if market is closed sending a empty array  to resolve
+        │  365 │             console.log((e as TError)?.error?.message);
+        │  366 │         }
+        │  367 │     };
+        │  368 │
+        │  369 │     if (!symbol) return null;
+        │  370 │     const is_connection_opened = !!chart_api?.api;
+        │  371 │     return (
+        │  372 │         <div className="advanced-display">
+        │  373 │             <ChartToggle>
+        │  374 │                 <div
+        │  375 │                     className={classNames('dashboard__chart-wrapper', {
+        │  376 │                         'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
+        │  377 │                         'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
+        │  378 │                     })}
+        │  379 │                     dir='ltr'
+        │  380 │                 >
+        │  381 │                     <SmartChart
+        │  382 │                         id='dbot'
+        │  383 │                         barriers={barriers}
+        │  384 │                         showLastDigitStats={show_digits_stats}
+        │  385 │                         chartControlsWidgets={null}
+        │  386 │                         enabledChartFooter={false}
+        │  387 │                         chartStatusListener={(v: boolean) => setChartStatus(!v)}
+        │  388 │                         toolbarWidget={() => (
+        │  389 │                             <ToolbarWidgets
+        │  390 │                                 updateChartType={updateChartType}
+        │  391 │                                 updateGranularity={updateGranularity}
+        │  392 │                                 position={!isDesktop ? 'bottom' : 'top'}
+        │  393 │                                 isDesktop={isDesktop}
+        │  394 │                             />
+        │  395 │                         )}
+        │  396 │                         chartType={chart_type}
+        │  397 │                         isMobile={isMobile}
+        │  398 │                         enabledNavigationWidget={isDesktop}
+        │  399 │                         granularity={granularity}
+        │  400 │                         requestAPI={requestAPI}
+        │  401 │                         requestForget={() => {}}
+        │  402 │                         requestForgetStream={() => {}}
+        │  403 │                         requestSubscribe={requestSubscribe}
+        │  404 │                         settings={settings}
+        │  405 │                         symbol={symbol}
+        │  406 │                         topWidgets={() => <ChartTitle onChange={onSymbolChange} />}
+        │  407 │                         isConnectionOpened={is_connection_opened}
+        │  408 │                         getMarketsOrder={getMarketsOrder}
+        │  409 │                         isLive
+        │  410 │                         leftMargin={80}
+        │  411 │                     />
+        │  412 │                 </div>
+        │  413 │             </ChartToggle>
+        │  414 │         </div>
+        │  415 │     );
+        │  416 │ });
+        │  417 │
+        │  418 │ export default AdvancedDisplay;
+        │      · ───────────────┬───────────────
+        │      ·                ╰── exported more than once
+        │      ╰────
+        │
+        │ Advice:   ☞ Exported identifiers must be unique
+        │/nFile: /home/runner/workspace/src/components/higher-lower-trader/higher-lower-trader.scss:1:1
+  × Module build failed:
+  ╰─▶   × Undefined mixin.
+        │    ╷
+        │ 25 │ ┌         @include desktop {
+        │ 26 │ │             height: calc(100vh - var(--core-size-560));
+        │ 27 │ └         }
+        │    ╵
+        │   ../../../../src/components/higher-lower-trader/higher-lower-trader.scss 25:9  root stylesheet
+        │
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
