@@ -268,7 +268,13 @@ const AppWrapper = observer(() => {
                 <div className="bot-dashboard__container">
                     <div className="bot-dashboard__main">
                         <div className="bot-dashboard__main-header">
-                            <Tabs active_index={active_tab} onTabItemClick={onTabItemClick} tab_data={tab_data} />
+                            <Tabs
+            active_index={typeof active_tab === 'number' ? active_tab : 0}
+            onTabItemClick={onTabItemClick}
+            top={!isDesktop && tab_data.length > 3}
+            header_fit_content={!isDesktop}
+            items={tab_data || []}
+        />
                         </div>
                         <div className="bot-dashboard__main-content">
                             {renderActiveTabContent()}
