@@ -119,9 +119,13 @@ class MarketAnalyzer {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
             console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+            // Exponential backoff with max delay of 30 seconds
+            const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 30000);
             setTimeout(() => {
                 this.connect();
-            }, this.reconnectDelay * this.reconnectAttempts);
+            }, delay);
+        } else {
+            console.error('Max reconnection attempts reached. Please refresh the page.');
         }
     }
 
@@ -172,10 +176,14 @@ class MarketAnalyzer {
         // Add new tick
         symbolData.ticks.push(tickData);
 
-        // Keep only last 100 ticks
-        if (symbolData.ticks.length > 100) {
-            symbolData.ticks.shift();
+        // Keep only last 50 ticks to reduce memory usage
+        if (symbolData.ticks.length > 50) {
+            symbolData.ticks.splice(0, symbolData.ticks.length - 50);
         }
+
+        // Clear old ticks older than 5 minutes
+        const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+        symbolData.ticks = symbolData.ticks.filter(tick => tick.timestamp > fiveMinutesAgo);
 
         // Update last digit
         symbolData.last_digit = tickData.last_digit;
