@@ -353,27 +353,67 @@ const AppWrapper = observer(() => {
 
             // Validate XML content
             if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
-                //Removed alert message
+                console.error("Invalid XML format for bot:", bot.title);
                 return;
             }
 
-            if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
+            // Clean and validate XML content
+            let cleanedXml = xmlContent.trim();
+            
+            // Ensure proper XML structure
+            if (!cleanedXml.includes('xmlns="http://www.w3.org/1999/xhtml"')) {
+                cleanedXml = cleanedXml.replace('<xml', '<xml xmlns="http://www.w3.org/1999/xhtml"');
+            }
+
+            if (typeof load_modal.loadFileFromContent === 'function' && cleanedXml) {
                 try {
-                    await load_modal.loadFileFromContent(xmlContent);
+                    console.log("Loading bot:", bot.title);
+                    console.log("XML preview:", cleanedXml.substring(0, 500));
+                    
+                    await load_modal.loadFileFromContent(cleanedXml);
                     console.log("Bot loaded successfully!");
 
                     // Also update workspace name
                     if (typeof updateWorkspaceName === 'function') {
-                        updateWorkspaceName(xmlContent);
+                        updateWorkspaceName(cleanedXml);
                     }
+                    
+                    // Small delay to ensure proper loading
+                    setTimeout(() => {
+                        console.log("Bot loading complete");
+                    }, 500);
+                    
                 } catch (loadError) {
                     console.error("Error in load_modal.loadFileFromContent:", loadError);
-                    //Removed alert message
+                    console.error("Failed XML content:", cleanedXml.substring(0, 1000));
+                    
+                    // Try alternative loading method
+                    try {
+                        if (typeof updateWorkspaceName === 'function') {
+                            updateWorkspaceName(cleanedXml);
+                            console.log("Alternative loading method succeeded");
+                        }
+                    } catch (altError) {
+                        console.error("Alternative loading also failed:", altError);
+                        
+                        // Last resort: try to load as a simple strategy
+                        try {
+                            // Force refresh the bot builder workspace
+                            window.location.hash = '#bot-builder';
+                            setTimeout(() => {
+                                if (typeof updateWorkspaceName === 'function') {
+                                    updateWorkspaceName(cleanedXml);
+                                }
+                            }, 1000);
+                        } catch (finalError) {
+                            console.error("All loading methods failed:", finalError);
+                        }
+                    }
                 }
             } else {
-                console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
+                console.error("loadFileFromContent is not available");
                 console.log("load_modal object:", load_modal);
-                //Removed alert message
+                console.log("xmlContent length:", cleanedXml?.length);
             }
 
         } catch (error) {
