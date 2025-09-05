@@ -10,52 +10,33 @@ import { doUntilDone } from '../../external/bot-skeleton/services/tradeEngine/ut
 import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
 import './smart-trading-display.scss';
 
-// Extend Window interface for volatility analyzer
-declare global {
-    interface Window {
-        volatilityAnalyzer?: {
-            reconnect?: () => void;
-        };
-        initVolatilityAnalyzer?: () => void;
-    }
-}
-
 interface TradeSettings {
     stake: number;
-    ticks: number; // Duration in ticks
+    ticks: number;
     martingaleMultiplier: number;
-
-    // Optional input state properties for handling empty inputs
     stakeInput?: string;
     ticksInput?: string;
     martingaleMultiplierInput?: string;
-
-    // Add trading condition properties
-    conditionType?: string; // 'rise' or 'fall'
-    conditionOperator?: string; // '>', '<', '>=', '<=', '='
-    conditionValue?: number; // Percentage threshold
-    conditionValueInput?: string; // For UI handling of input
-    conditionAction?: string; // 'Rise' or 'Fall' contract
-
-    // Pattern condition properties (for even-odd-2)
-    patternDigitCount?: number; // How many digits to check
-    patternDigitCountInput?: string; // For UI handling of input
-    patternType?: string; // 'even' or 'odd'
-    patternAction?: string; // 'Even' or 'Odd' contract type to buy
-    // Over/Under pattern condition properties (for over-under-2)
-    overUnderPatternDigitCount?: number; // How many digits to check
-    overUnderPatternDigitCountInput?: string; // For UI handling of input
-    overUnderPatternType?: string; // 'over' or 'under'
-    overUnderPatternBarrier?: number; // Barrier value for over/under comparison
-    overUnderPatternBarrierInput?: string; // For UI handling of barrier input
-    overUnderPatternAction?: string; // 'Over' or 'Under' contract to buy
-    overUnderPatternTradingBarrier?: number; // Independent trading barrier digit (0-9)
-    overUnderPatternTradingBarrierInput?: string; // For UI handling of trading barrier input// Matches/Differs condition properties
-    conditionDigit?: number; // The digit to match/differ (0-9)
-
-    // Trading barrier properties (for over/under strategies)
-    tradingBarrier?: number; // Independent trading barrier digit (0-9)
-    tradingBarrierInput?: string; // For UI handling of trading barrier input
+    conditionType?: string;
+    conditionOperator?: string;
+    conditionValue?: number;
+    conditionValueInput?: string;
+    conditionAction?: string;
+    patternDigitCount?: number;
+    patternDigitCountInput?: string;
+    patternType?: string;
+    patternAction?: string;
+    overUnderPatternDigitCount?: number;
+    overUnderPatternDigitCountInput?: string;
+    overUnderPatternType?: string;
+    overUnderPatternBarrier?: number;
+    overUnderPatternBarrierInput?: string;
+    overUnderPatternAction?: string;
+    overUnderPatternTradingBarrier?: number;
+    overUnderPatternTradingBarrierInput?: string;
+    conditionDigit?: number;
+    tradingBarrier?: number;
+    tradingBarrierInput?: string;
 }
 
 interface AnalysisStrategy {
@@ -63,9 +44,21 @@ interface AnalysisStrategy {
     name: string;
     description: string;
     settings: TradeSettings;
-    activeContractType: string | null; // e.g., "Rise", "Fall", or null
-    currentStake?: number; // Current stake after applying martingale
-    lastTradeResult?: string; // Result of the last trade (WIN/LOSS)
+    activeContractType: string | null;
+    currentStake?: number;
+    lastTradeResult?: string;
+    analysisData?: {
+        successRate: number;
+        recommendation: string;
+        confidence: number;
+        lastAnalysis: Date;
+    };
+}
+
+interface TickData {
+    tick: number;
+    epoch: number;
+    quote: number;
 }
 
 const initialAnalysisStrategies: AnalysisStrategy[] = [
@@ -116,7 +109,8 @@ const initialAnalysisStrategies: AnalysisStrategy[] = [
     {
         id: 'over-under',
         name: localize('Over/Under'),
-        description: localize('Trades based on the last digit being over or under a predicted number.'), settings: {
+        description: localize('Trades based on the last digit being over or under a predicted number.'),
+        settings: {
             stake: 0.5,
             ticks: 1,
             martingaleMultiplier: 1,
@@ -131,7 +125,8 @@ const initialAnalysisStrategies: AnalysisStrategy[] = [
     {
         id: 'over-under-2',
         name: localize('Over/Under'),
-        description: localize('Alternative approach for over/under digit trading with custom parameters.'), settings: {
+        description: localize('Alternative approach for over/under digit trading with custom parameters.'),
+        settings: {
             stake: 0.5,
             ticks: 1,
             martingaleMultiplier: 1,
@@ -153,9 +148,8 @@ const initialAnalysisStrategies: AnalysisStrategy[] = [
             martingaleMultiplier: 1,
             conditionType: 'matches',
             conditionOperator: '>',
-
             conditionValue: 55,
-            conditionDigit: 5,  // The digit to match/differ (0-9)
+            conditionDigit: 5,
             conditionAction: 'Matches'
         },
         activeContractType: null,
@@ -166,21 +160,18 @@ const SmartTradingDisplay = observer(() => {
     const { run_panel, transactions, client } = useStore();
     const { is_drawer_open } = run_panel;
     const [analysisStrategies, setAnalysisStrategies] = useState<AnalysisStrategy[]>(initialAnalysisStrategies);
-    const [analysisData, setAnalysisData] = useState<Record<string, any>>({});
     const [selectedSymbol, setSelectedSymbol] = useState<string>("R_10");
-    const [tickCount, setTickCount] = useState<number>(120); // Actual numeric tick count
+    const [tickCount, setTickCount] = useState<number>(120);
     const [currentPrice, setCurrentPrice] = useState<string>('');
-    const [barrierValue, setBarrierValue] = useState<number>(5); // Default barrier for over/under
-    const [barrierInput, setBarrierInput] = useState<string>(barrierValue.toString()); // State for barrier input
-    const volatilityAnalyzerLoaded = useRef<boolean>(false);
+    const [barrierValue, setBarrierValue] = useState<number>(5);
+    const [barrierInput, setBarrierInput] = useState<string>(barrierValue.toString());
+    const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+    const [tickData, setTickData] = useState<TickData[]>([]);
+    const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
 
-    // Add a state to track if we've sent initialization commands
-    const [hasSentInitCommands, setHasSentInitCommands] = useState(false);
+    const tickCountInput = useState<string>(tickCount.toString());
 
-    // Add state for tracking tick count input value during editing
-    const [tickCountInput, setTickCountInput] = useState<string>(tickCount.toString()); // UI state for tick input
-
-    // Trading-related state variables (enhanced from TradingHub)
+    // Trading-related state variables
     const [activeContracts, setActiveContracts] = useState<Record<string, any>>({});
     const [tradeCount, setTradeCount] = useState(0);
     const [winCount, setWinCount] = useState(0);
@@ -192,90 +183,225 @@ const SmartTradingDisplay = observer(() => {
     const [currentStakes, setCurrentStakes] = useState<Record<string, number>>({});
     const [lastConditionStates, setLastConditionStates] = useState<Record<string, boolean>>({});
 
-    // Reference to store per-strategy state that should not trigger re-renders
-    const strategyRefsMap = useRef<Record<string, any>>({});
-    // Enhanced refs for trading management (from TradingHub)
+    // Refs for trading management
     const activeContractRef = useRef<string | null>(null);
     const lastTradeTime = useRef<number>(0);
-    const minimumTradeCooldown = 3000; // 3 seconds between trades for more frequent trading
+    const minimumTradeCooldown = 3000;
     const contractUpdateInterval = useRef<NodeJS.Timeout | null>(null);
     const lastTradeRef = useRef<{ id: string | null, profit: number | null }>({ id: null, profit: null });
     const contractSettledTimeRef = useRef(0);
     const waitingForSettlementRef = useRef(false);
 
-    // Add refs from TradingHub for robust state management
     const currentStakeRefs = useRef<Record<string, string>>({});
     const currentConsecutiveLossesRefs = useRef<Record<string, number>>({});
     const lastMartingaleActionRefs = useRef<Record<string, string>>({});
     const lastWinTimeRefs = useRef<Record<string, number>>({});
 
-    // CRITICAL FIX: Add ref for activeContracts to avoid stale state in event handlers
     const activeContractsRef = useRef<Record<string, any>>({});
 
-    // Effect to load and initialize volatility analyzer
+    // Initialize tick data subscription
     useEffect(() => {
-        if (!volatilityAnalyzerLoaded.current) {
-            const script = document.createElement('script');
-            // Add cache-busting parameter to prevent loading cached version
-            script.src = `/ai/volatility-analyzer.js?v=${Date.now()}`;
-            script.async = true;
-            script.onload = () => {
-                volatilityAnalyzerLoaded.current = true;
-                console.log('Volatility analyzer loaded');
+        const subscribeToTicks = async () => {
+            try {
+                if (api_base.api) {
+                    // Subscribe to tick stream for selected symbol
+                    const ticksRequest = {
+                        ticks: selectedSymbol,
+                        subscribe: 1
+                    };
 
-                // Explicitly initialize the analyzer
-                if (typeof window.initVolatilityAnalyzer === 'function') {
-                    try {
-                        window.initVolatilityAnalyzer();
-                        console.log('Volatility analyzer initialized');
-                    } catch (e) {
-                        console.error('Error initializing volatility analyzer:', e);
+                    const response = await api_base.api.send(ticksRequest);
+                    if (response.tick) {
+                        const newTick: TickData = {
+                            tick: response.tick.id,
+                            epoch: response.tick.epoch,
+                            quote: response.tick.quote
+                        };
+                        
+                        setCurrentPrice(response.tick.quote.toFixed(response.tick.pip ? response.tick.pip : 5));
+                        
+                        setTickData(prevData => {
+                            const newData = [...prevData, newTick];
+                            // Keep only last 1000 ticks for performance
+                            return newData.slice(-1000);
+                        });
                     }
+
+                    // Listen for subsequent tick updates
+                    api_base.api.onMessage()?.subscribe(({ data }: any) => {
+                        if (data.tick && data.tick.symbol === selectedSymbol) {
+                            const newTick: TickData = {
+                                tick: data.tick.id,
+                                epoch: data.tick.epoch,
+                                quote: data.tick.quote
+                            };
+                            
+                            setCurrentPrice(data.tick.quote.toFixed(data.tick.pip ? data.tick.pip : 5));
+                            
+                            setTickData(prevData => {
+                                const newData = [...prevData, newTick];
+                                return newData.slice(-1000);
+                            });
+                        }
+                    });
                 }
+            } catch (error) {
+                console.error('Error subscribing to ticks:', error);
+            }
+        };
 
-                // Load the enhancer script after the main analyzer is loaded
-                const enhancerScript = document.createElement('script');
-                enhancerScript.src = `/ai/analyzer-enhancer.js?v=${Date.now()}`;
-                enhancerScript.async = true;
-                enhancerScript.onload = () => {
-                    console.log('Analyzer enhancer loaded');
+        subscribeToTicks();
+
+        return () => {
+            // Cleanup subscription
+            if (api_base.api) {
+                api_base.api.send({ forget_all: 'ticks' }).catch(console.error);
+            }
+        };
+    }, [selectedSymbol]);
+
+    // Analyze tick data and update strategies
+    useEffect(() => {
+        if (tickData.length >= 10) {
+            analyzeTickData();
+        }
+    }, [tickData]);
+
+    const analyzeTickData = () => {
+        if (tickData.length < 10) return;
+
+        setIsAnalyzing(true);
+        
+        const recentTicks = tickData.slice(-100); // Analyze last 100 ticks
+        
+        setAnalysisStrategies(prevStrategies => 
+            prevStrategies.map(strategy => {
+                const analysisData = performStrategyAnalysis(strategy, recentTicks);
+                return {
+                    ...strategy,
+                    analysisData: {
+                        ...analysisData,
+                        lastAnalysis: new Date()
+                    }
                 };
-                document.body.appendChild(enhancerScript);
+            })
+        );
 
-                // Wait a bit to ensure everything is initialized
-                setTimeout(() => {
-                    // Send initial configuration
-                    console.log('Sending initial configuration');
-                    window.postMessage({
-                        type: 'UPDATE_SYMBOL',
-                        symbol: selectedSymbol
-                    }, '*');
-                    window.postMessage({
-                        type: 'UPDATE_TICK_COUNT',
-                        tickCount: tickCount
-                    }, '*');
-                    window.postMessage({
-                        type: 'UPDATE_BARRIER',
-                        barrier: barrierValue
-                    }, '*');
-                    setHasSentInitCommands(true);
+        setLastUpdateTime(new Date());
+        setIsAnalyzing(false);
+    };
 
-                    // Force a status check
-                    window.postMessage({
-                        type: 'REQUEST_STATUS'
-                    }, '*');
-                }, 1000); // Wait longer to ensure both scripts are loaded
-            };
+    const performStrategyAnalysis = (strategy: AnalysisStrategy, ticks: TickData[]) => {
+        let successfulPredictions = 0;
+        let totalPredictions = 0;
+        let recommendation = 'Hold';
+        let confidence = 0;
 
-            script.onerror = (e) => {
-                console.error('Failed to load volatility analyzer:', e);
-            };
+        switch (strategy.id) {
+            case 'rise-fall':
+                // Analyze price movements
+                for (let i = 1; i < ticks.length; i++) {
+                    const currentPrice = ticks[i].quote;
+                    const previousPrice = ticks[i - 1].quote;
+                    const actualDirection = currentPrice > previousPrice ? 'rise' : 'fall';
+                    
+                    // Simple trend analysis
+                    const trend = analyzeTrend(ticks.slice(Math.max(0, i - 5), i));
+                    const predictedDirection = trend > 0 ? 'rise' : 'fall';
+                    
+                    if (actualDirection === predictedDirection) {
+                        successfulPredictions++;
+                    }
+                    totalPredictions++;
+                }
+                break;
 
-            document.body.appendChild(script);
+            case 'even-odd':
+            case 'even-odd-2':
+                // Analyze last digit patterns
+                const lastDigits = ticks.map(tick => Math.floor((tick.quote * 100000) % 10));
+                const evenCount = lastDigits.filter(digit => digit % 2 === 0).length;
+                const oddCount = lastDigits.length - evenCount;
+                
+                successfulPredictions = Math.max(evenCount, oddCount);
+                totalPredictions = lastDigits.length;
+                recommendation = evenCount > oddCount ? 'Even' : 'Odd';
+                break;
+
+            case 'over-under':
+            case 'over-under-2':
+                // Analyze over/under barrier patterns
+                const barrier = strategy.settings.tradingBarrier || 5;
+                const digits = ticks.map(tick => Math.floor((tick.quote * 100000) % 10));
+                const overCount = digits.filter(digit => digit > barrier).length;
+                const underCount = digits.filter(digit => digit < barrier).length;
+                
+                successfulPredictions = Math.max(overCount, underCount);
+                totalPredictions = digits.length;
+                recommendation = overCount > underCount ? 'Over' : 'Under';
+                break;
+
+            case 'matches-differs':
+                // Analyze matches/differs patterns
+                const targetDigit = strategy.settings.conditionDigit || 5;
+                const matchDigits = ticks.map(tick => Math.floor((tick.quote * 100000) % 10));
+                const matchCount = matchDigits.filter(digit => digit === targetDigit).length;
+                const differCount = matchDigits.length - matchCount;
+                
+                successfulPredictions = Math.max(matchCount, differCount);
+                totalPredictions = matchDigits.length;
+                recommendation = matchCount > differCount ? 'Matches' : 'Differs';
+                break;
         }
 
-        // Listen for messages from the volatility analyzer
-    }, []);
+        const successRate = totalPredictions > 0 ? (successfulPredictions / totalPredictions) * 100 : 0;
+        confidence = Math.min(95, Math.max(50, successRate));
+
+        return {
+            successRate: Math.round(successRate * 100) / 100,
+            recommendation,
+            confidence: Math.round(confidence)
+        };
+    };
+
+    const analyzeTrend = (ticks: TickData[]): number => {
+        if (ticks.length < 2) return 0;
+        
+        let upCount = 0;
+        let downCount = 0;
+        
+        for (let i = 1; i < ticks.length; i++) {
+            if (ticks[i].quote > ticks[i - 1].quote) {
+                upCount++;
+            } else if (ticks[i].quote < ticks[i - 1].quote) {
+                downCount++;
+            }
+        }
+        
+        return upCount - downCount;
+    };
+
+    const handleStartTrading = async (strategyId: string) => {
+        const strategy = analysisStrategies.find(s => s.id === strategyId);
+        if (!strategy || !strategy.analysisData) return;
+
+        setIsTradeInProgress(true);
+        
+        try {
+            // Implement trading logic based on strategy
+            console.log(`Starting trading for strategy: ${strategy.name}`);
+            console.log(`Recommendation: ${strategy.analysisData.recommendation}`);
+            console.log(`Confidence: ${strategy.analysisData.confidence}%`);
+            
+            // Here you would implement the actual trading logic
+            // This is a placeholder for the trading implementation
+            
+        } catch (error) {
+            console.error('Error starting trading:', error);
+        } finally {
+            setIsTradeInProgress(false);
+        }
+    };
 
     return (
         <div className="smart-trading-display">
@@ -283,98 +409,110 @@ const SmartTradingDisplay = observer(() => {
                 <h2>Smart Trading</h2>
                 <p className="derivs-text">AI-powered trading strategies</p>
                 <div className="controls-container">
-                    <div className="control-item">
-                        <label>Symbol</label>
-                        <select value={selectedSymbol} onChange={(e) => setSelectedSymbol(e.target.value)}>
-                            <option value="R_10">Volatility 10 Index</option>
-                            <option value="R_25">Volatility 25 Index</option>
-                            <option value="R_50">Volatility 50 Index</option>
-                            <option value="R_75">Volatility 75 Index</option>
-                            <option value="R_100">Volatility 100 Index</option>
+                    <div className="control-group">
+                        <label>Symbol:</label>
+                        <select 
+                            value={selectedSymbol} 
+                            onChange={(e) => setSelectedSymbol(e.target.value)}
+                            className="control-select"
+                        >
+                            <option value="R_10">Volatility 10 (1s) Index</option>
+                            <option value="R_25">Volatility 25 (1s) Index</option>
+                            <option value="R_50">Volatility 50 (1s) Index</option>
+                            <option value="R_75">Volatility 75 (1s) Index</option>
+                            <option value="R_100">Volatility 100 (1s) Index</option>
                         </select>
                     </div>
-                    <div className="control-item">
-                        <label>Ticks</label>
-                        <input 
-                            type="number" 
-                            value={tickCountInput}
-                            onChange={(e) => setTickCountInput(e.target.value)}
-                        />
+                    <div className="control-group">
+                        <label>Current Price:</label>
+                        <span className="price-display">{currentPrice || 'Loading...'}</span>
                     </div>
-                    <div className="price-display">
-                        <span>Price: <strong>{currentPrice || '0.00'}</strong></span>
-                        <div className="update-indicator"></div>
+                    <div className="control-group">
+                        <label>Data Points:</label>
+                        <span className="data-count">{tickData.length}</span>
+                    </div>
+                    <div className="control-group">
+                        <label>Last Update:</label>
+                        <span className="last-update">{lastUpdateTime.toLocaleTimeString()}</span>
                     </div>
                 </div>
             </div>
-            <div className="smart-trading-strategies">
-                {analysisStrategies.map(strategy => (
-                    <div key={strategy.id} className={`strategy-card ${strategy.activeContractType ? 'trading' : ''}`}>
-                        <div className="strategy-card__header">
-                            <h4 className="strategy-card__name">{strategy.name}</h4>
+
+            <div className="strategies-grid">
+                {analysisStrategies.map((strategy, index) => (
+                    <div key={strategy.id} className="strategy-card">
+                        <div className="strategy-header">
+                            <h3>{strategy.name}</h3>
+                            <p>{strategy.description}</p>
                         </div>
-                        <div className="strategy-card__analysis-content">
-                            <Text size="sm" color="general">Analysis data will appear here</Text>
+                        
+                        <div className="strategy-analysis">
+                            {strategy.analysisData && !isAnalyzing ? (
+                                <>
+                                    <div className="analysis-metrics">
+                                        <div className="metric">
+                                            <label>Success Rate:</label>
+                                            <span className={`value ${strategy.analysisData.successRate >= 60 ? 'good' : strategy.analysisData.successRate >= 50 ? 'neutral' : 'poor'}`}>
+                                                {strategy.analysisData.successRate.toFixed(1)}%
+                                            </span>
+                                        </div>
+                                        <div className="metric">
+                                            <label>Recommendation:</label>
+                                            <span className="value recommendation">{strategy.analysisData.recommendation}</span>
+                                        </div>
+                                        <div className="metric">
+                                            <label>Confidence:</label>
+                                            <span className={`value ${strategy.analysisData.confidence >= 70 ? 'good' : strategy.analysisData.confidence >= 60 ? 'neutral' : 'poor'}`}>
+                                                {strategy.analysisData.confidence}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="analysis-loading">
+                                    {isAnalyzing ? (
+                                        <div className="loading-text">
+                                            <div className="loading-spinner"></div>
+                                            Analyzing market data...
+                                        </div>
+                                    ) : (
+                                        <div className="no-data">
+                                            {tickData.length < 10 ? 
+                                                `Collecting data... (${tickData.length}/10)` : 
+                                                'Initializing analysis...'
+                                            }
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
-                        <div className="strategy-card__settings">
-                            <div className="control-item">
-                                <label>Stake</label>
-                                <input 
-                                    type="number" 
-                                    step="0.1"
-                                    value={strategy.settings.stake}
-                                    onChange={(e) => {
-                                        const newStrategies = [...analysisStrategies];
-                                        const strategyIndex = newStrategies.findIndex(s => s.id === strategy.id);
-                                        newStrategies[strategyIndex].settings.stake = parseFloat(e.target.value) || 0;
-                                        setAnalysisStrategies(newStrategies);
-                                    }}
-                                />
-                            </div>
-                            <div className="control-item">
-                                <label>Ticks</label>
-                                <input 
-                                    type="number" 
-                                    value={strategy.settings.ticks}
-                                    onChange={(e) => {
-                                        const newStrategies = [...analysisStrategies];
-                                        const strategyIndex = newStrategies.findIndex(s => s.id === strategy.id);
-                                        newStrategies[strategyIndex].settings.ticks = parseInt(e.target.value) || 1;
-                                        setAnalysisStrategies(newStrategies);
-                                    }}
-                                />
-                            </div>
-                            <div className="control-item">
-                                <label>Martingale</label>
-                                <input 
-                                    type="number" 
-                                    step="0.1"
-                                    value={strategy.settings.martingaleMultiplier}
-                                    onChange={(e) => {
-                                        const newStrategies = [...analysisStrategies];
-                                        const strategyIndex = newStrategies.findIndex(s => s.id === strategy.id);
-                                        newStrategies[strategyIndex].settings.martingaleMultiplier = parseFloat(e.target.value) || 1;
-                                        setAnalysisStrategies(newStrategies);
-                                    }}
-                                />
+
+                        <div className="strategy-settings">
+                            <div className="settings-row">
+                                <div className="setting">
+                                    <label>Stake:</label>
+                                    <span>${strategy.settings.stake}</span>
+                                </div>
+                                <div className="setting">
+                                    <label>Ticks:</label>
+                                    <span>{strategy.settings.ticks}</span>
+                                </div>
+                                <div className="setting">
+                                    <label>Martingale:</label>
+                                    <span>{strategy.settings.martingaleMultiplier}x</span>
+                                </div>
                             </div>
                         </div>
-                        <div className="strategy-card__actions">
+
+                        <div className="strategy-actions">
                             <Button
-                                className="strategy-card__trade-button strategy-card__trade-button--single"
-                                variant={strategy.activeContractType ? "danger" : "contained"}
-                                size="sm"
-                                color={strategy.activeContractType ? "white" : "primary"}
-                                onClick={() => {
-                                    // Toggle trading for this strategy
-                                    const newStrategies = [...analysisStrategies];
-                                    const strategyIndex = newStrategies.findIndex(s => s.id === strategy.id);
-                                    newStrategies[strategyIndex].activeContractType = 
-                                        strategy.activeContractType ? null : strategy.settings.conditionAction || 'Rise';
-                                    setAnalysisStrategies(newStrategies);
-                                }}
+                                className={classNames('start-trading-btn', {
+                                    'btn-disabled': !strategy.analysisData || isTradeInProgress
+                                })}
+                                onClick={() => handleStartTrading(strategy.id)}
+                                disabled={!strategy.analysisData || isTradeInProgress}
                             >
-                                {strategy.activeContractType ? 'Stop Auto Trading' : 'Start Auto Trading'}
+                                {isTradeInProgress ? 'Trading...' : 'Start Auto Trading'}
                             </Button>
                         </div>
                     </div>
