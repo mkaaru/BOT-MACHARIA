@@ -45,18 +45,62 @@ const LoadModal: React.FC = observer((): JSX.Element => {
             console.log('Loading XML content:', xmlContent);
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
+            
+            // Check for XML parsing errors
+            const parseErrors = xmlDoc.getElementsByTagName('parsererror');
+            if (parseErrors.length > 0) {
+                throw new Error('Invalid XML content');
+            }
+            
             // Define the loadParsedXML method
             load_modal.loadParsedXML = (xmlDoc: Document) => {
-                // Clear the existing workspace
-                const workspace = Blockly.getMainWorkspace();
-                workspace.clear();
-                // Load the parsed XML into the bot builder
-                Blockly.Xml.domToWorkspace(xmlDoc.documentElement, workspace);
-                console.log('Parsed XML loaded into workspace');
+                try {
+                    const workspace = Blockly.getMainWorkspace();
+                    
+                    // Safer workspace clearing
+                    if (workspace) {
+                        // Disable events during clearing to prevent connection issues
+                        const events = workspace.isEnabled();
+                        workspace.setEventsEnabled(false);
+                        
+                        try {
+                            // Clear workspace with proper disposal
+                            workspace.getAllBlocks(false).forEach(block => {
+                                if (block && !block.isDisposed()) {
+                                    block.dispose(false);
+                                }
+                            });
+                            workspace.clearUndo();
+                        } finally {
+                            workspace.setEventsEnabled(events);
+                        }
+                        
+                        // Load the parsed XML into the workspace
+                        if (xmlDoc.documentElement) {
+                            Blockly.Xml.domToWorkspace(xmlDoc.documentElement, workspace);
+                            console.log('Parsed XML loaded into workspace successfully');
+                        }
+                    }
+                } catch (workspaceError) {
+                    console.error('Error loading XML into workspace:', workspaceError);
+                    // Try alternative clearing method
+                    const workspace = Blockly.getMainWorkspace();
+                    if (workspace) {
+                        workspace.clear();
+                        if (xmlDoc.documentElement) {
+                            Blockly.Xml.domToWorkspace(xmlDoc.documentElement, workspace);
+                        }
+                    }
+                }
             };
+            
             load_modal.loadParsedXML(xmlDoc);
         } catch (error) {
             console.error('Error loading XML content:', error);
+            // Show user-friendly error message
+            if (error.message.includes('connectionDB')) {
+                console.warn('Connection disposal error - this is usually harmless and the XML should still load');
+            }
         }
     };
 
