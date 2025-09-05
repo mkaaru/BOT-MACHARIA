@@ -1,55 +1,73 @@
 
 @use 'components/shared/styles/mixins' as *;
 
-.volatility-analyzer {
+.smart-trading-analytics {
   height: 100%;
   width: 100%;
   display: flex;
   flex-direction: column;
   padding: 20px;
-  max-width: 1600px;
-  margin: 0 auto;
-  min-height: 100vh;
   background-color: var(--general-main-1);
   color: var(--text-general);
 
   .analyzer-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border-normal);
 
-    h2 {
-      margin: 0;
-      color: var(--text-general);
-      font-size: 24px;
-      font-weight: 600;
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+
+      h2 {
+        margin: 0;
+        color: var(--text-general);
+        font-size: 24px;
+        font-weight: 600;
+      }
+
+      .header-actions {
+        .reconnect-btn {
+          padding: 8px 16px;
+          background-color: var(--brand-blue);
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: 500;
+
+          &:hover {
+            background-color: var(--brand-blue-dark);
+          }
+        }
+      }
     }
 
-    .connection-status {
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-weight: 500;
-      font-size: 14px;
+    .connection-info {
+      .connection-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 500;
+        font-size: 14px;
 
-      &.connected {
-        background-color: rgba(76, 175, 80, 0.1);
-        color: #4caf50;
-        border: 1px solid rgba(76, 175, 80, 0.3);
-      }
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+        }
 
-      &.disconnected {
-        background-color: rgba(244, 67, 54, 0.1);
-        color: #f44336;
-        border: 1px solid rgba(244, 67, 54, 0.3);
-      }
+        &.connected {
+          background-color: rgba(76, 175, 80, 0.1);
+          color: #4caf50;
+          border: 1px solid rgba(76, 175, 80, 0.3);
 
-      &.error {
-        background-color: rgba(255, 152, 0, 0.1);
-        color: #ff9800;
-        border: 1px solid rgba(255, 152, 0, 0.3);
+          .status-dot {
+            background-color: #4caf50;
+          }
+        }
       }
     }
   }
@@ -117,7 +135,6 @@
       padding: 20px;
       display: flex;
       flex-direction: column;
-      min-height: 300px;
       transition: all 0.3s ease;
 
       &:hover {
@@ -149,14 +166,6 @@
             background-color: #4caf50;
             box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.3);
           }
-
-          &.disconnected {
-            background-color: #f44336;
-          }
-
-          &.error {
-            background-color: #ff9800;
-          }
         }
       }
 
@@ -166,68 +175,152 @@
         flex-direction: column;
         gap: 20px;
 
-        .analysis-section,
-        .performance-section {
+        .prediction-section {
+          .prediction-display {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+
+            .prediction-value {
+              font-size: 24px;
+              font-weight: bold;
+              text-align: center;
+              padding: 8px;
+              border-radius: 6px;
+
+              &.rise {
+                color: var(--text-profit-success);
+                background-color: rgba(76, 175, 80, 0.1);
+              }
+
+              &.fall {
+                color: var(--text-loss-danger);
+                background-color: rgba(244, 67, 54, 0.1);
+              }
+
+              &.neutral {
+                color: var(--brand-blue);
+                background-color: rgba(0, 122, 255, 0.1);
+              }
+            }
+
+            .confidence-bar {
+              position: relative;
+              height: 24px;
+              background-color: var(--general-section-2);
+              border-radius: 12px;
+              overflow: hidden;
+
+              .confidence-fill {
+                height: 100%;
+                border-radius: 12px;
+                transition: width 0.3s ease;
+              }
+
+              .confidence-text {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-weight: 600;
+                font-size: 12px;
+                color: var(--text-general);
+              }
+
+              &.confidence-high .confidence-fill {
+                background-color: var(--text-profit-success);
+              }
+
+              &.confidence-medium .confidence-fill {
+                background-color: #ff9800;
+              }
+
+              &.confidence-low .confidence-fill {
+                background-color: var(--text-loss-danger);
+              }
+            }
+          }
+        }
+
+        .trading-conditions {
+          .condition-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            .label {
+              font-weight: 500;
+              color: var(--text-less-prominent);
+              font-size: 14px;
+            }
+
+            .condition-controls {
+              select {
+                padding: 6px 10px;
+                border: 1px solid var(--border-normal);
+                border-radius: 4px;
+                background-color: var(--general-main-1);
+                color: var(--text-general);
+                font-size: 12px;
+              }
+            }
+          }
+        }
+
+        .analysis-details {
           display: flex;
           flex-direction: column;
-          gap: 12px;
-        }
+          gap: 8px;
 
-        .analysis-section {
-          padding: 15px;
-          background-color: var(--general-main-1);
-          border-radius: 6px;
-          border: 1px solid var(--border-normal);
-        }
+          .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
 
-        .performance-section {
-          padding: 15px;
-          background-color: var(--general-section-2);
-          border-radius: 6px;
-          border: 1px solid var(--border-normal);
-        }
+            .label {
+              font-weight: 500;
+              color: var(--text-less-prominent);
+              font-size: 13px;
+              min-width: 80px;
+            }
 
-        .prediction,
-        .confidence,
-        .last-digit,
-        .barrier-info,
-        .stat,
-        .last-result {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-
-          .label {
-            font-weight: 500;
-            color: var(--text-less-prominent);
-            font-size: 13px;
+            .value {
+              font-size: 13px;
+              color: var(--text-general);
+              text-align: right;
+              flex: 1;
+            }
           }
+        }
 
-          .value {
-            font-weight: 600;
-            font-size: 14px;
+        .stats-section {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 12px;
 
-            &.rise,
-            &.call,
-            &.positive,
-            &.win {
-              color: var(--text-profit-success);
+          .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+
+            .stat-label {
+              font-size: 11px;
+              color: var(--text-less-prominent);
+              font-weight: 500;
             }
 
-            &.fall,
-            &.put,
-            &.negative,
-            &.loss {
-              color: var(--text-loss-danger);
-            }
+            .stat-value {
+              font-size: 14px;
+              font-weight: 600;
 
-            &.even,
-            &.odd,
-            &.over,
-            &.under,
-            &.matches,
-            &.differs {
-              color: var(--brand-blue);
+              &.win {
+                color: var(--text-profit-success);
+              }
+
+              &.profit {
+                color: var(--text-profit-success);
+              }
             }
           }
         }
@@ -243,7 +336,7 @@
 
         .start-trading-btn,
         .manual-trade-btn {
-          padding: 10px 20px;
+          padding: 12px 20px;
           border-radius: 6px;
           font-weight: 600;
           font-size: 14px;
@@ -289,12 +382,14 @@
 
   // Responsive design
   @media (max-width: 768px) {
-    padding: 10px;
+    padding: 15px;
 
     .analyzer-header {
-      flex-direction: column;
-      gap: 10px;
-      text-align: center;
+      .header-content {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+      }
     }
 
     .analyzer-controls {
@@ -311,45 +406,11 @@
       gap: 15px;
 
       .trading-card {
-        min-height: unset;
         padding: 15px;
 
-        .card-footer {
-          .start-trading-btn,
-          .manual-trade-btn {
-            padding: 12px 16px;
-            font-size: 16px;
-          }
-        }
-      }
-    }
-  }
-
-  @media (max-width: 480px) {
-    .trading-card {
-      .card-content {
-        .analysis-section,
-        .performance-section {
-          padding: 10px;
-        }
-
-        .prediction,
-        .confidence,
-        .last-digit,
-        .barrier-info,
-        .stat,
-        .last-result {
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 4px;
-
-          .label {
-            font-size: 12px;
-          }
-
-          .value {
-            font-size: 13px;
-          }
+        .stats-section {
+          grid-template-columns: 1fr;
+          gap: 8px;
         }
       }
     }
@@ -358,16 +419,12 @@
 
 // Dark theme adjustments
 [data-theme='dark'] {
-  .volatility-analyzer {
+  .smart-trading-analytics {
     .analyzer-controls {
       .control-group {
         select,
         input {
           background-color: var(--general-section-1);
-          
-          &:focus {
-            border-color: var(--brand-blue);
-          }
         }
       }
     }
