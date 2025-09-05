@@ -34,10 +34,24 @@ class ConnectionMonitor {
 
     start() {
         console.log('Starting connection monitor...');
+        
+        // Initialize connection status immediately
+        this.updateConnectionStatus();
+        
         this.healthCheckInterval = setInterval(() => {
             this.performHealthCheck();
         }, this.HEALTH_CHECK_INTERVAL);
         this.updateLastActivity();
+    }
+
+    private updateConnectionStatus() {
+        // Update connection statuses based on current state
+        this.status.marketAnalyzer = this.marketAnalyzer?.isConnected || false;
+        this.status.tradingEngine = this.tradingEngine?.isEngineConnected() || false;
+        this.status.lastMarketUpdate = this.lastMarketActivity || Date.now();
+        this.status.lastTradingUpdate = this.lastTradingActivity || Date.now();
+        
+        console.log('Connection status updated:', this.status);
     }
 
     stop() {
@@ -49,35 +63,26 @@ class ConnectionMonitor {
     }
 
     private performHealthCheck() {
+        // Update connection statuses first
+        this.updateConnectionStatus();
+        
         // Check market analyzer
-        if (!this.marketAnalyzer?.isConnected ||
-            (this.lastMarketActivity > 0 && Date.now() - this.lastMarketActivity > this.activityTimeout)) {
+        const marketAnalyzerConnected = this.marketAnalyzer?.isConnected || false;
+        const marketStale = this.lastMarketActivity > 0 && 
+                           Date.now() - this.lastMarketActivity > this.activityTimeout;
+        
+        if (!marketAnalyzerConnected || marketStale) {
             console.log('📊 Market analyzer connection health check failed');
             this.reconnectMarketAnalyzer();
         }
 
         // Check trading engine
-        if (!this.tradingEngine?.isEngineConnected() ||
-            (this.lastTradingActivity > 0 && Date.now() - this.lastTradingActivity > this.activityTimeout)) {
+        const tradingEngineConnected = this.tradingEngine?.isEngineConnected() || false;
+        const tradingStale = this.lastTradingActivity > 0 && 
+                           Date.now() - this.lastTradingActivity > this.activityTimeout;
+        
+        if (!tradingEngineConnected || tradingStale) {
             console.log('🔧 Trading engine connection health check failed');
-            this.reconnectTradingEngine();
-        }
-
-        // Update connection statuses based on current state
-        this.status.marketAnalyzer = this.marketAnalyzer?.isConnected || false;
-        this.status.tradingEngine = this.tradingEngine?.isEngineConnected() || false;
-
-        // Check market analyzer health based on explicit status
-        const marketStale = Date.now() - this.status.lastMarketUpdate > this.CONNECTION_TIMEOUT;
-        const tradingStale = Date.now() - this.status.lastTradingUpdate > this.CONNECTION_TIMEOUT;
-
-        if (marketStale || !this.status.marketAnalyzer) {
-            console.warn('Market analyzer connection health check failed');
-            this.reconnectMarketAnalyzer();
-        }
-
-        if (tradingStale || !this.status.tradingEngine) {
-            console.warn('Trading engine connection health check failed');
             this.reconnectTradingEngine();
         }
 
@@ -85,6 +90,13 @@ class ConnectionMonitor {
         this.performMemoryCleanup();
 
         this.lastHealthCheck = Date.now();
+        
+        // Log current status for debugging
+        console.log('Health check completed:', {
+            marketAnalyzer: marketAnalyzerConnected,
+            tradingEngine: tradingEngineConnected,
+            isHealthy: this.isHealthy()
+        });
     }
 
     private performMemoryCleanup() {

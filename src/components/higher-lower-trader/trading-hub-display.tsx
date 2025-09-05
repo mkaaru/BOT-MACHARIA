@@ -4,32 +4,14 @@ import Button from '../shared_ui/button/button';
 import { marketAnalyzer, TradingRecommendation } from '../../services/market-analyzer';
 import './trading-hub-display.scss';
 
-interface TradeResult {
-    id: string;
-    strategy: string;
-    symbol: string;
-    contract_type: string;
-    barrier?: number;
-    amount: number;
-    profit?: number;
-    status: 'active' | 'won' | 'lost';
-    timestamp: number;
-}
-
-interface TradingStats {
-    totalTrades: number;
-    wins: number;
-    losses: number;
-    winRate: number;
-    consecutiveLosses: number;
-    consecutiveWins: number;
-    totalProfit: number;
-}
-
-// Mock services to prevent compilation errors
+// Mock services (to be replaced with actual implementations)
 const mockMarketAnalyzer = {
     isConnected: false,
     isMarketAnalysisReady: false,
+    connect: () => { mockMarketAnalyzer.isConnected = true; },
+    disconnect: () => { mockMarketAnalyzer.isConnected = false; },
+    getAllSymbolData: () => [],
+    lastUpdate: 0,
     getAutoDifferRecommendation: (): TradingRecommendation => ({
         symbol: 'R_100',
         contract_type: 'DIGITDIFF',
@@ -55,8 +37,9 @@ const mockMarketAnalyzer = {
 
 const mockTradingEngine = {
     isEngineConnected: () => false,
+    connect: () => { mockTradingEngine.isEngineConnected = () => true; },
+    disconnect: () => { mockTradingEngine.isEngineConnected = () => false; },
     executeTrade: async (request: any, callback: (result: any) => void) => {
-        // Mock trade execution
         setTimeout(() => {
             callback({
                 profit: Math.random() > 0.5 ? Math.random() * 10 : -request.amount,
@@ -65,6 +48,79 @@ const mockTradingEngine = {
         }, 2000);
     }
 };
+
+// Mock Connection Monitor (to be replaced with actual implementation)
+const connectionMonitor = {
+    _marketConnected: false,
+    _tradingConnected: false,
+    _marketActivityTimer: null,
+    _tradingActivityTimer: null,
+    _listeners: [],
+
+    start: () => {
+        console.log("Connection monitor started.");
+        connectionMonitor._marketConnected = mockMarketAnalyzer.isConnected;
+        connectionMonitor._tradingConnected = mockTradingEngine.isEngineConnected();
+        connectionMonitor.updateMarketActivity();
+        connectionMonitor.updateTradingActivity();
+    },
+    stop: () => {
+        console.log("Connection monitor stopped.");
+        if (connectionMonitor._marketActivityTimer) clearInterval(connectionMonitor._marketActivityTimer);
+        if (connectionMonitor._tradingActivityTimer) clearInterval(connectionMonitor._tradingActivityTimer);
+    },
+    getConnectionStatus: () => ({
+        marketAnalyzer: connectionMonitor._marketConnected,
+        tradingEngine: connectionMonitor._tradingConnected
+    }),
+    isHealthy: () => connectionMonitor._marketConnected && connectionMonitor._tradingConnected,
+    updateMarketActivity: () => {
+        if (connectionMonitor._marketActivityTimer) clearInterval(connectionMonitor._marketActivityTimer);
+        connectionMonitor._marketActivityTimer = setInterval(() => {
+            connectionMonitor._marketConnected = mockMarketAnalyzer.isConnected;
+            connectionMonitor.notifyListeners();
+        }, 5000);
+    },
+    updateTradingActivity: () => {
+        if (connectionMonitor._tradingActivityTimer) clearInterval(connectionMonitor._tradingActivityTimer);
+        connectionMonitor._tradingActivityTimer = setInterval(() => {
+            connectionMonitor._tradingConnected = mockTradingEngine.isEngineConnected();
+            connectionMonitor.notifyListeners();
+        }, 5000);
+    },
+    subscribe: (callback) => {
+        connectionMonitor._listeners.push(callback);
+    },
+    unsubscribe: (callback) => {
+        connectionMonitor._listeners = connectionMonitor._listeners.filter(cb => cb !== callback);
+    },
+    notifyListeners: () => {
+        connectionMonitor._listeners.forEach(cb => cb(connectionMonitor.getConnectionStatus()));
+    }
+};
+
+
+interface TradeResult {
+    id: string;
+    strategy: string;
+    symbol: string;
+    contract_type: string;
+    barrier?: number;
+    amount: number;
+    profit?: number;
+    status: 'active' | 'won' | 'lost';
+    timestamp: number;
+}
+
+interface TradingStats {
+    totalTrades: number;
+    wins: number;
+    losses: number;
+    winRate: number;
+    consecutiveLosses: number;
+    consecutiveWins: number;
+    totalProfit: number;
+}
 
 const TradingHubDisplay: React.FC = observer(() => {
     // Strategy states
@@ -131,6 +187,28 @@ const TradingHubDisplay: React.FC = observer(() => {
     };
 
     useEffect(() => {
+        // Initialize connection monitor first
+        connectionMonitor.start();
+
+        // Initialize market analyzer and trading engine
+        marketAnalyzer.connect();
+        mockTradingEngine.connect(); // Connect the mock engine as well
+
+        // Give a short delay for connections to establish
+        setTimeout(() => {
+            connectionMonitor.updateMarketActivity();
+            connectionMonitor.updateTradingActivity();
+        }, 1000);
+
+        // Clean up on unmount
+        return () => {
+            connectionMonitor.stop();
+            marketAnalyzer.disconnect();
+            mockTradingEngine.disconnect();
+        };
+    }, []);
+
+    useEffect(() => {
         // Start analysis loop
         analysisInterval.current = setInterval(() => {
             updateRecommendations();
@@ -145,34 +223,34 @@ const TradingHubDisplay: React.FC = observer(() => {
             if (analysisInterval.current) clearInterval(analysisInterval.current);
             if (tradingInterval.current) clearInterval(tradingInterval.current);
         };
-    }, [autoDifferEnabled, overUnderEnabled, o5u4Enabled]);
+    }, [autoDifferEnabled, overUnderEnabled, o5u4Enabled, isContinuousTrading]); // Added isContinuousTrading to dependency array
 
     const updateRecommendations = () => {
         try {
-            if (!marketAnalyzer.isMarketAnalysisReady) {
+            if (!mockMarketAnalyzer.isMarketAnalysisReady) {
                 setStatusMessage('Waiting for market data...');
                 return;
             }
 
-        // Get all symbol data for analysis
-        const allSymbolData = marketAnalyzer.getAllSymbolData();
+            // Get all symbol data for analysis
+            const allSymbolData = mockMarketAnalyzer.getAllSymbolData();
 
-        const recommendations: any = {};
+            const recommendations: any = {};
 
-        if (autoDifferEnabled) {
-            recommendations.autodiff = mockMarketAnalyzer.getAutoDifferRecommendation();
-        }
+            if (autoDifferEnabled) {
+                recommendations.autodiff = mockMarketAnalyzer.getAutoDifferRecommendation();
+            }
 
-        if (overUnderEnabled) {
-            recommendations.over_under = mockMarketAnalyzer.getOverUnderRecommendation();
-        }
+            if (overUnderEnabled) {
+                recommendations.over_under = mockMarketAnalyzer.getOverUnderRecommendation();
+            }
 
-        if (o5u4Enabled) {
-            recommendations.o5u4 = mockMarketAnalyzer.getO5U4Recommendation();
-        }
+            if (o5u4Enabled) {
+                recommendations.o5u4 = mockMarketAnalyzer.getO5U4Recommendation();
+            }
 
-        setCurrentRecommendations(recommendations);
-        setStatusMessage('Market analysis active');
+            setCurrentRecommendations(recommendations);
+            setStatusMessage('Market analysis active');
         } catch (error) {
             console.error('Error updating recommendations:', error);
             setStatusMessage('Error in market analysis');
@@ -180,7 +258,9 @@ const TradingHubDisplay: React.FC = observer(() => {
     };
 
     const executeAutomatedTrades = async () => {
-        if (!mockTradingEngine.isEngineConnected()) return;
+        if (!isContinuousTrading || !connectionMonitor.isHealthy()) {
+            return;
+        }
 
         const now = Date.now();
         const timeSinceLastTrade = now - lastTradeTime;
@@ -378,13 +458,19 @@ const TradingHubDisplay: React.FC = observer(() => {
         return `$${amount.toFixed(2)}`;
     };
 
+    // Get connection status
+    const connectionStatus = connectionMonitor.getConnectionStatus();
+    const isConnected = connectionMonitor.isHealthy() &&
+                       mockMarketAnalyzer.isConnected &&
+                       mockTradingEngine.isEngineConnected();
+
     return (
         <div className="trading-hub-display">
             <div className="trading-hub-header">
                 <h2>🎯 Trading Hub</h2>
                 <div className="connection-status">
-                    <div className={`status-indicator ${mockMarketAnalyzer.isConnected && mockTradingEngine.isEngineConnected() ? 'connected' : 'disconnected'}`}></div>
-                    <span>{mockMarketAnalyzer.isConnected && mockTradingEngine.isEngineConnected() ? 'Connected' : 'Disconnected'}</span>
+                    <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}></div>
+                    <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
                 </div>
             </div>
 
@@ -588,9 +674,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                 <h3>Status</h3>
                 <div className="status-message">{statusMessage}</div>
                 <div className="market-info">
-                    <div>Market Analysis: {marketAnalyzer.isMarketAnalysisReady ? 'Ready' : 'Loading...'}</div>
-                    <div>Active Symbols: {marketAnalyzer.getAllSymbolData().filter(d => d.ticks.length >= 10).length}</div>
-                    <div>Last Update: {new Date(marketAnalyzer.lastUpdate).toLocaleTimeString()}</div>
+                    <div>Market Analysis: {mockMarketAnalyzer.isMarketAnalysisReady ? 'Ready' : 'Loading...'}</div>
+                    <div>Active Symbols: {mockMarketAnalyzer.getAllSymbolData().filter(d => d.ticks.length >= 10).length}</div>
+                    <div>Last Update: {new Date(mockMarketAnalyzer.lastUpdate).toLocaleTimeString()}</div>
                 </div>
             </div>
 

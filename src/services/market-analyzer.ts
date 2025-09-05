@@ -80,6 +80,7 @@ class MarketAnalyzer {
 
     connect() {
         try {
+            console.log('Connecting Market Analyzer...');
             this.ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=75771');
 
             this.ws.onopen = action(() => {
@@ -87,6 +88,14 @@ class MarketAnalyzer {
                 this.isConnected = true;
                 this.reconnectAttempts = 0;
                 this.subscribeToTicks();
+                
+                // Notify connection monitor immediately
+                try {
+                    const { connectionMonitor } = require('./connection-monitor');
+                    connectionMonitor.updateMarketActivity();
+                } catch (error) {
+                    // Ignore if connection monitor is not available
+                }
             });
 
             this.ws.onmessage = (event) => {

@@ -42,6 +42,14 @@ class TradingEngine {
             this.ws.onopen = () => {
                 console.log('Trading Engine connected');
                 this.isConnected = true;
+                
+                // Notify connection monitor immediately
+                try {
+                    const { connectionMonitor } = require('./connection-monitor');
+                    connectionMonitor.updateTradingActivity();
+                } catch (error) {
+                    // Ignore if connection monitor is not available
+                }
             };
 
             this.ws.onmessage = (event) => {
