@@ -1,15 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
+import Button from '../shared_ui/button/button';
+import { marketAnalyzer, TradingRecommendation } from '../../services/market-analyzer';
 import './trading-hub-display.scss';
-
-interface TradingRecommendation {
-    symbol: string;
-    contract_type: string;
-    barrier?: number;
-    confidence: number;
-    strategy: string;
-}
 
 interface TradeResult {
     id: string;
@@ -131,7 +124,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     const updateRecommendations = () => {
         try {
-            if (!mockMarketAnalyzer.isMarketAnalysisReady) {
+            if (!marketAnalyzer.isMarketAnalysisReady) {
                 setStatusMessage('Waiting for market data...');
                 return;
             }
@@ -163,7 +156,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         const now = Date.now();
         const timeSinceLastTrade = now - lastTradeTime;
-        
+
         // Minimum 5 seconds between trades
         if (timeSinceLastTrade < 5000) return;
 
@@ -250,7 +243,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         };
 
         const tradeId = `o5u4_${Date.now()}`;
-        
+
         const newTrade: TradeResult = {
             id: tradeId,
             strategy: 'Auto O5U4',
@@ -271,7 +264,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         const handleO5U4Result = (profit: number) => {
             totalProfit += profit;
             completedContracts++;
-            
+
             if (completedContracts === 2) {
                 handleTradeResult(tradeId, { 
                     profit: totalProfit, 

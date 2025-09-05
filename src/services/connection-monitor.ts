@@ -67,9 +67,20 @@ class ConnectionMonitor {
     }
 
     private performMemoryCleanup() {
-        // Clear browser console logs periodically
-        if (this.reconnectionAttempts % 10 === 0) {
+        // Clear browser console logs more frequently to prevent content limit issues
+        if (this.reconnectionAttempts % 5 === 0) {
             console.clear();
+        }
+        
+        // Clean up market analyzer old data
+        try {
+            marketAnalyzer.symbolData.forEach(symbolData => {
+                if (symbolData.ticks.length > 30) {
+                    symbolData.ticks.splice(0, symbolData.ticks.length - 30);
+                }
+            });
+        } catch (error) {
+            // Ignore cleanup errors
         }
         
         // Force garbage collection if available
@@ -79,6 +90,16 @@ class ConnectionMonitor {
             } catch (e) {
                 // Ignore if gc is not available
             }
+        }
+        
+        // Clear any leaked event listeners or intervals
+        if (typeof window !== 'undefined') {
+            // Clear any stale timers that might be causing memory leaks
+            const highestTimeoutId = setTimeout(() => {});
+            for (let i = highestTimeoutId; i >= 0; i--) {
+                clearTimeout(i);
+            }
+            clearTimeout(highestTimeoutId);
         }
     }
 
