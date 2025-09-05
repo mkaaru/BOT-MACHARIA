@@ -290,22 +290,3 @@
         opacity: 1;
     }
 }
-.advanced-display {
-    width: 100%;
-    height: 100%;
-    position: relative;
-
-    .dashboard__chart-wrapper {
-        width: 100%;
-        height: calc(100vh - 120px);
-        position: relative;
-        
-        &--expanded {
-            height: calc(100vh - 80px);
-        }
-        
-        &--modal {
-            height: 100vh;
-        }
-    }
-}
