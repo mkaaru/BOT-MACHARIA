@@ -1,0 +1,32 @@
+
+.trading-hub-display {
+    padding: 20px;
+    background: var(--general-main-1);
+    border-radius: 8px;
+    
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    &__title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--text-general);
+    }
+    
+    &__content {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    &__placeholder {
+        text-align: center;
+        padding: 40px;
+        color: var(--text-less-prominent);
+        font-style: italic;
+    }
+}
