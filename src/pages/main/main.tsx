@@ -166,6 +166,7 @@ const AppWrapper = observer(() => {
                 'Super Elite.xml',
                 'AUTO C4 PRO Version.xml',
                 'Mkorean SV4.xml',
+                'Higher-Lower-Trend-Challenger.xml',
             ];
 
             const loadedBots = [];
