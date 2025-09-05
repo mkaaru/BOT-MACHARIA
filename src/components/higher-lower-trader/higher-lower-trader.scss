@@ -22,13 +22,13 @@
     flex-direction: column;
 
     &--expanded {
-        @include desktop {
+        @media (min-width: 768px) {
             height: calc(100vh - var(--core-size-560));
         }
     }
 
     &--modal {
-        @include desktop {
+        @media (min-width: 768px) {
             height: 100vh;
         }
     }
