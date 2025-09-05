@@ -13,8 +13,6 @@ import './app-root.scss';
 
 const Layout = lazy(() => import('../components/layout'));
 const AppRoot = lazy(() => import('./app-root'));
-const RiskReward = lazy(() => import('../components/risk-reward'));
-const HigherLowerTrader = lazy(() => import('../components/higher-lower-trader'));
 
 const { TRANSLATIONS_CDN_URL, R2_PROJECT_NAME, CROWDIN_BRANCH_NAME } = process.env;
 const i18nInstance = initializeI18n({
@@ -39,8 +37,6 @@ const router = createBrowserRouter(
             }
         >
             <Route index element={<AppRoot />} />
-            <Route path='risk-reward' element={<RiskReward />} />
-            <Route path='higher-lower' element={<HigherLowerTrader />} />
             <Route path='endpoint' element={<Endpoint />} />
             <Route path='callback' element={<CallbackPage />} />
         </Route>

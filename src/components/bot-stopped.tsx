@@ -40,7 +40,7 @@ const BotStopped = observer(() => {
                 </div>
             </div>
             <Text as='p' align='left' size='xs' color='prominent'>
-                <Localize i18n_default_text='The bot has stopped due to a connection error. Please reload to continue trading.' />
+                <Localize i18n_default_text='The bot has stopped, but your trade may still be running. You can check it on the Reports page.' />
             </Text>
         </Dialog>
     );

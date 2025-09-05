@@ -11,11 +11,6 @@ import {
     PartnersProductBrandLightSmarttraderLogoWordmarkIcon as SmarttraderLogo,
 } from '@deriv/quill-icons/Logo';
 import { localize } from '@deriv-com/translations';
-import {
-    LabelPairedArrowUpArrowDownSmRegularIcon,
-    LabelPairedCircleDollarSmIcon,
-    LabelPairedFileChartColumnSmIcon,
-} from '@deriv/quill-icons';
 
 export type PlatformsConfig = {
     active: boolean;
@@ -91,11 +86,5 @@ export const MenuItems: MenuItemsConfig[] = [
         href: standalone_routes.cashier,
         icon: <CashierLogo iconSize='xs' />,
         label: localize('Cashier'),
-    },
-    {
-        as: 'a',
-        href: '/higher-lower',
-        icon: <LabelPairedArrowUpArrowDownSmRegularIcon />,
-        label: localize('Higher and Lower'),
     },
 ];

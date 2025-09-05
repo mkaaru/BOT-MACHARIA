@@ -620,15 +620,14 @@ export default class RunPanelStore {
     };
 
     clear = () => {
-        this.contract_stage = contract_stages.NOT_RUNNING;
-        this.has_open_contract = false;
-        this.is_running = false;
-        this.error_type = undefined;
+        observer.emit('statistics.clear');
     };
 
-    onBotContractEvent = (data: any) => {
-        // This method ensures compatibility with transaction store
-        // The actual transaction handling is done by the transaction store
+    onBotContractEvent = (data: { is_sold?: boolean }) => {
+        if (data?.is_sold) {
+            this.is_sell_requested = false;
+            this.setContractStage(contract_stages.CONTRACT_CLOSED);
+        }
     };
 
     onError = (data: { error: any }) => {

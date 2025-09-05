@@ -15,9 +15,21 @@ export const MenuItems = observer(() => {
     return (
         <>
             {is_logged_in &&
-                items.map(({ as, href, icon, label }) => (
-                    <MenuItem as={as} className='app-header__menu' href={href} key={label} leftComponent={icon}>
-                        <Text>{localize(label)}</Text>
+                (isDesktop ? (
+                    items.map(({ as, href, icon, label }) => (
+                        <MenuItem as={as} className='app-header__menu' href={href} key={label} leftComponent={icon}>
+                            <Text>{localize(label)}</Text>
+                        </MenuItem>
+                    ))
+                ) : (
+                    <MenuItem
+                        as={items[1].as}
+                        className='flex gap-2 p-5'
+                        href={items[1].href}
+                        key={items[1].label}
+                        leftComponent={items[1].icon}
+                    >
+                        <Text>{localize(items[1].label)}</Text>
                     </MenuItem>
                 ))}
         </>
@@ -28,20 +40,13 @@ export const TradershubLink = () => (
     <MenuItem
         as='a'
         className='app-header__menu'
-        href='https://app.deriv.com/appstore/traders-hub'
-        key='traders-hub'
+        href={TRADERS_HUB_LINK_CONFIG.href}
+        key={TRADERS_HUB_LINK_CONFIG.label}
+        leftComponent={TRADERS_HUB_LINK_CONFIG.icon}
     >
-        <Text>{localize('Trader\'s Hub')}</Text>
+        <Text>{TRADERS_HUB_LINK_CONFIG.label}</Text>
     </MenuItem>
 );
 
-export const RiskRewardLink = () => (
-    <MenuItem
-        as='a'
-        className='app-header__menu'
-        href='/risk-reward'
-        key='risk-reward'
-    >
-        <Text>{localize('Risk Reward')}</Text>
-    </MenuItem>
-);
+MenuItems.TradershubLink = TradershubLink;
+export default MenuItems;

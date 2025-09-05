@@ -45,111 +45,18 @@ const LoadModal: React.FC = observer((): JSX.Element => {
             console.log('Loading XML content:', xmlContent);
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
-            
-            // Check for XML parsing errors
-            const parseErrors = xmlDoc.getElementsByTagName('parsererror');
-            if (parseErrors.length > 0) {
-                throw new Error('Invalid XML content');
-            }
-            
             // Define the loadParsedXML method
             load_modal.loadParsedXML = (xmlDoc: Document) => {
-                try {
-                    const workspace = Blockly.getMainWorkspace();
-                    
-                    // Safer workspace clearing
-                    if (workspace) {
-                        // Disable events during clearing to prevent connection issues
-                        const events = workspace.isEnabled();
-                        workspace.setEventsEnabled(false);
-                        
-                        try {
-                            // Clear workspace with proper disposal
-                            workspace.getAllBlocks(false).forEach(block => {
-                                if (block && !block.isDisposed()) {
-                                    block.dispose(false);
-                                }
-                            });
-                            workspace.clearUndo();
-                        } finally {
-                            workspace.setEventsEnabled(events);
-                        }
-                        
-                        // Clean existing workspace of Ultimate Trader blocks first
-                        const existingBlocks = workspace.getAllBlocks(false);
-                        existingBlocks.forEach(block => {
-                            if (block.type === 'procedures_defnoreturn' || block.type === 'procedures_defreturn') {
-                                const procedureName = block.getProcedureDef && block.getProcedureDef()[0];
-                                if (procedureName && (
-                                    procedureName.includes('Ultimate Trader Trend Direction') ||
-                                    procedureName.includes('Ultimate Trader') ||
-                                    procedureName.includes('Trend Direction')
-                                )) {
-                                    console.log('Removing existing Ultimate Trader block from workspace');
-                                    block.dispose(false);
-                                }
-                            }
-                        });
-
-                        // Load the parsed XML into the workspace
-                        if (xmlDoc.documentElement) {
-                            // Filter out unwanted blocks before loading
-                            const filteredXml = xmlDoc.cloneNode(true) as Document;
-                            const blocks = filteredXml.querySelectorAll('block');
-                            
-                            // Remove Ultimate Trader Trend Direction and related blocks
-                            blocks.forEach(block => {
-                                const type = block.getAttribute('type');
-                                if (type === 'procedures_defnoreturn' || type === 'procedures_defreturn') {
-                                    const nameField = block.querySelector('field[name="NAME"]');
-                                    if (nameField && (
-                                        nameField.textContent?.includes('Ultimate Trader Trend Direction') ||
-                                        nameField.textContent?.includes('Ultimate Trader') ||
-                                        nameField.textContent?.includes('Trend Direction')
-                                    )) {
-                                        console.log('Removing Ultimate Trader block:', nameField.textContent);
-                                        block.remove();
-                                    }
-                                }
-                                
-                                // Also remove any calls to these functions
-                                if (type === 'procedures_callnoreturn' || type === 'procedures_callreturn') {
-                                    const nameField = block.querySelector('field[name="NAME"]');
-                                    if (nameField && (
-                                        nameField.textContent?.includes('Ultimate Trader Trend Direction') ||
-                                        nameField.textContent?.includes('Ultimate Trader') ||
-                                        nameField.textContent?.includes('Trend Direction')
-                                    )) {
-                                        console.log('Removing Ultimate Trader call:', nameField.textContent);
-                                        block.remove();
-                                    }
-                                }
-                            });
-                            
-                            Blockly.Xml.domToWorkspace(filteredXml.documentElement, workspace);
-                            console.log('Parsed XML loaded into workspace successfully');
-                        }
-                    }
-                } catch (workspaceError) {
-                    console.error('Error loading XML into workspace:', workspaceError);
-                    // Try alternative clearing method
-                    const workspace = Blockly.getMainWorkspace();
-                    if (workspace) {
-                        workspace.clear();
-                        if (xmlDoc.documentElement) {
-                            Blockly.Xml.domToWorkspace(xmlDoc.documentElement, workspace);
-                        }
-                    }
-                }
+                // Clear the existing workspace
+                const workspace = Blockly.getMainWorkspace();
+                workspace.clear();
+                // Load the parsed XML into the bot builder
+                Blockly.Xml.domToWorkspace(xmlDoc.documentElement, workspace);
+                console.log('Parsed XML loaded into workspace');
             };
-            
             load_modal.loadParsedXML(xmlDoc);
         } catch (error) {
             console.error('Error loading XML content:', error);
-            // Show user-friendly error message
-            if (error.message.includes('connectionDB')) {
-                console.warn('Connection disposal error - this is usually harmless and the XML should still load');
-            }
         }
     };
 

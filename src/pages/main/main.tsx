@@ -25,7 +25,6 @@ import PercentageTool from '@/components/percentage-tool/percentage-tool';
 import VolatilityAnalyzer from '@/components/volatility-analyzer';
 import SmartTrader from '@/components/smart-trader';
 import MLTrader from '@/components/ml-trader';
-import HigherLowerTrader from '@/components/higher-lower-trader';
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
@@ -159,64 +158,129 @@ const AppWrapper = observer(() => {
     }, [clear, connectionStatus, stopBot]);
 
     useEffect(() => {
-        // Initialize bots with immediate data to prevent infinite loading
-        const initializeBots = () => {
-            const initialBots = [
-                {
-                    title: 'Upgraded Candlemine',
-                    description: 'Advanced candlestick pattern trading bot with enhanced algorithms',
-                    image: 'default_image_path',
-                    filePath: 'Upgraded Candlemine.xml',
-                    xmlContent: null,
-                    isPlaceholder: false
-                },
-                {
-                    title: 'Super Elite',
-                    description: 'High-performance trading bot with sophisticated market analysis',
-                    image: 'default_image_path',
-                    filePath: 'Super Elite.xml',
-                    xmlContent: null,
-                    isPlaceholder: false
-                },
-                {
-                    title: 'AUTO C4 PRO Version',
-                    description: 'Professional automated trading system with risk management',
-                    image: 'default_image_path',
-                    filePath: 'AUTO C4 PRO Version.xml',
-                    xmlContent: null,
-                    isPlaceholder: false
-                },
-                {
-                    title: 'Mkorean SV4',
-                    description: 'Strategic volatility trading bot with Korean market insights',
-                    image: 'default_image_path',
-                    filePath: 'Mkorean SV4.xml',
-                    xmlContent: null,
-                    isPlaceholder: false
-                },
-                {
-                    title: 'Alpha Version 2025',
-                    description: 'Latest alpha version trading bot with cutting-edge strategies',
-                    image: 'default_image_path',
-                    filePath: 'Alpha Version 2025.xml',
-                    xmlContent: null,
-                    isPlaceholder: false
-                },
-                {
-                    title: 'Super Speed Bot',
-                    description: 'High-frequency trading bot optimized for speed',
-                    image: 'default_image_path',
-                    filePath: 'Super Speed Bot.xml',
-                    xmlContent: null,
-                    isPlaceholder: false
-                }
+        // Fetch the XML files and parse them
+        const fetchBots = async () => {
+            const botFiles = [
+                'Upgraded Candlemine.xml',
+                'Super Elite.xml',
+                'AUTO C4 PRO Version.xml',
+                'Mkorean SV4.xml',
             ];
 
-            setBots(initialBots);
-            console.log(`Initialized ${initialBots.length} bots`);
+            const loadedBots = [];
+
+            for (const file of botFiles) {
+                try {
+                    // Try multiple fetch approaches for better compatibility
+                    let response;
+                    let text = null;
+
+                    // Try public directory with encoded URI
+                    try {
+                        const encodedFile = encodeURIComponent(file);
+                        response = await fetch(`/${encodedFile}`);
+                        if (response.ok) {
+                            text = await response.text();
+                        }
+                    } catch (e) {
+                        console.log(`Failed to fetch encoded: ${file}`);
+                    }
+
+                    // Try normal fetch if encoded didn't work
+                    if (!text) {
+                        try {
+                            response = await fetch(`/${file}`);
+                            if (response.ok) {
+                                text = await response.text();
+                            }
+                        } catch (e) {
+                            console.log(`Failed to fetch normal: ${file}`);
+                        }
+                    }
+
+                    // Try without leading slash
+                    if (!text) {
+                        try {
+                            response = await fetch(file);
+                            if (response.ok) {
+                                text = await response.text();
+                            }
+                        } catch (e) {
+                            console.log(`Failed to fetch without slash: ${file}`);
+                        }
+                    }
+
+                    if (!text) {
+                        console.warn(`Could not load bot file: ${file}`);
+                        loadedBots.push({
+                            title: file.replace('.xml', ''),
+                            image: 'default_image_path',
+                            filePath: file,
+                            xmlContent: null,
+                            isPlaceholder: true
+                        });
+                        continue;
+                    }
+
+                    // Validate XML content
+                    if (!text.trim().startsWith('<xml') && !text.trim().startsWith('<?xml')) {
+                        console.warn(`Invalid XML content for ${file}`);
+                        loadedBots.push({
+                            title: file.replace('.xml', ''),
+                            image: 'default_image_path',
+                            filePath: file,
+                            xmlContent: null,
+                            isPlaceholder: true
+                        });
+                        continue;
+                    }
+
+                    const parser = new DOMParser();
+                    const xml = parser.parseFromString(text, 'application/xml');
+
+                    // Check if XML parsing was successful
+                    const parseError = xml.getElementsByTagName('parsererror')[0];
+                    if (parseError) {
+                        console.warn(`XML parsing error for ${file}:`, parseError.textContent);
+                        loadedBots.push({
+                            title: file.replace('.xml', ''),
+                            image: 'default_image_path',
+                            filePath: file,
+                            xmlContent: text, // Still include the content even if parsing failed
+                            isPlaceholder: false
+                        });
+                        continue;
+                    }
+
+                    loadedBots.push({
+                        title: file.replace('.xml', ''),
+                        image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
+                        filePath: file,
+                        xmlContent: text,
+                        isPlaceholder: false
+                    });
+
+                    console.log(`Successfully loaded: ${file}`);
+
+                } catch (error) {
+                    console.error(`Error loading bot ${file}:`, error);
+                    loadedBots.push({
+                        title: file.replace('.xml', ''),
+                        image: 'default_image_path',
+                        filePath: file,
+                        xmlContent: null,
+                        isPlaceholder: true
+                    });
+                }
+            }
+
+            setBots(loadedBots);
+            console.log(`Loaded ${loadedBots.length} bots total`);
+            console.log(`Successful: ${loadedBots.filter(b => !b.isPlaceholder).length}`);
+            console.log(`Placeholders: ${loadedBots.filter(b => b.isPlaceholder).length}`);
         };
 
-        initializeBots();
+        fetchBots();
     }, []);
 
     const runBot = (xmlContent: string) => {
@@ -235,110 +299,64 @@ const AppWrapper = observer(() => {
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
         setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
-            console.log("Loading bot:", bot.title);
-
-            // Clear any cached workspace data before loading new bot
-            if (typeof window !== 'undefined') {
-                // Clear any cached function definitions or workspace state
-                localStorage.removeItem('dbot-workspace');
-                localStorage.removeItem('dbot-functions');
-                localStorage.removeItem('blockly-workspace');
-                sessionStorage.removeItem('dbot-workspace');
-                sessionStorage.removeItem('dbot-functions');
-            }
+            console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
 
             let xmlContent = bot.xmlContent;
 
-            // Try to load the XML content from the file
-            if (!xmlContent) {
-                console.log("Loading XML content for bot:", bot.filePath);
+            // If it's a placeholder bot or no content, try to load the content now
+            if (bot.isPlaceholder || !xmlContent) {
+                console.log("Attempting to load XML content for bot...");
                 try {
-                    // Try different URLs to fetch the bot file from public directory
+                    let response;
+                    let success = false;
+
+                    // Try multiple approaches
                     const attempts = [
-                        `/${bot.filePath}`,
-                        `/public/${bot.filePath}`,
                         `/${encodeURIComponent(bot.filePath)}`,
-                        `/public/${encodeURIComponent(bot.filePath)}`
+                        `/${bot.filePath}`,
+                        bot.filePath
                     ];
 
-                    let success = false;
                     for (const url of attempts) {
                         try {
-                            console.log(`Attempting to fetch from: ${url}`);
-                            const response = await fetch(url);
+                            response = await fetch(url);
                             if (response.ok) {
                                 xmlContent = await response.text();
                                 console.log(`Successfully loaded XML from: ${url}`);
-                                console.log('XML content preview:', xmlContent.substring(0, 200) + '...');
-                                
-                                // Validate that it's actually XML content
-                                if (xmlContent.trim().startsWith('<xml') || xmlContent.trim().startsWith('<?xml')) {
-                                    success = true;
-                                    break;
-                                } else {
-                                    console.log(`Content from ${url} doesn't appear to be XML`);
-                                }
-                            } else {
-                                console.log(`HTTP ${response.status} from: ${url}`);
+                                success = true;
+                                break;
                             }
                         } catch (e) {
-                            console.log(`Network error fetching from: ${url}`, e);
+                            console.log(`Failed attempt with URL: ${url}`);
                         }
                     }
 
                     if (!success) {
-                        console.warn(`Could not load ${bot.filePath}, using placeholder strategy`);
-                        // Create a simple placeholder strategy
-                        xmlContent = `<xml xmlns="http://www.w3.org/1999/xhtml" collection="false">
-                            <variables />
-                            <block type="trade_definition" deletable="false" movable="false">
-                                <statement name="TRADE_OPTIONS">
-                                    <block type="trade_definition_tradetype">
-                                        <field name="TRADETYPE_LIST">callput</field>
-                                        <value name="TRADETYPECAT_LIST">
-                                            <block type="trade_definition_callputequal">
-                                                <field name="CALLPUTEQUAL_LIST">callput</field>
-                                            </block>
-                                        </value>
-                                    </block>
-                                </statement>
-                            </block>
-                        </xml>`;
-                        console.log("Using placeholder XML content");
+                        throw new Error(`Could not fetch ${bot.filePath} from any URL`);
                     }
                 } catch (fetchError) {
                     console.error("Failed to load bot content:", fetchError);
+                    // Removed alert message
                     return;
                 }
             }
 
             if (!xmlContent || xmlContent.trim().length === 0) {
-                console.error("No XML content available");
+                //Removed alert message
                 return;
             }
 
             console.log("XML Content length:", xmlContent?.length);
+            console.log("XML Content preview:", xmlContent?.substring(0, 200));
 
-            // Validate XML content format
+            // Validate XML content
             if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
-                console.error("Invalid XML format");
+                //Removed alert message
                 return;
             }
 
             if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
                 try {
-                    // Clear workspace first to ensure clean loading
-                    if (typeof window !== 'undefined' && window.Blockly && window.Blockly.getMainWorkspace) {
-                        const workspace = window.Blockly.getMainWorkspace();
-                        if (workspace) {
-                            workspace.clear();
-                            // Clear any custom function definitions
-                            if (workspace.procedureMap_) {
-                                workspace.procedureMap_.clear();
-                            }
-                        }
-                    }
-
                     await load_modal.loadFileFromContent(xmlContent);
                     console.log("Bot loaded successfully!");
 
@@ -348,13 +366,17 @@ const AppWrapper = observer(() => {
                     }
                 } catch (loadError) {
                     console.error("Error in load_modal.loadFileFromContent:", loadError);
+                    //Removed alert message
                 }
             } else {
-                console.error("loadFileFromContent is not available or no XML content");
+                console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
+                console.log("load_modal object:", load_modal);
+                //Removed alert message
             }
 
         } catch (error) {
             console.error("Error loading bot:", error);
+             //Removed alert message
         }
     }, [setActiveTab, load_modal]);
 
@@ -1247,28 +1269,14 @@ if __name__ == "__main__":
                                 <div label={<Localize i18n_default_text='Smart Trading' />} id='smart-trading'>
                                     <VolatilityAnalyzer />
                                 </div>
+                                <div label={<Localize i18n_default_text='🤖 ML Trader' />} id='ml-trader'>
+                                    <MLTrader />
+                                </div>
                             </Tabs>
                         </div>
 
                         </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
-                        <div label={<><AITraderIcon /><Localize i18n_default_text='🤖 ML Trader' /></>} id='id-ml-trader'>
-                            <MLTrader />
-                        </div>
-                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Higher/Lower & Rise/Fall' /></>} id='id-Trading-Hub'>
-                            <div className={classNames('dashboard__chart-wrapper', {
-                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
-                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })} style={{
-                                height: '100%',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                padding: 0,
-                                overflow: 'hidden'
-                            }}>
-                                <HigherLowerTrader />
-                            </div>
-                        </div>
                         <div label={<><AITraderIcon /><Localize i18n_default_text='AI Trader' /></>} id='id-ai-trader'>
                             <SmartTrader />
                         </div>
@@ -1324,6 +1332,14 @@ if __name__ == "__main__":
                             <Suspense fallback={<ChunkLoader message={localize('Please wait, loading tutorials...')} />}>
                                 <Tutorial handleTabChange={handleTabChange} />
                             </Suspense>
+                        </div>
+                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
+                            <div className={classNames('dashboard__chart-wrapper', {
+                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
+                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
+                            })}>
+                                <PercentageTool />
+                            </div>
                         </div>
                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
                             <Dashboard handleTabChange={handleTabChange} />
