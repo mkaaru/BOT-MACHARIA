@@ -237,6 +237,16 @@ const AppWrapper = observer(() => {
         try {
             console.log("Loading bot:", bot.title);
 
+            // Clear any cached workspace data before loading new bot
+            if (typeof window !== 'undefined') {
+                // Clear any cached function definitions or workspace state
+                localStorage.removeItem('dbot-workspace');
+                localStorage.removeItem('dbot-functions');
+                localStorage.removeItem('blockly-workspace');
+                sessionStorage.removeItem('dbot-workspace');
+                sessionStorage.removeItem('dbot-functions');
+            }
+
             let xmlContent = bot.xmlContent;
 
             // Try to load the XML content from the file
@@ -317,6 +327,18 @@ const AppWrapper = observer(() => {
 
             if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
                 try {
+                    // Clear workspace first to ensure clean loading
+                    if (window.Blockly && window.Blockly.getMainWorkspace) {
+                        const workspace = window.Blockly.getMainWorkspace();
+                        if (workspace) {
+                            workspace.clear();
+                            // Clear any custom function definitions
+                            if (workspace.procedureMap_) {
+                                workspace.procedureMap_.clear();
+                            }
+                        }
+                    }
+
                     await load_modal.loadFileFromContent(xmlContent);
                     console.log("Bot loaded successfully!");
 
