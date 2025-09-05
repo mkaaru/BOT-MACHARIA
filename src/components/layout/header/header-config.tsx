@@ -16,6 +16,8 @@ import {
     LabelPairedCircleDollarSmIcon,
     LabelPairedFileChartColumnSmIcon,
 } from '@deriv/quill-icons';
+import React from 'react';
+import EnhancedNavigation from './enhanced-navigation';
 
 export type PlatformsConfig = {
     active: boolean;

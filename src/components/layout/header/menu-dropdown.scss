@@ -1,0 +1,119 @@
+
+.menu-dropdown {
+    position: relative;
+    
+    &__trigger {
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+    }
+
+    &__content {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        background-color: var(--general-main-2);
+        border: 1px solid var(--general-section-1);
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        min-width: 300px;
+        max-height: 70vh;
+        overflow-y: auto;
+        
+        &--mobile {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            min-width: auto;
+            max-height: none;
+            border-radius: 0;
+            border: none;
+            overflow-y: auto;
+        }
+    }
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--general-section-1);
+        background-color: var(--general-main-1);
+        
+        h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-general);
+            margin: 0;
+        }
+    }
+
+    &__close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: var(--text-general);
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: background-color 0.2s ease;
+        
+        &:hover {
+            background-color: var(--general-section-1);
+        }
+    }
+
+    &__overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        
+        @media (min-width: 769px) {
+            display: none;
+        }
+    }
+}
+
+// Desktop specific styles
+@media (min-width: 769px) {
+    .menu-dropdown {
+        &__content {
+            right: auto;
+            left: 0;
+            
+            // Adjust position if too close to right edge
+            &.menu-dropdown__content--right {
+                right: 0;
+                left: auto;
+            }
+        }
+    }
+}
+
+// Dark theme
+.theme--dark {
+    .menu-dropdown {
+        &__content {
+            background-color: var(--general-main-1);
+            border-color: var(--general-section-2);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+        
+        &__header {
+            background-color: var(--general-main-2);
+            border-bottom-color: var(--general-section-2);
+        }
+    }
+}
