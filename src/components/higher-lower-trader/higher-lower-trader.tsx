@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
@@ -15,6 +14,9 @@ import { ChartTitle, SmartChart } from '@deriv/deriv-charts';
 import { useDevice } from '@deriv-com/ui';
 import ToolbarWidgets from './toolbar-widgets';
 import ChartToggle from './chart-toggle';
+import SmartTradingDisplay from './smart-trading-display';
+import SpeedBotDisplay from './speed-bot-display';
+import SmartTrader from './smart-trader';
 import '@deriv/deriv-charts/dist/smartcharts.css';
 
 type TSubscription = {
@@ -104,6 +106,12 @@ const Chart = observer(({ show_digits_stats }: { show_digits_stats: boolean }) =
         }
     };
 
+    const tabs = [
+        { key: 'smart-trading', label: localize('Smart Trading') },
+        { key: 'speed-bot', label: localize('Speed Bot') },
+        { key: 'smart-trader', label: localize('Smart Trader') }
+    ];
+
     if (!symbol) return null;
     const is_connection_opened = !!chart_api?.api;
     return (
@@ -146,6 +154,9 @@ const Chart = observer(({ show_digits_stats }: { show_digits_stats: boolean }) =
                     isLive
                     leftMargin={80}
                 />
+                {activeTab === 'smart-trading' && <SmartTradingDisplay />}
+                {activeTab === 'speed-bot' && <SpeedBotDisplay />}
+                {activeTab === 'smart-trader' && <SmartTrader />}
             </div>
         </ChartToggle>
     );
