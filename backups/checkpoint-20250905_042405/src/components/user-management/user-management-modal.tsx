@@ -1,1 +1,0 @@
-import { Modal } from '../shared_ui';

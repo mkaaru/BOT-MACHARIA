@@ -10,7 +10,6 @@ import { TAuthData } from '@/types/api-types';
 import { initializeI18n, localize, TranslationProvider } from '@deriv-com/translations';
 import CoreStoreProvider from './CoreStoreProvider';
 import './app-root.scss';
-import { connectionMonitor } from '../services/connection-monitor';
 
 const Layout = lazy(() => import('../components/layout'));
 const AppRoot = lazy(() => import('./app-root'));
@@ -130,32 +129,6 @@ function App() {
             });
         }
     }, []);
-
-    useEffect(() => {
-        // Initialize analytics with placeholder values as the actual values are not provided.
-        // These should be replaced with actual environment variables or configuration.
-        // The TrackJS token is missing, so we'll use an empty string for now.
-        // In a real scenario, you would fetch or configure this token properly.
-        const growthbookKey = process.env.GROWTHBOOK_KEY || '';
-        const growthbookDecryptionKey = process.env.GROWTHBOOK_DECRYPTION_KEY || '';
-        const rudderstackKey = process.env.RUDDERSTACK_KEY || '';
-
-        // Placeholder for actual analytics initialization logic
-        // Analytics.initialise({
-        //     growthbookKey: growthbookKey,
-        //     growthbookDecryptionKey: growthbookDecryptionKey,
-        //     rudderstackKey: rudderstackKey,
-        // });
-
-        // Start connection monitor to handle memory cleanup and reconnections
-        connectionMonitor.start();
-
-        // Cleanup on unmount
-        return () => {
-            connectionMonitor.stop();
-        };
-    }, []);
-
 
     return <RouterProvider router={router} />;
 }
