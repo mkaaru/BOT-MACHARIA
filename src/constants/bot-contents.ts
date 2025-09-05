@@ -1,4 +1,3 @@
-
 type TTabsTitle = {
     [key: string]: string | number;
 };
@@ -17,12 +16,11 @@ export const DBOT_TABS = {
     BOT_BUILDER: 'Bot Builder',
     CHART: 'Charts',
     TUTORIAL: 'Tutorials',
-    AUTO: 'Auto',
     TRADING_HUB: 'Trading Hub',
 } as const;
 
 export const MAX_STRATEGIES = 10;
 
-export const TAB_IDS = ['id-free-bots', 'id-bot-builder', 'id-charts', 'id-tutorials', 'id-analysis-tool', 'id-signals', 'id-dbot-dashboard', 'id-auto'];
+export const TAB_IDS = ['id-free-bots', 'id-bot-builder', 'id-charts', 'id-tutorials', 'id-analysis-tool', 'id-signals', 'id-dbot-dashboard'];
 
 export const DEBOUNCE_INTERVAL_TIME = 500;

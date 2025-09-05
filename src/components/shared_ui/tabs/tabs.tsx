@@ -35,7 +35,6 @@ type TTabsProps = {
     should_update_hash?: boolean;
     single_tab_has_no_label?: boolean;
     top: boolean;
-    items?: any[]; // Added items prop for the fix
 };
 
 const Tabs = ({
@@ -61,7 +60,6 @@ const Tabs = ({
     should_update_hash = false,
     single_tab_has_no_label = false,
     top,
-    items = [], // Default to empty array
 }: TTabsProps) => {
     const [active_line_style, updateActiveLineStyle] = React.useState({});
     const active_tab_ref = React.useRef<HTMLLIElement>(null);
