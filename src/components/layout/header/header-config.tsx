@@ -58,10 +58,10 @@ export const platformsConfig: PlatformsConfig[] = [
     },
     {
         active: true,
-        buttonIcon: <DerivBotLogo height={25} width={94} />,
-        description: localize('Automated trading at your fingertips. No coding needed.'),
-        href: standalone_routes.bot,
-        icon: <DerivBotLogo height={32} width={121} />,
+        buttonIcon: <TradershubLogo height={25} width={114.97} />,
+        description: localize('Trade with powerful, AI-driven strategies on the Trading Hub.'),
+        href: standalone_routes.traders_hub, // This should point to the Trading Hub
+        icon: <TradershubLogo height={32} width={148} />, // Placeholder, ideally a Trading Hub icon
         showInEU: false,
     },
     {

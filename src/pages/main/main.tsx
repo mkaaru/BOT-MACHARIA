@@ -1278,7 +1278,26 @@ if __name__ == "__main__":
                         </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
                         <div label={<><AITraderIcon /><Localize i18n_default_text='Auto Trader' /></>} id='id-auto-trader'>
-                            <AutoTrader />
+                            {/* This is the Trading Hub implementation */}
+                            <div className={classNames('dashboard__chart-wrapper', {
+                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
+                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
+                            })} style={{
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                padding: 0,
+                                overflow: 'hidden'
+                            }}>
+                                {/* Placeholder for Trading Hub content */}
+                                {/* Replace this with actual Trading Hub components */}
+                                <div style={{ padding: '20px', textAlign: 'center' }}>
+                                    <h2>Trading Hub Content</h2>
+                                    <p>Implementation of Trading Hub components will go here.</p>
+                                    {/* Example: Including the main Trading Hub component */}
+                                    {/* <TradingHubDisplay /> */}
+                                </div>
+                            </div>
                         </div>
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Higher/Lower & Rise/Fall' /></>} id='id-Trading-Hub'>
                             <div className={classNames('dashboard__chart-wrapper', {
