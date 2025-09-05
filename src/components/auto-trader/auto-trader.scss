@@ -16,12 +16,39 @@
         margin-bottom: 24px;
         padding-bottom: 16px;
         border-bottom: 1px solid var(--border-normal);
+        flex-wrap: wrap;
+        gap: 16px;
 
         h2 {
             font-size: 24px;
             font-weight: 600;
             margin: 0;
             color: var(--text-prominent);
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+
+            .stat-item {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                min-width: 80px;
+
+                .stat-label {
+                    font-size: 12px;
+                    color: var(--text-less-prominent);
+                    margin-bottom: 4px;
+                }
+
+                .stat-value {
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: var(--text-prominent);
+                }
+            }
         }
 
         .connection-status {
@@ -56,6 +83,33 @@
         gap: 24px;
     }
 
+    .authentication-required {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        text-align: center;
+        color: var(--text-general);
+
+        .auth-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-prominent);
+        }
+
+        p {
+            font-size: 14px;
+            color: var(--text-less-prominent);
+        }
+    }
+
     .strategies-section {
         h3 {
             font-size: 18px;
@@ -64,55 +118,124 @@
             color: var(--text-prominent);
         }
         
-        .strategy-card {
-            background: var(--general-section-1);
-            border: 1px solid var(--border-normal);
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 12px;
-            transition: all 0.2s ease;
+        .strategies-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 16px;
 
-            &:hover {
-                border-color: var(--border-hover);
-                transform: translateY(-1px);
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            }
+            .strategy-card {
+                background: var(--general-section-1);
+                border: 2px solid var(--border-normal);
+                border-radius: 12px;
+                padding: 20px;
+                transition: all 0.3s ease;
+                position: relative;
 
-            .strategy-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 8px;
+                &.enabled {
+                    border-color: var(--brand-coral);
+                    background: var(--general-active);
 
-                h4 {
-                    font-size: 16px;
-                    font-weight: 600;
-                    margin: 0;
-                    color: var(--text-prominent);
+                    &::before {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        height: 4px;
+                        background: linear-gradient(90deg, var(--brand-coral), #ff6b7a);
+                        border-radius: 12px 12px 0 0;
+                    }
                 }
-            }
 
-            p {
-                font-size: 14px;
-                color: var(--text-general);
-                margin-bottom: 12px;
-                line-height: 1.5;
-            }
+                &:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+                }
 
-            .recommendation {
-                display: flex;
-                gap: 12px;
-                flex-wrap: wrap;
-                padding: 8px 12px;
-                background: var(--general-active);
-                border-radius: 6px;
-                font-size: 12px;
+                .strategy-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    margin-bottom: 16px;
 
-                span {
-                    background: var(--button-secondary-default);
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    color: var(--text-general);
+                    .strategy-info {
+                        display: flex;
+                        gap: 12px;
+                        flex: 1;
+
+                        .strategy-icon {
+                            font-size: 24px;
+                            width: 40px;
+                            height: 40px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            background: var(--general-main-1);
+                            border-radius: 8px;
+                        }
+
+                        .strategy-details {
+                            flex: 1;
+
+                            h4 {
+                                font-size: 16px;
+                                font-weight: 600;
+                                margin: 0 0 4px 0;
+                                color: var(--text-prominent);
+                            }
+
+                            .strategy-description {
+                                font-size: 13px;
+                                color: var(--text-general);
+                                line-height: 1.4;
+                                margin: 0;
+                            }
+                        }
+                    }
+
+                    .strategy-controls {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: flex-end;
+                        gap: 8px;
+
+                        .activity-status {
+                            font-size: 11px;
+                            font-weight: 600;
+                            padding: 4px 8px;
+                            border-radius: 12px;
+                            text-transform: uppercase;
+
+                            &.active {
+                                background: rgba(75, 181, 67, 0.2);
+                                color: #4BB543;
+                            }
+
+                            &.inactive {
+                                background: rgba(153, 153, 153, 0.2);
+                                color: var(--text-less-prominent);
+                            }
+                        }
+                    }
+                }
+
+                .recommendation {
+                    display: flex;
+                    gap: 8px;
+                    flex-wrap: wrap;
+                    padding: 12px;
+                    background: var(--general-main-1);
+                    border-radius: 8px;
+                    font-size: 12px;
+                    border: 1px solid var(--border-normal);
+
+                    span {
+                        background: var(--button-secondary-default);
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        color: var(--text-general);
+                        font-weight: 500;
+                    }
                 }
             }
         }
@@ -170,85 +293,127 @@
     .trading-controls {
         background: var(--general-section-1);
         border: 1px solid var(--border-normal);
-        border-radius: 8px;
+        border-radius: 12px;
         padding: 20px;
 
-        .stake-controls, .martingale-controls {
-            display: flex;
-            gap: 16px;
+        h3 {
+            font-size: 16px;
+            font-weight: 600;
             margin-bottom: 16px;
-            flex-wrap: wrap;
+            color: var(--text-prominent);
+        }
+
+        .stake-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
 
             label {
                 display: flex;
                 flex-direction: column;
-                gap: 4px;
-                font-size: 14px;
-                font-weight: 500;
+                gap: 6px;
+
+                span {
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: var(--text-general);
+                }
 
                 input {
-                    padding: 8px 12px;
+                    padding: 10px 12px;
                     border: 1px solid var(--border-normal);
-                    border-radius: 4px;
+                    border-radius: 6px;
                     background: var(--general-main-1);
                     color: var(--text-general);
                     font-size: 14px;
-                    width: 120px;
 
                     &:focus {
                         outline: none;
                         border-color: var(--brand-coral);
+                        box-shadow: 0 0 0 2px rgba(255, 68, 79, 0.1);
+                    }
+
+                    &:read-only {
+                        background: var(--general-disabled);
+                        cursor: not-allowed;
                     }
                 }
             }
         }
 
-        .trade-button {
-            padding: 12px 24px;
-            font-size: 16px;
-            font-weight: 600;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            min-width: 150px;
+        .trade-controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
 
-            &.start {
-                background: var(--brand-coral);
-                color: white;
+            .trade-button, .reset-button {
+                padding: 12px 24px;
+                font-size: 16px;
+                font-weight: 600;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                min-width: 150px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
 
-                &:hover:not(:disabled) {
-                    background: var(--brand-coral-hover);
-                    transform: translateY(-1px);
+                &:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
                 }
             }
 
-            &.stop {
-                background: #ff4444;
-                color: white;
+            .trade-button {
+                &.start {
+                    background: var(--brand-coral);
+                    color: white;
 
-                &:hover:not(:disabled) {
-                    background: #cc3333;
-                    transform: translateY(-1px);
+                    &:hover:not(:disabled) {
+                        background: var(--brand-coral-hover);
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 12px rgba(255, 68, 79, 0.3);
+                    }
+                }
+
+                &.stop {
+                    background: #ff4444;
+                    color: white;
+
+                    &:hover:not(:disabled) {
+                        background: #cc3333;
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
+                    }
                 }
             }
 
-            &:disabled {
-                opacity: 0.5;
-                cursor: not-allowed;
+            .reset-button {
+                background: var(--button-secondary-default);
+                color: var(--text-general);
+                border: 1px solid var(--border-normal);
+
+                &:hover {
+                    background: var(--button-secondary-hover);
+                    transform: translateY(-1px);
+                }
             }
         }
     }
 
     .status-section {
         .status-message {
-            padding: 12px 16px;
+            padding: 16px;
             background: var(--general-section-1);
             border: 1px solid var(--border-normal);
-            border-radius: 6px;
+            border-radius: 8px;
             font-size: 14px;
             margin: 0;
             text-align: center;
+            color: var(--text-general);
         }
     }
 
@@ -268,19 +433,26 @@
             .stat-item {
                 background: var(--general-section-1);
                 border: 1px solid var(--border-normal);
-                border-radius: 6px;
-                padding: 12px 16px;
+                border-radius: 8px;
+                padding: 16px;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
+                transition: all 0.2s ease;
+
+                &:hover {
+                    border-color: var(--border-hover);
+                    transform: translateY(-1px);
+                }
 
                 .stat-label {
                     font-size: 14px;
                     color: var(--text-general);
+                    font-weight: 500;
                 }
 
                 .stat-value {
-                    font-size: 16px;
+                    font-size: 18px;
                     font-weight: 600;
                     color: var(--text-prominent);
 
@@ -315,37 +487,60 @@
         .history-list {
             background: var(--general-section-1);
             border: 1px solid var(--border-normal);
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
 
             .trade-item {
                 display: grid;
-                grid-template-columns: 1fr 1fr 100px 100px 80px;
+                grid-template-columns: 1fr 1fr 1fr 100px 100px 80px;
                 gap: 12px;
-                padding: 12px 16px;
+                padding: 16px;
                 border-bottom: 1px solid var(--border-normal);
                 font-size: 14px;
                 align-items: center;
+                transition: all 0.2s ease;
 
                 &:last-child {
                     border-bottom: none;
                 }
 
+                &:hover {
+                    background: var(--general-active);
+                }
+
                 &.won {
-                    background: rgba(75, 181, 67, 0.1);
+                    border-left: 4px solid #4BB543;
+                    background: rgba(75, 181, 67, 0.05);
                 }
 
                 &.lost {
-                    background: rgba(255, 68, 68, 0.1);
+                    border-left: 4px solid #ff4444;
+                    background: rgba(255, 68, 68, 0.05);
                 }
 
                 &.active {
-                    background: rgba(255, 165, 0, 0.1);
+                    border-left: 4px solid #ff9500;
+                    background: rgba(255, 149, 0, 0.05);
                 }
 
                 .trade-strategy {
-                    font-weight: 500;
+                    font-weight: 600;
                     color: var(--text-prominent);
+                }
+
+                .trade-symbol {
+                    font-family: monospace;
+                    font-weight: 500;
+                }
+
+                .trade-type {
+                    font-size: 12px;
+                    color: var(--text-less-prominent);
+                }
+
+                .trade-amount {
+                    font-weight: 500;
+                    color: var(--text-general);
                 }
 
                 .trade-profit {
@@ -363,6 +558,7 @@
                 .trade-time {
                     font-size: 12px;
                     color: var(--text-less-prominent);
+                    font-family: monospace;
                 }
             }
         }
@@ -373,26 +569,30 @@
         --general-main-1: #0e0e0e;
         --general-section-1: #151717;
         --general-active: #242828;
+        --general-disabled: #1a1a1a;
         --text-prominent: #ffffff;
         --text-general: #c2c2c2;
         --text-less-prominent: #999999;
         --border-normal: #323738;
         --border-hover: #414652;
         --button-secondary-default: #323738;
+        --button-secondary-hover: #414652;
         --brand-coral: #ff444f;
         --brand-coral-hover: #e33d47;
     }
 
     &.theme--light {
         --general-main-1: #ffffff;
-        --general-section-1: #f2f3f4;
+        --general-section-1: #f8f9fa;
         --general-active: #e6e9e9;
+        --general-disabled: #f0f0f0;
         --text-prominent: #333333;
         --text-general: #555555;
         --text-less-prominent: #999999;
         --border-normal: #d6dadb;
         --border-hover: #999999;
         --button-secondary-default: #e6e9e9;
+        --button-secondary-hover: #d0d0d0;
         --brand-coral: #ff444f;
         --brand-coral-hover: #e33d47;
     }
@@ -403,23 +603,37 @@
 
         &__header {
             flex-direction: column;
-            gap: 12px;
             align-items: flex-start;
+
+            .header-stats {
+                gap: 16px;
+                justify-content: space-between;
+                width: 100%;
+            }
+
+            .connection-status {
+                align-self: flex-end;
+            }
         }
 
-        .trading-controls {
-            .stake-controls, .martingale-controls {
-                flex-direction: column;
-                gap: 12px;
+        .strategies-section .strategies-grid {
+            grid-template-columns: 1fr;
+        }
 
-                label input {
-                    width: 100%;
-                }
+        .trading-controls .stake-controls {
+            grid-template-columns: 1fr;
+        }
+
+        .trading-controls .trade-controls {
+            flex-direction: column;
+
+            .trade-button, .reset-button {
+                width: 100%;
             }
         }
 
         .statistics-section .stats-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, 1fr);
         }
 
         .trade-history .history-list .trade-item {
@@ -432,6 +646,12 @@
                 font-weight: 600;
                 color: var(--text-prominent);
             }
+        }
+    }
+
+    @media (max-width: 480px) {
+        .statistics-section .stats-grid {
+            grid-template-columns: 1fr;
         }
     }
 }

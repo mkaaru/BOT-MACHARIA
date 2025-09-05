@@ -32,20 +32,34 @@ interface TradingStats {
     totalProfit: number;
 }
 
+interface StrategyStatus {
+    name: string;
+    enabled: boolean;
+    isActive: boolean;
+    recommendation?: TradeRecommendation;
+}
+
 const AutoTrader: React.FC = () => {
     const { is_dark_mode_on } = useThemeSwitcher();
     const store = useStore();
 
-    // Strategy states
-    const [autoDifferEnabled, setAutoDifferEnabled] = useState(false);
-    const [overUnderEnabled, setOverUnderEnabled] = useState(false);
-    const [o5u4Enabled, setO5u4Enabled] = useState(false);
+    // Strategy states - matching cloned repo structure
+    const [strategies, setStrategies] = useState<StrategyStatus[]>([
+        { name: 'AutoDiffer', enabled: false, isActive: false },
+        { name: 'Auto Over/Under', enabled: false, isActive: false },
+        { name: 'Auto O5 U4', enabled: false, isActive: false }
+    ]);
 
     // Trading states
     const [baseStake, setBaseStake] = useState(MINIMUM_STAKE);
     const [currentStake, setCurrentStake] = useState(MINIMUM_STAKE);
     const [martingaleMultiplier, setMartingaleMultiplier] = useState(2.0);
     const [maxConsecutiveLosses, setMaxConsecutiveLosses] = useState(5);
+    const [isAuthenticated, setIsAuthenticated] = useState(true); // Set based on login status
+
+    // Trading control
+    const [isContinuousTrading, setIsContinuousTrading] = useState(false);
+    const [isTrading, setIsTrading] = useState(false);
 
     // Results and statistics
     const [tradeHistory, setTradeHistory] = useState<TradeResult[]>([]);
@@ -71,17 +85,24 @@ const AutoTrader: React.FC = () => {
     const tradingInterval = useRef<NodeJS.Timeout | null>(null);
 
     // Status messages
-    const [statusMessage, setStatusMessage] = useState('Initializing Trading Hub...');
+    const [statusMessage, setStatusMessage] = useState('Market Analysis Tools Ready...');
     const [lastTradeTime, setLastTradeTime] = useState<number>(0);
 
-    // Trading control states
-    const [isContinuousTrading, setIsContinuousTrading] = useState(false);
-    const [isTrading, setIsTrading] = useState(false);
-
     // Check if any strategy is active
-    const isStrategyActive = autoDifferEnabled || overUnderEnabled || o5u4Enabled;
+    const isStrategyActive = strategies.some(s => s.enabled);
+
+    const handleStrategyToggle = (strategyName: string) => {
+        setStrategies(prev => prev.map(s => 
+            s.name === strategyName ? { ...s, enabled: !s.enabled } : s
+        ));
+    };
 
     const handleTrade = () => {
+        if (!isAuthenticated) {
+            setStatusMessage('Please log in to access trading features');
+            return;
+        }
+
         if (isContinuousTrading) {
             // Stop trading
             setIsContinuousTrading(false);
@@ -102,6 +123,7 @@ const AutoTrader: React.FC = () => {
     useEffect(() => {
         // Initialize market analyzer
         marketAnalyzer.connect();
+        setStatusMessage('Connected to market data');
 
         return () => {
             marketAnalyzer.disconnect();
@@ -109,21 +131,25 @@ const AutoTrader: React.FC = () => {
     }, []);
 
     useEffect(() => {
+        if (!isStrategyActive) return;
+
         // Start analysis loop
         analysisInterval.current = setInterval(() => {
             updateRecommendations();
         }, 2000);
 
-        // Start trading loop
-        tradingInterval.current = setInterval(() => {
-            executeAutomatedTrades();
-        }, 3000);
+        // Start trading loop if continuous trading is enabled
+        if (isContinuousTrading) {
+            tradingInterval.current = setInterval(() => {
+                executeAutomatedTrades();
+            }, 3000);
+        }
 
         return () => {
             if (analysisInterval.current) clearInterval(analysisInterval.current);
             if (tradingInterval.current) clearInterval(tradingInterval.current);
         };
-    }, [autoDifferEnabled, overUnderEnabled, o5u4Enabled, isContinuousTrading]);
+    }, [strategies, isContinuousTrading]);
 
     const updateRecommendations = () => {
         try {
@@ -134,17 +160,37 @@ const AutoTrader: React.FC = () => {
 
             const recommendations: any = {};
 
-            if (autoDifferEnabled) {
-                recommendations.autodiff = marketAnalyzer.getAutoDifferRecommendation();
-            }
+            // Update strategies with current recommendations
+            setStrategies(prev => prev.map(strategy => {
+                let recommendation = null;
+                let isActive = false;
 
-            if (overUnderEnabled) {
-                recommendations.over_under = marketAnalyzer.getOverUnderRecommendation();
-            }
+                if (strategy.enabled) {
+                    switch (strategy.name) {
+                        case 'AutoDiffer':
+                            recommendation = marketAnalyzer.getAutoDifferRecommendation();
+                            isActive = !!recommendation;
+                            if (recommendation) recommendations.autodiff = recommendation;
+                            break;
+                        case 'Auto Over/Under':
+                            recommendation = marketAnalyzer.getOverUnderRecommendation();
+                            isActive = !!recommendation;
+                            if (recommendation) recommendations.over_under = recommendation;
+                            break;
+                        case 'Auto O5 U4':
+                            recommendation = marketAnalyzer.getO5U4Recommendation();
+                            isActive = !!recommendation;
+                            if (recommendation) recommendations.o5u4 = recommendation;
+                            break;
+                    }
+                }
 
-            if (o5u4Enabled) {
-                recommendations.o5u4 = marketAnalyzer.getO5U4Recommendation();
-            }
+                return {
+                    ...strategy,
+                    isActive,
+                    recommendation: recommendation || undefined
+                };
+            }));
 
             setCurrentRecommendations(recommendations);
             setStatusMessage('Market analysis active');
@@ -155,7 +201,7 @@ const AutoTrader: React.FC = () => {
     };
 
     const executeAutomatedTrades = async () => {
-        if (!isContinuousTrading) {
+        if (!isContinuousTrading || !isAuthenticated) {
             return;
         }
 
@@ -167,15 +213,18 @@ const AutoTrader: React.FC = () => {
 
         try {
             // Check for trading opportunities
-            if (autoDifferEnabled && currentRecommendations.autodiff) {
+            const autoDifferStrategy = strategies.find(s => s.name === 'AutoDiffer');
+            if (autoDifferStrategy?.enabled && currentRecommendations.autodiff) {
                 await executeTrade(currentRecommendations.autodiff, 'AutoDiffer');
             }
 
-            if (overUnderEnabled && currentRecommendations.over_under) {
+            const overUnderStrategy = strategies.find(s => s.name === 'Auto Over/Under');
+            if (overUnderStrategy?.enabled && currentRecommendations.over_under) {
                 await executeTrade(currentRecommendations.over_under, 'Auto Over/Under');
             }
 
-            if (o5u4Enabled && currentRecommendations.o5u4) {
+            const o5u4Strategy = strategies.find(s => s.name === 'Auto O5 U4');
+            if (o5u4Strategy?.enabled && currentRecommendations.o5u4) {
                 await executeO5U4Trade(currentRecommendations.o5u4);
             }
         } catch (error) {
@@ -272,16 +321,59 @@ const AutoTrader: React.FC = () => {
         });
     };
 
+    const resetStats = () => {
+        setStats({
+            totalTrades: 0,
+            wins: 0,
+            losses: 0,
+            winRate: 0,
+            consecutiveLosses: 0,
+            consecutiveWins: 0,
+            totalProfit: 0
+        });
+        setTradeHistory([]);
+        setCurrentStake(baseStake);
+    };
+
     const formatCurrency = (amount: number) => {
         return `$${amount.toFixed(2)}`;
     };
 
     const isConnected = marketAnalyzer.isConnected;
 
+    if (!isAuthenticated) {
+        return (
+            <div className={`auto-trader ${is_dark_mode_on ? 'theme--dark' : 'theme--light'}`}>
+                <div className="auto-trader__header">
+                    <h2>🔒 MARKET ANALYSIS TOOLS</h2>
+                </div>
+                <div className="authentication-required">
+                    <div className="auth-icon">🔒</div>
+                    <h3>Authentication Required</h3>
+                    <p>Please log in to access trading features</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className={`auto-trader ${is_dark_mode_on ? 'theme--dark' : 'theme--light'}`}>
             <div className="auto-trader__header">
                 <h2>🎯 Trading Hub</h2>
+                <div className="header-stats">
+                    <div className="stat-item">
+                        <span className="stat-label">Total stake:</span>
+                        <span className="stat-value">{formatCurrency(0)}</span>
+                    </div>
+                    <div className="stat-item">
+                        <span className="stat-label">Total payout:</span>
+                        <span className="stat-value">{formatCurrency(0)}</span>
+                    </div>
+                    <div className="stat-item">
+                        <span className="stat-label">No. of runs:</span>
+                        <span className="stat-value">{stats.totalTrades}</span>
+                    </div>
+                </div>
                 <div className="connection-status">
                     <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}></div>
                     <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
@@ -290,79 +382,60 @@ const AutoTrader: React.FC = () => {
 
             <div className="auto-trader__content">
                 <div className="strategies-section">
-                    <h3>Trading Strategies</h3>
-                    
-                    <div className="strategy-card">
-                        <div className="strategy-header">
-                            <h4>🎲 AutoDiffer</h4>
-                            <label className="toggle-switch">
-                                <input 
-                                    type="checkbox" 
-                                    checked={autoDifferEnabled}
-                                    onChange={(e) => setAutoDifferEnabled(e.target.checked)}
-                                />
-                                <span className="slider"></span>
-                            </label>
-                        </div>
-                        <p>Automatically analyzes random barriers and symbols for optimal digit differ trades.</p>
-                        {currentRecommendations.autodiff && (
-                            <div className="recommendation">
-                                <span>Symbol: {currentRecommendations.autodiff.symbol}</span>
-                                <span>Barrier: {currentRecommendations.autodiff.barrier}</span>
-                                <span>Confidence: {(currentRecommendations.autodiff.confidence * 100).toFixed(1)}%</span>
+                    <div className="strategies-grid">
+                        {strategies.map((strategy, index) => (
+                            <div key={strategy.name} className={`strategy-card ${strategy.enabled ? 'enabled' : ''}`}>
+                                <div className="strategy-header">
+                                    <div className="strategy-info">
+                                        <div className="strategy-icon">
+                                            {strategy.name === 'AutoDiffer' && '🎲'}
+                                            {strategy.name === 'Auto Over/Under' && '📊'}
+                                            {strategy.name === 'Auto O5 U4' && '🎯'}
+                                        </div>
+                                        <div className="strategy-details">
+                                            <h4>{strategy.name}</h4>
+                                            <p className="strategy-description">
+                                                {strategy.name === 'AutoDiffer' && 'Automatically analyzes random barriers and symbols for optimal digit differ trades.'}
+                                                {strategy.name === 'Auto Over/Under' && 'Uses advanced AI to identify patterns and recommend optimal over/under positions.'}
+                                                {strategy.name === 'Auto O5 U4' && 'Simultaneously trades Over 5 and Under 4 based on digit frequency analysis across all volatility indices.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="strategy-controls">
+                                        <div className={`activity-status ${strategy.isActive ? 'active' : 'inactive'}`}>
+                                            {strategy.isActive ? 'Active' : 'Inactive'}
+                                        </div>
+                                        <label className="toggle-switch">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={strategy.enabled}
+                                                onChange={() => handleStrategyToggle(strategy.name)}
+                                            />
+                                            <span className="slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                {strategy.enabled && strategy.recommendation && (
+                                    <div className="recommendation">
+                                        <span>Symbol: {strategy.recommendation.symbol}</span>
+                                        <span>Type: {strategy.recommendation.contract_type}</span>
+                                        {strategy.recommendation.barrier && (
+                                            <span>Barrier: {strategy.recommendation.barrier}</span>
+                                        )}
+                                        <span>Confidence: {(strategy.recommendation.confidence * 100).toFixed(1)}%</span>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
-
-                    <div className="strategy-card">
-                        <div className="strategy-header">
-                            <h4>📊 Auto Over/Under</h4>
-                            <label className="toggle-switch">
-                                <input 
-                                    type="checkbox" 
-                                    checked={overUnderEnabled}
-                                    onChange={(e) => setOverUnderEnabled(e.target.checked)}
-                                />
-                                <span className="slider"></span>
-                            </label>
-                        </div>
-                        <p>Uses advanced AI to identify patterns and recommend optimal over/under positions.</p>
-                        {currentRecommendations.over_under && (
-                            <div className="recommendation">
-                                <span>Symbol: {currentRecommendations.over_under.symbol}</span>
-                                <span>Type: {currentRecommendations.over_under.contract_type}</span>
-                                <span>Confidence: {(currentRecommendations.over_under.confidence * 100).toFixed(1)}%</span>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="strategy-card">
-                        <div className="strategy-header">
-                            <h4>🎯 Auto O5U4</h4>
-                            <label className="toggle-switch">
-                                <input 
-                                    type="checkbox" 
-                                    checked={o5u4Enabled}
-                                    onChange={(e) => setO5u4Enabled(e.target.checked)}
-                                />
-                                <span className="slider"></span>
-                            </label>
-                        </div>
-                        <p>Simultaneously trades Over 5 and Under 4 based on digit frequency analysis across all volatility indices.</p>
-                        {currentRecommendations.o5u4 && (
-                            <div className="recommendation">
-                                <span>Symbol: {currentRecommendations.o5u4.symbol}</span>
-                                <span>Strategy: O5U4</span>
-                                <span>Confidence: {(currentRecommendations.o5u4.confidence * 100).toFixed(1)}%</span>
-                            </div>
-                        )}
+                        ))}
                     </div>
                 </div>
 
                 <div className="trading-controls">
+                    <h3>Trading Configuration</h3>
                     <div className="stake-controls">
                         <label>
-                            Base Stake:
+                            <span>Base Stake</span>
                             <input 
                                 type="number" 
                                 value={baseStake} 
@@ -372,13 +445,15 @@ const AutoTrader: React.FC = () => {
                             />
                         </label>
                         <label>
-                            Current Stake: {formatCurrency(currentStake)}
+                            <span>Current Stake</span>
+                            <input 
+                                type="number" 
+                                value={currentStake} 
+                                readOnly
+                            />
                         </label>
-                    </div>
-
-                    <div className="martingale-controls">
                         <label>
-                            Martingale Multiplier:
+                            <span>Martingale Multiplier</span>
                             <input 
                                 type="number" 
                                 value={martingaleMultiplier} 
@@ -388,7 +463,7 @@ const AutoTrader: React.FC = () => {
                             />
                         </label>
                         <label>
-                            Max Consecutive Losses:
+                            <span>Max Consecutive Losses</span>
                             <input 
                                 type="number" 
                                 value={maxConsecutiveLosses} 
@@ -398,13 +473,21 @@ const AutoTrader: React.FC = () => {
                         </label>
                     </div>
 
-                    <button 
-                        className={`trade-button ${isContinuousTrading ? 'stop' : 'start'}`}
-                        onClick={handleTrade}
-                        disabled={!isConnected}
-                    >
-                        {isContinuousTrading ? '⏹️ Stop Trading' : '▶️ Start Trading'}
-                    </button>
+                    <div className="trade-controls">
+                        <button 
+                            className={`trade-button ${isContinuousTrading ? 'stop' : 'start'}`}
+                            onClick={handleTrade}
+                            disabled={!isStrategyActive && !isContinuousTrading}
+                        >
+                            {isContinuousTrading ? '⏹ Stop Trading' : '▶ Start Trading'}
+                        </button>
+                        <button 
+                            className="reset-button"
+                            onClick={resetStats}
+                        >
+                            🔄 Reset
+                        </button>
+                    </div>
                 </div>
 
                 <div className="status-section">
@@ -415,54 +498,55 @@ const AutoTrader: React.FC = () => {
                     <h3>Trading Statistics</h3>
                     <div className="stats-grid">
                         <div className="stat-item">
-                            <span className="stat-label">Total Trades:</span>
+                            <span className="stat-label">Total Trades</span>
                             <span className="stat-value">{stats.totalTrades}</span>
                         </div>
                         <div className="stat-item">
-                            <span className="stat-label">Wins:</span>
+                            <span className="stat-label">Wins</span>
                             <span className="stat-value wins">{stats.wins}</span>
                         </div>
                         <div className="stat-item">
-                            <span className="stat-label">Losses:</span>
+                            <span className="stat-label">Losses</span>
                             <span className="stat-value losses">{stats.losses}</span>
                         </div>
                         <div className="stat-item">
-                            <span className="stat-label">Win Rate:</span>
+                            <span className="stat-label">Win Rate</span>
                             <span className="stat-value">{stats.winRate.toFixed(1)}%</span>
                         </div>
                         <div className="stat-item">
-                            <span className="stat-label">Total Profit:</span>
+                            <span className="stat-label">Total Profit</span>
                             <span className={`stat-value ${stats.totalProfit >= 0 ? 'profit' : 'loss'}`}>
                                 {formatCurrency(stats.totalProfit)}
                             </span>
                         </div>
                         <div className="stat-item">
-                            <span className="stat-label">Consecutive:</span>
-                            <span className="stat-value">
-                                {stats.consecutiveWins > 0 ? `${stats.consecutiveWins} wins` : `${stats.consecutiveLosses} losses`}
-                            </span>
+                            <span className="stat-label">Consecutive Losses</span>
+                            <span className="stat-value">{stats.consecutiveLosses}</span>
                         </div>
                     </div>
                 </div>
 
-                <div className="trade-history">
-                    <h3>Recent Trades</h3>
-                    <div className="history-list">
-                        {tradeHistory.slice(0, 10).map(trade => (
-                            <div key={trade.id} className={`trade-item ${trade.status}`}>
-                                <span className="trade-strategy">{trade.strategy}</span>
-                                <span className="trade-symbol">{trade.symbol}</span>
-                                <span className="trade-amount">{formatCurrency(trade.amount)}</span>
-                                <span className={`trade-profit ${trade.profit && trade.profit >= 0 ? 'positive' : 'negative'}`}>
-                                    {trade.profit !== undefined ? formatCurrency(trade.profit) : 'Pending...'}
-                                </span>
-                                <span className="trade-time">
-                                    {new Date(trade.timestamp).toLocaleTimeString()}
-                                </span>
-                            </div>
-                        ))}
+                {tradeHistory.length > 0 && (
+                    <div className="trade-history">
+                        <h3>Recent Trades</h3>
+                        <div className="history-list">
+                            {tradeHistory.slice(0, 10).map((trade) => (
+                                <div key={trade.id} className={`trade-item ${trade.status}`}>
+                                    <span className="trade-strategy">{trade.strategy}</span>
+                                    <span className="trade-symbol">{trade.symbol}</span>
+                                    <span className="trade-type">{trade.contract_type}</span>
+                                    <span className="trade-amount">{formatCurrency(trade.amount)}</span>
+                                    <span className={`trade-profit ${trade.profit && trade.profit > 0 ? 'positive' : 'negative'}`}>
+                                        {trade.profit ? formatCurrency(trade.profit) : 'Pending'}
+                                    </span>
+                                    <span className="trade-time">
+                                        {new Date(trade.timestamp).toLocaleTimeString()}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );
