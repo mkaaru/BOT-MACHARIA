@@ -1,0 +1,118 @@
+
+@use 'components/shared/styles/mixins' as *;
+
+.volatility-scanner {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--general-main-1);
+    padding: 1rem;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border-normal);
+
+        h2 {
+            color: var(--text-prominent);
+            margin: 0;
+        }
+    }
+
+    &__content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    &__scanner-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+
+    &__scanner-card {
+        background: var(--general-section-1);
+        border: 1px solid var(--border-normal);
+        border-radius: 4px;
+        padding: 1rem;
+        transition: all 0.3s ease;
+
+        &:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        &-symbol {
+            font-size: 1.125rem;
+            font-weight: bold;
+            color: var(--text-prominent);
+            margin-bottom: 0.5rem;
+        }
+
+        &-volatility {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+
+            &--low {
+                color: var(--status-success);
+            }
+
+            &--medium {
+                color: var(--status-warning);
+            }
+
+            &--high {
+                color: var(--status-danger);
+            }
+        }
+
+        &-info {
+            font-size: 0.875rem;
+            color: var(--text-less-prominent);
+        }
+    }
+
+    &__controls {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        margin-bottom: 1rem;
+
+        .dc-btn {
+            min-width: 120px;
+        }
+    }
+
+    &__loading {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 200px;
+        color: var(--text-less-prominent);
+    }
+
+    @include mobile-or-tablet-screen {
+        padding: 0.5rem;
+
+        &__scanner-grid {
+            grid-template-columns: 1fr;
+        }
+
+        &__controls {
+            flex-direction: column;
+            gap: 0.5rem;
+
+            .dc-btn {
+                min-width: auto;
+                width: 100%;
+            }
+        }
+    }
+}
