@@ -1,0 +1,1029 @@
+Compilation failed
+
+File: /home/runner/workspace/src/services/market-analyzer.ts:1:1
+  × Module build failed:
+  ╰─▶   ×   × the name `MarketAnalyzer` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/services/market-analyzer.ts:26:1]
+        │   23 │     riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+        │   24 │ }
+        │   25 │
+        │   26 │ class MarketAnalyzer {
+        │      ·       ───────┬──────
+        │      ·              ╰── previous definition of `MarketAnalyzer` here
+        │   27 │     private marketData: Map<string, MarketData> = new Map();
+        │   28 │     private analysisHistory: TradeRecommendation[] = [];
+        │   29 │     private strategies = ['AutoDiffer', 'Auto Over/Under', 'Auto O5U4'];
+        │   30 │
+        │   31 │     constructor() {
+        │   32 │         this.initializeMarketData();
+        │   33 │         this.startRealTimeAnalysis();
+        │   34 │     }
+        │   35 │
+        │   36 │     private initializeMarketData(): void {
+        │   37 │         const symbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V'];
+        │   38 │
+        │   39 │         symbols.forEach(symbol => {
+        │   40 │             this.marketData.set(symbol, {
+        │   41 │                 symbol,
+        │   42 │                 price: Math.random() * 1000 + 100,
+        │   43 │                 volatility: Math.random() * 100,
+        │   44 │                 trend: this.getRandomTrend(),
+        │   45 │                 volume: Math.random() * 10000,
+        │   46 │                 lastUpdate: new Date()
+        │   47 │             });
+        │   48 │         });
+        │   49 │     }
+        │   50 │
+        │   51 │     private getRandomTrend(): 'UP' | 'DOWN' | 'SIDEWAYS' {
+        │   52 │         const trends: ('UP' | 'DOWN' | 'SIDEWAYS')[] = ['UP', 'DOWN', 'SIDEWAYS'];
+        │   53 │         return trends[Math.floor(Math.random() * trends.length)];
+        │   54 │     }
+        │   55 │
+        │   56 │     private startRealTimeAnalysis(): void {
+        │   57 │         setInterval(() => {
+        │   58 │             this.updateMarketData();
+        │   59 │         }, 5000);
+        │   60 │     }
+        │   61 │
+        │   62 │     private updateMarketData(): void {
+        │   63 │         this.marketData.forEach((data, symbol) => {
+        │   64 │             const priceChange = (Math.random() - 0.5) * 10;
+        │   65 │             const newPrice = Math.max(50, data.price + priceChange);
+        │   66 │
+        │   67 │             this.marketData.set(symbol, {
+        │   68 │                 ...data,
+        │   69 │                 price: newPrice,
+        │   70 │                 volatility: Math.random() * 100,
+        │   71 │                 trend: this.getRandomTrend(),
+        │   72 │                 volume: Math.random() * 10000,
+        │   73 │                 lastUpdate: new Date()
+        │   74 │             });
+        │   75 │         });
+        │   76 │     }
+        │   77 │
+        │   78 │     public analyzeSymbol(symbol: string): AnalysisResult {
+        │   79 │         const marketData = this.marketData.get(symbol);
+        │   80 │         if (!marketData) {
+        │   81 │             throw new Error(`No market data available for symbol: ${symbol}`);
+        │   82 │         }
+        │   83 │
+        │   84 │         const recommendation = this.generateRecommendation(symbol, marketData);
+        │   85 │         const confidence = this.calculateConfidence(marketData);
+        │   86 │         const riskLevel = this.assessRisk(marketData);
+        │   87 │
+        │   88 │         return {
+        │   89 │             recommendation,
+        │   90 │             marketData,
+        │   91 │             confidence,
+        │   92 │             riskLevel
+        │   93 │         };
+        │   94 │     }
+        │   95 │
+        │   96 │     private generateRecommendation(symbol: string, marketData: MarketData): TradeRecommendation {
+        │   97 │         const actions: ('BUY' | 'SELL' | 'HOLD')[] = ['BUY', 'SELL', 'HOLD'];
+        │   98 │         const strategy = this.strategies[Math.floor(Math.random() * this.strategies.length)];
+        │   99 │
+        │  100 │         // Simple analysis logic
+        │  101 │         let recommendedAction: 'BUY' | 'SELL' | 'HOLD' = 'HOLD';
+        │  102 │         let reasoning = '';
+        │  103 │
+        │  104 │         if (marketData.volatility > 70) {
+        │  105 │             recommendedAction = marketData.trend === 'UP' ? 'BUY' : 'SELL';
+        │  106 │             reasoning = `High volatility (${marketData.volatility.toFixed(1)}%) with ${marketData.trend} trend indicates strong ${recommendedAction.toLowerCase()} signal`;
+        │  107 │         } else if (marketData.volatility < 30) {
+        │  108 │             recommendedAction = 'HOLD';
+        │  109 │             reasoning = `Low volatility (${marketData.volatility.toFixed(1)}%) suggests waiting for clearer market direction`;
+        │  110 │         } else {
+        │  111 │             recommendedAction = marketData.trend === 'UP' ? 'BUY' : marketData.trend === 'DOWN' ? 'SELL' : 'HOLD';
+        │  112 │             reasoning = `Moderate volatility (${marketData.volatility.toFixed(1)}%) with ${marketData.trend} trend suggests ${recommendedAction.toLowerCase()} position`;
+        │  113 │         }
+        │  114 │
+        │  115 │         const recommendation: TradeRecommendation = {
+        │  116 │             action: recommendedAction,
+        │  117 │             confidence: this.calculateConfidence(marketData),
+        │  118 │             symbol,
+        │  119 │             strategy,
+        │  120 │             reasoning,
+        │  121 │             timestamp: new Date()
+        │  122 │         };
+        │  123 │
+        │  124 │         this.analysisHistory.push(recommendation);
+        │  125 │         if (this.analysisHistory.length > 100) {
+        │  126 │             this.analysisHistory.shift();
+        │  127 │         }
+        │  128 │
+        │  129 │         return recommendation;
+        │  130 │     }
+        │  131 │
+        │  132 │     private calculateConfidence(marketData: MarketData): number {
+        │  133 │         let confidence = 50; // Base confidence
+        │  134 │
+        │  135 │         // Adjust based on volatility
+        │  136 │         if (marketData.volatility > 80) {
+        │  137 │             confidence += 20;
+        │  138 │         } else if (marketData.volatility < 20) {
+        │  139 │             confidence -= 15;
+        │  140 │         }
+        │  141 │
+        │  142 │         // Adjust based on trend clarity
+        │  143 │         if (marketData.trend !== 'SIDEWAYS') {
+        │  144 │             confidence += 15;
+        │  145 │         } else {
+        │  146 │             confidence -= 10;
+        │  147 │         }
+        │  148 │
+        │  149 │         // Adjust based on volume
+        │  150 │         if (marketData.volume > 7500) {
+        │  151 │             confidence += 10;
+        │  152 │         }
+        │  153 │
+        │  154 │         return Math.max(0, Math.min(100, confidence + (Math.random() - 0.5) * 20));
+        │  155 │     }
+        │  156 │
+        │  157 │     private assessRisk(marketData: MarketData): 'LOW' | 'MEDIUM' | 'HIGH' {
+        │  158 │         if (marketData.volatility > 75) {
+        │  159 │             return 'HIGH';
+        │  160 │         } else if (marketData.volatility > 40) {
+        │  161 │             return 'MEDIUM';
+        │  162 │         } else {
+        │  163 │             return 'LOW';
+        │  164 │         }
+        │  165 │     }
+        │  166 │
+        │  167 │     public getRecommendationForStrategy(strategy: string, symbol: string): TradeRecommendation | null {
+        │  168 │         try {
+        │  169 │             const analysis = this.analyzeSymbol(symbol);
+        │  170 │             return {
+        │  171 │                 ...analysis.recommendation,
+        │  172 │                 strategy
+        │  173 │             };
+        │  174 │         } catch (error) {
+        │  175 │             console.error('Error generating recommendation:', error);
+        │  176 │             return null;
+        │  177 │         }
+        │  178 │     }
+        │  179 │
+        │  180 │     public getMarketStats(symbol: string): MarketData | null {
+        │  181 │         return this.marketData.get(symbol) || null;
+        │  182 │     }
+        │  183 │
+        │  184 │     public getAllMarketData(): Map<string, MarketData> {
+        │  185 │         return new Map(this.marketData);
+        │  186 │     }
+        │  187 │
+        │  188 │     public getAnalysisHistory(): TradeRecommendation[] {
+        │  189 │         return [...this.analysisHistory];
+        │  190 │     }
+        │  191 │
+        │  192 │     public performVolatilityAnalysis(symbols: string[]): Record<string, number> {
+        │  193 │         const analysis: Record<string, number> = {};
+        │  194 │
+        │  195 │         symbols.forEach(symbol => {
+        │  196 │             const data = this.marketData.get(symbol);
+        │  197 │             if (data) {
+        │  198 │                 analysis[symbol] = data.volatility;
+        │  199 │             }
+        │  200 │         });
+        │  201 │
+        │  202 │         return analysis;
+        │  203 │     }
+        │  204 │
+        │  205 │     public identifyTradingOpportunities(): TradeRecommendation[] {
+        │  206 │         const opportunities: TradeRecommendation[] = [];
+        │  207 │
+        │  208 │         this.marketData.forEach((data, symbol) => {
+        │  209 │             if (data.volatility > 60 && data.trend !== 'SIDEWAYS') {
+        │  210 │                 const recommendation = this.generateRecommendation(symbol, data);
+        │  211 │                 if (recommendation.confidence > 70) {
+        │  212 │                     opportunities.push(recommendation);
+        │  213 │                 }
+        │  214 │             }
+        │  215 │         });
+        │  216 │
+        │  217 │         return opportunities.sort((a, b) => b.confidence - a.confidence);
+        │  218 │     }
+        │  219 │ }
+        │  220 │
+        │  221 │ // Create singleton instance
+        │  222 │ const marketAnalyzer = new MarketAnalyzer();
+        │  223 │ export default marketAnalyzer;
+        │  224 │
+        │  225 │ // Export types
+        │  226 │ export type { MarketData, AnalysisResult };
+        │  227 │ import { makeObservable, observable, action, computed } from 'mobx';
+        │  228 │
+        │  229 │ export interface TickData {
+        │  230 │     symbol: string;
+        │  231 │     tick: number;
+        │  232 │     epoch: number;
+        │  233 │     last_digit: number;
+        │  234 │     timestamp: number;
+        │  235 │ }
+        │  236 │
+        │  237 │ export interface SymbolData {
+        │  238 │     symbol: string;
+        │  239 │     ticks: TickData[];
+        │  240 │     last_digit: number;
+        │  241 │     digit_frequency: { [key: number]: number };
+        │  242 │     most_frequent_digit: number;
+        │  243 │     least_frequent_digit: number;
+        │  244 │     streak_count: number;
+        │  245 │     streak_digit: number;
+        │  246 │     volatility: number;
+        │  247 │ }
+        │  248 │
+        │  249 │ export interface TradingRecommendation {
+        │  250 │     strategy: 'autodiff' | 'over_under' | 'o5u4';
+        │  251 │     symbol: string;
+        │  252 │     contract_type: 'DIGITDIFF' | 'DIGITOVER' | 'DIGITUNDER';
+        │  253 │     barrier?: number;
+        │  254 │     confidence: number;
+        │  255 │     reason: string;
+        │  256 │ }
+        │  257 │
+        │  258 │ class MarketAnalyzer {
+        │      ·       ───────┬──────
+        │      ·              ╰── `MarketAnalyzer` redefined here
+        │  259 │     private ws: WebSocket | null = null;
+        │  260 │     private symbols: string[] = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+        │  261 │     private reconnectAttempts = 0;
+        │      ╰────
+        │   × the name `marketAnalyzer` is defined multiple times
+        │      ╭─[/home/runner/workspace/src/services/market-analyzer.ts:222:1]
+        │  219 │ }
+        │  220 │
+        │  221 │ // Create singleton instance
+        │  222 │ const marketAnalyzer = new MarketAnalyzer();
+        │      ·       ───────┬──────
+        │      ·              ╰── previous definition of `marketAnalyzer` here
+        │  223 │ export default marketAnalyzer;
+        │  224 │
+        │  225 │ // Export types
+        │  226 │ export type { MarketData, AnalysisResult };
+        │  227 │ import { makeObservable, observable, action, computed } from 'mobx';
+        │  228 │
+        │  229 │ export interface TickData {
+        │  230 │     symbol: string;
+        │  231 │     tick: number;
+        │  232 │     epoch: number;
+        │  233 │     last_digit: number;
+        │  234 │     timestamp: number;
+        │  235 │ }
+        │  236 │
+        │  237 │ export interface SymbolData {
+        │  238 │     symbol: string;
+        │  239 │     ticks: TickData[];
+        │  240 │     last_digit: number;
+        │  241 │     digit_frequency: { [key: number]: number };
+        │  242 │     most_frequent_digit: number;
+        │  243 │     least_frequent_digit: number;
+        │  244 │     streak_count: number;
+        │  245 │     streak_digit: number;
+        │  246 │     volatility: number;
+        │  247 │ }
+        │  248 │
+        │  249 │ export interface TradingRecommendation {
+        │  250 │     strategy: 'autodiff' | 'over_under' | 'o5u4';
+        │  251 │     symbol: string;
+        │  252 │     contract_type: 'DIGITDIFF' | 'DIGITOVER' | 'DIGITUNDER';
+        │  253 │     barrier?: number;
+        │  254 │     confidence: number;
+        │  255 │     reason: string;
+        │  256 │ }
+        │  257 │
+        │  258 │ class MarketAnalyzer {
+        │  259 │     private ws: WebSocket | null = null;
+        │  260 │     private symbols: string[] = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+        │  261 │     private reconnectAttempts = 0;
+        │  262 │     private maxReconnectAttempts = 5;
+        │  263 │     private reconnectDelay = 3000;
+        │  264 │
+        │  265 │     public symbolData: Map<string, SymbolData> = new Map();
+        │  266 │     public isConnected = false;
+        │  267 │     public lastUpdate = 0;
+        │  268 │     public activeSubscriptions: Set<string> = new Set();
+        │  269 │
+        │  270 │     constructor() {
+        │  271 │         makeObservable(this, {
+        │  272 │             symbolData: observable,
+        │  273 │             isConnected: observable,
+        │  274 │             lastUpdate: observable,
+        │  275 │             activeSubscriptions: observable,
+        │  276 │             connect: action,
+        │  277 │             disconnect: action,
+        │  278 │             updateSymbolData: action,
+        │  279 │             isMarketAnalysisReady: computed,
+        │  280 │         });
+        │  281 │
+        │  282 │         this.initializeSymbolData();
+        │  283 │         this.connect();
+        │  284 │     }
+        │  285 │
+        │  286 │     private initializeSymbolData() {
+        │  287 │         this.symbols.forEach(symbol => {
+        │  288 │             this.symbolData.set(symbol, {
+        │  289 │                 symbol,
+        │  290 │                 ticks: [],
+        │  291 │                 last_digit: 0,
+        │  292 │                 digit_frequency: {},
+        │  293 │                 most_frequent_digit: 0,
+        │  294 │                 least_frequent_digit: 0,
+        │  295 │                 streak_count: 0,
+        │  296 │                 streak_digit: 0,
+        │  297 │                 volatility: 0,
+        │  298 │             });
+        │  299 │         });
+        │  300 │     }
+        │  301 │
+        │  302 │     get isMarketAnalysisReady(): boolean {
+        │  303 │         return this.isConnected && Array.from(this.symbolData.values()).every(data => data.ticks.length >= 10);
+        │  304 │     }
+        │  305 │
+        │  306 │     connect() {
+        │  307 │         try {
+        │  308 │             this.ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=75771');
+        │  309 │
+        │  310 │             this.ws.onopen = () => {
+        │  311 │                 console.log('Market Analyzer connected to Deriv WebSocket');
+        │  312 │                 this.isConnected = true;
+        │  313 │                 this.reconnectAttempts = 0;
+        │  314 │                 this.subscribeToTicks();
+        │  315 │             };
+        │  316 │
+        │  317 │             this.ws.onmessage = (event) => {
+        │  318 │                 try {
+        │  319 │                     const data = JSON.parse(event.data);
+        │  320 │                     this.handleMessage(data);
+        │  321 │                 } catch (error) {
+        │  322 │                     console.error('Error parsing WebSocket message:', error);
+        │  323 │                 }
+        │  324 │             };
+        │  325 │
+        │  326 │             this.ws.onclose = () => {
+        │  327 │                 console.log('Market Analyzer WebSocket disconnected');
+        │  328 │                 this.isConnected = false;
+        │  329 │                 this.activeSubscriptions.clear();
+        │  330 │                 this.attemptReconnect();
+        │  331 │             };
+        │  332 │
+        │  333 │             this.ws.onerror = (error) => {
+        │  334 │                 console.error('Market Analyzer WebSocket error:', error);
+        │  335 │                 this.isConnected = false;
+        │  336 │             };
+        │  337 │
+        │  338 │         } catch (error) {
+        │  339 │             console.error('Failed to create Market Analyzer WebSocket:', error);
+        │  340 │             this.attemptReconnect();
+        │  341 │         }
+        │  342 │     }
+        │  343 │
+        │  344 │     private attemptReconnect() {
+        │  345 │         if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        │  346 │             this.reconnectAttempts++;
+        │  347 │             console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+        │  348 │             setTimeout(() => {
+        │  349 │                 this.connect();
+        │  350 │             }, this.reconnectDelay * this.reconnectAttempts);
+        │  351 │         }
+        │  352 │     }
+        │  353 │
+        │  354 │     private subscribeToTicks() {
+        │  355 │         this.symbols.forEach(symbol => {
+        │  356 │             const request = {
+        │  357 │                 ticks: symbol,
+        │  358 │                 subscribe: 1,
+        │  359 │                 req_id: `tick_${symbol}`
+        │  360 │             };
+        │  361 │
+        │  362 │             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        │  363 │                 this.ws.send(JSON.stringify(request));
+        │  364 │                 this.activeSubscriptions.add(symbol);
+        │  365 │             }
+        │  366 │         });
+        │  367 │     }
+        │  368 │
+        │  369 │     private handleMessage(data: any) {
+        │  370 │         if (data.tick) {
+        │  371 │             this.processTick(data.tick);
+        │  372 │         } else if (data.error) {
+        │  373 │             console.error('WebSocket error:', data.error);
+        │  374 │         }
+        │  375 │     }
+        │  376 │
+        │  377 │     private processTick(tick: any) {
+        │  378 │         const symbol = tick.symbol;
+        │  379 │         const price = parseFloat(tick.quote);
+        │  380 │         const last_digit = Math.floor((price * 100) % 10);
+        │  381 │
+        │  382 │         const tickData: TickData = {
+        │  383 │             symbol,
+        │  384 │             tick: price,
+        │  385 │             epoch: tick.epoch,
+        │  386 │             last_digit,
+        │  387 │             timestamp: Date.now()
+        │  388 │         };
+        │  389 │
+        │  390 │         this.updateSymbolData(symbol, tickData);
+        │  391 │         this.lastUpdate = Date.now();
+        │  392 │     }
+        │  393 │
+        │  394 │     updateSymbolData(symbol: string, tickData: TickData) {
+        │  395 │         const symbolData = this.symbolData.get(symbol);
+        │  396 │         if (!symbolData) return;
+        │  397 │
+        │  398 │         // Add new tick
+        │  399 │         symbolData.ticks.push(tickData);
+        │  400 │
+        │  401 │         // Keep only last 100 ticks
+        │  402 │         if (symbolData.ticks.length > 100) {
+        │  403 │             symbolData.ticks.shift();
+        │  404 │         }
+        │  405 │
+        │  406 │         // Update last digit
+        │  407 │         symbolData.last_digit = tickData.last_digit;
+        │  408 │
+        │  409 │         // Calculate digit frequency
+        │  410 │         symbolData.digit_frequency = this.calculateDigitFrequency(symbolData.ticks);
+        │  411 │
+        │  412 │         // Find most and least frequent digits
+        │  413 │         const frequencies = Object.entries(symbolData.digit_frequency);
+        │  414 │         if (frequencies.length > 0) {
+        │  415 │             frequencies.sort((a, b) => b[1] - a[1]);
+        │  416 │             symbolData.most_frequent_digit = parseInt(frequencies[0][0]);
+        │  417 │             symbolData.least_frequent_digit = parseInt(frequencies[frequencies.length - 1][0]);
+        │  418 │         }
+        │  419 │
+        │  420 │         // Calculate streak
+        │  421 │         this.calculateStreak(symbolData);
+        │  422 │
+        │  423 │         // Calculate volatility
+        │  424 │         symbolData.volatility = this.calculateVolatility(symbolData.ticks);
+        │  425 │     }
+        │  426 │
+        │  427 │     private calculateDigitFrequency(ticks: TickData[]): { [key: number]: number } {
+        │  428 │         const frequency: { [key: number]: number } = {};
+        │  429 │
+        │  430 │         ticks.forEach(tick => {
+        │  431 │             const digit = tick.last_digit;
+        │  432 │             frequency[digit] = (frequency[digit] || 0) + 1;
+        │  433 │         });
+        │  434 │
+        │  435 │         return frequency;
+        │  436 │     }
+        │  437 │
+        │  438 │     private calculateStreak(symbolData: SymbolData) {
+        │  439 │         const ticks = symbolData.ticks;
+        │  440 │         if (ticks.length < 2) return;
+        │  441 │
+        │  442 │         let streak = 1;
+        │  443 │         const currentDigit = ticks[ticks.length - 1].last_digit;
+        │  444 │
+        │  445 │         for (let i = ticks.length - 2; i >= 0; i--) {
+        │  446 │             if (ticks[i].last_digit === currentDigit) {
+        │  447 │                 streak++;
+        │  448 │             } else {
+        │  449 │                 break;
+        │  450 │             }
+        │  451 │         }
+        │  452 │
+        │  453 │         symbolData.streak_count = streak;
+        │  454 │         symbolData.streak_digit = currentDigit;
+        │  455 │     }
+        │  456 │
+        │  457 │     private calculateVolatility(ticks: TickData[]): number {
+        │  458 │         if (ticks.length < 10) return 0;
+        │  459 │
+        │  460 │         const prices = ticks.slice(-20).map(t => t.tick);
+        │  461 │         const mean = prices.reduce((sum, price) => sum + price, 0) / prices.length;
+        │  462 │         const variance = prices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / prices.length;
+        │  463 │
+        │  464 │         return Math.sqrt(variance);
+        │  465 │     }
+        │  466 │
+        │  467 │     // AutoDiffer Strategy Analysis
+        │  468 │     getAutoDifferRecommendation(): TradingRecommendation | null {
+        │  469 │         if (!this.isMarketAnalysisReady) return null;
+        │  470 │
+        │  471 │         // Random symbol selection weighted by volatility
+        │  472 │         const activeSymbols = Array.from(this.symbolData.values()).filter(data => data.ticks.length >= 10);
+        │  473 │         if (activeSymbols.length === 0) return null;
+        │  474 │
+        │  475 │         const randomSymbol = activeSymbols[Math.floor(Math.random() * activeSymbols.length)];
+        │  476 │         const randomBarrier = Math.floor(Math.random() * 10);
+        │  477 │
+        │  478 │         return {
+        │  479 │             strategy: 'autodiff',
+        │  480 │             symbol: randomSymbol.symbol,
+        │  481 │             contract_type: 'DIGITDIFF',
+        │  482 │             barrier: randomBarrier,
+        │  483 │             confidence: 0.6 + (Math.random() * 0.3), // 60-90% confidence
+        │  484 │             reason: `Random analysis: ${randomSymbol.symbol} barrier ${randomBarrier}`
+        │  485 │         };
+        │  486 │     }
+        │  487 │
+        │  488 │     // Auto Over/Under Strategy Analysis
+        │  489 │     getOverUnderRecommendation(): TradingRecommendation | null {
+        │  490 │         if (!this.isMarketAnalysisReady) return null;
+        │  491 │
+        │  492 │         let bestRecommendation: TradingRecommendation | null = null;
+        │  493 │         let highestConfidence = 0;
+        │  494 │
+        │  495 │         this.symbolData.forEach(data => {
+        │  496 │             if (data.ticks.length < 20) return;
+        │  497 │
+        │  498 │             const currentDigit = data.last_digit;
+        │  499 │             const mostFrequent = data.most_frequent_digit;
+        │  500 │
+        │  501 │             // Over 2 strategy
+        │  502 │             if (currentDigit <= 2 && mostFrequent > 2) {
+        │  503 │                 const confidence = 0.7 + (data.volatility * 0.1);
+        │  504 │                 if (confidence > highestConfidence) {
+        │  505 │                     highestConfidence = confidence;
+        │  506 │                     bestRecommendation = {
+        │  507 │                         strategy: 'over_under',
+        │  508 │                         symbol: data.symbol,
+        │  509 │                         contract_type: 'DIGITOVER',
+        │  510 │                         barrier: 2,
+        │  511 │                         confidence,
+        │  512 │                         reason: `Current digit ${currentDigit} ≤ 2, most frequent ${mostFrequent} > 2`
+        │  513 │                     };
+        │  514 │                 }
+        │  515 │             }
+        │  516 │
+        │  517 │             // Under 7 strategy
+        │  518 │             if (currentDigit >= 7 && mostFrequent < 7) {
+        │  519 │                 const confidence = 0.7 + (data.volatility * 0.1);
+        │  520 │                 if (confidence > highestConfidence) {
+        │  521 │                     highestConfidence = confidence;
+        │  522 │                     bestRecommendation = {
+        │  523 │                         strategy: 'over_under',
+        │  524 │                         symbol: data.symbol,
+        │  525 │                         contract_type: 'DIGITUNDER',
+        │  526 │                         barrier: 7,
+        │  527 │                         confidence,
+        │  528 │                         reason: `Current digit ${currentDigit} ≥ 7, most frequent ${mostFrequent} < 7`
+        │  529 │                     };
+        │  530 │                 }
+        │  531 │             }
+        │  532 │         });
+        │  533 │
+        │  534 │         return bestRecommendation;
+        │  535 │     }
+        │  536 │
+        │  537 │     // Auto O5U4 Strategy Analysis
+        │  538 │     getO5U4Recommendation(): TradingRecommendation | null {
+        │  539 │         if (!this.isMarketAnalysisReady) return null;
+        │  540 │
+        │  541 │         let bestSymbol: SymbolData | null = null;
+        │  542 │         let highestConfidence = 0;
+        │  543 │
+        │  544 │         this.symbolData.forEach(data => {
+        │  545 │             if (data.ticks.length < 50) return;
+        │  546 │
+        │  547 │             const currentDigit = data.last_digit;
+        │  548 │             const leastFrequent = data.least_frequent_digit;
+        │  549 │             const mostFrequent = data.most_frequent_digit;
+        │  550 │
+        │  551 │             // O5U4 conditions
+        │  552 │             const isCurrentDigit4or5 = currentDigit === 4 || currentDigit === 5;
+        │  553 │             const isLeastAppearing4or5 = leastFrequent === 4 || leastFrequent === 5;
+        │  554 │             const isMostAppearingValid = mostFrequent > 5 || mostFrequent < 4;
+        │  555 │
+        │  556 │             if (isCurrentDigit4or5 && isLeastAppearing4or5 && isMostAppearingValid) {
+        │  557 │                 const confidence = 0.8 + (data.volatility * 0.05);
+        │  558 │                 if (confidence > highestConfidence) {
+        │  559 │                     highestConfidence = confidence;
+        │  560 │                     bestSymbol = data;
+        │  561 │                 }
+        │  562 │             }
+        │  563 │         });
+        │  564 │
+        │  565 │         if (bestSymbol) {
+        │  566 │             return {
+        │  567 │                 strategy: 'o5u4',
+        │  568 │                 symbol: bestSymbol.symbol,
+        │  569 │                 contract_type: 'DIGITOVER', // Will also execute DIGITUNDER
+        │  570 │                 barrier: 5,
+        │  571 │                 confidence: highestConfidence,
+        │  572 │                 reason: `O5U4 conditions met: current=${bestSymbol.last_digit}, least=${bestSymbol.least_frequent_digit}, most=${bestSymbol.most_frequent_digit}`
+        │  573 │             };
+        │  574 │         }
+        │  575 │
+        │  576 │         return null;
+        │  577 │     }
+        │  578 │
+        │  579 │     disconnect() {
+        │  580 │         if (this.ws) {
+        │  581 │             this.ws.close();
+        │  582 │             this.ws = null;
+        │  583 │             this.isConnected = false;
+        │  584 │             this.activeSubscriptions.clear();
+        │  585 │         }
+        │  586 │     }
+        │  587 │
+        │  588 │     getSymbolData(symbol: string): SymbolData | undefined {
+        │  589 │         return this.symbolData.get(symbol);
+        │  590 │     }
+        │  591 │
+        │  592 │     getAllSymbolData(): SymbolData[] {
+        │  593 │         return Array.from(this.symbolData.values());
+        │  594 │     }
+        │  595 │ }
+        │  596 │
+        │  597 │ export const marketAnalyzer = new MarketAnalyzer();
+        │      ·              ───────┬──────
+        │      ·                     ╰── `marketAnalyzer` redefined here
+        │  598 │ export default MarketAnalyzer;
+        │      ╰────
+        │   × the name `default` is exported multiple times
+        │      ╭─[/home/runner/workspace/src/services/market-analyzer.ts:223:1]
+        │  220 │
+        │  221 │ // Create singleton instance
+        │  222 │ const marketAnalyzer = new MarketAnalyzer();
+        │  223 │ export default marketAnalyzer;
+        │      · ───────────────┬──────────────
+        │      ·                ╰── previous exported here
+        │  224 │
+        │  225 │ // Export types
+        │  226 │ export type { MarketData, AnalysisResult };
+        │  227 │ import { makeObservable, observable, action, computed } from 'mobx';
+        │  228 │
+        │  229 │ export interface TickData {
+        │  230 │     symbol: string;
+        │  231 │     tick: number;
+        │  232 │     epoch: number;
+        │  233 │     last_digit: number;
+        │  234 │     timestamp: number;
+        │  235 │ }
+        │  236 │
+        │  237 │ export interface SymbolData {
+        │  238 │     symbol: string;
+        │  239 │     ticks: TickData[];
+        │  240 │     last_digit: number;
+        │  241 │     digit_frequency: { [key: number]: number };
+        │  242 │     most_frequent_digit: number;
+        │  243 │     least_frequent_digit: number;
+        │  244 │     streak_count: number;
+        │  245 │     streak_digit: number;
+        │  246 │     volatility: number;
+        │  247 │ }
+        │  248 │
+        │  249 │ export interface TradingRecommendation {
+        │  250 │     strategy: 'autodiff' | 'over_under' | 'o5u4';
+        │  251 │     symbol: string;
+        │  252 │     contract_type: 'DIGITDIFF' | 'DIGITOVER' | 'DIGITUNDER';
+        │  253 │     barrier?: number;
+        │  254 │     confidence: number;
+        │  255 │     reason: string;
+        │  256 │ }
+        │  257 │
+        │  258 │ class MarketAnalyzer {
+        │  259 │     private ws: WebSocket | null = null;
+        │  260 │     private symbols: string[] = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+        │  261 │     private reconnectAttempts = 0;
+        │  262 │     private maxReconnectAttempts = 5;
+        │  263 │     private reconnectDelay = 3000;
+        │  264 │
+        │  265 │     public symbolData: Map<string, SymbolData> = new Map();
+        │  266 │     public isConnected = false;
+        │  267 │     public lastUpdate = 0;
+        │  268 │     public activeSubscriptions: Set<string> = new Set();
+        │  269 │
+        │  270 │     constructor() {
+        │  271 │         makeObservable(this, {
+        │  272 │             symbolData: observable,
+        │  273 │             isConnected: observable,
+        │  274 │             lastUpdate: observable,
+        │  275 │             activeSubscriptions: observable,
+        │  276 │             connect: action,
+        │  277 │             disconnect: action,
+        │  278 │             updateSymbolData: action,
+        │  279 │             isMarketAnalysisReady: computed,
+        │  280 │         });
+        │  281 │
+        │  282 │         this.initializeSymbolData();
+        │  283 │         this.connect();
+        │  284 │     }
+        │  285 │
+        │  286 │     private initializeSymbolData() {
+        │  287 │         this.symbols.forEach(symbol => {
+        │  288 │             this.symbolData.set(symbol, {
+        │  289 │                 symbol,
+        │  290 │                 ticks: [],
+        │  291 │                 last_digit: 0,
+        │  292 │                 digit_frequency: {},
+        │  293 │                 most_frequent_digit: 0,
+        │  294 │                 least_frequent_digit: 0,
+        │  295 │                 streak_count: 0,
+        │  296 │                 streak_digit: 0,
+        │  297 │                 volatility: 0,
+        │  298 │             });
+        │  299 │         });
+        │  300 │     }
+        │  301 │
+        │  302 │     get isMarketAnalysisReady(): boolean {
+        │  303 │         return this.isConnected && Array.from(this.symbolData.values()).every(data => data.ticks.length >= 10);
+        │  304 │     }
+        │  305 │
+        │  306 │     connect() {
+        │  307 │         try {
+        │  308 │             this.ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=75771');
+        │  309 │
+        │  310 │             this.ws.onopen = () => {
+        │  311 │                 console.log('Market Analyzer connected to Deriv WebSocket');
+        │  312 │                 this.isConnected = true;
+        │  313 │                 this.reconnectAttempts = 0;
+        │  314 │                 this.subscribeToTicks();
+        │  315 │             };
+        │  316 │
+        │  317 │             this.ws.onmessage = (event) => {
+        │  318 │                 try {
+        │  319 │                     const data = JSON.parse(event.data);
+        │  320 │                     this.handleMessage(data);
+        │  321 │                 } catch (error) {
+        │  322 │                     console.error('Error parsing WebSocket message:', error);
+        │  323 │                 }
+        │  324 │             };
+        │  325 │
+        │  326 │             this.ws.onclose = () => {
+        │  327 │                 console.log('Market Analyzer WebSocket disconnected');
+        │  328 │                 this.isConnected = false;
+        │  329 │                 this.activeSubscriptions.clear();
+        │  330 │                 this.attemptReconnect();
+        │  331 │             };
+        │  332 │
+        │  333 │             this.ws.onerror = (error) => {
+        │  334 │                 console.error('Market Analyzer WebSocket error:', error);
+        │  335 │                 this.isConnected = false;
+        │  336 │             };
+        │  337 │
+        │  338 │         } catch (error) {
+        │  339 │             console.error('Failed to create Market Analyzer WebSocket:', error);
+        │  340 │             this.attemptReconnect();
+        │  341 │         }
+        │  342 │     }
+        │  343 │
+        │  344 │     private attemptReconnect() {
+        │  345 │         if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        │  346 │             this.reconnectAttempts++;
+        │  347 │             console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+        │  348 │             setTimeout(() => {
+        │  349 │                 this.connect();
+        │  350 │             }, this.reconnectDelay * this.reconnectAttempts);
+        │  351 │         }
+        │  352 │     }
+        │  353 │
+        │  354 │     private subscribeToTicks() {
+        │  355 │         this.symbols.forEach(symbol => {
+        │  356 │             const request = {
+        │  357 │                 ticks: symbol,
+        │  358 │                 subscribe: 1,
+        │  359 │                 req_id: `tick_${symbol}`
+        │  360 │             };
+        │  361 │
+        │  362 │             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        │  363 │                 this.ws.send(JSON.stringify(request));
+        │  364 │                 this.activeSubscriptions.add(symbol);
+        │  365 │             }
+        │  366 │         });
+        │  367 │     }
+        │  368 │
+        │  369 │     private handleMessage(data: any) {
+        │  370 │         if (data.tick) {
+        │  371 │             this.processTick(data.tick);
+        │  372 │         } else if (data.error) {
+        │  373 │             console.error('WebSocket error:', data.error);
+        │  374 │         }
+        │  375 │     }
+        │  376 │
+        │  377 │     private processTick(tick: any) {
+        │  378 │         const symbol = tick.symbol;
+        │  379 │         const price = parseFloat(tick.quote);
+        │  380 │         const last_digit = Math.floor((price * 100) % 10);
+        │  381 │
+        │  382 │         const tickData: TickData = {
+        │  383 │             symbol,
+        │  384 │             tick: price,
+        │  385 │             epoch: tick.epoch,
+        │  386 │             last_digit,
+        │  387 │             timestamp: Date.now()
+        │  388 │         };
+        │  389 │
+        │  390 │         this.updateSymbolData(symbol, tickData);
+        │  391 │         this.lastUpdate = Date.now();
+        │  392 │     }
+        │  393 │
+        │  394 │     updateSymbolData(symbol: string, tickData: TickData) {
+        │  395 │         const symbolData = this.symbolData.get(symbol);
+        │  396 │         if (!symbolData) return;
+        │  397 │
+        │  398 │         // Add new tick
+        │  399 │         symbolData.ticks.push(tickData);
+        │  400 │
+        │  401 │         // Keep only last 100 ticks
+        │  402 │         if (symbolData.ticks.length > 100) {
+        │  403 │             symbolData.ticks.shift();
+        │  404 │         }
+        │  405 │
+        │  406 │         // Update last digit
+        │  407 │         symbolData.last_digit = tickData.last_digit;
+        │  408 │
+        │  409 │         // Calculate digit frequency
+        │  410 │         symbolData.digit_frequency = this.calculateDigitFrequency(symbolData.ticks);
+        │  411 │
+        │  412 │         // Find most and least frequent digits
+        │  413 │         const frequencies = Object.entries(symbolData.digit_frequency);
+        │  414 │         if (frequencies.length > 0) {
+        │  415 │             frequencies.sort((a, b) => b[1] - a[1]);
+        │  416 │             symbolData.most_frequent_digit = parseInt(frequencies[0][0]);
+        │  417 │             symbolData.least_frequent_digit = parseInt(frequencies[frequencies.length - 1][0]);
+        │  418 │         }
+        │  419 │
+        │  420 │         // Calculate streak
+        │  421 │         this.calculateStreak(symbolData);
+        │  422 │
+        │  423 │         // Calculate volatility
+        │  424 │         symbolData.volatility = this.calculateVolatility(symbolData.ticks);
+        │  425 │     }
+        │  426 │
+        │  427 │     private calculateDigitFrequency(ticks: TickData[]): { [key: number]: number } {
+        │  428 │         const frequency: { [key: number]: number } = {};
+        │  429 │
+        │  430 │         ticks.forEach(tick => {
+        │  431 │             const digit = tick.last_digit;
+        │  432 │             frequency[digit] = (frequency[digit] || 0) + 1;
+        │  433 │         });
+        │  434 │
+        │  435 │         return frequency;
+        │  436 │     }
+        │  437 │
+        │  438 │     private calculateStreak(symbolData: SymbolData) {
+        │  439 │         const ticks = symbolData.ticks;
+        │  440 │         if (ticks.length < 2) return;
+        │  441 │
+        │  442 │         let streak = 1;
+        │  443 │         const currentDigit = ticks[ticks.length - 1].last_digit;
+        │  444 │
+        │  445 │         for (let i = ticks.length - 2; i >= 0; i--) {
+        │  446 │             if (ticks[i].last_digit === currentDigit) {
+        │  447 │                 streak++;
+        │  448 │             } else {
+        │  449 │                 break;
+        │  450 │             }
+        │  451 │         }
+        │  452 │
+        │  453 │         symbolData.streak_count = streak;
+        │  454 │         symbolData.streak_digit = currentDigit;
+        │  455 │     }
+        │  456 │
+        │  457 │     private calculateVolatility(ticks: TickData[]): number {
+        │  458 │         if (ticks.length < 10) return 0;
+        │  459 │
+        │  460 │         const prices = ticks.slice(-20).map(t => t.tick);
+        │  461 │         const mean = prices.reduce((sum, price) => sum + price, 0) / prices.length;
+        │  462 │         const variance = prices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / prices.length;
+        │  463 │
+        │  464 │         return Math.sqrt(variance);
+        │  465 │     }
+        │  466 │
+        │  467 │     // AutoDiffer Strategy Analysis
+        │  468 │     getAutoDifferRecommendation(): TradingRecommendation | null {
+        │  469 │         if (!this.isMarketAnalysisReady) return null;
+        │  470 │
+        │  471 │         // Random symbol selection weighted by volatility
+        │  472 │         const activeSymbols = Array.from(this.symbolData.values()).filter(data => data.ticks.length >= 10);
+        │  473 │         if (activeSymbols.length === 0) return null;
+        │  474 │
+        │  475 │         const randomSymbol = activeSymbols[Math.floor(Math.random() * activeSymbols.length)];
+        │  476 │         const randomBarrier = Math.floor(Math.random() * 10);
+        │  477 │
+        │  478 │         return {
+        │  479 │             strategy: 'autodiff',
+        │  480 │             symbol: randomSymbol.symbol,
+        │  481 │             contract_type: 'DIGITDIFF',
+        │  482 │             barrier: randomBarrier,
+        │  483 │             confidence: 0.6 + (Math.random() * 0.3), // 60-90% confidence
+        │  484 │             reason: `Random analysis: ${randomSymbol.symbol} barrier ${randomBarrier}`
+        │  485 │         };
+        │  486 │     }
+        │  487 │
+        │  488 │     // Auto Over/Under Strategy Analysis
+        │  489 │     getOverUnderRecommendation(): TradingRecommendation | null {
+        │  490 │         if (!this.isMarketAnalysisReady) return null;
+        │  491 │
+        │  492 │         let bestRecommendation: TradingRecommendation | null = null;
+        │  493 │         let highestConfidence = 0;
+        │  494 │
+        │  495 │         this.symbolData.forEach(data => {
+        │  496 │             if (data.ticks.length < 20) return;
+        │  497 │
+        │  498 │             const currentDigit = data.last_digit;
+        │  499 │             const mostFrequent = data.most_frequent_digit;
+        │  500 │
+        │  501 │             // Over 2 strategy
+        │  502 │             if (currentDigit <= 2 && mostFrequent > 2) {
+        │  503 │                 const confidence = 0.7 + (data.volatility * 0.1);
+        │  504 │                 if (confidence > highestConfidence) {
+        │  505 │                     highestConfidence = confidence;
+        │  506 │                     bestRecommendation = {
+        │  507 │                         strategy: 'over_under',
+        │  508 │                         symbol: data.symbol,
+        │  509 │                         contract_type: 'DIGITOVER',
+        │  510 │                         barrier: 2,
+        │  511 │                         confidence,
+        │  512 │                         reason: `Current digit ${currentDigit} ≤ 2, most frequent ${mostFrequent} > 2`
+        │  513 │                     };
+        │  514 │                 }
+        │  515 │             }
+        │  516 │
+        │  517 │             // Under 7 strategy
+        │  518 │             if (currentDigit >= 7 && mostFrequent < 7) {
+        │  519 │                 const confidence = 0.7 + (data.volatility * 0.1);
+        │  520 │                 if (confidence > highestConfidence) {
+        │  521 │                     highestConfidence = confidence;
+        │  522 │                     bestRecommendation = {
+        │  523 │                         strategy: 'over_under',
+        │  524 │                         symbol: data.symbol,
+        │  525 │                         contract_type: 'DIGITUNDER',
+        │  526 │                         barrier: 7,
+        │  527 │                         confidence,
+        │  528 │                         reason: `Current digit ${currentDigit} ≥ 7, most frequent ${mostFrequent} < 7`
+        │  529 │                     };
+        │  530 │                 }
+        │  531 │             }
+        │  532 │         });
+        │  533 │
+        │  534 │         return bestRecommendation;
+        │  535 │     }
+        │  536 │
+        │  537 │     // Auto O5U4 Strategy Analysis
+        │  538 │     getO5U4Recommendation(): TradingRecommendation | null {
+        │  539 │         if (!this.isMarketAnalysisReady) return null;
+        │  540 │
+        │  541 │         let bestSymbol: SymbolData | null = null;
+        │  542 │         let highestConfidence = 0;
+        │  543 │
+        │  544 │         this.symbolData.forEach(data => {
+        │  545 │             if (data.ticks.length < 50) return;
+        │  546 │
+        │  547 │             const currentDigit = data.last_digit;
+        │  548 │             const leastFrequent = data.least_frequent_digit;
+        │  549 │             const mostFrequent = data.most_frequent_digit;
+        │  550 │
+        │  551 │             // O5U4 conditions
+        │  552 │             const isCurrentDigit4or5 = currentDigit === 4 || currentDigit === 5;
+        │  553 │             const isLeastAppearing4or5 = leastFrequent === 4 || leastFrequent === 5;
+        │  554 │             const isMostAppearingValid = mostFrequent > 5 || mostFrequent < 4;
+        │  555 │
+        │  556 │             if (isCurrentDigit4or5 && isLeastAppearing4or5 && isMostAppearingValid) {
+        │  557 │                 const confidence = 0.8 + (data.volatility * 0.05);
+        │  558 │                 if (confidence > highestConfidence) {
+        │  559 │                     highestConfidence = confidence;
+        │  560 │                     bestSymbol = data;
+        │  561 │                 }
+        │  562 │             }
+        │  563 │         });
+        │  564 │
+        │  565 │         if (bestSymbol) {
+        │  566 │             return {
+        │  567 │                 strategy: 'o5u4',
+        │  568 │                 symbol: bestSymbol.symbol,
+        │  569 │                 contract_type: 'DIGITOVER', // Will also execute DIGITUNDER
+        │  570 │                 barrier: 5,
+        │  571 │                 confidence: highestConfidence,
+        │  572 │                 reason: `O5U4 conditions met: current=${bestSymbol.last_digit}, least=${bestSymbol.least_frequent_digit}, most=${bestSymbol.most_frequent_digit}`
+        │  573 │             };
+        │  574 │         }
+        │  575 │
+        │  576 │         return null;
+        │  577 │     }
+        │  578 │
+        │  579 │     disconnect() {
+        │  580 │         if (this.ws) {
+        │  581 │             this.ws.close();
+        │  582 │             this.ws = null;
+        │  583 │             this.isConnected = false;
+        │  584 │             this.activeSubscriptions.clear();
+        │  585 │         }
+        │  586 │     }
+        │  587 │
+        │  588 │     getSymbolData(symbol: string): SymbolData | undefined {
+        │  589 │         return this.symbolData.get(symbol);
+        │  590 │     }
+        │  591 │
+        │  592 │     getAllSymbolData(): SymbolData[] {
+        │  593 │         return Array.from(this.symbolData.values());
+        │  594 │     }
+        │  595 │ }
+        │  596 │
+        │  597 │ export const marketAnalyzer = new MarketAnalyzer();
+        │  598 │ export default MarketAnalyzer;
+        │      · ───────────────┬──────────────
+        │      ·                ╰── exported more than once
+        │      ╰────
+        │
+        │ Advice:   ☞ Exported identifiers must be unique
+        │
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
