@@ -75,13 +75,56 @@ const LoadModal: React.FC = observer((): JSX.Element => {
                             workspace.setEventsEnabled(events);
                         }
                         
+                        // Clean existing workspace of Ultimate Trader blocks first
+                        const existingBlocks = workspace.getAllBlocks(false);
+                        existingBlocks.forEach(block => {
+                            if (block.type === 'procedures_defnoreturn' || block.type === 'procedures_defreturn') {
+                                const procedureName = block.getProcedureDef && block.getProcedureDef()[0];
+                                if (procedureName && (
+                                    procedureName.includes('Ultimate Trader Trend Direction') ||
+                                    procedureName.includes('Ultimate Trader') ||
+                                    procedureName.includes('Trend Direction')
+                                )) {
+                                    console.log('Removing existing Ultimate Trader block from workspace');
+                                    block.dispose(false);
+                                }
+                            }
+                        });
+
                         // Load the parsed XML into the workspace
                         if (xmlDoc.documentElement) {
                             // Filter out unwanted blocks before loading
                             const filteredXml = xmlDoc.cloneNode(true) as Document;
                             const blocks = filteredXml.querySelectorAll('block');
                             
-                            // XML content loaded without filtering
+                            // Remove Ultimate Trader Trend Direction and related blocks
+                            blocks.forEach(block => {
+                                const type = block.getAttribute('type');
+                                if (type === 'procedures_defnoreturn' || type === 'procedures_defreturn') {
+                                    const nameField = block.querySelector('field[name="NAME"]');
+                                    if (nameField && (
+                                        nameField.textContent?.includes('Ultimate Trader Trend Direction') ||
+                                        nameField.textContent?.includes('Ultimate Trader') ||
+                                        nameField.textContent?.includes('Trend Direction')
+                                    )) {
+                                        console.log('Removing Ultimate Trader block:', nameField.textContent);
+                                        block.remove();
+                                    }
+                                }
+                                
+                                // Also remove any calls to these functions
+                                if (type === 'procedures_callnoreturn' || type === 'procedures_callreturn') {
+                                    const nameField = block.querySelector('field[name="NAME"]');
+                                    if (nameField && (
+                                        nameField.textContent?.includes('Ultimate Trader Trend Direction') ||
+                                        nameField.textContent?.includes('Ultimate Trader') ||
+                                        nameField.textContent?.includes('Trend Direction')
+                                    )) {
+                                        console.log('Removing Ultimate Trader call:', nameField.textContent);
+                                        block.remove();
+                                    }
+                                }
+                            });
                             
                             Blockly.Xml.domToWorkspace(filteredXml.documentElement, workspace);
                             console.log('Parsed XML loaded into workspace successfully');
