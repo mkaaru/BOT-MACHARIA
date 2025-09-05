@@ -1,0 +1,43 @@
+.ml-trader {
+  padding: 16px;
+  max-width: 1400px;
+  margin: 0 auto;
+  background: var(--general-main-1);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  min-height: 100vh;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-normal);
+
+    h1 {
+      font-size: 24px;
+      font-weight: bold;
+      color: var(--text-prominent);
+      margin: 0;
+    }
+  }
+
+  &__status {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 14px;
+    background-color: var(--status-success);
+    color: white;
+
+    &.inactive {
+      background-color: var(--status-danger);
+    }
+  }
+
+  &__content {
+    padding: 20px;
+    text-align: center;
+  }
+}
