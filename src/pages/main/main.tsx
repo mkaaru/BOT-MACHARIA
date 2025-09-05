@@ -269,10 +269,43 @@ const AppWrapper = observer(() => {
                             if (response.ok) {
                                 xmlContent = await response.text();
                                 console.log(`Successfully loaded XML from: ${url}`);
-                                console.log(`XML content preview: ${xmlContent.substring(0, 200)}...`);
-                                
-                                // Validate that it's actually XML content
-                                if (xmlContent.trim().startsWith('<xml') || xmlContent.trim().startsWith('<?xml')) {
+                                console.log('XML content preview:', xmlContent.substring(0, 200) + '...');
+
+                    try {
+                        // Validate XML content before loading
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(xmlContent, 'text/xml');
+                        const parseError = xmlDoc.getElementsByTagName('parsererror');
+
+                        if (parseError.length > 0) {
+                            console.error('Invalid XML format:', parseError[0].textContent);
+                            return;
+                        }
+
+                        // Load XML content into workspace
+                        if (load_modal.store && window.Blockly) { // Assuming load_modal.store is accessible and holds workspace functions
+                            const workspace = window.Blockly.getMainWorkspace();
+                            if (workspace) {
+                                workspace.clear(); // Clear existing blocks
+                                const xml = Blockly.utils.xml.textToDom(xmlContent);
+                                Blockly.Xml.domToWorkspace(xml, workspace);
+                                console.log('Bot loaded successfully!');
+
+                                // Also update workspace name
+                                if (typeof updateWorkspaceName === 'function') {
+                                    updateWorkspaceName(xmlContent);
+                                }
+                            } else {
+                                console.error("Blockly workspace not found.");
+                            }
+                        } else {
+                            console.error("Blockly or load_modal.store is not available.");
+                        }
+                    } catch (loadError) {
+                        console.error("Error loading bot content:", loadError);
+                    }
+
+
                                     success = true;
                                     break;
                                 } else {
@@ -328,7 +361,7 @@ const AppWrapper = observer(() => {
             if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
                 try {
                     // Clear workspace first to ensure clean loading
-                    if (window.Blockly && window.Blockly.getMainWorkspace) {
+                    if (typeof window !== 'undefined' && window.Blockly && window.Blockly.getMainWorkspace) {
                         const workspace = window.Blockly.getMainWorkspace();
                         if (workspace) {
                             workspace.clear();

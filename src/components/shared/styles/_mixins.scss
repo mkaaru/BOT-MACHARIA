@@ -285,11 +285,15 @@
     }
 }
 
-@mixin flex-center($justify-content: center, $align-items: center) {
+@mixin flex-center($direction: row, $align-items: center, $justify-content: center) {
     display: flex;
     align-items: $align-items;
     justify-content: $justify-content;
-    @content;
+    flex-direction: $direction;
+
+    .dc-contract-card__underlying-name {
+        // nested rule content
+    }
 }
 
 /*
