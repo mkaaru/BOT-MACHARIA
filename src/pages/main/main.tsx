@@ -193,6 +193,22 @@ const AppWrapper = observer(() => {
                     filePath: 'Mkorean SV4.xml',
                     xmlContent: null,
                     isPlaceholder: false
+                },
+                {
+                    title: 'Alpha Version 2025',
+                    description: 'Latest alpha version trading bot with cutting-edge strategies',
+                    image: 'default_image_path',
+                    filePath: 'Alpha Version 2025.xml',
+                    xmlContent: null,
+                    isPlaceholder: false
+                },
+                {
+                    title: 'Super Speed Bot',
+                    description: 'High-frequency trading bot optimized for speed',
+                    image: 'default_image_path',
+                    filePath: 'Super Speed Bot.xml',
+                    xmlContent: null,
+                    isPlaceholder: false
                 }
             ];
 
@@ -227,25 +243,36 @@ const AppWrapper = observer(() => {
             if (!xmlContent) {
                 console.log("Loading XML content for bot:", bot.filePath);
                 try {
-                    // Try different URLs to fetch the bot file
+                    // Try different URLs to fetch the bot file from public directory
                     const attempts = [
                         `/${bot.filePath}`,
+                        `/public/${bot.filePath}`,
                         `/${encodeURIComponent(bot.filePath)}`,
-                        bot.filePath
+                        `/public/${encodeURIComponent(bot.filePath)}`
                     ];
 
                     let success = false;
                     for (const url of attempts) {
                         try {
+                            console.log(`Attempting to fetch from: ${url}`);
                             const response = await fetch(url);
                             if (response.ok) {
                                 xmlContent = await response.text();
                                 console.log(`Successfully loaded XML from: ${url}`);
-                                success = true;
-                                break;
+                                console.log(`XML content preview: ${xmlContent.substring(0, 200)}...`);
+                                
+                                // Validate that it's actually XML content
+                                if (xmlContent.trim().startsWith('<xml') || xmlContent.trim().startsWith('<?xml')) {
+                                    success = true;
+                                    break;
+                                } else {
+                                    console.log(`Content from ${url} doesn't appear to be XML`);
+                                }
+                            } else {
+                                console.log(`HTTP ${response.status} from: ${url}`);
                             }
                         } catch (e) {
-                            console.log(`Failed to fetch from: ${url}`);
+                            console.log(`Network error fetching from: ${url}`, e);
                         }
                     }
 
@@ -282,6 +309,12 @@ const AppWrapper = observer(() => {
 
             console.log("XML Content length:", xmlContent?.length);
 
+            // Validate XML content format
+            if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
+                console.error("Invalid XML format");
+                return;
+            }
+
             if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
                 try {
                     await load_modal.loadFileFromContent(xmlContent);
@@ -295,7 +328,7 @@ const AppWrapper = observer(() => {
                     console.error("Error in load_modal.loadFileFromContent:", loadError);
                 }
             } else {
-                console.error("loadFileFromContent is not available");
+                console.error("loadFileFromContent is not available or no XML content");
             }
 
         } catch (error) {
