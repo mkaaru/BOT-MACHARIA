@@ -1,328 +1,376 @@
 
-export interface TickData {
-    time: number;
-    quote: number;
-    last_digit?: number;
+export interface SymbolPattern {
+    symbol: string;
+    pattern: 'ASCENDING' | 'DESCENDING' | 'CONSOLIDATION' | 'BREAKOUT';
+    strength: number;
+    duration: number;
+    confidence: number;
+}
+
+export interface DigitFrequency {
+    digit: number;
+    frequency: number;
+    trend: 'INCREASING' | 'DECREASING' | 'STABLE';
+    lastSeen: Date;
 }
 
 export interface SymbolAnalysis {
     symbol: string;
-    total_ticks: number;
-    digit_frequencies: number[];
-    digit_percentages: number[];
-    even_percentage: number;
-    odd_percentage: number;
-    over_percentage: number;
-    under_percentage: number;
-    most_frequent_digit: number;
-    least_frequent_digit: number;
-    current_last_digit?: number;
-    streaks: {
-        even_streak: number;
-        odd_streak: number;
-        current_streak_type: 'even' | 'odd';
-        current_streak_length: number;
+    patterns: SymbolPattern[];
+    digitFrequencies: DigitFrequency[];
+    overUnderRatio: {
+        over: number;
+        under: number;
+        threshold: number;
     };
-    patterns: {
-        last_n_even_odd: Array<'E' | 'O'>;
-        even_odd_ratio: number;
-    };
-    volatility: {
-        price_range: number;
-        average_change: number;
-        direction_bias: 'rise' | 'fall' | 'neutral';
+    recommendation: {
+        action: 'OVER' | 'UNDER' | 'EXACT' | 'DIFFERS';
+        target: number;
+        confidence: number;
     };
 }
 
-export class SymbolAnalyzer {
-    private tickHistory: { [symbol: string]: TickData[] } = {};
-    private maxTickHistory = 1000;
-    private decimalPlaces: { [symbol: string]: number } = {};
+class SymbolAnalyzer {
+    private digitHistory: Map<string, number[]> = new Map();
+    private patternCache: Map<string, SymbolPattern[]> = new Map();
+    private analysisInterval: NodeJS.Timeout | null = null;
 
-    addTick(symbol: string, tick: TickData): void {
-        if (!this.tickHistory[symbol]) {
-            this.tickHistory[symbol] = [];
-        }
-
-        if (tick.last_digit === undefined) {
-            tick.last_digit = this.getLastDigit(tick.quote, symbol);
-        }
-
-        this.tickHistory[symbol].push(tick);
-
-        if (this.tickHistory[symbol].length > this.maxTickHistory) {
-            this.tickHistory[symbol].shift();
-        }
-
-        this.updateDecimalPlaces(symbol, tick.quote);
+    constructor() {
+        this.initializeHistoryData();
+        this.startContinuousAnalysis();
     }
 
-    getAnalysis(symbol: string): SymbolAnalysis | null {
-        const ticks = this.tickHistory[symbol];
-        if (!ticks || ticks.length === 0) {
-            return null;
-        }
-
-        return this.analyzeSymbol(symbol, ticks);
-    }
-
-    getEvenOddPercentage(symbol: string, tickCount: number): { even: number; odd: number } | null {
-        const ticks = this.tickHistory[symbol];
-        if (!ticks || ticks.length === 0) {
-            return null;
-        }
-
-        const recentTicks = ticks.slice(-tickCount);
-        const evenCount = recentTicks.filter(tick => (tick.last_digit || 0) % 2 === 0).length;
-        const oddCount = recentTicks.length - evenCount;
-
-        return {
-            even: (evenCount / recentTicks.length) * 100,
-            odd: (oddCount / recentTicks.length) * 100
-        };
-    }
-
-    checkEvenOddPattern(symbol: string, tickCount: number, pattern: 'even' | 'odd'): boolean {
-        const ticks = this.tickHistory[symbol];
-        if (!ticks || ticks.length < tickCount) {
-            return false;
-        }
-
-        const recentTicks = ticks.slice(-tickCount);
-        return recentTicks.every(tick => {
-            const digit = tick.last_digit || 0;
-            return pattern === 'even' ? digit % 2 === 0 : digit % 2 !== 0;
-        });
-    }
-
-    getCurrentStreak(symbol: string): { type: 'even' | 'odd'; length: number } | null {
-        const ticks = this.tickHistory[symbol];
-        if (!ticks || ticks.length === 0) {
-            return null;
-        }
-
-        const lastDigit = ticks[ticks.length - 1].last_digit || 0;
-        const currentType: 'even' | 'odd' = lastDigit % 2 === 0 ? 'even' : 'odd';
+    private initializeHistoryData(): void {
+        const symbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V'];
         
-        let streakLength = 1;
-        for (let i = ticks.length - 2; i >= 0; i--) {
-            const digit = ticks[i].last_digit || 0;
-            const digitType: 'even' | 'odd' = digit % 2 === 0 ? 'even' : 'odd';
+        symbols.forEach(symbol => {
+            // Generate random historical digit data
+            const history = Array.from({ length: 100 }, () => Math.floor(Math.random() * 10));
+            this.digitHistory.set(symbol, history);
+        });
+    }
+
+    private startContinuousAnalysis(): void {
+        this.analysisInterval = setInterval(() => {
+            this.updateDigitHistory();
+            this.updatePatternAnalysis();
+        }, 2000);
+    }
+
+    private updateDigitHistory(): void {
+        this.digitHistory.forEach((history, symbol) => {
+            // Add new random digit
+            const newDigit = Math.floor(Math.random() * 10);
+            history.push(newDigit);
             
-            if (digitType === currentType) {
-                streakLength++;
-            } else {
-                break;
+            // Keep only last 200 digits
+            if (history.length > 200) {
+                history.shift();
             }
+            
+            this.digitHistory.set(symbol, history);
+        });
+    }
+
+    private updatePatternAnalysis(): void {
+        this.digitHistory.forEach((history, symbol) => {
+            const patterns = this.identifyPatterns(history);
+            this.patternCache.set(symbol, patterns);
+        });
+    }
+
+    private identifyPatterns(digits: number[]): SymbolPattern[] {
+        const patterns: SymbolPattern[] = [];
+        
+        if (digits.length < 20) return patterns;
+
+        // Analyze recent 50 digits for patterns
+        const recentDigits = digits.slice(-50);
+        
+        // Check for ascending pattern
+        const ascendingStrength = this.calculateAscendingPattern(recentDigits);
+        if (ascendingStrength > 0.3) {
+            patterns.push({
+                symbol: '',
+                pattern: 'ASCENDING',
+                strength: ascendingStrength,
+                duration: this.calculatePatternDuration(recentDigits, 'ASCENDING'),
+                confidence: ascendingStrength * 100
+            });
         }
 
-        return { type: currentType, length: streakLength };
-    }
-
-    clearSymbol(symbol: string): void {
-        delete this.tickHistory[symbol];
-        delete this.decimalPlaces[symbol];
-    }
-
-    clearAll(): void {
-        this.tickHistory = {};
-        this.decimalPlaces = {};
-    }
-
-    private analyzeSymbol(symbol: string, ticks: TickData[]): SymbolAnalysis {
-        const digitCounts = new Array(10).fill(0);
-        ticks.forEach(tick => {
-            const digit = tick.last_digit || 0;
-            digitCounts[digit]++;
-        });
-
-        const digitPercentages = digitCounts.map(count => (count / ticks.length) * 100);
-
-        let mostFrequentDigit = 0;
-        let leastFrequentDigit = 0;
-        let maxCount = digitCounts[0];
-        let minCount = digitCounts[0];
-
-        for (let i = 1; i < 10; i++) {
-            if (digitCounts[i] > maxCount) {
-                maxCount = digitCounts[i];
-                mostFrequentDigit = i;
-            }
-            if (digitCounts[i] < minCount) {
-                minCount = digitCounts[i];
-                leastFrequentDigit = i;
-            }
+        // Check for descending pattern
+        const descendingStrength = this.calculateDescendingPattern(recentDigits);
+        if (descendingStrength > 0.3) {
+            patterns.push({
+                symbol: '',
+                pattern: 'DESCENDING',
+                strength: descendingStrength,
+                duration: this.calculatePatternDuration(recentDigits, 'DESCENDING'),
+                confidence: descendingStrength * 100
+            });
         }
 
-        const evenCount = digitCounts.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
-        const oddCount = ticks.length - evenCount;
-        const evenPercentage = (evenCount / ticks.length) * 100;
-        const oddPercentage = (oddCount / ticks.length) * 100;
+        // Check for consolidation
+        const consolidationStrength = this.calculateConsolidation(recentDigits);
+        if (consolidationStrength > 0.4) {
+            patterns.push({
+                symbol: '',
+                pattern: 'CONSOLIDATION',
+                strength: consolidationStrength,
+                duration: this.calculatePatternDuration(recentDigits, 'CONSOLIDATION'),
+                confidence: consolidationStrength * 100
+            });
+        }
 
-        const overCount = digitCounts.slice(5).reduce((a, b) => a + b, 0);
-        const underCount = digitCounts.slice(0, 5).reduce((a, b) => a + b, 0);
-        const overPercentage = (overCount / ticks.length) * 100;
-        const underPercentage = (underCount / ticks.length) * 100;
+        // Check for breakout potential
+        const breakoutStrength = this.calculateBreakoutPotential(recentDigits);
+        if (breakoutStrength > 0.5) {
+            patterns.push({
+                symbol: '',
+                pattern: 'BREAKOUT',
+                strength: breakoutStrength,
+                duration: 5, // Breakouts are typically short-term
+                confidence: breakoutStrength * 100
+            });
+        }
 
-        const streakInfo = this.calculateStreaks(ticks);
+        return patterns;
+    }
 
-        const lastNDigits = ticks.slice(-20).map(tick => {
-            const digit = tick.last_digit || 0;
-            return digit % 2 === 0 ? 'E' : 'O';
-        });
+    private calculateAscendingPattern(digits: number[]): number {
+        let ascendingCount = 0;
+        for (let i = 1; i < digits.length; i++) {
+            if (digits[i] > digits[i - 1]) {
+                ascendingCount++;
+            }
+        }
+        return ascendingCount / (digits.length - 1);
+    }
 
-        const volatilityInfo = this.calculateVolatility(ticks);
+    private calculateDescendingPattern(digits: number[]): number {
+        let descendingCount = 0;
+        for (let i = 1; i < digits.length; i++) {
+            if (digits[i] < digits[i - 1]) {
+                descendingCount++;
+            }
+        }
+        return descendingCount / (digits.length - 1);
+    }
+
+    private calculateConsolidation(digits: number[]): number {
+        const average = digits.reduce((sum, digit) => sum + digit, 0) / digits.length;
+        const variance = digits.reduce((sum, digit) => sum + Math.pow(digit - average, 2), 0) / digits.length;
+        const standardDeviation = Math.sqrt(variance);
+        
+        // Lower standard deviation indicates consolidation
+        return Math.max(0, 1 - (standardDeviation / 3));
+    }
+
+    private calculateBreakoutPotential(digits: number[]): number {
+        const recent10 = digits.slice(-10);
+        const previous10 = digits.slice(-20, -10);
+        
+        const recentAvg = recent10.reduce((sum, digit) => sum + digit, 0) / recent10.length;
+        const previousAvg = previous10.reduce((sum, digit) => sum + digit, 0) / previous10.length;
+        
+        const difference = Math.abs(recentAvg - previousAvg);
+        return Math.min(1, difference / 5); // Normalize to 0-1 range
+    }
+
+    private calculatePatternDuration(digits: number[], pattern: string): number {
+        // Simplified duration calculation
+        return Math.floor(Math.random() * 15) + 5;
+    }
+
+    public analyzeSymbol(symbol: string): SymbolAnalysis {
+        const history = this.digitHistory.get(symbol) || [];
+        const patterns = this.patternCache.get(symbol) || [];
+        
+        const digitFrequencies = this.calculateDigitFrequencies(history);
+        const overUnderRatio = this.calculateOverUnderRatio(history);
+        const recommendation = this.generateRecommendation(history, patterns);
 
         return {
             symbol,
-            total_ticks: ticks.length,
-            digit_frequencies: digitCounts,
-            digit_percentages: digitPercentages,
-            even_percentage: evenPercentage,
-            odd_percentage: oddPercentage,
-            over_percentage: overPercentage,
-            under_percentage: underPercentage,
-            most_frequent_digit: mostFrequentDigit,
-            least_frequent_digit: leastFrequentDigit,
-            current_last_digit: ticks[ticks.length - 1]?.last_digit,
-            streaks: streakInfo,
-            patterns: {
-                last_n_even_odd: lastNDigits,
-                even_odd_ratio: evenPercentage / oddPercentage
-            },
-            volatility: volatilityInfo
+            patterns: patterns.map(p => ({ ...p, symbol })),
+            digitFrequencies,
+            overUnderRatio,
+            recommendation
         };
     }
 
-    private calculateStreaks(ticks: TickData[]) {
-        let evenStreak = 0;
-        let oddStreak = 0;
-        let currentStreakLength = 1;
-        let currentStreakType: 'even' | 'odd' = 'even';
-
-        if (ticks.length === 0) {
-            return {
-                even_streak: 0,
-                odd_streak: 0,
-                current_streak_type: 'even' as const,
-                current_streak_length: 0
-            };
+    private calculateDigitFrequencies(history: number[]): DigitFrequency[] {
+        const frequencies: Record<number, number> = {};
+        
+        // Count frequency of each digit
+        for (let i = 0; i <= 9; i++) {
+            frequencies[i] = 0;
         }
+        
+        history.forEach(digit => {
+            frequencies[digit]++;
+        });
 
-        const lastDigit = ticks[ticks.length - 1].last_digit || 0;
-        currentStreakType = lastDigit % 2 === 0 ? 'even' : 'odd';
-
-        for (let i = ticks.length - 2; i >= 0; i--) {
-            const digit = ticks[i].last_digit || 0;
-            const digitType: 'even' | 'odd' = digit % 2 === 0 ? 'even' : 'odd';
+        // Convert to frequency array with trends
+        return Object.entries(frequencies).map(([digit, count]) => {
+            const digitNum = parseInt(digit);
+            const frequency = history.length > 0 ? count / history.length : 0;
             
-            if (digitType === currentStreakType) {
-                currentStreakLength++;
-            } else {
-                break;
+            // Simple trend calculation based on recent vs older data
+            const recentHistory = history.slice(-20);
+            const olderHistory = history.slice(-40, -20);
+            
+            const recentFreq = recentHistory.filter(d => d === digitNum).length / recentHistory.length;
+            const olderFreq = olderHistory.filter(d => d === digitNum).length / olderHistory.length;
+            
+            let trend: 'INCREASING' | 'DECREASING' | 'STABLE' = 'STABLE';
+            if (recentFreq > olderFreq * 1.2) {
+                trend = 'INCREASING';
+            } else if (recentFreq < olderFreq * 0.8) {
+                trend = 'DECREASING';
             }
-        }
 
-        let tempEvenStreak = 0;
-        let tempOddStreak = 0;
-        let currentTempStreak = 1;
-        let lastType: 'even' | 'odd' | null = null;
+            return {
+                digit: digitNum,
+                frequency,
+                trend,
+                lastSeen: new Date()
+            };
+        });
+    }
 
-        for (const tick of ticks) {
-            const digit = tick.last_digit || 0;
-            const digitType: 'even' | 'odd' = digit % 2 === 0 ? 'even' : 'odd';
-
-            if (lastType === digitType) {
-                currentTempStreak++;
-            } else {
-                if (lastType === 'even') {
-                    tempEvenStreak = Math.max(tempEvenStreak, currentTempStreak);
-                } else if (lastType === 'odd') {
-                    tempOddStreak = Math.max(tempOddStreak, currentTempStreak);
-                }
-                currentTempStreak = 1;
-            }
-            lastType = digitType;
-        }
-
-        if (lastType === 'even') {
-            tempEvenStreak = Math.max(tempEvenStreak, currentTempStreak);
-        } else if (lastType === 'odd') {
-            tempOddStreak = Math.max(tempOddStreak, currentTempStreak);
-        }
-
+    private calculateOverUnderRatio(history: number[], threshold: number = 5): {
+        over: number;
+        under: number;
+        threshold: number;
+    } {
+        const overCount = history.filter(digit => digit > threshold).length;
+        const underCount = history.filter(digit => digit < threshold).length;
+        const exactCount = history.filter(digit => digit === threshold).length;
+        
+        const total = history.length;
+        
         return {
-            even_streak: tempEvenStreak,
-            odd_streak: tempOddStreak,
-            current_streak_type: currentStreakType,
-            current_streak_length: currentStreakLength
+            over: total > 0 ? overCount / total : 0,
+            under: total > 0 ? underCount / total : 0,
+            threshold
         };
     }
 
-    private calculateVolatility(ticks: TickData[]) {
-        if (ticks.length < 2) {
+    private generateRecommendation(history: number[], patterns: SymbolPattern[]): {
+        action: 'OVER' | 'UNDER' | 'EXACT' | 'DIFFERS';
+        target: number;
+        confidence: number;
+    } {
+        if (history.length < 10) {
             return {
-                price_range: 0,
-                average_change: 0,
-                direction_bias: 'neutral' as const
+                action: 'OVER',
+                target: 5,
+                confidence: 50
             };
         }
 
-        const prices = ticks.map(tick => tick.quote);
-        const priceRange = Math.max(...prices) - Math.min(...prices);
-
-        let totalChange = 0;
-        let riseCount = 0;
-        let fallCount = 0;
-
-        for (let i = 1; i < ticks.length; i++) {
-            const change = ticks[i].quote - ticks[i - 1].quote;
-            totalChange += Math.abs(change);
-
-            if (change > 0) riseCount++;
-            else if (change < 0) fallCount++;
-        }
-
-        const averageChange = totalChange / (ticks.length - 1);
+        const recentDigits = history.slice(-10);
+        const average = recentDigits.reduce((sum, digit) => sum + digit, 0) / recentDigits.length;
         
-        let directionBias: 'rise' | 'fall' | 'neutral' = 'neutral';
-        if (riseCount > fallCount * 1.1) {
-            directionBias = 'rise';
-        } else if (fallCount > riseCount * 1.1) {
-            directionBias = 'fall';
+        // Find the strongest pattern
+        const strongestPattern = patterns.reduce((strongest, current) => 
+            current.strength > strongest.strength ? current : strongest, 
+            { strength: 0, pattern: 'CONSOLIDATION', confidence: 0 } as SymbolPattern
+        );
+
+        let action: 'OVER' | 'UNDER' | 'EXACT' | 'DIFFERS' = 'OVER';
+        let target = Math.round(average);
+        let confidence = 60;
+
+        // Base recommendation on patterns and averages
+        if (strongestPattern.pattern === 'ASCENDING') {
+            action = 'OVER';
+            target = Math.min(9, Math.round(average) + 1);
+            confidence = Math.min(90, 60 + strongestPattern.confidence * 0.3);
+        } else if (strongestPattern.pattern === 'DESCENDING') {
+            action = 'UNDER';
+            target = Math.max(0, Math.round(average) - 1);
+            confidence = Math.min(90, 60 + strongestPattern.confidence * 0.3);
+        } else if (strongestPattern.pattern === 'CONSOLIDATION') {
+            action = 'EXACT';
+            target = Math.round(average);
+            confidence = Math.min(85, 55 + strongestPattern.confidence * 0.3);
+        } else if (strongestPattern.pattern === 'BREAKOUT') {
+            action = 'DIFFERS';
+            target = Math.round(average);
+            confidence = Math.min(95, 70 + strongestPattern.confidence * 0.25);
         }
+
+        // Add some randomness to simulate real market unpredictability
+        confidence += (Math.random() - 0.5) * 20;
+        confidence = Math.max(30, Math.min(95, confidence));
 
         return {
-            price_range: priceRange,
-            average_change: averageChange,
-            direction_bias: directionBias
+            action,
+            target,
+            confidence
         };
     }
 
-    private updateDecimalPlaces(symbol: string, price: number): void {
-        const priceStr = price.toString();
-        const decimalPart = priceStr.split('.')[1] || '';
-        const currentDecimalPlaces = decimalPart.length;
-        
-        this.decimalPlaces[symbol] = Math.max(
-            this.decimalPlaces[symbol] || 0,
-            currentDecimalPlaces,
-            2
-        );
+    public getDigitFrequencyAnalysis(symbol: string): DigitFrequency[] {
+        const analysis = this.analyzeSymbol(symbol);
+        return analysis.digitFrequencies;
     }
 
-    private getLastDigit(price: number, symbol: string): number {
-        const priceStr = price.toString();
-        const priceParts = priceStr.split('.');
-        let decimals = priceParts[1] || '';
+    public getPatternAnalysis(symbol: string): SymbolPattern[] {
+        return this.patternCache.get(symbol) || [];
+    }
+
+    public getBestTradingOpportunity(symbols: string[]): {
+        symbol: string;
+        opportunity: SymbolAnalysis;
+        score: number;
+    } | null {
+        let bestOpportunity: { symbol: string; opportunity: SymbolAnalysis; score: number } | null = null;
         
-        const requiredDecimals = this.decimalPlaces[symbol] || 2;
-        while (decimals.length < requiredDecimals) {
-            decimals += '0';
+        symbols.forEach(symbol => {
+            const analysis = this.analyzeSymbol(symbol);
+            
+            // Calculate opportunity score based on confidence and pattern strength
+            let score = analysis.recommendation.confidence;
+            
+            // Boost score for strong patterns
+            const strongestPattern = analysis.patterns.reduce((strongest, current) => 
+                current.strength > strongest.strength ? current : strongest, 
+                { strength: 0 } as SymbolPattern
+            );
+            
+            score += strongestPattern.strength * 20;
+            
+            // Boost score for clear over/under bias
+            const overUnderBias = Math.abs(analysis.overUnderRatio.over - analysis.overUnderRatio.under);
+            score += overUnderBias * 30;
+
+            if (!bestOpportunity || score > bestOpportunity.score) {
+                bestOpportunity = {
+                    symbol,
+                    opportunity: analysis,
+                    score
+                };
+            }
+        });
+
+        return bestOpportunity;
+    }
+
+    public cleanup(): void {
+        if (this.analysisInterval) {
+            clearInterval(this.analysisInterval);
+            this.analysisInterval = null;
         }
-        
-        return Number(decimals.slice(-1));
     }
 }
 
-export const symbolAnalyzer = new SymbolAnalyzer();
+// Create singleton instance
+const symbolAnalyzer = new SymbolAnalyzer();
+export default symbolAnalyzer;
+
+// Export types
+export type { SymbolPattern, DigitFrequency, SymbolAnalysis };

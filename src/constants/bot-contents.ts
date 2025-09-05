@@ -15,12 +15,7 @@ export const DBOT_TABS = {
     DASHBOARD: 0,
     BOT_BUILDER: 1,
     CHART: 2,
-    TUTORIAL: 3,
-    TRADING_HUB: 4,
-    FREE_BOTS: 5,
-    ANALYSIS_TOOL: 6,
-    SIGNALS: 7,
-    AI_TRADER: 8,
+    AUTO: 3,
 } as const;
 
 export const MAX_STRATEGIES = 10;
