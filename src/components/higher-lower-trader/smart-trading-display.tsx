@@ -7,7 +7,7 @@ import { localize } from '@deriv-com/translations';
 import { api_base } from '../../external/bot-skeleton/services/api/api-base';
 import { doUntilDone } from '../../external/bot-skeleton/services/tradeEngine/utils/helpers';
 import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
-import './smart-trading-display.scss';
+import '../smart-trader/smart-trader.scss';
 
 // Extend Window interface for volatility analyzer
 declare global {
@@ -961,15 +961,15 @@ const SmartTradingDisplay = observer(() => {
                                     // Toggle trading for this strategy
                                     const newStrategies = [...analysisStrategies];
                                     const strategyIndex = newStrategies.findIndex(s => s.id === strategy.id);
-                                    
+
                                     let newActiveContractType: string | null = null;
                                     let actionToPerform: 'executeTrade' | 'stopAutoTrading' | null = null;
 
                                     if (!strategy.activeContractType) {
                                         // Determine contract type from strategy settings or analysis data
-                                        const determinedContractType = strategy.settings.conditionAction || 
+                                        const determinedContractType = strategy.settings.conditionAction ||
                                                                        (analysisData[strategy.id]?.recommendation ? mapRecommendationToContractType(analysisData[strategy.id].recommendation) : null);
-                                        
+
                                         if (determinedContractType) {
                                             newActiveContractType = determinedContractType;
                                             actionToPerform = 'executeTrade';
@@ -988,7 +988,7 @@ const SmartTradingDisplay = observer(() => {
                                         isActive: !!newActiveContractType,
                                         contractType: newActiveContractType
                                     }, '*');
-                                    
+
                                     // If starting auto trading and we have a contract type, execute the first trade
                                     if (actionToPerform === 'executeTrade' && newActiveContractType) {
                                         executeTrade(strategy, newActiveContractType);
