@@ -35,6 +35,20 @@ const TradingHubDisplay: React.FC = () => {
 
     const { run_panel, transactions, client } = useStore();
 
+    // Subscribe to balance updates
+    useEffect(() => {
+        const handleBalanceUpdate = (balance: any) => {
+            // The balance will be automatically updated in the client store
+            // This ensures the UI reflects real balance changes
+        };
+
+        globalObserver.register('balance.update', handleBalanceUpdate);
+        
+        return () => {
+            globalObserver.unregister('balance.update', handleBalanceUpdate);
+        };
+    }, []);
+
     const availableSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'RDBEAR', 'RDBULL', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V'];
 
     useEffect(() => {
@@ -42,47 +56,49 @@ const TradingHubDisplay: React.FC = () => {
         setSessionRunId(session_id);
         globalObserver.emit('bot.started', session_id);
 
-        // Mock AI recommendation for demonstration
-        const mockRecommendation = {
-            symbol: 'R_100',
-            strategy: 'AutoDiffer',
-            barrier: '+0.005',
-            reason: 'High volatility detected, potential for quick gains.'
+        // Subscribe to contract updates from the trading system
+        const handleContractUpdate = (contract: any) => {
+            if (contract && contract.contract_id) {
+                setTradeCount(prev => prev + 1);
+                
+                if (contract.is_sold && contract.profit !== undefined) {
+                    if (contract.profit > 0) {
+                        setWinCount(prev => prev + 1);
+                        setConsecutiveLosses(0);
+                    } else {
+                        setLossCount(prev => prev + 1);
+                        setConsecutiveLosses(prev => prev + 1);
+                    }
+                    setTotalProfit(prev => prev + contract.profit);
+                    
+                    // Apply martingale logic
+                    if (contract.profit <= 0) {
+                        const martingaleMultiplier = parseFloat(martingale);
+                        setCurrentStake(prevStake => prevStake * martingaleMultiplier);
+                    } else {
+                        setCurrentStake(parseFloat(stake)); // Reset stake on win
+                    }
+                }
+                setIsTradeInProgress(false);
+            }
         };
-        setCurrentRecommendation(mockRecommendation);
 
-        // Simulate market analysis and trade updates
-        const interval = setInterval(() => {
+        // Listen for contract events
+        globalObserver.register('contract.status', handleContractUpdate);
+
+        // Market analysis simulation
+        const analysisInterval = setInterval(() => {
             setAnalysisCount(prev => prev + 1);
             setLastAnalysisTime(new Date().toLocaleTimeString());
             setIsAnalysisReady(true);
-
-            // Simulate trade outcomes for performance metrics
-            if (isTrading) {
-                setTradeCount(prev => prev + 1);
-                const wonTrade = Math.random() > 0.45; // Simulate win rate
-                if (wonTrade) {
-                    setWinCount(prev => prev + 1);
-                    setTotalProfit(prev => prev + parseFloat(stake));
-                    setConsecutiveLosses(0); // Reset consecutive losses on win
-                } else {
-                    setLossCount(prev => prev + 1);
-                    setTotalProfit(prev => prev - parseFloat(stake));
-                    setConsecutiveLosses(prev => prev + 1);
-                }
-                setCurrentStake(prevStake => {
-                    if (wonTrade) return parseFloat(stake); // Reset stake on win
-                    const martingaleMultiplier = parseFloat(martingale);
-                    return prevStake * martingaleMultiplier; // Apply martingale on loss
-                });
-            }
-        }, 5000); // Update every 5 seconds
+        }, 3000);
 
         return () => {
-            clearInterval(interval);
+            clearInterval(analysisInterval);
+            globalObserver.unregister('contract.status', handleContractUpdate);
             globalObserver.emit('bot.stop');
         };
-    }, [isTrading, stake, martingale]); // Depend on isTrading to trigger trade simulations
+    }, [stake, martingale]);
 
 
     const handleStakeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,6 +154,65 @@ const TradingHubDisplay: React.FC = () => {
         }
     };
 
+    const executeRealTrade = async () => {
+        if (isTradeInProgress) return;
+        
+        try {
+            setIsTradeInProgress(true);
+            
+            // Determine trade parameters based on active strategy
+            let tradeType = 'CALL';
+            let barrier = null;
+            
+            if (isAutoDifferActive) {
+                // For differs, we need a barrier
+                barrier = '+0.005'; // Small barrier for quick execution
+                tradeType = Math.random() > 0.5 ? 'CALL' : 'PUT';
+            } else if (isAutoOverUnderActive) {
+                tradeType = Math.random() > 0.5 ? 'CALL' : 'PUT';
+            } else if (isAutoO5U4Active) {
+                // Over 5 Under 4 strategy for digits
+                tradeType = Math.random() > 0.5 ? 'DIGITOVER' : 'DIGITUNDER';
+                barrier = Math.random() > 0.5 ? '5' : '4';
+            }
+
+            // Prepare proposal request
+            const proposalRequest = {
+                proposal: 1,
+                amount: currentStake.toString(),
+                basis: 'stake',
+                contract_type: tradeType,
+                currency: 'USD',
+                symbol: currentSymbol,
+                duration: '5',
+                duration_unit: 't',
+                ...(barrier && { barrier: barrier })
+            };
+
+            // Send proposal via API
+            const response = await api_base.api.send(proposalRequest);
+            
+            if (response.proposal && response.proposal.id) {
+                // Execute the trade
+                const buyRequest = {
+                    buy: response.proposal.id,
+                    price: response.proposal.ask_price
+                };
+                
+                const buyResponse = await api_base.api.send(buyRequest);
+                
+                if (buyResponse.buy) {
+                    // Trade executed successfully
+                    globalObserver.emit('contract.purchase', buyResponse.buy);
+                    console.log('Trade executed:', buyResponse.buy);
+                }
+            }
+        } catch (error) {
+            console.error('Trade execution failed:', error);
+            setIsTradeInProgress(false);
+        }
+    };
+
     const startContinuousTrading = () => {
         if (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active) {
             return;
@@ -146,11 +221,29 @@ const TradingHubDisplay: React.FC = () => {
         setIsTrading(true);
         setIsContinuousTrading(true);
         globalObserver.emit('bot.running');
+        
+        // Start automated trading cycle
+        const tradingInterval = setInterval(() => {
+            if (isContinuousTrading && !isTradeInProgress) {
+                executeRealTrade();
+            }
+        }, 10000); // Execute trade every 10 seconds
+        
+        // Store interval reference for cleanup
+        window.tradingHubInterval = tradingInterval;
     };
 
     const stopContinuousTrading = () => {
         setIsTrading(false);
         setIsContinuousTrading(false);
+        setIsTradeInProgress(false);
+        
+        // Clear trading interval
+        if (window.tradingHubInterval) {
+            clearInterval(window.tradingHubInterval);
+            window.tradingHubInterval = null;
+        }
+        
         globalObserver.emit('bot.stop');
     };
 
