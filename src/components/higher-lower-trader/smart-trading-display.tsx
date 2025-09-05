@@ -222,105 +222,6 @@ const SmartTradingDisplay = observer(() => {
     const [contractStatus, setContractStatus] = useState<string>('');
     const [isApiConnected, setIsApiConnected] = useState(false);
 
-    // Mock analysis data for rendering (replace with actual analysis data)
-    const getMockAnalysisData = (strategyId: string) => {
-        // Placeholder for actual analysis data retrieval
-        // In a real scenario, this would come from the 'analysisData' state
-        const baseData = {
-            recommendation: '',
-            confidence: 0,
-            riseProbability: 0,
-            fallProbability: 0,
-            evenProbability: 0,
-            oddProbability: 0,
-            overProbability: 0,
-            underProbability: 0,
-            matchesProbability: 0,
-            differsProbability: 0,
-            barrier: 0,
-            pattern: '',
-            evenOddPattern: '',
-            overUnderPattern: '',
-            lastDigits: [],
-            recentPattern: '',
-            currentStreak: 0,
-            streakType: '',
-            targetDigit: 0,
-            frequencies: {},
-            mostFrequent: '',
-            barrierValue: 0, // Added for consistency
-        };
-
-        switch (strategyId) {
-            case 'rise-fall':
-                return {
-                    ...baseData,
-                    recommendation: 'Rise',
-                    confidence: 75.5,
-                    riseProbability: 75.5,
-                    fallProbability: 24.5,
-                    pattern: 'RISE',
-                };
-            case 'even-odd':
-                return {
-                    ...baseData,
-                    recommendation: 'Even',
-                    confidence: 80.2,
-                    evenProbability: 80.2,
-                    oddProbability: 19.8,
-                    pattern: 'EVEN',
-                };
-            case 'even-odd-2':
-                return {
-                    ...baseData,
-                    recommendation: 'Odd',
-                    confidence: 65.0,
-                    evenProbability: 35.0,
-                    oddProbability: 65.0,
-                    lastDigits: [1, 3, 5, 7, 9], // Example digits
-                    recentPattern: 'ODD',
-                    currentStreak: 3,
-                    streakType: 'Odd',
-                };
-            case 'over-under':
-                return {
-                    ...baseData,
-                    recommendation: 'Under',
-                    confidence: 70.0,
-                    overProbability: 40.0,
-                    underProbability: 60.0,
-                    barrier: 5,
-                    pattern: 'UNDER',
-                };
-            case 'over-under-2':
-                return {
-                    ...baseData,
-                    recommendation: 'Over',
-                    confidence: 85.0,
-                    overProbability: 85.0,
-                    underProbability: 15.0,
-                    barrier: 5,
-                    lastDigits: [6, 7, 8, 9, 0], // Example digits
-                    barrierValue: 5, // Example barrier
-                    frequencies: { 0: 10, 1: 5, 2: 8, 3: 12, 4: 7, 5: 9, 6: 11, 7: 6, 8: 10, 9: 12 },
-                };
-            case 'matches-differs':
-                return {
-                    ...baseData,
-                    recommendation: 'Matches',
-                    confidence: 90.0,
-                    matchesProbability: 60.0,
-                    differsProbability: 40.0,
-                    targetDigit: 5,
-                    pattern: 'MATCHES',
-                    frequencies: { 0: 8, 1: 7, 2: 10, 3: 9, 4: 11, 5: 15, 6: 10, 7: 7, 8: 9, 9: 11 },
-                    mostFrequent: '5',
-                };
-            default:
-                return baseData;
-        }
-    };
-
     // Initialize Deriv API connection
     const initializeAPI = useCallback(async () => {
         try {
@@ -837,569 +738,6 @@ const SmartTradingDisplay = observer(() => {
         }
     }, [analysisData, selectedSymbol, tickCount, barrierValue]); // Added dependencies
 
-    // Helper to update strategy settings
-    const updateStrategySettings = (strategyId: string, newSettings: Partial<TradeSettings>) => {
-        setAnalysisStrategies(prev =>
-            prev.map(s =>
-                s.id === strategyId ? { ...s, settings: { ...s.settings, ...newSettings } } : s
-            )
-        );
-    };
-
-    // Helper to handle single trade execution or stop
-    const handleSingleTrade = (strategy: AnalysisStrategy) => {
-        const isTrading = strategy.activeContractType !== null;
-
-        if (isTrading) {
-            // Stop trading
-            updateStrategySettings(strategy.id, { activeContractType: null });
-            window.postMessage({
-                type: 'UPDATE_TRADING_STATUS',
-                strategyId: strategy.id,
-                isActive: false
-            }, '*');
-        } else {
-            // Determine contract type to start trading with
-            const determinedContractType = strategy.settings.conditionAction ||
-                                           (analysisData[strategy.id]?.recommendation ? mapRecommendationToContractType(analysisData[strategy.id].recommendation) : null);
-
-            if (determinedContractType) {
-                updateStrategySettings(strategy.id, { activeContractType: determinedContractType });
-                window.postMessage({
-                    type: 'UPDATE_TRADING_STATUS',
-                    strategyId: strategy.id,
-                    isActive: true,
-                    contractType: determinedContractType
-                }, '*');
-                executeTrade(strategy, determinedContractType);
-            } else {
-                console.warn(`Could not determine contract type for ${strategy.name} to start auto trading.`);
-            }
-        }
-    };
-
-
-    const renderProbabilityBars = (strategy: AnalysisStrategy) => {
-        const mockData = getMockAnalysisData(strategy.id);
-
-        switch (strategy.id) {
-            case 'rise-fall':
-                return (
-                    <div className="strategy-card__probability-bars">
-                        <div className="prob-bar">
-                            <span className="label">Rise</span>
-                            <div className="bar rise" style={{ width: `${mockData.riseProbability || 50}%` }}>
-                                {mockData.riseProbability?.toFixed(2)}%
-                            </div>
-                        </div>
-                        <div className="prob-bar">
-                            <span className="label">Fall</span>
-                            <div className="bar fall" style={{ width: `${mockData.fallProbability || 50}%` }}>
-                                {mockData.fallProbability?.toFixed(2)}%
-                            </div>
-                        </div>
-                    </div>
-                );
-            case 'even-odd':
-                return (
-                    <div className="strategy-card__probability-bars">
-                        <div className="prob-bar">
-                            <span className="label">Even</span>
-                            <div className="bar even" style={{ width: `${mockData.evenProbability || 50}%` }}>
-                                {mockData.evenProbability?.toFixed(2)}%
-                            </div>
-                        </div>
-                        <div className="prob-bar">
-                            <span className="label">Odd</span>
-                            <div className="bar odd" style={{ width: `${mockData.oddProbability || 50}%` }}>
-                                {mockData.oddProbability?.toFixed(2)}%
-                            </div>
-                        </div>
-                    </div>
-                );
-            case 'over-under':
-                return (
-                    <div className="strategy-card__probability-bars">
-                        <div className="prob-bar">
-                            <span className="label">Over</span>
-                            <div className="bar over" style={{ width: `${mockData.overProbability || 50}%` }}>
-                                {mockData.overProbability?.toFixed(2)}%
-                            </div>
-                        </div>
-                        <div className="prob-bar">
-                            <span className="label">Under</span>
-                            <div className="bar under" style={{ width: `${mockData.underProbability || 50}%` }}>
-                                {mockData.underProbability?.toFixed(2)}%
-                            </div>
-                        </div>
-                    </div>
-                );
-            case 'matches-differs':
-                return (
-                    <div className="strategy-card__probability-bars">
-                        <div className="prob-bar">
-                            <span className="label">Matches</span>
-                            <div className="bar matches" style={{ width: `${mockData.matchesProbability || 10}%` }}>
-                                {mockData.matchesProbability?.toFixed(2)}%
-                            </div>
-                        </div>
-                        <div className="prob-bar">
-                            <span className="label">Differs</span>
-                            <div className="bar differs" style={{ width: `${mockData.differsProbability || 90}%` }}>
-                                {mockData.differsProbability?.toFixed(2)}%
-                            </div>
-                        </div>
-                    </div>
-                );
-            default:
-                return null;
-        }
-    };
-
-    const renderPatternDisplay = (strategy: AnalysisStrategy) => {
-        const mockData = getMockAnalysisData(strategy.id);
-
-        if (strategy.id === 'even-odd-2') {
-            return (
-                <div className="strategy-card__pattern-display">
-                    <div className="pattern-title">Last Digits Pattern</div>
-                    <div className="digit-pattern">
-                        {mockData.lastDigits?.map((digit: number, index: number) => (
-                            <div
-                                key={index}
-                                className={`digit ${digit % 2 === 0 ? 'even' : 'odd'}`}
-                            >
-                                {digit}
-                            </div>
-                        ))}
-                    </div>
-                    <div className="pattern-info">{mockData.recentPattern}</div>
-                    <div className="current-streak">Current streak: {mockData.currentStreak}</div>
-                </div>
-            );
-        }
-
-        if (strategy.id === 'over-under-2') {
-            return (
-                <div className="strategy-card__pattern-display">
-                    <div className="pattern-title">Last Digits Pattern</div>
-                    <div className="digit-pattern">
-                        {mockData.lastDigits?.map((digit: number, index: number) => (
-                            <div
-                                key={index}
-                                className={`digit ${digit > mockData.barrier ? 'over' : 'under'}`}
-                            >
-                                {digit}
-                            </div>
-                        ))}
-                    </div>
-                    <div className="pattern-info">Over ({digit > mockData.barrier}), Under ({digit <= mockData.barrier})</div>
-                    <div className="frequency-grid">
-                        {Object.entries(mockData.frequencies || {}).map(([digit, freq]) => (
-                            <div key={digit} className="freq-cell">
-                                <div className="digit">{digit}</div>
-                                <div className="percentage">{freq}%</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-        }
-
-        if (strategy.id === 'matches-differs') {
-            return (
-                <div className="strategy-card__pattern-display">
-                    <div className="pattern-title">Most frequent: {mockData.mostFrequent}</div>
-                    <div className="barrier-info">
-                        <span className="barrier-label">Barrier digit 5 appears</span>
-                        <span className="barrier-value">5.83% of the time</span>
-                    </div>
-                    <div className="frequency-stats">Digit Frequency Distribution</div>
-                    <div className="frequency-chart">
-                        {Object.entries(mockData.frequencies || {}).map(([digit, freq]) => (
-                            <div
-                                key={digit}
-                                className={`bar ${digit === '5' ? 'active' : ''}`}
-                                style={{ height: `${Math.max(freq as number / 100 * 40, 4)}px` }}
-                            />
-                        ))}
-                    </div>
-                </div>
-            );
-        }
-
-        return null;
-    };
-
-    const renderTradingCondition = (strategy: AnalysisStrategy) => {
-        const { settings } = strategy;
-
-        switch (strategy.id) {
-            case 'rise-fall':
-                return (
-                    <div className="strategy-card__trading-condition">
-                        <div className="condition-row">
-                            <span className="condition-label">If</span>
-                            <select value={settings.conditionType} onChange={(e) => updateStrategySettings(strategy.id, { conditionType: e.target.value })}>
-                                <option value="rise">Rise probability</option>
-                                <option value="fall">Fall probability</option>
-                            </select>
-                            <select value={settings.conditionOperator} onChange={(e) => updateStrategySettings(strategy.id, { conditionOperator: e.target.value })}>
-                                <option value=">">is greater than</option>
-                                <option value="<">is less than</option>
-                                <option value=">=">is greater than or equal to</option>
-                                <option value="<=">is less than or equal to</option>
-                                <option value="=">equals</option>
-                            </select>
-                            <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={settings.conditionValueInput || ''}
-                                onChange={(e) => updateStrategySettings(strategy.id, { conditionValueInput: e.target.value })}
-                                onBlur={() => {
-                                    const value = parseFloat(settings.conditionValueInput || '0');
-                                    if (!isNaN(value)) {
-                                        updateStrategySettings(strategy.id, { conditionValue: value });
-                                    }
-                                }}
-                                className="condition-value-input"
-                                placeholder="65"
-                            />
-                            <span className="condition-unit">%</span>
-                        </div>
-                        <div className="condition-row">
-                            <span className="condition-label">Then buy</span>
-                            <select value={settings.conditionAction} onChange={(e) => updateStrategySettings(strategy.id, { conditionAction: e.target.value })}>
-                                <option value="Rise">Rise</option>
-                                <option value="Fall">Fall</option>
-                            </select>
-                            <span className="condition-label">contract</span>
-                        </div>
-                    </div>
-                );
-            case 'even-odd':
-                return (
-                    <div className="strategy-card__trading-condition">
-                        <div className="condition-row">
-                            <span className="condition-label">If</span>
-                            <select value={settings.conditionType} onChange={(e) => updateStrategySettings(strategy.id, { conditionType: e.target.value })}>
-                                <option value="even">Even Prob</option>
-                                <option value="odd">Odd Prob</option>
-                            </select>
-                            <select value={settings.conditionOperator} onChange={(e) => updateStrategySettings(strategy.id, { conditionOperator: e.target.value })}>
-                                <option value=">">></option>
-                                <option value=">=">≥</option>
-                            </select>
-                            <input
-                                type="number"
-                                className="small-input"
-                                value={settings.conditionValueInput || settings.conditionValue || ''}
-                                onChange={(e) => updateStrategySettings(strategy.id, {
-                                    conditionValueInput: e.target.value,
-                                    conditionValue: parseFloat(e.target.value) || 0
-                                })}
-                            />
-                            <span className="condition-label">%</span>
-                        </div>
-                        <div className="condition-row">
-                            <span className="condition-label">Then</span>
-                            <select value={settings.conditionAction} onChange={(e) => updateStrategySettings(strategy.id, { conditionAction: e.target.value })}>
-                                <option value="Even">Buy Even</option>
-                                <option value="Odd">Buy Odd</option>
-                            </select>
-                        </div>
-                    </div>
-                );
-            case 'even-odd-2':
-                return (
-                    <div className="strategy-card__trading-condition">
-                        <div className="condition-row">
-                            <span className="condition-label">Check if the last</span>
-                            <input
-                                type="number"
-                                className="small-input"
-                                value={settings.patternDigitCountInput || settings.patternDigitCount || ''}
-                                onChange={(e) => updateStrategySettings(strategy.id, {
-                                    patternDigitCountInput: e.target.value,
-                                    patternDigitCount: parseInt(e.target.value) || 3
-                                })}
-                            />
-                            <span className="condition-label">digits are</span>
-                            <select value={settings.patternType} onChange={(e) => updateStrategySettings(strategy.id, { patternType: e.target.value })}>
-                                <option value="even">Even</option>
-                                <option value="odd">Odd</option>
-                            </select>
-                        </div>
-                        <div className="condition-row">
-                            <span className="condition-label">Then</span>
-                            <select value={settings.patternAction} onChange={(e) => updateStrategySettings(strategy.id, { patternAction: e.target.value })}>
-                                <option value="Even">Buy Even</option>
-                                <option value="Odd">Buy Odd</option>
-                            </select>
-                        </div>
-                    </div>
-                );
-            case 'over-under':
-                return (
-                    <div className="strategy-card__trading-condition">
-                        <div className="condition-row">
-                            <span className="condition-label">If</span>
-                            <select value={settings.conditionType} onChange={(e) => updateStrategySettings(strategy.id, { conditionType: e.target.value })}>
-                                <option value="over">Over Prob</option>
-                                <option value="under">Under Prob</option>
-                            </select>
-                            <select value={settings.conditionOperator} onChange={(e) => updateStrategySettings(strategy.id, { conditionOperator: e.target.value })}>
-                                <option value=">">></option>
-                                <option value=">=">≥</option>
-                            </select>
-                            <input
-                                type="number"
-                                className="small-input"
-                                value={settings.conditionValueInput || settings.conditionValue || ''}
-                                onChange={(e) => updateStrategySettings(strategy.id, {
-                                    conditionValueInput: e.target.value,
-                                    conditionValue: parseFloat(e.target.value) || 0
-                                })}
-                            />
-                            <span className="condition-label">%</span>
-                        </div>
-                        <div className="condition-row">
-                            <span className="condition-label">Then</span>
-                            <select value={settings.conditionAction} onChange={(e) => updateStrategySettings(strategy.id, { conditionAction: e.target.value })}>
-                                <option value="Over">Buy Over</option>
-                                <option value="Under">Buy Under</option>
-                            </select>
-                            <span className="condition-label">digit</span>
-                            <input
-                                type="number"
-                                className="small-input"
-                                value={settings.tradingBarrierInput || settings.tradingBarrier || ''}
-                                min="0"
-                                max="9"
-                                onChange={(e) => updateStrategySettings(strategy.id, {
-                                    tradingBarrierInput: e.target.value,
-                                    tradingBarrier: parseInt(e.target.value) || 5
-                                })}
-                            />
-                        </div>
-                    </div>
-                );
-            case 'over-under-2':
-                return (
-                    <div className="strategy-card__trading-condition">
-                        <div className="condition-row">
-                            <span className="condition-label">Check if the last</span>
-                            <input
-                                type="number"
-                                className="small-input"
-                                value={settings.overUnderPatternDigitCountInput || settings.overUnderPatternDigitCount || ''}
-                                onChange={(e) => updateStrategySettings(strategy.id, {
-                                    overUnderPatternDigitCountInput: e.target.value,
-                                    overUnderPatternDigitCount: parseInt(e.target.value) || 3
-                                })}
-                            />
-                            <span className="condition-label">digits are</span>
-                            <select value={settings.overUnderPatternType} onChange={(e) => updateStrategySettings(strategy.id, { overUnderPatternType: e.target.value })}>
-                                <option value="over">Over</option>
-                                <option value="under">Under</option>
-                            </select>
-                            <input
-                                type="number"
-                                className="small-input"
-                                value={settings.overUnderPatternBarrierInput || settings.overUnderPatternBarrier || ''}
-                                min="0"
-                                max="9"
-                                onChange={(e) => updateStrategySettings(strategy.id, {
-                                    overUnderPatternBarrierInput: e.target.value,
-                                    overUnderPatternBarrier: parseInt(e.target.value) || 5
-                                })}
-                            />
-                        </div>
-                        <div className="condition-row">
-                            <span className="condition-label">Then</span>
-                            <select value={settings.overUnderPatternAction} onChange={(e) => updateStrategySettings(strategy.id, { overUnderPatternAction: e.target.value })}>
-                                <option value="Over">Buy Over</option>
-                                <option value="Under">Buy Under</option>
-                            </select>
-                            <span className="condition-label">digit</span>
-                            <input
-                                type="number"
-                                className="small-input"
-                                value={settings.overUnderPatternTradingBarrierInput || settings.overUnderPatternTradingBarrier || ''}
-                                min="0"
-                                max="9"
-                                onChange={(e) => updateStrategySettings(strategy.id, {
-                                    overUnderPatternTradingBarrierInput: e.target.value,
-                                    overUnderPatternTradingBarrier: parseInt(e.target.value) || 5
-                                })}
-                            />
-                        </div>
-                    </div>
-                );
-            case 'matches-differs':
-                return (
-                    <div className="strategy-card__trading-condition">
-                        <div className="condition-row">
-                            <span className="condition-label">If</span>
-                            <select value={settings.conditionType} onChange={(e) => updateStrategySettings(strategy.id, { conditionType: e.target.value })}>
-                                <option value="matches">Matches Prob</option>
-                                <option value="differs">Differs Prob</option>
-                            </select>
-                            <span className="condition-label">for</span>
-                            <input
-                                type="number"
-                                className="small-input"
-                                value={settings.conditionDigit || 5}
-                                min="0"
-                                max="9"
-                                onChange={(e) => updateStrategySettings(strategy.id, { conditionDigit: parseInt(e.target.value) || 5 })}
-                            />
-                            <select value={settings.conditionOperator} onChange={(e) => updateStrategySettings(strategy.id, { conditionOperator: e.target.value })}>
-                                <option value=">">></option>
-                                <option value=">=">≥</option>
-                            </select>
-                            <input
-                                type="number"
-                                className="small-input"
-                                value={settings.conditionValueInput || settings.conditionValue || ''}
-                                onChange={(e) => updateStrategySettings(strategy.id, {
-                                    conditionValueInput: e.target.value,
-                                    conditionValue: parseFloat(e.target.value) || 0
-                                })}
-                            />
-                            <span className="condition-label">%</span>
-                        </div>
-                        <div className="condition-row">
-                            <span className="condition-label">Then</span>
-                            <select value={settings.conditionAction} onChange={(e) => updateStrategySettings(strategy.id, { conditionAction: e.target.value })}>
-                                <option value="Matches">Buy Matches</option>
-                                <option value="Differs">Buy Differs</option>
-                            </select>
-                        </div>
-                    </div>
-                );
-            default:
-                return null;
-        }
-    };
-
-    const renderStrategyCard = (strategy: AnalysisStrategy) => {
-        const isTrading = strategy.activeContractType !== null;
-        const isActive = activeContracts[strategy.id];
-        const hasAnalysis = analysisData[strategy.id];
-        const mockData = getMockAnalysisData(strategy.id);
-
-        return (
-            <div key={strategy.id} className={classNames('strategy-card', { trading: isTrading })}>
-                <div className="strategy-card__header">
-                    <h3 className="strategy-card__name">{strategy.name}</h3>
-                    {isTrading && (
-                        <Text size="sm" weight="bold" color="success">
-                            Trading {strategy.activeContractType}
-                        </Text>
-                    )}
-                </div>
-
-                {mockData.recommendation && (
-                    <div className="strategy-card__recommendation">
-                        <span>Recommendation: {mockData.recommendation}</span>
-                        <span className="percentage">
-                            {strategy.id === 'rise-fall' && `${mockData.fallProbability}%`}
-                            {strategy.id === 'even-odd' && `${mockData.evenProbability}%`}
-                            {strategy.id === 'over-under' && `${mockData.overProbability}%`}
-                            {strategy.id === 'matches-differs' && `${mockData.differsProbability}%`}
-                        </span>
-                    </div>
-                )}
-
-                <div className="strategy-card__analysis-content">
-                    {renderProbabilityBars(strategy)}
-                    {renderPatternDisplay(strategy)}
-
-                    {!renderProbabilityBars(strategy) && !renderPatternDisplay(strategy) && (
-                        hasAnalysis ? (
-                            <div>
-                                <Text size="sm" color="general">
-                                    {analysisData[strategy.id]}
-                                </Text>
-                            </div>
-                        ) : (
-                            <Text size="sm" color="less-prominent">
-                                {localize('Waiting for analysis...')}
-                            </Text>
-                        )
-                    )}
-                </div>
-
-                {renderTradingCondition(strategy)}
-
-                <div className="strategy-card__settings">
-                    <div className="setting-group">
-                        <label>{localize('Stake')}</label>
-                        <input
-                            type="number"
-                            step="0.01"
-                            min="0.5"
-                            value={strategy.settings.stakeInput !== undefined ? strategy.settings.stakeInput : strategy.settings.stake}
-                            onChange={(e) => updateStrategySettings(strategy.id, {
-                                stakeInput: e.target.value,
-                                stake: parseFloat(e.target.value) || 0.5
-                            })}
-                            onBlur={() => updateStrategySettings(strategy.id, { stakeInput: undefined })}
-                            placeholder="0.5"
-                        />
-                    </div>
-
-                    <div className="setting-group">
-                        <label>{localize('Ticks')}</label>
-                        <input
-                            type="number"
-                            min="1"
-                            max="10"
-                            value={strategy.settings.ticksInput !== undefined ? strategy.settings.ticksInput : strategy.settings.ticks}
-                            onChange={(e) => updateStrategySettings(strategy.id, {
-                                ticksInput: e.target.value,
-                                ticks: parseInt(e.target.value) || 1
-                            })}
-                            onBlur={() => updateStrategySettings(strategy.id, { ticksInput: undefined })}
-                            placeholder="1"
-                        />
-                    </div>
-
-                    <div className="setting-group">
-                        <label>{localize('Martingale')}</label>
-                        <input
-                            type="number"
-                            step="0.1"
-                            min="1"
-                            max="5"
-                            value={strategy.settings.martingaleMultiplierInput !== undefined ? strategy.settings.martingaleMultiplierInput : strategy.settings.martingaleMultiplier}
-                            onChange={(e) => updateStrategySettings(strategy.id, {
-                                martingaleMultiplierInput: e.target.value,
-                                martingaleMultiplier: parseFloat(e.target.value) || 1
-                            })}
-                            onBlur={() => updateStrategySettings(strategy.id, { martingaleMultiplierInput: undefined })}
-                            placeholder="1"
-                        />
-                    </div>
-                </div>
-
-                <div className="strategy-card__actions">
-                    <button
-                        className="strategy-card__trade-button"
-                        onClick={() => handleSingleTrade(strategy)}
-                        disabled={isTradeInProgress || !isApiConnected}
-                        data-variant={isTrading ? "danger" : "success"}
-                    >
-                        {isTrading ? localize('Stop Auto Trading') : localize('Start Auto Trading')}
-                    </button>
-                </div>
-            </div>
-        );
-    };
-
-
     return (
         <div className="smart-trading-display">
             <div className="smart-trading-header">
@@ -1447,7 +785,221 @@ const SmartTradingDisplay = observer(() => {
                 </div>
             </div>
             <div className="smart-trading-strategies">
-                {analysisStrategies.map(strategy => renderStrategyCard(strategy))}
+                {analysisStrategies.map(strategy => (
+                    <div key={strategy.id} className={`strategy-card ${strategy.activeContractType ? 'trading' : ''}`}>
+                        <div className="strategy-card__header">
+                            <h4 className="strategy-card__name">{strategy.name}</h4>
+                        </div>
+                        <div className="strategy-card__analysis-content">
+                            {analysisData[strategy.id] ? (
+                                <div>
+                                    {analysisData[strategy.id].recommendation && (
+                                        <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#2c5aa0', marginBottom: '8px' }}>
+                                            📈 {analysisData[strategy.id].recommendation}
+                                        </div>
+                                    )}
+                                    {analysisData[strategy.id].confidence && (
+                                        <div style={{ fontSize: '14px', marginBottom: '8px' }}>
+                                            Confidence: {analysisData[strategy.id].confidence}%
+                                        </div>
+                                    )}
+
+                                    {/* Strategy-specific data displays */}
+                                    {strategy.id === 'rise-fall' && analysisData[strategy.id].riseRatio && (
+                                        <div style={{ fontSize: '13px' }}>
+                                            <div>📊 Rise: {analysisData[strategy.id].riseRatio}% | Fall: {analysisData[strategy.id].fallRatio}%</div>
+                                            {analysisData[strategy.id].pattern && (
+                                                <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                    Recent: {analysisData[strategy.id].pattern}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {strategy.id === 'even-odd' && analysisData[strategy.id].evenProbability && (
+                                        <div style={{ fontSize: '13px' }}>
+                                            <div>📊 Even: {analysisData[strategy.id].evenProbability}% | Odd: {analysisData[strategy.id].oddProbability}%</div>
+                                            {analysisData[strategy.id].pattern && (
+                                                <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                    Pattern: {analysisData[strategy.id].pattern}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {strategy.id === 'even-odd-2' && analysisData[strategy.id].evenOddPattern && (
+                                        <div style={{ fontSize: '13px' }}>
+                                            <div>📊 Even: {analysisData[strategy.id].evenProbability}% | Odd: {analysisData[strategy.id].oddProbability}%</div>
+                                            <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                Pattern: {analysisData[strategy.id].evenOddPattern.slice(-5).join('')}
+                                            </div>
+                                            {analysisData[strategy.id].streak > 1 && (
+                                                <div style={{ marginTop: '4px', fontSize: '12px', color: '#e67e22' }}>
+                                                    🔥 Streak: {analysisData[strategy.id].streak} {analysisData[strategy.id].streakType}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {strategy.id === 'over-under' && analysisData[strategy.id].overProbability && (
+                                        <div style={{ fontSize: '13px' }}>
+                                            <div>📊 Over: {analysisData[strategy.id].overProbability}% | Under: {analysisData[strategy.id].underProbability}%</div>
+                                            <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                Barrier: {analysisData[strategy.id].barrier}
+                                            </div>
+                                            {analysisData[strategy.id].pattern && (
+                                                <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                    Recent: {analysisData[strategy.id].pattern}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {strategy.id === 'over-under-2' && analysisData[strategy.id].overUnderPattern && (
+                                        <div style={{ fontSize: '13px' }}>
+                                            <div>📊 Over: {analysisData[strategy.id].overProbability}% | Under: {analysisData[strategy.id].underProbability}%</div>
+                                            <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                Pattern: {analysisData[strategy.id].overUnderPattern.slice(-5).join('')} | Barrier: {analysisData[strategy.id].barrier}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {strategy.id === 'matches-differs' && analysisData[strategy.id].matchProbability && (
+                                        <div style={{ fontSize: '13px' }}>
+                                            <div>📊 Matches: {analysisData[strategy.id].matchProbability}% | Differs: {analysisData[strategy.id].differProbability}%</div>
+                                            <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                Target: {analysisData[strategy.id].targetDigit}
+                                            </div>
+                                            {analysisData[strategy.id].pattern && (
+                                                <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                                                    Recent: {analysisData[strategy.id].pattern}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center', color: '#666', padding: '20px' }}>
+                                    <div style={{ fontSize: '14px', marginBottom: '8px' }}>📊 Loading analysis...</div>
+                                    <div style={{ fontSize: '12px' }}>Connecting to market data</div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="strategy-card__settings">
+                            <div className="control-item">
+                                <label>Stake</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    value={strategy.settings.stake}
+                                    onChange={(e) => {
+                                        const newStrategies = [...analysisStrategies];
+                                        const strategyIndex = newStrategies.findIndex(s => s.id === strategy.id);
+                                        newStrategies[strategyIndex].settings.stake = parseFloat(e.target.value) || 0;
+                                        setAnalysisStrategies(newStrategies);
+                                    }}
+                                />
+                            </div>
+                            <div className="control-item">
+                                <label>Ticks</label>
+                                <input
+                                    type="number"
+                                    value={strategy.settings.ticks}
+                                    onChange={(e) => {
+                                        const newStrategies = [...analysisStrategies];
+                                        const strategyIndex = newStrategies.findIndex(s => s.id === strategy.id);
+                                        newStrategies[strategyIndex].settings.ticks = parseInt(e.target.value) || 1;
+                                        setAnalysisStrategies(newStrategies);
+                                    }}
+                                />
+                            </div>
+                            <div className="control-item">
+                                <label>Martingale</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    value={strategy.settings.martingaleMultiplier}
+                                    onChange={(e) => {
+                                        const newStrategies = [...analysisStrategies];
+                                        const strategyIndex = newStrategies.findIndex(s => s.id === strategy.id);
+                                        newStrategies[strategyIndex].settings.martingaleMultiplier = parseFloat(e.target.value) || 1;
+                                        setAnalysisStrategies(newStrategies);
+                                    }}
+                                />
+                            </div>
+                            {/* Add barrier input for relevant strategies */}
+                            {(strategy.id === 'over-under' || strategy.id === 'over-under-2' || strategy.id === 'matches-differs') && (
+                                <div className="control-item">
+                                    <label>{strategy.id === 'matches-differs' ? 'Target Digit' : 'Barrier'}</label>
+                                    <input
+                                        type="number"
+                                        value={strategy.settings.tradingBarrier !== undefined ? strategy.settings.tradingBarrier : strategy.settings.conditionDigit ?? ''}
+                                        onChange={(e) => {
+                                            const newStrategies = [...analysisStrategies];
+                                            const strategyIndex = newStrategies.findIndex(s => s.id === strategy.id);
+                                            const barrierValue = parseInt(e.target.value, 10);
+                                            if (!isNaN(barrierValue)) {
+                                                if (strategy.id === 'matches-differs') {
+                                                    newStrategies[strategyIndex].settings.conditionDigit = barrierValue;
+                                                } else {
+                                                    newStrategies[strategyIndex].settings.tradingBarrier = barrierValue;
+                                                }
+                                                setAnalysisStrategies(newStrategies);
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        <div className="strategy-card__actions">
+                            <Button
+                                className="strategy-card__trade-button strategy-card__trade-button--single"
+                                variant={strategy.activeContractType ? "danger" : "contained"}
+                                size="sm"
+                                color={strategy.activeContractType ? "white" : "primary"}
+                                onClick={() => {
+                                    // Toggle trading for this strategy
+                                    const newStrategies = [...analysisStrategies];
+                                    const strategyIndex = newStrategies.findIndex(s => s.id === strategy.id);
+                                    
+                                    let newActiveContractType: string | null = null;
+                                    let actionToPerform: 'executeTrade' | 'stopAutoTrading' | null = null;
+
+                                    if (!strategy.activeContractType) {
+                                        // Determine contract type from strategy settings or analysis data
+                                        const determinedContractType = strategy.settings.conditionAction || 
+                                                                       (analysisData[strategy.id]?.recommendation ? mapRecommendationToContractType(analysisData[strategy.id].recommendation) : null);
+                                        
+                                        if (determinedContractType) {
+                                            newActiveContractType = determinedContractType;
+                                            actionToPerform = 'executeTrade';
+                                        } else {
+                                            console.warn(`Could not determine contract type for ${strategy.name}. Please check settings or analysis data.`);
+                                        }
+                                    }
+
+                                    newStrategies[strategyIndex].activeContractType = newActiveContractType;
+                                    setAnalysisStrategies(newStrategies);
+
+                                    // Inform the analyzer about the trading status change
+                                    window.postMessage({
+                                        type: 'UPDATE_TRADING_STATUS',
+                                        strategyId: strategy.id,
+                                        isActive: !!newActiveContractType,
+                                        contractType: newActiveContractType
+                                    }, '*');
+                                    
+                                    // If starting auto trading and we have a contract type, execute the first trade
+                                    if (actionToPerform === 'executeTrade' && newActiveContractType) {
+                                        executeTrade(strategy, newActiveContractType);
+                                    }
+                                }}
+                            >
+                                {strategy.activeContractType ? 'Stop Auto Trading' : 'Start Auto Trading'}
+                            </Button>
+                        </div>
+                    </div>
+                ))}
             </div>
         </div>
     );
