@@ -81,20 +81,7 @@ const LoadModal: React.FC = observer((): JSX.Element => {
                             const filteredXml = xmlDoc.cloneNode(true) as Document;
                             const blocks = filteredXml.querySelectorAll('block');
                             
-                            blocks.forEach(block => {
-                                // Remove Ultimate Trader Trend Direction block and similar unwanted blocks
-                                const type = block.getAttribute('type');
-                                if (type === 'procedures_defnoreturn' || type === 'procedures_defreturn') {
-                                    const nameField = block.querySelector('field[name="NAME"]');
-                                    if (nameField && (
-                                        nameField.textContent?.includes('Ultimate Trader Trend Direction') ||
-                                        nameField.textContent?.includes('Input List') ||
-                                        nameField.textContent?.includes('Period')
-                                    )) {
-                                        block.remove();
-                                    }
-                                }
-                            });
+                            // XML content loaded without filtering
                             
                             Blockly.Xml.domToWorkspace(filteredXml.documentElement, workspace);
                             console.log('Parsed XML loaded into workspace successfully');
