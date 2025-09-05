@@ -167,6 +167,14 @@ class MarketAnalyzer {
 
         this.updateSymbolData(symbol, tickData);
         this.lastUpdate = Date.now();
+        
+        // Notify connection monitor of activity
+        try {
+            const { connectionMonitor } = require('./connection-monitor');
+            connectionMonitor.updateMarketActivity();
+        } catch (error) {
+            // Ignore if connection monitor is not available
+        }
     }
 
     updateSymbolData(symbol: string, tickData: TickData) {

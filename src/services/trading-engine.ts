@@ -27,6 +27,7 @@ class TradingEngine {
     private ws: WebSocket | null = null;
     private isConnected = false;
     private messageHandlers = new Map<string, (data: any) => void>();
+    private messageTimestamps = new Map<string, number>();
     private activeContracts = new Map<string, ActiveContract>();
     private contractCallbacks = new Map<string, (result: any) => void>();
 
@@ -81,6 +82,24 @@ class TradingEngine {
         // Handle contract updates
         if (data.proposal_open_contract) {
             this.handleContractUpdate(data.proposal_open_contract);
+        }
+        
+        // Notify connection monitor of activity
+        try {
+            const { connectionMonitor } = require('./connection-monitor');
+            connectionMonitor.updateTradingActivity();
+        } catch (error) {
+            // Ignore if connection monitor is not available
+        }
+        
+        // Clean up old message handlers to prevent memory leaks
+        const now = Date.now();
+        const timeout = 300000; // 5 minutes
+        for (const [reqId, timestamp] of this.messageTimestamps.entries()) {
+            if (now - timestamp > timeout) {
+                this.messageHandlers.delete(reqId);
+                this.messageTimestamps.delete(reqId);
+            }
         }
     }
 
@@ -139,6 +158,7 @@ class TradingEngine {
                     resolve(data.proposal);
                 }
             });
+            this.messageTimestamps.set(requestId, Date.now());
 
             try {
                 this.ws!.send(JSON.stringify(request));
