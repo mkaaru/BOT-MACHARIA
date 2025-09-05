@@ -546,3 +546,134 @@ function handleMessages(event) {
             break;
     }
 }
+/**
+ * Volatility Analyzer - AI-powered market volatility analysis
+ */
+class VolatilityAnalyzer {
+    constructor() {
+        this.symbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'RDBEAR', 'RDBULL', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V'];
+        this.tickData = {};
+        this.volatilityScores = {};
+        this.analysisInterval = null;
+        this.isRunning = false;
+    }
+
+    start() {
+        if (this.isRunning) return;
+        
+        console.log('Starting volatility analysis...');
+        this.isRunning = true;
+        
+        // Initialize data structures
+        this.symbols.forEach(symbol => {
+            this.tickData[symbol] = [];
+            this.volatilityScores[symbol] = 0;
+        });
+        
+        // Start analysis loop
+        this.analysisInterval = setInterval(() => {
+            this.analyzeVolatility();
+        }, 2000);
+    }
+    
+    stop() {
+        if (!this.isRunning) return;
+        
+        console.log('Stopping volatility analysis...');
+        this.isRunning = false;
+        
+        if (this.analysisInterval) {
+            clearInterval(this.analysisInterval);
+            this.analysisInterval = null;
+        }
+    }
+    
+    addTick(symbol, tick) {
+        if (!this.tickData[symbol]) {
+            this.tickData[symbol] = [];
+        }
+        
+        this.tickData[symbol].push(tick);
+        
+        // Keep only last 100 ticks
+        if (this.tickData[symbol].length > 100) {
+            this.tickData[symbol].shift();
+        }
+    }
+    
+    analyzeVolatility() {
+        this.symbols.forEach(symbol => {
+            const ticks = this.tickData[symbol];
+            if (ticks && ticks.length >= 10) {
+                const score = this.calculateVolatilityScore(ticks);
+                this.volatilityScores[symbol] = score;
+            }
+        });
+        
+        // Emit analysis update
+        if (window.volatilityAnalysisCallback) {
+            window.volatilityAnalysisCallback(this.volatilityScores);
+        }
+    }
+    
+    calculateVolatilityScore(ticks) {
+        if (ticks.length < 2) return 0;
+        
+        let totalVariance = 0;
+        let priceChanges = [];
+        
+        // Calculate price changes
+        for (let i = 1; i < ticks.length; i++) {
+            const change = Math.abs(ticks[i].quote - ticks[i-1].quote);
+            priceChanges.push(change);
+            totalVariance += change;
+        }
+        
+        // Calculate average change
+        const avgChange = totalVariance / priceChanges.length;
+        
+        // Calculate standard deviation
+        let sumSquares = 0;
+        priceChanges.forEach(change => {
+            sumSquares += Math.pow(change - avgChange, 2);
+        });
+        
+        const stdDev = Math.sqrt(sumSquares / priceChanges.length);
+        
+        // Normalize to 0-100 scale
+        const volatilityScore = Math.min(100, (stdDev * 10000));
+        
+        return volatilityScore;
+    }
+    
+    getVolatilityRecommendation() {
+        let bestSymbol = '';
+        let bestScore = 0;
+        
+        Object.keys(this.volatilityScores).forEach(symbol => {
+            const score = this.volatilityScores[symbol];
+            if (score > bestScore) {
+                bestScore = score;
+                bestSymbol = symbol;
+            }
+        });
+        
+        return {
+            symbol: bestSymbol,
+            score: bestScore,
+            recommendation: bestScore > 50 ? 'HIGH_VOLATILITY' : bestScore > 25 ? 'MEDIUM_VOLATILITY' : 'LOW_VOLATILITY'
+        };
+    }
+    
+    getSymbolVolatility(symbol) {
+        return this.volatilityScores[symbol] || 0;
+    }
+}
+
+// Global instance
+window.VolatilityAnalyzer = VolatilityAnalyzer;
+
+// Export for module systems
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = VolatilityAnalyzer;
+}

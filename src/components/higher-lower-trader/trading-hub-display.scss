@@ -163,9 +163,9 @@
 
 // Main container
 .trading-hub-modern {
-    max-width: 800px; // Reduced from 1000px
+    max-width: 1000px; // Expanded for additional panels
     margin: 0 auto;
-    padding: var(--space-md); // Reduced from lg
+    padding: var(--space-md);
     font-family:
         'Inter',
         -apple-system,
@@ -179,17 +179,16 @@
     @media (max-width: 768px) {
         padding: var(--space-sm);
     }
-}
+}</old_str>
 
 // Content wrapper with scrolling
 .trading-hub-content {
-    max-height: 550px;
+    max-height: 750px; // Increased height for additional panels
     overflow-y: auto;
     overflow-x: hidden;
-    padding-right: 4px; // Space for scrollbar
+    padding-right: 4px;
     padding-bottom: 100px;
 
-    // Custom scrollbar styling
     &::-webkit-scrollbar {
         width: 6px;
     }
@@ -208,10 +207,197 @@
         }
     }
 
-    // Firefox scrollbar
     scrollbar-width: thin;
     scrollbar-color: var(--border-primary) transparent;
 }
+
+// AI Recommendation Panel
+.ai-recommendation-panel {
+    background: var(--surface-glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    margin-bottom: var(--space-lg);
+    box-shadow: var(--shadow-glass);
+    animation: slideInUp 0.6s ease-out;
+    
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--space-md);
+        
+        h3 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        
+        .recommendation-confidence {
+            padding: var(--space-xs) var(--space-sm);
+            background: var(--secondary-gradient);
+            color: var(--text-inverse);
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+    }
+    
+    .recommendation-content {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: var(--space-sm);
+        
+        .rec-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-xs) var(--space-sm);
+            background: var(--surface-secondary);
+            border-radius: var(--radius-sm);
+            
+            .label {
+                font-weight: 500;
+                color: var(--text-secondary);
+                font-size: 0.875rem;
+            }
+            
+            .value {
+                font-weight: 600;
+                color: var(--text-primary);
+                
+                &.strategy {
+                    background: var(--primary-gradient);
+                    color: var(--text-inverse);
+                    padding: var(--space-xs) var(--space-sm);
+                    border-radius: var(--radius-sm);
+                    font-size: 0.75rem;
+                }
+                
+                &.reason {
+                    font-size: 0.875rem;
+                    max-width: 200px;
+                    text-align: right;
+                }
+            }
+        }
+    }
+}
+
+// Risk Management Panel
+.risk-management-panel {
+    background: var(--surface-glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    margin-bottom: var(--space-lg);
+    box-shadow: var(--shadow-md);
+    
+    h3 {
+        margin: 0 0 var(--space-md) 0;
+        color: var(--text-primary);
+        font-size: 1.125rem;
+        font-weight: 600;
+    }
+    
+    .risk-controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: var(--space-md);
+        
+        .stake-display {
+            display: inline-block;
+            padding: var(--space-xs) var(--space-sm);
+            background: var(--primary-gradient);
+            color: var(--text-inverse);
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+        }
+        
+        .toggle-button {
+            padding: var(--space-xs) var(--space-sm);
+            border: 1px solid var(--border-primary);
+            background: var(--surface-secondary);
+            color: var(--text-primary);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-weight: 500;
+            
+            &.active {
+                background: var(--secondary-gradient);
+                color: var(--text-inverse);
+                border-color: transparent;
+            }
+            
+            &:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+        }
+    }
+}
+
+// Performance Analytics
+.performance-analytics {
+    background: var(--surface-glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    margin-bottom: var(--space-lg);
+    box-shadow: var(--shadow-md);
+    
+    h3 {
+        margin: 0 0 var(--space-md) 0;
+        color: var(--text-primary);
+        font-size: 1.125rem;
+        font-weight: 600;
+    }
+    
+    .analytics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: var(--space-sm);
+        
+        .analytics-card {
+            background: var(--surface-secondary);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            text-align: center;
+            transition: transform var(--transition-fast);
+            
+            &:hover {
+                transform: translateY(-2px);
+            }
+            
+            .metric-value {
+                font-size: 1.5rem;
+                font-weight: 700;
+                margin-bottom: var(--space-xs);
+                
+                &.positive {
+                    color: #10b981;
+                }
+                
+                &.negative {
+                    color: #ef4444;
+                }
+            }
+            
+            .metric-label {
+                font-size: 0.75rem;
+                color: var(--text-secondary);
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+        }
+    }
+}</old_str>
 
 // Header section
 .hub-header {

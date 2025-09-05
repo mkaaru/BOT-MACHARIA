@@ -333,3 +333,220 @@ let enhancerConnected = false;
         }
     }
 })();
+/**
+ * Analyzer Enhancer - Enhanced pattern recognition for trading strategies
+ */
+class AnalyzerEnhancer {
+    constructor() {
+        this.patterns = {
+            evenOdd: [],
+            overUnder: [],
+            digitSequence: [],
+            volatilityTrends: []
+        };
+        this.confidence = {
+            high: 0.8,
+            medium: 0.6,
+            low: 0.4
+        };
+    }
+    
+    analyzeEvenOddPattern(digits) {
+        if (digits.length < 10) return { pattern: 'INSUFFICIENT_DATA', confidence: 0 };
+        
+        const recent = digits.slice(-10);
+        const evenCount = recent.filter(d => d % 2 === 0).length;
+        const oddCount = recent.length - evenCount;
+        
+        const evenPercentage = evenCount / recent.length;
+        
+        let pattern = 'BALANCED';
+        let confidence = 0;
+        
+        if (evenPercentage >= 0.7) {
+            pattern = 'EVEN_DOMINANT';
+            confidence = this.confidence.high;
+        } else if (evenPercentage <= 0.3) {
+            pattern = 'ODD_DOMINANT';
+            confidence = this.confidence.high;
+        } else if (evenPercentage >= 0.6) {
+            pattern = 'EVEN_TRENDING';
+            confidence = this.confidence.medium;
+        } else if (evenPercentage <= 0.4) {
+            pattern = 'ODD_TRENDING';
+            confidence = this.confidence.medium;
+        }
+        
+        return { pattern, confidence, evenPercentage };
+    }
+    
+    analyzeOverUnderPattern(digits, barrier = 5) {
+        if (digits.length < 10) return { pattern: 'INSUFFICIENT_DATA', confidence: 0 };
+        
+        const recent = digits.slice(-10);
+        const overCount = recent.filter(d => d >= barrier).length;
+        const underCount = recent.length - overCount;
+        
+        const overPercentage = overCount / recent.length;
+        
+        let pattern = 'BALANCED';
+        let confidence = 0;
+        
+        if (overPercentage >= 0.7) {
+            pattern = 'OVER_DOMINANT';
+            confidence = this.confidence.high;
+        } else if (overPercentage <= 0.3) {
+            pattern = 'UNDER_DOMINANT';
+            confidence = this.confidence.high;
+        } else if (overPercentage >= 0.6) {
+            pattern = 'OVER_TRENDING';
+            confidence = this.confidence.medium;
+        } else if (overPercentage <= 0.4) {
+            pattern = 'UNDER_TRENDING';
+            confidence = this.confidence.medium;
+        }
+        
+        return { pattern, confidence, overPercentage };
+    }
+    
+    detectStreaks(digits) {
+        if (digits.length === 0) return { type: null, length: 0 };
+        
+        let currentStreak = 1;
+        let maxStreak = 1;
+        let streakType = null;
+        
+        const lastDigit = digits[digits.length - 1];
+        const lastType = lastDigit % 2 === 0 ? 'even' : 'odd';
+        
+        // Count current streak
+        for (let i = digits.length - 2; i >= 0; i--) {
+            const currentType = digits[i] % 2 === 0 ? 'even' : 'odd';
+            if (currentType === lastType) {
+                currentStreak++;
+            } else {
+                break;
+            }
+        }
+        
+        return {
+            type: lastType,
+            length: currentStreak,
+            isSignificant: currentStreak >= 5
+        };
+    }
+    
+    analyzeDigitFrequency(digits) {
+        if (digits.length < 20) return { analysis: 'INSUFFICIENT_DATA', hotDigits: [], coldDigits: [] };
+        
+        const frequency = new Array(10).fill(0);
+        digits.forEach(digit => {
+            frequency[digit]++;
+        });
+        
+        const avgFreq = digits.length / 10;
+        const hotDigits = [];
+        const coldDigits = [];
+        
+        frequency.forEach((count, digit) => {
+            const ratio = count / avgFreq;
+            if (ratio >= 1.3) {
+                hotDigits.push({ digit, frequency: count, ratio });
+            } else if (ratio <= 0.7) {
+                coldDigits.push({ digit, frequency: count, ratio });
+            }
+        });
+        
+        return {
+            analysis: 'COMPLETE',
+            hotDigits: hotDigits.sort((a, b) => b.ratio - a.ratio),
+            coldDigits: coldDigits.sort((a, b) => a.ratio - b.ratio),
+            avgFrequency: avgFreq
+        };
+    }
+    
+    generateTradingSignal(digits, symbol = 'R_100') {
+        const evenOdd = this.analyzeEvenOddPattern(digits);
+        const overUnder = this.analyzeOverUnderPattern(digits);
+        const streaks = this.detectStreaks(digits);
+        const frequency = this.analyzeDigitFrequency(digits);
+        
+        let signals = [];
+        
+        // Even/Odd signals
+        if (evenOdd.confidence >= this.confidence.medium) {
+            if (evenOdd.pattern === 'ODD_DOMINANT' || evenOdd.pattern === 'ODD_TRENDING') {
+                signals.push({
+                    type: 'EVEN',
+                    reason: 'Odd streak detected, expect even reversion',
+                    confidence: evenOdd.confidence,
+                    contract: 'DIGITEVEN'
+                });
+            } else if (evenOdd.pattern === 'EVEN_DOMINANT' || evenOdd.pattern === 'EVEN_TRENDING') {
+                signals.push({
+                    type: 'ODD',
+                    reason: 'Even streak detected, expect odd reversion',
+                    confidence: evenOdd.confidence,
+                    contract: 'DIGITODD'
+                });
+            }
+        }
+        
+        // Over/Under signals
+        if (overUnder.confidence >= this.confidence.medium) {
+            if (overUnder.pattern === 'OVER_DOMINANT' || overUnder.pattern === 'OVER_TRENDING') {
+                signals.push({
+                    type: 'UNDER',
+                    reason: 'Over pattern detected, expect under reversion',
+                    confidence: overUnder.confidence,
+                    contract: 'DIGITUNDER',
+                    barrier: '4'
+                });
+            } else if (overUnder.pattern === 'UNDER_DOMINANT' || overUnder.pattern === 'UNDER_TRENDING') {
+                signals.push({
+                    type: 'OVER',
+                    reason: 'Under pattern detected, expect over reversion',
+                    confidence: overUnder.confidence,
+                    contract: 'DIGITOVER',
+                    barrier: '5'
+                });
+            }
+        }
+        
+        // Streak-based signals
+        if (streaks.isSignificant) {
+            const oppositeType = streaks.type === 'even' ? 'ODD' : 'EVEN';
+            signals.push({
+                type: oppositeType,
+                reason: `${streaks.type} streak of ${streaks.length}, expect reversal`,
+                confidence: Math.min(this.confidence.high, streaks.length * 0.1),
+                contract: streaks.type === 'even' ? 'DIGITODD' : 'DIGITEVEN'
+            });
+        }
+        
+        // Find best signal
+        const bestSignal = signals.reduce((best, current) => {
+            return current.confidence > best.confidence ? current : best;
+        }, { confidence: 0 });
+        
+        return {
+            symbol,
+            bestSignal: bestSignal.confidence > 0 ? bestSignal : null,
+            allSignals: signals,
+            analysis: {
+                evenOdd,
+                overUnder,
+                streaks,
+                frequency
+            }
+        };
+    }
+}
+
+// Global instance
+window.AnalyzerEnhancer = AnalyzerEnhancer;
+
+// Export for module systems
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = AnalyzerEnhancer;
+}

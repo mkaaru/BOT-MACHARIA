@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import './trading-hub-display.scss';
 import { api_base } from '../../external/bot-skeleton/services/api/api-base';
@@ -25,6 +24,14 @@ const TradingHubDisplay: React.FC = () => {
     const [lastAnalysisTime, setLastAnalysisTime] = useState<string>('');
     const [isTradeInProgress, setIsTradeInProgress] = useState(false);
     const [tradeCount, setTradeCount] = useState(0);
+    const [winCount, setWinCount] = useState(0);
+    const [lossCount, setLossCount] = useState(0);
+    const [totalProfit, setTotalProfit] = useState(0);
+    const [consecutiveLosses, setConsecutiveLosses] = useState(0);
+    const [maxLoss, setMaxLoss] = useState('100'); // Default max loss
+    const [currentStake, setCurrentStake] = useState(parseFloat(MINIMUM_STAKE));
+    const [copyTradingEnabled, setCopyTradingEnabled] = useState(false);
+    const [currentRecommendation, setCurrentRecommendation] = useState<any>(null); // Placeholder for AI recommendation
 
     const { run_panel, transactions, client } = useStore();
 
@@ -35,15 +42,56 @@ const TradingHubDisplay: React.FC = () => {
         setSessionRunId(session_id);
         globalObserver.emit('bot.started', session_id);
 
+        // Mock AI recommendation for demonstration
+        const mockRecommendation = {
+            symbol: 'R_100',
+            strategy: 'AutoDiffer',
+            barrier: '+0.005',
+            reason: 'High volatility detected, potential for quick gains.'
+        };
+        setCurrentRecommendation(mockRecommendation);
+
+        // Simulate market analysis and trade updates
+        const interval = setInterval(() => {
+            setAnalysisCount(prev => prev + 1);
+            setLastAnalysisTime(new Date().toLocaleTimeString());
+            setIsAnalysisReady(true);
+
+            // Simulate trade outcomes for performance metrics
+            if (isTrading) {
+                setTradeCount(prev => prev + 1);
+                const wonTrade = Math.random() > 0.45; // Simulate win rate
+                if (wonTrade) {
+                    setWinCount(prev => prev + 1);
+                    setTotalProfit(prev => prev + parseFloat(stake));
+                    setConsecutiveLosses(0); // Reset consecutive losses on win
+                } else {
+                    setLossCount(prev => prev + 1);
+                    setTotalProfit(prev => prev - parseFloat(stake));
+                    setConsecutiveLosses(prev => prev + 1);
+                }
+                setCurrentStake(prevStake => {
+                    if (wonTrade) return parseFloat(stake); // Reset stake on win
+                    const martingaleMultiplier = parseFloat(martingale);
+                    return prevStake * martingaleMultiplier; // Apply martingale on loss
+                });
+            }
+        }, 5000); // Update every 5 seconds
+
         return () => {
+            clearInterval(interval);
             globalObserver.emit('bot.stop');
         };
-    }, []);
+    }, [isTrading, stake, martingale]); // Depend on isTrading to trigger trade simulations
+
 
     const handleStakeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         if (!value || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
             setStake(value);
+            if (!isTrading) { // Update currentStake immediately if not trading
+                setCurrentStake(parseFloat(value));
+            }
         }
     };
 
@@ -94,7 +142,7 @@ const TradingHubDisplay: React.FC = () => {
         if (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active) {
             return;
         }
-        
+
         setIsTrading(true);
         setIsContinuousTrading(true);
         globalObserver.emit('bot.running');
@@ -161,6 +209,14 @@ const TradingHubDisplay: React.FC = () => {
                         <div className="status-separator"></div>
                         <div className="status-item">
                             <span>Trades: {tradeCount}</span>
+                        </div>
+                        <div className="status-separator"></div>
+                        <div className="status-item">
+                            <span>W/L: {winCount}/{lossCount}</span>
+                        </div>
+                        <div className="status-separator"></div>
+                        <div className="status-item">
+                            <span>P&L: ${totalProfit.toFixed(2)}</span>
                         </div>
                         {isTrading && (
                             <>
@@ -275,13 +331,109 @@ const TradingHubDisplay: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="trading-controls">
+                {/* AI Recommendation Panel */}
+                {currentRecommendation && (
+                    <div className="ai-recommendation-panel">
+                        <div className="panel-header">
+                            <h3>AI Market Recommendation</h3>
+                            <div className="recommendation-confidence">
+                                <span>Confidence: High</span>
+                            </div>
+                        </div>
+                        <div className="recommendation-content">
+                            <div className="rec-item">
+                                <span className="label">Symbol:</span>
+                                <span className="value">{currentRecommendation.symbol}</span>
+                            </div>
+                            <div className="rec-item">
+                                <span className="label">Strategy:</span>
+                                <span className="value strategy">{currentRecommendation.strategy.toUpperCase()}</span>
+                            </div>
+                            <div className="rec-item">
+                                <span className="label">Barrier:</span>
+                                <span className="value">{currentRecommendation.barrier}</span>
+                            </div>
+                            <div className="rec-item">
+                                <span className="label">Reason:</span>
+                                <span className="value reason">{currentRecommendation.reason}</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Risk Management Panel */}
+                <div className="risk-management-panel">
+                    <h3>Risk Management</h3>
+                    <div className="risk-controls">
+                        <div className="control-group">
+                            <label>Max Loss ($)</label>
+                            <input
+                                type="number"
+                                value={maxLoss}
+                                onChange={(e) => setMaxLoss(e.target.value)}
+                                className="compact-input"
+                                min="0"
+                                step="1"
+                                disabled={isTrading}
+                            />
+                        </div>
+                        <div className="control-group">
+                            <label>Current Stake</label>
+                            <span className="stake-display">${currentStake.toFixed(2)}</span>
+                        </div>
+                        <div className="control-group">
+                            <label>Copy Trading</label>
+                            <button
+                                className={`toggle-button ${copyTradingEnabled ? 'active' : ''}`}
+                                onClick={() => setCopyTradingEnabled(!copyTradingEnabled)}
+                                disabled={isTrading}
+                            >
+                                {copyTradingEnabled ? 'ON' : 'OFF'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Performance Analytics */}
+                <div className="performance-analytics">
+                    <h3>Performance Analytics</h3>
+                    <div className="analytics-grid">
+                        <div className="analytics-card">
+                            <div className="metric-value">{tradeCount}</div>
+                            <div className="metric-label">Total Trades</div>
+                        </div>
+                        <div className="analytics-card">
+                            <div className="metric-value">{tradeCount > 0 ? ((winCount / tradeCount) * 100).toFixed(1) : '0'}%</div>
+                            <div className="metric-label">Win Rate</div>
+                        </div>
+                        <div className="analytics-card">
+                            <div className={`metric-value ${totalProfit >= 0 ? 'positive' : 'negative'}`}>
+                                ${totalProfit.toFixed(2)}
+                            </div>
+                            <div className="metric-label">Total P&L</div>
+                        </div>
+                        <div className="analytics-card">
+                            <div className="metric-value">{consecutiveLosses}</div>
+                            <div className="metric-label">Consecutive Losses</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="control-actions">
                     <button 
-                        className={`main-trade-btn ${isContinuousTrading ? 'active' : ''}`}
-                        onClick={isContinuousTrading ? stopContinuousTrading : startContinuousTrading}
-                        disabled={!isAnalysisReady || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active)}
+                        className={`action-button start-button ${isContinuousTrading ? 'trading' : ''}`}
+                        onClick={startContinuousTrading}
+                        disabled={!isAnalysisReady || isTrading || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active)}
                     >
-                        {isContinuousTrading ? 'Stop Trading' : 'Start Continuous Trading'}
+                        {isContinuousTrading ? 'Trading...' : 'Start Continuous Trading'}
+                    </button>
+
+                    <button 
+                        className="action-button stop-button"
+                        onClick={stopContinuousTrading}
+                        disabled={!isTrading}
+                    >
+                        Stop Trading
                     </button>
                 </div>
             </div>
