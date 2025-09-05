@@ -1,0 +1,492 @@
+Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+content_script.js:40078 check services
+content_script.js:7165 Content limit: 612032839.68
+hmr.js:173 [HMR] connected.
+hmr.js:122  File: /home/runner/workspace/src/pages/bot-builder/quick-strategy/quick-strategy.scss:1:1
+  ⚠ ModuleWarning: Deprecation Warning on line 288, column 4 of file:///home/runner/workspace/src/components/shared/styles/_mixins.scss:288:4:
+  │ Sass's behavior for declarations that appear after nested
+  │ rules will be changing to match the behavior specified by CSS in an upcoming
+  │ version. To keep the existing behavior, move the declaration above the nested
+  │ rule. To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 288 |     display: flex;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 289:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+handleWarnings @ hmr.js:122
+hmr.js:122  File: /home/runner/workspace/src/pages/bot-builder/quick-strategy/quick-strategy.scss:1:1
+  ⚠ ModuleWarning: Deprecation Warning on line 289, column 4 of file:///home/runner/workspace/src/components/shared/styles/_mixins.scss:289:4:
+  │ Sass's behavior for declarations that appear after nested
+  │ rules will be changing to match the behavior specified by CSS in an upcoming
+  │ version. To keep the existing behavior, move the declaration above the nested
+  │ rule. To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 289 |     align-items: $align-items;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 290:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+handleWarnings @ hmr.js:122
+hmr.js:122  File: /home/runner/workspace/src/pages/bot-builder/quick-strategy/quick-strategy.scss:1:1
+  ⚠ ModuleWarning: Deprecation Warning on line 290, column 4 of file:///home/runner/workspace/src/components/shared/styles/_mixins.scss:290:4:
+  │ Sass's behavior for declarations that appear after nested
+  │ rules will be changing to match the behavior specified by CSS in an upcoming
+  │ version. To keep the existing behavior, move the declaration above the nested
+  │ rule. To opt into the new behavior, wrap the declaration in `& {}`.
+  │ 
+  │ More info: https://sass-lang.com/d/mixed-decls
+  │ 
+  │ 290 |     justify-content: $justify-content;
+  │ 
+  │ 
+  │ ../../../../src/components/shared/styles/_mixins.scss 291:5                  flex-center()
+  │ ../../../../src/pages/bot-builder/quick-strategy/quick-strategy.scss 230:17  root stylesheet
+  │  (from: /home/runner/workspace/node_modules/@rsbuild/plugin-sass/compiled/sass-loader/index.js??ruleSet[1].rules[10].use[4])
+handleWarnings @ hmr.js:122
+App.tsx:124 Service Worker registered with scope: https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/
+mobx.esm.js:1871  [MobX] Since strict-mode is enabled, changing (observed) observable values without using an action is not allowed. Tried to modify: JournalStore@10.unfiltered_messages
+checkIfStateModificationsAreAllowed @ mobx.esm.js:1871
+ content-script-dev: downloader-gv-edge
+ check services
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+splash-screen.tsx:10 SplashScreen component rendered
+client:362  [Deprecation] -ms-high-contrast is in the process of being deprecated. Please see https://blogs.windows.com/msedgedev/2024/04/29/deprecating-ms-high-contrast/ for tips on updating to the new Forced Colors Mode standard.
+(anonymous) @ client:362
+(index):1  Uncaught (in promise) _.Lc
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+splash-screen.tsx:10 SplashScreen component rendered
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+splash-screen.tsx:10 SplashScreen component rendered
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+3splash-screen.tsx:10 SplashScreen component rendered
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+6splash-screen.tsx:10 SplashScreen component rendered
+ Content limit: 612032839.68
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+splash-screen.tsx:10 SplashScreen component rendered
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+70splash-screen.tsx:10 SplashScreen component rendered
+content_script.js:7165 Content limit: 612032839.68
+4splash-screen.tsx:10 SplashScreen component rendered
+tracking.js:1 [LiveChat] Current domain is not added to the allowed domains. LiveChat has been disabled.
+2splash-screen.tsx:10 SplashScreen component rendered
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+react-dom.development.js:86  Warning: Invalid DOM property `fill-rule`. Did you mean `fillRule`?
+    at path
+    at svg
+    at BotBuilderIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:17715:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:17813:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-d974de.js:43535:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4527:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4384:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23797:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73748:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73762:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1447:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1612:94)
+printWarning @ react-dom.development.js:86
+react-dom.development.js:86  Warning: Invalid DOM property `stroke-width`. Did you mean `strokeWidth`?
+    at path
+    at svg
+    at SignalsIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:17715:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:17813:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-d974de.js:43535:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4527:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4384:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23797:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73748:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73762:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1447:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1612:94)
+printWarning @ react-dom.development.js:86
+react-dom.development.js:86  Warning: Invalid DOM property `stroke-linecap`. Did you mean `strokeLinecap`?
+    at path
+    at svg
+    at SignalsIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:17715:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:17813:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-d974de.js:43535:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4527:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4384:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23797:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73748:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73762:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1447:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1612:94)
+printWarning @ react-dom.development.js:86
+react-dom.development.js:86  Warning: Invalid DOM property `stroke-linejoin`. Did you mean `strokeLinejoin`?
+    at path
+    at svg
+    at SignalsIcon
+    at li
+    at Tab (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:17715:11)
+    at ThemedScrollbars (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_mobile-dialog_index_ts.js:450:11)
+    at ul
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:17813:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-d974de.js:43535:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4527:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4384:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23797:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73748:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73762:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1447:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1612:94)
+printWarning @ react-dom.development.js:86
+main.tsx:216 Initialized 6 bots
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+ content-script-dev: downloader-gv-edge
+ check services
+ Content limit: 612032839.68
+blockly_compressed.js:1182  Error: <g> attribute transform: Trailing garbage, "translate(0, NaN)".
+translate @ blockly_compressed.js:1182
+blockly_compressed.js:1182  Error: <g> attribute transform: Trailing garbage, "translate(0, NaN)".
+translate @ blockly_compressed.js:1182
+index.esm.js:60  TrackJS: missing token
+warn @ index.esm.js:60
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+2 Content limit: 612032839.68
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+api-base.ts:148 connection state:  1
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+main.tsx:238 Loading bot: Upgraded Candlemine
+main.tsx:254 Loading XML content for bot: Upgraded Candlemine.xml
+main.tsx:267 Attempting to fetch from: /Upgraded Candlemine.xml
+react-dom.development.js:86  Warning: React does not recognize the `cassName` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `cassname` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at div
+    at Desktop (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:1084:11)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-d974de.js:43535:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4527:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4384:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23797:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73748:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73762:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1447:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1612:94)
+printWarning @ react-dom.development.js:86
+mobx.esm.js:1268  Uncaught TypeError: Invalid block definition for type: multiplier_take_profit
+    at new Block$$module$build$src$core$block (blockly_compressed.js:1116:1)
+    at new BlockSvg$$module$build$src$core$block_svg (blockly_compressed.js:1175:1)
+    at WorkspaceSvg$$module$build$src$core$workspace_svg.newBlock (blockly_compressed.js:1653:1)
+    at domToBlockHeadless$$module$build$src$core$xml (blockly_compressed.js:194:1)
+    at domToBlockInternal$$module$build$src$core$xml (blockly_compressed.js:184:1)
+    at $.domToBlock$$module$build$src$core$xml [as domToBlock] (blockly_compressed.js:183:1)
+    at push../src/external/bot-skeleton/scratch/hooks/block.js.window.Blockly.Block.getDimensions (block.js:127:1)
+    at flyout-store.ts:220:1
+    at Array.forEach (<anonymous>)
+    at FlyoutStore.setFlyoutWidth (flyout-store.ts:216:1)
+react-dom.development.js:4312  Uncaught TypeError: Invalid block definition for type: multiplier_take_profit
+    at new Block$$module$build$src$core$block (blockly_compressed.js:1116:1)
+    at new BlockSvg$$module$build$src$core$block_svg (blockly_compressed.js:1175:1)
+    at WorkspaceSvg$$module$build$src$core$workspace_svg.newBlock (blockly_compressed.js:1653:1)
+    at domToBlockHeadless$$module$build$src$core$xml (blockly_compressed.js:194:1)
+    at domToBlockInternal$$module$build$src$core$xml (blockly_compressed.js:184:1)
+    at $.domToBlock$$module$build$src$core$xml [as domToBlock] (blockly_compressed.js:183:1)
+    at push../src/external/bot-skeleton/scratch/hooks/block.js.window.Blockly.Block.getDimensions (block.js:127:1)
+    at flyout-store.ts:220:1
+    at Array.forEach (<anonymous>)
+    at FlyoutStore.setFlyoutWidth (flyout-store.ts:216:1)
+main.tsx:271 Successfully loaded XML from: /Upgraded Candlemine.xml
+main.tsx:272 XML content preview: <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <variables>
+    <variable id="W4$:ZQCmEz#8+=4ysv5Y">Loss Amount</variable>
+    <variable id="j}8O`Vs+RJljIwP...
+main.tsx:320 XML Content length: 19613
+load-modal.tsx:45 Loading XML content: <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <variables>
+    <variable id="W4$:ZQCmEz#8+=4ysv5Y">Loss Amount</variable>
+    <variable id="j}8O`Vs+RJljIwPu-_:_">Initial Amount</variable>
+    <variable id="]hOJfhIb0jq@|fR3bS;Z">text</variable>
+    <variable id="elmzBn^_X[.n1z-Mpj*n">text1</variable>
+    <variable id="!#VfU!}MCN5Q0y7#04[;">text2</variable>
+    <variable id="mXtFswo{p,|%W1:V-$+r">Expected Profit</variable>
+    <variable id="%L?;380E6Lr^3b.%}t5Q">Win Amount</variable>
+    <variable id="6YqjCZD99tVuD!1ahB|d">text3</variable>
+  </variables>
+  <block type="trade_definition" id="QdF:SiM%nn5@!C9}R|HE" deletable="false" x="0" y="110">
+    <statement name="TRADE_OPTIONS">
+      <block type="trade_definition_market" id="AN{TC0xI5h/t2w*oIG.9" deletable="false" movable="false">
+        <field name="MARKET_LIST">synthetic_index</field>
+        <field name="SUBMARKET_LIST">random_index</field>
+        <field name="SYMBOL_LIST">R_100</field>
+        <next>
+          <block type="trade_definition_tradetype" id="$K,j7c66(5o.x$AA2Rop" deletable="false" movable="false">
+            <field name="TRADETYPECAT_LIST">digits</field>
+            <field name="TRADETYPE_LIST">evenodd</field>
+            <next>
+              <block type="trade_definition_contracttype" id="p=P6KB|mHfubwegMT!Ii" deletable="false" movable="false">
+                <field name="TYPE_LIST">DIGITEVEN</field>
+                <next>
+                  <block type="trade_definition_candleinterval" id="-Chg%Pe|l{cB+Q*%Nsvp" deletable="false" movable="false">
+                    <field name="CANDLEINTERVAL_LIST">60</field>
+                    <next>
+                      <block type="trade_definition_restartbuysell" id="SO=!y+Q?i+]a:{HuQxq6" deletable="false" movable="false">
+                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                        <next>
+                          <block type="trade_definition_restartonerror" id="utRr,n,?28Jj~6bwZ|Vs" deletable="false" movable="false">
+                            <field name="RESTARTONERROR">TRUE</field>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="INITIALIZATION">
+      <block type="text_print" id="AK[juTh-c;zIY98$`.5(">
+        <value name="TEXT">
+          <shadow type="text" id="_%?M6$1%!3]X~;dQwpi(">
+            <field name="TEXT">Updated Candle Mine version </field>
+          </shadow>
+        </value>
+        <next>
+          <block type="variables_set" id="!u9ph*mWy$ooj^a$N26!">
+            <field name="VAR" id="W4$:ZQCmEz#8+=4ysv5Y">Loss Amount</field>
+            <value name="VALUE">
+              <block type="math_number" id="W7;@CtAbYS!Ui7vi*+#@">
+                <field name="NUM">1000</field>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id="v3sUr:wM@pB^]2$:Lx,3">
+                <field name="VAR" id="mXtFswo{p,|%W1:V-$+r">Expected Profit</field>
+                <value name="VALUE">
+                  <block type="math_number" id="(VMq$pKM^O|Q1y}=msKo">
+                    <field name="NUM">0.02</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="03S8*!o6a2j6X!O6[*b$">
+                    <field name="VAR" id="j}8O`Vs+RJljIwPu-_:_">Initial Amount</field>
+                    <value name="VALUE">
+                      <block type="math_number" id="EKut5hCbwrX@U2?`OFk4">
+                        <field name="NUM">0.35</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set" id="@NL$_pV|d6Sv,u-{Y@e~">
+                        <field name="VAR" id="%L?;380E6Lr^3b.%}t5Q">Win Amount</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="EWAk#EFEm@t/u%L((3C2">
+                            <field name="NUM">0.35</field>
+                          </block>
+                        </value>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="SUBMARKET">
+      <block type="trade_definition_tradeoptions" id="-`}{I1|1{lSUA_R?1uPY">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="false"></mutation>
+        <field name="DURATIONTYPE_LIST">t</field>
+        <value name="DURATION">
+          <block type="math_number" id="|ZUI^p1g4XQvzZcQ@b@^">
+            <field name="NUM">1</field>
+          </block>
+        </value>
+        <value name="AMOUNT">
+
+load-modal.tsx:55 Parsed XML loaded into workspace
+main.tsx:343 Bot loaded successfully!
+blockly_compressed.js:394  Moved object in bounds but there was no event group. This may break undo.
+(anonymous) @ blockly_compressed.js:394
+blockly_compressed.js:608  Uncaught Error: Unable to find connection in connectionDB.
+    at ConnectionDB$$module$build$src$core$connection_db.removeConnection (blockly_compressed.js:608:1)
+    at RenderedConnection$$module$build$src$core$rendered_connection.moveTo (blockly_compressed.js:1166:1)
+    at RenderedConnection$$module$build$src$core$rendered_connection.moveToOffset (blockly_compressed.js:1166:1)
+    at BlockSvg$$module$build$src$core$block_svg.updateConnectionLocations (blockly_compressed.js:1188:1)
+    at BlockSvg$$module$build$src$core$block_svg.updateComponentLocations (blockly_compressed.js:1187:1)
+    at BlockSvg$$module$build$src$core$block_svg.moveBy (blockly_compressed.js:1182:1)
+    at workspace_svg.js:221:1
+    at Array.forEach (<anonymous>)
+    at push../src/external/bot-skeleton/scratch/hooks/workspace_svg.js.window.Blockly.WorkspaceSvg.cleanUp (workspace_svg.js:212:1)
+    at trade_definition_tradeoptions.js:414:1
+4blockly_compressed.js:394  Moved object in bounds but there was no event group. This may break undo.
+(anonymous) @ blockly_compressed.js:394
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+[NEW] Explain Console errors by using Copilot in Edge: click
+         
+         to explain an error. 
+        Learn more
+        Don't show again
+(index):1  [Deprecation] -ms-high-contrast is in the process of being deprecated. Please see https://blogs.windows.com/msedgedev/2024/04/29/deprecating-ms-high-contrast/ for tips on updating to the new Forced Colors Mode standard.
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
