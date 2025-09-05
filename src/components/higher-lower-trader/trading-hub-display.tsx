@@ -348,7 +348,7 @@ const TradingHubDisplay: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                        <button 
+                        <button
                             className={`strategy-toggle ${isAutoDifferActive ? 'active' : ''}`}
                             onClick={toggleAutoDiffer}
                             disabled={isTrading && !isAutoDifferActive}
@@ -381,7 +381,7 @@ const TradingHubDisplay: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                        <button 
+                        <button
                             className={`strategy-toggle ${isAutoOverUnderActive ? 'active' : ''}`}
                             onClick={toggleAutoOverUnder}
                             disabled={isTrading && !isAutoOverUnderActive}
@@ -414,7 +414,7 @@ const TradingHubDisplay: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                        <button 
+                        <button
                             className={`strategy-toggle ${isAutoO5U4Active ? 'active' : ''}`}
                             onClick={toggleAutoO5U4}
                             disabled={isTrading && !isAutoO5U4Active}
@@ -513,7 +513,7 @@ const TradingHubDisplay: React.FC = () => {
                 </div>
 
                 <div className="control-actions">
-                    <button 
+                    <button
                         className={`action-button start-button`}
                         onClick={isTrading ? stopContinuousTrading : startContinuousTrading}
                         disabled={(!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active)}
@@ -521,12 +521,19 @@ const TradingHubDisplay: React.FC = () => {
                         {isTrading ? 'Stop Trading' : 'Start Continuous Trading'}
                     </button>
 
-                    <button 
+                    <button
                         className="action-button stop-button"
                         onClick={stopContinuousTrading}
                         disabled={!isTrading}
                     >
                         Stop Trading
+                    </button>
+                    <button
+                        className="manual-trade-button"
+                        onClick={executeRealTrade}
+                        disabled={isTradeInProgress || (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active)}
+                    >
+                        {isTradeInProgress ? 'Trading...' : 'Manual Trade'}
                     </button>
                 </div>
             </div>
