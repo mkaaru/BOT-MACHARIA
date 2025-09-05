@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import './trading-hub-display.scss';
 import { api_base } from '../../external/bot-skeleton/services/api/api-base';
@@ -23,19 +22,19 @@ const TradingHubDisplay: React.FC = () => {
     const [isAutoDifferActive, setIsAutoDifferActive] = useState(false);
     const [isAutoOverUnderActive, setIsAutoOverUnderActive] = useState(false);
     const [isAutoO5U4Active, setIsAutoO5U4Active] = useState(false);
-    
+
     // Trading configuration
     const [stake, setStake] = useState(MINIMUM_STAKE);
     const [martingale, setMartingale] = useState('2');
     const [maxLoss, setMaxLoss] = useState('100');
     const [currentSymbol, setCurrentSymbol] = useState<string>('R_100');
-    
+
     // Trading state
     const [isTrading, setIsTrading] = useState(false);
     const [isContinuousTrading, setIsContinuousTrading] = useState(false);
     const [isTradeInProgress, setIsTradeInProgress] = useState(false);
     const [currentStake, setCurrentStake] = useState(parseFloat(MINIMUM_STAKE));
-    
+
     // Analytics and tracking
     const [sessionRunId, setSessionRunId] = useState<string>(`tradingHub_${Date.now()}`);
     const [isAnalysisReady, setIsAnalysisReady] = useState(false);
@@ -46,11 +45,19 @@ const TradingHubDisplay: React.FC = () => {
     const [lossCount, setLossCount] = useState(0);
     const [totalProfit, setTotalProfit] = useState(0);
     const [consecutiveLosses, setConsecutiveLosses] = useState(0);
-    
+
     // AI and recommendations
     const [currentRecommendation, setCurrentRecommendation] = useState<TradeRecommendation | null>(null);
     const [marketStats, setMarketStats] = useState<Record<string, any>>({});
     const [copyTradingEnabled, setCopyTradingEnabled] = useState(false);
+
+    // Auto trading states for each strategy
+    const [isAutoDifferRunning, setIsAutoDifferRunning] = useState(false);
+    const [isAutoOverUnderRunning, setIsAutoOverUnderRunning] = useState(false);
+    const [isAutoO5U4Running, setIsAutoO5U4Running] = useState(false);
+
+    // Master auto trading control
+    const [isAutoTradingEnabled, setIsAutoTradingEnabled] = useState(false);
 
     const { run_panel, transactions, client } = useStore();
     const tradingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -109,10 +116,10 @@ const TradingHubDisplay: React.FC = () => {
             setAnalysisCount(prev => prev + 1);
             setLastAnalysisTime(new Date().toLocaleTimeString());
             setIsAnalysisReady(true);
-            
+
             // Generate AI recommendation
             generateAIRecommendation();
-            
+
             // Update market stats
             updateMarketStats();
         }, 3000);
@@ -121,7 +128,7 @@ const TradingHubDisplay: React.FC = () => {
     const generateAIRecommendation = () => {
         const strategies = ['AutoDiffer', 'Auto Over/Under', 'Auto O5U4'];
         const actions: ('BUY' | 'SELL' | 'HOLD')[] = ['BUY', 'SELL', 'HOLD'];
-        
+
         const recommendation: TradeRecommendation = {
             action: actions[Math.floor(Math.random() * actions.length)],
             confidence: Math.random() * 100,
@@ -129,7 +136,7 @@ const TradingHubDisplay: React.FC = () => {
             strategy: strategies[Math.floor(Math.random() * strategies.length)],
             reasoning: `Market volatility analysis indicates ${Math.random() > 0.5 ? 'upward' : 'downward'} trend`
         };
-        
+
         setCurrentRecommendation(recommendation);
     };
 
@@ -142,24 +149,51 @@ const TradingHubDisplay: React.FC = () => {
         });
     };
 
-    const executeRealTrade = async () => {
-        if (isTradeInProgress) return;
+    // Check if API is connected and authorized
+    const isApiConnected = api_base?.api?.readyState === 1;
+    const isAuthorized = !!api_base?.api?.account;
+
+    // Additional check for trading authorization
+    const canTrade = isApiConnected && isAuthorized && !api_base?.api?.account?.is_virtual;
+    const stakeMoney = parseFloat(stake);
+
+    const executeTrade = async (tradeType: 'Rise' | 'Fall', symbol: string = 'R_100') => {
+        if (!api_base?.api || isTradeInProgress || !isAuthorized) {
+            console.log('Cannot execute trade: API not ready, trade in progress, or not authorized');
+            console.log('API state:', api_base?.api?.readyState);
+            console.log('Is authorized:', isAuthorized);
+            console.log('Trade in progress:', isTradeInProgress);
+            return;
+        }
+
+        // Check if we have sufficient balance
+        const balance = api_base?.api?.account?.balance;
+        if (!balance || balance < stakeMoney) {
+            console.log('Insufficient balance for trade');
+            globalObserver.emit('ui.log.error', 'Insufficient balance for trade');
+            return;
+        }
 
         try {
             setIsTradeInProgress(true);
 
-            let tradeType = 'CALL';
+            let contractType = '';
             let barrier = null;
+            let duration = '5';
+            let durationUnit = 't';
 
             // Determine trade parameters based on active strategy
             if (isAutoDifferActive) {
                 barrier = '+0.005';
-                tradeType = Math.random() > 0.5 ? 'CALL' : 'PUT';
+                contractType = Math.random() > 0.5 ? 'CALL' : 'PUT';
             } else if (isAutoOverUnderActive) {
-                tradeType = Math.random() > 0.5 ? 'CALL' : 'PUT';
+                contractType = Math.random() > 0.5 ? 'CALL' : 'PUT';
             } else if (isAutoO5U4Active) {
-                tradeType = Math.random() > 0.5 ? 'DIGITOVER' : 'DIGITUNDER';
+                contractType = Math.random() > 0.5 ? 'DIGITOVER' : 'DIGITUNDER';
                 barrier = Math.random() > 0.5 ? '5' : '4';
+            } else {
+                // Default to Rise/Fall for manual trades if no strategy is active
+                contractType = tradeType === 'Rise' ? 'CALL' : 'PUT';
             }
 
             // Prepare proposal request
@@ -167,11 +201,11 @@ const TradingHubDisplay: React.FC = () => {
                 proposal: 1,
                 amount: currentStake.toString(),
                 basis: 'stake',
-                contract_type: tradeType,
+                contract_type: contractType,
                 currency: 'USD',
-                symbol: currentSymbol,
-                duration: '5',
-                duration_unit: 't',
+                symbol: symbol,
+                duration: duration,
+                duration_unit: durationUnit,
                 ...(barrier && { barrier: barrier })
             };
 
@@ -193,6 +227,7 @@ const TradingHubDisplay: React.FC = () => {
             }
         } catch (error) {
             console.error('Trade execution failed:', error);
+            globalObserver.emit('ui.log.error', `Trade execution failed: ${error}`);
         } finally {
             setIsTradeInProgress(false);
         }
@@ -201,33 +236,48 @@ const TradingHubDisplay: React.FC = () => {
     const toggleAutoDiffer = () => {
         if (isAutoDifferActive) {
             setIsAutoDifferActive(false);
+            setIsAutoDifferRunning(false);
             stopContinuousTrading();
         } else {
             setIsAutoDifferActive(true);
+            setIsAutoDifferRunning(true);
             setIsAutoOverUnderActive(false);
+            setIsAutoOverUnderRunning(false);
             setIsAutoO5U4Active(false);
+            setIsAutoO5U4Running(false);
+            if (isAutoTradingEnabled) startContinuousTrading();
         }
     };
 
     const toggleAutoOverUnder = () => {
         if (isAutoOverUnderActive) {
             setIsAutoOverUnderActive(false);
+            setIsAutoOverUnderRunning(false);
             stopContinuousTrading();
         } else {
             setIsAutoOverUnderActive(true);
+            setIsAutoOverUnderRunning(true);
             setIsAutoDifferActive(false);
+            setIsAutoDifferRunning(false);
             setIsAutoO5U4Active(false);
+            setIsAutoO5U4Running(false);
+            if (isAutoTradingEnabled) startContinuousTrading();
         }
     };
 
     const toggleAutoO5U4 = () => {
         if (isAutoO5U4Active) {
             setIsAutoO5U4Active(false);
+            setIsAutoO5U4Running(false);
             stopContinuousTrading();
         } else {
             setIsAutoO5U4Active(true);
+            setIsAutoO5U4Running(true);
             setIsAutoDifferActive(false);
+            setIsAutoDifferRunning(false);
             setIsAutoOverUnderActive(false);
+            setIsAutoOverUnderRunning(false);
+            if (isAutoTradingEnabled) startContinuousTrading();
         }
     };
 
@@ -242,7 +292,9 @@ const TradingHubDisplay: React.FC = () => {
 
         tradingIntervalRef.current = setInterval(() => {
             if (isContinuousTrading && !isTradeInProgress) {
-                executeRealTrade();
+                if (isAutoDifferActive && isAutoDifferRunning) executeTrade('Rise', currentSymbol); // Use default for strategy type if not specified
+                else if (isAutoOverUnderActive && isAutoOverUnderRunning) executeTrade('Rise', currentSymbol); // Use default for strategy type if not specified
+                else if (isAutoO5U4Active && isAutoO5U4Running) executeTrade('Rise', currentSymbol); // Use default for strategy type if not specified
             }
         }, 10000);
     };
@@ -276,6 +328,40 @@ const TradingHubDisplay: React.FC = () => {
             currency: 'USD',
         }).format(amount);
     };
+
+    const handleManualTrade = async (tradeType: 'Rise' | 'Fall') => {
+        await executeTrade(tradeType, currentSymbol);
+    };
+
+    const toggleAutoTrading = () => {
+        const newState = !isAutoTradingEnabled;
+        setIsAutoTradingEnabled(newState);
+
+        if (newState) {
+            console.log('Auto trading enabled');
+            globalObserver.emit('ui.log.success', 'Auto trading enabled');
+            // Activate the currently selected strategy to start trading
+            if (isAutoDifferActive) {
+                setIsAutoDifferRunning(true);
+                startContinuousTrading();
+            } else if (isAutoOverUnderActive) {
+                setIsAutoOverUnderRunning(true);
+                startContinuousTrading();
+            } else if (isAutoO5U4Active) {
+                setIsAutoO5U4Running(true);
+                startContinuousTrading();
+            }
+        } else {
+            console.log('Auto trading disabled');
+            globalObserver.emit('ui.log.info', 'Auto trading disabled');
+            // Stop all running strategies
+            setIsAutoDifferRunning(false);
+            setIsAutoOverUnderRunning(false);
+            setIsAutoO5U4Running(false);
+            stopContinuousTrading();
+        }
+    };
+
 
     return (
         <div className={`trading-hub-modern ${is_dark_mode_on ? 'theme--dark' : 'theme--light'}`}>
@@ -367,7 +453,7 @@ const TradingHubDisplay: React.FC = () => {
                             <button
                                 className={`strategy-toggle ${isAutoDifferActive ? 'active' : ''}`}
                                 onClick={toggleAutoDiffer}
-                                disabled={isTrading && !isAutoDifferActive}
+                                disabled={isAutoTradingEnabled && !isAutoDifferActive}
                             >
                                 {isAutoDifferActive ? 'ON' : 'OFF'}
                             </button>
@@ -378,10 +464,22 @@ const TradingHubDisplay: React.FC = () => {
                         <div className="strategy-footer">
                             <button 
                                 className="activate-btn"
-                                onClick={() => isAutoDifferActive && startContinuousTrading()}
-                                disabled={!isAutoDifferActive || isTrading}
+                                onClick={() => {
+                                    if (!isAutoDifferActive) {
+                                        toggleAutoDiffer();
+                                    } else {
+                                        if (!isAutoDifferRunning) {
+                                            setIsAutoDifferRunning(true);
+                                            startContinuousTrading();
+                                        } else {
+                                            setIsAutoDifferRunning(false);
+                                            stopContinuousTrading();
+                                        }
+                                    }
+                                }}
+                                disabled={isAutoTradingEnabled && !isAutoDifferActive}
                             >
-                                Activate
+                                {isAutoDifferRunning ? 'Stop Strategy' : 'Start Strategy'}
                             </button>
                         </div>
                     </div>
@@ -401,7 +499,7 @@ const TradingHubDisplay: React.FC = () => {
                             <button
                                 className={`strategy-toggle ${isAutoOverUnderActive ? 'active' : ''}`}
                                 onClick={toggleAutoOverUnder}
-                                disabled={isTrading && !isAutoOverUnderActive}
+                                disabled={isAutoTradingEnabled && !isAutoOverUnderActive}
                             >
                                 {isAutoOverUnderActive ? 'ON' : 'OFF'}
                             </button>
@@ -421,10 +519,22 @@ const TradingHubDisplay: React.FC = () => {
                         <div className="strategy-footer">
                             <button 
                                 className="activate-btn"
-                                onClick={() => isAutoOverUnderActive && startContinuousTrading()}
-                                disabled={!isAutoOverUnderActive || isTrading}
+                                onClick={() => {
+                                    if (!isAutoOverUnderActive) {
+                                        toggleAutoOverUnder();
+                                    } else {
+                                        if (!isAutoOverUnderRunning) {
+                                            setIsAutoOverUnderRunning(true);
+                                            startContinuousTrading();
+                                        } else {
+                                            setIsAutoOverUnderRunning(false);
+                                            stopContinuousTrading();
+                                        }
+                                    }
+                                }}
+                                disabled={isAutoTradingEnabled && !isAutoOverUnderActive}
                             >
-                                Generate Signal
+                                {isAutoOverUnderRunning ? 'Stop Strategy' : 'Start Strategy'}
                             </button>
                         </div>
                     </div>
@@ -444,7 +554,7 @@ const TradingHubDisplay: React.FC = () => {
                             <button
                                 className={`strategy-toggle ${isAutoO5U4Active ? 'active' : ''}`}
                                 onClick={toggleAutoO5U4}
-                                disabled={isTrading && !isAutoO5U4Active}
+                                disabled={isAutoTradingEnabled && !isAutoO5U4Active}
                             >
                                 {isAutoO5U4Active ? 'ON' : 'OFF'}
                             </button>
@@ -455,10 +565,22 @@ const TradingHubDisplay: React.FC = () => {
                         <div className="strategy-footer">
                             <button 
                                 className="activate-btn"
-                                onClick={() => isAutoO5U4Active && startContinuousTrading()}
-                                disabled={!isAutoO5U4Active || isTrading}
+                                onClick={() => {
+                                    if (!isAutoO5U4Active) {
+                                        toggleAutoO5U4();
+                                    } else {
+                                        if (!isAutoO5U4Running) {
+                                            setIsAutoO5U4Running(true);
+                                            startContinuousTrading();
+                                        } else {
+                                            setIsAutoO5U4Running(false);
+                                            stopContinuousTrading();
+                                        }
+                                    }
+                                }}
+                                disabled={isAutoTradingEnabled && !isAutoO5U4Active}
                             >
-                                Activate
+                                {isAutoO5U4Running ? 'Stop Strategy' : 'Start Strategy'}
                             </button>
                         </div>
                     </div>
@@ -494,17 +616,26 @@ const TradingHubDisplay: React.FC = () => {
                 <div className="trading-controls">
                     <div className="main-controls">
                         <button
-                            className={`control-btn primary ${isTrading ? 'stop' : 'start'}`}
-                            onClick={isTrading ? stopContinuousTrading : startContinuousTrading}
-                            disabled={!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active}
+                            className={`auto-trading-toggle ${isAutoTradingEnabled ? 'active' : ''}`}
+                            onClick={toggleAutoTrading}
+                            disabled={!canTrade}
                         >
-                            {isTrading ? '⏹ STOP TRADING' : '▶ START TRADING'}
+                            {isAutoTradingEnabled ? 'Stop Auto Trading' : 'Start Auto Trading'}
+                        </button>
+
+                        <button
+                            className="manual-trade-btn manual-trade-btn--rise"
+                            onClick={() => handleManualTrade('Rise')}
+                            disabled={isTradeInProgress || !canTrade || isAutoTradingEnabled}
+                        >
+                            Manual Rise Trade
                         </button>
                         <button
-                            className="control-btn secondary"
-                            onClick={() => setCopyTradingEnabled(!copyTradingEnabled)}
+                            className="manual-trade-btn manual-trade-btn--fall"
+                            onClick={() => handleManualTrade('Fall')}
+                            disabled={isTradeInProgress || !canTrade || isAutoTradingEnabled}
                         >
-                            {copyTradingEnabled ? '📋 Copy Trading ON' : '📋 Copy Trading OFF'}
+                            Manual Fall Trade
                         </button>
                     </div>
                 </div>
