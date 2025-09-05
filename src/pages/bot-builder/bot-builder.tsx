@@ -1,3 +1,4 @@
+
 import React from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
@@ -10,7 +11,7 @@ import { TBlocklyEvents } from 'Types';
 import LoadModal from '../../components/load-modal';
 import SaveModal from '../dashboard/bot-list/save-modal';
 import BotBuilderTourHandler from '../tutorials/dbot-tours/bot-builder-tour';
-import QuickStrategy1 from './quick-strategy';
+import QuickStrategy from './quick-strategy';
 import WorkspaceWrapper from './workspace-wrapper';
 
 const BotBuilder = observer(() => {
@@ -25,9 +26,6 @@ const BotBuilder = observer(() => {
     const { onMount, onUnmount } = app;
     const el_ref = React.useRef<HTMLInputElement | null>(null);
 
-    // TODO: fix
-    // const isMounted = useIsMounted();
-    // const { data: remote_config_data } = useRemoteConfig(isMounted());
     let deleted_block_id: null | string = null;
 
     React.useEffect(() => {
@@ -49,7 +47,6 @@ const BotBuilder = observer(() => {
                 removeBlockChangeListener();
             }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_running]);
 
     const handleBlockChangeOnBotRun = (e: Event) => {
@@ -73,8 +70,6 @@ const BotBuilder = observer(() => {
             is_blockly_delete_listener_registered.current = true;
             workspace.addChangeListener(handleBlockDelete);
         }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_loading]);
 
     const handleBlockDelete = (e: TBlocklyEvents) => {
@@ -119,10 +114,9 @@ const BotBuilder = observer(() => {
                 </div>
             </div>
             {active_tab === 1 && <BotBuilderTourHandler is_mobile={!isDesktop} />}
-            {/* removed this outside from toolbar becuase it needs to loaded seperately without dependency */}
             <LoadModal />
             <SaveModal />
-            {is_open && <QuickStrategy1 />}
+            {is_open && <QuickStrategy />}
         </>
     );
 });

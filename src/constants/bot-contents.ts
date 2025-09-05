@@ -1,3 +1,4 @@
+
 type TTabsTitle = {
     [key: string]: string | number;
 };
