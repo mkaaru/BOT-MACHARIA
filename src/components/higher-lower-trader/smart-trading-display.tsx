@@ -848,9 +848,9 @@ const SmartTradingDisplay = observer(() => {
 
     // Helper to handle single trade execution or stop
     const handleSingleTrade = (strategy: AnalysisStrategy) => {
-        const isCurrentlyTrading = strategy.activeContractType !== null;
+        const isTrading = strategy.activeContractType !== null;
 
-        if (isCurrentlyTrading) {
+        if (isTrading) {
             // Stop trading
             updateStrategySettings(strategy.id, { activeContractType: null });
             window.postMessage({
@@ -1041,33 +1041,40 @@ const SmartTradingDisplay = observer(() => {
                         <div className="condition-row">
                             <span className="condition-label">If</span>
                             <select value={settings.conditionType} onChange={(e) => updateStrategySettings(strategy.id, { conditionType: e.target.value })}>
-                                <option value="rise">Rise Prob</option>
-                                <option value="fall">Fall Prob</option>
+                                <option value="rise">Rise probability</option>
+                                <option value="fall">Fall probability</option>
                             </select>
                             <select value={settings.conditionOperator} onChange={(e) => updateStrategySettings(strategy.id, { conditionOperator: e.target.value })}>
-                                <option value=">">></option>
-                                <option value=">=">≥</option>
-                                <option value="<"><</option>
-                                <option value="<=">≤</option>
-                                <option value="=">=</option>
+                                <option value=">">is greater than</option>
+                                <option value="<">is less than</option>
+                                <option value=">=">is greater than or equal to</option>
+                                <option value="<=">is less than or equal to</option>
+                                <option value="=">equals</option>
                             </select>
                             <input
                                 type="number"
-                                className="small-input"
-                                value={settings.conditionValueInput || settings.conditionValue || ''}
-                                onChange={(e) => updateStrategySettings(strategy.id, {
-                                    conditionValueInput: e.target.value,
-                                    conditionValue: parseFloat(e.target.value) || 0
-                                })}
+                                min="0"
+                                max="100"
+                                value={settings.conditionValueInput || ''}
+                                onChange={(e) => updateStrategySettings(strategy.id, { conditionValueInput: e.target.value })}
+                                onBlur={() => {
+                                    const value = parseFloat(settings.conditionValueInput || '0');
+                                    if (!isNaN(value)) {
+                                        updateStrategySettings(strategy.id, { conditionValue: value });
+                                    }
+                                }}
+                                className="condition-value-input"
+                                placeholder="65"
                             />
-                            <span className="condition-label">%</span>
+                            <span className="condition-unit">%</span>
                         </div>
                         <div className="condition-row">
-                            <span className="condition-label">Then</span>
+                            <span className="condition-label">Then buy</span>
                             <select value={settings.conditionAction} onChange={(e) => updateStrategySettings(strategy.id, { conditionAction: e.target.value })}>
-                                <option value="Rise">Buy Rise</option>
-                                <option value="Fall">Buy Fall</option>
+                                <option value="Rise">Rise</option>
+                                <option value="Fall">Fall</option>
                             </select>
+                            <span className="condition-label">contract</span>
                         </div>
                     </div>
                 );
