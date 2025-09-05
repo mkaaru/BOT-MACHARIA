@@ -105,6 +105,27 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [statusMessage, setStatusMessage] = useState('Initializing Trading Hub...');
     const [lastTradeTime, setLastTradeTime] = useState<number>(0);
 
+    // Trading control states
+    const [isContinuousTrading, setIsContinuousTrading] = useState(false);
+    const [isTrading, setIsTrading] = useState(false);
+
+    // Check if any strategy is active
+    const isStrategyActive = autoDifferEnabled || overUnderEnabled || o5u4Enabled;
+
+    const handleTrade = () => {
+        if (isContinuousTrading) {
+            // Stop trading
+            setIsContinuousTrading(false);
+            setStatusMessage('Trading stopped by user');
+        } else {
+            // Start trading
+            if (isStrategyActive) {
+                setIsContinuousTrading(true);
+                setStatusMessage('Starting automated trading...');
+            }
+        }
+    };
+
     useEffect(() => {
         // Start analysis loop
         analysisInterval.current = setInterval(() => {
@@ -361,6 +382,33 @@ const TradingHubDisplay: React.FC = observer(() => {
                     <div className={`status-indicator ${mockMarketAnalyzer.isConnected && mockTradingEngine.isEngineConnected() ? 'connected' : 'disconnected'}`}></div>
                     <span>{mockMarketAnalyzer.isConnected && mockTradingEngine.isEngineConnected() ? 'Connected' : 'Disconnected'}</span>
                 </div>
+            </div>
+
+            {/* Trading Controls */}
+            <div className="trading-controls">
+                <button
+                    className={`main-trade-btn ${!isStrategyActive ? 'disabled' : ''} ${isContinuousTrading ? 'stop' : 'start'}`}
+                    onClick={handleTrade}
+                    disabled={!isStrategyActive || isTrading}
+                >
+                    <div className="btn-content">
+                        <div className="btn-icon">
+                            {isContinuousTrading ? (
+                                <svg viewBox="0 0 24 24" width="20" height="20">
+                                    <rect x="6" y="4" width="4" height="16" fill="currentColor" />
+                                    <rect x="14" y="4" width="4" height="16" fill="currentColor" />
+                                </svg>
+                            ) : (
+                                <svg viewBox="0 0 24 24" width="20" height="20">
+                                    <polygon points="5,3 19,12 5,21" fill="currentColor" />
+                                </svg>
+                            )}
+                        </div>
+                        <span className="btn-text">
+                            {isContinuousTrading ? 'STOP TRADING' : isTrading ? 'STARTING...' : 'START TRADING'}
+                        </span>
+                    </div>
+                </button>
             </div>
 
             <div className="trading-strategies">
