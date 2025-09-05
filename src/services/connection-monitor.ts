@@ -12,7 +12,7 @@ interface ConnectionStatus {
 class ConnectionMonitor {
     private healthCheckInterval: NodeJS.Timeout | null = null;
     private lastHealthCheck = 0;
-    private readonly HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
+    private readonly HEALTH_CHECK_INTERVAL = 45000; // 45 seconds
     private readonly CONNECTION_TIMEOUT = 60000; // 1 minute
     private reconnectionAttempts = 0;
     private readonly MAX_RECONNECTION_ATTEMPTS = 5;
@@ -68,15 +68,15 @@ class ConnectionMonitor {
 
     private performMemoryCleanup() {
         // Clear browser console logs more frequently to prevent content limit issues
-        if (this.reconnectionAttempts % 5 === 0) {
+        if (this.reconnectionAttempts % 3 === 0) {
             console.clear();
         }
         
         // Clean up market analyzer old data
         try {
             marketAnalyzer.symbolData.forEach(symbolData => {
-                if (symbolData.ticks.length > 30) {
-                    symbolData.ticks.splice(0, symbolData.ticks.length - 30);
+                if (symbolData.ticks.length > 20) {
+                    symbolData.ticks.splice(0, symbolData.ticks.length - 20);
                 }
             });
         } catch (error) {
@@ -90,16 +90,6 @@ class ConnectionMonitor {
             } catch (e) {
                 // Ignore if gc is not available
             }
-        }
-        
-        // Clear any leaked event listeners or intervals
-        if (typeof window !== 'undefined') {
-            // Clear any stale timers that might be causing memory leaks
-            const highestTimeoutId = setTimeout(() => {});
-            for (let i = highestTimeoutId; i >= 0; i--) {
-                clearTimeout(i);
-            }
-            clearTimeout(highestTimeoutId);
         }
     }
 

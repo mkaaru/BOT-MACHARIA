@@ -129,6 +129,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                 return;
             }
 
+        // Get all symbol data for analysis
+        const allSymbolData = marketAnalyzer.getAllSymbolData();
+
         const recommendations: any = {};
 
         if (autoDifferEnabled) {
@@ -266,9 +269,9 @@ const TradingHubDisplay: React.FC = observer(() => {
             completedContracts++;
 
             if (completedContracts === 2) {
-                handleTradeResult(tradeId, { 
-                    profit: totalProfit, 
-                    status: totalProfit > 0 ? 'won' : 'lost' 
+                handleTradeResult(tradeId, {
+                    profit: totalProfit,
+                    status: totalProfit > 0 ? 'won' : 'lost'
                 });
             }
         };

@@ -35,6 +35,7 @@ class MarketAnalyzer {
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
     private reconnectDelay = 3000;
+    private reqIdCounter = 1;
 
     public symbolData: Map<string, SymbolData> = new Map();
     public isConnected = false;
@@ -134,7 +135,7 @@ class MarketAnalyzer {
             const request = {
                 ticks: symbol,
                 subscribe: 1,
-                req_id: `tick_${symbol}`
+                req_id: this.generateReqId()
             };
 
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -167,7 +168,7 @@ class MarketAnalyzer {
 
         this.updateSymbolData(symbol, tickData);
         this.lastUpdate = Date.now();
-        
+
         // Notify connection monitor of activity
         try {
             const { connectionMonitor } = require('./connection-monitor');
@@ -364,6 +365,20 @@ class MarketAnalyzer {
         }
 
         return null;
+    }
+
+    // Method to get current symbol data for a specific symbol
+    getSymbolData(symbol: string) {
+        return this.symbolData.get(symbol);
+    }
+
+    // Method to get all symbol data
+    getAllSymbolData() {
+        return Array.from(this.symbolData.values());
+    }
+
+    private generateReqId(): string {
+        return `req_${this.reqIdCounter++}`;
     }
 
     disconnect() {
