@@ -215,7 +215,10 @@ const TradingHubDisplay: React.FC = () => {
             return false;
         }
 
-        if (!client?.loginid || !client?.token) {
+        // Get token from client store or localStorage
+        const token = client?.getToken() || localStorage.getItem('authToken') || client?.token;
+        
+        if (!client?.loginid || !token) {
             globalObserver.emit('ui.log.error', 'Cannot execute trade: not logged in or no token available');
             return false;
         }
@@ -235,7 +238,7 @@ const TradingHubDisplay: React.FC = () => {
             // Ensure authorization with proper token
             if (!api_base.is_authorized) {
                 console.log('Authorizing API with token...');
-                await api_base.api?.send({ authorize: client.token });
+                await api_base.api?.send({ authorize: token });
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
 
@@ -496,9 +499,10 @@ const TradingHubDisplay: React.FC = () => {
                 await new Promise(resolve => setTimeout(resolve, 3000));
             }
 
-            if (!api_base.is_authorized && client?.token) {
+            const authToken = client?.getToken() || localStorage.getItem('authToken') || client?.token;
+            if (!api_base.is_authorized && authToken) {
                 globalObserver.emit('ui.log.info', 'Authorizing API connection...');
-                await api_base.authorizeAndSubscribe();
+                await api_base.api?.send({ authorize: authToken });
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
 
@@ -627,8 +631,9 @@ const TradingHubDisplay: React.FC = () => {
                     await api_base.init();
                 }
 
-                if (client?.loginid && client?.token && !api_base.is_authorized) {
-                    await api_base.authorizeAndSubscribe();
+                const initToken = client?.getToken() || localStorage.getItem('authToken') || client?.token;
+                if (client?.loginid && initToken && !api_base.is_authorized) {
+                    await api_base.api?.send({ authorize: initToken });
                 }
             } catch (error: any) {
                 console.error('Failed to initialize API:', error);
