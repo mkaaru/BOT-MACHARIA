@@ -298,7 +298,6 @@ const AppWrapper = observer(() => {
     );
 
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
-        setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
             console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
 
@@ -337,13 +336,11 @@ const AppWrapper = observer(() => {
                     }
                 } catch (fetchError) {
                     console.error("Failed to load bot content:", fetchError);
-                    // Removed alert message
                     return;
                 }
             }
 
             if (!xmlContent || xmlContent.trim().length === 0) {
-                //Removed alert message
                 return;
             }
 
@@ -352,32 +349,64 @@ const AppWrapper = observer(() => {
 
             // Validate XML content
             if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
-                //Removed alert message
                 return;
             }
 
-            if (typeof load_modal.loadFileFromContent === 'function' && xmlContent) {
-                try {
-                    await load_modal.loadFileFromContent(xmlContent);
-                    console.log("Bot loaded successfully!");
+            // First switch to Bot Builder tab
+            setActiveTab(DBOT_TABS.BOT_BUILDER);
+            
+            // Wait a moment for the tab to load
+            await new Promise(resolve => setTimeout(resolve, 100));
 
-                    // Also update workspace name
+            // Use the external bot-skeleton load utility directly
+            const { load } = await import('@/external/bot-skeleton/scratch/utils');
+            
+            if (load && xmlContent) {
+                try {
+                    console.log("Loading bot using bot-skeleton load utility...");
+                    
+                    // Get the main Blockly workspace
+                    const workspace = window.Blockly?.derivWorkspace || window.Blockly?.getMainWorkspace();
+                    
+                    if (!workspace) {
+                        console.error("Blockly workspace not found");
+                        return;
+                    }
+
+                    // Load the XML content into the workspace
+                    await load({
+                        block_string: xmlContent,
+                        file_name: bot.title || 'Loaded Bot',
+                        workspace: workspace,
+                        from: 'free_bots'
+                    });
+
+                    console.log("Bot loaded successfully into workspace!");
+
+                    // Update workspace name if available
                     if (typeof updateWorkspaceName === 'function') {
                         updateWorkspaceName(xmlContent);
                     }
+
                 } catch (loadError) {
-                    console.error("Error in load_modal.loadFileFromContent:", loadError);
-                    //Removed alert message
+                    console.error("Error loading bot with load utility:", loadError);
+                    
+                    // Fallback to load_modal if available
+                    if (typeof load_modal.loadFileFromContent === 'function') {
+                        try {
+                            await load_modal.loadFileFromContent(xmlContent);
+                            console.log("Bot loaded successfully via fallback!");
+                        } catch (fallbackError) {
+                            console.error("Fallback loading also failed:", fallbackError);
+                        }
+                    }
                 }
             } else {
-                console.error("loadFileFromContent is not defined on load_modal or xmlContent is empty");
-                console.log("load_modal object:", load_modal);
-                //Removed alert message
+                console.error("Load utility not available or no XML content");
             }
 
         } catch (error) {
             console.error("Error loading bot:", error);
-             //Removed alert message
         }
     }, [setActiveTab, load_modal]);
 
