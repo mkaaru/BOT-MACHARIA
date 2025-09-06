@@ -219,16 +219,12 @@ export default class SummaryCardStore {
     /**
      * Sets the bot's running state based on whether the contract is still loading
      */
-    setIsBotRunning = (is_running: boolean) => {
-        if (is_running) {
-            this.is_bot_running = is_running;
-        } else {
-            setTimeout(() => {
-                runInAction(() => {
-                    this.is_bot_running = is_running;
-                });
-            }, 1000);
-        }
+    setIsBotRunning(is_running: boolean) {
+        setTimeout(() => {
+            runInAction(() => {
+                this.is_bot_running = is_running;
+            });
+        }, 300);
     };
 
     updateLimitOrder() {
