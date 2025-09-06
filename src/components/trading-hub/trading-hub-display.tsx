@@ -220,11 +220,31 @@ const TradingHubDisplay: React.FC = () => {
             return false;
         }
 
-        // Get token from client store or localStorage
-        const token = client?.getToken() || localStorage.getItem('authToken') || client?.token;
+        // Enhanced token retrieval with multiple fallbacks
+        let token = null;
+        
+        // Try multiple token sources in order of preference
+        if (client?.getToken) {
+            token = client.getToken();
+        }
+        if (!token && client?.token) {
+            token = client.token;
+        }
+        if (!token) {
+            token = localStorage.getItem('authToken');
+        }
+        if (!token) {
+            token = localStorage.getItem('client_token');
+        }
+        
+        console.log('Token retrieval result:', { 
+            hasToken: !!token, 
+            loginid: client?.loginid,
+            clientAvailable: !!client 
+        });
         
         if (!client?.loginid || !token) {
-            globalObserver.emit('ui.log.error', 'Cannot execute trade: not logged in or no token available');
+            globalObserver.emit('ui.log.error', `Cannot execute trade: ${!client?.loginid ? 'not logged in' : 'no token available'}`);
             return false;
         }
 
@@ -233,23 +253,37 @@ const TradingHubDisplay: React.FC = () => {
         }
 
         try {
-            // Ensure API connection is stable
+            // Enhanced API connection setup with better error handling
             if (!api_base.api || api_base.api.connection?.readyState !== 1) {
                 console.log('Connecting to API...');
                 await api_base.init();
                 await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                if (!api_base.api || api_base.api.connection?.readyState !== 1) {
+                    throw new Error('Failed to establish API connection after initialization');
+                }
             }
 
-            // Ensure authorization with proper token
+            // Enhanced authorization with detailed error handling
             if (!api_base.is_authorized) {
                 console.log('Authorizing API with token...');
-                await api_base.api?.send({ authorize: token });
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                try {
+                    const authResponse = await api_base.api?.send({ authorize: token });
+                    console.log('Authorization response:', authResponse);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    if (!api_base.is_authorized && authResponse?.error) {
+                        throw new Error(`Authorization failed: ${authResponse.error.message || authResponse.error.code}`);
+                    }
+                } catch (authError: any) {
+                    console.error('Authorization error:', authError);
+                    throw new Error(`API authorization error: ${authError.message || 'Unknown authorization error'}`);
+                }
             }
 
-            // Verify authorization status
+            // Final verification of authorization status
             if (!api_base.is_authorized) {
-                throw new Error('API authorization failed. Please check your token and connection.');
+                throw new Error('API authorization verification failed. Please check your login status and try again.');
             }
 
             // Get current balance first
@@ -336,8 +370,28 @@ const TradingHubDisplay: React.FC = () => {
             }
 
         } catch (error: any) {
-            const errorMsg = error?.message || 'Unknown trade execution error';
-            console.error('Trade execution failed:', errorMsg);
+            let errorMsg = 'Unknown trade execution error';
+            
+            // Enhanced error message extraction
+            if (error?.message) {
+                errorMsg = error.message;
+            } else if (error?.error?.message) {
+                errorMsg = error.error.message;
+            } else if (error?.error?.code) {
+                errorMsg = `API Error: ${error.error.code}`;
+            } else if (typeof error === 'string') {
+                errorMsg = error;
+            }
+            
+            console.error('Trade execution failed:', {
+                error,
+                errorMsg,
+                apiConnected: api_base.api?.connection?.readyState === 1,
+                isAuthorized: api_base.is_authorized,
+                hasToken: !!token,
+                loginid: client?.loginid
+            });
+            
             globalObserver.emit('ui.log.error', `Trade failed: ${errorMsg} - stopping trading`);
             
             // Stop trading on API failures instead of continuing with dummy results
@@ -507,15 +561,43 @@ const TradingHubDisplay: React.FC = () => {
                 await new Promise(resolve => setTimeout(resolve, 3000));
             }
 
-            const authToken = client?.getToken() || localStorage.getItem('authToken') || client?.token;
+            // Enhanced token retrieval for startup
+            let authToken = null;
+            if (client?.getToken) {
+                authToken = client.getToken();
+            }
+            if (!authToken && client?.token) {
+                authToken = client.token;
+            }
+            if (!authToken) {
+                authToken = localStorage.getItem('authToken') || localStorage.getItem('client_token');
+            }
+            
+            console.log('Startup authorization check:', {
+                hasToken: !!authToken,
+                isAuthorized: api_base.is_authorized,
+                apiConnected: api_base.api?.connection?.readyState === 1
+            });
+
             if (!api_base.is_authorized && authToken) {
                 globalObserver.emit('ui.log.info', 'Authorizing API connection...');
-                await api_base.api?.send({ authorize: authToken });
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                try {
+                    const authResponse = await api_base.api?.send({ authorize: authToken });
+                    console.log('Startup auth response:', authResponse);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    if (authResponse?.error) {
+                        globalObserver.emit('ui.log.error', `Authorization failed: ${authResponse.error.message || authResponse.error.code}`);
+                        return;
+                    }
+                } catch (authError: any) {
+                    globalObserver.emit('ui.log.error', `Authorization error: ${authError.message || 'Unknown error'}`);
+                    return;
+                }
             }
 
             if (!api_base.is_authorized) {
-                globalObserver.emit('ui.log.error', 'Failed to authorize API connection');
+                globalObserver.emit('ui.log.error', 'Failed to authorize API connection - please check your login status');
                 return;
             }
 
