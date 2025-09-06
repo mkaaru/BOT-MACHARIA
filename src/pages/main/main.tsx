@@ -106,7 +106,7 @@ const AppWrapper = observer(() => {
     const { is_dialog_open, dialog_options, onCancelButtonClick, onCloseDialog, onOkButtonClick, stopBot, is_drawer_open } = run_panel;
     const { cancel_button_text, ok_button_text, title, message } = dialog_options as { [key: string]: string };
     const { clear } = summary_card;
-    const { FREE_BOTS, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, DASHBOARD, AI_TRADER } = DBOT_TABS;
+    const { FREE_BOTS, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, DASHBOARD, AI_TRADER, TRADING_HUB } = DBOT_TABS;
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -1399,7 +1399,7 @@ if __name__ == "__main__":
     }, [selectedIndex, isConnected, websocket, tickHistory])
 
 
-    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.TRADING_HUB, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.CHART, DBOT_TABS.SIGNALS, DBOT_TABS.AI_TRADER].includes(active_tab);
+    const showRunPanel = [BOT_BUILDER, TRADING_HUB, ANALYSIS_TOOL, DBOT_TABS.CHART, SIGNALS, AI_TRADER].includes(active_tab);
 
     return (
         <>
@@ -1462,27 +1462,12 @@ if __name__ == "__main__":
 
                         </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
-                        <div label={<><AITraderIcon /><Localize i18n_default_text='AI Trader' /></>} id='id-ai-trader'>
-                            <SmartTrader />
-                        </div>
-                        <div label={<><SignalsIcon /><Localize i18n_default_text='Signal Scanner' /></>} id='id-signals'>
+                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <iframe
-                                    src="https://tracktool.netlify.app/signals.html"
-                                    width="100%"
-                                    height="100%"
-                                    style={{
-                                        border: 'none',
-                                        display: 'block',
-                                        minHeight: '600px',
-                                        height: 'calc(100vh - 200px)'
-                                    }}
-                                    scrolling="yes"
-                                    title="Trading Signals"
-                                />
+                                <PercentageTool />
                             </div>
                         </div>
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
@@ -1509,6 +1494,26 @@ if __name__ == "__main__":
                                 </Tabs>
                             </div>
                         </div>
+                        <div label={<><SignalsIcon /><Localize i18n_default_text='Signal Scanner' /></>} id='id-signals'>
+                            <div className={classNames('dashboard__chart-wrapper', {
+                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
+                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
+                            })}>
+                                <iframe
+                                    src="https://tracktool.netlify.app/signals.html"
+                                    width="100%"
+                                    height="100%"
+                                    style={{
+                                        border: 'none',
+                                        display: 'block',
+                                        minHeight: '600px',
+                                        height: 'calc(100vh - 200px)'
+                                    }}
+                                    scrolling="yes"
+                                    title="Trading Signals"
+                                />
+                            </div>
+                        </div>
                         <div label={<><ChartsIcon /><Localize i18n_default_text='Charts' /></>} id='id-charts'>
                             <Suspense fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}>
                                 <Chart show_digits_stats={false} />                            </Suspense>
@@ -1518,13 +1523,8 @@ if __name__ == "__main__":
                                 <Tutorial handleTabChange={handleTabChange} />
                             </Suspense>
                         </div>
-                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
-                            <div className={classNames('dashboard__chart-wrapper', {
-                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
-                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })}>
-                                <PercentageTool />
-                            </div>
+                        <div label={<><AITraderIcon /><Localize i18n_default_text='AI Trader' /></>} id='id-ai-trader'>
+                            <SmartTrader />
                         </div>
                         <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
                             <Dashboard handleTabChange={handleTabChange} />
