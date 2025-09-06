@@ -281,7 +281,7 @@ const TradingHubDisplay: React.FC = () => {
                                     status: isWin ? 'won' : 'lost',
                                     // Additional fields
                                     longcode: `${contractType} prediction on ${symbol}`,
-                                    app_id: 16929,
+                                    app_id: 75771,
                                     purchase_time: contractData.date_start || new Date().toISOString(),
                                     sell_time: contractData.exit_tick_time || new Date().toISOString(),
                                     transaction_time: new Date().toISOString()
@@ -489,7 +489,7 @@ const TradingHubDisplay: React.FC = () => {
                     amount: stakeAmount,
                     basis: 'stake',
                     currency: client?.currency || 'USD',
-                    app_id: 16929  // Using the same app_id as referenced in the original project
+                    app_id: 75771  // Using the standard app ID for this application
                 }
             };
 
