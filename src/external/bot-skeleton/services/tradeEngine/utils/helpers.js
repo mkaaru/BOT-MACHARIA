@@ -42,6 +42,75 @@ export const tradeOptionToProposal = (trade_option, purchase_reference) =>
         return proposal;
     });
 
+// Add new helper function for copy trading format
+export const tradeCopyOptionToBuy = (contract_type, trade_option) => {
+    const params = {
+        amount: trade_option.amount,
+        basis: trade_option.basis,
+        contract_type,
+        currency: trade_option.currency,
+        duration: trade_option.duration,
+        duration_unit: trade_option.duration_unit,
+        symbol: trade_option.symbol,
+    };
+
+    // Add prediction and barrier parameters
+    if (trade_option.prediction !== undefined) {
+        params.selected_tick = trade_option.prediction;
+    }
+    if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
+        params.barrier = trade_option.prediction;
+    } else if (trade_option.barrierOffset !== undefined) {
+        params.barrier = trade_option.barrierOffset;
+    }
+    if (trade_option.secondBarrierOffset !== undefined) {
+        params.barrier2 = trade_option.secondBarrierOffset;
+    }
+
+    // Add additional parameters if they exist
+    if (!isEmptyObject(trade_option.app_markup_percentage)) {
+        params.app_markup_percentage = trade_option.app_markup_percentage;
+    }
+    if (!isEmptyObject(trade_option.barrier_range)) {
+        params.barrier_range = trade_option.barrier_range;
+    }
+    if (!isEmptyObject(trade_option.date_expiry)) {
+        params.date_expiry = trade_option.date_expiry;
+    }
+    if (!isEmptyObject(trade_option.date_start)) {
+        params.date_start = trade_option.date_start;
+    }
+    if (!isEmptyObject(trade_option.product_type)) {
+        params.product_type = trade_option.product_type;
+    }
+    if (!isEmptyObject(trade_option.trading_period_start)) {
+        params.trading_period_start = trade_option.trading_period_start;
+    }
+    if (!isEmptyObject(trade_option.limit_order)) {
+        params.limit_order = trade_option.limit_order;
+    }
+
+    // Handle special contract types
+    if (['MULTUP', 'MULTDOWN'].includes(contract_type)) {
+        params.duration = undefined;
+        params.duration_unit = undefined;
+        params.multiplier = trade_option.multiplier;
+    }
+    if (['ACCU'].includes(contract_type)) {
+        params.duration = undefined;
+        params.duration_unit = undefined;
+        params.growth_rate = trade_option.growth_rate;
+    }
+
+    return {
+        buy_contract_for_multiple_accounts: '1',
+        price: trade_option.amount,
+        tokens: trade_option.tokens,
+        parameters: params,
+    };
+};
+
+// Keep original tradeOptionToBuy unchanged for main account
 export const tradeOptionToBuy = (contract_type, trade_option) => {
     const buy = {
         buy: '1',
@@ -53,56 +122,29 @@ export const tradeOptionToBuy = (contract_type, trade_option) => {
             currency: trade_option.currency,
             duration: trade_option.duration,
             duration_unit: trade_option.duration_unit,
-            multiplier: trade_option.multiplier,
             symbol: trade_option.symbol,
         },
     };
-    if (trade_option.prediction !== undefined) {
-        buy.parameters.selected_tick = trade_option.prediction;
-    }
-    if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
-        buy.parameters.barrier = trade_option.prediction;
-    } else if (trade_option.barrierOffset !== undefined) {
-        buy.parameters.barrier = trade_option.barrierOffset;
-    }
-    if (trade_option.secondBarrierOffset !== undefined) {
-        buy.parameters.barrier2 = trade_option.secondBarrierOffset;
-    }
-    if (!isEmptyObject(trade_option.app_markup_percentage)) {
-        buy.parameters.app_markup_percentage = trade_option.app_markup_percentage;
-    }
-    if (!isEmptyObject(trade_option.barrier_range)) {
-        buy.parameters.barrier_range = trade_option.barrier_range;
-    }
-    if (!isEmptyObject(trade_option.date_expiry)) {
-        buy.parameters.date_expiry = trade_option.date_expiry;
-    }
-    if (!isEmptyObject(trade_option.date_start)) {
-        buy.parameters.date_start = trade_option.date_start;
-    }
-    if (!isEmptyObject(trade_option.product_type)) {
-        buy.parameters.product_type = trade_option.product_type;
-    }
-    if (!isEmptyObject(trade_option.trading_period_start)) {
-        buy.parameters.trading_period_start = trade_option.trading_period_start;
-    }
-    // This will be required only in the case of multiplier & accumulator contracts
-    if (!isEmptyObject(trade_option.limit_order)) {
-        buy.parameters.limit_order = trade_option.limit_order;
-    }
-    // This will be required only in the case of multiplier contracts
-    if (['MULTUP', 'MULTDOWN'].includes(contract_type)) {
-        buy.parameters.duration = undefined;
-        buy.parameters.duration_unit = undefined;
 
-        buy.parameters.multiplier = trade_option.multiplier;
+    // Handle digit prediction contracts
+    if (['DIGITDIFF', 'DIGITEVEN', 'DIGITMATCH', 'DIGITODD', 'DIGITOVER', 'DIGITUNDER'].includes(contract_type)) {
+        if (trade_option.prediction !== undefined) {
+            buy.parameters.barrier = trade_option.prediction;
+        }
     }
-    // This will be required only in the case of accumulator contracts
-    if (['ACCU'].includes(contract_type)) {
-        buy.parameters.duration = undefined;
-        buy.parameters.duration_unit = undefined;
-        buy.parameters.growth_rate = trade_option.growth_rate;
+    // Add optional parameters if they exist
+    if (trade_option.multiplier) buy.parameters.multiplier = trade_option.multiplier;
+    if (trade_option.prediction !== undefined) buy.parameters.selected_tick = trade_option.prediction;
+    if (trade_option.barrierOffset !== undefined) buy.parameters.barrier = trade_option.barrierOffset;
+    if (trade_option.secondBarrierOffset !== undefined) buy.parameters.barrier2 = trade_option.secondBarrierOffset;
+    if (!isEmptyObject(trade_option.app_markup_percentage)) buy.parameters.app_markup_percentage = trade_option.app_markup_percentage;
+
+    // Handle specific contract types
+    if (['MULTUP', 'MULTDOWN'].includes(contract_type)) {
+        delete buy.parameters.duration;
+        delete buy.parameters.duration_unit;
     }
+
     return buy;
 };
 

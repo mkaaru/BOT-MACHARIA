@@ -11,19 +11,30 @@ window.Blockly.Blocks.purchase = {
     },
     definition() {
         return {
-            message0: localize('Purchase {{ contract_type }}', { contract_type: '%1' }),
+            message0: localize('Purchase {{ contract_type }} trade each tick {{ trade_each_tick }}', { 
+                contract_type: '%1', 
+                trade_each_tick: '%2' 
+            }),
             args0: [
                 {
                     type: 'field_dropdown',
                     name: 'PURCHASE_LIST',
                     options: [['', '']],
                 },
+                {
+                    type: 'field_dropdown',
+                    name: 'TRADE_EACH_TICK',
+                    options: [
+                        [localize('No'), 'false'],
+                        [localize('Yes'), 'true']
+                    ],
+                },
             ],
             previousStatement: null,
             colour: window.Blockly.Colours.Special1.colour,
             colourSecondary: window.Blockly.Colours.Special1.colourSecondary,
             colourTertiary: window.Blockly.Colours.Special1.colourTertiary,
-            tooltip: localize('This block purchases contract of a specified type.'),
+            tooltip: localize('This block purchases contract of a specified type. When "trade each tick" is enabled, a new contract will be purchased on every tick.'),
             category: window.Blockly.Categories.Before_Purchase,
         };
     },
@@ -31,7 +42,7 @@ window.Blockly.Blocks.purchase = {
         return {
             display_name: localize('Purchase'),
             description: localize(
-                'Use this block to purchase the specific contract you want. You may add multiple Purchase blocks together with conditional blocks to define your purchase conditions. This block can only be used within the Purchase conditions block.'
+                'Use this block to purchase the specific contract you want. You may add multiple Purchase blocks together with conditional blocks to define your purchase conditions. When "trade each tick" is enabled, a new contract will be purchased on every tick instead of just once. This block can only be used within the Purchase conditions block.'
             ),
             key_words: localize('buy'),
         };
@@ -85,7 +96,8 @@ window.Blockly.Blocks.purchase = {
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.purchase = block => {
     const purchaseList = block.getFieldValue('PURCHASE_LIST');
+    const tradeEachTick = block.getFieldValue('TRADE_EACH_TICK');
 
-    const code = `Bot.purchase('${purchaseList}');\n`;
+    const code = `Bot.purchase('${purchaseList}', ${tradeEachTick});\n`;
     return code;
 };

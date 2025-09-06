@@ -10,3 +10,8 @@ import './last_digit';
 import './lastDigitList';
 import './stat';
 import './stat_list';
+import './even_odd_percentage';
+import './over_under_percentage';
+import './digit_frequency_rank';
+import './all_same_pattern';
+import './digit_comparison';

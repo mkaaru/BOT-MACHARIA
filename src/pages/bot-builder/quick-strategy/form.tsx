@@ -1,4 +1,3 @@
-
 /* eslint-disable no-unsafe-optional-chaining */
 /* eslint-disable simple-import-sort/imports */
 import React from 'react';
@@ -48,7 +47,7 @@ const QuickStrategyForm = observer(() => {
         if (!isEnabledToggleSwitch && values?.max_stake) {
             setFieldValue('max_stake', 0);
         }
-    }, [isEnabledToggleSwitch, values?.max_stake, setFieldValue]);
+    }, [isEnabledToggleSwitch, values?.max_stake]);
 
     const onChange = async (key: string, value: string | number | boolean) => {
         setValue(key, value);
@@ -57,7 +56,7 @@ const QuickStrategyForm = observer(() => {
     };
 
     const handleEnter = (event: KeyboardEvent) => {
-        if (event?.key && event.key === 'Enter') {
+        if (event?.key && event.key == 'Enter') {
             event.preventDefault();
             event.stopPropagation();
         }

@@ -778,6 +778,17 @@ export const ToolboxItems = () =>
                     </Block>
                 </Category>
             </Category>
+            <Category id='binaryfx' name={localize('binaryfx')}>
+                <Block type='notify'>
+                        <Field name='NOTIFICATION_TYPE'>success</Field>
+                        <Value name='MESSAGE'>
+                            <Shadow type='text'>
+                                <Field name='TEXT'>abc</Field>
+                            </Shadow>
+                        </Value>
+                    </Block>
+                    <Block type='switcher' />
+            </Category>
 
             <Examples id='examples'>
                 <Example id='sell_available'>
@@ -1217,6 +1228,9 @@ export const ToolboxItems = () =>
                                     </Block>
                                 </Value>
                                 <Statement name='DO0'>
+                                    <Block type='switcher'>
+                                        <Field name='SYMBOL_LIST'>Volatility 100 index</Field>
+                                    </Block>
                                     <Block type='purchase'>
                                         <Field name='PURCHASE_LIST'>CALL</Field>
                                     </Block>

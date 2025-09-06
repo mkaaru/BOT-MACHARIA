@@ -53,6 +53,54 @@ class APIMiddleware {
             .catch(() => {});
         return response_promise;
     };
+
+    processResponse = (response, req_type) => {
+        switch (req_type) {
+            case 'balance': {
+                console.log('Balance response received:', response.balance);
+                this.setBalance(response.balance);
+
+                // Emit balance update event for demo accounts
+                if (this.account_info?.is_virtual) {
+                    this.observer.emit('balance.update', {
+                        balance: response.balance.balance,
+                        currency: response.balance.currency,
+                        is_virtual: true
+                    });
+                }
+                break;
+            }
+            case 'buy': {
+                // Validate contract ID for demo accounts
+                if (this.account_info?.is_virtual && response.buy) {
+                    const contractId = response.buy.contract_id;
+                    const contractIdStr = contractId?.toString();
+                    
+                    if (!contractIdStr || contractIdStr === 'undefined' || isNaN(contractId)) {
+                        console.error('Invalid demo contract ID from API:', contractId);
+                        // Don't process invalid contract responses
+                        return;
+                    }
+                    
+                    console.log(`Demo contract validated from API - ID: ${contractId}`);
+                }
+                break;
+            }
+            // Add other cases here as needed for other response types
+        }
+    }
+
+    setBalance(balance) {
+        // Implementation of setBalance
+    }
+
+    get account_info() {
+        return this.config.account_info;
+    }
+
+    get observer() {
+        return this.config.observer;
+    }
 }
 
 export default APIMiddleware;

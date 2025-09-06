@@ -248,15 +248,32 @@ class APIBase {
     }
 
     clearSubscriptions() {
-        this.subscriptions.forEach(s => s.unsubscribe());
-        this.subscriptions = [];
+        try {
+            this.subscriptions.forEach(s => {
+                try {
+                    s.unsubscribe();
+                } catch (e) {
+                    console.warn('Error unsubscribing:', e);
+                }
+            });
+            this.subscriptions = [];
 
-        // Resetting timeout resolvers
-        const global_timeouts = globalObserver.getState('global_timeouts') ?? [];
+            // Resetting timeout resolvers
+            const global_timeouts = globalObserver.getState('global_timeouts') ?? [];
 
-        global_timeouts.forEach((_: unknown, i: number) => {
-            clearTimeout(i);
-        });
+            global_timeouts.forEach((_: unknown, i: number) => {
+                try {
+                    clearTimeout(i);
+                } catch (e) {
+                    console.warn('Error clearing timeout:', e);
+                }
+            });
+            
+            // Clear observer state to prevent memory leaks
+            globalObserver.setState('global_timeouts', []);
+        } catch (error) {
+            console.error('Error in clearSubscriptions:', error);
+        }
     }
 }
 

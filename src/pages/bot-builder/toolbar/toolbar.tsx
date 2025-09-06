@@ -30,7 +30,7 @@ const Toolbar = observer(() => {
                 <div className='toolbar__section'>
                     {!isDesktop && (
                         <ToolbarButton
-                            popover_message={localize('Click here to start building your Deriv Lite Bot.')}
+                            popover_message={localize('Click here to start building your Binaryfx Bot.')}
                             button_id='db-toolbar__get-started-button'
                             button_classname='toolbar__btn toolbar__btn--icon toolbar__btn--start'
                             buttonOnClick={handleQuickStrategyOpen}
