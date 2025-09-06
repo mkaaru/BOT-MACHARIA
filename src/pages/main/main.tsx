@@ -25,6 +25,8 @@ import PercentageTool from '@/components/percentage-tool/percentage-tool';
 import VolatilityAnalyzer from '@/components/volatility-analyzer';
 import SmartTrader from '@/components/smart-trader';
 import MLTrader from '@/components/ml-trader';
+import TradingHubDisplay from '@/components/trading-hub/trading-hub-display';
+
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
@@ -1467,10 +1469,7 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <div style={{ padding: '20px', textAlign: 'center' }}>
-                                    <h2>Trading Hub</h2>
-                                    <p>This section is currently being updated.</p>
-                                </div>
+                                <TradingHubDisplay />
                             </div>
                         </div>
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
