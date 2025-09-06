@@ -198,6 +198,14 @@ const TradingHubDisplay: React.FC = () => {
             console.log(`Trade already in progress for ${strategy}, skipping new trade request`);
             return false;
         }
+
+        // Check if user is logged in first
+        if (!client?.loginid) {
+            console.error('User not logged in');
+            globalObserver.emit('ui.log.error', 'Please log in to start trading');
+            return false;
+        }
+
         setIsTradeInProgress(true);
 
         try {
@@ -205,12 +213,20 @@ const TradingHubDisplay: React.FC = () => {
             if (!api_base.api || api_base.api.connection?.readyState !== 1) {
                 console.log('API not connected, attempting to connect...');
                 await api_base.init();
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 2000));
             }
 
             if (!api_base.is_authorized) {
                 console.log('API not authorized, attempting authorization...');
-                await api_base.authorizeAndSubscribe();
+                try {
+                    await api_base.authorizeAndSubscribe();
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for authorization
+                } catch (authError) {
+                    console.error('Authorization failed:', authError);
+                    globalObserver.emit('ui.log.error', 'Failed to authorize trading session');
+                    return false;
+                }
+                
                 if (!api_base.is_authorized) {
                     throw new Error('Failed to authorize API');
                 }
@@ -218,178 +234,110 @@ const TradingHubDisplay: React.FC = () => {
 
             const currentStake = manageStake('get');
 
+            let contract_type = 'DIGITDIFF';
+            if (direction === 'over') {
+                contract_type = 'DIGITOVER';
+            } else if (direction === 'under') {
+                contract_type = 'DIGITUNDER';
+            }
+
             const tradePayload: any = {
                 buy: 1,
                 price: parseFloat(currentStake),
                 parameters: {
-                    contract_type: direction === 'over' ? 'DIGITOVER' : direction === 'under' ? 'DIGITUNDER' : 'DIGITDIFF',
+                    contract_type: contract_type,
                     symbol: symbol,
                     duration: 1,
                     duration_unit: 't'
                 }
             };
 
-            if (barrier) {
+            if (barrier && (direction === 'over' || direction === 'under')) {
                 tradePayload.parameters.barrier = barrier;
             }
 
-            console.log(`Executing ${strategy} trade with payload:`, tradePayload);
-            globalObserver.emit('ui.log.info', `Attempting ${strategy} trade on ${symbol} with stake ${currentStake}`);
+            console.log(`Executing ${strategy} trade with payload:`, JSON.stringify(tradePayload, null, 2));
+            globalObserver.emit('ui.log.info', `Attempting ${strategy} trade: ${contract_type} on ${symbol} with stake ${currentStake}${barrier ? ` and barrier ${barrier}` : ''}`);
 
             const response = await api_base.api.send(tradePayload);
+            console.log('Trade response received:', response);
 
             if (response.error) {
-                console.error('Trade execution failed:', response);
-                console.error('Error details:', response.error);
+                console.error('Trade execution failed:', response.error);
                 globalObserver.emit('ui.log.error', `Trade failed: ${response.error.message || 'Unknown error'}`);
                 setTradeResult({
                     success: false,
                     message: `Trade failed: ${response.error.message || 'Unknown error'}`,
                     contractId: null
                 });
-                updateTradeStats(false); // Mark as loss on API error
+                updateTradeStats(false);
                 return false;
-            } else {
-                console.log('Trade executed successfully:', response);
-                const buy = response.buy;
+            } 
 
-                if (!buy || !buy.contract_id) {
-                    console.error('Invalid buy response:', buy);
-                    globalObserver.emit('ui.log.error', 'Trade execution failed: Invalid response from server');
-                    setTradeResult({
-                        success: false,
-                        message: 'Trade execution failed: Invalid response',
-                        contractId: null
-                    });
-                    updateTradeStats(false); // Mark as loss if contract ID is missing
-                    return false;
-                }
-
-                setLastTradeId(buy.contract_id);
-                globalObserver.emit('ui.log.success', `Trade executed successfully! Contract ID: ${buy.contract_id}`);
+            if (response.buy && response.buy.contract_id) {
+                const contractId = response.buy.contract_id;
+                setLastTradeId(contractId);
+                setTradeCount(prev => prev + 1);
+                
+                console.log('Trade executed successfully:', response.buy);
+                globalObserver.emit('ui.log.success', `Trade executed! Contract ID: ${contractId}, Stake: ${currentStake}`);
+                
                 setTradeResult({
                     success: true,
                     message: 'Trade executed successfully',
-                    contractId: buy.contract_id || null
+                    contractId: contractId
                 });
                 
-                // Don't mark as win immediately - wait for contract result
-                // updateTradeStats(true); 
                 return true;
+            } else {
+                console.error('Invalid buy response - missing contract_id:', response);
+                globalObserver.emit('ui.log.error', 'Trade execution failed: Invalid response from server');
+                setTradeResult({
+                    success: false,
+                    message: 'Trade execution failed: Invalid response',
+                    contractId: null
+                });
+                updateTradeStats(false);
+                return false;
             }
 
         } catch (error) {
-            console.error('Trade execution failed:', error);
+            console.error('Trade execution failed with error:', error);
             globalObserver.emit('ui.log.error', `Trade execution error: ${error.message || 'Unknown error'}`);
             setTradeResult({
                 success: false,
-                message: `An unexpected error occurred: ${error.message || 'Unknown error'}`,
+                message: `Trade execution error: ${error.message || 'Unknown error'}`,
                 contractId: null
             });
-            updateTradeStats(false); // Mark as loss on catch error
+            updateTradeStats(false);
             return false;
         } finally {
             setIsTradeInProgress(false);
-            lastTradeTime.current = Date.now(); // Record the time of the trade attempt
+            lastTradeTime.current = Date.now();
         }
     };
 
     const executeDigitDifferTrade = async () => {
-        if (isTradeInProgress) {
-            console.log('Trade already in progress, skipping new trade request');
-            return;
-        }
-
-        // Initialize API if needed
-        if (!api_base.api || api_base.api.connection?.readyState !== 1) {
-            console.log('Initializing API connection...');
-            await api_base.init();
-            // Wait a moment for connection to establish
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-
-        // Validate API connection
-        if (!api_base || !api_base.api || !api_base.api.send) {
-            console.error('API not available for trading');
-            globalObserver.emit('ui.log.error', 'API connection not available');
-            return;
-        }
-
-        // Check if user is logged in
-        if (!client?.loginid) {
-            console.error('User not logged in');
-            globalObserver.emit('ui.log.error', 'Please log in to start trading');
-            return;
-        }
-
-        // Check if API is authorized
-        if (!api_base.is_authorized) {
-            console.log('API not authorized, attempting authorization...');
-            await api_base.authorizeAndSubscribe();
-            if (!api_base.is_authorized) {
-                console.error('Failed to authorize API');
-                globalObserver.emit('ui.log.error', 'API authorization failed');
-                return;
-            }
-        }
-
         if (!recommendation) {
             console.warn('No recommendation available for Auto Differ trade.');
-            return;
+            return false;
         }
 
-        const success = await executeTrade('Differ', recommendation.symbol, 'differ');
-        if (success) {
-            console.log('Auto Differ trade executed');
-        }
+        console.log('Executing Differ trade with recommendation:', recommendation);
+        
+        return await executeTrade('Auto Differ', recommendation.symbol, 'differ');
     };
 
     const executeDigitOverTrade = async () => {
-        if (isTradeInProgress) {
-            console.log('Trade already in progress, skipping new trade request');
-            return;
-        }
-
-        // Initialize API if needed
-        if (!api_base.api || api_base.api.connection?.readyState !== 1) {
-            console.log('Initializing API connection...');
-            await api_base.init();
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-
-        // Validate API connection
-        if (!api_base || !api_base.api || !api_base.api.send) {
-            console.error('API not available for trading');
-            globalObserver.emit('ui.log.error', 'API connection not available');
-            return;
-        }
-
-        // Check if user is logged in
-        if (!client?.loginid) {
-            console.error('User not logged in');
-            globalObserver.emit('ui.log.error', 'Please log in to start trading');
-            return;
-        }
-
-        // Check if API is authorized
-        if (!api_base.is_authorized) {
-            console.log('API not authorized, attempting authorization...');
-            await api_base.authorizeAndSubscribe();
-            if (!api_base.is_authorized) {
-                console.error('Failed to authorize API');
-                globalObserver.emit('ui.log.error', 'API authorization failed');
-                return;
-            }
-        }
-
         if (!recommendation) {
             console.warn('No recommendation available for Auto Over/Under trade.');
-            return;
+            return false;
         }
 
         console.log('Executing Over/Under trade with recommendation:', recommendation);
-        await executeTrade(
-            'auto_over_under',
+        
+        return await executeTrade(
+            'Auto Over/Under',
             recommendation.symbol,
             recommendation.strategy,
             recommendation.barrier
@@ -397,56 +345,24 @@ const TradingHubDisplay: React.FC = () => {
     };
 
     const executeO5U4Trade = async () => {
-        if (isTradeInProgress) {
-            console.log('O5U4: Trade already in progress, skipping new trade request');
-            return;
-        }
-
         // Check if O5U4 contracts are already active
         if (o5u4ActiveContracts.current.over5ContractId || o5u4ActiveContracts.current.under4ContractId) {
             console.log('O5U4: Contracts already active, skipping new trade request');
-            return;
+            return false;
         }
 
-        // Initialize API if needed
-        if (!api_base.api || api_base.api.connection?.readyState !== 1) {
-            console.log('Initializing API connection...');
-            await api_base.init();
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+        console.log('Executing O5U4 dual trades on R_100');
+        
+        // Execute both Over 5 and Under 4 trades
+        const over5Success = await executeTrade('O5U4 Over', 'R_100', 'over', '5');
+        const under4Success = await executeTrade('O5U4 Under', 'R_100', 'under', '4');
 
-        // Validate API connection
-        if (!api_base || !api_base.api || !api_base.api.send) {
-            console.error('API not available for trading');
-            globalObserver.emit('ui.log.error', 'API connection not available');
-            return;
+        const success = over5Success || under4Success;
+        if (success) {
+            console.log('O5U4 trades executed:', { over5Success, under4Success });
         }
-
-        // Check if user is logged in
-        if (!client?.loginid) {
-            console.error('User not logged in');
-            globalObserver.emit('ui.log.error', 'Please log in to start trading');
-            return;
-        }
-
-        // Check if API is authorized
-        if (!api_base.is_authorized) {
-            console.log('API not authorized, attempting authorization...');
-            await api_base.authorizeAndSubscribe();
-            if (!api_base.is_authorized) {
-                console.error('Failed to authorize API');
-                globalObserver.emit('ui.log.error', 'API authorization failed');
-                return;
-            }
-        }
-
-        // Execute both Over 5 and Under 4 trades simultaneously
-        const over5Success = await executeTrade('O5U4', 'R_100', 'over', '5');
-        const under4Success = await executeTrade('O5U4', 'R_100', 'under', '4');
-
-        if (over5Success || under4Success) {
-            console.log('O5U4 dual trades executed');
-        }
+        
+        return success;
     };
 
     const toggleStrategy = (strategy: string) => {
@@ -544,36 +460,63 @@ const TradingHubDisplay: React.FC = () => {
     };
 
     useEffect(() => {
-        if (isContinuousTrading && isAnalysisReady) {
-            const intervalTime = 5000; // 5 seconds
+        if (isContinuousTrading && isAnalysisReady && (isAutoDifferActive || isAutoOverUnderActive || isAutoO5U4Active)) {
+            const intervalTime = 8000; // 8 seconds - increased for better stability
 
+            console.log('Starting continuous trading interval...');
+            
             tradingIntervalRef.current = setInterval(async () => {
                 const now = Date.now();
                 const timeSinceLastTrade = now - lastTradeTime.current;
 
-                if (isTradeInProgress || timeSinceLastTrade < minimumTradeCooldown) {
-                    console.log('Skipping trade - either in progress or cooling down');
+                // Check cooldown and trade progress
+                if (isTradeInProgress) {
+                    console.log('Skipping trade - trade in progress');
                     return;
                 }
 
-                console.log('Attempting to execute trade...');
-                setTradeCount(prev => prev + 1);
+                if (timeSinceLastTrade < minimumTradeCooldown) {
+                    console.log(`Skipping trade - cooling down (${minimumTradeCooldown - timeSinceLastTrade}ms remaining)`);
+                    return;
+                }
+
+                // Check if we have a valid recommendation for strategies that need it
+                if ((isAutoDifferActive || isAutoOverUnderActive) && !recommendation) {
+                    console.log('Skipping trade - no recommendation available');
+                    return;
+                }
+
+                console.log('Executing scheduled trade...');
 
                 try {
-                    if (isAutoDifferActive) {
-                        await executeDigitDifferTrade();
-                    } else if (isAutoOverUnderActive) {
-                        await executeDigitOverTrade();
+                    let success = false;
+                    
+                    if (isAutoDifferActive && recommendation) {
+                        console.log('Executing Auto Differ trade');
+                        success = await executeDigitDifferTrade();
+                    } else if (isAutoOverUnderActive && recommendation) {
+                        console.log('Executing Auto Over/Under trade');
+                        success = await executeDigitOverTrade();
                     } else if (isAutoO5U4Active) {
-                        await executeO5U4Trade();
+                        console.log('Executing Auto O5U4 trade');
+                        success = await executeO5U4Trade();
+                    }
+
+                    if (success) {
+                        console.log('Trade executed successfully');
+                    } else {
+                        console.log('Trade execution failed');
                     }
                 } catch (error) {
-                    console.error('Error executing trade:', error);
-                    globalObserver.emit('ui.log.error', `Trade execution error: ${error.message}`);
+                    console.error('Error in trading interval:', error);
+                    globalObserver.emit('ui.log.error', `Trading interval error: ${error.message}`);
                 }
             }, intervalTime);
+
+            console.log('Continuous trading started with interval:', intervalTime);
         } else {
             if (tradingIntervalRef.current) {
+                console.log('Stopping continuous trading interval');
                 clearInterval(tradingIntervalRef.current);
                 tradingIntervalRef.current = null;
             }
@@ -582,6 +525,7 @@ const TradingHubDisplay: React.FC = () => {
         return () => {
             if (tradingIntervalRef.current) {
                 clearInterval(tradingIntervalRef.current);
+                tradingIntervalRef.current = null;
             }
         };
     }, [isContinuousTrading, isAnalysisReady, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active, recommendation]);
