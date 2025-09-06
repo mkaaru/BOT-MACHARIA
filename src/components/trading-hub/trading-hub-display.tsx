@@ -1,10 +1,10 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import './trading-hub-display.scss';
 import { api_base } from '../../external/bot-skeleton/services/api/api-base';
 import { doUntilDone } from '../../external/bot-skeleton/services/tradeEngine/utils/helpers';
 import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
 import { useStore } from '@/hooks/useStore';
-import useThemeSwitcher from '@/hooks/useThemeSwitcher';
 import marketAnalyzer, { TradeRecommendation } from '../../services/market-analyzer';
 
 const TradingHubDisplay: React.FC = () => {
@@ -48,19 +48,7 @@ const TradingHubDisplay: React.FC = () => {
         contractId: null,
     });
 
-    // Refs for tracking active contracts for O5U4 strategy
-    const o5u4ActiveContracts = useRef<{ over5ContractId: string | null; under4ContractId: string | null }>({
-        over5ContractId: null,
-        under4ContractId: null,
-    });
-
-    // Refs for stake and loss tracking
-    const currentStakeRef = useRef(MINIMUM_STAKE);
-    const currentConsecutiveLossesRef = useRef(0);
-    const contractSettledTimeRef = useRef(0);
-    const waitingForSettlementRef = useRef(false);
-
-    // State for connection status and authorization
+    // Connection status
     const [connectionStatus, setConnectionStatus] = useState('disconnected');
     const [isApiAuthorized, setIsApiAuthorized] = useState(false);
 
@@ -68,6 +56,7 @@ const TradingHubDisplay: React.FC = () => {
 
     const availableSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'RDBEAR', 'RDBULL', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V'];
 
+    // Stake management system
     const manageStake = (action: 'init' | 'reset' | 'martingale' | 'update' | 'get', params?: { newValue?: string; lossCount?: number }): string => {
         switch (action) {
             case 'init':
@@ -115,25 +104,46 @@ const TradingHubDisplay: React.FC = () => {
         return appliedStake;
     };
 
+    // Trade statistics tracking
     const updateTradeStats = (win: boolean) => {
         if (win) {
             setWinCount(prev => prev + 1);
             setLastTradeResult('WIN');
             setConsecutiveLosses(0);
-            manageStake('reset'); // Reset stake after a win
+            manageStake('reset');
         } else {
             setLossCount(prev => prev + 1);
             setLastTradeResult('LOSS');
-            manageStake('martingale'); // Apply martingale after a loss
+            manageStake('martingale');
         }
     };
 
+    // Initialize and monitor API connection
     useEffect(() => {
+        const initializeApi = async () => {
+            try {
+                if (!api_base.api || api_base.api.connection?.readyState !== 1) {
+                    await api_base.init();
+                }
+                
+                // Check authorization
+                if (client?.loginid && !api_base.is_authorized) {
+                    await api_base.authorizeAndSubscribe();
+                }
+            } catch (error) {
+                console.error('Failed to initialize API:', error);
+            }
+        };
+
+        initializeApi();
+
+        // Load saved settings
         try {
             const savedStake = localStorage.getItem('tradingHub_initialStake');
             if (savedStake) {
                 setInitialStake(savedStake);
                 setStake(savedStake);
+                setAppliedStake(savedStake);
             }
 
             const savedMartingale = localStorage.getItem('tradingHub_martingale');
@@ -145,13 +155,16 @@ const TradingHubDisplay: React.FC = () => {
         }
     }, [client?.loginid]);
 
+    // Initialize market analyzer and trading session
     useEffect(() => {
         const session_id = `tradingHub_${Date.now()}`;
         setSessionRunId(session_id);
         globalObserver.emit('bot.started', session_id);
 
+        // Start market analysis
         marketAnalyzer.start();
 
+        // Check analysis readiness
         analysisReadinessInterval.current = setInterval(() => {
             if (marketAnalyzer.isReadyForTrading()) {
                 setIsAnalysisReady(true);
@@ -161,18 +174,19 @@ const TradingHubDisplay: React.FC = () => {
             }
         }, 500);
 
+        // Update analysis info
         analysisInfoInterval.current = setInterval(() => {
             const info = marketAnalyzer.getAnalyticsInfo();
             setAnalysisCount(info.analysisCount);
             setLastAnalysisTime(info.lastAnalysisTime ? new Date(info.lastAnalysisTime).toLocaleTimeString() : '');
         }, 1000);
 
+        // Subscribe to market analysis
         const unsubscribe = marketAnalyzer.onAnalysis((newRecommendation, allStats) => {
             setRecommendation(newRecommendation);
             setMarketStats(allStats);
 
             if (isContinuousTrading && isAutoOverUnderActive && newRecommendation) {
-                setCurrentStrategy(newRecommendation.strategy);
                 setCurrentSymbol(newRecommendation.symbol);
             }
         });
@@ -193,13 +207,36 @@ const TradingHubDisplay: React.FC = () => {
         };
     }, []);
 
+    // Monitor connection status
+    useEffect(() => {
+        const checkConnectionStatus = () => {
+            if (api_base?.api?.connection) {
+                const readyState = api_base.api.connection.readyState;
+                if (readyState === 1) {
+                    setConnectionStatus('connected');
+                } else if (readyState === 0) {
+                    setConnectionStatus('connecting');
+                } else {
+                    setConnectionStatus('disconnected');
+                }
+            } else {
+                setConnectionStatus('disconnected');
+            }
+            setIsApiAuthorized(api_base?.is_authorized || false);
+        };
+
+        checkConnectionStatus();
+        const interval = setInterval(checkConnectionStatus, 2000);
+        return () => clearInterval(interval);
+    }, []);
+
+    // Execute trade function
     const executeTrade = async (strategy: string, symbol: string, direction: string, barrier?: string): Promise<boolean> => {
         if (isTradeInProgress) {
             console.log(`Trade already in progress for ${strategy}, skipping new trade request`);
             return false;
         }
 
-        // Check if user is logged in first
         if (!client?.loginid) {
             console.error('User not logged in');
             globalObserver.emit('ui.log.error', 'Please log in to start trading');
@@ -209,18 +246,19 @@ const TradingHubDisplay: React.FC = () => {
         setIsTradeInProgress(true);
 
         try {
-            // Ensure API is connected and authorized
+            // Ensure API connection
             if (!api_base.api || api_base.api.connection?.readyState !== 1) {
                 console.log('API not connected, attempting to connect...');
                 await api_base.init();
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
 
+            // Ensure authorization
             if (!api_base.is_authorized) {
                 console.log('API not authorized, attempting authorization...');
                 try {
                     await api_base.authorizeAndSubscribe();
-                    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for authorization
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 } catch (authError) {
                     console.error('Authorization failed:', authError);
                     globalObserver.emit('ui.log.error', 'Failed to authorize trading session');
@@ -234,6 +272,7 @@ const TradingHubDisplay: React.FC = () => {
 
             const currentStake = manageStake('get');
 
+            // Determine contract type
             let contract_type = 'DIGITDIFF';
             if (direction === 'over') {
                 contract_type = 'DIGITOVER';
@@ -241,6 +280,7 @@ const TradingHubDisplay: React.FC = () => {
                 contract_type = 'DIGITUNDER';
             }
 
+            // Prepare trade payload
             const tradePayload: any = {
                 buy: 1,
                 price: parseFloat(currentStake),
@@ -256,11 +296,12 @@ const TradingHubDisplay: React.FC = () => {
                 tradePayload.parameters.barrier = barrier;
             }
 
-            console.log(`Executing ${strategy} trade with payload:`, JSON.stringify(tradePayload, null, 2));
+            console.log(`Executing ${strategy} trade:`, JSON.stringify(tradePayload, null, 2));
             globalObserver.emit('ui.log.info', `Attempting ${strategy} trade: ${contract_type} on ${symbol} with stake ${currentStake}${barrier ? ` and barrier ${barrier}` : ''}`);
 
+            // Send trade request
             const response = await api_base.api.send(tradePayload);
-            console.log('Trade response received:', response);
+            console.log('Trade response:', response);
 
             if (response.error) {
                 console.error('Trade execution failed:', response.error);
@@ -272,7 +313,7 @@ const TradingHubDisplay: React.FC = () => {
                 });
                 updateTradeStats(false);
                 return false;
-            } 
+            }
 
             if (response.buy && response.buy.contract_id) {
                 const contractId = response.buy.contract_id;
@@ -287,6 +328,17 @@ const TradingHubDisplay: React.FC = () => {
                     message: 'Trade executed successfully',
                     contractId: contractId
                 });
+
+                // Subscribe to contract updates for result tracking
+                try {
+                    await api_base.api.send({
+                        proposal_open_contract: 1,
+                        contract_id: contractId,
+                        subscribe: 1
+                    });
+                } catch (subscribeError) {
+                    console.warn('Failed to subscribe to contract updates:', subscribeError);
+                }
                 
                 return true;
             } else {
@@ -317,6 +369,7 @@ const TradingHubDisplay: React.FC = () => {
         }
     };
 
+    // Strategy execution functions
     const executeDigitDifferTrade = async () => {
         if (!recommendation) {
             console.warn('No recommendation available for Auto Differ trade.');
@@ -324,7 +377,6 @@ const TradingHubDisplay: React.FC = () => {
         }
 
         console.log('Executing Differ trade with recommendation:', recommendation);
-        
         return await executeTrade('Auto Differ', recommendation.symbol, 'differ');
     };
 
@@ -335,7 +387,6 @@ const TradingHubDisplay: React.FC = () => {
         }
 
         console.log('Executing Over/Under trade with recommendation:', recommendation);
-        
         return await executeTrade(
             'Auto Over/Under',
             recommendation.symbol,
@@ -345,16 +396,10 @@ const TradingHubDisplay: React.FC = () => {
     };
 
     const executeO5U4Trade = async () => {
-        // Check if O5U4 contracts are already active
-        if (o5u4ActiveContracts.current.over5ContractId || o5u4ActiveContracts.current.under4ContractId) {
-            console.log('O5U4: Contracts already active, skipping new trade request');
-            return false;
-        }
-
         console.log('Executing O5U4 dual trades on R_100');
         
-        // Execute both Over 5 and Under 4 trades
         const over5Success = await executeTrade('O5U4 Over', 'R_100', 'over', '5');
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Small delay between trades
         const under4Success = await executeTrade('O5U4 Under', 'R_100', 'under', '4');
 
         const success = over5Success || under4Success;
@@ -365,6 +410,7 @@ const TradingHubDisplay: React.FC = () => {
         return success;
     };
 
+    // Strategy toggle functions
     const toggleStrategy = (strategy: string) => {
         switch (strategy) {
             case 'differ':
@@ -391,23 +437,19 @@ const TradingHubDisplay: React.FC = () => {
         }
     };
 
-    const prepareRunPanelForTradingHub = () => {
-        run_panel.setIsRunning(true);
-    };
-
+    // Trading control functions
     const startTrading = async () => {
-        // Validate connection before starting
         if (!client?.loginid) {
             globalObserver.emit('ui.log.error', 'Please log in before starting trading');
             return;
         }
 
-        // Ensure API is initialized and connected
+        // Ensure API is initialized
         if (!api_base.api || api_base.api.connection?.readyState !== 1) {
             console.log('Initializing API connection before trading...');
             try {
                 await api_base.init();
-                await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for connection
+                await new Promise(resolve => setTimeout(resolve, 2000));
             } catch (error) {
                 console.error('Failed to initialize API:', error);
                 globalObserver.emit('ui.log.error', 'Failed to connect to trading server');
@@ -426,18 +468,16 @@ const TradingHubDisplay: React.FC = () => {
             }
         }
 
-        prepareRunPanelForTradingHub();
+        run_panel.setIsRunning(true);
         setIsContinuousTrading(true);
 
         const persistedStake = localStorage.getItem('tradingHub_initialStake') || initialStake;
         console.log(`Starting trading with persisted stake: ${persistedStake}`);
 
         setAppliedStake(persistedStake);
-        currentStakeRef.current = persistedStake;
         setConsecutiveLosses(0);
-        currentConsecutiveLossesRef.current = 0;
-        contractSettledTimeRef.current = 0;
-        waitingForSettlementRef.current = false;
+
+        globalObserver.emit('ui.log.success', 'Trading Hub started successfully');
     };
 
     const stopTrading = () => {
@@ -449,6 +489,7 @@ const TradingHubDisplay: React.FC = () => {
             clearInterval(tradingIntervalRef.current);
             tradingIntervalRef.current = null;
         }
+        globalObserver.emit('ui.log.info', 'Trading Hub stopped');
     };
 
     const toggleContinuousTrading = () => {
@@ -459,9 +500,10 @@ const TradingHubDisplay: React.FC = () => {
         }
     };
 
+    // Continuous trading loop
     useEffect(() => {
         if (isContinuousTrading && isAnalysisReady && (isAutoDifferActive || isAutoOverUnderActive || isAutoO5U4Active)) {
-            const intervalTime = 8000; // 8 seconds - increased for better stability
+            const intervalTime = 8000; // 8 seconds
 
             console.log('Starting continuous trading interval...');
             
@@ -530,29 +572,6 @@ const TradingHubDisplay: React.FC = () => {
         };
     }, [isContinuousTrading, isAnalysisReady, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active, recommendation]);
 
-    // Monitor connection status
-    useEffect(() => {
-        const checkConnectionStatus = () => {
-            if (api_base?.api?.connection) {
-                const readyState = api_base.api.connection.readyState;
-                if (readyState === 1) {
-                    setConnectionStatus('connected');
-                } else if (readyState === 0) {
-                    setConnectionStatus('connecting');
-                } else {
-                    setConnectionStatus('disconnected');
-                }
-            } else {
-                setConnectionStatus('disconnected');
-            }
-            setIsApiAuthorized(api_base?.is_authorized || false);
-        };
-
-        checkConnectionStatus();
-        const interval = setInterval(checkConnectionStatus, 2000);
-        return () => clearInterval(interval);
-    }, []);
-
     return (
         <div className="trading-hub-modern">
             <div className="hub-header">
@@ -588,7 +607,10 @@ const TradingHubDisplay: React.FC = () => {
                             <input
                                 type="number"
                                 value={martingale}
-                                onChange={(e) => setMartingale(e.target.value)}
+                                onChange={(e) => {
+                                    setMartingale(e.target.value);
+                                    localStorage.setItem('tradingHub_martingale', e.target.value);
+                                }}
                                 className="compact-input"
                                 step="0.1"
                                 min="1"
@@ -610,15 +632,12 @@ const TradingHubDisplay: React.FC = () => {
                         Last Update: {lastAnalysisTime || 'N/A'}
                     </div>
                     <div className="status-separator"></div>
-                    {/* Status Bar */}
-                    <div className='status-bar'>
-                        <div className='status-item'>
-                            <div className={`status-dot ${connectionStatus === 'connected' ? 'connected' : connectionStatus === 'connecting' ? 'connecting' : 'disconnected'}`}></div>
-                            <span>
-                                {connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-                                {connectionStatus === 'connected' && !isApiAuthorized && ' (Not Authorized)'}
-                            </span>
-                        </div>
+                    <div className="status-item">
+                        <div className={`status-dot ${connectionStatus === 'connected' ? 'connected' : connectionStatus === 'connecting' ? 'connecting' : 'disconnected'}`}></div>
+                        <span>
+                            {connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
+                            {connectionStatus === 'connected' && !isApiAuthorized && ' (Not Authorized)'}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -787,15 +806,14 @@ const TradingHubDisplay: React.FC = () => {
                             </div>
                             <span>
                                 {isContinuousTrading ? 'Stop Trading' : 'Start Trading'}
-                                {isTradeInProgress && (
-                                    <div className="trade-lock">
-                                        <span className="lock-icon">🔒</span>
-                                        <span>Trade in progress...</span>
-                                    </div>
-                                )}
                             </span>
                         </div>
-                        <div className="btn-glow"></div>
+                        {isTradeInProgress && (
+                            <div className="trade-progress">
+                                <div className="progress-spinner"></div>
+                                <span>Trade in progress...</span>
+                            </div>
+                        )}
                     </button>
                 </div>
 
