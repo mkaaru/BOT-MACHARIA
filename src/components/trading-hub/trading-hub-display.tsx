@@ -194,11 +194,13 @@ const TradingHubDisplay: React.FC = () => {
                         // Add transaction to run panel transactions store with proper contract format
                         if (run_panel?.root_store?.transactions) {
                             try {
+                                const profitPercentage = buyPrice > 0 ? ((profit / buyPrice) * 100).toFixed(2) : '0.00';
+                                
                                 const formattedTransaction = {
-                                    contract_id: contractId,
+                                    contract_id: parseInt(contractId.toString()),
                                     transaction_ids: {
-                                        buy: parseInt(contractId),
-                                        sell: contractData.transaction_ids?.sell || parseInt(contractId) + 1
+                                        buy: parseInt(contractId.toString()),
+                                        sell: contractData.transaction_ids?.sell || parseInt(contractId.toString()) + 1
                                     },
                                     buy_price: buyPrice,
                                     sell_price: sellPrice,
@@ -208,20 +210,27 @@ const TradingHubDisplay: React.FC = () => {
                                     underlying: symbol || 'R_100',
                                     shortcode: `${contractType}_${symbol}_${Date.now()}`,
                                     display_name: `${contractType} on ${symbol}`,
-                                    date_start: new Date().toISOString(),
-                                    entry_tick_display_value: contractData.entry_tick || 0,
-                                    exit_tick_display_value: contractData.exit_tick || 0,
-                                    entry_tick_time: contractData.entry_tick_time || new Date().toISOString(),
-                                    exit_tick_time: new Date().toISOString(),
-                                    barrier: barrier || '',
-                                    tick_count: 1,
-                                    payout: sellPrice || 0,
+                                    date_start: contractData.date_start || new Date().toISOString(),
+                                    entry_tick_display_value: contractData.entry_tick || contractData.entry_spot || 0,
+                                    exit_tick_display_value: contractData.exit_tick || contractData.exit_spot || 0,
+                                    entry_tick_time: contractData.entry_tick_time || contractData.date_start || new Date().toISOString(),
+                                    exit_tick_time: contractData.exit_tick_time || new Date().toISOString(),
+                                    barrier: contractData.barrier || '',
+                                    tick_count: contractData.tick_count || 1,
+                                    payout: contractData.payout || sellPrice || 0,
                                     is_completed: true,
-                                    is_sold: true
+                                    is_sold: true,
+                                    profit_percentage: profitPercentage,
+                                    status: isWin ? 'won' : 'lost'
                                 };
 
                                 run_panel.root_store.transactions.onBotContractEvent(formattedTransaction);
-                                console.log('Transaction added to run panel:', formattedTransaction);
+                                console.log('Transaction added to run panel:', {
+                                    contract_id: contractId,
+                                    profit: profit,
+                                    status: isWin ? 'WON' : 'LOST',
+                                    profit_percentage: profitPercentage + '%'
+                                });
                             } catch (error) {
                                 console.error('Failed to add transaction to run panel:', error);
                             }
@@ -254,28 +263,115 @@ const TradingHubDisplay: React.FC = () => {
                 }
             });
 
-            // Send subscription request
-            api_base.api?.send({
-                proposal_open_contract: 1,
-                contract_id: contractId,
-                subscribe: 1
+            // Send subscription request and also get immediate status
+            Promise.all([
+                api_base.api?.send({
+                    proposal_open_contract: 1,
+                    contract_id: contractId,
+                    subscribe: 1
+                }),
+                // Also request immediate contract status
+                api_base.api?.send({
+                    proposal_open_contract: 1,
+                    contract_id: contractId
+                })
+            ]).then(([subscriptionResponse, immediateResponse]) => {
+                // Check if contract is already settled in immediate response
+                if (immediateResponse?.proposal_open_contract?.is_settled) {
+                    const immediateContract = immediateResponse.proposal_open_contract;
+                    console.log('Contract already settled on immediate check:', immediateContract);
+                    // Process the already settled contract
+                    setTimeout(() => {
+                        if (subscription) subscription.unsubscribe();
+                    }, 100);
+                }
+            }).catch(error => {
+                console.error('Error in contract monitoring setup:', error);
             });
 
-            // Enhanced timeout handling
+            // Enhanced timeout handling with forced settlement
             setTimeout(() => {
                 subscription?.unsubscribe();
+                
+                // Force settlement after timeout
+                if (contractData && !contractData.is_settled) {
+                    // Create a mock settlement for timeout cases
+                    const forcedSettlement = {
+                        ...contractData,
+                        is_settled: true,
+                        status: 'lost', // Assume loss on timeout
+                        profit: -(contractData.buy_price || stake || 0),
+                        sell_price: 0
+                    };
+                    
+                    const profit = forcedSettlement.profit;
+                    const sellPrice = forcedSettlement.sell_price;
+                    const buyPrice = forcedSettlement.buy_price || stake || 0;
+                    const isWin = false; // Timeout = loss
+                    
+                    // Create transaction entry for timeout case
+                    const transactionData = {
+                        contract_id: contractId,
+                        reference: contractId,
+                        timestamp: new Date().toISOString(),
+                        market: symbol || 'R_100',
+                        contract_type: contractType || 'DIGITOVER',
+                        entry_tick: forcedSettlement.entry_tick || 0,
+                        exit_tick: forcedSettlement.exit_tick || 0,
+                        buy_price: buyPrice,
+                        sell_price: sellPrice,
+                        profit: profit,
+                        result: 'timeout_loss',
+                        duration: 1,
+                        is_sold: true,
+                        currency: client?.currency || 'USD'
+                    };
+
+                    // Add transaction to run panel for timeout case
+                    if (run_panel?.root_store?.transactions) {
+                        try {
+                            const formattedTransaction = {
+                                contract_id: parseInt(contractId.toString()),
+                                transaction_ids: {
+                                    buy: parseInt(contractId.toString()),
+                                    sell: parseInt(contractId.toString()) + 1
+                                },
+                                buy_price: buyPrice,
+                                sell_price: sellPrice,
+                                profit: profit,
+                                currency: client?.currency || 'USD',
+                                contract_type: contractType || 'DIGITOVER',
+                                underlying: symbol || 'R_100',
+                                shortcode: `${contractType}_${symbol}_TIMEOUT`,
+                                display_name: `${contractType} on ${symbol} (Timeout)`,
+                                date_start: new Date().toISOString(),
+                                entry_tick_display_value: forcedSettlement.entry_tick || 0,
+                                exit_tick_display_value: forcedSettlement.exit_tick || 0,
+                                entry_tick_time: new Date().toISOString(),
+                                exit_tick_time: new Date().toISOString(),
+                                barrier: '',
+                                tick_count: 1,
+                                payout: sellPrice || 0,
+                                is_completed: true,
+                                is_sold: true,
+                                profit_percentage: ((profit / buyPrice) * 100).toFixed(2)
+                            };
+
+                            run_panel.root_store.transactions.onBotContractEvent(formattedTransaction);
+                            console.log('Timeout transaction added:', formattedTransaction);
+                        } catch (error) {
+                            console.error('Failed to add timeout transaction:', error);
+                        }
+                    }
+                }
+                
                 if (!isO5U4Part) {
                     contractSettledTimeRef.current = Date.now();
                     waitingForSettlementRef.current = false;
-                    // Stop trading on timeout/failure for non-O5U4 trades
-                    setIsContinuousTrading(false);
-                    if (run_panel) {
-                        run_panel.setIsRunning(false);
-                    }
                 }
-                globalObserver.emit('ui.log.error', `Contract ${contractId} monitoring timeout`);
+                globalObserver.emit('ui.log.error', `Contract ${contractId} monitoring timeout - forcing settlement`);
                 resolve(false);
-            }, 120000); // 2 minute timeout
+            }, 60000); // Reduced to 1 minute timeout
         });
     }, [run_panel, client]);
 
@@ -889,7 +985,7 @@ const TradingHubDisplay: React.FC = () => {
     useEffect(() => {
         if (isContinuousTrading) {
             // Use a faster interval for more responsive trading
-            const intervalTime = isAutoO5U4Active ? 500 : 2000; // 500ms for O5U4, 2000ms for others
+            const intervalTime = isAutoO5U4Active ? 2000 : 3000; // 2s for O5U4, 3s for others
             
             tradingIntervalRef.current = setInterval(() => {
                 if (isTradeInProgress) {
