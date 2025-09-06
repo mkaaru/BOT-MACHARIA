@@ -135,19 +135,19 @@ const TradingHubDisplay: React.FC = () => {
         }
     }, [consecutiveLosses, initialStake, martingale]);
 
-    // Check O5U4 trading conditions
+    // Check O5U4 trading conditions - optimized for immediate execution
     const checkO5U4Conditions = useCallback((): boolean => {
         const now = Date.now();
         const timeSinceLastSettlement = now - contractSettledTimeRef.current;
-        const minimumWaitTime = 15000; // 15 seconds minimum between trades
+        const minimumWaitTime = 1000; // Reduced to 1 second between trades
 
         if (waitingForSettlementRef.current) {
             console.log('O5U4: Still waiting for contract settlement');
             return false;
         }
 
-        if (timeSinceLastSettlement < minimumWaitTime) {
-            console.log(`O5U4: Too soon since last trade (${timeSinceLastSettlement}ms < ${minimumWaitTime}ms)`);
+        if (timeSinceLastSettlement < minimumWaitTime && contractSettledTimeRef.current > 0) {
+            console.log(`O5U4: Brief cooldown active (${timeSinceLastSettlement}ms < ${minimumWaitTime}ms)`);
             return false;
         }
 
@@ -289,11 +289,11 @@ const TradingHubDisplay: React.FC = () => {
                 console.error('Error in contract monitoring setup:', error);
             });
 
-            // Enhanced timeout handling with forced settlement
+            // Optimized timeout handling for 3-second execution
             setTimeout(() => {
                 subscription?.unsubscribe();
                 
-                // Force settlement after timeout
+                // Force settlement after 3-second timeout
                 if (contractData && !contractData.is_settled) {
                     // Create a mock settlement for timeout cases
                     const forcedSettlement = {
@@ -371,7 +371,7 @@ const TradingHubDisplay: React.FC = () => {
                 }
                 globalObserver.emit('ui.log.error', `Contract ${contractId} monitoring timeout - forcing settlement`);
                 resolve(false);
-            }, 60000); // Reduced to 1 minute timeout
+            }, 3000); // 3-second timeout for immediate execution
         });
     }, [run_panel, client]);
 
@@ -796,7 +796,7 @@ const TradingHubDisplay: React.FC = () => {
                 
                 run_panel.summary_card_store.updateTradingHubStats(newStats);
                 
-                // Force balance refresh after O5U4 trade
+                // Immediate balance refresh and next trade preparation
                 setTimeout(async () => {
                     try {
                         const balanceResponse = await api_base.api?.send({ balance: 1 });
@@ -804,10 +804,17 @@ const TradingHubDisplay: React.FC = () => {
                             run_panel.summary_card_store.updateBalance(balanceResponse.balance.balance);
                             console.log('O5U4: Balance updated:', balanceResponse.balance.balance);
                         }
+                        
+                        // Mark as ready for immediate next trade
+                        contractSettledTimeRef.current = Date.now();
+                        waitingForSettlementRef.current = false;
+                        
+                        // Log completion and readiness for next trade
+                        globalObserver.emit('ui.log.success', 'O5U4: Trade completed, ready for immediate next execution');
                     } catch (error) {
                         console.error('O5U4: Failed to refresh balance:', error);
                     }
-                }, 2000);
+                }, 500); // Reduced to 0.5 seconds for immediate execution
             }
             
             return isOverallWin;
@@ -981,11 +988,11 @@ const TradingHubDisplay: React.FC = () => {
         return isContinuousTrading ? stopTrading() : startTrading();
     }, [isContinuousTrading, stopTrading, startTrading]);
 
-    // Continuous trading loop matching reference implementation
+    // Continuous trading loop optimized for immediate execution
     useEffect(() => {
         if (isContinuousTrading) {
-            // Use a faster interval for more responsive trading
-            const intervalTime = isAutoO5U4Active ? 2000 : 3000; // 2s for O5U4, 3s for others
+            // Faster intervals for immediate execution
+            const intervalTime = isAutoO5U4Active ? 500 : 2000; // 0.5s for O5U4, 2s for others
             
             tradingIntervalRef.current = setInterval(() => {
                 if (isTradeInProgress) {
@@ -1009,14 +1016,14 @@ const TradingHubDisplay: React.FC = () => {
 
                 const now = Date.now();
                 const timeSinceLastSettlement = now - contractSettledTimeRef.current;
-                const minimumCooldown = isAutoO5U4Active ? 15000 : 5000;
+                const minimumCooldown = isAutoO5U4Active ? 1000 : 3000; // Reduced cooldowns
 
                 if (timeSinceLastSettlement < minimumCooldown && contractSettledTimeRef.current > 0) {
-                    console.log(`Cooldown active: ${timeSinceLastSettlement}ms < ${minimumCooldown}ms`);
+                    console.log(`Brief cooldown active: ${timeSinceLastSettlement}ms < ${minimumCooldown}ms`);
                     return;
                 }
 
-                // Trading logic with checks
+                // Trading logic with immediate execution
                 if (isAutoDifferActive) {
                     executeDigitDifferTrade();
                 } else if (isAutoOverUnderActive) {
