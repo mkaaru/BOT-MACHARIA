@@ -1,3 +1,4 @@
+
 import { action, computed, makeObservable, observable, reaction, runInAction } from 'mobx';
 import {
     getIndicativePrice,
@@ -49,6 +50,17 @@ export default class SummaryCardStore {
     profit?: number = 0;
     indicative?: number = 0;
     is_bot_running?: boolean = false;
+    
+    // Trading Hub Integration
+    is_trading_hub_active = false;
+    trading_hub_stats = {
+        total_trades: 0,
+        wins: 0,
+        losses: 0,
+        profit_loss: 0,
+        current_strategy: '',
+        last_trade_result: ''
+    };
 
     constructor(root_store: RootStore, core: TStores) {
         makeObservable(this, {
@@ -66,6 +78,8 @@ export default class SummaryCardStore {
             contract_id: observable,
             profit: observable,
             indicative: observable,
+            is_trading_hub_active: observable,
+            trading_hub_stats: observable,
             is_contract_completed: computed,
             is_contract_loading: computed,
             is_contract_inactive: computed,
@@ -74,10 +88,13 @@ export default class SummaryCardStore {
             clearContractUpdateConfigValues: action.bound,
             getLimitOrder: action.bound,
             onBotContractEvent: action.bound,
+            onTradingHubContractEvent: action.bound,
             onChange: action.bound,
             populateContractUpdateConfig: action.bound,
             setContractUpdateConfig: action.bound,
             setIsBotRunning: action.bound,
+            setTradingHubActive: action.bound,
+            updateTradingHubStats: action.bound,
             updateLimitOrder: action.bound,
             setValidationErrorMessages: action,
             validateProperty: action,
@@ -186,6 +203,33 @@ export default class SummaryCardStore {
         this.contract_info = contract;
     }
 
+    onTradingHubContractEvent(contract: TContractInfo) {
+        // Handle trading hub specific contract events
+        const { profit } = contract;
+        const indicative = getIndicativePrice(contract as ProposalOpenContract);
+        
+        if (this.contract_id !== contract.id) {
+            this.clear(false);
+            this.contract_id = contract.id;
+            this.indicative = indicative;
+        }
+
+        this.profit = profit;
+        this.profit_loss = profit;
+        this.contract_info = contract;
+
+        // Update trading hub specific stats
+        if (contract.is_sold) {
+            this.updateTradingHubStats({
+                total_trades: this.trading_hub_stats.total_trades + 1,
+                wins: profit > 0 ? this.trading_hub_stats.wins + 1 : this.trading_hub_stats.wins,
+                losses: profit <= 0 ? this.trading_hub_stats.losses + 1 : this.trading_hub_stats.losses,
+                profit_loss: this.trading_hub_stats.profit_loss + profit,
+                last_trade_result: profit > 0 ? 'WIN' : 'LOSS'
+            });
+        }
+    }
+
     onChange({ name, value }: { name: TValidationRuleIndex; value: string | boolean }) {
         this[name] = value;
         this.validateProperty(name, value);
@@ -225,7 +269,32 @@ export default class SummaryCardStore {
                 this.is_bot_running = is_running;
             });
         }, 300);
-    };
+    }
+
+    /**
+     * Sets the trading hub active state
+     */
+    setTradingHubActive(is_active: boolean) {
+        this.is_trading_hub_active = is_active;
+        if (!is_active) {
+            // Reset stats when deactivating
+            this.trading_hub_stats = {
+                total_trades: 0,
+                wins: 0,
+                losses: 0,
+                profit_loss: 0,
+                current_strategy: '',
+                last_trade_result: ''
+            };
+        }
+    }
+
+    /**
+     * Updates trading hub statistics
+     */
+    updateTradingHubStats(stats: Partial<typeof this.trading_hub_stats>) {
+        Object.assign(this.trading_hub_stats, stats);
+    }
 
     updateLimitOrder() {
         const limit_order = this.getLimitOrder();

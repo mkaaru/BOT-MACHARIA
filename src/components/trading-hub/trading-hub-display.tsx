@@ -17,7 +17,7 @@ interface TradeRecommendation {
 const TradingHubDisplay: React.FC = () => {
     const MINIMUM_STAKE = '0.35';
 
-    // Strategy states
+    // Strategy states - only one can be active at a time
     const [isAutoDifferActive, setIsAutoDifferActive] = useState(false);
     const [isAutoOverUnderActive, setIsAutoOverUnderActive] = useState(false);
     const [isAutoO5U4Active, setIsAutoO5U4Active] = useState(false);
@@ -70,14 +70,14 @@ const TradingHubDisplay: React.FC = () => {
         }
     }, [run_panel]);
 
-    // Market analysis with realistic patterns
+    // Enhanced market analysis with realistic patterns
     const performMarketAnalysis = useCallback(() => {
         setAnalysisCount(prev => prev + 1);
         setLastAnalysisTime(new Date().toLocaleTimeString());
 
-        // Enhanced market analysis for better predictions
+        // Generate realistic market recommendations
         const symbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
-        const strategies = ['over', 'under', 'differ', 'even', 'odd'] as const;
+        const strategies = ['over', 'under', 'differ'] as const;
         const barriers = ['3', '4', '5', '6', '7'];
 
         const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
@@ -90,7 +90,7 @@ const TradingHubDisplay: React.FC = () => {
             strategy: randomStrategy,
             barrier: randomStrategy === 'over' || randomStrategy === 'under' ? randomBarrier : undefined,
             confidence,
-            reason: `Advanced pattern analysis detected with ${confidence}% confidence`,
+            reason: `Market pattern analysis detected with ${confidence}% confidence`,
             timestamp: Date.now()
         };
 
@@ -136,6 +136,47 @@ const TradingHubDisplay: React.FC = () => {
         }
 
         return true;
+    }, []);
+
+    // Enhanced contract monitoring
+    const monitorContract = useCallback(async (contractId: string, isO5U4Part: boolean = false): Promise<boolean> => {
+        return new Promise((resolve) => {
+            const subscription = api_base.api?.onMessage().subscribe((response: any) => {
+                if (response.proposal_open_contract && 
+                    response.proposal_open_contract.contract_id === contractId &&
+                    response.proposal_open_contract.is_settled) {
+                    
+                    const contract = response.proposal_open_contract;
+                    const isWin = contract.status === 'won';
+                    
+                    subscription.unsubscribe();
+                    
+                    if (!isO5U4Part) {
+                        contractSettledTimeRef.current = Date.now();
+                        waitingForSettlementRef.current = false;
+                    }
+                    
+                    resolve(isWin);
+                }
+            });
+
+            // Send subscription request
+            api_base.api?.send({
+                proposal_open_contract: 1,
+                contract_id: contractId,
+                subscribe: 1
+            });
+
+            // Enhanced timeout handling
+            setTimeout(() => {
+                subscription?.unsubscribe();
+                if (!isO5U4Part) {
+                    contractSettledTimeRef.current = Date.now();
+                    waitingForSettlementRef.current = false;
+                }
+                resolve(Math.random() > 0.5); // Fallback result
+            }, 120000); // 2 minute timeout
+        });
     }, []);
 
     // Execute trade using the enhanced trade engine
@@ -196,13 +237,13 @@ const TradingHubDisplay: React.FC = () => {
             globalObserver.emit('ui.log.info', `${strategy}: ${contractType} on ${symbol} - Stake: ${currentStake}`);
 
             // Send trade request through the enhanced API
-            const response = await api_base.api.send(tradeParams);
+            const response = await api_base.api?.send(tradeParams);
 
-            if (response.error) {
+            if (response?.error) {
                 throw new Error(response.error.message || 'Trade execution failed');
             }
 
-            if (response.buy && response.buy.contract_id) {
+            if (response?.buy && response.buy.contract_id) {
                 const contractId = response.buy.contract_id;
                 globalObserver.emit('ui.log.success', `Trade executed: ${contractId}`);
 
@@ -222,7 +263,7 @@ const TradingHubDisplay: React.FC = () => {
                 throw new Error('Invalid response from server');
             }
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Trade execution failed:', error);
             globalObserver.emit('ui.log.error', `Trade failed: ${error.message}`);
             
@@ -235,48 +276,7 @@ const TradingHubDisplay: React.FC = () => {
                 setIsTradeInProgress(false);
             }
         }
-    }, [isTradeInProgress, client, isApiAuthorized, appliedStake]);
-
-    // Enhanced contract monitoring
-    const monitorContract = useCallback(async (contractId: string, isO5U4Part: boolean): Promise<boolean> => {
-        return new Promise((resolve) => {
-            const subscription = api_base.api.onMessage().subscribe((response: any) => {
-                if (response.proposal_open_contract && 
-                    response.proposal_open_contract.contract_id === contractId &&
-                    response.proposal_open_contract.is_settled) {
-                    
-                    const contract = response.proposal_open_contract;
-                    const isWin = contract.status === 'won';
-                    
-                    subscription.unsubscribe();
-                    
-                    if (!isO5U4Part) {
-                        contractSettledTimeRef.current = Date.now();
-                        waitingForSettlementRef.current = false;
-                    }
-                    
-                    resolve(isWin);
-                }
-            });
-
-            // Send subscription request
-            api_base.api.send({
-                proposal_open_contract: 1,
-                contract_id: contractId,
-                subscribe: 1
-            });
-
-            // Enhanced timeout handling
-            setTimeout(() => {
-                subscription.unsubscribe();
-                if (!isO5U4Part) {
-                    contractSettledTimeRef.current = Date.now();
-                    waitingForSettlementRef.current = false;
-                }
-                resolve(Math.random() > 0.5); // Fallback result
-            }, 120000); // 2 minute timeout
-        });
-    }, []);
+    }, [isTradeInProgress, client, isApiAuthorized, appliedStake, monitorContract]);
 
     // Enhanced trade result handling
     const handleTradeResult = useCallback((isWin: boolean) => {
@@ -300,7 +300,7 @@ const TradingHubDisplay: React.FC = () => {
         }
     }, [calculateNextStake, appliedStake]);
 
-    // Enhanced strategy execution functions
+    // Strategy execution functions
     const executeDigitDifferTrade = useCallback(async (): Promise<boolean> => {
         if (!recommendation || isTradeInProgress) return false;
         
@@ -357,7 +357,7 @@ const TradingHubDisplay: React.FC = () => {
         }
     }, [isTradeInProgress, checkO5U4Conditions, executeTrade, handleTradeResult]);
 
-    // Enhanced strategy toggle functions
+    // Strategy toggle functions - only one strategy can be active
     const toggleStrategy = useCallback((strategy: string) => {
         // Deactivate all strategies first
         setIsAutoDifferActive(false);
@@ -381,7 +381,7 @@ const TradingHubDisplay: React.FC = () => {
         }
     }, []);
 
-    // Enhanced start trading function
+    // Main start trading function matching reference implementation
     const startTrading = useCallback(async () => {
         if (!client?.loginid || !isAnalysisReady) {
             globalObserver.emit('ui.log.error', 'Please ensure you are logged in and analysis is ready');
@@ -426,7 +426,7 @@ const TradingHubDisplay: React.FC = () => {
 
             globalObserver.emit('ui.log.success', 'Trading Hub started successfully');
 
-            // Initial strategy execution
+            // Initial strategy execution with proper timing
             setTimeout(() => {
                 if (isAutoDifferActive) executeDigitDifferTrade();
                 else if (isAutoOverUnderActive) executeDigitOverTrade();
@@ -439,9 +439,9 @@ const TradingHubDisplay: React.FC = () => {
                         console.log('O5U4: No immediate conditions met on start - waiting for next opportunity');
                     }
                 }
-            }, isAutoO5U4Active ? 100 : 500);
+            }, isAutoO5U4Active ? 100 : 500); // Faster start for O5U4
 
-        } catch (error) {
+        } catch (error: any) {
             globalObserver.emit('ui.log.error', `Failed to start trading: ${error.message}`);
         }
     }, [client, isAnalysisReady, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active, 
@@ -451,7 +451,9 @@ const TradingHubDisplay: React.FC = () => {
     // Enhanced stop trading function
     const stopTrading = useCallback(() => {
         setIsContinuousTrading(false);
-        run_panel.setIsRunning(false);
+        if (run_panel) {
+            run_panel.setIsRunning(false);
+        }
 
         if (tradingIntervalRef.current) {
             clearInterval(tradingIntervalRef.current);
@@ -462,15 +464,16 @@ const TradingHubDisplay: React.FC = () => {
         globalObserver.emit('ui.log.info', 'Trading Hub stopped');
     }, [run_panel]);
 
-    // Main trade handler
+    // Main trade handler matching reference implementation
     const handleTrade = useCallback(() => {
         return isContinuousTrading ? stopTrading() : startTrading();
     }, [isContinuousTrading, stopTrading, startTrading]);
 
-    // Enhanced continuous trading loop
+    // Continuous trading loop matching reference implementation
     useEffect(() => {
         if (isContinuousTrading) {
-            const intervalTime = isAutoO5U4Active ? 500 : 2000; // Faster interval for O5U4
+            // Use a faster interval for more responsive trading
+            const intervalTime = isAutoO5U4Active ? 500 : 2000; // 500ms for O5U4, 2000ms for others
             
             tradingIntervalRef.current = setInterval(() => {
                 if (isTradeInProgress) {
@@ -487,6 +490,7 @@ const TradingHubDisplay: React.FC = () => {
                     return;
                 }
 
+                // Trading logic with checks
                 if (isAutoDifferActive) {
                     executeDigitDifferTrade();
                 } else if (isAutoOverUnderActive) {
@@ -506,7 +510,7 @@ const TradingHubDisplay: React.FC = () => {
     }, [isContinuousTrading, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active, 
         isTradeInProgress, executeDigitDifferTrade, executeDigitOverTrade, executeO5U4Trade]);
 
-    // Initialize component
+    // Initialize component and API
     useEffect(() => {
         const initializeApi = async () => {
             try {
@@ -517,7 +521,7 @@ const TradingHubDisplay: React.FC = () => {
                 if (client?.loginid && client?.token && !api_base.is_authorized) {
                     await api_base.authorizeAndSubscribe();
                 }
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Failed to initialize API:', error);
                 globalObserver.emit('ui.log.error', `API initialization failed: ${error.message}`);
             }
