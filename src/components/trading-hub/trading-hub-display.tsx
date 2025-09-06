@@ -312,6 +312,8 @@ const TradingHubDisplay: React.FC = () => {
                     symbol: symbol,
                     duration: 1,
                     duration_unit: 't',
+                    amount: stakeAmount,
+                    basis: 'stake',
                     currency: client?.currency || 'USD'
                 }
             };
