@@ -138,8 +138,8 @@ const TradingHubDisplay: React.FC = () => {
         return true;
     }, []);
 
-    // Enhanced contract monitoring with balance updates
-    const monitorContract = useCallback(async (contractId: string, isO5U4Part: boolean = false): Promise<boolean> => {
+    // Enhanced contract monitoring with balance updates and transaction logging
+    const monitorContract = useCallback(async (contractId: string, isO5U4Part: boolean = false, contractType?: string, symbol?: string, stake?: number): Promise<boolean> => {
         return new Promise((resolve) => {
             let contractData: any = null;
             
@@ -153,8 +153,41 @@ const TradingHubDisplay: React.FC = () => {
                         const isWin = contractData.status === 'won';
                         const profit = contractData.profit || 0;
                         const sellPrice = contractData.sell_price || 0;
+                        const buyPrice = contractData.buy_price || stake || 0;
                         
                         subscription.unsubscribe();
+                        
+                        // Create transaction entry for run panel
+                        const transactionData = {
+                            contract_id: contractId,
+                            reference: contractId,
+                            timestamp: new Date().toISOString(),
+                            market: symbol || 'R_100',
+                            contract_type: contractType || 'DIGITOVER',
+                            entry_tick: contractData.entry_tick || 0,
+                            exit_tick: contractData.exit_tick || 0,
+                            buy_price: buyPrice,
+                            sell_price: sellPrice,
+                            profit: profit,
+                            result: isWin ? 'win' : 'loss',
+                            duration: 1,
+                            is_sold: true,
+                            currency: client?.currency || 'USD'
+                        };
+
+                        // Add transaction to run panel transactions store
+                        if (run_panel?.root_store?.transactions) {
+                            try {
+                                run_panel.root_store.transactions.onBotContractEvent({
+                                    ...transactionData,
+                                    contract: contractData,
+                                    is_sold: true
+                                });
+                                console.log('Transaction added to run panel:', transactionData);
+                            } catch (error) {
+                                console.error('Failed to add transaction to run panel:', error);
+                            }
+                        }
                         
                         // Only update balance for non-O5U4 trades or let O5U4 handle its own balance updates
                         if (!isO5U4Part) {
@@ -206,7 +239,7 @@ const TradingHubDisplay: React.FC = () => {
                 resolve(false);
             }, 120000); // 2 minute timeout
         });
-    }, [run_panel]);
+    }, [run_panel, client]);
 
     // Execute trade using the enhanced trade engine
     const executeTrade = useCallback(async (
@@ -369,7 +402,7 @@ const TradingHubDisplay: React.FC = () => {
                     waitingForSettlementRef.current = true;
                 }
 
-                const contractResult = await monitorContract(contractId, isO5U4Part);
+                const contractResult = await monitorContract(contractId, isO5U4Part, contractType, symbol, stakeAmount);
                 
                 if (!isO5U4Part) {
                     handleTradeResult(contractResult, buyPrice);
@@ -511,11 +544,15 @@ const TradingHubDisplay: React.FC = () => {
             
             const currentStake = parseFloat(appliedStake);
             
-            // Execute both trades simultaneously
+            // Execute both trades simultaneously with detailed tracking
             const [over5Result, under4Result] = await Promise.all([
                 executeTrade('O5U4 Over', 'R_100', 'DIGITOVER', '5', true),
                 executeTrade('O5U4 Under', 'R_100', 'DIGITUNDER', '4', true)
             ]);
+
+            // Log individual O5U4 trade results for better tracking
+            globalObserver.emit('ui.log.info', `O5U4 Over 5: ${over5Result ? 'WON' : 'LOST'}`);
+            globalObserver.emit('ui.log.info', `O5U4 Under 4: ${under4Result ? 'WON' : 'LOST'}`);
             
             // Calculate O5U4 specific results
             const tradesWon = (over5Result ? 1 : 0) + (under4Result ? 1 : 0);
@@ -554,6 +591,45 @@ const TradingHubDisplay: React.FC = () => {
             
             setProfitLoss(prev => prev + profitAmount);
             
+            // Create O5U4 summary transaction for run panel
+            const o5u4TransactionData = {
+                contract_id: `O5U4-${Date.now()}`,
+                reference: `O5U4-${Date.now()}`,
+                timestamp: new Date().toISOString(),
+                market: 'R_100',
+                contract_type: 'O5U4_DUAL',
+                entry_tick: 0,
+                exit_tick: 0,
+                buy_price: currentStake * 2, // Total stake for both contracts
+                sell_price: isOverallWin ? (currentStake * 2 + Math.abs(profitAmount)) : 0,
+                profit: profitAmount,
+                result: isOverallWin ? 'win' : 'loss',
+                duration: 1,
+                is_sold: true,
+                currency: client?.currency || 'USD',
+                trades_won: tradesWon,
+                trades_lost: tradesLost
+            };
+
+            // Add O5U4 summary transaction to run panel
+            if (run_panel?.root_store?.transactions) {
+                try {
+                    run_panel.root_store.transactions.onBotContractEvent({
+                        ...o5u4TransactionData,
+                        contract: {
+                            contract_id: o5u4TransactionData.contract_id,
+                            profit: profitAmount,
+                            status: isOverallWin ? 'won' : 'lost',
+                            is_settled: true
+                        },
+                        is_sold: true
+                    });
+                    console.log('O5U4 summary transaction added to run panel:', o5u4TransactionData);
+                } catch (error) {
+                    console.error('Failed to add O5U4 transaction to run panel:', error);
+                }
+            }
+
             // Update summary card with O5U4 specific stats
             if (run_panel?.summary_card_store) {
                 const newStats = {
