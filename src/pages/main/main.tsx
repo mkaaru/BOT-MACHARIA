@@ -1467,7 +1467,10 @@ if __name__ == "__main__":
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <PercentageTool />
+                                <div style={{ padding: '20px', textAlign: 'center' }}>
+                                    <h2>Trading Hub</h2>
+                                    <p>This section is currently being updated.</p>
+                                </div>
                             </div>
                         </div>
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
