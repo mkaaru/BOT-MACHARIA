@@ -1,0 +1,81 @@
+Pasted-Main-Entry-Point-The-AUTO-tab-renders-the-TradingHubDisplay-component-from-src-components-trading-h-1757159050151_1757159050152.txt
+Main Entry Point
+The AUTO tab renders the TradingHubDisplay component from src/components/trading-hub/trading-hub-display.tsx. When you click "START TRADING" after choosing a strategy, it calls the handleTrade() function:
+
+const handleTrade = () => (isContinuousTrading ? stopTrading() : startTrading());
+Start Trading Function
+The startTrading() function is the main entry point:
+
+const startTrading = () => {
+    prepareRunPanelForTradingHub();
+    setIsContinuousTrading(true);
+    const persistedStake = localStorage.getItem('tradingHub_initialStake') || initialStake;
+    console.log(`Starting trading with persisted stake: ${persistedStake}`);
+    setAppliedStake(persistedStake);
+    currentStakeRef.current = persistedStake;
+    setConsecutiveLosses(0);
+    currentConsecutiveLossesRef.current = 0;
+    contractSettledTimeRef.current = 0;
+    waitingForSettlementRef.current = false;
+    setTimeout(() => {
+        if (isAutoDifferActive) executeDigitDifferTrade();
+        else if (isAutoOverUnderActive) executeDigitOverTrade();
+        else if (isAutoO5U4Active) {
+            // For O5U4, check immediately and execute if conditions are met
+            console.log('O5U4: Starting trading - checking immediate conditions');
+            if (checkO5U4Conditions()) {
+                console.log('O5U4: Immediate conditions met on start - executing trade');
+                executeO5U4Trade();
+            } else {
+                console.log('O5U4: No immediate conditions met on start - waiting for next opportunity');
+            }
+        }
+    }, isAutoO5U4Active ? 100 : 500); // Faster start for O5U4
+};
+Strategy-Specific Execution
+Depending on which strategy is active, it calls one of these functions:
+
+1. Auto Differ Strategy
+Calls executeDigitDifferTrade()
+Uses random barriers and symbols for digit differ trades
+2. Auto Over/Under Strategy
+Calls executeDigitOverTrade()
+Uses AI market analysis to determine over/under positions
+3. Auto O5U4 Strategy
+Calls executeO5U4Trade()
+Executes dual trades (Over 5 AND Under 4) simultaneously
+Continuous Trading Loop
+Once started, the trading continues via a useEffect that sets up an interval:
+
+useEffect(() => {
+    if (isContinuousTrading) {
+        // Use a faster interval for more responsive trading
+        const intervalTime = isAutoO5U4Active ? 500 : 2000; // 500ms for O5U4, 2000ms for others
+        
+        tradingIntervalRef.current = setInterval(() => {
+            // Trading logic with cooldowns and checks
+            if (isAutoDifferActive) {
+                executeDigitDifferTrade();
+            } else if (isAutoOverUnderActive) {
+                executeDigitOverTrade();
+            } else if (isAutoO5U4Active) {
+                executeO5U4Trade();
+            }
+        }, intervalTime);
+    }
+    // ... cleanup
+}, [isContinuousTrading, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active, isTradeInProgress]);
+Trade Execution Process
+Each strategy's execution function:
+
+Validates API connection and user login
+Sets up trade parameters (stake, barriers, symbols)
+Handles martingale logic for stake management
+Executes the actual trade via api_base.api.send()
+Handles copy trading if enabled
+Tracks contract results for win/loss management
+The key files involved are:
+
+src/components/trading-hub/trading-hub-display.tsx - Main UI and trading logic
+src/services/market-analyzer.ts - Market analysis for Over/Under strategy
+src/external/bot-skeleton/services/api/api-base.ts - API communication
