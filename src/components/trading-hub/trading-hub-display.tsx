@@ -196,8 +196,13 @@ const TradingHubDisplay: React.FC = () => {
                     contractSettledTimeRef.current = Date.now();
                     waitingForSettlementRef.current = false;
                 }
-                globalObserver.emit('ui.log.error', `Contract ${contractId} monitoring timeout`);
-                resolve(Math.random() > 0.5); // Fallback result
+                globalObserver.emit('ui.log.error', `Contract ${contractId} monitoring timeout - stopping trading`);
+                // Stop trading on timeout/failure instead of simulating results
+                setIsContinuousTrading(false);
+                if (run_panel) {
+                    run_panel.setIsRunning(false);
+                }
+                resolve(false); // Always return false on timeout
             }, 120000); // 2 minute timeout
         });
     }, [run_panel]);
@@ -333,11 +338,14 @@ const TradingHubDisplay: React.FC = () => {
         } catch (error: any) {
             const errorMsg = error?.message || 'Unknown trade execution error';
             console.error('Trade execution failed:', errorMsg);
-            globalObserver.emit('ui.log.error', `Trade failed: ${errorMsg}`);
+            globalObserver.emit('ui.log.error', `Trade failed: ${errorMsg} - stopping trading`);
             
-            if (!isO5U4Part) {
-                handleTradeResult(false);
+            // Stop trading on API failures instead of continuing with dummy results
+            setIsContinuousTrading(false);
+            if (run_panel) {
+                run_panel.setIsRunning(false);
             }
+            
             return false;
         } finally {
             if (!isO5U4Part) {
