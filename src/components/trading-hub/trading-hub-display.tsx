@@ -115,6 +115,23 @@ const TradingHubDisplay: React.FC = () => {
         if (!isAnalysisReady) {
             setIsAnalysisReady(true);
         }
+
+        // Immediately execute trade on new recommendation if trading is active
+        if (isContinuousTrading && !isTradeInProgress) {
+            setTimeout(async () => {
+                try {
+                    if (isAutoDifferActive) {
+                        await executeDigitDifferTrade();
+                    } else if (isAutoOverUnderActive) {
+                        await executeDigitOverTrade();
+                    } else if (isAutoO5U4Active) {
+                        await executeO5U4Trade();
+                    }
+                } catch (error) {
+                    console.error('Immediate trade execution error:', error);
+                }
+            }, 100); // Execute almost immediately on new recommendation
+        }
     }, [isAnalysisReady]);
 
     // Enhanced stake management with martingale
@@ -289,11 +306,11 @@ const TradingHubDisplay: React.FC = () => {
                 console.error('Error in contract monitoring setup:', error);
             });
 
-            // Optimized timeout handling for 3-second execution
+            // Optimized timeout handling for 2-second execution to ensure contracts complete within 3 seconds
             setTimeout(() => {
                 subscription?.unsubscribe();
                 
-                // Force settlement after 3-second timeout
+                // Force settlement after 2-second timeout to ensure 3-second total execution
                 if (contractData && !contractData.is_settled) {
                     // Create a mock settlement for timeout cases
                     const forcedSettlement = {
@@ -371,7 +388,7 @@ const TradingHubDisplay: React.FC = () => {
                 }
                 globalObserver.emit('ui.log.error', `Contract ${contractId} monitoring timeout - forcing settlement`);
                 resolve(false);
-            }, 3000); // 3-second timeout for immediate execution
+            }, 2000); // 2-second timeout to ensure 3-second total execution time
         });
     }, [run_panel, client]);
 
@@ -501,7 +518,7 @@ const TradingHubDisplay: React.FC = () => {
             console.log(`Executing ${strategy} trade:`, tradeParams);
             globalObserver.emit('ui.log.info', `${strategy}: ${contractType} on ${symbol} - Stake: ${currentStake}`);
 
-            // Send trade request through the API
+            // Send trade request through the API with optimized timeout
             const response = await new Promise((resolve, reject) => {
                 const subscription = api_base.api?.onMessage().subscribe((msg: any) => {
                     if (msg.buy) {
@@ -513,13 +530,23 @@ const TradingHubDisplay: React.FC = () => {
                     }
                 });
 
-                api_base.api?.send(tradeParams).catch(reject);
+                // Send the trade request
+                api_base.api?.send(tradeParams).then((directResponse: any) => {
+                    // Handle immediate response if available
+                    if (directResponse?.buy) {
+                        subscription.unsubscribe();
+                        resolve(directResponse);
+                    } else if (directResponse?.error) {
+                        subscription.unsubscribe();
+                        reject(new Error(directResponse.error.message || directResponse.error.code));
+                    }
+                }).catch(reject);
 
-                // Timeout after 30 seconds
+                // Reduced timeout to 10 seconds for faster execution
                 setTimeout(() => {
                     subscription.unsubscribe();
-                    reject(new Error('Trade request timeout'));
-                }, 30000);
+                    reject(new Error('Trade request timeout - please check connection and try again'));
+                }, 10000);
             });
 
             if (response?.buy && response.buy.contract_id) {
@@ -988,13 +1015,13 @@ const TradingHubDisplay: React.FC = () => {
         return isContinuousTrading ? stopTrading() : startTrading();
     }, [isContinuousTrading, stopTrading, startTrading]);
 
-    // Continuous trading loop optimized for immediate execution
+    // Continuous trading loop optimized for immediate execution on recommendations
     useEffect(() => {
         if (isContinuousTrading) {
-            // Faster intervals for immediate execution
-            const intervalTime = isAutoO5U4Active ? 500 : 2000; // 0.5s for O5U4, 2s for others
+            // Much faster intervals for immediate contract purchases
+            const intervalTime = 1000; // 1 second for all strategies
             
-            tradingIntervalRef.current = setInterval(() => {
+            tradingIntervalRef.current = setInterval(async () => {
                 if (isTradeInProgress) {
                     console.log('Trade in progress, skipping interval execution');
                     return;
@@ -1010,26 +1037,46 @@ const TradingHubDisplay: React.FC = () => {
 
                 // Check API connection before trading
                 if (!api_base.is_authorized || !api_base.api || api_base.api.connection?.readyState !== 1) {
-                    console.log('API not ready for trading, skipping...');
+                    console.log('API not ready for trading, attempting reconnection...');
+                    try {
+                        await api_base.init();
+                        const token = client?.getToken() || localStorage.getItem('authToken');
+                        if (token) {
+                            await api_base.api?.send({ authorize: token });
+                        }
+                    } catch (error) {
+                        console.error('Failed to reconnect API:', error);
+                        return;
+                    }
+                }
+
+                // Check if we have a fresh recommendation (less than 30 seconds old)
+                if (!recommendation || (Date.now() - recommendation.timestamp) > 30000) {
+                    console.log('No fresh recommendation available');
                     return;
                 }
 
                 const now = Date.now();
                 const timeSinceLastSettlement = now - contractSettledTimeRef.current;
-                const minimumCooldown = isAutoO5U4Active ? 1000 : 3000; // Reduced cooldowns
+                const minimumCooldown = 500; // Very short cooldown for immediate execution
 
                 if (timeSinceLastSettlement < minimumCooldown && contractSettledTimeRef.current > 0) {
                     console.log(`Brief cooldown active: ${timeSinceLastSettlement}ms < ${minimumCooldown}ms`);
                     return;
                 }
 
-                // Trading logic with immediate execution
-                if (isAutoDifferActive) {
-                    executeDigitDifferTrade();
-                } else if (isAutoOverUnderActive) {
-                    executeDigitOverTrade();
-                } else if (isAutoO5U4Active) {
-                    executeO5U4Trade();
+                // Execute trade based on current recommendation immediately
+                try {
+                    if (isAutoDifferActive) {
+                        await executeDigitDifferTrade();
+                    } else if (isAutoOverUnderActive) {
+                        await executeDigitOverTrade();
+                    } else if (isAutoO5U4Active) {
+                        await executeO5U4Trade();
+                    }
+                } catch (error) {
+                    console.error('Trading execution error:', error);
+                    globalObserver.emit('ui.log.error', `Trading error: ${error.message || 'Unknown error'}`);
                 }
             }, intervalTime);
         }
@@ -1041,7 +1088,7 @@ const TradingHubDisplay: React.FC = () => {
             }
         };
     }, [isContinuousTrading, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active, 
-        isTradeInProgress, consecutiveLosses, stopTrading, executeDigitDifferTrade, executeDigitOverTrade, executeO5U4Trade]);
+        isTradeInProgress, consecutiveLosses, recommendation, stopTrading, executeDigitDifferTrade, executeDigitOverTrade, executeO5U4Trade]);
 
     // Initialize component and API
     useEffect(() => {
