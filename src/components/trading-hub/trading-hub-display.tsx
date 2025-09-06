@@ -321,6 +321,13 @@ const TradingHubDisplay: React.FC = () => {
                 tradeParams.parameters.barrier = barrier;
             }
 
+            // Add prediction for digit contracts that require it
+            if (contractType === 'DIGITDIFF' || contractType === 'DIGITMATCH') {
+                // For differ/match contracts, use a random digit 0-9 if no specific prediction
+                const prediction = Math.floor(Math.random() * 10);
+                tradeParams.parameters.barrier = prediction.toString();
+            }
+
             console.log(`Executing ${strategy} trade:`, tradeParams);
             globalObserver.emit('ui.log.info', `${strategy}: ${contractType} on ${symbol} - Stake: ${currentStake}`);
 
