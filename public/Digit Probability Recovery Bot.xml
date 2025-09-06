@@ -1,7 +1,5 @@
 
-<?xml version="1.0" encoding="UTF-8"?>
 <xml xmlns="https://developers.google.com/blockly/xml">
-  <!-- Variables -->
   <variables>
     <variable id="v_base_stake">base_stake</variable>
     <variable id="v_recovery_mult">recovery_mult</variable>
@@ -10,86 +8,85 @@
     <variable id="v_current_recovery">current_recovery</variable>
     <variable id="v_last_result">last_result</variable>
     <variable id="v_balance0">starting_balance</variable>
+    <variable id="v_chosen_digit">chosen_digit</variable>
+    <variable id="v_chosen_contract">chosen_contract</variable>
+    <variable id="v_best_prob">best_prob</variable>
+    <variable id="v_best_side">best_side</variable>
+    <variable id="v_best_digit">best_digit</variable>
   </variables>
 
-  <!-- Initialize block -->
-  <block type="controls_if" x="8" y="8" id="init_1">
-    <comment pinned="false">Initialization: set your parameters here</comment>
-    <value name="IF0">
-      <block type="logic_boolean" id="true_const">
-        <field name="BOOL">TRUE</field>
+  <block type="trade_definition" id="trade_definition" x="0" y="0">
+    <field name="MARKET">synthetic_indices</field>
+    <field name="SYMBOL">R_100</field>
+    <field name="TRADETYPE">digitover</field>
+    <field name="CONTRACT_TYPE">DIGITOVER</field>
+    <value name="AMOUNT">
+      <block type="math_number" id="amount_block">
+        <field name="NUM">1</field>
       </block>
     </value>
-
-    <statement name="DO0">
-      <!-- set base stake -->
-      <block type="variables_set" id="set_base">
+    <value name="DURATION">
+      <block type="math_number" id="duration_block">
+        <field name="NUM">1</field>
+      </block>
+    </value>
+    <value name="DURATIONUNIT">
+      <block type="text" id="duration_unit_block">
+        <field name="TEXT">t</field>
+      </block>
+    </value>
+    <value name="DIGIT">
+      <block type="math_number" id="digit_block">
+        <field name="NUM">1</field>
+      </block>
+    </value>
+    
+    <statement name="INITIALIZATION">
+      <block type="variables_set" id="set_base_stake">
         <field name="VAR" id="v_base_stake">base_stake</field>
         <value name="VALUE">
-          <block type="math_number" id="num_base">
+          <block type="math_number" id="base_stake_num">
             <field name="NUM">1</field>
           </block>
         </value>
-
         <next>
-          <!-- recovery multiplier -->
-          <block type="variables_set" id="set_mult">
+          <block type="variables_set" id="set_recovery_mult">
             <field name="VAR" id="v_recovery_mult">recovery_mult</field>
             <value name="VALUE">
-              <block type="math_number" id="num_mult">
+              <block type="math_number" id="recovery_mult_num">
                 <field name="NUM">2</field>
               </block>
             </value>
-
             <next>
-              <!-- max recoveries steps -->
-              <block type="variables_set" id="set_maxrec">
+              <block type="variables_set" id="set_max_recoveries">
                 <field name="VAR" id="v_max_recoveries">max_recoveries</field>
                 <value name="VALUE">
-                  <block type="math_number" id="num_maxrec">
+                  <block type="math_number" id="max_recoveries_num">
                     <field name="NUM">4</field>
                   </block>
                 </value>
-
                 <next>
-                  <!-- session loss limit (in currency or %) -->
-                  <block type="variables_set" id="set_sessloss">
+                  <block type="variables_set" id="set_session_loss">
                     <field name="VAR" id="v_session_loss_limit">session_loss_limit</field>
                     <value name="VALUE">
-                      <block type="math_number" id="num_sess">
+                      <block type="math_number" id="session_loss_num">
                         <field name="NUM">-50</field>
                       </block>
                     </value>
-
                     <next>
-                      <!-- current recovery start at 0 -->
-                      <block type="variables_set" id="set_currec">
+                      <block type="variables_set" id="set_current_recovery">
                         <field name="VAR" id="v_current_recovery">current_recovery</field>
                         <value name="VALUE">
-                          <block type="math_number" id="num_zero">
+                          <block type="math_number" id="current_recovery_num">
                             <field name="NUM">0</field>
                           </block>
                         </value>
-
                         <next>
-                          <!-- last_result default -->
-                          <block type="variables_set" id="set_last">
-                            <field name="VAR" id="v_last_result">last_result</field>
+                          <block type="variables_set" id="set_starting_balance">
+                            <field name="VAR" id="v_balance0">starting_balance</field>
                             <value name="VALUE">
-                              <block type="text" id="txt_init">
-                                <field name="TEXT">none</field>
-                              </block>
+                              <block type="balance" id="balance_init"/>
                             </value>
-
-                            <next>
-                              <!-- starting balance snapshot -->
-                              <block type="variables_set" id="set_bal">
-                                <field name="VAR" id="v_balance0">starting_balance</field>
-                                <value name="VALUE">
-                                  <block type="account_balance" id="balance_block"/>
-                                </value>
-                              </block>
-                            </next>
                           </block>
                         </next>
                       </block>
@@ -102,567 +99,144 @@
         </next>
       </block>
     </statement>
-  </block>
 
-  <!-- Main loop block -->
-  <block type="controls_whileUntil" x="8" y="260" id="main_loop">
-    <field name="MODE">WHILE</field>
-    <value name="BOOL">
-      <!-- while session P&L not below session_loss_limit -->
-      <block type="logic_compare" id="compare_bal">
-        <field name="OP">GT</field>
-        <value name="A">
-          <block type="math_arithmetic" id="curpnl">
-            <field name="OP">MINUS</field>
+    <statement name="SUBMARKET">
+      <block type="controls_whileUntil" id="main_trading_loop">
+        <field name="MODE">WHILE</field>
+        <value name="BOOL">
+          <block type="logic_compare" id="session_limit_check">
+            <field name="OP">GT</field>
             <value name="A">
-              <block type="account_balance" id="cur_balance"/>
+              <block type="math_arithmetic" id="current_pnl">
+                <field name="OP">MINUS</field>
+                <value name="A">
+                  <block type="balance" id="current_balance"/>
+                </value>
+                <value name="B">
+                  <block type="variables_get" id="get_starting_balance">
+                    <field name="VAR" id="v_balance0">starting_balance</field>
+                  </block>
+                </value>
+              </block>
             </value>
             <value name="B">
-              <block type="variables_get" id="get_start_bal">
-                <field name="VAR" id="v_balance0">starting_balance</field>
+              <block type="variables_get" id="get_session_limit">
+                <field name="VAR" id="v_session_loss_limit">session_loss_limit</field>
               </block>
             </value>
           </block>
         </value>
-        <value name="B">
-          <block type="variables_get" id="get_sess_limit">
-            <field name="VAR" id="v_session_loss_limit">session_loss_limit</field>
-          </block>
-        </value>
-      </block>
-    </value>
-
-    <statement name="DO">
-      <!-- choose best digit/side based on probabilities -->
-      <block type="procedures_callreturn" id="choose_best">
-        <mutation name="choose_best_digit"></mutation>
-      </block>
-
-      <next>
-        <!-- compute stake using base_stake * (recovery_mult ^ current_recovery) -->
-        <block type="variables_set" id="calc_stake">
-          <field name="VAR" id="v_base_stake">base_stake</field>
-          <value name="VALUE">
-            <block type="math_arithmetic" id="powcalc">
-              <field name="OP">MULTIPLY</field>
-              <value name="A">
-                <block type="variables_get" id="get_base0">
-                  <field name="VAR" id="v_base_stake">base_stake</field>
-                </block>
-              </value>
-              <value name="B">
-                <block type="math_arithmetic" id="pow_expr">
-                  <field name="OP">POWER</field>
-                  <value name="A">
-                    <block type="variables_get" id="get_mult">
-                      <field name="VAR" id="v_recovery_mult">recovery_mult</field>
-                    </block>
-                  </value>
-                  <value name="B">
-                    <block type="variables_get" id="get_currec">
-                      <field name="VAR" id="v_current_recovery">current_recovery</field>
-                    </block>
-                  </value>
-                </block>
-              </value>
-            </block>
-          </value>
-
-          <next>
-            <!-- place the trade: buy digit prediction (Over/Under) -->
-            <block type="trade_digit" id="buy_trade">
-              <!-- this custom block is a placeholder; when pasting into Deriv Bot, set contract type to DIGITOVER/DIGITUNDER and the digit field to chosen digit -->
-              <field name="CONTRACT">DIGITOVER</field>
-              <value name="AMOUNT">
-                <block type="variables_get" id="get_stake_after">
-                  <field name="VAR" id="v_base_stake">base_stake</field>
-                </block>
-              </value>
-              <value name="DURATION">
-                <block type="math_number" id="dur">
-                  <field name="NUM">1</field>
-                </block>
-              </value>
-              <value name="DURATION_UNIT">
-                <block type="text" id="dur_unit">
-                  <field name="TEXT">t</field>
-                </block>
-              </value>
-              <value name="DIGIT">
-                <block type="text" id="chosen_digit">
-                  <field name="TEXT">1</field>
-                </block>
-              </value>
-            </block>
-
-            <next>
-              <!-- wait for result -->
-              <block type="trade_result" id="wait_result">
-                <next>
-                  <!-- store result: win/lose -->
-                  <block type="controls_if" id="if_result">
-                    <value name="IF0">
-                      <block type="logic_compare" id="cmp_win">
-                        <field name="OP">EQ</field>
-                        <value name="A">
-                          <block type="last_contract_win" id="last_win"/>
-                        </value>
-                        <value name="B">
-                          <block type="logic_boolean" id="true_const2">
-                            <field name="BOOL">TRUE</field>
-                          </block>
-                        </value>
-                      </block>
-                    </value>
-
-                    <statement name="DO0">
-                      <!-- WIN branch: reset current_recovery -->
-                      <block type="variables_set" id="reset_rec">
-                        <field name="VAR" id="v_current_recovery">current_recovery</field>
-                        <value name="VALUE">
-                          <block type="math_number" id="zero_again">
-                            <field name="NUM">0</field>
-                          </block>
-                        </value>
-                        <next>
-                          <!-- set last_result to win -->
-                          <block type="variables_set" id="set_last_win">
-                            <field name="VAR" id="v_last_result">last_result</field>
-                            <value name="VALUE">
-                              <block type="text" id="txt_win">
-                                <field name="TEXT">win</field>
-                              </block>
-                            </value>
-                          </block>
-                        </next>
-                      </block>
-                    </statement>
-
-                    <statement name="ELSE">
-                      <!-- LOSE branch: increment current_recovery and pick next digit -->
-                      <block type="variables_set" id="inc_rec">
-                        <field name="VAR" id="v_current_recovery">current_recovery</field>
-                        <value name="VALUE">
-                          <block type="math_arithmetic" id="add_one">
-                            <field name="OP">ADD</field>
-                            <value name="A">
-                              <block type="variables_get" id="get_currec2">
-                                <field name="VAR" id="v_current_recovery">current_recovery</field>
-                              </block>
-                            </value>
-                            <value name="B">
-                              <block type="math_number" id="one">
-                                <field name="NUM">1</field>
-                              </block>
-                            </value>
-                          </block>
-                        </value>
-                        <next>
-                          <!-- check if exceeded max recoveries -->
-                          <block type="controls_if" id="check_max_rec">
-                            <value name="IF0">
-                              <block type="logic_compare" id="cmp_max">
-                                <field name="OP">GT</field>
-                                <value name="A">
-                                  <block type="variables_get" id="get_currec3">
-                                    <field name="VAR" id="v_current_recovery">current_recovery</field>
-                                  </block>
-                                </value>
-                                <value name="B">
-                                  <block type="variables_get" id="get_maxrec2">
-                                    <field name="VAR" id="v_max_recoveries">max_recoveries</field>
-                                  </block>
-                                </value>
-                              </block>
-                            </value>
-
-                            <statement name="DO0">
-                              <!-- if exceeded, stop trading (safety) -->
-                              <block type="bot_stop" id="stop_bot"/>
-                            </statement>
-
-                            <statement name="ELSE">
-                              <!-- else: pick next-best digit/side and continue (procedural call) -->
-                              <block type="procedures_callreturn" id="choose_recovery_digit">
-                                <mutation name="choose_next_digit"></mutation>
-                              </block>
-                            </statement>
-                          </block>
-                        </next>
-                      </block>
-                    </statement>
-
-                  </block>
-                </next>
-              </block>
-            </next>
-          </next>
-        </next>
-      </block>
-    </statement>
-  </block>
-
-  <!-- Procedure to choose best digit (based on the probabilities you provided) -->
-  <block type="procedures_defreturn" x="600" y="8" id="proc_choose">
-    <field name="NAME">choose_best_digit</field>
-    <comment pinned="false">Selects the highest-probability digit/side per your table. Sets trade contract type and digit fields to use by trade block.</comment>
-    <statement name="STACK">
-      <!-- For simplicity we hardcode the mapping of probabilities you gave:
-           Over probs:
-             digit 1 -> 90%, 2->85%, 3->70%, 4->60%, 5->55%, 6->40%, 7->30%, 8->25%
-           Under probs:
-             digit 1 -> 25%, 2->30%, 3->40%, 4->55%, 5->60%, 6->70%, 7->85%, 8->90%
-           We'll compute the best among these and set 'CONTRACT' (DIGITOVER/DIGITUNDER) and 'DIGIT' accordingly.
-      -->
-      <block type="variables_set" id="temp_best">
-        <field name="VAR" id="best_prob">best_prob</field>
-        <value name="VALUE">
-          <block type="math_number" id="num_neg">
-            <field name="NUM">0</field>
-          </block>
-        </value>
-        <next>
-          <block type="variables_set" id="temp_side">
-            <field name="VAR" id="best_side">best_side</field>
+        
+        <statement name="DO">
+          <block type="variables_set" id="calculate_stake">
+            <field name="VAR" id="v_base_stake">base_stake</field>
             <value name="VALUE">
-              <block type="text" id="empty_txt">
-                <field name="TEXT">OVER</field>
-              </block>
-            </value>
-
-            <next>
-              <block type="variables_set" id="temp_digit">
-                <field name="VAR" id="best_digit">best_digit</field>
-                <value name="VALUE">
-                  <block type="math_number" id="init_digit">
+              <block type="math_arithmetic" id="stake_calculation">
+                <field name="OP">MULTIPLY</field>
+                <value name="A">
+                  <block type="math_number" id="base_amount">
                     <field name="NUM">1</field>
                   </block>
                 </value>
-
-                <next>
-                  <!-- Check Over1 -->
-                  <block type="controls_if" id="if_over1">
-                    <value name="IF0">
-                      <block type="logic_compare" id="cmp_o1">
-                        <field name="OP">GT</field>
-                        <value name="A">
-                          <block type="math_number" id="o1">
-                            <field name="NUM">90</field>
-                          </block>
-                        </value>
-                        <value name="B">
-                          <block type="variables_get" id="get_bestprob">
-                            <field name="VAR" id="best_prob">best_prob</field>
-                          </block>
-                        </value>
-                      </block>
-                    </value>
-                    <statement name="DO0">
-                      <block type="variables_set" id="set_best_o1">
-                        <field name="VAR" id="best_prob">best_prob</field>
-                        <value name="VALUE">
-                          <block type="math_number" id="o1a">
-                            <field name="NUM">90</field>
-                          </block>
-                        </value>
-                        <next>
-                          <block type="variables_set" id="set_side_o1">
-                            <field name="VAR" id="best_side">best_side</field>
-                            <value name="VALUE">
-                              <block type="text" id="txt_over">
-                                <field name="TEXT">DIGITOVER</field>
-                              </block>
-                            </value>
-                            <next>
-                              <block type="variables_set" id="set_digit_o1">
-                                <field name="VAR" id="best_digit">best_digit</field>
-                                <value name="VALUE">
-                                  <block type="math_number" id="d1">
-                                    <field name="NUM">1</field>
-                                  </block>
-                                </value>
-                              </block>
-                            </next>
-                          </block>
-                        </next>
-                      </block>
-                    </statement>
-                  </block>
-
-                  <!-- (Repeat similar checks for all OVER and UNDER entries...) -->
-                  <!-- For brevity in XML: we check each probability and update best_prob/best_side/best_digit -->
-                  <!-- Over 2 -->
-                  <next>
-                    <block type="controls_if" id="if_o2">
-                      <value name="IF0">
-                        <block type="logic_compare" id="cmp_o2">
-                          <field name="OP">GT</field>
-                          <value name="A"><block type="math_number"><field name="NUM">85</field></block></value>
-                          <value name="B"><block type="variables_get"><field name="VAR" id="best_prob">best_prob</field></block></value>
-                        </block>
-                      </value>
-                      <statement name="DO0">
-                        <block type="variables_set"><field name="VAR" id="best_prob">best_prob</field>
-                          <value name="VALUE"><block type="math_number"><field name="NUM">85</field></block></value>
-                          <next>
-                            <block type="variables_set"><field name="VAR" id="best_side">best_side</field>
-                              <value name="VALUE"><block type="text"><field name="TEXT">DIGITOVER</field></block></value>
-                              <next>
-                                <block type="variables_set"><field name="VAR" id="best_digit">best_digit</field>
-                                  <value name="VALUE"><block type="math_number"><field name="NUM">2</field></block></value>
-                                </block>
-                              </next>
-                            </block>
-                          </next>
-                        </block>
-                      </statement>
-                    </block>
-
-                    <!-- Over 3 (70) -->
-                    <next>
-                      <block type="controls_if" id="if_o3">
-                        <value name="IF0">
-                          <block type="logic_compare" id="cmp_o3">
-                            <field name="OP">GT</field>
-                            <value name="A"><block type="math_number"><field name="NUM">70</field></block></value>
-                            <value name="B"><block type="variables_get"><field name="VAR" id="best_prob">best_prob</field></block></value>
-                          </block>
-                        </value>
-                        <statement name="DO0">
-                          <block type="variables_set"><field name="VAR" id="best_prob">best_prob</field>
-                            <value name="VALUE"><block type="math_number"><field name="NUM">70</field></block></value>
-                            <next>
-                              <block type="variables_set"><field name="VAR" id="best_side">best_side</field>
-                                <value name="VALUE"><block type="text"><field name="TEXT">DIGITOVER</field></block></value>
-                                <next>
-                                  <block type="variables_set"><field name="VAR" id="best_digit">best_digit</field>
-                                    <value name="VALUE"><block type="math_number"><field name="NUM">3</field></block></value>
-                                  </block>
-                                </next>
-                              </block>
-                            </next>
-                          </block>
-                        </statement>
-                      </block>
-
-                      <!-- Over 4 (60) -->
-                      <next>
-                        <block type="controls_if" id="if_o4">
-                          <value name="IF0">
-                            <block type="logic_compare">
-                              <field name="OP">GT</field>
-                              <value name="A"><block type="math_number"><field name="NUM">60</field></block></value>
-                              <value name="B"><block type="variables_get"><field name="VAR" id="best_prob">best_prob</field></block></value>
-                            </block>
-                          </value>
-                          <statement name="DO0">
-                            <block type="variables_set"><field name="VAR" id="best_prob">best_prob</field>
-                              <value name="VALUE"><block type="math_number"><field name="NUM">60</field></block></value>
-                              <next>
-                                <block type="variables_set"><field name="VAR" id="best_side">best_side</field>
-                                  <value name="VALUE"><block type="text"><field name="TEXT">DIGITOVER</field></block></value>
-                                  <next>
-                                    <block type="variables_set"><field name="VAR" id="best_digit">best_digit</field>
-                                      <value name="VALUE"><block type="math_number"><field name="NUM">4</field></block></value>
-                                    </block>
-                                  </next>
-                                </block>
-                              </next>
-                            </block>
-                          </statement>
-                        </block>
-
-                        <!-- Over 5 (55) -->
-                        <next>
-                          <block type="controls_if">
-                            <value name="IF0">
-                              <block type="logic_compare">
-                                <field name="OP">GT</field>
-                                <value name="A"><block type="math_number"><field name="NUM">55</field></block></value>
-                                <value name="B"><block type="variables_get"><field name="VAR" id="best_prob">best_prob</field></block></value>
-                              </block>
-                            </value>
-                            <statement name="DO0">
-                              <block type="variables_set"><field name="VAR" id="best_prob">best_prob</field>
-                                <value name="VALUE"><block type="math_number"><field name="NUM">55</field></block></value>
-                                <next>
-                                  <block type="variables_set"><field name="VAR" id="best_side">best_side</field>
-                                    <value name="VALUE"><block type="text"><field name="TEXT">DIGITOVER</field></block></value>
-                                    <next>
-                                      <block type="variables_set"><field name="VAR" id="best_digit">best_digit</field>
-                                        <value name="VALUE"><block type="math_number"><field name="NUM">5</field></block></value>
-                                      </block>
-                                    </next>
-                                  </block>
-                                </next>
-                              </block>
-                            </statement>
-                          </block>
-
-                          <!-- Over6 (40), Over7 (30), Over8 (25) - they won't beat the earlier ones but included for completeness -->
-                          <!-- Now check Under side values and overwrite if any are greater than current best_prob -->
-                          <!-- Under 1 -> 25 -->
-                          <next>
-                            <block type="controls_if">
-                              <value name="IF0">
-                                <block type="logic_compare">
-                                  <field name="OP">GT</field>
-                                  <value name="A"><block type="math_number"><field name="NUM">25</field></block></value>
-                                  <value name="B"><block type="variables_get"><field name="VAR" id="best_prob">best_prob</field></block></value>
-                                </block>
-                              </value>
-                              <statement name="DO0">
-                                <block type="variables_set"><field name="VAR" id="best_prob">best_prob</field>
-                                  <value name="VALUE"><block type="math_number"><field name="NUM">25</field></block></value>
-                                  <next>
-                                    <block type="variables_set"><field name="VAR" id="best_side">best_side</field>
-                                      <value name="VALUE"><block type="text"><field name="TEXT">DIGITUNDER</field></block></value>
-                                      <next>
-                                        <block type="variables_set"><field name="VAR" id="best_digit">best_digit</field>
-                                          <value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value>
-                                        </block>
-                                      </next>
-                                    </block>
-                                  </next>
-                                </block>
-                              </statement>
-                            </block>
-
-                            <!-- Continue for Under2 (30), Under3 (40), Under4 (55), Under5 (60), Under6 (70), Under7 (85), Under8 (90) -->
-                            <!-- The largest Under entries (85 & 90) will likely overwrite if they are greater than Over best -->
-                            <next>
-                              <!-- Under 8 (90) -->
-                              <block type="controls_if">
-                                <value name="IF0"><block type="logic_compare"><field name="OP">GT</field>
-                                  <value name="A"><block type="math_number"><field name="NUM">90</field></block></value>
-                                  <value name="B"><block type="variables_get"><field name="VAR" id="best_prob">best_prob</field></block></value>
-                                </block></value>
-                                <statement name="DO0">
-                                  <block type="variables_set"><field name="VAR" id="best_prob">best_prob</field>
-                                    <value name="VALUE"><block type="math_number"><field name="NUM">90</field></block></value>
-                                    <next>
-                                      <block type="variables_set"><field name="VAR" id="best_side">best_side</field>
-                                        <value name="VALUE"><block type="text"><field name="TEXT">DIGITUNDER</field></block></value>
-                                        <next>
-                                          <block type="variables_set"><field name="VAR" id="best_digit">best_digit</field>
-                                            <value name="VALUE"><block type="math_number"><field name="NUM">8</field></block></value>
-                                          </block>
-                                        </next>
-                                      </block>
-                                    </next>
-                                  </block>
-                                </statement>
-                              </block>
-
-                              <!-- Under 7 (85) -->
-                              <next>
-                                <block type="controls_if">
-                                  <value name="IF0"><block type="logic_compare"><field name="OP">GT</field>
-                                    <value name="A"><block type="math_number"><field name="NUM">85</field></block></value>
-                                    <value name="B"><block type="variables_get"><field name="VAR" id="best_prob">best_prob</field></block></value>
-                                  </block></value>
-                                  <statement name="DO0">
-                                    <block type="variables_set"><field name="VAR" id="best_prob">best_prob</field>
-                                      <value name="VALUE"><block type="math_number"><field name="NUM">85</field></block></value>
-                                      <next>
-                                        <block type="variables_set"><field name="VAR" id="best_side">best_side</field>
-                                          <value name="VALUE"><block type="text"><field name="TEXT">DIGITUNDER</field></block></value>
-                                          <next>
-                                            <block type="variables_set"><field name="VAR" id="best_digit">best_digit</field>
-                                              <value name="VALUE"><block type="math_number"><field name="NUM">7</field></block></value>
-                                            </block>
-                                          </next>
-                                        </block>
-                                      </next>
-                                    </block>
-                                  </statement>
-                                </block>
-
-                                <!-- Under6 (70), Under5 (60), Under4 (55), Under3 (40), Under2 (30) would follow similarly -->
-                                <next>
-                                  <!-- done selecting best -->
-                                  <block type="variables_set">
-                                    <field name="VAR" id="chosen_contract">chosen_contract</field>
-                                    <value name="VALUE">
-                                      <block type="variables_get">
-                                        <field name="VAR" id="best_side">best_side</field>
-                                      </block>
-                                    </value>
-                                    <next>
-                                      <block type="variables_set">
-                                        <field name="VAR" id="chosen_digit">chosen_digit</field>
-                                        <value name="VALUE">
-                                          <block type="variables_get">
-                                            <field name="VAR" id="best_digit">best_digit</field>
-                                          </block>
-                                        </value>
-                                      </block>
-                                    </next>
-                                  </block>
-                                </next>
-                              </next>
-                            </next>
-                          </next>
-                        </next>
-                      </next>
-                    </next>
-                  </next>
-                </next>
-              </next>
-            </next>
-          </next>
-        </next>
-      </next>
-    </statement>
-    <value name="RETURN">
-      <block type="variables_get">
-        <field name="VAR" id="chosen_digit">chosen_digit</field>
-      </block>
-    </value>
-  </block>
-
-  <!-- Procedure to choose next recovery digit - chooses the next-highest probability digit not used previously -->
-  <block type="procedures_defreturn" x="600" y="440" id="proc_recovery">
-    <field name="NAME">choose_next_digit</field>
-    <statement name="STACK">
-      <!-- Simple recovery logic: if last used digit was X, pick the highest-probability digit different from X.
-           (In practice you may store recent digits used and avoid them until all options exhausted).
-      -->
-      <block type="variables_set" id="recovery_choose">
-        <field name="VAR" id="chosen_digit">chosen_digit</field>
-        <value name="VALUE">
-          <block type="math_number">
-            <field name="NUM">1</field>
-          </block>
-        </value>
-
-        <next>
-          <!-- As an example: rotate to the next index (digit+1) modulo 8; this ensures a different digit -->
-          <block type="variables_set" id="rot_digit">
-            <field name="VAR" id="chosen_digit">chosen_digit</field>
-            <value name="VALUE">
-              <block type="math_arithmetic">
-                <field name="OP">MODULO</field>
-                <value name="A">
-                  <block type="math_arithmetic">
-                    <field name="OP">ADD</field>
+                <value name="B">
+                  <block type="math_arithmetic" id="power_calculation">
+                    <field name="OP">POWER</field>
                     <value name="A">
-                      <block type="variables_get"><field name="VAR" id="chosen_digit">chosen_digit</field></block>
+                      <block type="variables_get" id="get_recovery_mult">
+                        <field name="VAR" id="v_recovery_mult">recovery_mult</field>
+                      </block>
                     </value>
-                    <value name="B"><block type="math_number"><field name="NUM">1</field></block></value>
+                    <value name="B">
+                      <block type="variables_get" id="get_current_recovery">
+                        <field name="VAR" id="v_current_recovery">current_recovery</field>
+                      </block>
+                    </value>
                   </block>
                 </value>
-                <value name="B"><block type="math_number"><field name="NUM">8</field></block></value>
+              </block>
+            </value>
+            
+            <next>
+              <block type="purchase" id="make_purchase">
+                <field name="PURCHASE_LIST">purchase</field>
+                <value name="AMOUNT">
+                  <block type="variables_get" id="get_calculated_stake">
+                    <field name="VAR" id="v_base_stake">base_stake</field>
+                  </block>
+                </value>
+              </block>
+            </next>
+          </block>
+        </statement>
+      </block>
+    </statement>
+
+    <statement name="AFTERPURCHASE">
+      <block type="controls_if" id="check_trade_result">
+        <value name="IF0">
+          <block type="contract_check_result" id="check_if_won">
+            <field name="CHECK_RESULT">win</field>
+          </block>
+        </value>
+        
+        <statement name="DO0">
+          <block type="variables_set" id="reset_recovery_on_win">
+            <field name="VAR" id="v_current_recovery">current_recovery</field>
+            <value name="VALUE">
+              <block type="math_number" id="reset_to_zero">
+                <field name="NUM">0</field>
               </block>
             </value>
           </block>
-
-        </next>
+        </statement>
+        
+        <statement name="ELSE">
+          <block type="variables_set" id="increment_recovery">
+            <field name="VAR" id="v_current_recovery">current_recovery</field>
+            <value name="VALUE">
+              <block type="math_arithmetic" id="add_one_recovery">
+                <field name="OP">ADD</field>
+                <value name="A">
+                  <block type="variables_get" id="get_current_recovery_loss">
+                    <field name="VAR" id="v_current_recovery">current_recovery</field>
+                  </block>
+                </value>
+                <value name="B">
+                  <block type="math_number" id="one_increment">
+                    <field name="NUM">1</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            
+            <next>
+              <block type="controls_if" id="check_max_recovery">
+                <value name="IF0">
+                  <block type="logic_compare" id="compare_max_recovery">
+                    <field name="OP">GT</field>
+                    <value name="A">
+                      <block type="variables_get" id="get_current_recovery_check">
+                        <field name="VAR" id="v_current_recovery">current_recovery</field>
+                      </block>
+                    </value>
+                    <value name="B">
+                      <block type="variables_get" id="get_max_recoveries_check">
+                        <field name="VAR" id="v_max_recoveries">max_recoveries</field>
+                      </block>
+                    </value>
+                  </block>
+                </value>
+                
+                <statement name="DO0">
+                  <block type="trade_again" id="stop_trading">
+                    <field name="TRADE_AGAIN">false</field>
+                  </block>
+                </statement>
+              </block>
+            </next>
+          </block>
+        </statement>
       </block>
     </statement>
-    <value name="RETURN">
-      <block type="variables_get"><field name="VAR" id="chosen_digit">chosen_digit</field></block>
-    </value>
   </block>
-
 </xml>
