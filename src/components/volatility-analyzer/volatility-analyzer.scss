@@ -121,12 +121,12 @@
 
   .trading-cards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
       max-width: 1800px;
       overflow-y: auto;
       max-height: calc(100vh - 200px);
-      padding-bottom: 150px;
+      padding-bottom: 120px;
 
       @media (max-width: 768px) {
         padding-bottom: 120px;
@@ -153,19 +153,19 @@
     background: white;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
-    padding: 16px;
+    padding: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    min-height: 500px;
+    min-height: 400px;
     display: flex;
     flex-direction: column;
 
     .card-header {
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       border-bottom: 1px solid #e0e0e0;
-      padding-bottom: 12px;
+      padding-bottom: 8px;
 
       h3 {
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 600;
         color: #333;
         margin: 0;
@@ -176,7 +176,7 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
 
       .progress-item {
         .progress-label {
@@ -362,22 +362,22 @@
         background: #f8f9fa;
         border: 1px solid #e0e0e0;
         border-radius: 6px;
-        padding: 12px;
+        padding: 10px;
         margin-top: auto;
 
         .condition-header {
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 600;
           color: #333;
-          margin-bottom: 8px;
+          margin-bottom: 6px;
         }
 
         .condition-row {
           display: flex;
           align-items: center;
-          gap: 8px;
-          margin-bottom: 8px;
-          font-size: 12px;
+          gap: 6px;
+          margin-bottom: 6px;
+          font-size: 11px;
 
           span {
             color: #666;
@@ -458,22 +458,22 @@
     }
 
     .card-footer {
-      margin-top: 16px;
+      margin-top: 12px;
       border-top: 1px solid #e0e0e0;
-      padding-top: 12px;
+      padding-top: 10px;
 
       .start-trading-btn {
         width: 100%;
-        padding: 12px;
+        padding: 10px;
         background: linear-gradient(45deg, #4CAF50, #45a049);
         color: white;
         border: none;
         border-radius: 6px;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s ease;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
 
         &:hover:not(:disabled) {
           background: linear-gradient(45deg, #45a049, #4CAF50);
@@ -496,12 +496,12 @@
 
       .manual-trade-btn {
         width: 100%;
-        padding: 10px;
+        padding: 8px;
         background: linear-gradient(45deg, #2196F3, #1976D2);
         color: white;
         border: none;
         border-radius: 6px;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s ease;
