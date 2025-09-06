@@ -121,30 +121,31 @@
 
   .trading-cards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
       max-width: 1800px;
       overflow-y: auto;
-      max-height: calc(100vh - 200px);
-      padding-bottom: 120px;
+      max-height: calc(100vh - 180px);
+      padding-bottom: 80px;
 
       @media (max-width: 768px) {
-        padding-bottom: 120px;
+        padding-bottom: 80px;
+        gap: 8px;
       }
 
       @media (min-width: 1600px) {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(4, 1fr);
       }
 
       @media (min-width: 1200px) and (max-width: 1599px) {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      @media (min-width: 768px) and (max-width: 1199px) {
         grid-template-columns: repeat(2, 1fr);
       }
 
-      @media (max-width: 1199px) {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      @media (max-width: 768px) {
+      @media (max-width: 767px) {
         grid-template-columns: 1fr;
       }
     }
@@ -153,19 +154,19 @@
     background: white;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
-    padding: 12px;
+    padding: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    min-height: 400px;
+    min-height: 320px;
     display: flex;
     flex-direction: column;
 
     .card-header {
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       border-bottom: 1px solid #e0e0e0;
-      padding-bottom: 8px;
+      padding-bottom: 6px;
 
       h3 {
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 600;
         color: #333;
         margin: 0;
@@ -176,14 +177,14 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 8px;
 
       .progress-item {
         .progress-label {
           display: flex;
           justify-content: space-between;
-          margin-bottom: 6px;
-          font-size: 14px;
+          margin-bottom: 4px;
+          font-size: 13px;
           font-weight: 500;
 
           .progress-percentage {
@@ -192,9 +193,9 @@
         }
 
         .progress-bar {
-          height: 8px;
+          height: 6px;
           background-color: #f0f0f0;
-          border-radius: 4px;
+          border-radius: 3px;
           overflow: hidden;
 
           .progress-fill {
@@ -206,23 +207,23 @@
       }
 
       .barrier-info {
-        font-size: 14px;
+        font-size: 12px;
         color: #666;
         text-align: center;
-        padding: 8px;
+        padding: 6px;
         background: #f8f9fa;
         border-radius: 4px;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
       }
 
       .most-frequent {
-        font-size: 14px;
+        font-size: 12px;
         color: #333;
         text-align: center;
-        padding: 8px;
+        padding: 6px;
         background: #f8f9fa;
         border-radius: 4px;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
       }
 
       .barrier-note {
@@ -362,7 +363,7 @@
         background: #f8f9fa;
         border: 1px solid #e0e0e0;
         border-radius: 6px;
-        padding: 10px;
+        padding: 8px;
         margin-top: auto;
 
         .condition-header {
@@ -458,22 +459,22 @@
     }
 
     .card-footer {
-      margin-top: 12px;
+      margin-top: 8px;
       border-top: 1px solid #e0e0e0;
-      padding-top: 10px;
+      padding-top: 8px;
 
       .start-trading-btn {
         width: 100%;
-        padding: 10px;
+        padding: 8px;
         background: linear-gradient(45deg, #4CAF50, #45a049);
         color: white;
         border: none;
         border-radius: 6px;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s ease;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
 
         &:hover:not(:disabled) {
           background: linear-gradient(45deg, #45a049, #4CAF50);
@@ -496,12 +497,12 @@
 
       .manual-trade-btn {
         width: 100%;
-        padding: 8px;
+        padding: 6px;
         background: linear-gradient(45deg, #2196F3, #1976D2);
         color: white;
         border: none;
         border-radius: 6px;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s ease;
