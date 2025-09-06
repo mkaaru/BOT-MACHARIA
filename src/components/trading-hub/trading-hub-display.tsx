@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import './trading-hub-display.scss';
 import { api_base } from '../../external/bot-skeleton/services/api/api-base';
@@ -21,7 +20,6 @@ const TradingHubDisplay: React.FC = () => {
     const [isContinuousTrading, setIsContinuousTrading] = useState(false);
     const [currentBarrier, setCurrentBarrier] = useState<number | null>(null);
     const [currentSymbol, setCurrentSymbol] = useState<string>('R_100');
-    const [currentStrategy, setCurrentStrategy] = useState<string>('over');
     const tradingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const [sessionRunId, setSessionRunId] = useState<string>(`tradingHub_${Date.now()}`);
     const [isAnalysisReady, setIsAnalysisReady] = useState(false);
@@ -43,6 +41,11 @@ const TradingHubDisplay: React.FC = () => {
     const [lastTradeResult, setLastTradeResult] = useState<string>('');
     const [winCount, setWinCount] = useState(0);
     const [lossCount, setLossCount] = useState(0);
+    const [tradeResult, setTradeResult] = useState<{ success: boolean; message: string; contractId: string | null }>({
+        success: false,
+        message: '',
+        contractId: null,
+    });
 
     const { run_panel, transactions, client } = useStore();
 
@@ -74,7 +77,7 @@ const TradingHubDisplay: React.FC = () => {
                 const baseStake = localStorage.getItem('tradingHub_initialStake') || initialStake;
                 const multiplier = parseFloat(martingale);
                 const newStake = (parseFloat(baseStake) * Math.pow(multiplier, Math.min(newLossCount, 10))).toFixed(2);
-                
+
                 setAppliedStake(newStake);
                 setConsecutiveLosses(newLossCount);
                 break;
@@ -93,6 +96,19 @@ const TradingHubDisplay: React.FC = () => {
         }
 
         return appliedStake;
+    };
+
+    const updateTradeStats = (win: boolean) => {
+        if (win) {
+            setWinCount(prev => prev + 1);
+            setLastTradeResult('WIN');
+            setConsecutiveLosses(0);
+            manageStake('reset'); // Reset stake after a win
+        } else {
+            setLossCount(prev => prev + 1);
+            setLastTradeResult('LOSS');
+            manageStake('martingale'); // Apply martingale after a loss
+        }
     };
 
     useEffect(() => {
@@ -163,9 +179,9 @@ const TradingHubDisplay: React.FC = () => {
     const executeTrade = async (strategy: string, symbol: string, direction: string, barrier?: string) => {
         try {
             setIsTradeInProgress(true);
-            
+
             const currentStake = manageStake('get');
-            
+
             const tradePayload: any = {
                 buy: 1,
                 price: parseFloat(currentStake),
@@ -181,25 +197,34 @@ const TradingHubDisplay: React.FC = () => {
                 tradePayload.parameters.barrier = barrier;
             }
 
-            console.log(`Executing ${strategy} trade:`, tradePayload);
-
+            console.log(`Executing trade with payload:`, tradePayload);
             const response = await api_base.api.send(tradePayload);
 
             if (response.error) {
-                console.error('Trade execution error:', response.error);
-                return false;
-            }
-
-            if (response.buy) {
-                console.log('Trade executed successfully:', response.buy);
-                setLastTradeId(response.buy.contract_id);
-                setTradeCount(prev => prev + 1);
-                lastTradeTime.current = Date.now();
-                return true;
+                console.error('Trade execution failed:', response);
+                console.error('Error details:', response.error);
+                setTradeResult({
+                    success: false,
+                    message: `Trade failed: ${response.error.message || 'Unknown error'}`,
+                    contractId: null
+                });
+            } else {
+                console.log('Trade executed successfully:', response);
+                setTradeResult({
+                    success: true,
+                    message: 'Trade executed successfully',
+                    contractId: response.buy?.contract_id || null
+                });
+                updateTradeStats(true);
             }
 
         } catch (error) {
             console.error('Trade execution failed:', error);
+            setTradeResult({
+                success: false,
+                message: `An unexpected error occurred: ${error.message || 'Unknown error'}`,
+                contractId: null
+            });
         } finally {
             setIsTradeInProgress(false);
         }
@@ -209,29 +234,33 @@ const TradingHubDisplay: React.FC = () => {
 
     const executeDigitDifferTrade = async () => {
         if (!recommendation || !isAutoDifferActive) return;
-        
+
         const success = await executeTrade('Differ', recommendation.symbol, 'differ');
         if (success) {
             console.log('Auto Differ trade executed');
         }
     };
 
-    const executeDigitOverTrade = async () => {
+    const executeDigitOverTrade = () => {
         if (!recommendation || !isAutoOverUnderActive) return;
-        
-        const success = await executeTrade('Over/Under', recommendation.symbol, recommendation.strategy, recommendation.barrier);
-        if (success) {
-            console.log(`Auto Over/Under trade executed: ${recommendation.strategy} ${recommendation.barrier}`);
-        }
+
+        console.log('Executing Over/Under trade with recommendation:', recommendation);
+
+        executeTrade(
+            'auto_over_under',
+            recommendation.symbol,
+            recommendation.strategy,
+            recommendation.barrier
+        );
     };
 
     const executeO5U4Trade = async () => {
         if (!isAutoO5U4Active) return;
-        
+
         // Execute both Over 5 and Under 4 trades simultaneously
         const over5Success = await executeTrade('O5U4', 'R_100', 'over', '5');
         const under4Success = await executeTrade('O5U4', 'R_100', 'under', '4');
-        
+
         if (over5Success || under4Success) {
             console.log('O5U4 dual trades executed');
         }
@@ -282,11 +311,11 @@ const TradingHubDisplay: React.FC = () => {
     useEffect(() => {
         if (isContinuousTrading && isAnalysisReady) {
             const intervalTime = 5000; // 5 seconds
-            
+
             tradingIntervalRef.current = setInterval(() => {
                 const now = Date.now();
                 const timeSinceLastTrade = now - lastTradeTime.current;
-                
+
                 if (isTradeInProgress || timeSinceLastTrade < minimumTradeCooldown) {
                     return;
                 }
