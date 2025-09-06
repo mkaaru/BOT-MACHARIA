@@ -156,26 +156,27 @@ const TradingHubDisplay: React.FC = () => {
                         
                         subscription.unsubscribe();
                         
-                        // Update balance after contract settlement
-                        try {
-                            const balanceResponse = await api_base.api?.send({ balance: 1 });
-                            console.log('Balance after settlement:', balanceResponse?.balance?.balance);
-                            
-                            // Update summary card with new balance
-                            if (run_panel?.summary_card_store) {
-                                run_panel.summary_card_store.updateBalance(balanceResponse?.balance?.balance || 0);
-                            }
-                        } catch (error) {
-                            console.error('Failed to update balance:', error);
-                        }
-                        
+                        // Only update balance for non-O5U4 trades or let O5U4 handle its own balance updates
                         if (!isO5U4Part) {
+                            try {
+                                const balanceResponse = await api_base.api?.send({ balance: 1 });
+                                console.log('Balance after settlement:', balanceResponse?.balance?.balance);
+                                
+                                // Update summary card with new balance
+                                if (run_panel?.summary_card_store) {
+                                    run_panel.summary_card_store.updateBalance(balanceResponse?.balance?.balance || 0);
+                                }
+                            } catch (error) {
+                                console.error('Failed to update balance:', error);
+                            }
+                            
                             contractSettledTimeRef.current = Date.now();
                             waitingForSettlementRef.current = false;
                         }
                         
+                        const tradeType = isO5U4Part ? 'O5U4 Part' : 'Single';
                         globalObserver.emit('ui.log.info', 
-                            `Contract ${contractId} settled: ${isWin ? 'WON' : 'LOST'} - Profit: ${profit}`);
+                            `${tradeType} Contract ${contractId} settled: ${isWin ? 'WON' : 'LOST'} - Profit: ${profit}`);
                         
                         resolve(isWin);
                     }
@@ -195,14 +196,14 @@ const TradingHubDisplay: React.FC = () => {
                 if (!isO5U4Part) {
                     contractSettledTimeRef.current = Date.now();
                     waitingForSettlementRef.current = false;
+                    // Stop trading on timeout/failure for non-O5U4 trades
+                    setIsContinuousTrading(false);
+                    if (run_panel) {
+                        run_panel.setIsRunning(false);
+                    }
                 }
-                globalObserver.emit('ui.log.error', `Contract ${contractId} monitoring timeout - stopping trading`);
-                // Stop trading on timeout/failure instead of simulating results
-                setIsContinuousTrading(false);
-                if (run_panel) {
-                    run_panel.setIsRunning(false);
-                }
-                resolve(false); // Always return false on timeout
+                globalObserver.emit('ui.log.error', `Contract ${contractId} monitoring timeout`);
+                resolve(false);
             }, 120000); // 2 minute timeout
         });
     }, [run_panel]);
@@ -508,24 +509,96 @@ const TradingHubDisplay: React.FC = () => {
             console.log('Executing O5U4 dual trade...');
             setIsTradeInProgress(true);
             
+            const currentStake = parseFloat(appliedStake);
+            
             // Execute both trades simultaneously
             const [over5Result, under4Result] = await Promise.all([
                 executeTrade('O5U4 Over', 'R_100', 'DIGITOVER', '5', true),
                 executeTrade('O5U4 Under', 'R_100', 'DIGITUNDER', '4', true)
             ]);
             
-            const overallResult = over5Result || under4Result;
-            handleTradeResult(overallResult);
+            // Calculate O5U4 specific results
+            const tradesWon = (over5Result ? 1 : 0) + (under4Result ? 1 : 0);
+            const tradesLost = 2 - tradesWon;
             
-            return overallResult;
+            // O5U4 is profitable if at least one trade wins (covers both stakes)
+            const isOverallWin = tradesWon > 0;
+            
+            // Calculate actual profit/loss for O5U4
+            let profitAmount = 0;
+            if (isOverallWin) {
+                // Profit = (winning trades * payout) - total stakes
+                const totalPayout = tradesWon * (currentStake * 0.95); // 95% payout
+                const totalCost = currentStake * 2; // Two trades
+                profitAmount = totalPayout - totalCost;
+                globalObserver.emit('ui.log.success', `O5U4: ${tradesWon} trades won - Net Profit: +${profitAmount.toFixed(2)}`);
+            } else {
+                // Loss = total stakes (both trades lost)
+                profitAmount = -(currentStake * 2);
+                globalObserver.emit('ui.log.error', `O5U4: Both trades lost - Net Loss: ${profitAmount.toFixed(2)}`);
+            }
+            
+            // Update statistics for O5U4
+            const newStake = calculateNextStake(isOverallWin);
+            setAppliedStake(newStake);
+            currentStakeRef.current = newStake;
+            setTotalTrades(prev => prev + 1);
+            
+            if (isOverallWin) {
+                setWinCount(prev => prev + 1);
+                setLastTradeResult('WIN');
+            } else {
+                setLossCount(prev => prev + 1);
+                setLastTradeResult('LOSS');
+            }
+            
+            setProfitLoss(prev => prev + profitAmount);
+            
+            // Update summary card with O5U4 specific stats
+            if (run_panel?.summary_card_store) {
+                const newStats = {
+                    total_trades: totalTrades + 1,
+                    wins: isOverallWin ? winCount + 1 : winCount,
+                    losses: !isOverallWin ? lossCount + 1 : lossCount,
+                    profit_loss: profitLoss + profitAmount,
+                    last_trade_result: isOverallWin ? 'WIN' : 'LOSS',
+                    current_stake: newStake
+                };
+                
+                run_panel.summary_card_store.updateTradingHubStats(newStats);
+                
+                // Force balance refresh after O5U4 trade
+                setTimeout(async () => {
+                    try {
+                        const balanceResponse = await api_base.api?.send({ balance: 1 });
+                        if (balanceResponse?.balance?.balance && run_panel.summary_card_store) {
+                            run_panel.summary_card_store.updateBalance(balanceResponse.balance.balance);
+                            console.log('O5U4: Balance updated:', balanceResponse.balance.balance);
+                        }
+                    } catch (error) {
+                        console.error('O5U4: Failed to refresh balance:', error);
+                    }
+                }, 2000);
+            }
+            
+            return isOverallWin;
         } catch (error) {
             console.error('O5U4 execution failed:', error);
-            handleTradeResult(false);
+            globalObserver.emit('ui.log.error', `O5U4 strategy failed: ${error.message || 'Unknown error'}`);
+            
+            // Handle failure case properly
+            const newStake = calculateNextStake(false);
+            setAppliedStake(newStake);
+            currentStakeRef.current = newStake;
+            setTotalTrades(prev => prev + 1);
+            setLossCount(prev => prev + 1);
+            setLastTradeResult('LOSS');
+            
             return false;
         } finally {
             setIsTradeInProgress(false);
         }
-    }, [isTradeInProgress, checkO5U4Conditions, executeTrade, handleTradeResult]);
+    }, [isTradeInProgress, checkO5U4Conditions, executeTrade, calculateNextStake, appliedStake, totalTrades, winCount, lossCount, profitLoss, run_panel]);
 
     // Strategy toggle functions - only one strategy can be active
     const toggleStrategy = useCallback((strategy: string) => {
