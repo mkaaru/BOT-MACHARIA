@@ -1,0 +1,127 @@
+    at Desktop (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:1084:11)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4515:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4372:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29890:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23370:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73748:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73762:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 2, New stake: 1.40
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 3, New stake: 2.80
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 4, New stake: 5.60
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 5, New stake: 11.20
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 6, New stake: 22.40
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 7, New stake: 44.80
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 8, New stake: 89.60
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 9, New stake: 89.60
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 10, New stake: 89.60
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 11, New stake: 89.60
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 12, New stake: 89.60
+content_script.js:7165 Content limit: 612032839.68
+api-base.ts:148 connection state:  1
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 13, New stake: 89.60
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 14, New stake: 89.60
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 15, New stake: 89.60
+content_script.js:7165 Content limit: 612032839.68
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 16, New stake: 89.60
+content_script.js:7165 Content limit: 612032839.68
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+api-base.ts:148 connection state:  1
+trading-hub-display.tsx:267  Trade execution failed: Object
+(anonymous) @ trading-hub-display.tsx:267
+trading-hub-display.tsx:117 Martingale calculation: Loss 17, New stake: 89.60
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+trading-hub-display.tsx:320 Executing Auto Over/Under trade...
+trading-hub-display.tsx:236 Executing Auto Over/Under trade: Object
+trading-hub-display.tsx:267  Trade ex
