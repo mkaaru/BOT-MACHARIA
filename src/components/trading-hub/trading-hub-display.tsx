@@ -187,42 +187,44 @@ const TradingHubDisplay: React.FC = () => {
                     if (contractData.is_settled) {
                         contractResolved = true;
                         
-                        // Correct win/loss detection based on profit and contract status
+                        // Enhanced win/loss detection for Over/Under trades
                         const profit = parseFloat(contractData.profit || '0');
-                        const buyPrice = parseFloat(contractData.buy_price || stake?.toString() || '0');
                         const sellPrice = parseFloat(contractData.sell_price || '0');
+                        const buyPrice = parseFloat(contractData.buy_price || stake?.toString() || '0');
+                        const payout = parseFloat(contractData.payout || '0');
                         
-                        // Primary win detection: profit > 0 means we won
-                        let isWin = profit > 0;
+                        // Multiple ways to detect win - use the most reliable for Over/Under
+                        let isWin = false;
                         
-                        // Secondary check: contract status
-                        if (!isWin && contractData.status === 'won') {
+                        // For Over/Under trades, check multiple indicators
+                        if (contractData.status === 'won' || contractData.status === 'sold') {
+                            // Check if we actually made profit
+                            if (profit > 0 || sellPrice > buyPrice) {
+                                isWin = true;
+                            }
+                        }
+                        
+                        // Fallback: Check payout received vs amount paid
+                        if (!isWin && payout > 0 && payout > buyPrice) {
                             isWin = true;
                         }
                         
-                        // For digit contracts, verify the prediction was correct
-                        if (contractType && contractType.startsWith('DIGIT') && contractData.exit_spot && contractData.barrier) {
+                        // Final check: If sell price is significantly higher than buy price
+                        if (!isWin && sellPrice > (buyPrice * 1.01)) { // At least 1% gain
+                            isWin = true;
+                        }
+                        
+                        // Over/Under specific: Check if exit spot satisfies the barrier condition
+                        if (!isWin && contractData.exit_spot && contractData.barrier) {
                             const exitSpot = parseFloat(contractData.exit_spot);
                             const barrier = parseFloat(contractData.barrier);
                             const lastDigit = Math.floor(exitSpot * 100) % 10;
                             
-                            // Verify prediction correctness
-                            let predictionCorrect = false;
+                            // Check if the prediction was correct based on contract type
                             if (contractType === 'DIGITOVER' && lastDigit > barrier) {
-                                predictionCorrect = true;
-                            } else if (contractType === 'DIGITUNDER' && lastDigit < barrier) {
-                                predictionCorrect = true;
-                            } else if (contractType === 'DIGITDIFF' && lastDigit !== barrier) {
-                                predictionCorrect = true;
-                            } else if (contractType === 'DIGITMATCH' && lastDigit === barrier) {
-                                predictionCorrect = true;
-                            }
-                            
-                            // Override win status if prediction logic conflicts with profit
-                            if (predictionCorrect && profit > 0) {
                                 isWin = true;
-                            } else if (!predictionCorrect && profit <= 0) {
-                                isWin = false;
+                            } else if (contractType === 'DIGITUNDER' && lastDigit < barrier) {
+                                isWin = true;
                             }
                         }
                         
@@ -248,8 +250,16 @@ const TradingHubDisplay: React.FC = () => {
                         // Create transaction entry for run panel with correct win/loss status
                         if (run_panel?.root_store?.transactions) {
                             try {
-                                // Use the actual profit from the contract response
-                                const actualProfit = profit;
+                                // Calculate actual profit more accurately for Over/Under
+                                let actualProfit;
+                                if (isWin) {
+                                    // For wins, use the actual profit or calculate from payout
+                                    actualProfit = profit > 0 ? profit : (payout > 0 ? payout - buyPrice : sellPrice - buyPrice);
+                                } else {
+                                    // For losses, it's negative of the stake
+                                    actualProfit = -Math.abs(buyPrice);
+                                }
+                                
                                 const profitPercentage = buyPrice > 0 ? ((actualProfit / buyPrice) * 100).toFixed(2) : '0.00';
                                 const contractIdNum = typeof contractId === 'string' ? parseInt(contractId.replace(/[^0-9]/g, ''), 10) : contractId;
                                 
@@ -281,7 +291,7 @@ const TradingHubDisplay: React.FC = () => {
                                     status: isWin ? 'won' : 'lost',
                                     // Additional fields
                                     longcode: `${contractType} prediction on ${symbol}`,
-                                    app_id: 75771,
+                                    app_id: 16929,
                                     purchase_time: contractData.date_start || new Date().toISOString(),
                                     sell_time: contractData.exit_tick_time || new Date().toISOString(),
                                     transaction_time: new Date().toISOString()
@@ -488,8 +498,7 @@ const TradingHubDisplay: React.FC = () => {
                     duration_unit: 't',
                     amount: stakeAmount,
                     basis: 'stake',
-                    currency: client?.currency || 'USD',
-                    app_id: 75771  // Using the standard app ID for this application
+                    currency: client?.currency || 'USD'
                 }
             };
 
@@ -563,7 +572,7 @@ const TradingHubDisplay: React.FC = () => {
                 const contractResult = await monitorContract(contractId, isO5U4Part, contractType, symbol, stakeAmount);
                 
                 if (!isO5U4Part) {
-                    handleTradeResult(contractResult, profit, buyPrice);
+                    handleTradeResult(contractResult, buyPrice);
                 }
 
                 return contractResult;
@@ -611,23 +620,26 @@ const TradingHubDisplay: React.FC = () => {
     }, [isTradeInProgress, client, appliedStake, monitorContract]);
 
     // Enhanced trade result handling with proper balance integration
-    const handleTradeResult = useCallback((isWin: boolean, actualProfit: number, buyPrice?: number) => {
+    const handleTradeResult = useCallback((isWin: boolean, buyPrice?: number) => {
         const currentStakeAmount = buyPrice || parseFloat(appliedStake);
         const newStake = calculateNextStake(isWin);
         setAppliedStake(newStake);
         currentStakeRef.current = newStake;
         setTotalTrades(prev => prev + 1);
 
+        let profitAmount = 0;
         if (isWin) {
             setWinCount(prev => prev + 1);
             setLastTradeResult('WIN');
-            setProfitLoss(prev => prev + actualProfit);
-            globalObserver.emit('ui.log.success', `Trade WON! Profit: +${actualProfit.toFixed(2)}`);
+            profitAmount = currentStakeAmount * 0.95; // 95% payout
+            setProfitLoss(prev => prev + profitAmount);
+            globalObserver.emit('ui.log.success', `Trade WON! Profit: +${profitAmount.toFixed(2)}`);
         } else {
             setLossCount(prev => prev + 1);
             setLastTradeResult('LOSS');
-            setProfitLoss(prev => prev + actualProfit); // actualProfit is already negative for losses
-            globalObserver.emit('ui.log.error', `Trade LOST! Loss: ${actualProfit.toFixed(2)}`);
+            profitAmount = -currentStakeAmount;
+            setProfitLoss(prev => prev + profitAmount);
+            globalObserver.emit('ui.log.error', `Trade LOST! Loss: ${profitAmount.toFixed(2)}`);
         }
 
         // Update contract in summary card store for balance integration
@@ -636,18 +648,17 @@ const TradingHubDisplay: React.FC = () => {
                 total_trades: totalTrades + 1,
                 wins: isWin ? winCount + 1 : winCount,
                 losses: !isWin ? lossCount + 1 : lossCount,
-                profit_loss: profitLoss + actualProfit,
+                profit_loss: profitLoss + profitAmount,
                 last_trade_result: isWin ? 'WIN' : 'LOSS',
                 current_stake: newStake
             };
             
             run_panel.summary_card_store.updateTradingHubStats(newStats);
             
-            // Trigger balance refresh to sync with actual balance
+            // Trigger balance refresh
             api_base.api?.send({ balance: 1 }).then((response: any) => {
                 if (response?.balance?.balance) {
                     run_panel.summary_card_store.updateBalance(response.balance.balance);
-                    console.log(`Balance updated: ${response.balance.balance}, P&L: ${actualProfit}`);
                 }
             }).catch((error: any) => {
                 console.error('Failed to refresh balance:', error);
