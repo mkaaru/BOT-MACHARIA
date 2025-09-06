@@ -1,0 +1,299 @@
+
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+error @ react-dom.development.js:60
+findDOMNode @ react-dom.development.js:29666
+_getCellMeasurements @ CellMeasurer.js:102
+_maybeMeasureCell @ CellMeasurer.js:158
+componentDidMount @ CellMeasurer.js:82
+commitLayoutEffectOnFiber @ react-dom.development.js:23344
+commitLayoutMountEffects_complete @ react-dom.development.js:24727
+commitLayoutEffects_begin @ react-dom.development.js:24713
+commitLayoutEffects_begin @ react-dom.development.js:24695
+commitLayoutEffects_begin @ react-dom.development.js:24695
+commitLayoutEffects @ react-dom.development.js:24651
+commitRootImpl @ react-dom.development.js:26862
+commitRoot @ react-dom.development.js:26721
+performSyncWorkOnRoot @ react-dom.development.js:26156
+flushSyncCallbacks @ react-dom.development.js:12042
+commitRootImpl @ react-dom.development.js:26998
+commitRoot @ react-dom.development.js:26721
+finishConcurrentRender @ react-dom.development.js:26020
+performConcurrentWorkOnRoot @ react-dom.development.js:25848
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+trading-hub-display.tsx:349 Executing Auto Over/Under trade...
+trading-hub-display.tsx:248 Executing Auto Over/Under trade: {buy: 1, price: 0.7, parameters: {…}}
+trading-hub-display.tsx:281  Trade execution failed: Unknown trade execution error
+(anonymous) @ trading-hub-display.tsx:281
+await in (anonymous)
+(anonymous) @ trading-hub-display.tsx:351
+(anonymous) @ trading-hub-display.tsx:542
+setInterval
+(anonymous) @ trading-hub-display.tsx:509
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+trading-hub-display.tsx:117 Martingale calculation: Loss 2, New stake: 1.40
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+trading-hub-display.tsx:349 Executing Auto Over/Under trade...
+trading-hub-display.tsx:248 Executing Auto Over/Under trade: {buy: 1, price: 1.4, parameters: {…}}
+trading-hub-display.tsx:281  Trade execution failed: Unknown trade execution error
+(anonymous) @ trading-hub-display.tsx:281
+await in (anonymous)
+(anonymous) @ trading-hub-display.tsx:351
+(anonymous) @ trading-hub-display.tsx:542
+setInterval
+(anonymous) @ trading-hub-display.tsx:509
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+performSyncWorkOnRoot @ react-dom.development.js:26115
+flushSyncCallbacks @ react-dom.development.js:12042
+commitRootImpl @ react-dom.development.js:26998
+commitRoot @ react-dom.development.js:26721
+finishConcurrentRender @ react-dom.development.js:26020
+performConcurrentWorkOnRoot @ react-dom.development.js:25848
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+trading-hub-display.tsx:117 Martingale calculation: Loss 3, New stake: 2.80
+content_script.js:7165 Content limit: 612032839.68
+trading-hub-display.tsx:349 Executing Auto Over/Under trade...
+trading-hub-display.tsx:248 Executing Auto Over/Under trade: {buy: 1, price: 2.8, parameters: {…}}
+trading-hub-display.tsx:281  Trade execution failed: Unknown trade execution error
+(anonymous) @ trading-hub-display.tsx:281
+await in (anonymous)
+(anonymous) @ trading-hub-display.tsx:351
+(anonymous) @ trading-hub-display.tsx:542
+setInterval
+(anonymous) @ trading-hub-display.tsx:509
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+trading-hub-display.tsx:117 Martingale calculation: Loss 4, New stake: 5.60
+trading-hub-display.tsx:349 Executing Auto Over/Under trade...
+trading-hub-display.tsx:248 Executing Auto Over/Under trade: {buy: 1, price: 5.6, parameters: {…}}
+trading-hub-display.tsx:281  Trade execution failed: Unknown trade execution error
+(anonymous) @ trading-hub-display.tsx:281
+await in (anonymous)
+(anonymous) @ trading-hub-display.tsx:351
+(anonymous) @ trading-hub-display.tsx:542
+setInterval
+(anonymous) @ trading-hub-display.tsx:509
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+trading-hub-display.tsx:117 Martingale calculation: Loss 5, New stake: 11.20
+trading-hub-display.tsx:349 Executing Auto Over/Under trade...
+trading-hub-display.tsx:248 Executing Auto Over/Under trade: {buy: 1, price: 11.2, parameters: {…}}
+trading-hub-display.tsx:281  Trade execution failed: Unknown trade execution error
+(anonymous) @ trading-hub-display.tsx:281
+await in (anonymous)
+(anonymous) @ trading-hub-display.tsx:351
+(anonymous) @ trading-hub-display.tsx:542
+setInterval
+(anonymous) @ trading-hub-display.tsx:509
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+trading-hub-display.tsx:117 Martingale calculation: Loss 6, New stake: 22.40
+content_script.js:7165 Content limit: 612032839.68
+trading-hub-display.tsx:349 Executing Auto Over/Under trade...
+trading-hub-display.tsx:248 Executing Auto Over/Under trade: {buy: 1, price: 22.4, parameters: {…}}
+trading-hub-display.tsx:281  Trade execution failed: Unknown trade execution error
+(anonymous) @ trading-hub-display.tsx:281
+await in (anonymous)
+(anonymous) @ trading-hub-display.tsx:351
+(anonymous) @ trading-hub-display.tsx:542
+setInterval
+(anonymous) @ trading-hub-display.tsx:509
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+trading-hub-display.tsx:117 Martingale calculation: Loss 7, New stake: 44.80
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+trading-hub-display.tsx:349 Executing Auto Over/Under trade...
+trading-hub-display.tsx:248 Executing Auto Over/Under trade: {buy: 1, price: 44.8, parameters: {…}}
+trading-hub-display.tsx:281  Trade execution failed: Unknown trade execution error
+(anonymous) @ trading-hub-display.tsx:281
+await in (anonymous)
+(anonymous) @ trading-hub-display.tsx:351
+(anonymous) @ trading-hub-display.tsx:542
+setInterval
+(anonymous) @ trading-hub-display.tsx:509
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+trading-hub-display.tsx:117 Martingale calculation: Loss 8, New stake: 89.60
+trading-hub-display.tsx:349 Executing Auto Over/Under trade...
+trading-hub-display.tsx:248 Executing Auto Over/Under trade: {buy: 1, price: 89.6, parameters: {…}}
+trading-hub-display.tsx:281  Trade execution failed: Unknown trade execution error
+(anonymous) @ trading-hub-display.tsx:281
+await in (anonymous)
+(anonymous) @ trading-hub-display.tsx:351
+(anonymous) @ trading-hub-display.tsx:542
+setInterval
+(anonymous) @ trading-hub-display.tsx:509
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+trading-hub-display.tsx:117 Martingale calculation: Loss 9, New stake: 89.60
+trading-hub-display.tsx:349 Executing Auto Over/Under trade...
+trading-hub-display.tsx:248 Executing Auto Over/Under trade: {buy: 1, price: 89.6, parameters: {…}}
+content_script.js:7165 Content limit: 612032839.68
+trading-hub-display.tsx:281  Trade execution failed: Unknown trade execution error
+(anonymous) @ trading-hub-display.tsx:281
+await in (anonymous)
+(anonymous) @ trading-hub-display.tsx:351
+(anonymous) @ trading-hub-display.tsx:542
+setInterval
+(anonymous) @ trading-hub-display.tsx:509
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533
+trading-hub-display.tsx:117 Martingale calculation: Loss 10, New stake: 89.60
+trading-hub-display.tsx:517 Circuit breaker: Too many consecutive losses, stopping trading
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+trading-hub-display.tsx:69 Run panel prepared for Trading Hub
+trading-hub-display.tsx:450 Starting trading with persisted stake: 0.35
+trading-hub-display.tsx:465 O5U4: Starting trading - checking immediate conditions
+trading-hub-display.tsx:467 O5U4: Immediate conditions met on start - executing trade
+trading-hub-display.tsx:369 Executing O5U4 dual trade...
+trading-hub-display.tsx:248 Executing O5U4 Over trade: {buy: 1, price: 89.6, parameters: {…}}
+trading-hub-display.tsx:248 Executing O5U4 Under trade: {buy: 1, price: 89.6, parameters: {…}}
+trading-hub-display.tsx:281  Trade execution failed: Unknown trade execution error
+(anonymous) @ trading-hub-display.tsx:281
+await in (anonymous)
+(anonymous) @ trading-hub-display.tsx:374
+(anonymous) @ trading-hub-display.tsx:468
+setTimeout
+(anonymous) @ trading-hub-display.tsx:461
+(anonymous) @ trading-hub-display.tsx:500
+callCallback @ react-dom.development.js:4164
+invokeGuardedCallbackDev @ react-dom.development.js:4213
+invokeGuardedCallback @ react-dom.development.js:4277
+invokeGuardedCallbackAndCatchFirstError @ react-dom.development.js:4291
+executeDispatch @ react-dom.development.js:9041
+processDispatchQueueItemsInOrder @ react-dom.development.js:9073
+processDispatchQueue @ react-dom.development.js:9086
+dispatchEventsForPlugins @ react-dom.development.js:9097
+(anonymous) @ react-dom.development.js:9288
+batchedUpdates$1 @ react-dom.development.js:26179
+batchedUpdates @ react-dom.development.js:3991
+dispatchEventForPluginEventSystem @ react-dom.development.js:9287
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ react-dom.development.js:6465
+dispatchEvent @ react-dom.development.js:6457
+dispatchDiscreteEvent @ react-dom.development.js:6430
+trading-hub-display.tsx:281  Trade execution failed: Unknown trade execution error
+(anonymous) @ trading-hub-display.tsx:281
+await in (anonymous)
+(anonymous) @ trading-hub-display.tsx:375
+(anonymous) @ trading-hub-display.tsx:468
+setTimeout
+(anonymous) @ trading-hub-display.tsx:461
+(anonymous) @ trading-hub-display.tsx:500
+callCallback @ react-dom.development.js:4164
+invokeGuardedCallbackDev @ react-dom.development.js:4213
+invokeGuardedCallback @ react-dom.development.js:4277
+invokeGuardedCallbackAndCatchFirstError @ react-dom.development.js:4291
+executeDispatch @ react-dom.development.js:9041
+processDispatchQueueItemsInOrder @ react-dom.development.js:9073
+processDispatchQueue @ react-dom.development.js:9086
+dispatchEventsForPlugins @ react-dom.development.js:9097
+(anonymous) @ react-dom.development.js:9288
+batchedUpdates$1 @ react-dom.development.js:26179
+batchedUpdates @ react-dom.development.js:3991
+dispatchEventForPluginEventSystem @ react-dom.development.js:9287
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ react-dom.development.js:6465
+dispatchEvent @ react-dom.development.js:6457
+dispatchDiscreteEvent @ react-dom.development.js:6430
+trading-hub-display.tsx:117 Martingale calculation: Loss 11, New stake: 89.60
+trading-hub-display.tsx:511 Trade in progress, skipping interval execution
+trading-hub-display.tsx:517 Circuit breaker: Too many consecutive losses, stopping trading
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
