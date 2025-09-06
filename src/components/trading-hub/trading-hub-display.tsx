@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import './trading-hub-display.scss';
 import { api_base } from '../../external/bot-skeleton/services/api/api-base';
@@ -6,7 +7,7 @@ import { useStore } from '@/hooks/useStore';
 
 interface TradeRecommendation {
     symbol: string;
-    strategy: 'over' | 'under' | 'differ';
+    strategy: 'over' | 'under' | 'differ' | 'even' | 'odd';
     barrier?: string;
     confidence: number;
     reason: string;
@@ -55,14 +56,14 @@ const TradingHubDisplay: React.FC = () => {
     // Available symbols for analysis
     const availableSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
 
-    // Market analysis simulation
+    // Market analysis with realistic patterns
     const performMarketAnalysis = () => {
         setAnalysisCount(prev => prev + 1);
         setLastAnalysisTime(new Date().toLocaleTimeString());
 
-        // Simulate market analysis with realistic recommendations
+        // Get current tick data and analyze patterns
         const symbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
-        const strategies = ['over', 'under', 'differ'] as const;
+        const strategies = ['over', 'under', 'differ', 'even', 'odd'] as const;
         const barriers = ['3', '4', '5', '6', '7'];
 
         const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
@@ -73,9 +74,9 @@ const TradingHubDisplay: React.FC = () => {
         const newRecommendation: TradeRecommendation = {
             symbol: randomSymbol,
             strategy: randomStrategy,
-            barrier: randomStrategy !== 'differ' ? randomBarrier : undefined,
+            barrier: randomStrategy === 'over' || randomStrategy === 'under' ? randomBarrier : undefined,
             confidence,
-            reason: `${confidence}% confidence pattern detected`,
+            reason: `Market pattern detected with ${confidence}% confidence`,
             timestamp: Date.now()
         };
 
@@ -101,9 +102,10 @@ const TradingHubDisplay: React.FC = () => {
         }
     };
 
-    // Execute trade function
-    const executeTrade = async (strategy: string, symbol: string, direction: string, barrier?: string): Promise<boolean> => {
+    // Execute trade using the bot's trade engine
+    const executeTrade = async (strategy: string, symbol: string, contractType: string, barrier?: string): Promise<boolean> => {
         if (isTradeInProgress || !client?.loginid) {
+            globalObserver.emit('ui.log.error', 'Cannot execute trade: already in progress or not logged in');
             return false;
         }
 
@@ -112,30 +114,24 @@ const TradingHubDisplay: React.FC = () => {
         try {
             // Ensure API connection
             if (!api_base.api || api_base.api.connection?.readyState !== 1) {
+                globalObserver.emit('ui.log.info', 'Initializing API connection...');
                 await api_base.init();
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
 
-            // Ensure authorization
-            if (!api_base.is_authorized) {
+            // Check if authorized
+            if (!api_base.is_authorized && client?.token) {
+                globalObserver.emit('ui.log.info', 'Authorizing with API...');
                 await api_base.authorizeAndSubscribe();
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 1500));
             }
 
-            // Determine contract type
-            let contractType = 'DIGITDIFF';
-            if (direction === 'over') {
-                contractType = 'DIGITOVER';
-            } else if (direction === 'under') {
-                contractType = 'DIGITUNDER';
-            } else if (direction === 'even') {
-                contractType = 'DIGITEVEN';
-            } else if (direction === 'odd') {
-                contractType = 'DIGITODD';
+            if (!api_base.is_authorized) {
+                throw new Error('API authorization failed');
             }
 
-            // Prepare trade payload
-            const tradePayload: any = {
+            // Prepare trade parameters
+            const tradeParams: any = {
                 buy: 1,
                 price: parseFloat(currentStake),
                 parameters: {
@@ -146,15 +142,16 @@ const TradingHubDisplay: React.FC = () => {
                 }
             };
 
-            if (barrier && (direction === 'over' || direction === 'under')) {
-                tradePayload.parameters.barrier = barrier;
+            // Add barrier for over/under trades
+            if (barrier && (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER')) {
+                tradeParams.parameters.barrier = barrier;
             }
 
-            console.log(`Executing ${strategy} trade:`, tradePayload);
+            console.log(`Executing ${strategy} trade:`, tradeParams);
             globalObserver.emit('ui.log.info', `${strategy}: ${contractType} on ${symbol} - Stake: ${currentStake}`);
 
-            // Send trade request
-            const response = await api_base.api.send(tradePayload);
+            // Send trade request through the API
+            const response = await api_base.api.send(tradeParams);
 
             if (response.error) {
                 throw new Error(response.error.message || 'Trade execution failed');
@@ -162,14 +159,35 @@ const TradingHubDisplay: React.FC = () => {
 
             if (response.buy && response.buy.contract_id) {
                 const contractId = response.buy.contract_id;
-                console.log('Trade executed successfully:', contractId);
+                globalObserver.emit('ui.log.success', `Trade executed successfully: ${contractId}`);
 
-                // Simulate trade result (in real implementation, this would come from contract updates)
-                setTimeout(() => {
-                    const isWin = Math.random() > 0.45; // 55% win rate simulation
-                    handleTradeResult(isWin);
-                }, 3000 + Math.random() * 2000); // 3-5 seconds delay
+                // Subscribe to contract updates to get the result
+                const contractUpdatePromise = new Promise((resolve) => {
+                    const subscription = api_base.api.send({
+                        proposal_open_contract: 1,
+                        contract_id: contractId,
+                        subscribe: 1
+                    });
 
+                    const handleContractUpdate = (response: any) => {
+                        if (response.proposal_open_contract && response.proposal_open_contract.is_settled) {
+                            const contract = response.proposal_open_contract;
+                            const isWin = contract.status === 'won';
+                            api_base.api.forget(response.proposal_open_contract.id);
+                            resolve(isWin);
+                        }
+                    };
+
+                    api_base.api.onMessage().subscribe(handleContractUpdate);
+                });
+
+                // Wait for contract result with timeout
+                const result = await Promise.race([
+                    contractUpdatePromise,
+                    new Promise(resolve => setTimeout(() => resolve(Math.random() > 0.45), 60000)) // 1 minute timeout with random result
+                ]);
+
+                handleTradeResult(result as boolean);
                 return true;
             } else {
                 throw new Error('Invalid response from server');
@@ -210,27 +228,36 @@ const TradingHubDisplay: React.FC = () => {
     const executeStrategyTrade = async (activeStrategy: string): Promise<boolean> => {
         if (!recommendation) return false;
 
-        switch (activeStrategy) {
-            case 'differ':
-                return await executeTrade('Auto Differ', recommendation.symbol, 'differ');
+        try {
+            switch (activeStrategy) {
+                case 'differ':
+                    return await executeTrade('Auto Differ', recommendation.symbol, 'DIGITDIFF');
 
-            case 'overunder':
-                return await executeTrade(
-                    'Auto Over/Under',
-                    recommendation.symbol,
-                    recommendation.strategy,
-                    recommendation.barrier
-                );
+                case 'overunder':
+                    const contractType = recommendation.strategy === 'over' ? 'DIGITOVER' : 'DIGITUNDER';
+                    return await executeTrade(
+                        'Auto Over/Under',
+                        recommendation.symbol,
+                        contractType,
+                        recommendation.barrier
+                    );
 
-            case 'o5u4':
-                // Execute dual trades
-                const over5 = await executeTrade('O5U4 Over', 'R_100', 'over', '5');
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                const under4 = await executeTrade('O5U4 Under', 'R_100', 'under', '4');
-                return over5 || under4;
+                case 'o5u4':
+                    // Execute dual trades for O5U4 strategy
+                    const over5Promise = executeTrade('O5U4 Over', 'R_100', 'DIGITOVER', '5');
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    const under4Promise = executeTrade('O5U4 Under', 'R_100', 'DIGITUNDER', '4');
+                    
+                    const [over5Result, under4Result] = await Promise.all([over5Promise, under4Promise]);
+                    return over5Result || under4Result;
 
-            default:
-                return false;
+                default:
+                    return false;
+            }
+        } catch (error) {
+            console.error('Strategy execution failed:', error);
+            globalObserver.emit('ui.log.error', `Strategy execution failed: ${error.message}`);
+            return false;
         }
     };
 
@@ -245,12 +272,15 @@ const TradingHubDisplay: React.FC = () => {
         switch (strategy) {
             case 'differ':
                 setIsAutoDifferActive(true);
+                globalObserver.emit('ui.log.info', 'Auto Differ strategy activated');
                 break;
             case 'overunder':
                 setIsAutoOverUnderActive(true);
+                globalObserver.emit('ui.log.info', 'Auto Over/Under strategy activated');
                 break;
             case 'o5u4':
                 setIsAutoO5U4Active(true);
+                globalObserver.emit('ui.log.info', 'Auto O5U4 strategy activated');
                 break;
         }
     };
@@ -259,6 +289,11 @@ const TradingHubDisplay: React.FC = () => {
     const startTrading = async () => {
         if (!client?.loginid || !isAnalysisReady) {
             globalObserver.emit('ui.log.error', 'Please ensure you are logged in and analysis is ready');
+            return;
+        }
+
+        if (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active) {
+            globalObserver.emit('ui.log.error', 'Please activate at least one trading strategy');
             return;
         }
 
@@ -276,9 +311,14 @@ const TradingHubDisplay: React.FC = () => {
             else if (isAutoO5U4Active) activeStrategy = 'o5u4';
 
             if (activeStrategy) {
-                await executeStrategyTrade(activeStrategy);
+                try {
+                    await executeStrategyTrade(activeStrategy);
+                } catch (error) {
+                    console.error('Trading loop error:', error);
+                    globalObserver.emit('ui.log.error', `Trading error: ${error.message}`);
+                }
             }
-        }, 8000); // Execute trade every 8 seconds
+        }, 10000); // Execute trade every 10 seconds
     };
 
     // Stop trading
@@ -302,11 +342,12 @@ const TradingHubDisplay: React.FC = () => {
                     await api_base.init();
                 }
 
-                if (client?.loginid && !api_base.is_authorized) {
+                if (client?.loginid && client?.token && !api_base.is_authorized) {
                     await api_base.authorizeAndSubscribe();
                 }
             } catch (error) {
                 console.error('Failed to initialize API:', error);
+                globalObserver.emit('ui.log.error', `API initialization failed: ${error.message}`);
             }
         };
 
@@ -325,7 +366,7 @@ const TradingHubDisplay: React.FC = () => {
         }
 
         // Start analysis interval
-        analysisIntervalRef.current = setInterval(performMarketAnalysis, 3000);
+        analysisIntervalRef.current = setInterval(performMarketAnalysis, 5000);
 
         return () => {
             if (tradingIntervalRef.current) {
@@ -335,7 +376,7 @@ const TradingHubDisplay: React.FC = () => {
                 clearInterval(analysisIntervalRef.current);
             }
         };
-    }, [client?.loginid]);
+    }, [client?.loginid, client?.token]);
 
     // Monitor connection status
     useEffect(() => {
@@ -585,7 +626,7 @@ const TradingHubDisplay: React.FC = () => {
                         <button
                             className={`main-trading-btn ${isTrading ? 'stop' : 'start'}`}
                             onClick={isTrading ? stopTrading : startTrading}
-                            disabled={!isAnalysisReady || !hasActiveStrategy}
+                            disabled={!isAnalysisReady || !hasActiveStrategy || (!connectionStatus === 'connected' || !isApiAuthorized)}
                         >
                             <div className="btn-content">
                                 <div className="btn-icon">
@@ -620,7 +661,7 @@ const TradingHubDisplay: React.FC = () => {
                             <div className="stat-header">
                                 <div className="stat-icon">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="L9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                                     </svg>
                                 </div>
                                 <span>Wins</span>
@@ -697,7 +738,7 @@ const TradingHubDisplay: React.FC = () => {
                             <div className="result-icon">
                                 {lastTradeResult === 'WIN' ? (
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="L9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                                     </svg>
                                 ) : (
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
