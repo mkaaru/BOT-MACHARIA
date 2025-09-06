@@ -69,7 +69,7 @@ const SignalsIcon = () => (
 );
 
 const TradingHubIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="var(--text-general)" width="24px" height="24px" viewBox="0 0 24 24"><path d="M21.49 13.926l-3.273 2.48c.054-.663.116-1.435.143-2.275.04-.89.023-1.854-.043-2.835-.043-.487-.097-.98-.184-1.467-.077-.485-.196-.982-.31-1.39-.238-.862-.535-1.68-.9-2.35-.352-.673-.786-1.173-1.12-1.462-.172-.144-.31-.248-.414-.306l-.153-.093c-.083-.05-.187-.056-.275-.003-.13.08-.175.252-.1.388l.01.02s.11.198.258.54c.07.176.155.38.223.63.08.24.14.528.206.838.063.313.114.66.17 1.03l.15 1.188c.055.44.106.826.13 1.246.03.416.033.85.026 1.285.004.872-.063 1.76-.115 2.602-.062.853-.12 1.65-.172 2.335 0 .04-.004.073-.005.11l-.115-.118-2.996-3.028-1.6.454 5.566 6.66 6.394-5.803-1.503-.677z"/><path d="M2.503 9.48L5.775 7c-.054.664-.116 1.435-.143 2.276-.04.89-.023 1.855.043 2.835.043.49.097.98.184 1.47.076.484.195.98.31 1.388.237.862.534 1.68.9 2.35.35.674.785 1.174 1.12 1.463.17.145.31.25.413.307.1.06.152.093.152.093.083.05.187.055.275.003.13-.08.175-.252.1-.388l-.01-.02s-.11-.2-.258-.54c-.07-.177-.155-.38-.223-.63-.082-.242-.14-.528-.207-.84-.064-.312-.115-.658-.172-1.027-.046-.378-.096-.777-.15-1.19-.053-.44-.104-.825-.128-1.246-.03-.415-.033-.85-.026-1.285-.004-.872.063-1.76.115-2.603.064-.853.122-1.65.174-2.334 0-.04.004-.074.005-.11l.114.118 2.996 3.027 1.6-.454L7.394 3 1 8.804l1.503.678z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="var(--text-general)" width="24px" height="24px" viewBox="0 0 24 24"><path d="M21.49 13.926l-3.273 2.48c.054-.663.116-1.435.143-2.275.04-.89.023-1.854-.043-2.835-.043-.487-.097-.98-.184-1.467-.077-.485-.196-.982-.31-1.39-.238-.862-.535-1.68-.9-2.35-.352-.673-.786-1.173-1.12-1.462-.172-.144-.31-.248-.414-.306l-.153-.093c-.083-.05-.187-.056-.275-.003-.13.08-.175.252-.1.388l.01.02s.11.198.258.54c.07.176.155.38.223.63.08.24.14.528.206.838.063.313.114.66.17 1.03l.15 1.188c.055.44.106.826.13 1.246.03.416.033.85.026 1.285.004.872-.063 1.76-.115 2.602-.062.853-.12 1.65-.172 2.335 0 .04-.004.073-.005.11l-.115-.118-2.996-3.028-1.6.454 5.566 6.66 6.394-5.803-1.503-.677z"/><path d="M2.503 9.48L5.775 7c-.054.664-.116 1.435-.143 2.276-.04.89-.023 1.855.043 2.835.043.49.097.98.184 1.47.076.484.195.98.31 1.388.237.862.534 1.68.9 2.35.35.674.785 1.174 1.12 1.463.17.145.31.25.413.307.1.06.152.093.152.093.083.05.187.055.275.003.13-.08.175-.252.1-.388l-.01-.02s-.11-.2-.258-.54c-.07-.177-.155-.38-.223-.63-.082-.242-.14-.528-.207-.84-.064-.312-.115-.658-.172-1.19-.053-.44-.104-.825-.128-1.246-.03-.415-.033-.85-.026-1.285-.004-.872.063-1.76.115-2.603.064-.853.122-1.65.174-2.334 0-.04.004-.074.005-.11l.114.118 2.996 3.027 1.6-.454L7.394 3 1 8.804l1.503.678z"/></svg>
 );
 
 const FreeBotsIcon = () => (
@@ -361,16 +361,16 @@ const AppWrapper = observer(() => {
             try {
                 // Remove any potential BOM or extra whitespace
                 cleanXmlContent = xmlContent.replace(/^\uFEFF/, '').trim();
-                
+
                 // Try to parse and fix common XML issues
                 const parser = new DOMParser();
                 let xmlDoc = parser.parseFromString(cleanXmlContent, 'application/xml');
-                
+
                 // Check for parser errors
                 const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
                 if (parseError) {
                     console.warn("XML parsing warning:", parseError.textContent);
-                    
+
                     // Try to fix common XML issues
                     cleanXmlContent = cleanXmlContent
                         .replace(/&(?!amp;|lt;|gt;|quot;|apos;)/g, '&amp;') // Fix unescaped ampersands
@@ -381,21 +381,21 @@ const AppWrapper = observer(() => {
                             }
                             return match;
                         });
-                    
+
                     // Try parsing again
                     xmlDoc = parser.parseFromString(cleanXmlContent, 'application/xml');
                     const secondParseError = xmlDoc.getElementsByTagName('parsererror')[0];
-                    
+
                     if (secondParseError) {
                         console.error("XML parsing still failed after cleanup:", secondParseError.textContent);
                         // Continue anyway - let the workspace loader handle it
                         console.log("Proceeding with potentially problematic XML...");
                     }
                 }
-                
+
                 // Update the content to use the cleaned version
                 xmlContent = cleanXmlContent;
-                
+
             } catch (parseError) {
                 console.warn("XML validation warning:", parseError);
                 console.log("Proceeding with original XML content...");
@@ -404,13 +404,13 @@ const AppWrapper = observer(() => {
 
             // First switch to Bot Builder tab
             setActiveTab(DBOT_TABS.BOT_BUILDER);
-            
+
             // Wait for the tab to load and workspace to be ready
             await new Promise(resolve => setTimeout(resolve, 300));
 
             // Get the main Blockly workspace
             const workspace = window.Blockly?.derivWorkspace || window.Blockly?.getMainWorkspace();
-            
+
             if (!workspace) {
                 console.error("Blockly workspace not found");
                 alert("Bot Builder workspace is not ready. Please try again.");
@@ -418,7 +418,7 @@ const AppWrapper = observer(() => {
             }
 
             console.log("Clearing workspace before loading new bot...");
-            
+
             // Clear the workspace completely to prevent conflicts
             try {
                 // Use asyncClear if available, otherwise use regular clear
@@ -427,10 +427,10 @@ const AppWrapper = observer(() => {
                 } else {
                     workspace.clear();
                 }
-                
+
                 // Also clear undo history
                 workspace.clearUndo();
-                
+
                 console.log("Workspace cleared successfully");
             } catch (clearError) {
                 console.error("Error clearing workspace:", clearError);
@@ -442,7 +442,7 @@ const AppWrapper = observer(() => {
             // Use the external bot-skeleton load utility with enhanced error handling
             try {
                 const { load } = await import('@/external/bot-skeleton/scratch/utils');
-                
+
                 if (load && xmlContent) {
                     console.log("Loading bot using bot-skeleton load utility...");
 
@@ -479,20 +479,20 @@ const AppWrapper = observer(() => {
 
             } catch (loadError) {
                 console.error("Error loading bot with load utility:", loadError);
-                
+
                 // Enhanced fallback: try multiple approaches
                 try {
                     console.log("Attempting enhanced fallback XML loading...");
-                    
+
                     // Try different XML parsing approaches
                     let xmlDoc;
-                    
+
                     // Approach 1: Use Blockly's textToDom
                     try {
                         xmlDoc = window.Blockly.utils.xml.textToDom(xmlContent);
                     } catch (e1) {
                         console.log("Blockly textToDom failed, trying DOMParser...");
-                        
+
                         // Approach 2: Use DOMParser and convert
                         try {
                             const parser = new DOMParser();
@@ -500,43 +500,45 @@ const AppWrapper = observer(() => {
                             xmlDoc = parsedDoc.documentElement;
                         } catch (e2) {
                             console.log("DOMParser failed, trying manual XML cleanup...");
-                            
+
                             // Approach 3: Clean up XML and try again
                             const cleanedXml = xmlContent
                                 .replace(/xmlns="[^"]*"/g, '') // Remove namespace declarations that might cause issues
                                 .replace(/\s+/g, ' ') // Normalize whitespace
                                 .trim();
-                            
+
                             xmlDoc = window.Blockly.utils.xml.textToDom(cleanedXml);
                         }
                     }
-                    
+
                     if (!xmlDoc) {
                         throw new Error("Could not parse XML with any method");
                     }
-                    
-                    // Clear workspace again before fallback load
+
+                    // Thoroughly clear workspace again before fallback load
                     workspace.clear();
-                    
+                    workspace.clearUndo();
+                    workspace.cleanUp();
+
                     // Load XML directly
                     window.Blockly.Xml.domToWorkspace(xmlDoc, workspace);
-                    
+
                     // Update workspace properties
                     workspace.current_strategy_id = window.Blockly.utils.idGenerator.genUid();
-                    
+
                     // Clean up
                     workspace.cleanUp();
                     workspace.clearUndo();
-                    
+
                     console.log("Bot loaded successfully via enhanced fallback method!");
-                    
+
                 } catch (fallbackError) {
                     console.error("Enhanced fallback loading also failed:", fallbackError);
-                    
+
                     // Final attempt: try to load what we can and ignore errors
                     try {
                         console.log("Attempting partial load with error tolerance...");
-                        
+
                         // Try to extract the main strategy blocks and load them individually
                         const strategyMatch = xmlContent.match(/<block[^>]*type="trade_definition"[\s\S]*?<\/block>/);
                         if (strategyMatch) {
