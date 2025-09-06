@@ -22,10 +22,13 @@ export default Engine =>
         }
 
         // This is the main purchase method that will be called from TradingHubDisplay
-        purchase(contract_type) {
+        purchase(contract_type, tradeEachTick = false) {
             if (this.store.getState().scope !== BEFORE_PURCHASE) {
                 return Promise.resolve();
             }
+
+            // Store tradeEachTick setting for use in tick analysis
+            this.tradeEachTick = tradeEachTick;
 
             const trades = [];
 

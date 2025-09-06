@@ -326,6 +326,11 @@ class DBot {
                 for (var BinaryBotPrivateI = 0; BinaryBotPrivateI < BinaryBotPrivateTickAnalysisList.length; BinaryBotPrivateI++) {
                     BinaryBotPrivateRun(BinaryBotPrivateTickAnalysisList[BinaryBotPrivateI]);
                 }
+                
+                // Handle trade each tick functionality
+                if (Bot.tradeEngine && Bot.tradeEngine.tradeEachTick && !Bot.tradeEngine.contractId) {
+                    BinaryBotPrivateRun(BinaryBotPrivateBeforePurchase);
+                }
             }
             var BinaryBotPrivateLimitations = ${JSON.stringify(limitations)};
             ${window.Blockly.JavaScript.javascriptGenerator.workspaceToCode(this.workspace)}
