@@ -336,42 +336,84 @@ const AppWrapper = observer(() => {
                     }
                 } catch (fetchError) {
                     console.error("Failed to load bot content:", fetchError);
+                    alert(`Failed to load bot: ${bot.title}. Please check if the file exists.`);
                     return;
                 }
             }
 
             if (!xmlContent || xmlContent.trim().length === 0) {
+                alert("Bot file is empty or invalid.");
                 return;
             }
 
             console.log("XML Content length:", xmlContent?.length);
             console.log("XML Content preview:", xmlContent?.substring(0, 200));
 
-            // Validate XML content
+            // Validate XML content more thoroughly
             if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
+                alert("Invalid bot file format. Please ensure the file contains valid XML.");
+                return;
+            }
+
+            // Parse and validate XML structure
+            try {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
+                const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
+                if (parseError) {
+                    console.error("XML parsing error:", parseError.textContent);
+                    alert("Bot file contains invalid XML. Please check the file format.");
+                    return;
+                }
+            } catch (parseError) {
+                console.error("XML validation failed:", parseError);
+                alert("Failed to parse bot file. Please ensure it's a valid XML file.");
                 return;
             }
 
             // First switch to Bot Builder tab
             setActiveTab(DBOT_TABS.BOT_BUILDER);
             
-            // Wait a moment for the tab to load
+            // Wait for the tab to load and workspace to be ready
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // Get the main Blockly workspace
+            const workspace = window.Blockly?.derivWorkspace || window.Blockly?.getMainWorkspace();
+            
+            if (!workspace) {
+                console.error("Blockly workspace not found");
+                alert("Bot Builder workspace is not ready. Please try again.");
+                return;
+            }
+
+            console.log("Clearing workspace before loading new bot...");
+            
+            // Clear the workspace completely to prevent conflicts
+            try {
+                // Use asyncClear if available, otherwise use regular clear
+                if (workspace.asyncClear) {
+                    await workspace.asyncClear();
+                } else {
+                    workspace.clear();
+                }
+                
+                // Also clear undo history
+                workspace.clearUndo();
+                
+                console.log("Workspace cleared successfully");
+            } catch (clearError) {
+                console.error("Error clearing workspace:", clearError);
+            }
+
+            // Wait a moment after clearing
             await new Promise(resolve => setTimeout(resolve, 100));
 
-            // Use the external bot-skeleton load utility directly
-            const { load } = await import('@/external/bot-skeleton/scratch/utils');
-            
-            if (load && xmlContent) {
-                try {
+            // Use the external bot-skeleton load utility
+            try {
+                const { load } = await import('@/external/bot-skeleton/scratch/utils');
+                
+                if (load && xmlContent) {
                     console.log("Loading bot using bot-skeleton load utility...");
-                    
-                    // Get the main Blockly workspace
-                    const workspace = window.Blockly?.derivWorkspace || window.Blockly?.getMainWorkspace();
-                    
-                    if (!workspace) {
-                        console.error("Blockly workspace not found");
-                        return;
-                    }
 
                     // Load the XML content into the workspace
                     await load({
@@ -388,27 +430,50 @@ const AppWrapper = observer(() => {
                         updateWorkspaceName(xmlContent);
                     }
 
-                } catch (loadError) {
-                    console.error("Error loading bot with load utility:", loadError);
-                    
-                    // Fallback to load_modal if available
-                    if (typeof load_modal.loadFileFromContent === 'function') {
-                        try {
-                            await load_modal.loadFileFromContent(xmlContent);
-                            console.log("Bot loaded successfully via fallback!");
-                        } catch (fallbackError) {
-                            console.error("Fallback loading also failed:", fallbackError);
-                        }
+                    // Clean up the workspace layout
+                    if (workspace.cleanUp) {
+                        workspace.cleanUp();
                     }
+
+                } else {
+                    throw new Error("Load utility not available");
                 }
-            } else {
-                console.error("Load utility not available or no XML content");
+
+            } catch (loadError) {
+                console.error("Error loading bot with load utility:", loadError);
+                
+                // Fallback: try direct XML loading
+                try {
+                    console.log("Attempting fallback XML loading...");
+                    
+                    const xmlDoc = window.Blockly.utils.xml.textToDom(xmlContent);
+                    
+                    // Clear workspace again before fallback load
+                    workspace.clear();
+                    
+                    // Load XML directly
+                    window.Blockly.Xml.domToWorkspace(xmlDoc, workspace);
+                    
+                    // Update workspace properties
+                    workspace.current_strategy_id = window.Blockly.utils.idGenerator.genUid();
+                    
+                    // Clean up
+                    workspace.cleanUp();
+                    workspace.clearUndo();
+                    
+                    console.log("Bot loaded successfully via fallback method!");
+                    
+                } catch (fallbackError) {
+                    console.error("Fallback loading also failed:", fallbackError);
+                    alert("Failed to load the bot. The file may contain unsupported elements. Please try a different bot or check the file format.");
+                }
             }
 
         } catch (error) {
             console.error("Error loading bot:", error);
+            alert("An unexpected error occurred while loading the bot. Please try again.");
         }
-    }, [setActiveTab, load_modal]);
+    }, [setActiveTab]);
 
     const handleOpen = useCallback(async () => {
         await load_modal.loadFileFromRecent();
