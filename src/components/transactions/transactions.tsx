@@ -60,6 +60,14 @@ const Transactions = observer(({ is_drawer_open }: TTransactions) => {
     const { transactions: transaction_list, toggleTransactionDetailsModal, recoverPendingContracts } = transactions;
     const { isDesktop } = useDevice();
 
+    // Debug transaction loading
+    React.useEffect(() => {
+        console.log('Transactions component - Current transaction count:', transaction_list?.length || 0);
+        if (transaction_list?.length > 0) {
+            console.log('Latest transactions:', transaction_list.slice(0, 3));
+        }
+    }, [transaction_list]);
+
     React.useEffect(() => {
         window.addEventListener('click', onClickOutsideTransaction);
         recoverPendingContracts();

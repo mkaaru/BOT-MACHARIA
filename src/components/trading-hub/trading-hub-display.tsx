@@ -66,6 +66,22 @@ const TradingHubDisplay: React.FC = () => {
     const prepareRunPanelForTradingHub = useCallback(() => {
         if (run_panel) {
             run_panel.setIsRunning(true);
+            
+            // Ensure transactions store is initialized
+            if (run_panel.root_store?.transactions) {
+                // Clear any existing transactions from previous sessions
+                // but don't clear if there are already Trading Hub transactions
+                const existingTransactions = run_panel.root_store.transactions.transactions || [];
+                const hasTradingHubTransactions = existingTransactions.some(tx => 
+                    typeof tx.data === 'object' && 
+                    (tx.data?.contract_type?.includes('DIGIT') || tx.data?.contract_type === 'O5U4_DUAL')
+                );
+                
+                if (!hasTradingHubTransactions) {
+                    console.log('Initializing transactions store for Trading Hub');
+                }
+            }
+            
             console.log('Run panel prepared for Trading Hub');
         }
     }, [run_panel]);
@@ -175,15 +191,37 @@ const TradingHubDisplay: React.FC = () => {
                             currency: client?.currency || 'USD'
                         };
 
-                        // Add transaction to run panel transactions store
+                        // Add transaction to run panel transactions store with proper contract format
                         if (run_panel?.root_store?.transactions) {
                             try {
-                                run_panel.root_store.transactions.onBotContractEvent({
-                                    ...transactionData,
-                                    contract: contractData,
+                                const formattedTransaction = {
+                                    contract_id: contractId,
+                                    transaction_ids: {
+                                        buy: parseInt(contractId),
+                                        sell: contractData.transaction_ids?.sell || parseInt(contractId) + 1
+                                    },
+                                    buy_price: buyPrice,
+                                    sell_price: sellPrice,
+                                    profit: profit,
+                                    currency: client?.currency || 'USD',
+                                    contract_type: contractType || 'DIGITOVER',
+                                    underlying: symbol || 'R_100',
+                                    shortcode: `${contractType}_${symbol}_${Date.now()}`,
+                                    display_name: `${contractType} on ${symbol}`,
+                                    date_start: new Date().toISOString(),
+                                    entry_tick_display_value: contractData.entry_tick || 0,
+                                    exit_tick_display_value: contractData.exit_tick || 0,
+                                    entry_tick_time: contractData.entry_tick_time || new Date().toISOString(),
+                                    exit_tick_time: new Date().toISOString(),
+                                    barrier: barrier || '',
+                                    tick_count: 1,
+                                    payout: sellPrice || 0,
+                                    is_completed: true,
                                     is_sold: true
-                                });
-                                console.log('Transaction added to run panel:', transactionData);
+                                };
+
+                                run_panel.root_store.transactions.onBotContractEvent(formattedTransaction);
+                                console.log('Transaction added to run panel:', formattedTransaction);
                             } catch (error) {
                                 console.error('Failed to add transaction to run panel:', error);
                             }
@@ -611,20 +649,39 @@ const TradingHubDisplay: React.FC = () => {
                 trades_lost: tradesLost
             };
 
-            // Add O5U4 summary transaction to run panel
+            // Add O5U4 summary transaction to run panel with proper format
             if (run_panel?.root_store?.transactions) {
                 try {
-                    run_panel.root_store.transactions.onBotContractEvent({
-                        ...o5u4TransactionData,
-                        contract: {
-                            contract_id: o5u4TransactionData.contract_id,
-                            profit: profitAmount,
-                            status: isOverallWin ? 'won' : 'lost',
-                            is_settled: true
+                    const formattedO5U4Transaction = {
+                        contract_id: parseInt(o5u4TransactionData.contract_id.replace('O5U4-', '')),
+                        transaction_ids: {
+                            buy: parseInt(o5u4TransactionData.contract_id.replace('O5U4-', '')),
+                            sell: parseInt(o5u4TransactionData.contract_id.replace('O5U4-', '')) + 1
                         },
-                        is_sold: true
-                    });
-                    console.log('O5U4 summary transaction added to run panel:', o5u4TransactionData);
+                        buy_price: currentStake * 2,
+                        sell_price: isOverallWin ? (currentStake * 2 + Math.abs(profitAmount)) : 0,
+                        profit: profitAmount,
+                        currency: client?.currency || 'USD',
+                        contract_type: 'O5U4_DUAL',
+                        underlying: 'R_100',
+                        shortcode: `O5U4_R_100_${Date.now()}`,
+                        display_name: 'O5U4 Dual Strategy on R_100',
+                        date_start: new Date().toISOString(),
+                        entry_tick_display_value: 0,
+                        exit_tick_display_value: 0,
+                        entry_tick_time: new Date().toISOString(),
+                        exit_tick_time: new Date().toISOString(),
+                        barrier: '5/4',
+                        tick_count: 1,
+                        payout: isOverallWin ? (currentStake * 2 + Math.abs(profitAmount)) : 0,
+                        is_completed: true,
+                        is_sold: true,
+                        trades_won: tradesWon,
+                        trades_lost: tradesLost
+                    };
+
+                    run_panel.root_store.transactions.onBotContractEvent(formattedO5U4Transaction);
+                    console.log('O5U4 summary transaction added to run panel:', formattedO5U4Transaction);
                 } catch (error) {
                     console.error('Failed to add O5U4 transaction to run panel:', error);
                 }
@@ -762,6 +819,17 @@ const TradingHubDisplay: React.FC = () => {
 
             prepareRunPanelForTradingHub();
             setIsContinuousTrading(true);
+            
+            // Verify run panel stores are available
+            if (!run_panel?.root_store?.transactions) {
+                console.error('Warning: Transactions store not available in run panel');
+                globalObserver.emit('ui.log.error', 'Transaction logging may not work properly - run panel not fully initialized');
+            } else {
+                console.log('Transactions store verified and ready');
+                // Log current transaction count
+                const currentTransactions = run_panel.root_store.transactions.transactions || [];
+                console.log(`Current transaction count: ${currentTransactions.length}`);
+            }
             
             const persistedStake = localStorage.getItem('tradingHub_initialStake') || initialStake;
             console.log(`Starting trading with persisted stake: ${persistedStake}`);
