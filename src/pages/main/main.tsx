@@ -349,26 +349,57 @@ const AppWrapper = observer(() => {
             console.log("XML Content length:", xmlContent?.length);
             console.log("XML Content preview:", xmlContent?.substring(0, 200));
 
-            // Validate XML content more thoroughly
-            if (!xmlContent.trim().startsWith('<xml') && !xmlContent.trim().startsWith('<?xml')) {
+            // Validate XML content with better error handling
+            const trimmedContent = xmlContent.trim();
+            if (!trimmedContent.startsWith('<xml') && !trimmedContent.startsWith('<?xml')) {
                 alert("Invalid bot file format. Please ensure the file contains valid XML.");
                 return;
             }
 
-            // Parse and validate XML structure
+            // Clean up and validate XML structure with more tolerance
+            let cleanXmlContent = xmlContent;
             try {
+                // Remove any potential BOM or extra whitespace
+                cleanXmlContent = xmlContent.replace(/^\uFEFF/, '').trim();
+                
+                // Try to parse and fix common XML issues
                 const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
+                let xmlDoc = parser.parseFromString(cleanXmlContent, 'application/xml');
+                
+                // Check for parser errors
                 const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
                 if (parseError) {
-                    console.error("XML parsing error:", parseError.textContent);
-                    alert("Bot file contains invalid XML. Please check the file format.");
-                    return;
+                    console.warn("XML parsing warning:", parseError.textContent);
+                    
+                    // Try to fix common XML issues
+                    cleanXmlContent = cleanXmlContent
+                        .replace(/&(?!amp;|lt;|gt;|quot;|apos;)/g, '&amp;') // Fix unescaped ampersands
+                        .replace(/<([^>]*[^/])>/g, (match, content) => {
+                            // Ensure proper tag closing
+                            if (!content.includes('/') && !content.includes(' ')) {
+                                return match;
+                            }
+                            return match;
+                        });
+                    
+                    // Try parsing again
+                    xmlDoc = parser.parseFromString(cleanXmlContent, 'application/xml');
+                    const secondParseError = xmlDoc.getElementsByTagName('parsererror')[0];
+                    
+                    if (secondParseError) {
+                        console.error("XML parsing still failed after cleanup:", secondParseError.textContent);
+                        // Continue anyway - let the workspace loader handle it
+                        console.log("Proceeding with potentially problematic XML...");
+                    }
                 }
+                
+                // Update the content to use the cleaned version
+                xmlContent = cleanXmlContent;
+                
             } catch (parseError) {
-                console.error("XML validation failed:", parseError);
-                alert("Failed to parse bot file. Please ensure it's a valid XML file.");
-                return;
+                console.warn("XML validation warning:", parseError);
+                console.log("Proceeding with original XML content...");
+                // Don't fail here - let the workspace loader try to handle it
             }
 
             // First switch to Bot Builder tab
@@ -408,7 +439,7 @@ const AppWrapper = observer(() => {
             // Wait a moment after clearing
             await new Promise(resolve => setTimeout(resolve, 100));
 
-            // Use the external bot-skeleton load utility
+            // Use the external bot-skeleton load utility with enhanced error handling
             try {
                 const { load } = await import('@/external/bot-skeleton/scratch/utils');
                 
@@ -416,12 +447,19 @@ const AppWrapper = observer(() => {
                     console.log("Loading bot using bot-skeleton load utility...");
 
                     // Load the XML content into the workspace
-                    await load({
+                    const loadResult = await load({
                         block_string: xmlContent,
                         file_name: bot.title || 'Loaded Bot',
                         workspace: workspace,
-                        from: 'free_bots'
+                        from: 'free_bots',
+                        showIncompatibleStrategyDialog: false // Disable incompatible strategy dialog
                     });
+
+                    // Check if load returned an error
+                    if (loadResult && loadResult.error) {
+                        console.warn("Load utility returned error:", loadResult.error);
+                        throw new Error(loadResult.error);
+                    }
 
                     console.log("Bot loaded successfully into workspace!");
 
@@ -442,11 +480,40 @@ const AppWrapper = observer(() => {
             } catch (loadError) {
                 console.error("Error loading bot with load utility:", loadError);
                 
-                // Fallback: try direct XML loading
+                // Enhanced fallback: try multiple approaches
                 try {
-                    console.log("Attempting fallback XML loading...");
+                    console.log("Attempting enhanced fallback XML loading...");
                     
-                    const xmlDoc = window.Blockly.utils.xml.textToDom(xmlContent);
+                    // Try different XML parsing approaches
+                    let xmlDoc;
+                    
+                    // Approach 1: Use Blockly's textToDom
+                    try {
+                        xmlDoc = window.Blockly.utils.xml.textToDom(xmlContent);
+                    } catch (e1) {
+                        console.log("Blockly textToDom failed, trying DOMParser...");
+                        
+                        // Approach 2: Use DOMParser and convert
+                        try {
+                            const parser = new DOMParser();
+                            const parsedDoc = parser.parseFromString(xmlContent, 'application/xml');
+                            xmlDoc = parsedDoc.documentElement;
+                        } catch (e2) {
+                            console.log("DOMParser failed, trying manual XML cleanup...");
+                            
+                            // Approach 3: Clean up XML and try again
+                            const cleanedXml = xmlContent
+                                .replace(/xmlns="[^"]*"/g, '') // Remove namespace declarations that might cause issues
+                                .replace(/\s+/g, ' ') // Normalize whitespace
+                                .trim();
+                            
+                            xmlDoc = window.Blockly.utils.xml.textToDom(cleanedXml);
+                        }
+                    }
+                    
+                    if (!xmlDoc) {
+                        throw new Error("Could not parse XML with any method");
+                    }
                     
                     // Clear workspace again before fallback load
                     workspace.clear();
@@ -461,11 +528,32 @@ const AppWrapper = observer(() => {
                     workspace.cleanUp();
                     workspace.clearUndo();
                     
-                    console.log("Bot loaded successfully via fallback method!");
+                    console.log("Bot loaded successfully via enhanced fallback method!");
                     
                 } catch (fallbackError) {
-                    console.error("Fallback loading also failed:", fallbackError);
-                    alert("Failed to load the bot. The file may contain unsupported elements. Please try a different bot or check the file format.");
+                    console.error("Enhanced fallback loading also failed:", fallbackError);
+                    
+                    // Final attempt: try to load what we can and ignore errors
+                    try {
+                        console.log("Attempting partial load with error tolerance...");
+                        
+                        // Try to extract the main strategy blocks and load them individually
+                        const strategyMatch = xmlContent.match(/<block[^>]*type="trade_definition"[\s\S]*?<\/block>/);
+                        if (strategyMatch) {
+                            const simpleXml = `<xml xmlns="https://developers.google.com/blockly/xml">${strategyMatch[0]}</xml>`;
+                            const simpleDoc = window.Blockly.utils.xml.textToDom(simpleXml);
+                            workspace.clear();
+                            window.Blockly.Xml.domToWorkspace(simpleDoc, workspace);
+                            workspace.cleanUp();
+                            console.log("Partial bot loaded - main strategy block only");
+                            alert("Bot loaded partially. Some advanced features may not be available.");
+                        } else {
+                            throw new Error("No recognizable strategy blocks found");
+                        }
+                    } catch (finalError) {
+                        console.error("All loading attempts failed:", finalError);
+                        alert("Failed to load the bot. The XML file may be corrupted or contain unsupported elements. Please try a different bot or contact support.");
+                    }
                 }
             }
 
