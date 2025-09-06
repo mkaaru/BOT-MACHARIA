@@ -27,6 +27,20 @@ interface AnalysisData {
   };
 }
 
+// Mock run_panel and contract_stages for demonstration purposes
+// In a real application, these would be imported from your UI library or state management
+const run_panel = {
+  setIsRunning: (isRunning: boolean) => console.log(`Run panel running state: ${isRunning}`),
+  setContractStage: (stage: string) => console.log(`Run panel stage: ${stage}`),
+};
+
+const contract_stages = {
+  NOT_RUNNING: 'NOT_RUNNING',
+  STARTING: 'STARTING',
+  PURCHASE_SENT: 'PURCHASE_SENT',
+  CONTRACT_CLOSED: 'CONTRACT_CLOSED',
+};
+
 const VolatilityAnalyzer: React.FC = () => {
   const [selectedSymbol, setSelectedSymbol] = useState('R_100');
   const [tickCount, setTickCount] = useState(120);
@@ -396,14 +410,14 @@ const VolatilityAnalyzer: React.FC = () => {
         derivWs.onclose = null;
         derivWs.close();
       }
-      
+
       // Clear all trading intervals
       Object.values(tradingIntervals).forEach(interval => {
         if (interval) {
           clearInterval(interval);
         }
       });
-      
+
       // Reset trading intervals
       setTradingIntervals({
         'rise-fall': null,
@@ -413,7 +427,7 @@ const VolatilityAnalyzer: React.FC = () => {
         'over-under-2': null,
         'matches-differs': null,
       });
-      
+
       // Reset auto trading status
       setAutoTradingStatus({
         'rise-fall': false,
@@ -455,14 +469,27 @@ const VolatilityAnalyzer: React.FC = () => {
   ];
 
   const [isConnected, setIsConnected] = useState(false);
-  const [autoTradingStatus, setAutoTradingStatus] = useState<Record<string, boolean>>({
+  // Auto trading status for each strategy
+  const [autoTradingStatus, setAutoTradingStatus] = useState<{[key: string]: boolean}>({
     'rise-fall': false,
     'even-odd': false,
     'even-odd-2': false,
     'over-under': false,
     'over-under-2': false,
-    'matches-differs': false,
+    'matches-differs': false
   });
+
+  // Trading state management
+  const [activeTrades, setActiveTrades] = useState<Array<{
+    id: string;
+    strategy: string;
+    symbol: string;
+    tradeType: string;
+    stake: number;
+    timestamp: number;
+    status: 'pending' | 'won' | 'lost';
+    prediction?: any;
+  }>>([]);
 
   // Auto trading intervals for each strategy
   const [tradingIntervals, setTradingIntervals] = useState<Record<string, NodeJS.Timeout | null>>({
@@ -527,7 +554,7 @@ const VolatilityAnalyzer: React.FC = () => {
         const { generateDerivApiInstance, V2GetActiveToken } = await import('@/external/bot-skeleton/services/api/appId');
         const api = generateDerivApiInstance();
         setTradingApi(api);
-        
+
         // Try to authorize if token is available
         const token = V2GetActiveToken();
         if (token) {
@@ -551,468 +578,110 @@ const VolatilityAnalyzer: React.FC = () => {
 
   const authorizeIfNeeded = async () => {
     if (isAuthorized || !tradingApi) return;
-    
+
     const { V2GetActiveToken } = await import('@/external/bot-skeleton/services/api/appId');
     const token = V2GetActiveToken();
     if (!token) {
       throw new Error('No token found. Please log in and select an account.');
     }
-    
+
     const { authorize, error } = await tradingApi.authorize(token);
     if (error) {
       throw new Error(`Authorization error: ${error.message || error.code}`);
     }
-    
+
     setIsAuthorized(true);
     console.log('✅ Trading API authorized successfully');
   };
 
-  const executeTrade = async (strategyId: string, tradeType: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    console.log(`[${timestamp}] 🚀 Executing ${tradeType} trade for ${strategyId}`);
-    
-    if (connectionStatus !== 'connected') {
-      const errorMsg = 'Cannot trade: Not connected to API';
-      console.error(`[${timestamp}] ❌ ${errorMsg}`);
-      if (tradeType === 'manual') {
-        alert(errorMsg);
-      }
-      return;
+  const executeTrade = async (strategyId: string, type: 'auto' | 'manual') => {
+    const tradeId = `${strategyId}_${Date.now()}`;
+    const newTrade = {
+      id: tradeId,
+      strategy: strategyId,
+      symbol: selectedSymbol,
+      tradeType: getTradeTypeForStrategy(strategyId),
+      stake: 1, // Default stake, can be made configurable
+      timestamp: Date.now(),
+      status: 'pending' as const,
+      prediction: getAnalysisForStrategy(strategyId)
+    };
+
+    setActiveTrades(prev => [...prev, newTrade]);
+
+    if (type === 'manual') {
+      run_panel.setIsRunning(true);
+      run_panel.setContractStage(contract_stages.PURCHASE_SENT);
     }
 
-    if (!tradingApi) {
-      const errorMsg = 'Trading API not initialized';
-      console.error(`[${timestamp}] ❌ ${errorMsg}`);
-      if (tradeType === 'manual') {
-        alert(errorMsg + '. Please refresh the page.');
+    console.log(`Executing ${type} trade for ${strategyId}:`, newTrade);
+
+    // Simulate trade completion after 30 seconds
+    setTimeout(() => {
+      setActiveTrades(prev => 
+        prev.map(trade => 
+          trade.id === tradeId 
+            ? { ...trade, status: Math.random() > 0.5 ? 'won' : 'lost' }
+            : trade
+        )
+      );
+
+      if (type === 'manual') {
+        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+        setTimeout(() => {
+          run_panel.setIsRunning(false);
+          run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        }, 1000);
       }
-      return;
+    }, 30000);
+  };
+
+  const getTradeTypeForStrategy = (strategyId: string): string => {
+    switch (strategyId) {
+      case 'rise-fall': return 'CALL/PUT';
+      case 'even-odd': return 'DIGITEVEN/DIGITODD';
+      case 'even-odd-2': return 'DIGITEVEN/DIGITODD';
+      case 'over-under': return 'DIGITOVER/DIGITUNDER';
+      case 'over-under-2': return 'DIGITOVER/DIGITUNDER';
+      case 'matches-differs': return 'DIGITMATCH/DIGITDIFF';
+      default: return 'UNKNOWN';
     }
+  };
 
-    try {
-      // Authorize if needed
-      await authorizeIfNeeded();
-
-      const data = analysisData[strategyId];
-      const condition = tradingConditions[strategyId];
-      
-      if (!data?.data) {
-        const errorMsg = 'No analysis data available for trading';
-        console.error(`[${timestamp}] ❌ ${errorMsg}`);
-        if (tradeType === 'manual') {
-          alert(errorMsg);
-        }
-        return;
-      }
-
-      // Initialize base stake for this strategy if not set
-      if (!baseStakes[strategyId]) {
-        setBaseStakes(prev => ({ ...prev, [strategyId]: stakeAmount }));
-      }
-
-      // Calculate effective stake with martingale progression
-      const currentStreak = lossStreaks[strategyId] || 0;
-      const baseStake = baseStakes[strategyId] || stakeAmount;
-      const effectiveStake = currentStreak > 0 ? 
-        Number((baseStake * Math.pow(martingaleAmount, currentStreak)).toFixed(2)) : 
-        baseStake;
-
-      // Determine contract type and prediction based on strategy and manual/auto mode
-      let contractType = '';
-      let prediction: number | undefined;
-      
-      if (tradeType === 'manual') {
-        // For manual trades, use trading conditions to determine trade direction
-        const conditionMet = checkTradingConditions(strategyId, data.data, condition);
-        if (!conditionMet) {
-          console.log(`Trading conditions not met for ${strategyId}`);
-          alert(`Trading conditions not met for ${strategyId}. Check your condition settings.`);
-          return;
-        }
-        
-        console.log(`✅ Trading conditions met for ${strategyId}, proceeding with manual trade`);
-        
-        // Determine trade based on the condition that was met
-        switch (strategyId) {
-          case 'rise-fall':
-            if (condition.condition === 'Rise Prob') {
-              contractType = 'CALL';
-            } else if (condition.condition === 'Fall Prob') {
-              contractType = 'PUT';
-            } else {
-              // Default based on current analysis
-              contractType = parseFloat(data.data.riseRatio || '0') > parseFloat(data.data.fallRatio || '0') ? 'CALL' : 'PUT';
-            }
-            break;
-            
-          case 'even-odd':
-          case 'even-odd-2':
-            if (condition.condition === 'Even Prob') {
-              contractType = 'DIGITEVEN';
-            } else if (condition.condition === 'Odd Prob') {
-              contractType = 'DIGITODD';
-            } else {
-              // Default based on current analysis
-              const evenProb = parseFloat(data.data.evenProbability || '0');
-              const oddProb = parseFloat(data.data.oddProbability || '0');
-              contractType = evenProb > oddProb ? 'DIGITEVEN' : 'DIGITODD';
-            }
-            break;
-            
-          case 'over-under':
-          case 'over-under-2':
-            const baseBarrier = data.data.barrier || 5;
-            prediction = baseBarrier;
-            
-            if (condition.condition === 'Over Prob') {
-              contractType = 'DIGITOVER';
-            } else if (condition.condition === 'Under Prob') {
-              contractType = 'DIGITUNDER';
-            } else {
-              // Default based on current analysis
-              const overProb = parseFloat(data.data.overProbability || '0');
-              const underProb = parseFloat(data.data.underProbability || '0');
-              contractType = overProb > underProb ? 'DIGITOVER' : 'DIGITUNDER';
-            }
-            break;
-            
-          case 'matches-differs':
-            prediction = data.data.target;
-            
-            if (condition.condition === 'Matches Prob') {
-              contractType = 'DIGITMATCH';
-            } else if (condition.condition === 'Differs Prob') {
-              contractType = 'DIGITDIFF';
-            } else {
-              // Default based on current analysis
-              const matchProb = parseFloat(data.data.mostFrequentProbability || '0');
-              contractType = matchProb > 15 ? 'DIGITMATCH' : 'DIGITDIFF';
-            }
-            break;
-            
-          default:
-            console.error('Unknown strategy type for manual trade');
-            return;
-        }
-      } else {
-        // For auto trades, use existing logic based on analysis
-        switch (strategyId) {
-          case 'rise-fall':
-            contractType = parseFloat(data.data.riseRatio || '0') > parseFloat(data.data.fallRatio || '0') ? 'CALL' : 'PUT';
-            break;
-          case 'even-odd':
-          case 'even-odd-2':
-            const evenProb = parseFloat(data.data.evenProbability || '0');
-            const oddProb = parseFloat(data.data.oddProbability || '0');
-            if (lastOutcomeWasLoss[strategyId] && Math.abs(evenProb - oddProb) < 5) {
-              contractType = evenProb > oddProb ? 'DIGITODD' : 'DIGITEVEN';
-            } else {
-              contractType = evenProb > oddProb ? 'DIGITEVEN' : 'DIGITODD';
-            }
-            break;
-          case 'over-under':
-          case 'over-under-2':
-            const overProb = parseFloat(data.data.overProbability || '0');
-            const underProb = parseFloat(data.data.underProbability || '0');
-            const baseBarrier = data.data.barrier || 5;
-            if (lastOutcomeWasLoss[strategyId]) {
-              prediction = overProb > underProb ? Math.max(0, baseBarrier - 1) : Math.min(9, baseBarrier + 1);
-            } else {
-              prediction = baseBarrier;
-            }
-            contractType = overProb > underProb ? 'DIGITOVER' : 'DIGITUNDER';
-            break;
-          case 'matches-differs':
-            const matchProb = parseFloat(data.data.mostFrequentProbability || '0');
-            contractType = matchProb > 15 ? 'DIGITMATCH' : 'DIGITDIFF';
-            prediction = data.data.target;
-            break;
-          default:
-            console.error('Unknown strategy type for auto trade');
-            return;
-        }
-      }
-
-      console.log('Executing trade with params:', {
-        strategy: strategyId,
-        tradeType,
-        contractType,
-        effectiveStake,
-        prediction,
-        lossStreak: currentStreak
-      });
-
-      // Create proper trade option
-      const trade_option: any = {
-        amount: effectiveStake,
-        basis: 'stake',
-        contractTypes: [contractType],
-        currency: 'USD',
-        duration: ticksAmount,
-        duration_unit: 't',
-        symbol: selectedSymbol,
-      };
-
-      // Add prediction for digit contracts
-      if (prediction !== undefined) {
-        trade_option.prediction = prediction;
-      }
-
-      // Create buy request
-      const buy_req = {
-        buy: '1',
-        price: trade_option.amount,
-        parameters: {
-          amount: trade_option.amount,
-          basis: trade_option.basis,
-          contract_type: contractType,
-          currency: trade_option.currency,
-          duration: trade_option.duration,
-          duration_unit: trade_option.duration_unit,
-          symbol: trade_option.symbol,
-        },
-      };
-
-      // Add prediction parameters for digit contracts
-      if (trade_option.prediction !== undefined) {
-        if (!['TICKLOW', 'TICKHIGH'].includes(contractType)) {
-          buy_req.parameters.barrier = trade_option.prediction;
-        }
-        buy_req.parameters.selected_tick = trade_option.prediction;
-      }
-
-      console.log('Sending buy request:', buy_req);
-
-      // Execute the trade
-      const { buy, error } = await tradingApi.buy(buy_req);
-      
-      if (error) {
-        console.error('❌ Purchase failed:', error);
-        alert(`Purchase failed: ${error.message || 'Unknown error'}`);
-        setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
-        return;
-      }
-
-      if (buy) {
-        console.log(`[${timestamp}] ✅ Contract purchased successfully for ${strategyId}:`, {
-          contractId: buy.contract_id,
-          contractType,
-          amount: effectiveStake,
-          tradeType,
-          prediction
-        });
-        
-        // Only show alert for manual trades to avoid spam during auto trading
-        if (tradeType === 'manual') {
-          alert(`${contractType} contract purchased! ID: ${buy.contract_id}, Amount: ${effectiveStake}`);
-        }
-        
-        // Track the contract outcome for martingale logic
-        const contractId = buy.contract_id;
-        
-        // Subscribe to contract updates to track win/loss
-        try {
-          const { subscription, error: subError } = await tradingApi.send({
-            proposal_open_contract: 1,
-            contract_id: contractId,
-            subscribe: 1,
-          });
-
-          if (subError) {
-            console.error('Error subscribing to contract:', subError);
-            return;
-          }
-
-          // Listen for contract completion
-          const handleContractUpdate = (evt: MessageEvent) => {
-            try {
-              const data = JSON.parse(evt.data);
-              if (data.msg_type === 'proposal_open_contract' && 
-                  data.proposal_open_contract &&
-                  String(data.proposal_open_contract.contract_id) === String(contractId)) {
-                
-                const contract = data.proposal_open_contract;
-                
-                if (contract.is_sold || contract.status === 'sold') {
-                  const profit = Number(contract.profit || 0);
-                  const isWin = profit > 0;
-                  
-                  if (isWin) {
-                    setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: false }));
-                    setLossStreaks(prev => ({ ...prev, [strategyId]: 0 }));
-                    console.log(`✅ Win! Profit: ${profit}`);
-                  } else {
-                    setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
-                    setLossStreaks(prev => ({ 
-                      ...prev, 
-                      [strategyId]: Math.min((prev[strategyId] || 0) + 1, 10)
-                    }));
-                    console.log(`❌ Loss! Profit: ${profit}`);
-                  }
-                  
-                  // Clean up listener
-                  tradingApi?.connection?.removeEventListener('message', handleContractUpdate);
-                }
-              }
-            } catch (error) {
-              console.error('Error parsing contract update:', error);
-            }
-          };
-
-          // Add listener for contract updates
-          tradingApi?.connection?.addEventListener('message', handleContractUpdate);
-          
-          // Clean up listener after 5 minutes
-          setTimeout(() => {
-            tradingApi?.connection?.removeEventListener('message', handleContractUpdate);
-          }, 300000);
-
-        } catch (error) {
-          console.error('Error subscribing to contract updates:', error);
-        }
-      }
-
-    } catch (error) {
-      console.error(`[${timestamp}] ❌ Error executing ${tradeType} trade for ${strategyId}:`, error);
-      
-      // Only show alert for manual trades to avoid spam during auto trading
-      if (tradeType === 'manual') {
-        alert(`Trade execution error: ${error.message}`);
-      }
-      
-      setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
-      
-      // For auto trading, log the error but don't stop the auto trading
-      if (tradeType === 'auto') {
-        console.log(`[${timestamp}] 🔄 Auto trading will continue for ${strategyId} despite this error`);
-      }
-    }
+  const getAnalysisForStrategy = (strategyId: string) => {
+    // Return relevant analysis data for the strategy
+    return analysisData[strategyId] || {};
   };
 
   const startAutoTrading = (strategyId: string) => {
-    if (connectionStatus !== 'connected') {
-      console.error('Cannot start auto trading: Not connected to API');
-      alert('Cannot start auto trading: Not connected to API');
-      return;
-    }
-
-    // Clear existing interval if any
-    if (tradingIntervals[strategyId]) {
-      clearInterval(tradingIntervals[strategyId]);
-    }
-
-    // Set auto trading status to active
-    setAutoTradingStatus(prev => ({
-      ...prev,
-      [strategyId]: true
-    }));
-
-    // Determine interval based on volatility symbol - shorter intervals for continuous trading
-    let intervalMs = 1500; // 1.5 seconds for faster response
-    
-    // For 1s volatilities, use even faster interval
-    if (selectedSymbol.includes('1HZ')) {
-      intervalMs = 1000; // 1 second for 1s volatilities
-    }
-
-    console.log(`Starting auto trading for ${strategyId} with ${intervalMs}ms interval`);
-
-    // Create a ref to track the last trade time to prevent duplicate rapid trades
-    let lastTradeTime = 0;
-    const minTimeBetweenTrades = 3000; // Minimum 3 seconds between trades
-
-    // Create trading interval that checks conditions continuously
-    const interval = setInterval(async () => {
-      try {
-        // Use refs to get current state instead of closure
-        const currentTime = Date.now();
-        
-        // Check if enough time has passed since last trade
-        if (currentTime - lastTradeTime < minTimeBetweenTrades) {
-          return;
-        }
-
-        // Get current state directly from DOM or use a more reliable state check
-        const autoTradingButton = document.querySelector(`[data-strategy="${strategyId}"] .start-trading-btn`);
-        const isAutoTradingActive = autoTradingButton?.textContent?.includes('Stop Auto Trading');
-        
-        // Check if auto trading is still active and connected
-        if (!isAutoTradingActive || connectionStatus !== 'connected') {
-          console.log(`Auto trading stopped for ${strategyId} - Button state: ${autoTradingButton?.textContent}, Connection: ${connectionStatus}`);
-          return;
-        }
-
-        const data = analysisData[strategyId];
-        const condition = tradingConditions[strategyId];
-
-        if (!data?.data) {
-          console.log(`No analysis data available for ${strategyId}`);
-          return;
-        }
-
-        // Check if trading conditions are met with more robust checking
-        const conditionsMet = checkTradingConditions(strategyId, data.data, condition);
-        
-        if (conditionsMet) {
-          console.log(`🔥 Auto trading conditions met for ${strategyId}, executing trade`);
-          lastTradeTime = currentTime;
-          
-          try {
-            await executeTrade(strategyId, 'auto');
-            console.log(`✅ Auto trade executed successfully for ${strategyId}`);
-          } catch (error) {
-            console.error(`❌ Auto trade execution failed for ${strategyId}:`, error);
-            // Don't stop auto trading on individual trade failures
-          }
-        } else {
-          console.log(`⏳ Auto trading conditions not met for ${strategyId} - Current values:`, {
-            condition: condition.condition,
-            operator: condition.operator,
-            threshold: condition.value,
-            availableData: data.data
-          });
-        }
-      } catch (error) {
-        console.error(`Error in auto trading loop for ${strategyId}:`, error);
-      }
-    }, intervalMs);
-
-    // Store the interval
-    setTradingIntervals(prev => ({
-      ...prev,
-      [strategyId]: interval
-    }));
-
-    console.log(`✅ Auto trading started for ${strategyId}`);
-    alert(`Auto trading started for ${strategyId}. Will continuously trade when conditions are met.`);
+    setAutoTradingStatus(prev => ({ ...prev, [strategyId]: true }));
+    run_panel.setIsRunning(true);
+    run_panel.setContractStage(contract_stages.STARTING);
+    console.log(`Starting auto trading for ${strategyId}`);
   };
 
   const stopAutoTrading = (strategyId: string) => {
-    // Clear the trading interval
-    if (tradingIntervals[strategyId]) {
-      clearInterval(tradingIntervals[strategyId]);
-      setTradingIntervals(prev => ({
-        ...prev,
-        [strategyId]: null
-      }));
+    setAutoTradingStatus(prev => ({ ...prev, [strategyId]: false }));
+
+    // Check if any strategy is still running
+    const hasRunningStrategy = Object.entries(autoTradingStatus)
+      .filter(([key]) => key !== strategyId)
+      .some(([, isRunning]) => isRunning);
+
+    if (!hasRunningStrategy) {
+      run_panel.setIsRunning(false);
+      run_panel.setContractStage(contract_stages.NOT_RUNNING);
     }
 
-    // Set auto trading status to inactive
-    setAutoTradingStatus(prev => ({
-      ...prev,
-      [strategyId]: false
-    }));
-
-    console.log(`Auto trading stopped for ${strategyId}`);
-    alert(`Auto trading stopped for ${strategyId}`);
+    console.log(`Stopping auto trading for ${strategyId}`);
   };
 
   const checkTradingConditions = (strategyId: string, data: any, condition: any) => {
     let currentValue = 0;
-    
+
     // More detailed logging for debugging
     const timestamp = new Date().toLocaleTimeString();
-    
+
     switch (condition.condition) {
       case 'Rise Prob':
         currentValue = parseFloat(data.riseRatio || '0');
@@ -1476,6 +1145,23 @@ const VolatilityAnalyzer: React.FC = () => {
             value={barrier}
             onChange={(e) => updateBarrier(parseInt(e.target.value))}
           />
+        </div>
+      </div>
+
+      {/* Run Panel Integration */}
+      <div className="run-panel">
+        <h3>Run Panel</h3>
+        <div className="run-panel-content">
+          {activeTrades.length === 0 && (
+            <p>No active trades.</p>
+          )}
+          {activeTrades.map(trade => (
+            <div key={trade.id} className={`trade-item ${trade.status}`}>
+              <span>{trade.strategy}: {trade.tradeType}</span>
+              <span>Stake: {trade.stake}</span>
+              <span>Status: {trade.status.toUpperCase()}</span>
+            </div>
+          ))}
         </div>
       </div>
 
