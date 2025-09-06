@@ -215,11 +215,23 @@ const TradingHubDisplay: React.FC = () => {
                 await new Promise(resolve => setTimeout(resolve, 1500));
             }
 
+            // Check if API is still not authorized after attempts
+            if (!api_base.is_authorized) {
+                throw new Error('API authorization failed - please check your connection and login status');
+            }
+
             // Prepare enhanced trade parameters
             const currentStake = isO5U4Part ? appliedStake : currentStakeRef.current;
+            const stakeAmount = parseFloat(currentStake);
+            
+            // Validate stake amount
+            if (isNaN(stakeAmount) || stakeAmount < 0.35) {
+                throw new Error(`Invalid stake amount: ${currentStake}. Minimum stake is 0.35`);
+            }
+
             const tradeParams: any = {
                 buy: 1,
-                price: parseFloat(currentStake),
+                price: stakeAmount,
                 parameters: {
                     contract_type: contractType,
                     symbol: symbol,
@@ -240,7 +252,8 @@ const TradingHubDisplay: React.FC = () => {
             const response = await api_base.api?.send(tradeParams);
 
             if (response?.error) {
-                throw new Error(response.error.message || 'Trade execution failed');
+                const errorMessage = response.error.message || `Trade execution failed: ${response.error.code || 'Unknown error'}`;
+                throw new Error(errorMessage);
             }
 
             if (response?.buy && response.buy.contract_id) {
@@ -260,12 +273,13 @@ const TradingHubDisplay: React.FC = () => {
 
                 return contractResult;
             } else {
-                throw new Error('Invalid response from server');
+                throw new Error('Invalid response from server - no contract ID received');
             }
 
         } catch (error: any) {
-            console.error('Trade execution failed:', error);
-            globalObserver.emit('ui.log.error', `Trade failed: ${error.message}`);
+            const errorMsg = error?.message || 'Unknown trade execution error';
+            console.error('Trade execution failed:', errorMsg);
+            globalObserver.emit('ui.log.error', `Trade failed: ${errorMsg}`);
             
             if (!isO5U4Part) {
                 handleTradeResult(false);
@@ -280,6 +294,7 @@ const TradingHubDisplay: React.FC = () => {
 
     // Enhanced trade result handling
     const handleTradeResult = useCallback((isWin: boolean) => {
+        const currentStakeAmount = parseFloat(appliedStake);
         const newStake = calculateNextStake(isWin);
         setAppliedStake(newStake);
         currentStakeRef.current = newStake;
@@ -288,17 +303,28 @@ const TradingHubDisplay: React.FC = () => {
         if (isWin) {
             setWinCount(prev => prev + 1);
             setLastTradeResult('WIN');
-            const profit = parseFloat(appliedStake) * 0.95;
+            const profit = currentStakeAmount * 0.95;
             setProfitLoss(prev => prev + profit);
             globalObserver.emit('ui.log.success', `Trade WON! Profit: +${profit.toFixed(2)}`);
         } else {
             setLossCount(prev => prev + 1);
             setLastTradeResult('LOSS');
-            const loss = parseFloat(appliedStake);
+            const loss = currentStakeAmount;
             setProfitLoss(prev => prev - loss);
             globalObserver.emit('ui.log.error', `Trade LOST! Loss: -${loss.toFixed(2)}`);
         }
-    }, [calculateNextStake, appliedStake]);
+
+        // Update contract in summary card store for balance integration
+        if (run_panel?.summary_card_store) {
+            run_panel.summary_card_store.updateTradingHubStats({
+                total_trades: totalTrades + 1,
+                wins: isWin ? winCount + 1 : winCount,
+                losses: !isWin ? lossCount + 1 : lossCount,
+                profit_loss: profitLoss + (isWin ? currentStakeAmount * 0.95 : -currentStakeAmount),
+                last_trade_result: isWin ? 'WIN' : 'LOSS'
+            });
+        }
+    }, [calculateNextStake, appliedStake, totalTrades, winCount, lossCount, profitLoss, run_panel]);
 
     // Strategy execution functions
     const executeDigitDifferTrade = useCallback(async (): Promise<boolean> => {
@@ -314,7 +340,10 @@ const TradingHubDisplay: React.FC = () => {
     }, [recommendation, isTradeInProgress, executeTrade]);
 
     const executeDigitOverTrade = useCallback(async (): Promise<boolean> => {
-        if (!recommendation || isTradeInProgress) return false;
+        if (!recommendation || isTradeInProgress) {
+            console.log('Cannot execute Over/Under trade: no recommendation or trade in progress');
+            return false;
+        }
         
         try {
             console.log('Executing Auto Over/Under trade...');
@@ -325,8 +354,10 @@ const TradingHubDisplay: React.FC = () => {
                 contractType,
                 recommendation.barrier
             );
-        } catch (error) {
-            console.error('Auto Over/Under execution failed:', error);
+        } catch (error: any) {
+            const errorMsg = error?.message || 'Unknown error in Over/Under execution';
+            console.error('Auto Over/Under execution failed:', errorMsg);
+            globalObserver.emit('ui.log.error', `Over/Under strategy failed: ${errorMsg}`);
             return false;
         }
     }, [recommendation, isTradeInProgress, executeTrade]);
@@ -481,6 +512,20 @@ const TradingHubDisplay: React.FC = () => {
                     return;
                 }
 
+                // Circuit breaker: Stop if too many consecutive losses
+                if (consecutiveLosses >= 10) {
+                    console.log('Circuit breaker: Too many consecutive losses, stopping trading');
+                    globalObserver.emit('ui.log.error', 'Trading stopped due to excessive losses');
+                    stopTrading();
+                    return;
+                }
+
+                // Check API connection before trading
+                if (!api_base.is_authorized || !api_base.api || api_base.api.connection?.readyState !== 1) {
+                    console.log('API not ready for trading, skipping...');
+                    return;
+                }
+
                 const now = Date.now();
                 const timeSinceLastSettlement = now - contractSettledTimeRef.current;
                 const minimumCooldown = isAutoO5U4Active ? 15000 : 5000;
@@ -508,7 +553,7 @@ const TradingHubDisplay: React.FC = () => {
             }
         };
     }, [isContinuousTrading, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active, 
-        isTradeInProgress, executeDigitDifferTrade, executeDigitOverTrade, executeO5U4Trade]);
+        isTradeInProgress, consecutiveLosses, stopTrading, executeDigitDifferTrade, executeDigitOverTrade, executeO5U4Trade]);
 
     // Initialize component and API
     useEffect(() => {
