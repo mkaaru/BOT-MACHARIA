@@ -27,6 +27,33 @@ type TMovements = {
 };
 
 export default class SummaryCardStore {
+    
+    // Method to update balance from trading hub
+    updateBalance = (newBalance: number) => {
+        // This will trigger balance updates in the UI
+        if (this.root_store?.client?.accounts) {
+            const currentAccount = this.root_store.client.accounts.find(
+                acc => acc.loginid === this.root_store.client.loginid
+            );
+            if (currentAccount) {
+                currentAccount.balance = newBalance;
+            }
+        }
+    };
+
+    // Method to update trading hub specific stats
+    updateTradingHubStats = (stats: {
+        total_trades: number;
+        wins: number;
+        losses: number;
+        profit_loss: number;
+        last_trade_result: string;
+        current_stake?: string;
+    }) => {
+        // Update local stats that can be displayed in summary
+        this.total_runs = stats.total_trades;
+        // Additional stats can be stored here for display
+    };
     root_store: RootStore;
     core: TStores;
     disposeReactionsFn: () => void | null;

@@ -138,25 +138,47 @@ const TradingHubDisplay: React.FC = () => {
         return true;
     }, []);
 
-    // Enhanced contract monitoring
+    // Enhanced contract monitoring with balance updates
     const monitorContract = useCallback(async (contractId: string, isO5U4Part: boolean = false): Promise<boolean> => {
         return new Promise((resolve) => {
-            const subscription = api_base.api?.onMessage().subscribe((response: any) => {
+            let contractData: any = null;
+            
+            const subscription = api_base.api?.onMessage().subscribe(async (response: any) => {
                 if (response.proposal_open_contract && 
-                    response.proposal_open_contract.contract_id === contractId &&
-                    response.proposal_open_contract.is_settled) {
+                    response.proposal_open_contract.contract_id === contractId) {
                     
-                    const contract = response.proposal_open_contract;
-                    const isWin = contract.status === 'won';
+                    contractData = response.proposal_open_contract;
                     
-                    subscription.unsubscribe();
-                    
-                    if (!isO5U4Part) {
-                        contractSettledTimeRef.current = Date.now();
-                        waitingForSettlementRef.current = false;
+                    if (contractData.is_settled) {
+                        const isWin = contractData.status === 'won';
+                        const profit = contractData.profit || 0;
+                        const sellPrice = contractData.sell_price || 0;
+                        
+                        subscription.unsubscribe();
+                        
+                        // Update balance after contract settlement
+                        try {
+                            const balanceResponse = await api_base.api?.send({ balance: 1 });
+                            console.log('Balance after settlement:', balanceResponse?.balance?.balance);
+                            
+                            // Update summary card with new balance
+                            if (run_panel?.summary_card_store) {
+                                run_panel.summary_card_store.updateBalance(balanceResponse?.balance?.balance || 0);
+                            }
+                        } catch (error) {
+                            console.error('Failed to update balance:', error);
+                        }
+                        
+                        if (!isO5U4Part) {
+                            contractSettledTimeRef.current = Date.now();
+                            waitingForSettlementRef.current = false;
+                        }
+                        
+                        globalObserver.emit('ui.log.info', 
+                            `Contract ${contractId} settled: ${isWin ? 'WON' : 'LOST'} - Profit: ${profit}`);
+                        
+                        resolve(isWin);
                     }
-                    
-                    resolve(isWin);
                 }
             });
 
@@ -174,10 +196,11 @@ const TradingHubDisplay: React.FC = () => {
                     contractSettledTimeRef.current = Date.now();
                     waitingForSettlementRef.current = false;
                 }
+                globalObserver.emit('ui.log.error', `Contract ${contractId} monitoring timeout`);
                 resolve(Math.random() > 0.5); // Fallback result
             }, 120000); // 2 minute timeout
         });
-    }, []);
+    }, [run_panel]);
 
     // Execute trade using the enhanced trade engine
     const executeTrade = useCallback(async (
@@ -192,8 +215,8 @@ const TradingHubDisplay: React.FC = () => {
             return false;
         }
 
-        if (!client?.loginid || !isApiAuthorized) {
-            globalObserver.emit('ui.log.error', 'Cannot execute trade: not logged in or unauthorized');
+        if (!client?.loginid || !client?.token) {
+            globalObserver.emit('ui.log.error', 'Cannot execute trade: not logged in or no token available');
             return false;
         }
 
@@ -204,21 +227,26 @@ const TradingHubDisplay: React.FC = () => {
         try {
             // Ensure API connection is stable
             if (!api_base.api || api_base.api.connection?.readyState !== 1) {
-                console.log('Reconnecting to API...');
+                console.log('Connecting to API...');
                 await api_base.init();
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+
+            // Ensure authorization with proper token
+            if (!api_base.is_authorized) {
+                console.log('Authorizing API with token...');
+                await api_base.api?.send({ authorize: client.token });
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
 
-            if (!api_base.is_authorized && client?.token) {
-                console.log('Re-authorizing API...');
-                await api_base.authorizeAndSubscribe();
-                await new Promise(resolve => setTimeout(resolve, 1500));
+            // Verify authorization status
+            if (!api_base.is_authorized) {
+                throw new Error('API authorization failed. Please check your token and connection.');
             }
 
-            // Check if API is still not authorized after attempts
-            if (!api_base.is_authorized) {
-                throw new Error('API authorization failed - please check your connection and login status');
-            }
+            // Get current balance first
+            const balanceResponse = await api_base.api?.send({ balance: 1 });
+            console.log('Current balance before trade:', balanceResponse?.balance?.balance);
 
             // Prepare enhanced trade parameters
             const currentStake = isO5U4Part ? appliedStake : currentStakeRef.current;
@@ -227,6 +255,11 @@ const TradingHubDisplay: React.FC = () => {
             // Validate stake amount
             if (isNaN(stakeAmount) || stakeAmount < 0.35) {
                 throw new Error(`Invalid stake amount: ${currentStake}. Minimum stake is 0.35`);
+            }
+
+            // Check if balance is sufficient
+            if (balanceResponse?.balance?.balance && parseFloat(balanceResponse.balance.balance) < stakeAmount) {
+                throw new Error(`Insufficient balance. Required: ${stakeAmount}, Available: ${balanceResponse.balance.balance}`);
             }
 
             const tradeParams: any = {
@@ -248,17 +281,35 @@ const TradingHubDisplay: React.FC = () => {
             console.log(`Executing ${strategy} trade:`, tradeParams);
             globalObserver.emit('ui.log.info', `${strategy}: ${contractType} on ${symbol} - Stake: ${currentStake}`);
 
-            // Send trade request through the enhanced API
-            const response = await api_base.api?.send(tradeParams);
+            // Send trade request through the API
+            const response = await new Promise((resolve, reject) => {
+                const subscription = api_base.api?.onMessage().subscribe((msg: any) => {
+                    if (msg.buy) {
+                        subscription.unsubscribe();
+                        resolve(msg);
+                    } else if (msg.error) {
+                        subscription.unsubscribe();
+                        reject(new Error(msg.error.message || msg.error.code));
+                    }
+                });
 
-            if (response?.error) {
-                const errorMessage = response.error.message || `Trade execution failed: ${response.error.code || 'Unknown error'}`;
-                throw new Error(errorMessage);
-            }
+                api_base.api?.send(tradeParams).catch(reject);
+
+                // Timeout after 30 seconds
+                setTimeout(() => {
+                    subscription.unsubscribe();
+                    reject(new Error('Trade request timeout'));
+                }, 30000);
+            });
 
             if (response?.buy && response.buy.contract_id) {
                 const contractId = response.buy.contract_id;
-                globalObserver.emit('ui.log.success', `Trade executed: ${contractId}`);
+                const buyPrice = response.buy.buy_price;
+                globalObserver.emit('ui.log.success', `Trade executed: ${contractId} - Cost: ${buyPrice}`);
+
+                // Update balance immediately after purchase
+                const newBalanceResponse = await api_base.api?.send({ balance: 1 });
+                console.log('Balance after trade:', newBalanceResponse?.balance?.balance);
 
                 // Enhanced contract monitoring
                 if (!isO5U4Part) {
@@ -268,7 +319,7 @@ const TradingHubDisplay: React.FC = () => {
                 const contractResult = await monitorContract(contractId, isO5U4Part);
                 
                 if (!isO5U4Part) {
-                    handleTradeResult(contractResult);
+                    handleTradeResult(contractResult, buyPrice);
                 }
 
                 return contractResult;
@@ -290,38 +341,51 @@ const TradingHubDisplay: React.FC = () => {
                 setIsTradeInProgress(false);
             }
         }
-    }, [isTradeInProgress, client, isApiAuthorized, appliedStake, monitorContract]);
+    }, [isTradeInProgress, client, appliedStake, monitorContract]);
 
-    // Enhanced trade result handling
-    const handleTradeResult = useCallback((isWin: boolean) => {
-        const currentStakeAmount = parseFloat(appliedStake);
+    // Enhanced trade result handling with proper balance integration
+    const handleTradeResult = useCallback((isWin: boolean, buyPrice?: number) => {
+        const currentStakeAmount = buyPrice || parseFloat(appliedStake);
         const newStake = calculateNextStake(isWin);
         setAppliedStake(newStake);
         currentStakeRef.current = newStake;
         setTotalTrades(prev => prev + 1);
 
+        let profitAmount = 0;
         if (isWin) {
             setWinCount(prev => prev + 1);
             setLastTradeResult('WIN');
-            const profit = currentStakeAmount * 0.95;
-            setProfitLoss(prev => prev + profit);
-            globalObserver.emit('ui.log.success', `Trade WON! Profit: +${profit.toFixed(2)}`);
+            profitAmount = currentStakeAmount * 0.95; // 95% payout
+            setProfitLoss(prev => prev + profitAmount);
+            globalObserver.emit('ui.log.success', `Trade WON! Profit: +${profitAmount.toFixed(2)}`);
         } else {
             setLossCount(prev => prev + 1);
             setLastTradeResult('LOSS');
-            const loss = currentStakeAmount;
-            setProfitLoss(prev => prev - loss);
-            globalObserver.emit('ui.log.error', `Trade LOST! Loss: -${loss.toFixed(2)}`);
+            profitAmount = -currentStakeAmount;
+            setProfitLoss(prev => prev + profitAmount);
+            globalObserver.emit('ui.log.error', `Trade LOST! Loss: ${profitAmount.toFixed(2)}`);
         }
 
         // Update contract in summary card store for balance integration
         if (run_panel?.summary_card_store) {
-            run_panel.summary_card_store.updateTradingHubStats({
+            const newStats = {
                 total_trades: totalTrades + 1,
                 wins: isWin ? winCount + 1 : winCount,
                 losses: !isWin ? lossCount + 1 : lossCount,
-                profit_loss: profitLoss + (isWin ? currentStakeAmount * 0.95 : -currentStakeAmount),
-                last_trade_result: isWin ? 'WIN' : 'LOSS'
+                profit_loss: profitLoss + profitAmount,
+                last_trade_result: isWin ? 'WIN' : 'LOSS',
+                current_stake: newStake
+            };
+            
+            run_panel.summary_card_store.updateTradingHubStats(newStats);
+            
+            // Trigger balance refresh
+            api_base.api?.send({ balance: 1 }).then((response: any) => {
+                if (response?.balance?.balance) {
+                    run_panel.summary_card_store.updateBalance(response.balance.balance);
+                }
+            }).catch((error: any) => {
+                console.error('Failed to refresh balance:', error);
             });
         }
     }, [calculateNextStake, appliedStake, totalTrades, winCount, lossCount, profitLoss, run_panel]);
