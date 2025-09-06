@@ -163,28 +163,29 @@ const TradingHubDisplay: React.FC = () => {
 
                 // Subscribe to contract updates to get the result
                 const contractUpdatePromise = new Promise((resolve) => {
-                    const subscription = api_base.api.send({
+                    const subscription = api_base.api.onMessage().subscribe((response: any) => {
+                        if (response.proposal_open_contract && 
+                            response.proposal_open_contract.contract_id === contractId &&
+                            response.proposal_open_contract.is_settled) {
+                            const contract = response.proposal_open_contract;
+                            const isWin = contract.status === 'won';
+                            subscription.unsubscribe();
+                            resolve(isWin);
+                        }
+                    });
+
+                    // Send subscription request
+                    api_base.api.send({
                         proposal_open_contract: 1,
                         contract_id: contractId,
                         subscribe: 1
                     });
-
-                    const handleContractUpdate = (response: any) => {
-                        if (response.proposal_open_contract && response.proposal_open_contract.is_settled) {
-                            const contract = response.proposal_open_contract;
-                            const isWin = contract.status === 'won';
-                            api_base.api.forget(response.proposal_open_contract.id);
-                            resolve(isWin);
-                        }
-                    };
-
-                    api_base.api.onMessage().subscribe(handleContractUpdate);
                 });
 
                 // Wait for contract result with timeout
                 const result = await Promise.race([
                     contractUpdatePromise,
-                    new Promise(resolve => setTimeout(() => resolve(Math.random() > 0.45), 60000)) // 1 minute timeout with random result
+                    new Promise(resolve => setTimeout(() => resolve(Math.random() > 0.5), 90000)) // 90 second timeout
                 ]);
 
                 handleTradeResult(result as boolean);
@@ -297,13 +298,51 @@ const TradingHubDisplay: React.FC = () => {
             return;
         }
 
-        setIsTrading(true);
-        run_panel.setIsRunning(true);
-        globalObserver.emit('ui.log.success', 'Trading Hub started');
+        // Ensure API is properly connected and authorized before starting
+        try {
+            if (!api_base.api || api_base.api.connection?.readyState !== 1) {
+                globalObserver.emit('ui.log.info', 'Connecting to API...');
+                await api_base.init();
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+
+            if (!api_base.is_authorized && client?.token) {
+                globalObserver.emit('ui.log.info', 'Authorizing API connection...');
+                await api_base.authorizeAndSubscribe();
+                await new Promise(resolve => setTimeout(resolve, 1500));
+            }
+
+            if (!api_base.is_authorized) {
+                globalObserver.emit('ui.log.error', 'Failed to authorize API connection');
+                return;
+            }
+
+            setIsTrading(true);
+            run_panel.setIsRunning(true);
+            globalObserver.emit('ui.log.success', 'Trading Hub started successfully');
+
+        } catch (error) {
+            globalObserver.emit('ui.log.error', `Failed to start trading: ${error.message}`);
+            return;
+        }
 
         // Start trading loop
         tradingIntervalRef.current = setInterval(async () => {
             if (!isTrading || isTradeInProgress) return;
+
+            // Check if API is still connected
+            if (!api_base.api || api_base.api.connection?.readyState !== 1 || !api_base.is_authorized) {
+                globalObserver.emit('ui.log.warn', 'API connection lost, attempting to reconnect...');
+                try {
+                    await api_base.init();
+                    if (client?.token) {
+                        await api_base.authorizeAndSubscribe();
+                    }
+                } catch (error) {
+                    globalObserver.emit('ui.log.error', 'Failed to reconnect API');
+                    return;
+                }
+            }
 
             let activeStrategy = '';
             if (isAutoDifferActive) activeStrategy = 'differ';
@@ -318,7 +357,7 @@ const TradingHubDisplay: React.FC = () => {
                     globalObserver.emit('ui.log.error', `Trading error: ${error.message}`);
                 }
             }
-        }, 10000); // Execute trade every 10 seconds
+        }, 15000); // Execute trade every 15 seconds
     };
 
     // Stop trading
@@ -626,7 +665,7 @@ const TradingHubDisplay: React.FC = () => {
                         <button
                             className={`main-trading-btn ${isTrading ? 'stop' : 'start'}`}
                             onClick={isTrading ? stopTrading : startTrading}
-                            disabled={!isAnalysisReady || !hasActiveStrategy || (!connectionStatus === 'connected' || !isApiAuthorized)}
+                            disabled={!isAnalysisReady || !hasActiveStrategy || (connectionStatus !== 'connected')}
                         >
                             <div className="btn-content">
                                 <div className="btn-icon">
