@@ -311,7 +311,8 @@ const TradingHubDisplay: React.FC = () => {
                     contract_type: contractType,
                     symbol: symbol,
                     duration: 1,
-                    duration_unit: 't'
+                    duration_unit: 't',
+                    currency: client?.currency || 'USD'
                 }
             };
 
