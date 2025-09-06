@@ -4,6 +4,7 @@ import { api_base } from '../../external/bot-skeleton/services/api/api-base';
 import { doUntilDone } from '../../external/bot-skeleton/services/tradeEngine/utils/helpers';
 import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
 import { useStore } from '@/hooks/useStore';
+import useThemeSwitcher from '@/hooks/useThemeSwitcher';
 import marketAnalyzer, { TradeRecommendation } from '../../services/market-analyzer';
 
 const TradingHubDisplay: React.FC = () => {
@@ -200,6 +201,21 @@ const TradingHubDisplay: React.FC = () => {
         setIsTradeInProgress(true);
 
         try {
+            // Ensure API is connected and authorized
+            if (!api_base.api || api_base.api.connection?.readyState !== 1) {
+                console.log('API not connected, attempting to connect...');
+                await api_base.init();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+            if (!api_base.is_authorized) {
+                console.log('API not authorized, attempting authorization...');
+                await api_base.authorizeAndSubscribe();
+                if (!api_base.is_authorized) {
+                    throw new Error('Failed to authorize API');
+                }
+            }
+
             const currentStake = manageStake('get');
 
             const tradePayload: any = {
@@ -217,12 +233,15 @@ const TradingHubDisplay: React.FC = () => {
                 tradePayload.parameters.barrier = barrier;
             }
 
-            console.log(`Executing trade with payload:`, tradePayload);
+            console.log(`Executing ${strategy} trade with payload:`, tradePayload);
+            globalObserver.emit('ui.log.info', `Attempting ${strategy} trade on ${symbol} with stake ${currentStake}`);
+
             const response = await api_base.api.send(tradePayload);
 
             if (response.error) {
                 console.error('Trade execution failed:', response);
                 console.error('Error details:', response.error);
+                globalObserver.emit('ui.log.error', `Trade failed: ${response.error.message || 'Unknown error'}`);
                 setTradeResult({
                     success: false,
                     message: `Trade failed: ${response.error.message || 'Unknown error'}`,
@@ -247,17 +266,21 @@ const TradingHubDisplay: React.FC = () => {
                 }
 
                 setLastTradeId(buy.contract_id);
-                updateTradeStats(true); // Mark as win
+                globalObserver.emit('ui.log.success', `Trade executed successfully! Contract ID: ${buy.contract_id}`);
                 setTradeResult({
                     success: true,
                     message: 'Trade executed successfully',
                     contractId: buy.contract_id || null
                 });
+                
+                // Don't mark as win immediately - wait for contract result
+                // updateTradeStats(true); 
                 return true;
             }
 
         } catch (error) {
             console.error('Trade execution failed:', error);
+            globalObserver.emit('ui.log.error', `Trade execution error: ${error.message || 'Unknown error'}`);
             setTradeResult({
                 success: false,
                 message: `An unexpected error occurred: ${error.message || 'Unknown error'}`,
@@ -524,20 +547,29 @@ const TradingHubDisplay: React.FC = () => {
         if (isContinuousTrading && isAnalysisReady) {
             const intervalTime = 5000; // 5 seconds
 
-            tradingIntervalRef.current = setInterval(() => {
+            tradingIntervalRef.current = setInterval(async () => {
                 const now = Date.now();
                 const timeSinceLastTrade = now - lastTradeTime.current;
 
                 if (isTradeInProgress || timeSinceLastTrade < minimumTradeCooldown) {
+                    console.log('Skipping trade - either in progress or cooling down');
                     return;
                 }
 
-                if (isAutoDifferActive) {
-                    executeDigitDifferTrade();
-                } else if (isAutoOverUnderActive) {
-                    executeDigitOverTrade();
-                } else if (isAutoO5U4Active) {
-                    executeO5U4Trade();
+                console.log('Attempting to execute trade...');
+                setTradeCount(prev => prev + 1);
+
+                try {
+                    if (isAutoDifferActive) {
+                        await executeDigitDifferTrade();
+                    } else if (isAutoOverUnderActive) {
+                        await executeDigitOverTrade();
+                    } else if (isAutoO5U4Active) {
+                        await executeO5U4Trade();
+                    }
+                } catch (error) {
+                    console.error('Error executing trade:', error);
+                    globalObserver.emit('ui.log.error', `Trade execution error: ${error.message}`);
                 }
             }, intervalTime);
         } else {
