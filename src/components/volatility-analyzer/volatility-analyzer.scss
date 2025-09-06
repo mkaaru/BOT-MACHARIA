@@ -121,28 +121,29 @@
 
   .trading-cards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
       max-width: 1800px;
       overflow-y: auto;
       max-height: calc(100vh - 180px);
-      padding-bottom: 80px;
+      padding-bottom: 120px;
 
       @media (max-width: 768px) {
-        padding-bottom: 80px;
+        padding-bottom: 100px;
         gap: 8px;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       }
 
       @media (min-width: 1600px) {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(5, 1fr);
       }
 
       @media (min-width: 1200px) and (max-width: 1599px) {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(4, 1fr);
       }
 
       @media (min-width: 768px) and (max-width: 1199px) {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(3, 1fr);
       }
 
       @media (max-width: 767px) {
@@ -153,20 +154,21 @@
   .trading-card {
     background: white;
     border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    min-height: 320px;
+    border-radius: 6px;
+    padding: 6px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    min-height: 280px;
+    max-height: 350px;
     display: flex;
     flex-direction: column;
 
     .card-header {
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       border-bottom: 1px solid #e0e0e0;
-      padding-bottom: 6px;
+      padding-bottom: 4px;
 
       h3 {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         color: #333;
         margin: 0;
@@ -177,14 +179,15 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
+      overflow-y: auto;
 
       .progress-item {
         .progress-label {
           display: flex;
           justify-content: space-between;
-          margin-bottom: 4px;
-          font-size: 13px;
+          margin-bottom: 3px;
+          font-size: 12px;
           font-weight: 500;
 
           .progress-percentage {
@@ -193,37 +196,37 @@
         }
 
         .progress-bar {
-          height: 6px;
+          height: 5px;
           background-color: #f0f0f0;
-          border-radius: 3px;
+          border-radius: 2px;
           overflow: hidden;
 
           .progress-fill {
             height: 100%;
             transition: width 0.3s ease;
-            border-radius: 4px;
+            border-radius: 2px;
           }
         }
       }
 
       .barrier-info {
-        font-size: 12px;
+        font-size: 11px;
         color: #666;
         text-align: center;
-        padding: 6px;
+        padding: 4px;
         background: #f8f9fa;
-        border-radius: 4px;
-        margin-bottom: 8px;
+        border-radius: 3px;
+        margin-bottom: 6px;
       }
 
       .most-frequent {
-        font-size: 12px;
+        font-size: 11px;
         color: #333;
         text-align: center;
-        padding: 6px;
+        padding: 4px;
         background: #f8f9fa;
-        border-radius: 4px;
-        margin-bottom: 8px;
+        border-radius: 3px;
+        margin-bottom: 6px;
       }
 
       .barrier-note {
@@ -362,23 +365,23 @@
       .trading-condition {
         background: #f8f9fa;
         border: 1px solid #e0e0e0;
-        border-radius: 6px;
-        padding: 8px;
+        border-radius: 4px;
+        padding: 6px;
         margin-top: auto;
 
         .condition-header {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
           color: #333;
-          margin-bottom: 6px;
+          margin-bottom: 4px;
         }
 
         .condition-row {
           display: flex;
           align-items: center;
-          gap: 6px;
-          margin-bottom: 6px;
-          font-size: 11px;
+          gap: 4px;
+          margin-bottom: 4px;
+          font-size: 10px;
 
           span {
             color: #666;
@@ -387,11 +390,11 @@
 
           select,
           input {
-            padding: 4px 8px;
+            padding: 2px 4px;
             border: 1px solid #ccc;
-            border-radius: 4px;
+            border-radius: 3px;
             background: white;
-            font-size: 12px;
+            font-size: 10px;
 
             &:focus {
               outline: none;
@@ -400,7 +403,7 @@
           }
 
           input[type="number"] {
-            width: 50px;
+            width: 40px;
           }
         }
       }
@@ -459,22 +462,22 @@
     }
 
     .card-footer {
-      margin-top: 8px;
+      margin-top: 6px;
       border-top: 1px solid #e0e0e0;
-      padding-top: 8px;
+      padding-top: 6px;
 
       .start-trading-btn {
         width: 100%;
-        padding: 8px;
+        padding: 6px;
         background: linear-gradient(45deg, #4CAF50, #45a049);
         color: white;
         border: none;
-        border-radius: 6px;
-        font-size: 12px;
+        border-radius: 4px;
+        font-size: 11px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s ease;
-        margin-bottom: 4px;
+        margin-bottom: 3px;
 
         &:hover:not(:disabled) {
           background: linear-gradient(45deg, #45a049, #4CAF50);
@@ -497,12 +500,12 @@
 
       .manual-trade-btn {
         width: 100%;
-        padding: 6px;
+        padding: 5px;
         background: linear-gradient(45deg, #2196F3, #1976D2);
         color: white;
         border: none;
-        border-radius: 6px;
-        font-size: 11px;
+        border-radius: 4px;
+        font-size: 10px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s ease;
