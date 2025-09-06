@@ -1,4 +1,4 @@
-import { action, computed, makeObservable, observable, reaction } from 'mobx';
+import { action, computed, makeObservable, observable, reaction, runInAction } from 'mobx';
 import {
     getIndicativePrice,
     isAccumulatorContract,
@@ -219,22 +219,17 @@ export default class SummaryCardStore {
     /**
      * Sets the bot's running state based on whether the contract is still loading
      */
-    setIsBotRunning() {
-        if (!this.is_contract_loading) {
-            this.is_bot_running = false;
-            return;
+    setIsBotRunning = (is_running: boolean) => {
+        if (is_running) {
+            this.is_bot_running = is_running;
+        } else {
+            setTimeout(() => {
+                runInAction(() => {
+                    this.is_bot_running = is_running;
+                });
+            }, 1000);
         }
-
-        const onTimeout = () => {
-            if (this.is_contract_loading) {
-                this.is_bot_running = true;
-                this.root_store.run_panel.setContractStage(contract_stages.RUNNING);
-            }
-        };
-
-        const timeout = setTimeout(onTimeout, 5000);
-        return () => clearTimeout(timeout);
-    }
+    };
 
     updateLimitOrder() {
         const limit_order = this.getLimitOrder();
