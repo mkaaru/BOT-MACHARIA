@@ -143,11 +143,11 @@ export default Engine =>
                 //if (!contractIdStr || contractIdStr === 'undefined' || isNaN(buy.contract_id)) {
                    // console.error('Invalid demo contract ID received:', buy.contract_id);
                    // return;
-                }
+                //}
                 
                 // Additional validation for demo accounts
               //  console.log(`Demo contract validated - ID: ${buy.contract_id}, Transaction: ${buy.transaction_id}`);
-            }
+            //}
 
             contractStatus({
                 id: 'contract.purchase_received',
