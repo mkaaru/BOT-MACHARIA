@@ -23,13 +23,13 @@ export const MenuItems = observer(() => {
                     ))
                 ) : (
                     <MenuItem
-                        as={items[1].as}
+                        as={items[0].as}
                         className='flex gap-2 p-5'
-                        href={items[1].href}
-                        key={items[1].label}
-                        leftComponent={items[1].icon}
+                        href={items[0].href}
+                        key={items[0].label}
+                        leftComponent={items[0].icon}
                     >
-                        <Text>{localize(items[1].label)}</Text>
+                        <Text>{localize(items[0].label)}</Text>
                     </MenuItem>
                 ))}
         </>
