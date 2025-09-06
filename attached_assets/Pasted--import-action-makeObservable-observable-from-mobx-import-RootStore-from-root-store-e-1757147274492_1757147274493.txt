@@ -1,0 +1,73 @@
+
+import { action, makeObservable, observable } from 'mobx';
+import RootStore from './root-store';
+
+export default class TradingHubStore {
+    root_store: RootStore;
+    
+    constructor(root_store: RootStore) {
+        makeObservable(this, {
+            isAutoDifferActive: observable,
+            isAutoOverUnderActive: observable,
+            isAutoO5U4Active: observable,
+            stakeAmount: observable,
+            martingaleEnabled: observable,
+            copyTradingEnabled: observable,
+            tradingStats: observable,
+            setAutoDifferActive: action,
+            setAutoOverUnderActive: action,
+            setAutoO5U4Active: action,
+            setStakeAmount: action,
+            setMartingaleEnabled: action,
+            setCopyTradingEnabled: action,
+            updateTradingStats: action,
+        });
+        this.root_store = root_store;
+    }
+    
+    isAutoDifferActive = false;
+    isAutoOverUnderActive = false;
+    isAutoO5U4Active = false;
+    stakeAmount = 1;
+    martingaleEnabled = false;
+    copyTradingEnabled = false;
+    
+    tradingStats = {
+        totalTrades: 0,
+        winTrades: 0,
+        lossTrades: 0,
+        totalProfit: 0,
+        winRate: 0
+    };
+    
+    setAutoDifferActive = (active: boolean): void => {
+        this.isAutoDifferActive = active;
+    };
+    
+    setAutoOverUnderActive = (active: boolean): void => {
+        this.isAutoOverUnderActive = active;
+    };
+    
+    setAutoO5U4Active = (active: boolean): void => {
+        this.isAutoO5U4Active = active;
+    };
+    
+    setStakeAmount = (amount: number): void => {
+        this.stakeAmount = amount;
+    };
+    
+    setMartingaleEnabled = (enabled: boolean): void => {
+        this.martingaleEnabled = enabled;
+    };
+    
+    setCopyTradingEnabled = (enabled: boolean): void => {
+        this.copyTradingEnabled = enabled;
+    };
+    
+    updateTradingStats = (stats: any): void => {
+        this.tradingStats = { ...this.tradingStats, ...stats };
+        this.tradingStats.winRate = this.tradingStats.totalTrades > 0 
+            ? (this.tradingStats.winTrades / this.tradingStats.totalTrades) * 100 
+            : 0;
+    };
+}

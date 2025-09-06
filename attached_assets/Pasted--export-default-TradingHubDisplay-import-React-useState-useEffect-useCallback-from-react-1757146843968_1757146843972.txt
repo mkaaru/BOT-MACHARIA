@@ -1,0 +1,302 @@
+};
+
+export default TradingHubDisplay;
+import React, { useState, useEffect, useCallback } from 'react';
+import classNames from 'classnames';
+import { observer } from 'mobx-react-lite';
+import { useStore } from '@/hooks/useStore';
+import { marketAnalyzer } from '@/services/market-analyzer';
+import { symbolAnalyzer } from '@/services/symbol-analyzer';
+import './trading-hub-display.scss';
+
+interface TradingStats {
+    totalTrades: number;
+    winTrades: number;
+    lossTrades: number;
+    totalProfit: number;
+    winRate: number;
+}
+
+const TradingHubDisplay = observer(() => {
+    const { run_panel, dashboard } = useStore();
+    const { active_tab } = dashboard;
+    const { is_running } = run_panel;
+    
+    // Strategy states
+    const [isAutoDifferActive, setIsAutoDifferActive] = useState(false);
+    const [isAutoOverUnderActive, setIsAutoOverUnderActive] = useState(false);
+    const [isAutoO5U4Active, setIsAutoO5U4Active] = useState(false);
+    
+    // Trading configuration
+    const [stakeAmount, setStakeAmount] = useState(1);
+    const [martingaleEnabled, setMartingaleEnabled] = useState(false);
+    const [martingaleMultiplier, setMartingaleMultiplier] = useState(2);
+    const [copyTradingEnabled, setCopyTradingEnabled] = useState(false);
+    
+    // Statistics
+    const [tradingStats, setTradingStats] = useState<TradingStats>({
+        totalTrades: 0,
+        winTrades: 0,
+        lossTrades: 0,
+        totalProfit: 0,
+        winRate: 0
+    });
+    
+    // Market analysis data
+    const [marketData, setMarketData] = useState({
+        volatility: 0,
+        trend: 'neutral',
+        recommendation: 'hold'
+    });
+    
+    // Auto trading execution
+    const executeAutoDiffer = useCallback(async () => {
+        if (!isAutoDifferActive) return;
+        
+        try {
+            const analysis = await marketAnalyzer.analyzeMarket();
+            const signal = await symbolAnalyzer.generateSignal('differ');
+            
+            if (signal.confidence > 0.7) {
+                // Execute trade based on random digit analysis
+                console.log('Executing Auto Differ trade:', signal);
+                // Add your trading logic here
+            }
+        } catch (error) {
+            console.error('Auto Differ execution error:', error);
+        }
+    }, [isAutoDifferActive]);
+    
+    const executeOverUnderTrade = useCallback(async () => {
+        if (!isAutoOverUnderActive) return;
+        
+        try {
+            const analysis = await marketAnalyzer.analyzePattern();
+            const prediction = await symbolAnalyzer.predictOverUnder();
+            
+            if (prediction.confidence > 0.75) {
+                // Execute over/under trade
+                console.log('Executing Over/Under trade:', prediction);
+                // Add your trading logic here
+            }
+        } catch (error) {
+            console.error('Over/Under execution error:', error);
+        }
+    }, [isAutoOverUnderActive]);
+    
+    const executeO5U4Trade = useCallback(async () => {
+        if (!isAutoO5U4Active) return;
+        
+        try {
+            // Dual strategy: Over 5 & Under 4
+            const signal = await symbolAnalyzer.generateDualSignal();
+            
+            if (signal.over5Confidence > 0.7 && signal.under4Confidence > 0.7) {
+                console.log('Executing O5U4 dual strategy:', signal);
+                // Add your trading logic here
+            }
+        } catch (error) {
+            console.error('O5U4 execution error:', error);
+        }
+    }, [isAutoO5U4Active]);
+    
+    // Strategy toggles
+    const toggleAutoDiffer = () => {
+        setIsAutoDifferActive(!isAutoDifferActive);
+        if (!isAutoDifferActive) {
+            // Start continuous trading
+            const interval = setInterval(executeAutoDiffer, 5000);
+            return () => clearInterval(interval);
+        }
+    };
+    
+    const toggleAutoOverUnder = () => {
+        setIsAutoOverUnderActive(!isAutoOverUnderActive);
+        if (!isAutoOverUnderActive) {
+            const interval = setInterval(executeOverUnderTrade, 7000);
+            return () => clearInterval(interval);
+        }
+    };
+    
+    const toggleAutoO5U4 = () => {
+        setIsAutoO5U4Active(!isAutoO5U4Active);
+        if (!isAutoO5U4Active) {
+            const interval = setInterval(executeO5U4Trade, 6000);
+            return () => clearInterval(interval);
+        }
+    };
+    
+    // Update market data
+    useEffect(() => {
+        const updateMarketData = async () => {
+            try {
+                const data = await marketAnalyzer.getCurrentMarketData();
+                setMarketData(data);
+            } catch (error) {
+                console.error('Market data update error:', error);
+            }
+        };
+        
+        const interval = setInterval(updateMarketData, 3000);
+        return () => clearInterval(interval);
+    }, []);
+    
+    return (
+        <div className={classNames('trading-hub-container', {
+            'trading-hub--active': active_tab === 3,
+            'trading-hub--running': is_running
+        })}>
+            {/* Header */}
+            <div className="trading-hub-header">
+                <h1 className="trading-hub-title">Auto Trading Hub</h1>
+                <div className="market-status">
+                    <span className="volatility-indicator">
+                        Volatility: {marketData.volatility.toFixed(2)}%
+                    </span>
+                    <span className={`trend-indicator trend-${marketData.trend}`}>
+                        Trend: {marketData.trend}
+                    </span>
+                </div>
+            </div>
+            
+            {/* Trading Configuration */}
+            <div className="trading-config-panel">
+                <div className="config-group">
+                    <label>Stake Amount:</label>
+                    <input
+                        type="number"
+                        value={stakeAmount}
+                        onChange={(e) => setStakeAmount(Number(e.target.value))}
+                        min="0.35"
+                        max="50000"
+                        step="0.01"
+                    />
+                </div>
+                
+                <div className="config-group">
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={martingaleEnabled}
+                            onChange={(e) => setMartingaleEnabled(e.target.checked)}
+                        />
+                        Enable Martingale
+                    </label>
+                    {martingaleEnabled && (
+                        <input
+                            type="number"
+                            value={martingaleMultiplier}
+                            onChange={(e) => setMartingaleMultiplier(Number(e.target.value))}
+                            min="1.1"
+                            max="10"
+                            step="0.1"
+                        />
+                    )}
+                </div>
+                
+                <div className="config-group">
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={copyTradingEnabled}
+                            onChange={(e) => setCopyTradingEnabled(e.target.checked)}
+                        />
+                        Enable Copy Trading
+                    </label>
+                </div>
+            </div>
+            
+            {/* Strategy Cards */}
+            <div className="strategy-cards-container">
+                {/* Auto Differ Strategy */}
+                <div className={classNames('strategy-card', {
+                    'strategy-card--active': isAutoDifferActive
+                })}>
+                    <div className="strategy-header">
+                        <h3>Auto Differ</h3>
+                        <span className="strategy-subtitle">Random Digit Analysis</span>
+                    </div>
+                    <div className="strategy-description">
+                        Advanced random digit pattern recognition for optimal entry points
+                    </div>
+                    <button
+                        className={classNames('strategy-toggle-btn', {
+                            'btn--active': isAutoDifferActive
+                        })}
+                        onClick={toggleAutoDiffer}
+                    >
+                        {isAutoDifferActive ? 'Stop Strategy' : 'Start Strategy'}
+                    </button>
+                </div>
+                
+                {/* Auto Over/Under Strategy */}
+                <div className={classNames('strategy-card', {
+                    'strategy-card--active': isAutoOverUnderActive
+                })}>
+                    <div className="strategy-header">
+                        <h3>Auto Over/Under</h3>
+                        <span className="strategy-subtitle">AI Pattern Recognition</span>
+                    </div>
+                    <div className="strategy-description">
+                        Machine learning powered over/under predictions based on market patterns
+                    </div>
+                    <button
+                        className={classNames('strategy-toggle-btn', {
+                            'btn--active': isAutoOverUnderActive
+                        })}
+                        onClick={toggleAutoOverUnder}
+                    >
+                        {isAutoOverUnderActive ? 'Stop Strategy' : 'Start Strategy'}
+                    </button>
+                </div>
+                
+                {/* Auto O5U4 Strategy */}
+                <div className={classNames('strategy-card', {
+                    'strategy-card--active': isAutoO5U4Active
+                })}>
+                    <div className="strategy-header">
+                        <h3>Auto O5U4</h3>
+                        <span className="strategy-subtitle">Dual Digit Strategy</span>
+                    </div>
+                    <div className="strategy-description">
+                        Simultaneous Over 5 & Under 4 strategy with advanced risk management
+                    </div>
+                    <button
+                        className={classNames('strategy-toggle-btn', {
+                            'btn--active': isAutoO5U4Active
+                        })}
+                        onClick={toggleAutoO5U4}
+                    >
+                        {isAutoO5U4Active ? 'Stop Strategy' : 'Start Strategy'}
+                    </button>
+                </div>
+            </div>
+            
+            {/* Statistics Panel */}
+            <div className="statistics-panel">
+                <h3>Live Statistics</h3>
+                <div className="stats-grid">
+                    <div className="stat-item">
+                        <span className="stat-label">Total Trades:</span>
+                        <span className="stat-value">{tradingStats.totalTrades}</span>
+                    </div>
+                    <div className="stat-item">
+                        <span className="stat-label">Win Rate:</span>
+                        <span className="stat-value">{tradingStats.winRate.toFixed(1)}%</span>
+                    </div>
+                    <div className="stat-item">
+                        <span className="stat-label">Total Profit:</span>
+                        <span className={classNames('stat-value', {
+                            'profit-positive': tradingStats.totalProfit > 0,
+                            'profit-negative': tradingStats.totalProfit < 0
+                        })}>
+                            ${tradingStats.totalProfit.toFixed(2)}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+});
+
+export default TradingHubDisplay;

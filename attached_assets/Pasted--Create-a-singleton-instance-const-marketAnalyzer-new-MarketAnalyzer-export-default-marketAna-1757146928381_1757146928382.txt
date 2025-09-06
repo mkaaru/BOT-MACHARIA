@@ -1,0 +1,74 @@
+// Create a singleton instance
+const marketAnalyzer = new MarketAnalyzer();
+export default marketAnalyzer;
+export class MarketAnalyzer {
+    private marketData: any = {};
+    private analysisCache: Map<string, any> = new Map();
+    
+    async analyzeMarket(): Promise<any> {
+        try {
+            // Simulate market analysis
+            const volatility = Math.random() * 100;
+            const trend = this.determineTrend(volatility);
+            const patterns = await this.detectPatterns();
+            
+            return {
+                volatility,
+                trend,
+                patterns,
+                confidence: Math.random() * 0.4 + 0.6,
+                timestamp: Date.now()
+            };
+        } catch (error) {
+            console.error('Market analysis error:', error);
+            throw error;
+        }
+    }
+    
+    async analyzePattern(): Promise<any> {
+        const cacheKey = `pattern_${Date.now()}`;
+        
+        if (this.analysisCache.has(cacheKey)) {
+            return this.analysisCache.get(cacheKey);
+        }
+        
+        const analysis = {
+            pattern: this.detectCurrentPattern(),
+            strength: Math.random() * 0.5 + 0.5,
+            confidence: Math.random() * 0.3 + 0.7,
+            recommendation: this.generateRecommendation()
+        };
+        
+        this.analysisCache.set(cacheKey, analysis);
+        return analysis;
+    }
+    
+    async getCurrentMarketData(): Promise<any> {
+        return {
+            volatility: Math.random() * 100,
+            trend: ['bullish', 'bearish', 'neutral'][Math.floor(Math.random() * 3)],
+            recommendation: ['buy', 'sell', 'hold'][Math.floor(Math.random() * 3)]
+        };
+    }
+    
+    private determineTrend(volatility: number): string {
+        if (volatility > 70) return 'bullish';
+        if (volatility < 30) return 'bearish';
+        return 'neutral';
+    }
+    
+    private async detectPatterns(): Promise<string[]> {
+        return ['ascending_triangle', 'support_resistance', 'trend_reversal'];
+    }
+    
+    private detectCurrentPattern(): string {
+        const patterns = ['bullish_engulfing', 'bearish_divergence', 'double_top', 'head_shoulders'];
+        return patterns[Math.floor(Math.random() * patterns.length)];
+    }
+    
+    private generateRecommendation(): string {
+        return ['strong_buy', 'buy', 'hold', 'sell', 'strong_sell'][Math.floor(Math.random() * 5)];
+    }
+}
+
+export const marketAnalyzer = new MarketAnalyzer();

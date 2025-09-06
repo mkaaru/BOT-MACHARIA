@@ -1,0 +1,323 @@
+     padding: var(--space-md);
+    }
+}
+.trading-hub-container {
+    padding: 24px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    min-height: 100vh;
+    color: #ffffff;
+    font-family: 'Arial', sans-serif;
+    
+    &.trading-hub--active {
+        display: block;
+    }
+    
+    &.trading-hub--running {
+        .strategy-card--active {
+            box-shadow: 0 0 20px rgba(0, 255, 127, 0.3);
+            animation: pulse 2s infinite;
+        }
+    }
+}
+
+.trading-hub-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    
+    .trading-hub-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(45deg, #00ff7f, #00bfff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 0;
+    }
+    
+    .market-status {
+        display: flex;
+        gap: 20px;
+        
+        .volatility-indicator,
+        .trend-indicator {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .volatility-indicator {
+            background: rgba(255, 165, 0, 0.2);
+            border: 1px solid #ffa500;
+            color: #ffa500;
+        }
+        
+        .trend-indicator {
+            &.trend-bullish {
+                background: rgba(0, 255, 127, 0.2);
+                border: 1px solid #00ff7f;
+                color: #00ff7f;
+            }
+            
+            &.trend-bearish {
+                background: rgba(255, 69, 58, 0.2);
+                border: 1px solid #ff453a;
+                color: #ff453a;
+            }
+            
+            &.trend-neutral {
+                background: rgba(128, 128, 128, 0.2);
+                border: 1px solid #808080;
+                color: #808080;
+            }
+        }
+    }
+}
+
+.trading-config-panel {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 32px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    
+    .config-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        
+        label {
+            font-weight: 600;
+            color: #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        input[type="number"] {
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            font-size: 1rem;
+            
+            &:focus {
+                outline: none;
+                border-color: #00ff7f;
+                box-shadow: 0 0 10px rgba(0, 255, 127, 0.3);
+            }
+        }
+        
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: #00ff7f;
+        }
+    }
+}
+
+.strategy-cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.strategy-card {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 28px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+    backdrop-filter: blur(15px);
+    position: relative;
+    overflow: hidden;
+    
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #00ff7f, #00bfff, #ff00ff);
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    
+    &:hover {
+        transform: translateY(-8px);
+        border-color: rgba(0, 255, 127, 0.3);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        
+        &::before {
+            transform: translateX(0);
+        }
+    }
+    
+    &.strategy-card--active {
+        border-color: #00ff7f;
+        background: rgba(0, 255, 127, 0.1);
+        
+        &::before {
+            transform: translateX(0);
+        }
+        
+        .strategy-header h3 {
+            color: #00ff7f;
+        }
+    }
+    
+    .strategy-header {
+        margin-bottom: 16px;
+        
+        h3 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+            transition: color 0.3s ease;
+        }
+        
+        .strategy-subtitle {
+            font-size: 1rem;
+            color: #b0b0b0;
+            font-weight: 500;
+        }
+    }
+    
+    .strategy-description {
+        color: #d0d0d0;
+        line-height: 1.6;
+        margin-bottom: 24px;
+        font-size: 1rem;
+    }
+    
+    .strategy-toggle-btn {
+        width: 100%;
+        padding: 14px 24px;
+        border: none;
+        border-radius: 12px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: linear-gradient(45deg, #333, #555);
+        color: #ffffff;
+        
+        &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        &.btn--active {
+            background: linear-gradient(45deg, #00ff7f, #00d56a);
+            color: #000000;
+            
+            &:hover {
+                background: linear-gradient(45deg, #00d56a, #00ff7f);
+            }
+        }
+    }
+}
+
+.statistics-panel {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 24px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    
+    h3 {
+        font-size: 1.5rem;
+        margin-bottom: 20px;
+        color: #ffffff;
+        font-weight: 600;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+    }
+    
+    .stat-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        
+        .stat-label {
+            font-weight: 500;
+            color: #b0b0b0;
+        }
+        
+        .stat-value {
+            font-weight: 700;
+            font-size: 1.2rem;
+            
+            &.profit-positive {
+                color: #00ff7f;
+            }
+            
+            &.profit-negative {
+                color: #ff453a;
+            }
+        }
+    }
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 20px rgba(0, 255, 127, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 30px rgba(0, 255, 127, 0.6);
+    }
+    100% {
+        box-shadow: 0 0 20px rgba(0, 255, 127, 0.3);
+    }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .trading-hub-container {
+        padding: 16px;
+    }
+    
+    .trading-hub-header {
+        flex-direction: column;
+        gap: 16px;
+        
+        .trading-hub-title {
+            font-size: 2rem;
+        }
+        
+        .market-status {
+            flex-direction: column;
+            gap: 10px;
+        }
+    }
+    
+    .trading-config-panel {
+        grid-template-columns: 1fr;
+    }
+    
+    .strategy-cards-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}

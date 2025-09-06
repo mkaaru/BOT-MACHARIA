@@ -1,0 +1,80 @@
+
+import React, { useState } from 'react';
+import Modal from '@/components/shared_ui/modal';
+import Button from '@/components/shared_ui/button';
+import Input from '@/components/shared_ui/input';
+import Checkbox from '@/components/shared_ui/checkbox';
+import './advanced-display.scss';
+
+interface AdvancedDisplayModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (settings: any) => void;
+    currentSettings: any;
+}
+
+const AdvancedDisplayModal: React.FC<AdvancedDisplayModalProps> = ({
+    isOpen,
+    onClose,
+    onSave,
+    currentSettings
+}) => {
+    const [settings, setSettings] = useState(currentSettings);
+    
+    const handleSave = () => {
+        onSave(settings);
+        onClose();
+    };
+    
+    return (
+        <Modal
+            is_open={isOpen}
+            toggleModal={onClose}
+            title="Advanced Trading Settings"
+            className="advanced-display-modal"
+        >
+            <div className="advanced-settings-content">
+                <div className="setting-group">
+                    <label>Risk Management</label>
+                    <Input
+                        type="number"
+                        label="Stop Loss (%)"
+                        value={settings.stopLoss}
+                        onChange={(e: any) => setSettings({...settings, stopLoss: e.target.value})}
+                    />
+                    <Input
+                        type="number"
+                        label="Take Profit (%)"
+                        value={settings.takeProfit}
+                        onChange={(e: any) => setSettings({...settings, takeProfit: e.target.value})}
+                    />
+                </div>
+                
+                <div className="setting-group">
+                    <label>Strategy Parameters</label>
+                    <Checkbox
+                        label="Auto-adjust stake based on volatility"
+                        checked={settings.autoAdjustStake}
+                        onChange={(checked: boolean) => setSettings({...settings, autoAdjustStake: checked})}
+                    />
+                    <Checkbox
+                        label="Enable pattern recognition"
+                        checked={settings.patternRecognition}
+                        onChange={(checked: boolean) => setSettings({...settings, patternRecognition: checked})}
+                    />
+                </div>
+                
+                <div className="modal-actions">
+                    <Button onClick={onClose} secondary>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleSave} primary>
+                        Save Settings
+                    </Button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
+export default AdvancedDisplayModal;
