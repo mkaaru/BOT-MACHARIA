@@ -212,12 +212,13 @@ const TradingHubDisplay: React.FC = () => {
                         if (run_panel?.root_store?.transactions) {
                             try {
                                 const profitPercentage = buyPrice > 0 ? ((profit / buyPrice) * 100).toFixed(2) : '0.00';
+                                const contractIdNum = typeof contractId === 'string' ? parseInt(contractId.replace(/[^0-9]/g, ''), 10) : contractId;
                                 
                                 const formattedTransaction = {
-                                    contract_id: parseInt(contractId.toString()),
+                                    contract_id: contractIdNum,
                                     transaction_ids: {
-                                        buy: parseInt(contractId.toString()),
-                                        sell: contractData.transaction_ids?.sell || parseInt(contractId.toString()) + 1
+                                        buy: contractIdNum,
+                                        sell: contractData.transaction_ids?.sell || contractIdNum + 1
                                     },
                                     buy_price: buyPrice,
                                     sell_price: sellPrice,
@@ -225,28 +226,48 @@ const TradingHubDisplay: React.FC = () => {
                                     currency: client?.currency || 'USD',
                                     contract_type: contractType || 'DIGITOVER',
                                     underlying: symbol || 'R_100',
-                                    shortcode: `${contractType}_${symbol}_${Date.now()}`,
+                                    shortcode: `${contractType}_${symbol}_${contractIdNum}`,
                                     display_name: `${contractType} on ${symbol}`,
                                     date_start: contractData.date_start || new Date().toISOString(),
                                     entry_tick_display_value: contractData.entry_tick || contractData.entry_spot || 0,
                                     exit_tick_display_value: contractData.exit_tick || contractData.exit_spot || 0,
                                     entry_tick_time: contractData.entry_tick_time || contractData.date_start || new Date().toISOString(),
                                     exit_tick_time: contractData.exit_tick_time || new Date().toISOString(),
-                                    barrier: contractData.barrier || '',
+                                    barrier: contractData.barrier || tradeParams?.parameters?.barrier || '',
                                     tick_count: contractData.tick_count || 1,
                                     payout: contractData.payout || sellPrice || 0,
                                     is_completed: true,
                                     is_sold: true,
                                     profit_percentage: profitPercentage,
-                                    status: isWin ? 'won' : 'lost'
+                                    status: isWin ? 'won' : 'lost',
+                                    // Additional fields to ensure transaction appears properly
+                                    longcode: `${contractType} prediction on ${symbol}`,
+                                    app_id: 16929,
+                                    audit_details: {},
+                                    barrier_count: 1,
+                                    bid_price: sellPrice,
+                                    contract_type_display: contractType,
+                                    multiplier: 1,
+                                    purchase_time: contractData.date_start || new Date().toISOString(),
+                                    sell_time: contractData.exit_tick_time || new Date().toISOString(),
+                                    tick_stream: [],
+                                    transaction_time: new Date().toISOString()
                                 };
 
+                                // Force transaction to be added
                                 run_panel.root_store.transactions.onBotContractEvent(formattedTransaction);
+                                
+                                // Also try alternative method to ensure it appears
+                                if (run_panel.root_store.transactions.pushTransaction) {
+                                    run_panel.root_store.transactions.pushTransaction(formattedTransaction);
+                                }
+                                
                                 console.log('Transaction added to run panel:', {
                                     contract_id: contractId,
                                     profit: profit,
                                     status: isWin ? 'WON' : 'LOST',
-                                    profit_percentage: profitPercentage + '%'
+                                    profit_percentage: profitPercentage + '%',
+                                    formatted_transaction: formattedTransaction
                                 });
                             } catch (error) {
                                 console.error('Failed to add transaction to run panel:', error);
@@ -347,11 +368,12 @@ const TradingHubDisplay: React.FC = () => {
                     // Add transaction to run panel for timeout case
                     if (run_panel?.root_store?.transactions) {
                         try {
+                            const contractIdNum = typeof contractId === 'string' ? parseInt(contractId.replace(/[^0-9]/g, ''), 10) : contractId;
                             const formattedTransaction = {
-                                contract_id: parseInt(contractId.toString()),
+                                contract_id: contractIdNum,
                                 transaction_ids: {
-                                    buy: parseInt(contractId.toString()),
-                                    sell: parseInt(contractId.toString()) + 1
+                                    buy: contractIdNum,
+                                    sell: contractIdNum + 1
                                 },
                                 buy_price: buyPrice,
                                 sell_price: sellPrice,
@@ -359,19 +381,26 @@ const TradingHubDisplay: React.FC = () => {
                                 currency: client?.currency || 'USD',
                                 contract_type: contractType || 'DIGITOVER',
                                 underlying: symbol || 'R_100',
-                                shortcode: `${contractType}_${symbol}_TIMEOUT`,
+                                shortcode: `${contractType}_${symbol}_TIMEOUT_${contractIdNum}`,
                                 display_name: `${contractType} on ${symbol} (Timeout)`,
                                 date_start: new Date().toISOString(),
                                 entry_tick_display_value: forcedSettlement.entry_tick || 0,
                                 exit_tick_display_value: forcedSettlement.exit_tick || 0,
                                 entry_tick_time: new Date().toISOString(),
                                 exit_tick_time: new Date().toISOString(),
-                                barrier: '',
+                                barrier: contractData?.barrier || '',
                                 tick_count: 1,
                                 payout: sellPrice || 0,
                                 is_completed: true,
                                 is_sold: true,
-                                profit_percentage: ((profit / buyPrice) * 100).toFixed(2)
+                                profit_percentage: ((profit / buyPrice) * 100).toFixed(2),
+                                status: 'lost',
+                                // Additional fields for proper display
+                                longcode: `${contractType} prediction on ${symbol} (Timeout)`,
+                                app_id: 16929,
+                                purchase_time: new Date().toISOString(),
+                                sell_time: new Date().toISOString(),
+                                transaction_time: new Date().toISOString()
                             };
 
                             run_panel.root_store.transactions.onBotContractEvent(formattedTransaction);
@@ -513,6 +542,13 @@ const TradingHubDisplay: React.FC = () => {
                 // For differ/match contracts, use a random digit 0-9 if no specific prediction
                 const prediction = Math.floor(Math.random() * 10);
                 tradeParams.parameters.barrier = prediction.toString();
+            }
+
+            // Ensure all digit contracts have a barrier/prediction parameter
+            if (contractType.startsWith('DIGIT') && !tradeParams.parameters.barrier) {
+                // Default prediction for any digit contract without a barrier
+                const defaultPrediction = Math.floor(Math.random() * 10);
+                tradeParams.parameters.barrier = defaultPrediction.toString();
             }
 
             console.log(`Executing ${strategy} trade:`, tradeParams);
