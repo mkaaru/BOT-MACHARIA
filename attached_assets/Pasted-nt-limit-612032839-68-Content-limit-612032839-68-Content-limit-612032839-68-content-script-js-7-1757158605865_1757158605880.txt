@@ -1,0 +1,47 @@
+nt limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+api-base.ts:148 connection state:  1
+ Content limit: 612032839.68
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+summary-card-store.ts:230  [MobX] Since strict-mode is enabled, changing (observed) observable values without using an action is not allowed. Tried to modify: SummaryCardStore@5.is_bot_running
+checkIfStateModificationsAreAllowed @ mobx.esm.js:1871
+prepareNewValue_ @ mobx.esm.js:1416
+setObservablePropValue_ @ mobx.esm.js:4979
+set @ mobx.esm.js:5460
+onTimeout @ summary-card-store.ts:230
+setTimeout
+setIsBotRunning @ summary-card-store.ts:235
+executeAction @ mobx.esm.js:1265
+setIsBotRunning @ mobx.esm.js:1250
+(anonymous) @ summary-card.tsx:25
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+commitRootImpl @ react-dom.development.js:26974
+commitRoot @ react-dom.development.js:26721
+performSyncWorkOnRoot @ react-dom.development.js:26156
+flushSyncCallbacks @ react-dom.development.js:12042
+(anonymous) @ react-dom.development.js:25690
+api-base.ts:148 connection state:  1
+ Content limit: 612032839.68
+api-base.ts:148 connection state:  1
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+api-base.ts:148 connection state:  1
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
+api-base.ts:148 connection state:  1
+ Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+ Content limit: 612032839.68
