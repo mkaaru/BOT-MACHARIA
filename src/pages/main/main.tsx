@@ -347,29 +347,29 @@ const AppWrapper = observer(() => {
             'trade_definition_contracttype', 'trade_definition_candleinterval',
             'trade_definition_restartbuysell', 'trade_definition_restartonerror',
             'trade_definition_tradeoptions',
-
+            
             // Variable blocks
             'variables_set', 'variables_get',
-
+            
             // Math blocks
             'math_number', 'math_arithmetic', 'math_change', 'math_single',
             'math_number_positive', 'math_constrain', 'math_modulo',
             'math_random_int', 'math_random_float', 'math_trig',
             'math_constant', 'math_round', 'math_on_list',
-
+            
             // Text blocks
             'text', 'text_join', 'text_statement', 'text_print',
             'text_append', 'text_length', 'text_isEmpty', 'text_indexOf',
             'text_charAt', 'text_getSubstring', 'text_changeCase', 'text_trim',
-
+            
             // Logic blocks
             'logic_compare', 'logic_operation', 'logic_negate', 'logic_boolean',
             'logic_null', 'logic_ternary',
-
+            
             // Control blocks
             'controls_if', 'controls_whileUntil', 'controls_for', 'controls_forEach',
             'controls_flow_statements',
-
+            
             // Binary trading blocks
             'after_purchase', 'before_purchase', 'tick_analysis', 'during_purchase',
             'contract_check_result', 'total_profit', 'read_details', 'read_ohlc',
@@ -377,15 +377,15 @@ const AppWrapper = observer(() => {
             'lastDigitList', 'last_digit', 'check_direction', 'get_ohlc',
             'is_candle_black', 'sma_statement', 'bb_statement', 'rsi_statement',
             'ema_statement', 'hma_statement', 'macd_statement',
-
+            
             // List blocks
             'lists_create_with', 'lists_repeat', 'lists_length', 'lists_isEmpty',
             'lists_indexOf', 'lists_getIndex', 'lists_setIndex', 'lists_getSublist',
             'lists_split', 'lists_sort', 'lists_reverse',
-
+            
             // Purchase blocks
             'ceo_purchase', 'sell_at_market', 'sell_price',
-
+            
             // Utility blocks
             'notify', 'timeout', 'trade_again', 'epoch', 'todatetime', 'totimestamp',
             'balance', 'console'
@@ -397,7 +397,7 @@ const AppWrapper = observer(() => {
         try {
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
-
+            
             const supportedBlockTypes = getSupportedBlockTypes();
             let hasUnsupportedElements = false;
 
@@ -447,12 +447,12 @@ const AppWrapper = observer(() => {
 </xml>`;
                 return completeXml;
             }
-
+            
             // Ensure proper XML root structure
             if (!xmlContent.trim().startsWith('<xml')) {
                 return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true">${xmlContent}</xml>`;
             }
-
+            
             return xmlContent;
         } catch (error) {
             console.error("Error completing XML:", error);
@@ -652,13 +652,13 @@ const AppWrapper = observer(() => {
 
                     // First, ensure the XML is complete and well-formed
                     let completeXmlContent = ensureCompleteXML(xmlContent);
-
+                    
                     // Clean and validate the XML
                     const cleanedXmlContent = await cleanAndValidateXML(completeXmlContent);
-
+                    
                     // Validate blocks but don't remove them
                     const { cleanXml, hasUnsupportedElements } = await validateAndPreserveBlocks(cleanedXmlContent);
-
+                    
                     let xmlDoc;
 
                     // Try multiple XML parsing approaches
@@ -671,13 +671,13 @@ const AppWrapper = observer(() => {
                         try {
                             const parser = new DOMParser();
                             const parsedDoc = parser.parseFromString(cleanXml, 'application/xml');
-
+                            
                             // Check for parser errors
                             const parseError = parsedDoc.getElementsByTagName('parsererror')[0];
                             if (parseError) {
                                 throw new Error(`DOMParser error: ${parseError.textContent}`);
                             }
-
+                            
                             xmlDoc = parsedDoc.documentElement;
                             console.log("Successfully parsed XML with DOMParser");
                         } catch (e2) {
@@ -708,27 +708,27 @@ const AppWrapper = observer(() => {
 
                     // Load XML directly using the most compatible method
                     console.log("Loading blocks into workspace...");
-
+                    
                     // Try using the load utility first
                     try {
                         await window.Blockly.Xml.domToWorkspace(xmlDoc, workspace);
                         console.log("Successfully loaded blocks using domToWorkspace");
                     } catch (domError) {
                         console.warn("domToWorkspace failed, trying alternative loading...", domError);
-
+                        
                         // Alternative: Load blocks one by one
                         const blocks = xmlDoc.querySelectorAll('block[type]');
                         console.log(`Found ${blocks.length} blocks to load`);
-
+                        
                         blocks.forEach((block, index) => {
                             try {
                                 const blockType = block.getAttribute('type');
                                 console.log(`Loading block ${index + 1}/${blocks.length}: ${blockType}`);
-
+                                
                                 // Create a temporary XML with just this block
                                 const tempXml = document.createElement('xml');
                                 tempXml.appendChild(block.cloneNode(true));
-
+                                
                                 window.Blockly.Xml.domToWorkspace(tempXml, workspace);
                             } catch (blockError) {
                                 console.warn(`Failed to load block ${block.getAttribute('type')}:`, blockError);
@@ -1656,104 +1656,7 @@ if __name__ == "__main__":
                         </div>
 
                         </div>
-                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder'>
-                             {/* Parse and load the XML content */}
-                            try {
-                                const parser = new DOMParser();
-                                const xmlDoc = parser.parseFromString(xmlContent, 'text/xml');
-
-                                // Check for parsing errors
-                                const parseError = xmlDoc.querySelector('parsererror');
-                                if (parseError) {
-                                    throw new Error(`XML parsing error: ${parseError.textContent}`);
-                                }
-
-                                // Clear workspace first
-                                if (workspace) {
-                                    workspace.clear();
-                                }
-
-                                // Load the blocks
-                                const blocklyDom = window.Blockly.utils.xml.textToDom(xmlContent);
-                                window.Blockly.Xml.domToWorkspace(blocklyDom, workspace);
-
-                                // Ensure purchase block is always present in before_purchase
-                                const beforePurchaseBlocks = workspace.getBlocksByType('before_purchase');
-                                if (beforePurchaseBlocks.length > 0) {
-                                    const beforePurchaseBlock = beforePurchaseBlocks[0];
-                                    const purchaseBlocks = beforePurchaseBlock.getDescendants().filter(block => block.type === 'purchase');
-
-                                    // If no purchase block exists, add one
-                                    if (purchaseBlocks.length === 0) {
-                                        const purchaseBlock = workspace.newBlock('purchase');
-                                        purchaseBlock.setFieldValue('CALL', 'PURCHASE_LIST');
-                                        purchaseBlock.setFieldValue('false', 'TRADE_EACH_TICK');
-                                        purchaseBlock.initSvg();
-                                        purchaseBlock.render();
-
-                                        // Connect to before_purchase block
-                                        const connection = beforePurchaseBlock.getInput('BEFOREPURCHASE_STACK').connection;
-                                        if (connection && !connection.isConnected()) {
-                                            connection.connect(purchaseBlock.previousConnection);
-                                        }
-                                    }
-                                }
-
-                                console.log("Bot loaded successfully!");
-                            } catch (loadError) {
-                                console.error("Standard loading failed:", loadError);
-
-                                // Fallback: Try comprehensive loading approach
-                                try {
-                                    if (!workspace) {
-                                        console.error("Workspace not available for comprehensive loading");
-                                        return;
-                                    }
-
-                                    // Clear workspace
-                                    workspace.clear();
-
-                                    // Parse XML more carefully
-                                    const parser = new DOMParser();
-                                    const xmlDoc = parser.parseFromString(xmlContent, 'text/xml');
-
-                                    // Check for unsupported elements
-                                    const hasUnsupportedElements = xmlDoc.querySelector('parsererror') !== null;
-
-                                    // Try loading with blockly
-                                    const blocklyDom = window.Blockly.utils.xml.textToDom(xmlContent);
-                                    window.Blockly.Xml.domToWorkspace(blocklyDom, workspace);
-
-                                    // Ensure purchase block is always present after loading
-                                    const beforePurchaseBlocks = workspace.getBlocksByType('before_purchase');
-                                    if (beforePurchaseBlocks.length > 0) {
-                                        const beforePurchaseBlock = beforePurchaseBlocks[0];
-                                        const purchaseBlocks = beforePurchaseBlock.getDescendants().filter(block => block.type === 'purchase');
-
-                                        // If no purchase block exists, add one
-                                        if (purchaseBlocks.length === 0) {
-                                            const purchaseBlock = workspace.newBlock('purchase');
-                                            purchaseBlock.setFieldValue('CALL', 'PURCHASE_LIST');
-                                            purchaseBlock.setFieldValue('false', 'TRADE_EACH_TICK');
-                                            purchaseBlock.initSvg();
-                                            purchaseBlock.render();
-
-                                            // Connect to before_purchase block
-                                            const connection = beforePurchaseBlock.getInput('BEFOREPURCHASE_STACK').connection;
-                                            if (connection && !connection.isConnected()) {
-                                                connection.connect(purchaseBlock.previousConnection);
-                                            }
-                                        }
-                                    }
-
-                                    console.log("Bot loaded successfully with comprehensive loading method!");
-
-                                } catch (fallbackError) {
-                                    console.error("Comprehensive loading failed:", fallbackError);
-                                    console.warn(`Failed to load the bot: ${fallbackError.message}. The XML file may be corrupted or contain incompatible blocks.`);
-                                }
-                            }
-                        </div>
+                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,

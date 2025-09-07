@@ -1,3 +1,4 @@
+
 <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id="j}8O`Vs+RJljIwPu-_:_">YOUR STAKE</variable>
@@ -142,7 +143,7 @@
                                           <block type="variables_set" id="i-+y35ET%iNI#gfE=j}f" collapsed="true">
                                             <field name="VAR" id="$+Q3~hzlFiI[$SMrBNB?">Prediction</field>
                                             <value name="VALUE">
-                                              <block type="variables_get" id="lz5.r~wHif@r=DS_fxW6?;">
+                                              <block type="variables_get" id="lz5.rXO5Nim{3$+J{lQc">
                                                 <field name="VAR" id="sF6($OTq!BVWswgj}4|S">Prediction before loss</field>
                                               </block>
                                             </value>
@@ -469,87 +470,87 @@
                       </block>
                     </next>
                   </block>
-                </next>
-              </block>
-            </statement>
-            <statement name="ELSE">
-              <block type="variables_set" id=":GL+TqjAhT}R9`R7a)r-">
-                <field name="VAR" id="Op-Cim@t?DJN?i;G)w)C">Count Loss</field>
-                <value name="VALUE">
-                  <block type="math_number" id="?F8*!~Iw*,Cl2E%-xZ?f">
-                    <field name="NUM">0</field>
-                  </block>
-                </value>
-                <next>
-                  <block type="variables_set" id="d`pWAxZ)-H`DyzU@)We:">
-                    <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
+                </statement>
+                <statement name="ELSE">
+                  <block type="variables_set" id=":GL+TqjAhT}R9`R7a)r-">
+                    <field name="VAR" id="Op-Cim@t?DJN?i;G)w)C">Count Loss</field>
                     <value name="VALUE">
-                      <block type="text" id=",VaK^!c3pIK`a3k:8*UG">
-                        <field name="TEXT">gk</field>
+                      <block type="math_number" id="?F8*!~Iw*,Cl2E%-xZ?f">
+                        <field name="NUM">0</field>
                       </block>
                     </value>
                     <next>
-                      <block type="variables_set" id="lZN2-r.!$w$!$0jIytwR">
-                        <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
+                      <block type="variables_set" id="d`pWAxZ)-H`DyzU@)We:">
+                        <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
                         <value name="VALUE">
-                          <block type="variables_get" id="oPs59-gAp.s,G2l8JwZF">
-                            <field name="VAR" id="~ZEk9Zr7t[g;-`afIGOO">Initial Stake</field>
+                          <block type="text" id=",VaK^!c3pIK`a3k:8*UG">
+                            <field name="TEXT">gk</field>
                           </block>
                         </value>
                         <next>
-                          <block type="variables_set" id="tmEYS!$HHZK`jx;}?@@$">
-                            <field name="VAR" id="$+Q3~hzlFiI[$SMrBNB?">Prediction</field>
+                          <block type="variables_set" id="lZN2-r.!$w$!$0jIytwR">
+                            <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
                             <value name="VALUE">
-                              <block type="variables_get" id="HmhEF.Mk,SNCZfE_et#K">
-                                <field name="VAR" id="sF6($OTq!BVWswgj}4|S">Prediction before loss</field>
+                              <block type="variables_get" id="oPs59-gAp.s,G2l8JwZF">
+                                <field name="VAR" id="~ZEk9Zr7t[g;-`afIGOO">Initial Stake</field>
                               </block>
                             </value>
+                            <next>
+                              <block type="variables_set" id="tmEYS!$HHZK`jx;}?@@$">
+                                <field name="VAR" id="$+Q3~hzlFiI[$SMrBNB?">Prediction</field>
+                                <value name="VALUE">
+                                  <block type="variables_get" id="HmhEF.Mk,SNCZfE_et#K">
+                                    <field name="VAR" id="sF6($OTq!BVWswgj}4|S">Prediction before loss</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
                           </block>
                         </next>
                       </block>
                     </next>
                   </block>
-                </next>
-              </block>
-            </statement>
-            <next>
-              <block type="controls_if" id="J+v4dmlVZEBry+%nA/?@">
-                <value name="IF0">
-                  <block type="logic_compare" id="Q$x}DoiS]BBd,.}1#?D{">
-                    <field name="OP">LT</field>
-                    <value name="A">
-                      <block type="variables_get" id="jyfJ,z=)uq(o$?aOvJy/">
-                        <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
-                      </block>
-                    </value>
-                    <value name="B">
-                      <block type="math_number" id="Akj}7JIvuT)!kwrNj-JD">
-                        <field name="NUM">0.35</field>
-                      </block>
-                    </value>
-                  </block>
-                </value>
-                <statement name="DO0">
-                  <block type="variables_set" id="|dkn|CT8tQLSHu4NmLyy">
-                    <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
-                    <value name="VALUE">
-                      <block type="math_number" id="s(vOxwBuk{KQ7Pqc_Z3)">
-                        <field name="NUM">0.35</field>
-                      </block>
-                    </value>
-                  </block>
                 </statement>
                 <next>
-                  <block type="trade_again" id="C+Xpw8f|N)y`_}N2BA6p"></block>
+                  <block type="controls_if" id="J+v4dmlVZEBry+%nA/?@">
+                    <value name="IF0">
+                      <block type="logic_compare" id="Q$x}DoiS]BBd,.}1#?D{">
+                        <field name="OP">LT</field>
+                        <value name="A">
+                          <block type="variables_get" id="jyfJ,z=)uq(o$?aOvJy/">
+                            <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <block type="math_number" id="Akj}7JIvuT)!kwrNj-JD">
+                            <field name="NUM">0.35</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                    <statement name="DO0">
+                      <block type="variables_set" id="|dkn|CT8tQLSHu4NmLyy">
+                        <field name="VAR" id="7Q4y$nr_sr!x2NkOu%)2">Stake</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="s(vOxwBuk{KQ7Pqc_Z3)">
+                            <field name="NUM">0.35</field>
+                          </block>
+                        </value>
+                      </block>
+                    </statement>
+                    <next>
+                      <block type="trade_again" id="C+Xpw8f|N)y`_}N2BA6p"></block>
+                    </next>
+                  </block>
                 </next>
               </block>
             </next>
           </block>
-        </next>
+        </statement>
       </block>
     </statement>
   </block>
-  <block type="before_purchase" id="MEfW!,-IYA)Nw|N9:]Q]" x="0" y="1182">
+  <block type="before_purchase" id="MEfW!,-IYA)Nw|N9:]Q]" deletable="false" x="0" y="1182">
     <statement name="BEFOREPURCHASE_STACK">
       <block type="controls_if" id="R0vsH,PsJ=PiWfihffVt">
         <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
@@ -661,7 +662,7 @@
               <block type="lastDigitList" id="gX804KiYdl6~UquqaPP)"></block>
             </value>
             <value name="AT">
-              <block type="math_number" id="=edszCSX?p`sSO0OlO0-">
+              <block type="math_number" id="=edszCSX?p`sSO0OlO0(">
                 <field name="NUM">1</field>
               </block>
             </value>
