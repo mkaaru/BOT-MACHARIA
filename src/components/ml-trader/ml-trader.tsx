@@ -78,7 +78,7 @@ const MLTrader = observer(() => {
 
     const derivApiRef = useRef<any>(null);
 
-    // Initialize connection
+    // Initialize connection and load historical data
     useEffect(() => {
         const initConnection = async () => {
             try {
@@ -98,6 +98,11 @@ const MLTrader = observer(() => {
 
                 derivApiRef.current = api;
                 setConnectionStatus('Connected');
+                setStatusMessage('Loading historical data...');
+
+                // Load historical data for selected volatility
+                await loadHistoricalData(selectedVolatility);
+                
                 setStatusMessage('Ready to start trading');
             } catch (error: any) {
                 setConnectionStatus('Error');
@@ -118,6 +123,54 @@ const MLTrader = observer(() => {
         };
     }, []);
 
+    // Load historical data function
+    const loadHistoricalData = async (symbol: string) => {
+        if (!derivApiRef.current) return;
+
+        try {
+            setStatusMessage(`Loading historical data for ${symbol}...`);
+            
+            const historyResponse = await derivApiRef.current.send({
+                ticks_history: symbol,
+                count: 1000,
+                end: 'latest',
+                style: 'ticks'
+            });
+
+            if (historyResponse.error) {
+                throw new Error(`Historical data error: ${historyResponse.error.message}`);
+            }
+
+            if (historyResponse.history && historyResponse.history.prices) {
+                const prices = historyResponse.history.prices.map(price => parseFloat(price));
+                const times = historyResponse.history.times || [];
+                
+                console.log(`Loaded ${prices.length} historical ticks for ${symbol}`);
+                
+                // Process historical data to extract digits
+                const historicalDigits = prices.map(price => {
+                    const priceStr = price.toFixed(5);
+                    return parseInt(priceStr.slice(-1));
+                });
+
+                // Update ticks processed with historical data
+                setTicksProcessed(historicalDigits.length);
+                
+                // Set the last digit from historical data
+                if (historicalDigits.length > 0) {
+                    setLastDigit(historicalDigits[historicalDigits.length - 1].toString());
+                }
+
+                setStatusMessage(`Loaded ${prices.length} historical ticks. Ready to start trading.`);
+            } else {
+                setStatusMessage('No historical data available. Ready to start trading.');
+            }
+        } catch (error: any) {
+            console.error('Error loading historical data:', error);
+            setStatusMessage(`Error loading historical data: ${error.message}`);
+        }
+    };
+
     // Start trading handler
     const handleStartTrading = useCallback(async () => {
         if (!derivApiRef.current) {
@@ -130,6 +183,9 @@ const MLTrader = observer(() => {
         setStatusMessage('Trading started...');
 
         try {
+            // Load fresh historical data before starting
+            await loadHistoricalData(selectedVolatility);
+
             // Subscribe to ticks for the selected volatility
             const tickResponse = await derivApiRef.current.send({
                 ticks: selectedVolatility,
@@ -145,13 +201,20 @@ const MLTrader = observer(() => {
 
             // Update Run Panel state
             run_panel.setIsRunning(true);
-            run_panel.setHasOpenContract(true); // Assuming a contract is opened immediately or will be
-            run_panel.setContractStage(contract_stages.RUNNING);
+            run_panel.setHasOpenContract(false); // Will be set to true when a contract is actually opened
+            run_panel.setContractStage(contract_stages.STARTING);
+            run_panel.toggleDrawer(true); // Make sure run panel is visible
+
+            setStatusMessage('Trading active - waiting for trading signals...');
 
         } catch (error: any) {
             setIsTrading(false);
             setIsRunning(false);
             setStatusMessage(`Error starting trading: ${error.message}`);
+            // Update Run Panel on error
+            run_panel.setIsRunning(false);
+            run_panel.setHasOpenContract(false);
+            run_panel.setContractStage(contract_stages.NOT_RUNNING);
         }
     }, [selectedVolatility, run_panel]);
 
@@ -266,7 +329,13 @@ const MLTrader = observer(() => {
                                     <label>{localize('Volatility')}</label>
                                     <select 
                                         value={selectedVolatility} 
-                                        onChange={(e) => setSelectedVolatility(e.target.value)}
+                                        onChange={(e) => {
+                                            const newVolatility = e.target.value;
+                                            setSelectedVolatility(newVolatility);
+                                            if (derivApiRef.current && !isTrading) {
+                                                loadHistoricalData(newVolatility);
+                                            }
+                                        }}
                                         disabled={isTrading}
                                     >
                                         {VOLATILITY_INDICES.map(item => (

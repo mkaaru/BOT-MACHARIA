@@ -1,4 +1,3 @@
-
 type TTabsTitle = {
     [key: string]: string | number;
 };
@@ -12,17 +11,17 @@ export const tabs_title: TTabsTitle = Object.freeze({
     CHART: 'Chart',
 });
 
-export const DBOT_TABS = {
+export const DBOT_TABS = Object.freeze({
     DASHBOARD: 0,
     BOT_BUILDER: 1,
     CHART: 2,
     TUTORIAL: 3,
-    TRADING_HUB: 4,
-    FREE_BOTS: 5,
-    ANALYSIS_TOOL: 6,
-    SIGNALS: 7,
-    AI_TRADER: 8,
-} as const;
+    ANALYSIS_TOOL: 4,
+    TRADING_HUB: 5,
+    SIGNALS: 6,
+    AI_TRADER: 7,
+    ML_TRADER: 8,
+});
 
 export const MAX_STRATEGIES = 10;
 
