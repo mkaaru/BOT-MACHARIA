@@ -38,6 +38,7 @@ const TradingHubDisplay: React.FC = () => {
     const [initialStake, setInitialStake] = useState(MINIMUM_STAKE);
     const [martingale, setMartingale] = useState('2.00');
     const [appliedStake, setAppliedStake] = useState(MINIMUM_STAKE);
+    const [stopLoss, setStopLoss] = useState('10.00');
 
     // Trading state
     const [isContinuousTrading, setIsContinuousTrading] = useState(false);
@@ -53,7 +54,6 @@ const TradingHubDisplay: React.FC = () => {
     const [winCount, setWinCount] = useState(0);
     const [lossCount, setLossCount] = useState(0);
     const [totalTrades, setTotalTrades] = useState(0);
-    const [consecutiveLosses, setConsecutiveLosses] = useState(0);
     const [lastTradeResult, setLastTradeResult] = useState<string>('');
     const [profitLoss, setProfitLoss] = useState(0);
     const [totalStake, setTotalStake] = useState(0);
@@ -80,7 +80,6 @@ const TradingHubDisplay: React.FC = () => {
     const tradingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const currentStakeRef = useRef(MINIMUM_STAKE);
-    const currentConsecutiveLossesRef = useRef(0);
     const contractSettledTimeRef = useRef(0);
     const waitingForSettlementRef = useRef(false);
 
@@ -157,20 +156,15 @@ const TradingHubDisplay: React.FC = () => {
     // Enhanced stake management with martingale
     const calculateNextStake = useCallback((isWin: boolean): string => {
         if (isWin) {
-            setConsecutiveLosses(0);
-            currentConsecutiveLossesRef.current = 0;
             return initialStake;
         } else {
-            const newLossCount = consecutiveLosses + 1;
-            setConsecutiveLosses(newLossCount);
-            currentConsecutiveLossesRef.current = newLossCount;
             const multiplier = parseFloat(martingale);
-            const newStake = (parseFloat(initialStake) * Math.pow(multiplier, Math.min(newLossCount, 8))).toFixed(2);
+            const newStake = (parseFloat(currentStakeRef.current) * multiplier).toFixed(2);
             const calculatedStake = Math.max(parseFloat(newStake), parseFloat(MINIMUM_STAKE)).toFixed(2);
-            console.log(`Martingale calculation: Loss ${newLossCount}, New stake: ${calculatedStake}`);
+            console.log(`Martingale calculation: New stake: ${calculatedStake}`);
             return calculatedStake;
         }
-    }, [consecutiveLosses, initialStake, martingale]);
+    }, [initialStake, martingale]);
 
     // Check O5U4 trading conditions - optimized for immediate execution
     const checkO5U4Conditions = useCallback((): boolean => {
@@ -673,7 +667,7 @@ const TradingHubDisplay: React.FC = () => {
         }
     }, [isTradeInProgress, client, appliedStake, monitorContract]);
 
-    // Enhanced trade result handling with proper balance integration
+    // Enhanced trade result handling with stop loss check
     const handleTradeResult = useCallback((isWin: boolean, buyPrice?: number) => {
         const currentStakeAmount = buyPrice || parseFloat(appliedStake);
         const newStake = calculateNextStake(isWin);
@@ -688,13 +682,29 @@ const TradingHubDisplay: React.FC = () => {
             setLastTradeResult('WIN');
             profitAmount = currentStakeAmount * 0.95; // 95% payout
             setTotalPayout(prev => prev + (currentStakeAmount + profitAmount));
-            setProfitLoss(prev => prev + profitAmount);
+            setProfitLoss(prev => {
+                const newProfitLoss = prev + profitAmount;
+                return newProfitLoss;
+            });
             globalObserver.emit('ui.log.success', `Trade WON! Profit: +${profitAmount.toFixed(2)}`);
         } else {
             setLossCount(prev => prev + 1);
             setLastTradeResult('LOSS');
             profitAmount = -currentStakeAmount;
-            setProfitLoss(prev => prev + profitAmount);
+            setProfitLoss(prev => {
+                const newProfitLoss = prev + profitAmount;
+                
+                // Check if stop loss is hit
+                if (Math.abs(newProfitLoss) >= parseFloat(stopLoss)) {
+                    globalObserver.emit('ui.log.error', `Stop loss of ${stopLoss} reached. Total loss: ${Math.abs(newProfitLoss).toFixed(2)}. Trading stopped.`);
+                    setIsContinuousTrading(false);
+                    if (run_panel) {
+                        run_panel.setIsRunning(false);
+                    }
+                }
+                
+                return newProfitLoss;
+            });
             globalObserver.emit('ui.log.error', `Trade LOST! Loss: ${profitAmount.toFixed(2)}`);
         }
 
@@ -720,7 +730,7 @@ const TradingHubDisplay: React.FC = () => {
                 console.error('Failed to refresh balance:', error);
             });
         }
-    }, [calculateNextStake, appliedStake, totalTrades, winCount, lossCount, profitLoss, run_panel]);
+    }, [calculateNextStake, appliedStake, totalTrades, winCount, lossCount, profitLoss, stopLoss, run_panel]);
 
     // Strategy execution functions
     const executeDigitDifferTrade = useCallback(async (): Promise<boolean> => {
@@ -848,8 +858,6 @@ const TradingHubDisplay: React.FC = () => {
                 // Enhanced win/loss logic with AI feedback
                 if (isOverallWin) {
                     setWinCount(prev => prev + 1);
-                    setConsecutiveLosses(0);
-                    currentConsecutiveLossesRef.current = 0;
                     currentStakeRef.current = parseFloat(initialStake);
                     
                     const winType = overWin && underWin ? 'Both contracts won' : 'One contract won';
@@ -859,8 +867,6 @@ const TradingHubDisplay: React.FC = () => {
                         `O5U4 Strategy Success: ${winType} on ${selectedSymbol} (AI Score: ${bestO5U4Opportunity.score.toFixed(1)})`);
                 } else {
                     setLossCount(prev => prev + 1);
-                    setConsecutiveLosses(prev => prev + 1);
-                    currentConsecutiveLossesRef.current += 1;
 
                     const newStake = (currentStakeRef.current * parseFloat(martingale)).toFixed(2);
                     currentStakeRef.current = parseFloat(newStake);
@@ -871,10 +877,23 @@ const TradingHubDisplay: React.FC = () => {
                         `O5U4 Both lost on ${selectedSymbol} (Score was: ${bestO5U4Opportunity.score.toFixed(1)})`);
                 }
 
-                // Update comprehensive statistics
+                // Update comprehensive statistics with stop loss check
                 setTotalTrades(prev => prev + 2);
                 setTotalStake(prev => prev + (currentStake * 2));
-                setProfitLoss(prev => prev + profitAmount);
+                setProfitLoss(prev => {
+                    const newProfitLoss = prev + profitAmount;
+                    
+                    // Check if stop loss is hit
+                    if (!isOverallWin && Math.abs(newProfitLoss) >= parseFloat(stopLoss)) {
+                        globalObserver.emit('ui.log.error', `Stop loss of ${stopLoss} reached. Total loss: ${Math.abs(newProfitLoss).toFixed(2)}. Trading stopped.`);
+                        setIsContinuousTrading(false);
+                        if (run_panel) {
+                            run_panel.setIsRunning(false);
+                        }
+                    }
+                    
+                    return newProfitLoss;
+                });
 
                 if (isOverallWin) {
                     setTotalPayout(prev => prev + overTrade.payout + underTrade.payout);
@@ -1036,8 +1055,6 @@ const TradingHubDisplay: React.FC = () => {
             console.log(`Starting trading with persisted stake: ${persistedStake}`);
             setAppliedStake(persistedStake);
             currentStakeRef.current = persistedStake;
-            setConsecutiveLosses(0);
-            currentConsecutiveLossesRef.current = 0;
             contractSettledTimeRef.current = 0;
             waitingForSettlementRef.current = false;
 
@@ -1098,14 +1115,6 @@ const TradingHubDisplay: React.FC = () => {
                     return;
                 }
 
-                // Circuit breaker: Stop if too many consecutive losses
-                if (consecutiveLosses >= 10) {
-                    console.log('Circuit breaker: Too many consecutive losses, stopping trading');
-                    globalObserver.emit('ui.log.error', 'Trading stopped due to excessive losses');
-                    stopTrading();
-                    return;
-                }
-
                 // Check API connection before trading
                 if (!api_base.is_authorized || !api_base.api || api_base.api.connection?.readyState !== 1) {
                     console.log('API not ready for trading, attempting reconnection...');
@@ -1159,7 +1168,7 @@ const TradingHubDisplay: React.FC = () => {
             }
         };
     }, [isContinuousTrading, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active, 
-        isTradeInProgress, consecutiveLosses, recommendation, stopTrading, executeDigitDifferTrade, executeDigitOverTrade, executeO5U4Trade, client]);
+        isTradeInProgress, recommendation, stopTrading, executeDigitDifferTrade, executeDigitOverTrade, executeO5U4Trade, client]);
 
     // Initialize component and enhanced market analyzer
     useEffect(() => {
@@ -1192,6 +1201,11 @@ const TradingHubDisplay: React.FC = () => {
         const savedMartingale = localStorage.getItem('tradingHub_martingale');
         if (savedMartingale) {
             setMartingale(savedMartingale);
+        }
+
+        const savedStopLoss = localStorage.getItem('tradingHub_stopLoss');
+        if (savedStopLoss) {
+            setStopLoss(savedStopLoss);
         }
 
         // Initialize enhanced market analyzer
@@ -1304,6 +1318,23 @@ const TradingHubDisplay: React.FC = () => {
                                 className="martingale-input"
                                 step="0.1"
                                 min="1.1"
+                                disabled={isContinuousTrading}
+                            />
+                        </div>
+
+                        <div className="control-group">
+                            <label>Stop Loss ($)</label>
+                            <input
+                                type="number"
+                                value={stopLoss}
+                                onChange={(e) => {
+                                    const value = Math.max(parseFloat(e.target.value), 1).toFixed(2);
+                                    setStopLoss(value);
+                                    localStorage.setItem('tradingHub_stopLoss', value);
+                                }}
+                                className="stop-loss-input"
+                                step="0.01"
+                                min="1"
                                 disabled={isContinuousTrading}
                             />
                         </div>
