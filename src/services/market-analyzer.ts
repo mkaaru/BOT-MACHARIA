@@ -73,15 +73,15 @@ class MarketAnalyzer {
         if (this.isRunning) return;
 
         this.isRunning = true;
-        console.log('Enhanced Market Analyzer started with multi-symbol analysis');
+        console.log('Enhanced Market Analyzer started with real Deriv tick data');
 
         // Start analysis interval - more frequent for real-time analysis
         this.analysisInterval = setInterval(() => {
             this.performAdvancedAnalysis();
         }, 1500); // Analyze every 1.5 seconds for faster recommendations
 
-        // Simulate tick data for all symbols
-        this.startTickSimulation();
+        // Connect to real Deriv WebSocket and subscribe to tick data
+        this.connectToDerivAPI();
     }
 
     stop() {
@@ -94,108 +94,126 @@ class MarketAnalyzer {
             this.analysisInterval = null;
         }
 
-        console.log('Enhanced Market Analyzer stopped');
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+
+        if (this.ws) {
+            this.ws.close();
+            this.ws = null;
+        }
+
+        this.subscriptions.clear();
+        console.log('Enhanced Market Analyzer stopped with real tick connections closed');
     }
 
-    private startTickSimulation() {
-        // Simulate tick data for all symbols with different characteristics
+    private ws: WebSocket | null = null;
+    private reconnectTimeout: NodeJS.Timeout | null = null;
+    private subscriptions: Set<string> = new Set();
+
+    private connectToDerivAPI() {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            return;
+        }
+
+        try {
+            this.ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+            
+            this.ws.onopen = () => {
+                console.log('✅ Connected to Deriv WebSocket API');
+                this.subscribeToSymbols();
+            };
+
+            this.ws.onmessage = (event) => {
+                this.handleWebSocketMessage(event);
+            };
+
+            this.ws.onerror = (error) => {
+                console.error('❌ Deriv WebSocket error:', error);
+            };
+
+            this.ws.onclose = (event) => {
+                console.log('🔌 Deriv WebSocket disconnected:', event.code, event.reason);
+                if (this.isRunning) {
+                    this.scheduleReconnect();
+                }
+            };
+        } catch (error) {
+            console.error('Failed to connect to Deriv WebSocket:', error);
+            this.scheduleReconnect();
+        }
+    }
+
+    private scheduleReconnect() {
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+        }
+        
+        this.reconnectTimeout = setTimeout(() => {
+            if (this.isRunning) {
+                console.log('🔄 Attempting to reconnect to Deriv WebSocket...');
+                this.connectToDerivAPI();
+            }
+        }, 5000);
+    }
+
+    private subscribeToSymbols() {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            return;
+        }
+
         this.SYMBOLS.forEach(symbol => {
-            this.simulateTicksForSymbol(symbol);
+            if (!this.subscriptions.has(symbol)) {
+                try {
+                    const subscribeRequest = {
+                        ticks: symbol,
+                        subscribe: 1
+                    };
+                    
+                    this.ws!.send(JSON.stringify(subscribeRequest));
+                    this.subscriptions.add(symbol);
+                    console.log(`📊 Subscribed to ${symbol} ticks`);
+                } catch (error) {
+                    console.error(`Failed to subscribe to ${symbol}:`, error);
+                }
+            }
         });
     }
 
-    private simulateTicksForSymbol(symbol: string) {
-        const generateTick = () => {
-            if (!this.isRunning) return;
-
-            const now = Date.now();
-            const basePrice = this.getBasePrice(symbol);
-            const volatility = this.getVolatility(symbol);
+    private handleWebSocketMessage(event: MessageEvent) {
+        try {
+            const data = JSON.parse(event.data);
             
-            // Generate realistic price movement with volatility characteristics
-            const randomChange = (Math.random() - 0.5) * volatility;
-            const quote = basePrice + randomChange;
-            
-            // Calculate last digit more realistically for different symbols
-            const multiplier = this.getDigitMultiplier(symbol);
-            const last_digit = Math.floor((quote * multiplier) % 10);
+            if (data.tick && this.SYMBOLS.includes(data.tick.symbol)) {
+                const symbol = data.tick.symbol;
+                const quote = parseFloat(data.tick.quote);
+                const time = data.tick.epoch * 1000; // Convert to milliseconds
+                
+                // Calculate last digit from the quote
+                const last_digit = this.getLastDigitFromQuote(quote);
+                
+                const tick: TickData = {
+                    time,
+                    quote,
+                    last_digit
+                };
 
-            const tick: TickData = {
-                time: now,
-                quote,
-                last_digit
-            };
-
-            this.addTick(symbol, tick);
-
-            // Different tick frequencies for different symbols
-            const nextTickDelay = this.getTickDelay(symbol);
-            setTimeout(generateTick, nextTickDelay);
-        };
-
-        generateTick();
+                this.addTick(symbol, tick);
+            }
+        } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+        }
     }
 
-    private getBasePrice(symbol: string): number {
-        const basePrices = {
-            'R_10': 1000.5,
-            'R_25': 2500.75,
-            'R_50': 5000.25,
-            'R_75': 7500.5,
-            'R_100': 10000.0,
-            'RDBEAR': 8500.0,
-            'RDBULL': 9500.0,
-            '1HZ10V': 1100.0,
-            '1HZ25V': 2600.0,
-            '1HZ50V': 5100.0,
-            '1HZ75V': 7600.0,
-            '1HZ100V': 10100.0
-        };
-        return basePrices[symbol] || 1000.0;
+    private getLastDigitFromQuote(quote: number): number {
+        // Convert quote to string and extract last digit from decimal places
+        const quoteStr = quote.toFixed(5); // Use 5 decimal places for consistency
+        const decimalPart = quoteStr.split('.')[1] || '0';
+        return parseInt(decimalPart.slice(-1));
     }
 
-    private getVolatility(symbol: string): number {
-        const volatilities = {
-            'R_10': 0.1,
-            'R_25': 0.25,
-            'R_50': 0.5,
-            'R_75': 0.75,
-            'R_100': 1.0,
-            'RDBEAR': 0.8,
-            'RDBULL': 0.9,
-            '1HZ10V': 0.15,
-            '1HZ25V': 0.3,
-            '1HZ50V': 0.6,
-            '1HZ75V': 0.8,
-            '1HZ100V': 1.1
-        };
-        return volatilities[symbol] || 0.5;
-    }
-
-    private getDigitMultiplier(symbol: string): number {
-        // Different multipliers to get realistic digit distributions
-        const multipliers = {
-            'R_10': 10000,
-            'R_25': 10000,
-            'R_50': 10000,
-            'R_75': 10000,
-            'R_100': 10000,
-            'RDBEAR': 10000,
-            'RDBULL': 10000,
-            '1HZ10V': 100000,
-            '1HZ25V': 100000,
-            '1HZ50V': 100000,
-            '1HZ75V': 100000,
-            '1HZ100V': 100000
-        };
-        return multipliers[symbol] || 10000;
-    }
-
-    private getTickDelay(symbol: string): number {
-        // High-frequency symbols tick faster for better pattern detection
-        const baseDelay = symbol.includes('1HZ') ? 600 : 1000;
-        return baseDelay + Math.random() * 800;
-    }
+    
 
     private addTick(symbol: string, tick: TickData) {
         const ticks = this.tickHistory.get(symbol) || [];
