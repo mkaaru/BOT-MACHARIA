@@ -1191,7 +1191,7 @@ const TradingHubDisplay: React.FC = () => {
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M3 3h18v18H3zM5 7v10h4V7zm6 0v10h4V7zm6 0v10h2V7z"/>
                             </svg>
-                            Advanced Analysis
+                            {showAdvancedAnalysis ? 'Hide' : 'Show'} Advanced Analysis
                         </button>
                     </div>
 

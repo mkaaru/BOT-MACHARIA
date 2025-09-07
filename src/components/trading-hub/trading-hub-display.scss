@@ -503,14 +503,55 @@
     }
 }
 
-// Advanced Analysis Panel Styles
+/* Advanced Analysis Toggle Button */
+.advanced-analysis-toggle {
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid #404057;
+    border-radius: 10px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 44px;
+
+    &:hover {
+        background: rgba(0, 212, 170, 0.2);
+        border-color: #00d4aa;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 212, 170, 0.3);
+    }
+
+    &.active {
+        background: #00d4aa;
+        color: #1e1e2e;
+        border-color: #00d4aa;
+        box-shadow: 0 4px 15px rgba(0, 212, 170, 0.4);
+    }
+
+    svg {
+        flex-shrink: 0;
+        transition: transform 0.3s ease;
+    }
+
+    &.active svg {
+        transform: rotate(180deg);
+    }
+}
+
+/* Advanced Analysis Panel Styles */
 .advanced-analysis-panel {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #1e1e2e 0%, #262640 100%);
+    border: 2px solid #404057;
     border-radius: 12px;
-    margin: 20px 0;
+    margin: 20px 24px;
     overflow: hidden;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: block;
+    animation: slideDown 0.3s ease-out;
 
     .analysis-header {
         background: rgba(255, 255, 255, 0.1);
@@ -866,6 +907,19 @@
                 }
             }
         }
+    }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        max-height: 1000px;
     }
 }
 
