@@ -1403,7 +1403,8 @@ if __name__ == "__main__":
     }, [selectedIndex, isConnected, websocket, tickHistory])
 
 
-    const showRunPanel = [BOT_BUILDER, TRADING_HUB, ANALYSIS_TOOL, DBOT_TABS.CHART, SIGNALS, AI_TRADER].includes(active_tab);
+    const showRunPanel = [BOT_BUILDER, TRADING_HUB, ANALYSIS_TOOL, DBOT_TABS.CHART, SIGNALS, AI_TRADER, DBOT_TABS.ML_TRADER].includes(active_tab);
+
 
     return (
         <>

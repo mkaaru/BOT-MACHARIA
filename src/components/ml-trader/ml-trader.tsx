@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import { localize } from '@deriv-com/translations';
@@ -57,8 +56,8 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
 };
 
 const MLTrader = observer(() => {
-    const { client } = useStore();
-    
+    const { client, run_panel } = useStore();
+
     // Trading configuration state
     const [selectedVolatility, setSelectedVolatility] = useState('R_10');
     const [selectedTradeType, setSelectedTradeType] = useState('DIGITOVER');
@@ -68,14 +67,15 @@ const MLTrader = observer(() => {
     const [overPrediction, setOverPrediction] = useState(5);
     const [underPrediction, setUnderPrediction] = useState(5);
     const [martingaleMultiplier, setMartingaleMultiplier] = useState(1);
-    
+
     // Trading state
     const [isTrading, setIsTrading] = useState(false);
     const [ticksProcessed, setTicksProcessed] = useState(0);
     const [lastDigit, setLastDigit] = useState('-');
     const [connectionStatus, setConnectionStatus] = useState('Disconnected');
     const [statusMessage, setStatusMessage] = useState('Loading historical data for all volatilities...');
-    
+    const [isRunning, setIsRunning] = useState(false); // State to track if the bot is running
+
     const derivApiRef = useRef<any>(null);
 
     // Initialize connection
@@ -90,7 +90,7 @@ const MLTrader = observer(() => {
 
                 const api = generateDerivApiInstance();
                 const authResult = await api.authorize(token);
-                
+
                 if (authResult.error) {
                     setStatusMessage(`Authorization failed: ${authResult.error.message}`);
                     return;
@@ -125,6 +125,7 @@ const MLTrader = observer(() => {
             return;
         }
 
+        setIsRunning(true);
         setIsTrading(true);
         setStatusMessage('Trading started...');
 
@@ -141,11 +142,18 @@ const MLTrader = observer(() => {
 
             // Set up tick handler
             derivApiRef.current.connection.addEventListener('message', handleTickMessage);
+
+            // Update Run Panel state
+            run_panel.setIsRunning(true);
+            run_panel.setHasOpenContract(true); // Assuming a contract is opened immediately or will be
+            run_panel.setContractStage(contract_stages.RUNNING);
+
         } catch (error: any) {
             setIsTrading(false);
+            setIsRunning(false);
             setStatusMessage(`Error starting trading: ${error.message}`);
         }
-    }, [selectedVolatility]);
+    }, [selectedVolatility, run_panel]);
 
     // Handle incoming tick messages
     const handleTickMessage = useCallback((event: MessageEvent) => {
@@ -154,10 +162,17 @@ const MLTrader = observer(() => {
             if (data.msg_type === 'tick' && data.tick) {
                 const quote = parseFloat(data.tick.quote);
                 const digit = Math.floor((quote * 10000) % 10);
-                
+
                 setLastDigit(digit.toString());
                 setTicksProcessed(prev => prev + 1);
-                
+
+                // Update Run Panel with current tick data if a contract is open
+                if (run_panel.hasOpenContract) {
+                    // Assuming run_panel has methods to update contract statistics
+                    // Example: run_panel.updateTradeStats({ lastDigit: digit });
+                }
+
+
                 // Simple trading logic based on selected trade type
                 if (shouldPlaceTrade(digit)) {
                     placeTrade();
@@ -166,7 +181,7 @@ const MLTrader = observer(() => {
         } catch (error) {
             console.warn('Error parsing tick data:', error);
         }
-    }, [selectedTradeType, overPrediction, underPrediction]);
+    }, [selectedTradeType, overPrediction, underPrediction, run_panel]);
 
     // Trading logic
     const shouldPlaceTrade = (digit: number): boolean => {
@@ -200,22 +215,35 @@ const MLTrader = observer(() => {
             });
 
             const buyResponse = await derivApiRef.current.send(tradeParams);
-            
+
             if (buyResponse.error) {
                 console.error('Trade failed:', buyResponse.error.message);
+                // Update Run Panel on trade failure
+                run_panel.setContractStage(contract_stages.ERROR);
             } else {
                 console.log('Trade placed:', buyResponse.buy.contract_id);
+                // Update Run Panel on successful trade placement
+                run_panel.setContractStage(contract_stages.CONTRACT_ACTIVE);
+                run_panel.setHasOpenContract(true); // Ensure this is true if a contract is active
             }
         } catch (error: any) {
             console.error('Error placing trade:', error.message);
+            // Update Run Panel on trade placement error
+            run_panel.setContractStage(contract_stages.ERROR);
         }
-    }, [selectedTradeType, stake, duration, durationType, selectedVolatility, overPrediction, underPrediction, client.currency]);
+    }, [selectedTradeType, stake, duration, durationType, selectedVolatility, overPrediction, underPrediction, client.currency, run_panel]);
 
     // Stop trading
     const handleStopTrading = () => {
+        setIsRunning(false);
         setIsTrading(false);
         setStatusMessage('Trading stopped');
-        
+
+        // Update Run Panel state
+        run_panel.setIsRunning(false);
+        run_panel.setHasOpenContract(false);
+        run_panel.setContractStage(contract_stages.NOT_RUNNING);
+
         if (derivApiRef.current?.connection) {
             derivApiRef.current.connection.removeEventListener('message', handleTickMessage);
         }
@@ -248,7 +276,7 @@ const MLTrader = observer(() => {
                                         ))}
                                     </select>
                                 </div>
-                                
+
                                 <div className='ml-trader__field'>
                                     <label>{localize('Trade type')}</label>
                                     <select 
@@ -279,7 +307,7 @@ const MLTrader = observer(() => {
                                         <option value="m">{localize('Minutes')}</option>
                                     </select>
                                 </div>
-                                
+
                                 <div className='ml-trader__field'>
                                     <label>{localize('Duration')}</label>
                                     <input
@@ -306,7 +334,7 @@ const MLTrader = observer(() => {
                                         disabled={isTrading}
                                     />
                                 </div>
-                                
+
                                 <div className='ml-trader__predictions'>
                                     <div className='ml-trader__field'>
                                         <label>{localize('Over/Under prediction (pre-loss)')}</label>
@@ -319,7 +347,7 @@ const MLTrader = observer(() => {
                                             disabled={isTrading}
                                         />
                                     </div>
-                                    
+
                                     <div className='ml-trader__field'>
                                         <label>{localize('Over/Under prediction (after loss)')}</label>
                                         <input
@@ -331,7 +359,7 @@ const MLTrader = observer(() => {
                                             disabled={isTrading}
                                         />
                                     </div>
-                                    
+
                                     <div className='ml-trader__field'>
                                         <label>{localize('Martingale multiplier')}</label>
                                         <input
