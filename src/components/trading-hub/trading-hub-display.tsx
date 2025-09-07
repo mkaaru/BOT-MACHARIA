@@ -1117,7 +1117,7 @@ const TradingHubDisplay: React.FC = () => {
     const [showAdvancedAnalysis, setShowAdvancedAnalysis] = useState(false);
     const [analysisStakeAmount, setAnalysisStakeAmount] = useState('1');
     const [referenceDigit, setReferenceDigit] = useState('5');
-    const [analysisCount, setAnalysisTickCount] = useState('120');
+    const [analysisTickCount, setAnalysisTickCount] = useState('120');
     const [activeSymbols, setActiveSymbols] = useState(['R_10', 'R_25', 'R_50', 'R_75', 'R_100']);
     const [recentTicks, setRecentTicks] = useState([1, 8, 1, 6, 4, 2, 7, 3, 5, 8]);
     const [isAnalysisRunning, setIsAnalysisRunning] = useState(false);
@@ -1305,7 +1305,7 @@ const TradingHubDisplay: React.FC = () => {
                                             <label>Analysis Count:</label>
                                             <input
                                                 type="number"
-                                                value={analysisCount}
+                                                value={analysisTickCount}
                                                 onChange={(e) => setAnalysisTickCount(e.target.value)}
                                                 className="analysis-input"
                                                 min="50"
