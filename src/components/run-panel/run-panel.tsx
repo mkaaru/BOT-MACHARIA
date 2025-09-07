@@ -267,6 +267,10 @@ const RunPanel = observer(() => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Check if volatility analyzer is running
+    const { run_id } = run_panel;
+    const isVolatilityAnalyzerRunning = run_id?.includes('volatility-analyzer');
+
     const content = (
         <div>
             {isVolatilityAnalyzerRunning && (
@@ -308,9 +312,6 @@ const RunPanel = observer(() => {
     // Show run panel on all pages
     const show_run_panel = true;
     if (active_tour === 'bot_builder') return null;
-    
-    // Check if volatility analyzer is running
-    const isVolatilityAnalyzerRunning = run_id?.includes('volatility-analyzer');
 
     return (
         <>
