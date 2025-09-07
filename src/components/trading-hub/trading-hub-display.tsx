@@ -118,7 +118,7 @@ const TradingHubDisplay: React.FC = () => {
         setAnalysisCount(prev => prev + 1);
         setLastAnalysisTime(new Date().toLocaleTimeString());
         setMarketStats(stats);
-        
+
         if (o5u4Data) {
             setO5U4Opportunities(o5u4Data);
             setBestO5U4Opportunity(o5u4Data.length > 0 ? o5u4Data[0] : null);
@@ -267,7 +267,39 @@ const TradingHubDisplay: React.FC = () => {
                             strategy_active: isAutoOverUnderActive ? 'Over/Under' : isAutoDifferActive ? 'Differ' : 'O5U4'
                         });
 
-                        // Transaction logging removed for accuracy - only track local stats
+                        // Send transaction to run panel for proper tracking
+                        if (!isO5U4Part && run_panel?.root_store?.transactions) {
+                            const transactionData = {
+                                contract_id: contractId,
+                                contract_type: contractType,
+                                symbol: symbol,
+                                buy_price: buyPrice,
+                                sell_price: sellPrice,
+                                profit: profit,
+                                payout: payout,
+                                barrier: contractData.barrier,
+                                entry_spot: contractData.entry_spot,
+                                exit_spot: contractData.exit_spot,
+                                date_start: new Date().toISOString(),
+                                entry_tick_display_value: contractData.entry_spot,
+                                exit_tick_display_value: contractData.exit_spot,
+                                entry_tick_time: contractData.purchase_time,
+                                exit_tick_time: new Date().toISOString(),
+                                display_name: symbol,
+                                underlying: symbol,
+                                currency: client?.currency || 'USD',
+                                transaction_ids: {
+                                    buy: contractId,
+                                    sell: contractId
+                                },
+                                is_completed: true,
+                                status: isWin ? 'won' : 'lost',
+                                shortcode: `${contractType}_${symbol}_${contractData.barrier || ''}`
+                            };
+
+                            // Push to run panel transactions
+                            run_panel.root_store.transactions.onBotContractEvent(transactionData);
+                        }
 
                         // Update balance and cleanup for non-O5U4 trades
                         if (!isO5U4Part) {
@@ -285,8 +317,6 @@ const TradingHubDisplay: React.FC = () => {
                             contractSettledTimeRef.current = Date.now();
                             waitingForSettlementRef.current = false;
                         }
-
-                        // Removed journal logging for accuracy
 
                         resolve(isWin);
                     }
@@ -517,10 +547,6 @@ const TradingHubDisplay: React.FC = () => {
                 const buyPrice = response.buy.buy_price;
                 console.log(`Trade executed: ${contractId} - Cost: ${buyPrice}`);
 
-                // Journal logging removed for accuracy
-
-                // Transaction logging removed for accuracy
-
                 // Update balance immediately after purchase
                 if (!isO5U4Part) {
                     waitingForSettlementRef.current = true;
@@ -658,7 +684,7 @@ const TradingHubDisplay: React.FC = () => {
                 confidence: recommendation.confidence.toFixed(1) + '%',
                 reason: recommendation.reason
             });
-            
+
             console.log(
                 `Auto Over/Under: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol} (${recommendation.confidence.toFixed(1)}% confidence)`
             );
@@ -754,10 +780,10 @@ const TradingHubDisplay: React.FC = () => {
                     setConsecutiveLosses(0);
                     currentConsecutiveLossesRef.current = 0;
                     currentStakeRef.current = parseFloat(initialStake);
-                    
+
                     const winType = overWin && underWin ? 'Both contracts won' : 'One contract won';
                     setLastTradeResult(`O5U4 AI Win: ${winType} on ${selectedSymbol} - Profit: +${Math.abs(profitAmount).toFixed(2)}`);
-                    
+
                     console.log(
                         `O5U4 Strategy Success: ${winType} on ${selectedSymbol} (AI Score: ${bestO5U4Opportunity.score.toFixed(1)})`);
                 } else {
@@ -769,7 +795,7 @@ const TradingHubDisplay: React.FC = () => {
                     currentStakeRef.current = parseFloat(newStake);
                     setAppliedStake(newStake);
                     setLastTradeResult(`O5U4 Loss: Both contracts lost on ${selectedSymbol} - Loss: ${profitAmount.toFixed(2)}`);
-                    
+
                     console.log(
                         `O5U4 Both lost on ${selectedSymbol} (Score was: ${bestO5U4Opportunity.score.toFixed(1)})`);
                 }
@@ -1110,7 +1136,7 @@ const TradingHubDisplay: React.FC = () => {
             if (analysisIntervalRef.current) {
                 clearInterval(analysisIntervalRef.current);
             }
-            
+
             // Clean up market analyzer
             unsubscribe();
             marketAnalyzer.stop();
