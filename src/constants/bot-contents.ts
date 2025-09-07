@@ -16,11 +16,12 @@ export const DBOT_TABS = Object.freeze({
     BOT_BUILDER: 1,
     CHART: 2,
     TUTORIAL: 3,
-    ANALYSIS_TOOL: 4,
-    TRADING_HUB: 5,
+    TRADING_HUB: 4,
+    ANALYSIS_TOOL: 5,
     SIGNALS: 6,
     AI_TRADER: 7,
-    ML_TRADER: 8,
+    FREE_BOTS: 8,
+    ML_TRADER: 9,
 });
 
 export const MAX_STRATEGIES = 10;
