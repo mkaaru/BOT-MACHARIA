@@ -267,68 +267,7 @@ const TradingHubDisplay: React.FC = () => {
                             strategy_active: isAutoOverUnderActive ? 'Over/Under' : isAutoDifferActive ? 'Differ' : 'O5U4'
                         });
 
-                        // Create transaction entry for run panel with correct win/loss status
-                        if (run_panel?.root_store?.transactions) {
-                            try {
-                                // Calculate actual profit more accurately for Over/Under
-                                let actualProfit;
-                                if (isWin) {
-                                    // For wins, use the actual profit or calculate from payout
-                                    actualProfit = profit > 0 ? profit : (payout > 0 ? payout - buyPrice : sellPrice - buyPrice);
-                                } else {
-                                    // For losses, it's negative of the stake
-                                    actualProfit = -Math.abs(buyPrice);
-                                }
-
-                                const profitPercentage = buyPrice > 0 ? ((actualProfit / buyPrice) * 100).toFixed(2) : '0.00';
-                                const contractIdNum = typeof contractId === 'string' ? parseInt(contractId.replace(/[^0-9]/g, ''), 10) : contractId;
-
-                                const formattedTransaction = {
-                                    contract_id: contractIdNum,
-                                    transaction_ids: {
-                                        buy: contractIdNum,
-                                        sell: contractData.transaction_ids?.sell || contractIdNum + 1
-                                    },
-                                    buy_price: buyPrice,
-                                    sell_price: isWin ? sellPrice : 0,
-                                    profit: actualProfit,
-                                    currency: client?.currency || 'USD',
-                                    contract_type: contractType || 'DIGITOVER',
-                                    underlying: symbol || 'R_100',
-                                    shortcode: contractData.shortcode || `${contractType}_${symbol}_${contractIdNum}`,
-                                    display_name: contractData.display_name || `${contractType} on ${symbol}`,
-                                    date_start: contractData.date_start || new Date().toISOString(),
-                                    entry_tick_display_value: contractData.entry_spot || contractData.entry_tick || 0,
-                                    exit_tick_display_value: contractData.exit_spot || contractData.exit_tick || 0,
-                                    entry_tick_time: contractData.entry_tick_time || contractData.date_start || new Date().toISOString(),
-                                    exit_tick_time: contractData.exit_tick_time || new Date().toISOString(),
-                                    barrier: contractData.barrier || '',
-                                    tick_count: contractData.tick_count || 1,
-                                    payout: isWin ? payout : 0,
-                                    is_completed: true,
-                                    is_sold: true,
-                                    profit_percentage: profitPercentage,
-                                    status: isWin ? 'won' : 'lost',
-                                    // Additional fields
-                                    longcode: `${contractType} prediction on ${symbol}`,
-                                    app_id: 16929,
-                                    purchase_time: contractData.date_start || new Date().toISOString(),
-                                    sell_time: contractData.exit_tick_time || new Date().toISOString(),
-                                    transaction_time: new Date().toISOString()
-                                };
-
-                                run_panel.root_store.transactions.onBotContractEvent(formattedTransaction);
-
-                                console.log(`✅ Transaction recorded correctly:`, {
-                                    contract_id: contractId,
-                                    result: isWin ? 'WIN' : 'LOSS',
-                                    profit: actualProfit,
-                                    profit_percentage: profitPercentage + '%'
-                                });
-                            } catch (error) {
-                                console.error('Failed to add transaction to run panel:', error);
-                            }
-                        }
+                        // Transaction logging removed for accuracy - only track local stats
 
                         // Update balance and cleanup for non-O5U4 trades
                         if (!isO5U4Part) {
@@ -347,9 +286,7 @@ const TradingHubDisplay: React.FC = () => {
                             waitingForSettlementRef.current = false;
                         }
 
-                        const tradeType = isO5U4Part ? 'O5U4 Part' : 'Over/Under';
-                        globalObserver.emit('ui.log.info', 
-                            `${tradeType} Contract ${contractId}: ${isWin ? 'WON' : 'LOST'} - Profit: ${profit.toFixed(2)}`);
+                        // Removed journal logging for accuracy
 
                         resolve(isWin);
                     }
@@ -403,7 +340,7 @@ const TradingHubDisplay: React.FC = () => {
                             waitingForSettlementRef.current = false;
                         }
 
-                        globalObserver.emit('ui.log.error', `Contract ${contractId} monitoring timeout`);
+                        console.warn(`Contract ${contractId} monitoring timeout`);
                         resolve(false);
                     }
                 }
@@ -542,7 +479,7 @@ const TradingHubDisplay: React.FC = () => {
             }
 
             console.log(`Executing ${strategy} trade:`, tradeParams);
-            globalObserver.emit('ui.log.info', `${strategy}: ${contractType} on ${symbol} - Stake: ${currentStake}`);
+            console.log(`${strategy}: ${contractType} on ${symbol} - Stake: ${currentStake}`);
 
             // Send trade request through the API with optimized timeout
             const response = await new Promise((resolve, reject) => {
@@ -578,45 +515,11 @@ const TradingHubDisplay: React.FC = () => {
             if (response?.buy && response.buy.contract_id) {
                 const contractId = response.buy.contract_id;
                 const buyPrice = response.buy.buy_price;
-                globalObserver.emit('ui.log.success', `Trade executed: ${contractId} - Cost: ${buyPrice}`);
+                console.log(`Trade executed: ${contractId} - Cost: ${buyPrice}`);
 
-                // Log purchase to journal (using component-level stores)
-                if (run_panel?.root_store?.journal) {
-                    const logMessage = `📈 Contract Purchased: ${symbol} - Stake: ${buyPrice} ${client?.currency || 'USD'}`;
-                    run_panel.root_store.journal.pushMessage(logMessage, 'notify', '', { 
-                        current_currency: client?.currency || 'USD' 
-                    });
-                } else {
-                    console.warn('Run panel journal not available for logging');
-                }
+                // Journal logging removed for accuracy
 
-                // Log purchase to transactions store (using component-level stores)
-                if (run_panel?.root_store?.transactions) {
-                    const contractData = {
-                        contract_id: contractId,
-                        transaction_ids: {
-                            buy: contractId,
-                            sell: null
-                        },
-                        display_name: symbol,
-                        buy_price: buyPrice,
-                        payout: 0,
-                        profit: 0,
-                        bid_price: 0,
-                        currency: client?.currency || 'USD',
-                        date_start: new Date().toISOString(),
-                        entry_tick_display_value: '',
-                        entry_tick_time: new Date().toISOString(),
-                        exit_tick_display_value: '',
-                        exit_tick_time: '',
-                        barrier: '',
-                        is_completed: false,
-                        status: 'open'
-                    };
-                    run_panel.root_store.transactions.onBotContractEvent(contractData);
-                } else {
-                    console.warn('Transactions store not available for logging');
-                }
+                // Transaction logging removed for accuracy
 
                 // Update balance immediately after purchase
                 if (!isO5U4Part) {
@@ -657,7 +560,7 @@ const TradingHubDisplay: React.FC = () => {
                 loginid: client?.loginid
             });
 
-            globalObserver.emit('ui.log.error', `Trade failed: ${errorMsg} - stopping trading`);
+            console.error(`Trade failed: ${errorMsg} - stopping trading`);
 
             // Stop trading on API failures instead of continuing with dummy results
             setIsContinuousTrading(false);
@@ -689,13 +592,13 @@ const TradingHubDisplay: React.FC = () => {
             profitAmount = currentStakeAmount * 0.95; // 95% payout
             setTotalPayout(prev => prev + (currentStakeAmount + profitAmount));
             setProfitLoss(prev => prev + profitAmount);
-            globalObserver.emit('ui.log.success', `Trade WON! Profit: +${profitAmount.toFixed(2)}`);
+            console.log(`Trade WON! Profit: +${profitAmount.toFixed(2)}`);
         } else {
             setLossCount(prev => prev + 1);
             setLastTradeResult('LOSS');
             profitAmount = -currentStakeAmount;
             setProfitLoss(prev => prev + profitAmount);
-            globalObserver.emit('ui.log.error', `Trade LOST! Loss: ${profitAmount.toFixed(2)}`);
+            console.log(`Trade LOST! Loss: ${profitAmount.toFixed(2)}`);
         }
 
         // Update contract in summary card store for balance integration
@@ -756,7 +659,7 @@ const TradingHubDisplay: React.FC = () => {
                 reason: recommendation.reason
             });
             
-            globalObserver.emit('ui.log.info', 
+            console.log(
                 `Auto Over/Under: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol} (${recommendation.confidence.toFixed(1)}% confidence)`
             );
 
@@ -769,7 +672,7 @@ const TradingHubDisplay: React.FC = () => {
             );
 
             if (success) {
-                globalObserver.emit('ui.log.success', 
+                console.log(
                     `Over/Under trade executed successfully: ${recommendation.reason}`
                 );
             }
@@ -778,7 +681,7 @@ const TradingHubDisplay: React.FC = () => {
         } catch (error: any) {
             const errorMsg = error?.message || 'Unknown error in Over/Under execution';
             console.error('Enhanced Auto Over/Under execution failed:', errorMsg);
-            globalObserver.emit('ui.log.error', `Over/Under strategy failed: ${errorMsg}`);
+            console.error(`Over/Under strategy failed: ${errorMsg}`);
             return false;
         }
     }, [recommendation, isTradeInProgress, executeTrade]);
@@ -794,7 +697,7 @@ const TradingHubDisplay: React.FC = () => {
             const selectedSymbol = bestO5U4Opportunity.symbol;
 
             // Log the AI decision
-            globalObserver.emit('ui.log.info', 
+            console.log(
                 `O5U4 AI Selection: ${selectedSymbol} (Score: ${bestO5U4Opportunity.score.toFixed(1)}, Conditions: ${bestO5U4Opportunity.conditionsMetCount}/3)`);
 
             // Execute both trades simultaneously on the AI-selected symbol
@@ -804,9 +707,9 @@ const TradingHubDisplay: React.FC = () => {
             ]);
 
             // Log individual O5U4 trade results with enhanced detail
-            globalObserver.emit('ui.log.info', 
+            console.log(
                 `O5U4 ${selectedSymbol} Over 5: ${over5Result ? 'WON' : 'LOST'}`);
-            globalObserver.emit('ui.log.info', 
+            console.log(
                 `O5U4 ${selectedSymbol} Under 4: ${under4Result ? 'WON' : 'LOST'}`);
 
             // Enhanced O5U4 result processing
@@ -855,7 +758,7 @@ const TradingHubDisplay: React.FC = () => {
                     const winType = overWin && underWin ? 'Both contracts won' : 'One contract won';
                     setLastTradeResult(`O5U4 AI Win: ${winType} on ${selectedSymbol} - Profit: +${Math.abs(profitAmount).toFixed(2)}`);
                     
-                    globalObserver.emit('ui.log.success', 
+                    console.log(
                         `O5U4 Strategy Success: ${winType} on ${selectedSymbol} (AI Score: ${bestO5U4Opportunity.score.toFixed(1)})`);
                 } else {
                     setLossCount(prev => prev + 1);
@@ -867,7 +770,7 @@ const TradingHubDisplay: React.FC = () => {
                     setAppliedStake(newStake);
                     setLastTradeResult(`O5U4 Loss: Both contracts lost on ${selectedSymbol} - Loss: ${profitAmount.toFixed(2)}`);
                     
-                    globalObserver.emit('ui.log.error', 
+                    console.log(
                         `O5U4 Both lost on ${selectedSymbol} (Score was: ${bestO5U4Opportunity.score.toFixed(1)})`);
                 }
 
@@ -904,7 +807,7 @@ const TradingHubDisplay: React.FC = () => {
                             contractSettledTimeRef.current = Date.now();
                             waitingForSettlementRef.current = false;
 
-                            globalObserver.emit('ui.log.success', 
+                            console.log(
                                 'Enhanced O5U4: Ready for next AI-driven execution');
                         } catch (error) {
                             console.error('Enhanced O5U4: Balance refresh failed:', error);
@@ -918,7 +821,7 @@ const TradingHubDisplay: React.FC = () => {
             return false;
         } catch (error) {
             console.error('Enhanced O5U4 execution failed:', error);
-            globalObserver.emit('ui.log.error', `Enhanced O5U4 strategy failed: ${error.message || 'Unknown error'}`);
+            console.error(`Enhanced O5U4 strategy failed: ${error.message || 'Unknown error'}`);
 
             // Enhanced failure handling
             const newStake = calculateNextStake(false);
@@ -945,15 +848,15 @@ const TradingHubDisplay: React.FC = () => {
         switch (strategy) {
             case 'differ':
                 setIsAutoDifferActive(true);
-                globalObserver.emit('ui.log.info', 'Auto Differ strategy activated');
+                console.log('Auto Differ strategy activated');
                 break;
             case 'overunder':
                 setIsAutoOverUnderActive(true);
-                globalObserver.emit('ui.log.info', 'Auto Over/Under strategy activated');
+                console.log('Auto Over/Under strategy activated');
                 break;
             case 'o5u4':
                 setIsAutoO5U4Active(true);
-                globalObserver.emit('ui.log.info', 'Auto O5U4 strategy activated');
+                console.log('Auto O5U4 strategy activated');
                 break;
         }
     }, []);
@@ -961,19 +864,19 @@ const TradingHubDisplay: React.FC = () => {
     // Main start trading function matching reference implementation
     const startTrading = useCallback(async () => {
         if (!client?.loginid || !isAnalysisReady) {
-            globalObserver.emit('ui.log.error', 'Please ensure you are logged in and analysis is ready');
+            console.warn('Please ensure you are logged in and analysis is ready');
             return;
         }
 
         if (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active) {
-            globalObserver.emit('ui.log.error', 'Please activate at least one trading strategy');
+            console.warn('Please activate at least one trading strategy');
             return;
         }
 
         try {
             // Enhanced API connection setup
             if (!api_base.api || api_base.api.connection?.readyState !== 1) {
-                globalObserver.emit('ui.log.info', 'Connecting to API...');
+                console.log('Connecting to API...');
                 await api_base.init();
                 await new Promise(resolve => setTimeout(resolve, 3000));
             }
@@ -997,24 +900,24 @@ const TradingHubDisplay: React.FC = () => {
             });
 
             if (!api_base.is_authorized && authToken) {
-                globalObserver.emit('ui.log.info', 'Authorizing API connection...');
+                console.log('Authorizing API connection...');
                 try {
                     const authResponse = await api_base.api?.send({ authorize: authToken });
                     console.log('Startup auth response:', authResponse);
                     await new Promise(resolve => setTimeout(resolve, 2000));
 
                     if (authResponse?.error) {
-                        globalObserver.emit('ui.log.error', `Authorization failed: ${authResponse.error.message || authResponse.error.code}`);
+                        console.error(`Authorization failed: ${authResponse.error.message || authResponse.error.code}`);
                         return;
                     }
                 } catch (authError: any) {
-                    globalObserver.emit('ui.log.error', `Authorization error: ${authError.message || 'Unknown error'}`);
+                    console.error(`Authorization error: ${authError.message || 'Unknown error'}`);
                     return;
                 }
             }
 
             if (!api_base.is_authorized) {
-                globalObserver.emit('ui.log.error', 'Failed to authorize API connection - please check your login status');
+                console.error('Failed to authorize API connection - please check your login status');
                 return;
             }
 
@@ -1024,7 +927,7 @@ const TradingHubDisplay: React.FC = () => {
             // Verify run panel stores are available
             if (!run_panel?.root_store?.transactions) {
                 console.error('Warning: Transactions store not available in run panel');
-                globalObserver.emit('ui.log.error', 'Transaction logging may not work properly - run panel not fully initialized');
+                console.warn('Transaction logging may not work properly - run panel not fully initialized');
             } else {
                 console.log('Transactions store verified and ready');
                 // Log current transaction count
@@ -1041,7 +944,7 @@ const TradingHubDisplay: React.FC = () => {
             contractSettledTimeRef.current = 0;
             waitingForSettlementRef.current = false;
 
-            globalObserver.emit('ui.log.success', 'Trading Hub started successfully');
+            console.log('Trading Hub started successfully');
 
             // Initial strategy execution with proper timing
             setTimeout(() => {
@@ -1078,7 +981,7 @@ const TradingHubDisplay: React.FC = () => {
         }
 
         waitingForSettlementRef.current = false;
-        globalObserver.emit('ui.log.info', 'Trading Hub stopped');
+        console.log('Trading Hub stopped');
     }, [run_panel]);
 
     // Main trade handler matching reference implementation
@@ -1101,7 +1004,7 @@ const TradingHubDisplay: React.FC = () => {
                 // Circuit breaker: Stop if too many consecutive losses
                 if (consecutiveLosses >= 10) {
                     console.log('Circuit breaker: Too many consecutive losses, stopping trading');
-                    globalObserver.emit('ui.log.error', 'Trading stopped due to excessive losses');
+                    console.warn('Trading stopped due to excessive losses');
                     stopTrading();
                     return;
                 }
@@ -1147,7 +1050,7 @@ const TradingHubDisplay: React.FC = () => {
                     }
                 } catch (error) {
                     console.error('Trading execution error:', error);
-                    globalObserver.emit('ui.log.error', `Trading error: ${error.message || 'Unknown error'}`);
+                    console.error(`Trading error: ${error.message || 'Unknown error'}`);
                 }
             }, intervalTime);
         }
@@ -1175,7 +1078,7 @@ const TradingHubDisplay: React.FC = () => {
                 }
             } catch (error: any) {
                 console.error('Failed to initialize API:', error);
-                globalObserver.emit('ui.log.error', `API initialization failed: ${error.message}`);
+                console.error(`API initialization failed: ${error.message}`);
             }
         };
 
@@ -1239,7 +1142,7 @@ const TradingHubDisplay: React.FC = () => {
         setAppliedStake(settings.stake);
         currentStakeRef.current = settings.stake;
         localStorage.setItem('tradingHub_initialStake', settings.stake);
-        globalObserver.emit('ui.log.success', `Advanced settings applied - Stake: ${settings.stake}, Reference: ${settings.referenceDigit}`);
+        console.log(`Advanced settings applied - Stake: ${settings.stake}, Reference: ${settings.referenceDigit}`);
     };
 
     return (
