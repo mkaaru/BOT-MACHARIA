@@ -296,12 +296,13 @@ const RunPanel = observer(() => {
         />
     );
 
-    const show_run_panel = [BOT_BUILDER, CHART, ANALYSIS_TOOL, SIGNALS, DBOT_TABS.AI_TRADER, DBOT_TABS.ML_TRADER].includes(active_tab) || active_tour;
-    if ((!show_run_panel && isDesktop) || active_tour === 'bot_builder') return null;
+    // Show run panel on all pages
+    const show_run_panel = true;
+    if (active_tour === 'bot_builder') return null;
 
     return (
         <>
-            <div cassName={!isDesktop && is_drawer_open ? 'run-panel__container--mobile' : 'run-panel'}>
+            <div className={!isDesktop && is_drawer_open ? 'run-panel__container--mobile' : 'run-panel'}>
                 <Drawer
                     anchor='right'
                     className={classNames('run-panel', {
