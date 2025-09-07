@@ -93,21 +93,21 @@ const TradingHubDisplay: React.FC = () => {
     const prepareRunPanelForTradingHub = useCallback(() => {
         if (run_panel) {
             run_panel.setIsRunning(true);
+            
+            // Set a unique run_id for Trading Hub session
+            if (!run_panel.run_id || run_panel.run_id.startsWith('run-')) {
+                run_panel.run_id = `trading-hub-${Date.now()}`;
+            }
 
             // Ensure transactions store is initialized
             if (run_panel.root_store?.transactions) {
-                const existingTransactions = run_panel.root_store.transactions.transactions || [];
-                const hasTradingHubTransactions = existingTransactions.some(tx => 
-                    typeof tx.data === 'object' && 
-                    (tx.data?.contract_type?.includes('DIGIT') || tx.data?.contract_type === 'O5U4_DUAL')
-                );
-
-                if (!hasTradingHubTransactions) {
-                    console.log('Initializing transactions store for Trading Hub');
-                }
+                console.log('Trading Hub: Transactions store ready');
+                
+                // Force observable update
+                run_panel.root_store.transactions.elements = { ...run_panel.root_store.transactions.elements };
             }
 
-            console.log('Run panel prepared for Trading Hub');
+            console.log('Run panel prepared for Trading Hub with run_id:', run_panel.run_id);
         }
     }, [run_panel]);
 
@@ -278,45 +278,48 @@ const TradingHubDisplay: React.FC = () => {
                                     actualProfit = profit < 0 ? profit : -buyPrice;
                                 }
 
-                                const profitPercentage = buyPrice > 0 ? ((actualProfit / buyPrice) * 100).toFixed(2) : '0.00';
-                                const contractIdNum = typeof contractId === 'string' ? parseInt(contractId.replace(/[^0-9]/g, ''), 10) : contractId;
+                                const contractIdNum = parseInt(contractId.toString().replace(/[^0-9]/g, ''), 10) || Date.now();
+                                const currentTime = new Date().toISOString();
 
+                                // Create transaction in the exact format expected by transactions-store
                                 const formattedTransaction = {
                                     contract_id: contractIdNum,
                                     transaction_ids: {
                                         buy: contractIdNum,
-                                        sell: contractData.transaction_ids?.sell || contractIdNum + 1
+                                        sell: contractData.transaction_ids?.sell || (contractIdNum + 1)
                                     },
-                                    buy_price: buyPrice,
-                                    sell_price: isWin ? (sellPrice || payout || (buyPrice + actualProfit)) : 0,
-                                    profit: actualProfit,
+                                    buy_price: parseFloat(buyPrice.toString()),
+                                    sell_price: isWin ? parseFloat((sellPrice || payout || (buyPrice + Math.abs(actualProfit))).toString()) : 0,
+                                    profit: parseFloat(actualProfit.toString()),
                                     currency: client?.currency || 'USD',
                                     contract_type: contractType || 'DIGITOVER',
                                     underlying: symbol || 'R_100',
                                     shortcode: contractData.shortcode || `${contractType}_${symbol}_${contractIdNum}`,
                                     display_name: contractData.display_name || `${contractType} on ${symbol}`,
-                                    date_start: contractData.date_start || new Date().toISOString(),
-                                    entry_tick_display_value: contractData.entry_spot || contractData.entry_tick || 0,
-                                    exit_tick_display_value: contractData.exit_spot || contractData.exit_tick || 0,
-                                    entry_tick_time: contractData.entry_tick_time || contractData.date_start || new Date().toISOString(),
-                                    exit_tick_time: contractData.exit_tick_time || new Date().toISOString(),
+                                    longcode: `${contractType} prediction on ${symbol}`,
+                                    date_start: contractData.date_start || currentTime,
+                                    date_expiry: contractData.exit_tick_time || currentTime,
+                                    entry_tick_display_value: parseFloat((contractData.entry_spot || contractData.entry_tick || 0).toString()),
+                                    exit_tick_display_value: parseFloat((contractData.exit_spot || contractData.exit_tick || 0).toString()),
+                                    entry_tick_time: contractData.entry_tick_time || contractData.date_start || currentTime,
+                                    exit_tick_time: contractData.exit_tick_time || currentTime,
                                     barrier: contractData.barrier || '',
                                     tick_count: contractData.tick_count || 1,
-                                    payout: isWin ? (payout || sellPrice || (buyPrice + Math.abs(actualProfit))) : 0,
+                                    payout: isWin ? parseFloat((payout || sellPrice || (buyPrice + Math.abs(actualProfit))).toString()) : 0,
+                                    bid_price: parseFloat(buyPrice.toString()),
                                     is_completed: true,
                                     is_sold: true,
-                                    profit_percentage: profitPercentage,
-                                    status: isWin ? 'won' : 'lost',
-                                    // Additional fields for compatibility
-                                    longcode: `${contractType} prediction on ${symbol}`,
+                                    is_ended: true,
+                                    status: isWin ? 'won' : 'sold',
                                     app_id: 16929,
-                                    purchase_time: contractData.date_start || new Date().toISOString(),
-                                    sell_time: contractData.exit_tick_time || new Date().toISOString(),
-                                    transaction_time: new Date().toISOString()
+                                    purchase_time: contractData.date_start || currentTime,
+                                    sell_time: contractData.exit_tick_time || currentTime,
+                                    // Add run_id for proper grouping
+                                    run_id: run_panel.run_id || `trading-hub-${Date.now()}`
                                 };
 
-                                // Force the transaction store to update immediately
-                                run_panel.root_store.transactions.onBotContractEvent(formattedTransaction);
+                                // Log the transaction to run panel's transaction store
+                                run_panel.root_store.transactions.pushTransaction(formattedTransaction);
 
                                 console.log(`✅ Transaction logged to run panel:`, {
                                     contract_id: contractId,
