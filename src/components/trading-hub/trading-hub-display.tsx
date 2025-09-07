@@ -261,10 +261,10 @@ const TradingHubDisplay: React.FC = () => {
                             strategy_active: isAutoOverUnderActive ? 'Over/Under' : isAutoDifferActive ? 'Differ' : 'O5U4'
                         });
 
-                        // Create transaction entry for run panel with correct win/loss status
+                        // Create transaction entry for run panel with correct win/loss status - ONLY AFTER SETTLEMENT
                         if (run_panel?.root_store?.transactions) {
                             try {
-                                // Calculate actual profit more accurately for Over/Under
+                                // Calculate actual profit more accurately
                                 let actualProfit;
                                 if (isWin) {
                                     // For wins, use the actual profit or calculate from payout
@@ -284,7 +284,7 @@ const TradingHubDisplay: React.FC = () => {
                                         sell: contractData.transaction_ids?.sell || contractIdNum + 1
                                     },
                                     buy_price: buyPrice,
-                                    sell_price: isWin ? sellPrice : 0,
+                                    sell_price: isWin ? (sellPrice || payout) : 0,
                                     profit: actualProfit,
                                     currency: client?.currency || 'USD',
                                     contract_type: contractType || 'DIGITOVER',
@@ -298,7 +298,7 @@ const TradingHubDisplay: React.FC = () => {
                                     exit_tick_time: contractData.exit_tick_time || new Date().toISOString(),
                                     barrier: contractData.barrier || '',
                                     tick_count: contractData.tick_count || 1,
-                                    payout: isWin ? payout : 0,
+                                    payout: isWin ? (payout || sellPrice || buyPrice * 1.95) : 0,
                                     is_completed: true,
                                     is_sold: true,
                                     profit_percentage: profitPercentage,
@@ -311,16 +311,19 @@ const TradingHubDisplay: React.FC = () => {
                                     transaction_time: new Date().toISOString()
                                 };
 
+                                // Log the transaction ONLY when the contract is settled with the correct outcome
                                 run_panel.root_store.transactions.onBotContractEvent(formattedTransaction);
 
-                                console.log(`✅ Transaction recorded correctly:`, {
+                                console.log(`✅ Final transaction logged:`, {
                                     contract_id: contractId,
                                     result: isWin ? 'WIN' : 'LOSS',
-                                    profit: actualProfit,
-                                    profit_percentage: profitPercentage + '%'
+                                    actual_profit: actualProfit,
+                                    stake: buyPrice,
+                                    payout: isWin ? (payout || sellPrice) : 0,
+                                    status: contractData.status
                                 });
                             } catch (error) {
-                                console.error('Failed to add transaction to run panel:', error);
+                                console.error('Failed to add settled transaction to run panel:', error);
                             }
                         }
 
@@ -344,6 +347,19 @@ const TradingHubDisplay: React.FC = () => {
                         const tradeType = isO5U4Part ? 'O5U4 Part' : 'Over/Under';
                         globalObserver.emit('ui.log.info', 
                             `${tradeType} Contract ${contractId}: ${isWin ? 'WON' : 'LOST'} - Profit: ${profit.toFixed(2)}`);
+
+                        // Log to journal ONLY after settlement with correct outcome
+                        if (!isO5U4Part && run_panel?.root_store?.journal) {
+                            const actualProfit = isWin ? 
+                                (profit > 0 ? profit : (payout > 0 ? payout - buyPrice : sellPrice - buyPrice)) : 
+                                -Math.abs(buyPrice);
+                            const journalMessage = isWin ? 
+                                `✅ Trade WON: ${symbol} - Profit: +${actualProfit.toFixed(2)} ${client?.currency || 'USD'}` :
+                                `❌ Trade LOST: ${symbol} - Loss: ${actualProfit.toFixed(2)} ${client?.currency || 'USD'}`;
+                            run_panel.root_store.journal.pushMessage(journalMessage, isWin ? 'success' : 'error', '', { 
+                                current_currency: client?.currency || 'USD' 
+                            });
+                        }
 
                         resolve(isWin);
                     }
@@ -574,43 +590,9 @@ const TradingHubDisplay: React.FC = () => {
                 const buyPrice = response.buy.buy_price;
                 globalObserver.emit('ui.log.success', `Trade executed: ${contractId} - Cost: ${buyPrice}`);
 
-                // Log purchase to journal (using component-level stores)
-                if (run_panel?.root_store?.journal) {
-                    const logMessage = `📈 Contract Purchased: ${symbol} - Stake: ${buyPrice} ${client?.currency || 'USD'}`;
-                    run_panel.root_store.journal.pushMessage(logMessage, 'notify', '', { 
-                        current_currency: client?.currency || 'USD' 
-                    });
-                } else {
-                    console.warn('Run panel journal not available for logging');
-                }
+                // Don't log to journal yet - wait for contract outcome to log final result
 
-                // Log purchase to transactions store (using component-level stores)
-                if (run_panel?.root_store?.transactions) {
-                    const contractData = {
-                        contract_id: contractId,
-                        transaction_ids: {
-                            buy: contractId,
-                            sell: null
-                        },
-                        display_name: symbol,
-                        buy_price: buyPrice,
-                        payout: 0,
-                        profit: 0,
-                        bid_price: 0,
-                        currency: client?.currency || 'USD',
-                        date_start: new Date().toISOString(),
-                        entry_tick_display_value: '',
-                        entry_tick_time: new Date().toISOString(),
-                        exit_tick_display_value: '',
-                        exit_tick_time: '',
-                        barrier: '',
-                        is_completed: false,
-                        status: 'open'
-                    };
-                    run_panel.root_store.transactions.onBotContractEvent(contractData);
-                } else {
-                    console.warn('Transactions store not available for logging');
-                }
+                // Don't log to transactions store yet - wait for contract outcome
 
                 // Update balance immediately after purchase
                 if (!isO5U4Part) {
