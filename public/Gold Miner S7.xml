@@ -205,6 +205,105 @@
       </block>
     </statement>
   </block>
+  <block type="before_purchase" id="MEfW!,-IYA)Nw|N9:]Q]" deletable="false" x="0" y="1182">
+    <statement name="BEFOREPURCHASE_STACK">
+      <block type="controls_if" id="R0vsH,PsJ=PiWfihffVt">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
+        <value name="IF0">
+          <block type="logic_compare" id="^HM6~adG*H,NCT{Wbjh:">
+            <field name="OP">EQ</field>
+            <value name="A">
+              <block type="variables_get" id="H7PW59RD?,Kp?xpJN!c.">
+                <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
+              </block>
+            </value>
+            <value name="B">
+              <block type="text" id="bl*30(v6`wbHz=v;rA!n">
+                <field name="TEXT">analysis</field>
+              </block>
+            </value>
+          </block>
+        </value>
+        <statement name="DO0">
+          <block type="controls_if" id=")l1fu6j4Picu4#dk`oYK">
+            <value name="IF0">
+              <block type="logic_compare" id="YDm+8EqUYBhaq.NKEp(~">
+                <field name="OP">EQ</field>
+                <value name="A">
+                  <block type="variables_get" id="h+w4=F)E*A#TqpF:{tjr">
+                    <field name="VAR" id="o!-=j_eJZCfW(+iV7;MS">Tick 1</field>
+                  </block>
+                </value>
+                <value name="B">
+                  <block type="variables_get" id=".b/[NSo_Mz(b6aE81#V)">
+                    <field name="VAR" id="x`Ia+qCu@StiaJI^X([4">Entrypoint-Digit</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="ceo_purchase" id=":Nx^]Pu__xj[_w$h8*VZ">
+                <field name="PURCHASE_LIST">DIGITUNDER</field>
+              </block>
+            </statement>
+          </block>
+        </statement>
+        <value name="IF1">
+          <block type="logic_compare" id="xXd9JKFx4pk]?ruXi_)Q">
+            <field name="OP">EQ</field>
+            <value name="A">
+              <block type="variables_get" id="?W~D%e;EO6*1n?vUBo[K">
+                <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
+              </block>
+            </value>
+            <value name="B">
+              <block type="text" id="S+;:1.@y=QJ|.W}#68lZ">
+                <field name="TEXT">gk</field>
+              </block>
+            </value>
+          </block>
+        </value>
+        <statement name="DO1">
+          <block type="ceo_purchase" id="zOCam5W}Z-j~)}t9XOPF">
+            <field name="PURCHASE_LIST">DIGITUNDER</field>
+          </block>
+        </statement>
+        <statement name="ELSE">
+          <block type="controls_if" id="=#FQ-DvRG:x+k:/=:zpM">
+            <value name="IF0">
+              <block type="logic_compare" id=",I!4r$s27MG}~,]ac,}h">
+                <field name="OP">EQ</field>
+                <value name="A">
+                  <block type="variables_get" id="_P#Y0$pohq8}Ts^*+c:p">
+                    <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
+                  </block>
+                </value>
+                <value name="B">
+                  <block type="text" id="p,(0|5+OX`Wl^!aVU)`-">
+                    <field name="TEXT">Mkorean SV7</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="timeout" id="6;XYzu@SIXmr7.^#Y)xR">
+                <statement name="TIMEOUTSTACK">
+                  <block type="ceo_purchase" id="BvzdHe]!O+GD=E;c7NS6">
+                    <field name="PURCHASE_LIST">DIGITUNDER</field>
+                  </block>
+                </statement>
+                <value name="SECONDS">
+                  <block type="math_number" id="D`@0lu|rfT;R}~mS;Y=0">
+                    <field name="NUM">0</field>
+                  </block>
+                </value>
+              </block>
+            </statement>
+          </block>
+        </statement>
+      </block>
+    </statement>
+  </block>
   <block type="after_purchase" id="ymTrZ2T/bD#hXN^}%;gD" x="884" y="60">
     <statement name="AFTERPURCHASE_STACK">
       <block type="controls_if" id="aZ/eJwRn+2B?g?#!Rb%#">
@@ -545,105 +644,6 @@
                 </next>
               </block>
             </next>
-          </block>
-        </statement>
-      </block>
-    </statement>
-  </block>
-  <block type="before_purchase" id="MEfW!,-IYA)Nw|N9:]Q]" deletable="false" x="0" y="1182">
-    <statement name="BEFOREPURCHASE_STACK">
-      <block type="controls_if" id="R0vsH,PsJ=PiWfihffVt">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
-        <value name="IF0">
-          <block type="logic_compare" id="^HM6~adG*H,NCT{Wbjh:">
-            <field name="OP">EQ</field>
-            <value name="A">
-              <block type="variables_get" id="H7PW59RD?,Kp?xpJN!c.">
-                <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
-              </block>
-            </value>
-            <value name="B">
-              <block type="text" id="bl*30(v6`wbHz=v;rA!n">
-                <field name="TEXT">analysis</field>
-              </block>
-            </value>
-          </block>
-        </value>
-        <statement name="DO0">
-          <block type="controls_if" id=")l1fu6j4Picu4#dk`oYK">
-            <value name="IF0">
-              <block type="logic_compare" id="YDm+8EqUYBhaq.NKEp(~">
-                <field name="OP">EQ</field>
-                <value name="A">
-                  <block type="variables_get" id="h+w4=F)E*A#TqpF:{tjr">
-                    <field name="VAR" id="o!-=j_eJZCfW(+iV7;MS">Tick 1</field>
-                  </block>
-                </value>
-                <value name="B">
-                  <block type="variables_get" id=".b/[NSo_Mz(b6aE81#V)">
-                    <field name="VAR" id="x`Ia+qCu@StiaJI^X([4">Entrypoint-Digit</field>
-                  </block>
-                </value>
-              </block>
-            </value>
-            <statement name="DO0">
-              <block type="ceo_purchase" id=":Nx^]Pu__xj[_w$h8*VZ">
-                <field name="PURCHASE_LIST">DIGITUNDER</field>
-              </block>
-            </statement>
-          </block>
-        </statement>
-        <value name="IF1">
-          <block type="logic_compare" id="xXd9JKFx4pk]?ruXi_)Q">
-            <field name="OP">EQ</field>
-            <value name="A">
-              <block type="variables_get" id="?W~D%e;EO6*1n?vUBo[K">
-                <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
-              </block>
-            </value>
-            <value name="B">
-              <block type="text" id="S+;:1.@y=QJ|.W}#68lZ">
-                <field name="TEXT">gk</field>
-              </block>
-            </value>
-          </block>
-        </value>
-        <statement name="DO1">
-          <block type="ceo_purchase" id="zOCam5W}Z-j~)}t9XOPF">
-            <field name="PURCHASE_LIST">DIGITUNDER</field>
-          </block>
-        </statement>
-        <statement name="ELSE">
-          <block type="controls_if" id="=#FQ-DvRG:x+k:/=:zpM">
-            <value name="IF0">
-              <block type="logic_compare" id=",I!4r$s27MG}~,]ac,}h">
-                <field name="OP">EQ</field>
-                <value name="A">
-                  <block type="variables_get" id="_P#Y0$pohq8}Ts^*+c:p">
-                    <field name="VAR" id="+L:nET.PS2OXV5VNGInM">Analysis</field>
-                  </block>
-                </value>
-                <value name="B">
-                  <block type="text" id="p,(0|5+OX`Wl^!aVU)`-">
-                    <field name="TEXT">Mkorean SV7</field>
-                  </block>
-                </value>
-              </block>
-            </value>
-            <statement name="DO0">
-              <block type="timeout" id="6;XYzu@SIXmr7.^#Y)xR">
-                <statement name="TIMEOUTSTACK">
-                  <block type="ceo_purchase" id="BvzdHe]!O+GD=E;c7NS6">
-                    <field name="PURCHASE_LIST">DIGITUNDER</field>
-                  </block>
-                </statement>
-                <value name="SECONDS">
-                  <block type="math_number" id="D`@0lu|rfT;R}~mS;Y=0">
-                    <field name="NUM">0</field>
-                  </block>
-                </value>
-              </block>
-            </statement>
           </block>
         </statement>
       </block>
