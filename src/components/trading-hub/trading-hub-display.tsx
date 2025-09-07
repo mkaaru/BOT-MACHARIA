@@ -1113,6 +1113,60 @@ const TradingHubDisplay: React.FC = () => {
     const winRate = totalTrades > 0 ? ((winCount / totalTrades) * 100).toFixed(1) : '0';
     const hasActiveStrategy = isAutoDifferActive || isAutoOverUnderActive || isAutoO5U4Active;
 
+    // Advanced Analysis State
+    const [showAdvancedAnalysis, setShowAdvancedAnalysis] = useState(false);
+    const [analysisStakeAmount, setAnalysisStakeAmount] = useState('1');
+    const [referenceDigit, setReferenceDigit] = useState('5');
+    const [analysisCount, setAnalysisTickCount] = useState('120');
+    const [activeSymbols, setActiveSymbols] = useState(['R_10', 'R_25', 'R_50', 'R_75', 'R_100']);
+    const [recentTicks, setRecentTicks] = useState([1, 8, 1, 6, 4, 2, 7, 3, 5, 8]);
+    const [isAnalysisRunning, setIsAnalysisRunning] = useState(false);
+
+    // Toggle advanced analysis
+    const toggleAdvancedAnalysis = useCallback(() => {
+        setShowAdvancedAnalysis(prev => !prev);
+        if (!showAdvancedAnalysis && !isAnalysisRunning) {
+            // Start analysis when opening
+            setIsAnalysisRunning(true);
+            globalObserver.emit('ui.log.info', 'Advanced analysis started');
+        }
+    }, [showAdvancedAnalysis, isAnalysisRunning]);
+
+    // Apply analysis settings
+    const applyAnalysisSettings = useCallback(() => {
+        const settings = {
+            stake: analysisStakeAmount,
+            referenceDigit: referenceDigit,
+            analysisCount: analysisCount,
+            symbols: activeSymbols
+        };
+        
+        console.log('Applied analysis settings:', settings);
+        globalObserver.emit('ui.log.success', `Analysis settings applied - Stake: ${analysisStakeAmount}, Reference: ${referenceDigit}`);
+        
+        // Update applied stake to match analysis
+        setAppliedStake(analysisStakeAmount);
+        currentStakeRef.current = analysisStakeAmount;
+        
+        // Restart analysis with new settings
+        setIsAnalysisRunning(true);
+    }, [analysisStakeAmount, referenceDigit, analysisCount, activeSymbols]);
+
+    // Simulate tick updates for advanced analysis
+    useEffect(() => {
+        if (!isAnalysisRunning) return;
+
+        const interval = setInterval(() => {
+            const newTick = Math.floor(Math.random() * 10);
+            setRecentTicks(prev => {
+                const updated = [...prev.slice(1), newTick];
+                return updated;
+            });
+        }, 2000);
+
+        return () => clearInterval(interval);
+    }, [isAnalysisRunning]);
+
     return (
         <div className="trading-hub-modern">
             <div className="hub-header">
@@ -1129,10 +1183,22 @@ const TradingHubDisplay: React.FC = () => {
                         </div>
                     </div>
 
+                    <div className="header-controls">
+                        <button
+                            className={`advanced-analysis-toggle ${showAdvancedAnalysis ? 'active' : ''}`}
+                            onClick={toggleAdvancedAnalysis}
+                        >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M3 3h18v18H3zM5 7v10h4V7zm6 0v10h4V7zm6 0v10h2V7z"/>
+                            </svg>
+                            Advanced Analysis
+                        </button>
+                    </div></old_str>
+
                     <div className="settings-controls">
                         <div className="control-group">
                             <label>Initial Stake</label>
-                            <input
+                            <input</old_str>
                                 type="number"
                                 value={initialStake}
                                 onChange={(e) => {
@@ -1191,8 +1257,188 @@ const TradingHubDisplay: React.FC = () => {
                 </div>
             </div>
 
+            {/* Advanced Analysis Panel */}
+            {showAdvancedAnalysis && (
+                <div className="advanced-analysis-panel">
+                    <div className="analysis-header">
+                        <h2>MARKET ANALYSIS TOOLS</h2>
+                        <div className="analysis-status">
+                            <div className="status-dot ready"></div>
+                            <span>Authenticated</span>
+                            <button 
+                                className="logout-btn"
+                                onClick={() => globalObserver.emit('ui.log.info', 'Logout requested')}
+                            >
+                                Log Out
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="analysis-content">
+                        <div className="analysis-left">
+                            <div className="analysis-controls">
+                                <div className="control-section">
+                                    <div className="control-row">
+                                        <div className="control-group">
+                                            <label>Stake Amount (USD):</label>
+                                            <input
+                                                type="number"
+                                                value={analysisStakeAmount}
+                                                onChange={(e) => setAnalysisStakeAmount(e.target.value)}
+                                                className="analysis-input"
+                                                step="0.01"
+                                                min="0.35"
+                                            />
+                                        </div>
+                                        <div className="control-group">
+                                            <label>Reference Digit (0-9):</label>
+                                            <input
+                                                type="number"
+                                                value={referenceDigit}
+                                                onChange={(e) => setReferenceDigit(e.target.value)}
+                                                className="analysis-input"
+                                                min="0"
+                                                max="9"
+                                            />
+                                        </div>
+                                        <div className="control-group">
+                                            <label>Analysis Count:</label>
+                                            <input
+                                                type="number"
+                                                value={analysisCount}
+                                                onChange={(e) => setAnalysisTickCount(e.target.value)}
+                                                className="analysis-input"
+                                                min="50"
+                                                max="500"
+                                            />
+                                        </div>
+                                        <button
+                                            className="apply-settings-btn"
+                                            onClick={applyAnalysisSettings}
+                                        >
+                                            Apply Settings
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="symbol-selector">
+                                    <label>Active Symbols:</label>
+                                    <div className="symbol-buttons">
+                                        {availableSymbols.map(symbol => (
+                                            <button
+                                                key={symbol}
+                                                className={`symbol-btn ${activeSymbols.includes(symbol) ? 'active' : ''}`}
+                                                onClick={() => {
+                                                    setActiveSymbols(prev => 
+                                                        prev.includes(symbol)
+                                                            ? prev.filter(s => s !== symbol)
+                                                            : [...prev, symbol]
+                                                    );
+                                                }}
+                                            >
+                                                {symbol.replace('_', ' ')}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="recent-ticks-section">
+                                    <label>Recent Ticks:</label>
+                                    <div className="ticks-display">
+                                        {recentTicks.map((tick, index) => (
+                                            <div 
+                                                key={index} 
+                                                className={`tick-circle ${tick % 2 === 0 ? 'even' : 'odd'}`}
+                                            >
+                                                {tick}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="analysis-right">
+                            <div className="analysis-chart">
+                                <div className="chart-header">
+                                    <h3>Tick Analysis</h3>
+                                    <div className="chart-controls">
+                                        <button 
+                                            className={`analysis-btn ${isAnalysisRunning ? 'stop' : 'start'}`}
+                                            onClick={() => {
+                                                setIsAnalysisRunning(!isAnalysisRunning);
+                                                globalObserver.emit('ui.log.info', 
+                                                    isAnalysisRunning ? 'Analysis stopped' : 'Analysis started');
+                                            }}
+                                        >
+                                            {isAnalysisRunning ? 'Stop Analysis' : 'Start Analysis'}
+                                        </button>
+                                        <div className="settings-btn">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="chart-content">
+                                    <div className="tick-visualization">
+                                        <div className="digit-frequency">
+                                            <h4>Digit Frequency Analysis</h4>
+                                            <div className="frequency-bars">
+                                                {[0,1,2,3,4,5,6,7,8,9].map(digit => {
+                                                    const frequency = recentTicks.filter(tick => tick === digit).length;
+                                                    const percentage = (frequency / recentTicks.length) * 100;
+                                                    return (
+                                                        <div key={digit} className="frequency-bar">
+                                                            <div className="bar-label">{digit}</div>
+                                                            <div className="bar-container">
+                                                                <div 
+                                                                    className="bar-fill"
+                                                                    style={{ height: `${percentage * 2}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <div className="bar-value">{frequency}</div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        <div className="pattern-analysis">
+                                            <h4>Pattern Recognition</h4>
+                                            <div className="pattern-stats">
+                                                <div className="stat-item">
+                                                    <span className="stat-label">Even/Odd Ratio:</span>
+                                                    <span className="stat-value">
+                                                        {recentTicks.filter(t => t % 2 === 0).length} / 
+                                                        {recentTicks.filter(t => t % 2 === 1).length}
+                                                    </span>
+                                                </div>
+                                                <div className="stat-item">
+                                                    <span className="stat-label">Over {referenceDigit}:</span>
+                                                    <span className="stat-value">
+                                                        {recentTicks.filter(t => t > parseInt(referenceDigit)).length}
+                                                    </span>
+                                                </div>
+                                                <div className="stat-item">
+                                                    <span className="stat-label">Under {referenceDigit}:</span>
+                                                    <span className="stat-value">
+                                                        {recentTicks.filter(t => t < parseInt(referenceDigit)).length}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="trading-content">
-                <div className="strategy-grid">
+                <div className="strategy-grid"></old_str>
                     {/* Auto Differ Strategy */}
                     <div className={`strategy-card ${isAutoDifferActive ? 'active' : ''}`}>
                         <div className="card-header">

@@ -330,11 +330,11 @@
                 /* Hide text on very small screens, show only icons */
                 @media (max-width: 320px) {
                     padding: 0 0.5rem;
-                    
+
                     span:not(.dc-tabs__item__icon) {
                         display: none;
                     }
-                    
+
                     svg {
                         margin-inline-end: 0;
                     }
@@ -2439,11 +2439,11 @@ font-family: 'Courier New', monospace;
   .auto-trades-container.matrix-theme {
     .trading-dashboard {
       grid-template-columns: repeat(2, 1fr);
-      
+
       .control-panel {
         grid-column: 1 / -1;
       }
-      
+
       .performance-metrics {
         grid-column: 1 / -1;
       }
@@ -2494,4 +2494,15 @@ font-family: 'Courier New', monospace;
       flex-shrink: 0;
     }
   }
+}
+
+.auto-trading-container {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+
+    .trading-hub-modern {
+        max-width: none;
+        width: 100%;
+    }
 }
