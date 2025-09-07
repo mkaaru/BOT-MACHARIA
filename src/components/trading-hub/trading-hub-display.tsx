@@ -89,20 +89,30 @@ const TradingHubDisplay: React.FC = () => {
 
             // Ensure transactions store is initialized
             if (run_panel.root_store?.transactions) {
-                // Clear any existing transactions from previous sessions
-                // but don't clear if there are already Trading Hub transactions
+                // Initialize transactions array if not exists
+                if (!run_panel.root_store.transactions.transactions) {
+                    run_panel.root_store.transactions.transactions = [];
+                }
+                
                 const existingTransactions = run_panel.root_store.transactions.transactions || [];
                 const hasTradingHubTransactions = existingTransactions.some(tx => 
-                    typeof tx.data === 'object' && 
-                    (tx.data?.contract_type?.includes('DIGIT') || tx.data?.contract_type === 'O5U4_DUAL')
+                    tx.is_trading_hub_transaction === true || 
+                    (typeof tx.data === 'object' && 
+                     (tx.data?.contract_type?.includes('DIGIT') || tx.data?.contract_type === 'O5U4_DUAL'))
                 );
 
-                if (!hasTradingHubTransactions) {
-                    console.log('Initializing transactions store for Trading Hub');
-                }
+                console.log('Trading Hub transaction store initialized:', {
+                    hasTransactionsStore: !!run_panel.root_store.transactions,
+                    existingTransactionCount: existingTransactions.length,
+                    hasTradingHubTransactions
+                });
+            } else {
+                console.error('Transactions store not available in run panel');
             }
 
             console.log('Run panel prepared for Trading Hub');
+        } else {
+            console.error('Run panel not available for Trading Hub integration');
         }
     }, [run_panel]);
 
@@ -281,16 +291,17 @@ const TradingHubDisplay: React.FC = () => {
                                 }
 
                                 const profitPercentage = buyPrice > 0 ? ((actualProfit / buyPrice) * 100).toFixed(2) : '0.00';
-                                const contractIdNum = typeof contractId === 'string' ? parseInt(contractId.replace(/[^0-9]/g, ''), 10) : contractId;
+                                const contractIdNum = typeof contractId === 'string' ? parseInt(contractId.replace(/[^0-9]/g, ''), 10) || Math.floor(Math.random() * 1000000) : contractId;
 
                                 const formattedTransaction = {
+                                    id: contractIdNum,
                                     contract_id: contractIdNum,
                                     transaction_ids: {
                                         buy: contractIdNum,
                                         sell: contractData.transaction_ids?.sell || contractIdNum + 1
                                     },
                                     buy_price: buyPrice,
-                                    sell_price: isWin ? sellPrice : 0,
+                                    sell_price: isWin ? (sellPrice || (buyPrice + actualProfit)) : 0,
                                     profit: actualProfit,
                                     currency: client?.currency || 'USD',
                                     contract_type: contractType || 'DIGITOVER',
@@ -298,37 +309,51 @@ const TradingHubDisplay: React.FC = () => {
                                     shortcode: contractData.shortcode || `${contractType}_${symbol}_${contractIdNum}`,
                                     display_name: contractData.display_name || `${contractType} on ${symbol}`,
                                     date_start: contractData.date_start || new Date().toISOString(),
-                                    entry_tick_display_value: contractData.entry_spot || contractData.entry_tick || 0,
-                                    exit_tick_display_value: contractData.exit_spot || contractData.exit_tick || 0,
+                                    entry_tick_display_value: contractData.entry_spot || contractData.entry_tick || '0.00000',
+                                    exit_tick_display_value: contractData.exit_spot || contractData.exit_tick || '0.00000',
                                     entry_tick_time: contractData.entry_tick_time || contractData.date_start || new Date().toISOString(),
                                     exit_tick_time: contractData.exit_tick_time || new Date().toISOString(),
                                     barrier: contractData.barrier || '',
                                     tick_count: contractData.tick_count || 1,
-                                    payout: isWin ? payout : 0,
+                                    payout: isWin ? (payout || (buyPrice + actualProfit)) : 0,
                                     is_completed: true,
                                     is_sold: true,
                                     profit_percentage: profitPercentage,
                                     status: isWin ? 'won' : 'lost',
-                                    // Additional fields
+                                    is_valid_to_sell: false,
+                                    // Additional required fields for transaction display
                                     longcode: `${contractType} prediction on ${symbol}`,
                                     app_id: 16929,
                                     purchase_time: contractData.date_start || new Date().toISOString(),
                                     sell_time: contractData.exit_tick_time || new Date().toISOString(),
-                                    transaction_time: new Date().toISOString()
+                                    transaction_time: new Date().toISOString(),
+                                    // Trading Hub specific identifier
+                                    is_trading_hub_transaction: true
                                 };
 
+                                // Use the correct method to add transaction
                                 run_panel.root_store.transactions.onBotContractEvent(formattedTransaction);
+                                
+                                // Force a re-render of transactions
+                                if (run_panel.root_store.transactions.transactions) {
+                                    run_panel.root_store.transactions.transactions = [
+                                        ...run_panel.root_store.transactions.transactions,
+                                        formattedTransaction
+                                    ];
+                                }
 
                                 console.log(`✅ Transaction recorded correctly:`, {
                                     contract_id: contractId,
                                     result: isWin ? 'WIN' : 'LOSS',
                                     profit: actualProfit,
-                                    profit_percentage: profitPercentage + '%'
+                                    profit_percentage: profitPercentage + '%',
+                                    total_transactions: run_panel.root_store.transactions.transactions?.length || 0
                                 });
                             } catch (error) {
                                 console.error('Failed to add transaction to run panel:', error);
                             }
-                        }
+                        } else {
+                            console.warn('Run panel or transactions store not available for logging');
 
                         // Update balance and cleanup for non-O5U4 trades
                         if (!isO5U4Part) {
@@ -936,6 +961,12 @@ const TradingHubDisplay: React.FC = () => {
 
             prepareRunPanelForTradingHub();
             setIsContinuousTrading(true);
+            
+            // Ensure run panel is in running state
+            if (run_panel) {
+                run_panel.setIsRunning(true);
+                console.log('Run panel set to running state for Trading Hub');
+            }
 
             // Verify run panel stores are available
             if (!run_panel?.root_store?.transactions) {
