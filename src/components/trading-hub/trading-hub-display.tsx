@@ -1193,7 +1193,12 @@ const TradingHubDisplay: React.FC = () => {
                             </svg>
                             Advanced Analysis
                         </button>
-                    </div></old_str>
+                    </div>
+
+                    <div className="settings-controls">
+                        <div className="control-group">
+                            <label>Initial Stake</label>
+                            <input</old_str>
 
                     <div className="settings-controls">
                         <div className="control-group">
