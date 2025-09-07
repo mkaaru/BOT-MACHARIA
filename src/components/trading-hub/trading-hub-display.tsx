@@ -1337,16 +1337,6 @@ const TradingHubDisplay: React.FC = () => {
                 </div>
             </div>
 
-            {/* Profit/Loss Display */}
-            <ProfitLossDisplay
-                totalProfit={profitLoss}
-                totalStake={totalStake}
-                totalPayout={totalPayout}
-                currency={client?.currency || 'USD'}
-                winRate={parseFloat(winRate)}
-                totalTrades={totalTrades}
-            />
-
             <div className="trading-content">
                 <div className="strategy-grid">
                     {/* Auto Differ Strategy */}
@@ -1546,105 +1536,7 @@ const TradingHubDisplay: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Statistics Dashboard */}
-                <div className="stats-dashboard">
-                    <div className="stats-grid">
-                        <div className="stat-card wins">
-                            <div className="stat-header">
-                                <div className="stat-icon">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                                    </svg>
-                                </div>
-                                <span>Wins</span>
-                            </div>
-                            <div className="stat-value">{winCount}</div>
-                        </div>
-
-                        <div className="stat-card losses">
-                            <div className="stat-header">
-                                <div className="stat-icon">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                                    </svg>
-                                </div>
-                                <span>Losses</span>
-                            </div>
-                            <div className="stat-value">{lossCount}</div>
-                        </div>
-
-                        <div className="stat-card winrate">
-                            <div className="stat-header">
-                                <div className="stat-icon">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                        <circle cx="12" cy="12" r="10"/>
-                                        <path d="l9 12 2 2 4-4"/>
-                                    </svg>
-                                </div>
-                                <span>Win Rate</span>
-                            </div>
-                            <div className="stat-value">{winRate}%</div>
-                        </div>
-
-                        <div className="stat-card current-stake">
-                            <div className="stat-header">
-                                <div className="stat-icon">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                                    </svg>
-                                </div>
-                                <span>Current Stake</span>
-                            </div>
-                            <div className="stat-value">${appliedStake}</div>
-                        </div>
-
-                        <div className="stat-card profit-loss">
-                            <div className="stat-header">
-                                <div className="stat-icon">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18 9 12 13 16l6.3-6.29L22 12V6z"/>
-                                    </svg>
-                                </div>
-                                <span>P&L</span>
-                            </div>
-                            <div className={`stat-value ${profitLoss >= 0 ? 'positive' : 'negative'}`}>
-                                ${profitLoss.toFixed(2)}
-                            </div>
-                        </div>
-
-                        <div className="stat-card total-trades">
-                            <div className="stat-header">
-                                <div className="stat-icon">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M3 3h18v18H3zM5 7v10h4V7zm6 0v10h4V7zm6 0v10h2V7z"/>
-                                    </svg>
-                                </div>
-                                <span>Total Trades</span>
-                            </div>
-                            <div className="stat-value">{totalTrades}</div>
-                        </div>
-                    </div>
-
-                    {lastTradeResult && (
-                        <div className={`last-trade-result ${lastTradeResult.toLowerCase().includes('win') || lastTradeResult.toLowerCase().includes('profit') ? 'win' : 'loss'}`}>
-                            <div className="result-icon">
-                                {lastTradeResult === 'WIN' || lastTradeResult.includes('Profit') ? (
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                                    </svg>
-                                ) : (
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                                    </svg>
-                                )}
-                            </div>
-                            <span>Last Trade: {lastTradeResult}</span>
-                            <div className="trade-details">
-                                Consecutive Losses: {consecutiveLosses}
-                            </div>
-                        </div>
-                    )}
-                </div>
+                
             </div>
 
             {/* Advanced Display Modal */}
