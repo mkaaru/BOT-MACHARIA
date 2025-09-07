@@ -1,0 +1,53 @@
+
+.display-toggle {
+    .toggle-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+
+        .toggle-label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+
+            &.active {
+                color: #4ade80;
+            }
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+
+            &.advanced {
+                background: linear-gradient(135deg, #4ade80, #22d3ee);
+            }
+
+            .toggle-slider {
+                position: absolute;
+                top: 2px;
+                left: 2px;
+                width: 20px;
+                height: 20px;
+                background: white;
+                border-radius: 50%;
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            }
+
+            &.advanced .toggle-slider {
+                transform: translateX(24px);
+            }
+        }
+    }
+}

@@ -1,0 +1,178 @@
+
+.profit-loss-display {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 20px;
+
+    .profit-loss-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+
+        h3 {
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .summary-stats {
+            display: flex;
+            gap: 20px;
+
+            .stat-item {
+                color: rgba(255, 255, 255, 0.7);
+                font-size: 0.9rem;
+                font-weight: 500;
+            }
+        }
+    }
+
+    .profit-loss-main {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+
+        .total-profit {
+            text-align: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+
+            &.profit {
+                border-color: #10b981;
+                background: rgba(16, 185, 129, 0.1);
+            }
+
+            &.loss {
+                border-color: #ef4444;
+                background: rgba(239, 68, 68, 0.1);
+            }
+
+            .profit-label {
+                color: rgba(255, 255, 255, 0.7);
+                font-size: 0.9rem;
+                margin-bottom: 8px;
+            }
+
+            .profit-value {
+                font-size: 1.8rem;
+                font-weight: 700;
+                margin-bottom: 4px;
+
+                .profit & {
+                    color: #10b981;
+                }
+
+                .loss & {
+                    color: #ef4444;
+                }
+            }
+
+            .profit-percentage {
+                color: rgba(255, 255, 255, 0.6);
+                font-size: 0.8rem;
+            }
+        }
+
+        .profit-breakdown {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+
+            .breakdown-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 0;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+                &:last-child {
+                    border-bottom: none;
+                    font-weight: 600;
+                }
+
+                .breakdown-label {
+                    color: rgba(255, 255, 255, 0.7);
+                    font-size: 0.9rem;
+                }
+
+                .breakdown-value {
+                    color: white;
+                    font-size: 0.9rem;
+                    font-weight: 500;
+
+                    &.profit {
+                        color: #10b981;
+                    }
+
+                    &.loss {
+                        color: #ef4444;
+                    }
+                }
+            }
+        }
+    }
+
+    .profit-loss-chart {
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+
+            .chart-bar {
+                position: relative;
+                height: 24px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 12px;
+                overflow: hidden;
+
+                .bar-fill {
+                    height: 100%;
+                    border-radius: 12px;
+                    transition: all 0.3s ease;
+                }
+
+                .bar-label {
+                    position: absolute;
+                    left: 12px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    color: white;
+                    font-size: 0.8rem;
+                    font-weight: 500;
+                }
+
+                &.stake .bar-fill {
+                    background: linear-gradient(90deg, #6b7280, #4b5563);
+                }
+
+                &.payout .bar-fill {
+                    background: linear-gradient(90deg, #10b981, #059669);
+                }
+            }
+        }
+    }
+}
+
+@media (max-width: 768px) {
+    .profit-loss-display {
+        padding: 15px;
+
+        .profit-loss-header {
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .profit-loss-main {
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+    }
+}

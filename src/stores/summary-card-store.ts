@@ -1,4 +1,3 @@
-
 import { action, computed, makeObservable, observable, reaction, runInAction } from 'mobx';
 import {
     getIndicativePrice,
@@ -27,7 +26,7 @@ type TMovements = {
 };
 
 export default class SummaryCardStore {
-    
+
     // Method to update balance from trading hub
     updateBalance = (newBalance: number) => {
         // This will trigger balance updates in the UI
@@ -48,7 +47,7 @@ export default class SummaryCardStore {
         losses: number;
         profit_loss: number;
         last_trade_result: string;
-        current_stake?: string;
+        current_stake: string;
     }) => {
         // Update local stats that can be displayed in summary
         this.total_runs = stats.total_trades;
@@ -77,7 +76,7 @@ export default class SummaryCardStore {
     profit?: number = 0;
     indicative?: number = 0;
     is_bot_running?: boolean = false;
-    
+
     // Trading Hub Integration
     is_trading_hub_active = false;
     trading_hub_stats = {
@@ -234,7 +233,7 @@ export default class SummaryCardStore {
         // Handle trading hub specific contract events
         const { profit } = contract;
         const indicative = getIndicativePrice(contract as ProposalOpenContract);
-        
+
         if (this.contract_id !== contract.id) {
             this.clear(false);
             this.contract_id = contract.id;
