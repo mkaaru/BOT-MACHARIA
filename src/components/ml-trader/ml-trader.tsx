@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import { localize } from '@deriv-com/translations';
 import Text from '@/components/shared_ui/text';
-import { generateDerivApiInstance, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
+import { generateDerivApiInstance, V2GetActiveToken, V2GetActiveClientId } from '@/external/bot-skeleton/services/api/appId';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import './ml-trader.scss';
@@ -56,7 +56,8 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
 };
 
 const MLTrader = observer(() => {
-    const { client, run_panel } = useStore();
+    const store = useStore();
+    const { client, run_panel, transactions } = store;
 
     // Trading configuration state
     const [selectedVolatility, setSelectedVolatility] = useState('R_10');
@@ -64,6 +65,7 @@ const MLTrader = observer(() => {
     const [durationType, setDurationType] = useState('t');
     const [duration, setDuration] = useState(1);
     const [stake, setStake] = useState(0.5);
+    const [baseStake, setBaseStake] = useState(0.5);
     const [overPrediction, setOverPrediction] = useState(5);
     const [underPrediction, setUnderPrediction] = useState(5);
     const [martingaleMultiplier, setMartingaleMultiplier] = useState(1);
@@ -74,34 +76,111 @@ const MLTrader = observer(() => {
     const [lastDigit, setLastDigit] = useState('-');
     const [connectionStatus, setConnectionStatus] = useState('Disconnected');
     const [statusMessage, setStatusMessage] = useState('Loading historical data for all volatilities...');
-    const [isRunning, setIsRunning] = useState(false); // State to track if the bot is running
+    const [isRunning, setIsRunning] = useState(false);
+    const [isAuthorized, setIsAuthorized] = useState(false);
+    const [accountCurrency, setAccountCurrency] = useState('USD');
+    const [availableSymbols, setAvailableSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
 
+    // Refs for cleanup and state management
     const derivApiRef = useRef<any>(null);
+    const tickStreamIdRef = useRef<string | null>(null);
+    const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
+    const stopFlagRef = useRef<boolean>(false);
+    const lastOutcomeWasLossRef = useRef(false);
+
+    // Authorization helper
+    const authorizeIfNeeded = async () => {
+        if (isAuthorized) return;
+        const token = V2GetActiveToken();
+        if (!token) {
+            setStatusMessage('No token found. Please log in and select an account.');
+            throw new Error('No token');
+        }
+        const { authorize, error } = await derivApiRef.current.authorize(token);
+        if (error) {
+            setStatusMessage(`Authorization error: ${error.message || error.code}`);
+            throw error;
+        }
+        setIsAuthorized(true);
+        const loginid = authorize?.loginid || V2GetActiveClientId();
+        setAccountCurrency(authorize?.currency || 'USD');
+        try {
+            // Sync ML Trader auth state into shared ClientStore so Transactions store keys correctly by account
+            store?.client?.setLoginId?.(loginid || '');
+            store?.client?.setCurrency?.(authorize?.currency || 'USD');
+            store?.client?.setIsLoggedIn?.(true);
+        } catch {}
+    };
+
+    // Tick stream management
+    const stopTicks = () => {
+        try {
+            if (tickStreamIdRef.current) {
+                derivApiRef.current?.forget({ forget: tickStreamIdRef.current });
+                tickStreamIdRef.current = null;
+            }
+            if (messageHandlerRef.current) {
+                derivApiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
+                messageHandlerRef.current = null;
+            }
+        } catch {}
+    };
+
+    const startTicks = async (sym: string) => {
+        stopTicks();
+        setTicksProcessed(0);
+        setLastDigit('-');
+
+        try {
+            const { subscription, error } = await derivApiRef.current.send({ ticks: sym, subscribe: 1 });
+            if (error) throw error;
+            if (subscription?.id) tickStreamIdRef.current = subscription.id;
+
+            // Listen for streaming ticks on the raw websocket
+            const onMsg = (evt: MessageEvent) => {
+                try {
+                    const data = JSON.parse(evt.data as any);
+                    if (data?.msg_type === 'tick' && data?.tick?.symbol === sym) {
+                        const quote = data.tick.quote;
+                        const digit = Number(String(quote).slice(-1));
+                        setLastDigit(digit.toString());
+                        setTicksProcessed(prev => prev + 1);
+                    }
+                    if (data?.forget?.id && data?.forget?.id === tickStreamIdRef.current) {
+                        // stopped
+                    }
+                } catch {}
+            };
+            messageHandlerRef.current = onMsg;
+            derivApiRef.current?.connection?.addEventListener('message', onMsg);
+
+        } catch (e: any) {
+            console.error('startTicks error', e);
+        }
+    };
 
     // Initialize connection and load historical data
     useEffect(() => {
         const initConnection = async () => {
             try {
-                const token = V2GetActiveToken();
-                if (!token) {
-                    setStatusMessage('No authentication token found. Please login first.');
-                    return;
-                }
-
                 const api = generateDerivApiInstance();
-                const authResult = await api.authorize(token);
-
-                if (authResult.error) {
-                    setStatusMessage(`Authorization failed: ${authResult.error.message}`);
-                    return;
-                }
-
                 derivApiRef.current = api;
-                setConnectionStatus('Connected');
-                setStatusMessage('Loading historical data...');
 
+                // Fetch active symbols (volatility indices)
+                const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
+                if (asErr) throw asErr;
+                const syn = (active_symbols || [])
+                    .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol))
+                    .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
+                setAvailableSymbols(syn);
+                if (!selectedVolatility && syn[0]?.symbol) setSelectedVolatility(syn[0].symbol);
+
+                setConnectionStatus('Connected');
+                
                 // Load historical data for selected volatility
                 await loadHistoricalData(selectedVolatility);
+                
+                if (syn[0]?.symbol) startTicks(selectedVolatility || syn[0].symbol);
                 
                 setStatusMessage('Ready to start trading');
             } catch (error: any) {
@@ -113,13 +192,18 @@ const MLTrader = observer(() => {
         initConnection();
 
         return () => {
-            if (derivApiRef.current) {
-                try {
-                    derivApiRef.current.disconnect();
-                } catch (error) {
-                    console.warn('Error disconnecting:', error);
+            // Clean up streams and socket
+            try {
+                if (tickStreamIdRef.current) {
+                    derivApiRef.current?.forget({ forget: tickStreamIdRef.current });
+                    tickStreamIdRef.current = null;
                 }
-            }
+                if (messageHandlerRef.current) {
+                    derivApiRef.current?.connection?.removeEventListener('message', messageHandlerRef.current);
+                    messageHandlerRef.current = null;
+                }
+                derivApiRef.current?.disconnect?.();
+            } catch {}
         };
     }, []);
 
@@ -171,146 +255,204 @@ const MLTrader = observer(() => {
         }
     };
 
-    // Start trading handler
+    // Purchase function
+    const purchaseOnce = async () => {
+        await authorizeIfNeeded();
+
+        const trade_option: any = {
+            amount: Number(stake),
+            basis: 'stake',
+            contractTypes: [selectedTradeType],
+            currency: accountCurrency,
+            duration: Number(duration),
+            duration_unit: durationType,
+            symbol: selectedVolatility,
+        };
+
+        // Choose prediction based on trade type and last outcome
+        if (selectedTradeType === 'DIGITOVER' || selectedTradeType === 'DIGITUNDER') {
+            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? underPrediction : overPrediction);
+        }
+
+        const buy_req = tradeOptionToBuy(selectedTradeType, trade_option);
+        const { buy, error } = await derivApiRef.current.buy(buy_req);
+        if (error) throw error;
+        setStatusMessage(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stake}`);
+        return buy;
+    };
+
+    // Start trading handler with full run panel integration
     const handleStartTrading = useCallback(async () => {
         if (!derivApiRef.current) {
             setStatusMessage('No connection available');
             return;
         }
 
+        setStatusMessage('');
         setIsRunning(true);
         setIsTrading(true);
-        setStatusMessage('Trading started...');
+        stopFlagRef.current = false;
+        
+        // Initialize run panel
+        run_panel.toggleDrawer(true);
+        run_panel.setActiveTabIndex(1); // Transactions tab index in run panel tabs
+        run_panel.run_id = `ml-trader-${Date.now()}`;
+        run_panel.setIsRunning(true);
+        run_panel.setContractStage(contract_stages.STARTING);
 
         try {
-            // Load fresh historical data before starting
-            await loadHistoricalData(selectedVolatility);
+            let lossStreak = 0;
+            let step = 0;
+            baseStake !== stake && setBaseStake(stake);
 
-            // Subscribe to ticks for the selected volatility
-            const tickResponse = await derivApiRef.current.send({
-                ticks: selectedVolatility,
-                subscribe: 1
-            });
+            while (!stopFlagRef.current) {
+                // Adjust stake based on martingale strategy
+                const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
+                setStake(effectiveStake);
 
-            if (tickResponse.error) {
-                throw new Error(`Tick subscription failed: ${tickResponse.error.message}`);
+                // Update prediction strategy based on prior outcomes
+                const isOU = selectedTradeType === 'DIGITOVER' || selectedTradeType === 'DIGITUNDER';
+                if (isOU) {
+                    lastOutcomeWasLossRef.current = lossStreak > 0;
+                }
+
+                const buy = await purchaseOnce();
+
+                // Seed an initial transaction row immediately so the UI shows a live row
+                try {
+                    const symbol_display = availableSymbols.find(s => s.symbol === selectedVolatility)?.display_name || selectedVolatility;
+                    transactions.onBotContractEvent({
+                        contract_id: buy?.contract_id,
+                        transaction_ids: { buy: buy?.transaction_id },
+                        buy_price: buy?.buy_price,
+                        currency: accountCurrency,
+                        contract_type: selectedTradeType as any,
+                        underlying: selectedVolatility,
+                        display_name: symbol_display,
+                        date_start: Math.floor(Date.now() / 1000),
+                        status: 'open',
+                    } as any);
+                } catch {}
+
+                // Reflect stage immediately after successful buy
+                run_panel.setHasOpenContract(true);
+                run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+
+                // Subscribe to contract updates for this purchase and push to transactions
+                try {
+                    const res = await derivApiRef.current.send({
+                        proposal_open_contract: 1,
+                        contract_id: buy?.contract_id,
+                        subscribe: 1,
+                    });
+                    const { error, proposal_open_contract: pocInit, subscription } = res || {};
+                    if (error) throw error;
+
+                    let pocSubId: string | null = subscription?.id || null;
+                    const targetId = String(buy?.contract_id || '');
+
+                    // Push initial snapshot if present in the first response
+                    if (pocInit && String(pocInit?.contract_id || '') === targetId) {
+                        transactions.onBotContractEvent(pocInit);
+                        run_panel.setHasOpenContract(true);
+                    }
+
+                    // Listen for subsequent streaming updates
+                    const onMsg = (evt: MessageEvent) => {
+                        try {
+                            const data = JSON.parse(evt.data as any);
+                            if (data?.msg_type === 'proposal_open_contract') {
+                                const poc = data.proposal_open_contract;
+                                if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
+                                if (String(poc?.contract_id || '') === targetId) {
+                                    transactions.onBotContractEvent(poc);
+                                    run_panel.setHasOpenContract(true);
+
+                                    if (poc?.is_sold || poc?.status === 'sold') {
+                                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                                        run_panel.setHasOpenContract(false);
+                                        if (pocSubId) derivApiRef.current?.forget?.({ forget: pocSubId });
+                                        derivApiRef.current?.connection?.removeEventListener('message', onMsg);
+                                        
+                                        const profit = Number(poc?.profit || 0);
+                                        if (profit > 0) {
+                                            lastOutcomeWasLossRef.current = false;
+                                            lossStreak = 0;
+                                            step = 0;
+                                            // Reset to base stake on win
+                                            setStake(baseStake);
+                                        } else {
+                                            lastOutcomeWasLossRef.current = true;
+                                            lossStreak++;
+                                            step = Math.min(step + 1, 10); // Cap at 10 steps to prevent excessive stake
+                                        }
+                                    }
+                                }
+                            }
+                        } catch {
+                            // noop
+                        }
+                    };
+                    derivApiRef.current?.connection?.addEventListener('message', onMsg);
+                } catch (subErr) {
+                    console.error('subscribe poc error', subErr);
+                }
+
+                // Wait between purchases
+                await new Promise(res => setTimeout(res, 500));
             }
 
-            // Set up tick handler
-            derivApiRef.current.connection.addEventListener('message', handleTickMessage);
-
-            // Update Run Panel state
-            run_panel.setIsRunning(true);
-            run_panel.setHasOpenContract(false); // Will be set to true when a contract is actually opened
-            run_panel.setContractStage(contract_stages.STARTING);
-            run_panel.toggleDrawer(true); // Make sure run panel is visible
-
-            setStatusMessage('Trading active - waiting for trading signals...');
-
         } catch (error: any) {
-            setIsTrading(false);
+            console.error('ML Trader run loop error', error);
+            const msg = error?.message || error?.error?.message || 'Something went wrong';
+            setStatusMessage(`Error: ${msg}`);
+        } finally {
             setIsRunning(false);
-            setStatusMessage(`Error starting trading: ${error.message}`);
-            // Update Run Panel on error
+            setIsTrading(false);
             run_panel.setIsRunning(false);
             run_panel.setHasOpenContract(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
         }
-    }, [selectedVolatility, run_panel]);
+    }, [selectedVolatility, selectedTradeType, duration, durationType, stake, baseStake, overPrediction, underPrediction, martingaleMultiplier, accountCurrency, availableSymbols, run_panel, transactions]);
 
-    // Handle incoming tick messages
-    const handleTickMessage = useCallback((event: MessageEvent) => {
-        try {
-            const data = JSON.parse(event.data);
-            if (data.msg_type === 'tick' && data.tick) {
-                const quote = parseFloat(data.tick.quote);
-                const digit = Math.floor((quote * 10000) % 10);
-
-                setLastDigit(digit.toString());
-                setTicksProcessed(prev => prev + 1);
-
-                // Update Run Panel with current tick data if a contract is open
-                if (run_panel.hasOpenContract) {
-                    // Assuming run_panel has methods to update contract statistics
-                    // Example: run_panel.updateTradeStats({ lastDigit: digit });
-                }
-
-
-                // Simple trading logic based on selected trade type
-                if (shouldPlaceTrade(digit)) {
-                    placeTrade();
-                }
-            }
-        } catch (error) {
-            console.warn('Error parsing tick data:', error);
-        }
-    }, [selectedTradeType, overPrediction, underPrediction, run_panel]);
-
-    // Trading logic
-    const shouldPlaceTrade = (digit: number): boolean => {
-        switch (selectedTradeType) {
-            case 'DIGITOVER':
-                return digit > overPrediction;
-            case 'DIGITUNDER':
-                return digit < underPrediction;
-            case 'DIGITEVEN':
-                return digit % 2 === 0;
-            case 'DIGITODD':
-                return digit % 2 === 1;
-            default:
-                return false;
-        }
-    };
-
-    // Place trade
-    const placeTrade = useCallback(async () => {
-        if (!derivApiRef.current) return;
-
-        try {
-            const tradeParams = tradeOptionToBuy(selectedTradeType, {
-                amount: stake,
-                basis: 'stake',
-                currency: client.currency || 'USD',
-                duration: duration,
-                duration_unit: durationType,
-                symbol: selectedVolatility,
-                prediction: selectedTradeType.includes('OVER') ? overPrediction : underPrediction
-            });
-
-            const buyResponse = await derivApiRef.current.send(tradeParams);
-
-            if (buyResponse.error) {
-                console.error('Trade failed:', buyResponse.error.message);
-                // Update Run Panel on trade failure
-                run_panel.setContractStage(contract_stages.ERROR);
-            } else {
-                console.log('Trade placed:', buyResponse.buy.contract_id);
-                // Update Run Panel on successful trade placement
-                run_panel.setContractStage(contract_stages.CONTRACT_ACTIVE);
-                run_panel.setHasOpenContract(true); // Ensure this is true if a contract is active
-            }
-        } catch (error: any) {
-            console.error('Error placing trade:', error.message);
-            // Update Run Panel on trade placement error
-            run_panel.setContractStage(contract_stages.ERROR);
-        }
-    }, [selectedTradeType, stake, duration, durationType, selectedVolatility, overPrediction, underPrediction, client.currency, run_panel]);
-
-    // Stop trading
+    // Stop trading function
     const handleStopTrading = () => {
+        stopFlagRef.current = true;
         setIsRunning(false);
         setIsTrading(false);
         setStatusMessage('Trading stopped');
+
+        // Cleanup live ticks
+        stopTicks();
 
         // Update Run Panel state
         run_panel.setIsRunning(false);
         run_panel.setHasOpenContract(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
-
-        if (derivApiRef.current?.connection) {
-            derivApiRef.current.connection.removeEventListener('message', handleTickMessage);
-        }
     };
+
+    // Listen for Run Panel stop events
+    useEffect(() => {
+        const handleRunPanelStop = () => {
+            if (isRunning) { // Only stop if currently trading
+                handleStopTrading();
+            }
+        };
+
+        // Register listener for Run Panel stop button
+        if (run_panel?.dbot?.observer) {
+            run_panel.dbot.observer.register('bot.stop', handleRunPanelStop);
+            run_panel.dbot.observer.register('bot.click_stop', handleRunPanelStop);
+        }
+
+        return () => {
+            // Cleanup listeners if they were registered
+            if (run_panel?.dbot?.observer) {
+                run_panel.dbot.observer.unregisterAll('bot.stop');
+                run_panel.dbot.observer.unregisterAll('bot.click_stop');
+            }
+        };
+    }, [isRunning, run_panel]);
 
     return (
         <div className='ml-trader'>
@@ -334,13 +476,14 @@ const MLTrader = observer(() => {
                                             setSelectedVolatility(newVolatility);
                                             if (derivApiRef.current && !isTrading) {
                                                 loadHistoricalData(newVolatility);
+                                                startTicks(newVolatility);
                                             }
                                         }}
                                         disabled={isTrading}
                                     >
-                                        {VOLATILITY_INDICES.map(item => (
-                                            <option key={item.value} value={item.value}>
-                                                {item.label}
+                                        {availableSymbols.map(item => (
+                                            <option key={item.symbol} value={item.symbol}>
+                                                {item.display_name}
                                             </option>
                                         ))}
                                     </select>
