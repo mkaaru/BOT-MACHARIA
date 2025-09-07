@@ -499,13 +499,13 @@ const AppWrapper = observer(() => {
                     }
                 } catch (fetchError) {
                     console.error("Failed to load bot content:", fetchError);
-                    alert(`Failed to load bot: ${bot.title}. Please check if the file exists.`);
+                    console.warn(`Failed to load bot: ${bot.title}. Please check if the file exists.`);
                     return;
                 }
             }
 
             if (!xmlContent || xmlContent.trim().length === 0) {
-                alert("Bot file is empty or invalid.");
+                console.warn("Bot file is empty or invalid.");
                 return;
             }
 
@@ -515,7 +515,7 @@ const AppWrapper = observer(() => {
             // Validate XML content with better error handling
             const trimmedContent = xmlContent.trim();
             if (!trimmedContent.startsWith('<xml') && !trimmedContent.startsWith('<?xml')) {
-                alert("Invalid bot file format. Please ensure the file contains valid XML.");
+                console.warn("Invalid bot file format. Please ensure the file contains valid XML.");
                 return;
             }
 
@@ -576,7 +576,7 @@ const AppWrapper = observer(() => {
 
             if (!workspace) {
                 console.error("Blockly workspace not found");
-                alert("Bot Builder workspace is not ready. Please try again.");
+                console.warn("Bot Builder workspace is not ready. Please try again.");
                 return;
             }
 
@@ -748,22 +748,15 @@ const AppWrapper = observer(() => {
 
                     console.log("Bot loaded successfully with comprehensive loading method!");
 
-                    // Show appropriate message based on validation
-                    if (hasUnsupportedElements) {
-                        alert("Bot loaded successfully! Note: Some blocks may use advanced features. If you encounter issues, please check the bot configuration.");
-                    } else {
-                        alert("Bot loaded successfully! All blocks are supported.");
-                    }
-
                 } catch (fallbackError) {
                     console.error("Comprehensive loading failed:", fallbackError);
-                    alert(`Failed to load the bot: ${fallbackError.message}. The XML file may be corrupted or contain incompatible blocks.`);
+                    console.warn(`Failed to load the bot: ${fallbackError.message}. The XML file may be corrupted or contain incompatible blocks.`);
                 }
             }
 
         } catch (error) {
             console.error("Error loading bot:", error);
-            alert("An unexpected error occurred while loading the bot. Please try again.");
+            console.warn("An unexpected error occurred while loading the bot. Please try again.");
         }
     }, [setActiveTab]);
 
