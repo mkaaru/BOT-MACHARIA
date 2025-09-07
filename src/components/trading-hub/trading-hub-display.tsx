@@ -580,11 +580,46 @@ const TradingHubDisplay: React.FC = () => {
                 const buyPrice = response.buy.buy_price;
                 globalObserver.emit('ui.log.success', `Trade executed: ${contractId} - Cost: ${buyPrice}`);
 
-                // Update balance immediately after purchase
-                const newBalanceResponse = await api_base.api?.send({ balance: 1 });
-                console.log('Balance after trade:', newBalanceResponse?.balance?.balance);
+                // Log purchase to journal and transactions
+                const { run_panel, journal, transactions } = useStore();
+                if (run_panel && journal) {
+                    const logMessage = `📈 Contract Purchased: ${symbol} - Stake: ${buyPrice} ${client?.currency || 'USD'}`;
+                    journal.pushMessage(logMessage, 'notify', '', { 
+                        current_currency: client?.currency || 'USD' 
+                    });
+                } else {
+                    console.warn('Run panel or journal store not available for logging');
+                }
 
-                // Enhanced contract monitoring
+                // Log purchase to transactions store
+                if (transactions) {
+                    const contractData = {
+                        contract_id: contractId,
+                        transaction_ids: {
+                            buy: contractId,
+                            sell: null
+                        },
+                        display_name: symbol,
+                        buy_price: buyPrice,
+                        payout: 0,
+                        profit: 0,
+                        bid_price: 0,
+                        currency: client?.currency || 'USD',
+                        date_start: new Date().toISOString(),
+                        entry_tick_display_value: '',
+                        entry_tick_time: new Date().toISOString(),
+                        exit_tick_display_value: '',
+                        exit_tick_time: '',
+                        barrier: '',
+                        is_completed: false,
+                        status: 'open'
+                    };
+                    transactions.onBotContractEvent(contractData);
+                } else {
+                    console.warn('Transactions store not available for logging');
+                }
+
+                // Update balance immediately after purchase
                 if (!isO5U4Part) {
                     waitingForSettlementRef.current = true;
                 }
