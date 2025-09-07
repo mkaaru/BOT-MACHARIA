@@ -580,19 +580,18 @@ const TradingHubDisplay: React.FC = () => {
                 const buyPrice = response.buy.buy_price;
                 globalObserver.emit('ui.log.success', `Trade executed: ${contractId} - Cost: ${buyPrice}`);
 
-                // Log purchase to journal and transactions
-                const { run_panel, journal, transactions } = useStore();
-                if (run_panel && journal) {
+                // Log purchase to journal (using component-level stores)
+                if (run_panel?.root_store?.journal) {
                     const logMessage = `📈 Contract Purchased: ${symbol} - Stake: ${buyPrice} ${client?.currency || 'USD'}`;
-                    journal.pushMessage(logMessage, 'notify', '', { 
+                    run_panel.root_store.journal.pushMessage(logMessage, 'notify', '', { 
                         current_currency: client?.currency || 'USD' 
                     });
                 } else {
-                    console.warn('Run panel or journal store not available for logging');
+                    console.warn('Run panel journal not available for logging');
                 }
 
-                // Log purchase to transactions store
-                if (transactions) {
+                // Log purchase to transactions store (using component-level stores)
+                if (run_panel?.root_store?.transactions) {
                     const contractData = {
                         contract_id: contractId,
                         transaction_ids: {
@@ -614,7 +613,7 @@ const TradingHubDisplay: React.FC = () => {
                         is_completed: false,
                         status: 'open'
                     };
-                    transactions.onBotContractEvent(contractData);
+                    run_panel.root_store.transactions.onBotContractEvent(contractData);
                 } else {
                     console.warn('Transactions store not available for logging');
                 }
