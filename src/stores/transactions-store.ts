@@ -68,60 +68,19 @@ export default class TransactionsStore {
         );
         const statistics = trxs.reduce(
             (stats, { data }) => {
-                const { 
-                    profit = 0, 
-                    is_completed = false, 
-                    buy_price = 0, 
-                    payout = 0, 
-                    bid_price = 0, 
-                    status,
-                    sell_price = 0,
-                    contract_type = ''
-                } = data as TContractInfo;
-                
+                const { profit = 0, is_completed = false, buy_price = 0, payout, bid_price, status } = data as TContractInfo;
                 if (is_completed) {
-                    // Enhanced win detection logic for accurate statistics
-                    let isWin = false;
-                    
-                    // Primary check: profit is positive (most reliable)
-                    if (profit > 0) {
-                        isWin = true;
-                    }
-                    // Secondary check: explicit status
-                    else if (status === 'won') {
-                        isWin = true;
-                    }
-                    // Tertiary check: payout greater than stake (for cases where profit calculation might be off)
-                    else if (payout > 0 && payout > buy_price) {
-                        isWin = true;
-                    }
-                    // Quaternary check: sell price greater than buy price (for sold contracts)
-                    else if (sell_price > 0 && sell_price > buy_price) {
-                        isWin = true;
-                    }
-                    
-                    // Additional validation for digit contracts - check if profit matches expected outcome
-                    if (contract_type?.includes('DIGIT') && profit !== 0) {
-                        // For digit contracts, trust the profit value as the primary indicator
-                        isWin = profit > 0;
-                    }
-                    
-                    // Trading Hub specific validation
-                    if (contract_type?.includes('DIGITOVER') || contract_type?.includes('DIGITUNDER') || 
-                        contract_type?.includes('DIGITDIFF') || contract_type?.includes('DIGITMATCH')) {
-                        // For Trading Hub contracts, trust the profit calculation
-                        isWin = profit > 0;
-                    }
+                    // Check multiple conditions to determine if it's a win
+                    const isWin = profit > 0 || status === 'won' || (payout && payout > buy_price);
                     
                     if (isWin) {
                         stats.won_contracts += 1;
-                        stats.total_payout += payout || sell_price || (buy_price + Math.abs(profit)) || 0;
+                        stats.total_payout += payout ?? bid_price ?? 0;
                     } else {
                         stats.lost_contracts += 1;
                     }
-                    
                     stats.total_profit += profit;
-                    stats.total_stake += buy_price || bid_price || 0;
+                    stats.total_stake += buy_price;
                     total_runs += 1;
                 }
                 return stats;
@@ -148,20 +107,20 @@ export default class TransactionsStore {
     }
 
     pushTransaction(data: TContractInfo) {
-        const is_completed = data.is_completed !== undefined ? data.is_completed : isEnded(data as ProposalOpenContract);
+        const is_completed = isEnded(data as ProposalOpenContract);
         const { run_id } = this.root_store.run_panel;
         const current_account = this.core?.client?.loginid as string;
 
         const contract: TContractInfo = {
             ...data,
             is_completed,
-            run_id: data.run_id || run_id,
-            date_start: data.date_start ? formatDate(data.date_start, 'YYYY-M-D HH:mm:ss [GMT]') : formatDate(new Date().toISOString(), 'YYYY-M-D HH:mm:ss [GMT]'),
+            run_id,
+            date_start: formatDate(data.date_start, 'YYYY-M-D HH:mm:ss [GMT]'),
             entry_tick: data.entry_tick_display_value,
             entry_tick_time: data.entry_tick_time && formatDate(data.entry_tick_time, 'YYYY-M-D HH:mm:ss [GMT]'),
             exit_tick: data.exit_tick_display_value,
             exit_tick_time: data.exit_tick_time && formatDate(data.exit_tick_time, 'YYYY-M-D HH:mm:ss [GMT]'),
-            profit: is_completed ? (data.profit || 0) : 0,
+            profit: is_completed ? data.profit : 0,
         };
 
         if (!this.elements[current_account]) {

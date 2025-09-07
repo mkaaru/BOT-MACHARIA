@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './trading-hub-display.scss';
 import { api_base } from '../../external/bot-skeleton/services/api/api-base';
@@ -93,21 +92,23 @@ const TradingHubDisplay: React.FC = () => {
     const prepareRunPanelForTradingHub = useCallback(() => {
         if (run_panel) {
             run_panel.setIsRunning(true);
-            
-            // Set a unique run_id for Trading Hub session
-            if (!run_panel.run_id || run_panel.run_id.startsWith('run-')) {
-                run_panel.run_id = `trading-hub-${Date.now()}`;
-            }
 
             // Ensure transactions store is initialized
             if (run_panel.root_store?.transactions) {
-                console.log('Trading Hub: Transactions store ready');
-                
-                // Force observable update
-                run_panel.root_store.transactions.elements = { ...run_panel.root_store.transactions.elements };
+                // Clear any existing transactions from previous sessions
+                // but don't clear if there are already Trading Hub transactions
+                const existingTransactions = run_panel.root_store.transactions.transactions || [];
+                const hasTradingHubTransactions = existingTransactions.some(tx => 
+                    typeof tx.data === 'object' && 
+                    (tx.data?.contract_type?.includes('DIGIT') || tx.data?.contract_type === 'O5U4_DUAL')
+                );
+
+                if (!hasTradingHubTransactions) {
+                    console.log('Initializing transactions store for Trading Hub');
+                }
             }
 
-            console.log('Run panel prepared for Trading Hub with run_id:', run_panel.run_id);
+            console.log('Run panel prepared for Trading Hub');
         }
     }, [run_panel]);
 
@@ -189,7 +190,6 @@ const TradingHubDisplay: React.FC = () => {
         return new Promise((resolve) => {
             let contractData: any = null;
             let contractResolved = false;
-            let timeoutId: NodeJS.Timeout;
 
             const subscription = api_base.api?.onMessage().subscribe(async (response: any) => {
                 if (response.proposal_open_contract && 
@@ -197,56 +197,52 @@ const TradingHubDisplay: React.FC = () => {
                     !contractResolved) {
 
                     contractData = response.proposal_open_contract;
-                    console.log(`Contract ${contractId} update:`, {
-                        is_settled: contractData.is_settled,
-                        is_sold: contractData.is_sold,
-                        status: contractData.status,
-                        profit: contractData.profit
-                    });
 
-                    if (contractData.is_settled || contractData.is_sold || contractData.status === 'sold') {
+                    if (contractData.is_settled) {
                         contractResolved = true;
-                        clearTimeout(timeoutId);
 
-                        // Enhanced win/loss detection for all trade types
+                        // Enhanced win/loss detection for Over/Under trades
                         const profit = parseFloat(contractData.profit || '0');
                         const sellPrice = parseFloat(contractData.sell_price || '0');
                         const buyPrice = parseFloat(contractData.buy_price || stake?.toString() || '0');
                         const payout = parseFloat(contractData.payout || '0');
 
-                        // Primary win detection: Check profit first
-                        let isWin = profit > 0;
+                        // Multiple ways to detect win - use the most reliable for Over/Under
+                        let isWin = false;
 
-                        // Secondary: Check contract status
-                        if (!isWin) {
-                            isWin = contractData.status === 'won';
+                        // For Over/Under trades, check multiple indicators
+                        if (contractData.status === 'won' || contractData.status === 'sold') {
+                            // Check if we actually made profit
+                            if (profit > 0 || sellPrice > buyPrice) {
+                                isWin = true;
+                            }
                         }
 
-                        // Tertiary: Check if payout is greater than stake
-                        if (!isWin && payout > 0) {
-                            isWin = payout > buyPrice;
+                        // Fallback: Check payout received vs amount paid
+                        if (!isWin && payout > 0 && payout > buyPrice) {
+                            isWin = true;
                         }
 
-                        // For digit contracts, verify the prediction was correct
-                        if (contractData.exit_spot && contractData.barrier) {
+                        // Final check: If sell price is significantly higher than buy price
+                        if (!isWin && sellPrice > (buyPrice * 1.01)) { // At least 1% gain
+                            isWin = true;
+                        }
+
+                        // Over/Under specific: Check if exit spot satisfies the barrier condition
+                        if (!isWin && contractData.exit_spot && contractData.barrier) {
                             const exitSpot = parseFloat(contractData.exit_spot);
                             const barrier = parseFloat(contractData.barrier);
                             const lastDigit = Math.floor(exitSpot * 100) % 10;
 
-                            // Override win status based on actual digit prediction
-                            if (contractType === 'DIGITOVER') {
-                                isWin = lastDigit > barrier;
-                            } else if (contractType === 'DIGITUNDER') {
-                                isWin = lastDigit < barrier;
-                            } else if (contractType === 'DIGITDIFF') {
-                                isWin = lastDigit !== barrier;
-                            } else if (contractType === 'DIGITMATCH') {
-                                isWin = lastDigit === barrier;
+                            // Check if the prediction was correct based on contract type
+                            if (contractType === 'DIGITOVER' && lastDigit > barrier) {
+                                isWin = true;
+                            } else if (contractType === 'DIGITUNDER' && lastDigit < barrier) {
+                                isWin = true;
                             }
                         }
 
                         subscription.unsubscribe();
-                        clearTimeout(timeoutId);
 
                         // Log detailed contract info for debugging
                         console.log(`Contract ${contractId} detailed settlement:`, {
@@ -265,74 +261,66 @@ const TradingHubDisplay: React.FC = () => {
                             strategy_active: isAutoOverUnderActive ? 'Over/Under' : isAutoDifferActive ? 'Differ' : 'O5U4'
                         });
 
-                        // Create transaction entry for run panel with correct win/loss status - ONLY AFTER SETTLEMENT
+                        // Create transaction entry for run panel with correct win/loss status
                         if (run_panel?.root_store?.transactions) {
                             try {
-                                // Calculate actual profit more accurately
+                                // Calculate actual profit more accurately for Over/Under
                                 let actualProfit;
                                 if (isWin) {
                                     // For wins, use the actual profit or calculate from payout
-                                    actualProfit = profit > 0 ? profit : (payout > 0 ? payout - buyPrice : Math.abs(profit));
+                                    actualProfit = profit > 0 ? profit : (payout > 0 ? payout - buyPrice : sellPrice - buyPrice);
                                 } else {
-                                    // For losses, use the actual negative profit
-                                    actualProfit = profit < 0 ? profit : -buyPrice;
+                                    // For losses, it's negative of the stake
+                                    actualProfit = -Math.abs(buyPrice);
                                 }
 
-                                const contractIdNum = parseInt(contractId.toString().replace(/[^0-9]/g, ''), 10) || Date.now();
-                                const currentTime = new Date().toISOString();
+                                const profitPercentage = buyPrice > 0 ? ((actualProfit / buyPrice) * 100).toFixed(2) : '0.00';
+                                const contractIdNum = typeof contractId === 'string' ? parseInt(contractId.replace(/[^0-9]/g, ''), 10) : contractId;
 
-                                // Create transaction in the exact format expected by transactions-store
                                 const formattedTransaction = {
                                     contract_id: contractIdNum,
                                     transaction_ids: {
                                         buy: contractIdNum,
-                                        sell: contractData.transaction_ids?.sell || (contractIdNum + 1)
+                                        sell: contractData.transaction_ids?.sell || contractIdNum + 1
                                     },
-                                    buy_price: parseFloat(buyPrice.toString()),
-                                    sell_price: isWin ? parseFloat((sellPrice || payout || (buyPrice + Math.abs(actualProfit))).toString()) : 0,
-                                    profit: parseFloat(actualProfit.toString()),
+                                    buy_price: buyPrice,
+                                    sell_price: isWin ? sellPrice : 0,
+                                    profit: actualProfit,
                                     currency: client?.currency || 'USD',
                                     contract_type: contractType || 'DIGITOVER',
                                     underlying: symbol || 'R_100',
                                     shortcode: contractData.shortcode || `${contractType}_${symbol}_${contractIdNum}`,
                                     display_name: contractData.display_name || `${contractType} on ${symbol}`,
-                                    longcode: `${contractType} prediction on ${symbol}`,
-                                    date_start: contractData.date_start || currentTime,
-                                    date_expiry: contractData.exit_tick_time || currentTime,
-                                    entry_tick_display_value: parseFloat((contractData.entry_spot || contractData.entry_tick || 0).toString()),
-                                    exit_tick_display_value: parseFloat((contractData.exit_spot || contractData.exit_tick || 0).toString()),
-                                    entry_tick_time: contractData.entry_tick_time || contractData.date_start || currentTime,
-                                    exit_tick_time: contractData.exit_tick_time || currentTime,
+                                    date_start: contractData.date_start || new Date().toISOString(),
+                                    entry_tick_display_value: contractData.entry_spot || contractData.entry_tick || 0,
+                                    exit_tick_display_value: contractData.exit_spot || contractData.exit_tick || 0,
+                                    entry_tick_time: contractData.entry_tick_time || contractData.date_start || new Date().toISOString(),
+                                    exit_tick_time: contractData.exit_tick_time || new Date().toISOString(),
                                     barrier: contractData.barrier || '',
                                     tick_count: contractData.tick_count || 1,
-                                    payout: isWin ? parseFloat((payout || sellPrice || (buyPrice + Math.abs(actualProfit))).toString()) : 0,
-                                    bid_price: parseFloat(buyPrice.toString()),
+                                    payout: isWin ? payout : 0,
                                     is_completed: true,
                                     is_sold: true,
-                                    is_ended: true,
-                                    status: isWin ? 'won' : 'sold',
+                                    profit_percentage: profitPercentage,
+                                    status: isWin ? 'won' : 'lost',
+                                    // Additional fields
+                                    longcode: `${contractType} prediction on ${symbol}`,
                                     app_id: 16929,
-                                    purchase_time: contractData.date_start || currentTime,
-                                    sell_time: contractData.exit_tick_time || currentTime,
-                                    // Add run_id for proper grouping
-                                    run_id: run_panel.run_id || `trading-hub-${Date.now()}`
+                                    purchase_time: contractData.date_start || new Date().toISOString(),
+                                    sell_time: contractData.exit_tick_time || new Date().toISOString(),
+                                    transaction_time: new Date().toISOString()
                                 };
 
-                                // Log the transaction to run panel's transaction store
-                                run_panel.root_store.transactions.pushTransaction(formattedTransaction);
+                                run_panel.root_store.transactions.onBotContractEvent(formattedTransaction);
 
-                                console.log(`✅ Transaction logged to run panel:`, {
+                                console.log(`✅ Transaction recorded correctly:`, {
                                     contract_id: contractId,
                                     result: isWin ? 'WIN' : 'LOSS',
-                                    actual_profit: actualProfit,
-                                    stake: buyPrice,
-                                    payout: isWin ? (payout || sellPrice) : 0,
-                                    digit_result: contractData.exit_spot ? Math.floor(parseFloat(contractData.exit_spot) * 100) % 10 : 'N/A',
-                                    barrier: contractData.barrier,
-                                    status: contractData.status
+                                    profit: actualProfit,
+                                    profit_percentage: profitPercentage + '%'
                                 });
                             } catch (error) {
-                                console.error('Failed to add settled transaction to run panel:', error);
+                                console.error('Failed to add transaction to run panel:', error);
                             }
                         }
 
@@ -353,25 +341,9 @@ const TradingHubDisplay: React.FC = () => {
                             waitingForSettlementRef.current = false;
                         }
 
-                        // Store actual profit for use in handleTradeResult
-                        (resolve as any).actualProfit = actualProfit;
-
                         const tradeType = isO5U4Part ? 'O5U4 Part' : 'Over/Under';
                         globalObserver.emit('ui.log.info', 
                             `${tradeType} Contract ${contractId}: ${isWin ? 'WON' : 'LOST'} - Profit: ${profit.toFixed(2)}`);
-
-                        // Log to journal ONLY after settlement with correct outcome
-                        if (!isO5U4Part && run_panel?.root_store?.journal) {
-                            const actualProfit = isWin ? 
-                                (profit > 0 ? profit : (payout > 0 ? payout - buyPrice : sellPrice - buyPrice)) : 
-                                -Math.abs(buyPrice);
-                            const journalMessage = isWin ? 
-                                `✅ Trade WON: ${symbol} - Profit: +${actualProfit.toFixed(2)} ${client?.currency || 'USD'}` :
-                                `❌ Trade LOST: ${symbol} - Loss: ${actualProfit.toFixed(2)} ${client?.currency || 'USD'}`;
-                            run_panel.root_store.journal.pushMessage(journalMessage, isWin ? 'success' : 'error', '', { 
-                                current_currency: client?.currency || 'USD' 
-                            });
-                        }
 
                         resolve(isWin);
                     }
@@ -379,108 +351,57 @@ const TradingHubDisplay: React.FC = () => {
             });
 
             // Send subscription request with immediate status check
-            const setupMonitoring = async () => {
-                try {
-                    // Subscribe to contract updates
-                    const subscriptionResponse = await api_base.api?.send({
-                        proposal_open_contract: 1,
-                        contract_id: contractId,
-                        subscribe: 1
-                    });
-
-                    // Also get immediate status
-                    const immediateResponse = await api_base.api?.send({
-                        proposal_open_contract: 1,
-                        contract_id: contractId
-                    });
-
-                    if (immediateResponse?.proposal_open_contract && !contractResolved) {
-                        const contract = immediateResponse.proposal_open_contract;
-                        console.log(`Immediate contract status for ${contractId}:`, {
-                            is_settled: contract.is_settled,
-                            is_sold: contract.is_sold,
-                            status: contract.status,
-                            profit: contract.profit
-                        });
-
-                        if (contract.is_settled || contract.is_sold || contract.status === 'sold') {
-                            contractData = contract;
-                            // Trigger the settlement logic immediately
-                            const event = { proposal_open_contract: contract };
-                            subscription.next(event);
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error in contract monitoring setup:', error);
+            Promise.all([
+                api_base.api?.send({
+                    proposal_open_contract: 1,
+                    contract_id: contractId,
+                    subscribe: 1
+                }),
+                api_base.api?.send({
+                    proposal_open_contract: 1,
+                    contract_id: contractId
+                })
+            ]).then(([subscriptionResponse, immediateResponse]) => {
+                if (immediateResponse?.proposal_open_contract?.is_settled && !contractResolved) {
+                    console.log('Contract already settled on immediate check:', immediateResponse.proposal_open_contract);
                 }
-            };
+            }).catch(error => {
+                console.error('Error in contract monitoring setup:', error);
+            });
 
-            setupMonitoring();
-
-            // Reduced timeout with better fallback handling
-            timeoutId = setTimeout(async () => {
+            // Extended timeout for better contract settlement detection
+            setTimeout(() => {
                 if (!contractResolved) {
-                    console.warn(`Contract ${contractId} monitoring timeout after 5 seconds`);
                     subscription.unsubscribe();
 
-                    // Final attempt to get contract status
-                    try {
-                        const finalResponse = await api_base.api?.send({
-                            proposal_open_contract: 1,
-                            contract_id: contractId
-                        });
+                    // Final attempt to get contract status before timeout
+                    if (contractData && contractData.is_settled) {
+                        const profit = parseFloat(contractData.profit || '0');
+                        const isWin = profit > 0 || contractData.status === 'won';
 
-                        if (finalResponse?.proposal_open_contract) {
-                            const finalContract = finalResponse.proposal_open_contract;
-                            console.log(`Final check for ${contractId}:`, finalContract);
+                        console.log(`Final timeout check - Contract ${contractId}: ${isWin ? 'WON' : 'LOST'}`);
+                        contractResolved = true;
 
-                            if (finalContract.is_settled || finalContract.is_sold) {
-                                contractData = finalContract;
-                                const profit = parseFloat(finalContract.profit || '0');
-                                let isWin = profit > 0 || finalContract.status === 'won';
-
-                                // Additional win detection for digit contracts
-                                if (finalContract.exit_spot && finalContract.barrier) {
-                                    const exitSpot = parseFloat(finalContract.exit_spot);
-                                    const barrier = parseFloat(finalContract.barrier);
-                                    const lastDigit = Math.floor(exitSpot * 100) % 10;
-
-                                    if (contractType === 'DIGITOVER') {
-                                        isWin = lastDigit > barrier;
-                                    } else if (contractType === 'DIGITUNDER') {
-                                        isWin = lastDigit < barrier;
-                                    } else if (contractType === 'DIGITDIFF') {
-                                        isWin = lastDigit !== barrier;
-                                    }
-                                }
-
-                                console.log(`Final resolution for ${contractId}: ${isWin ? 'WON' : 'LOST'}`);
-                                contractResolved = true;
-
-                                if (!isO5U4Part) {
-                                    contractSettledTimeRef.current = Date.now();
-                                    waitingForSettlementRef.current = false;
-                                }
-
-                                resolve(isWin);
-                                return;
-                            }
+                        if (!isO5U4Part) {
+                            contractSettledTimeRef.current = Date.now();
+                            waitingForSettlementRef.current = false;
                         }
-                    } catch (error) {
-                        console.error(`Error in final contract check for ${contractId}:`, error);
+
+                        resolve(isWin);
+                    } else {
+                        // True timeout - contract not settled
+                        console.warn(`Contract ${contractId} timeout - no settlement data received`);
+
+                        if (!isO5U4Part) {
+                            contractSettledTimeRef.current = Date.now();
+                            waitingForSettlementRef.current = false;
+                        }
+
+                        globalObserver.emit('ui.log.error', `Contract ${contractId} monitoring timeout`);
+                        resolve(false);
                     }
-
-                    // True timeout - treat as loss but don't spam logs
-                    globalObserver.emit('ui.log.error', `Contract ${contractId} settlement timeout`);
-
-                    if (!isO5U4Part) {
-                        contractSettledTimeRef.current = Date.now();
-                        waitingForSettlementRef.current = false;
-                    }
-
-                    resolve(false);
                 }
-            }, 5000); // 5 seconds timeout
+            }, 3000); // Extended to 3 seconds for better reliability
         });
     }, [run_panel, client, isAutoOverUnderActive, isAutoDifferActive]);
 
@@ -653,9 +574,43 @@ const TradingHubDisplay: React.FC = () => {
                 const buyPrice = response.buy.buy_price;
                 globalObserver.emit('ui.log.success', `Trade executed: ${contractId} - Cost: ${buyPrice}`);
 
-                // Don't log to journal yet - wait for contract outcome to log final result
+                // Log purchase to journal (using component-level stores)
+                if (run_panel?.root_store?.journal) {
+                    const logMessage = `📈 Contract Purchased: ${symbol} - Stake: ${buyPrice} ${client?.currency || 'USD'}`;
+                    run_panel.root_store.journal.pushMessage(logMessage, 'notify', '', { 
+                        current_currency: client?.currency || 'USD' 
+                    });
+                } else {
+                    console.warn('Run panel journal not available for logging');
+                }
 
-                // Don't log to transactions store yet - wait for contract outcome
+                // Log purchase to transactions store (using component-level stores)
+                if (run_panel?.root_store?.transactions) {
+                    const contractData = {
+                        contract_id: contractId,
+                        transaction_ids: {
+                            buy: contractId,
+                            sell: null
+                        },
+                        display_name: symbol,
+                        buy_price: buyPrice,
+                        payout: 0,
+                        profit: 0,
+                        bid_price: 0,
+                        currency: client?.currency || 'USD',
+                        date_start: new Date().toISOString(),
+                        entry_tick_display_value: '',
+                        entry_tick_time: new Date().toISOString(),
+                        exit_tick_display_value: '',
+                        exit_tick_time: '',
+                        barrier: '',
+                        is_completed: false,
+                        status: 'open'
+                    };
+                    run_panel.root_store.transactions.onBotContractEvent(contractData);
+                } else {
+                    console.warn('Transactions store not available for logging');
+                }
 
                 // Update balance immediately after purchase
                 if (!isO5U4Part) {
@@ -713,7 +668,7 @@ const TradingHubDisplay: React.FC = () => {
     }, [isTradeInProgress, client, appliedStake, monitorContract]);
 
     // Enhanced trade result handling with stop loss check
-    const handleTradeResult = useCallback((isWin: boolean, buyPrice?: number, actualProfit?: number) => {
+    const handleTradeResult = useCallback((isWin: boolean, buyPrice?: number) => {
         const currentStakeAmount = buyPrice || parseFloat(appliedStake);
         const newStake = calculateNextStake(isWin);
         setAppliedStake(newStake);
@@ -721,17 +676,12 @@ const TradingHubDisplay: React.FC = () => {
         setTotalTrades(prev => prev + 1);
         setTotalStake(prev => prev + currentStakeAmount);
 
-        // Use actual profit from contract settlement instead of estimated
-        let profitAmount = actualProfit || 0;
-        if (actualProfit === undefined) {
-            // Fallback to estimated profit only if actual profit not available
-            profitAmount = isWin ? currentStakeAmount * 0.95 : -currentStakeAmount;
-        }
-
+        let profitAmount = 0;
         if (isWin) {
             setWinCount(prev => prev + 1);
             setLastTradeResult('WIN');
-            setTotalPayout(prev => prev + (currentStakeAmount + Math.abs(profitAmount)));
+            profitAmount = currentStakeAmount * 0.95; // 95% payout
+            setTotalPayout(prev => prev + (currentStakeAmount + profitAmount));
             setProfitLoss(prev => {
                 const newProfitLoss = prev + profitAmount;
                 return newProfitLoss;
@@ -740,10 +690,11 @@ const TradingHubDisplay: React.FC = () => {
         } else {
             setLossCount(prev => prev + 1);
             setLastTradeResult('LOSS');
+            profitAmount = -currentStakeAmount;
             setProfitLoss(prev => {
-                const newProfitLoss = prev + profitAmount; // profitAmount is already negative for losses
+                const newProfitLoss = prev + profitAmount;
                 
-                // Check if stop loss is hit (user-defined stop loss)
+                // Check if stop loss is hit
                 if (Math.abs(newProfitLoss) >= parseFloat(stopLoss)) {
                     globalObserver.emit('ui.log.error', `Stop loss of ${stopLoss} reached. Total loss: ${Math.abs(newProfitLoss).toFixed(2)}. Trading stopped.`);
                     setIsContinuousTrading(false);
@@ -1616,38 +1567,7 @@ const TradingHubDisplay: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Statistics Display */}
-                <div className="stats-display">
-                    <h3>Trading Statistics</h3>
-                    <div className="stats-grid">
-                        <div className="stat-item">
-                            <span className="stat-label">Total Trades:</span>
-                            <span className="stat-value">{totalTrades}</span>
-                        </div>
-                        <div className="stat-item">
-                            <span className="stat-label">Wins:</span>
-                            <span className="stat-value win">{winCount}</span>
-                        </div>
-                        <div className="stat-item">
-                            <span className="stat-label">Losses:</span>
-                            <span className="stat-value loss">{lossCount}</span>
-                        </div>
-                        <div className="stat-item">
-                            <span className="stat-label">Win Rate:</span>
-                            <span className="stat-value">{winRate}%</span>
-                        </div>
-                        <div className="stat-item">
-                            <span className="stat-label">Profit/Loss:</span>
-                            <span className={`stat-value ${profitLoss >= 0 ? 'profit' : 'loss'}`}>
-                                {profitLoss >= 0 ? '+' : ''}{profitLoss.toFixed(2)} {client?.currency || 'USD'}
-                            </span>
-                        </div>
-                        <div className="stat-item">
-                            <span className="stat-label">Current Stake:</span>
-                            <span className="stat-value">{appliedStake} {client?.currency || 'USD'}</span>
-                        </div>
-                    </div>
-                </div>
+                
             </div>
 
             {/* Advanced Display Modal */}
