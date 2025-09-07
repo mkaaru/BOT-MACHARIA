@@ -669,7 +669,7 @@ const TradingHubDisplay: React.FC = () => {
         }
     }, [isTradeInProgress, client, appliedStake, monitorContract]);
 
-    // Enhanced trade result handling with stop loss check
+    // Enhanced trade result handling with stop loss check based on run panel statistics
     const handleTradeResult = useCallback((isWin: boolean, buyPrice?: number) => {
         const currentStakeAmount = buyPrice || parseFloat(appliedStake);
         const newStake = calculateNextStake(isWin);
@@ -695,20 +695,26 @@ const TradingHubDisplay: React.FC = () => {
             profitAmount = -currentStakeAmount;
             setProfitLoss(prev => {
                 const newProfitLoss = prev + profitAmount;
-                
-                // Check if stop loss is hit
-                if (Math.abs(newProfitLoss) >= parseFloat(stopLoss)) {
-                    globalObserver.emit('ui.log.error', `Stop loss of ${stopLoss} reached. Total loss: ${Math.abs(newProfitLoss).toFixed(2)}. Trading stopped.`);
-                    setIsContinuousTrading(false);
-                    if (run_panel) {
-                        run_panel.setIsRunning(false);
-                    }
-                }
-                
                 return newProfitLoss;
             });
             globalObserver.emit('ui.log.error', `Trade LOST! Loss: ${profitAmount.toFixed(2)}`);
         }
+
+        // Check stop loss based on run panel's total profit/loss after state updates
+        setTimeout(() => {
+            const runPanelProfitLoss = run_panel?.root_store?.transactions?.statistics?.total_profit || 0;
+            const stopLossAmount = parseFloat(stopLoss);
+            
+            // Stop trading if total loss from run panel exceeds user-defined stop loss
+            if (runPanelProfitLoss < 0 && Math.abs(runPanelProfitLoss) >= stopLossAmount) {
+                globalObserver.emit('ui.log.error', 
+                    `Stop loss of ${stopLossAmount} reached. Run panel total loss: ${Math.abs(runPanelProfitLoss).toFixed(2)}. Trading stopped.`);
+                setIsContinuousTrading(false);
+                if (run_panel) {
+                    run_panel.setIsRunning(false);
+                }
+            }
+        }, 100); // Small delay to ensure transaction store is updated
 
         // Update contract in summary card store for balance integration
         if (run_panel?.summary_card_store) {
@@ -879,23 +885,25 @@ const TradingHubDisplay: React.FC = () => {
                         `O5U4 Both lost on ${selectedSymbol} (Score was: ${bestO5U4Opportunity.score.toFixed(1)})`);
                 }
 
-                // Update comprehensive statistics with stop loss check
+                // Update comprehensive statistics
                 setTotalTrades(prev => prev + 2);
                 setTotalStake(prev => prev + (currentStake * 2));
-                setProfitLoss(prev => {
-                    const newProfitLoss = prev + profitAmount;
+                setProfitLoss(prev => prev + profitAmount);
+
+                // Check stop loss based on run panel's total profit/loss
+                setTimeout(() => {
+                    const runPanelProfitLoss = run_panel?.root_store?.transactions?.statistics?.total_profit || 0;
+                    const stopLossAmount = parseFloat(stopLoss);
                     
-                    // Check if stop loss is hit
-                    if (!isOverallWin && Math.abs(newProfitLoss) >= parseFloat(stopLoss)) {
-                        globalObserver.emit('ui.log.error', `Stop loss of ${stopLoss} reached. Total loss: ${Math.abs(newProfitLoss).toFixed(2)}. Trading stopped.`);
+                    if (runPanelProfitLoss < 0 && Math.abs(runPanelProfitLoss) >= stopLossAmount) {
+                        globalObserver.emit('ui.log.error', 
+                            `Stop loss of ${stopLossAmount} reached. Run panel total loss: ${Math.abs(runPanelProfitLoss).toFixed(2)}. Trading stopped.`);
                         setIsContinuousTrading(false);
                         if (run_panel) {
                             run_panel.setIsRunning(false);
                         }
                     }
-                    
-                    return newProfitLoss;
-                });
+                }, 100); // Small delay to ensure transaction store is updated
 
                 if (isOverallWin) {
                     setTotalPayout(prev => prev + overTrade.payout + underTrade.payout);
@@ -1325,7 +1333,7 @@ const TradingHubDisplay: React.FC = () => {
                         </div>
 
                         <div className="control-group">
-                            <label>Stop Loss ($)</label>
+                            <label>Stop Loss ($)<br/><small>Based on Run Panel Total</small></label>
                             <input
                                 type="number"
                                 value={stopLoss}
@@ -1338,6 +1346,7 @@ const TradingHubDisplay: React.FC = () => {
                                 step="0.01"
                                 min="1"
                                 disabled={isContinuousTrading}
+                                title="Trading will stop when total loss in Run Panel exceeds this amount"
                             />
                         </div>
                     </div>
