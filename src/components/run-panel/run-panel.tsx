@@ -268,15 +268,16 @@ const RunPanel = observer(() => {
     }, []);
 
     // Check if volatility analyzer is running
-    const { run_id } = run_panel;
-    const isVolatilityAnalyzerRunning = run_id?.includes('volatility-analyzer');
+    const { run_id, is_running, has_open_contract } = run_panel;
+    const isVolatilityAnalyzerRunning = run_id?.includes('volatility-analyzer') || 
+                                       (run_id && (is_running || has_open_contract));
 
     const content = (
         <div>
             {isVolatilityAnalyzerRunning && (
                 <div className="volatility-analyzer-indicator">
                     <Text as="p" size="xs" className="volatility-analyzer-status">
-                        <Localize i18n_default_text="🔬 Volatility Analyzer Active" />
+                        <Localize i18n_default_text="🔬 Smart Trading Analytics Active" />
                     </Text>
                 </div>
             )}

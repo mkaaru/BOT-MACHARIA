@@ -1,28 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { observer } from 'mobx-react-lite';
 import { Localize } from '@deriv-com/translations';
 import './volatility-analyzer.scss';
 
-// Assuming these are available globally or imported from a shared context/store
-// Mocking these for demonstration purposes as they are not provided in the original code
-const globalObserver = {
-  emit: (event: string, data: any) => console.log(`GlobalObserver: Emitting '${event}' with`, data),
-};
-const client = { currency: 'USD' };
-const transactions = {
-  onBotContractEvent: (contractData: any) => console.log('Transactions: onBotContractEvent called with', contractData),
-};
-const run_panel = {
-  setContractStage: (stage: string) => console.log(`RunPanel: Setting contract stage to ${stage}`),
-  setHasOpenContract: (hasOpen: boolean) => console.log(`RunPanel: Setting hasOpenContract to ${hasOpen}`),
-  setStopButtonEnabled: (enabled: boolean) => console.log(`RunPanel: Setting stopButtonEnabled to ${enabled}`),
-  run_id: 'mock_run_id_123',
-};
-const isRunPanelIntegrated = true; // Assume it's integrated for the changes
-const contract_stages = {
-  NOT_RUNNING: 'NOT_RUNNING',
-  PURCHASE_RECEIVED: 'PURCHASE_RECEIVED',
-  // Add other relevant stages if needed
-};
+import { useStore } from '@/hooks/useStore';
+import { contract_stages } from '@/constants/contract-stage';
+import { observer as globalObserver } from '@/external/bot-skeleton';
 
 
 interface AnalysisData {
@@ -50,7 +33,10 @@ interface AnalysisData {
   };
 }
 
-const VolatilityAnalyzer: React.FC = () => {
+const VolatilityAnalyzer = observer(() => {
+  const store = useStore();
+  const { run_panel, transactions, client } = store;
+  const isRunPanelIntegrated = true;
   const [selectedSymbol, setSelectedSymbol] = useState('R_100');
   const [tickCount, setTickCount] = useState(120);
   const [barrier, setBarrier] = useState(5);
@@ -68,6 +54,11 @@ const VolatilityAnalyzer: React.FC = () => {
   });
 
   useEffect(() => {
+    // Set up run panel for volatility analyzer
+    if (run_panel && !run_panel.run_id) {
+      run_panel.run_id = `volatility-analyzer-${Date.now()}`;
+    }
+
     // Initialize WebSocket with correct app ID
     let derivWs: WebSocket | null = null;
     let reconnectTimeout: NodeJS.Timeout | null = null;
@@ -836,7 +827,7 @@ const VolatilityAnalyzer: React.FC = () => {
           run_panel.setHasOpenContract(true);
           run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
 
-          // Emit contract event for transaction tracking
+          // Create comprehensive contract data for transaction tracking
           const contractData = {
             contract_id: buy.contract_id,
             contract_type: contractType,
@@ -850,25 +841,39 @@ const VolatilityAnalyzer: React.FC = () => {
             },
             underlying: selectedSymbol,
             entry_tick_display_value: prediction,
+            entry_tick: prediction,
             is_completed: false,
             profit: 0,
-            run_id: run_panel.run_id,
+            run_id: run_panel.run_id || `volatility-analyzer-${Date.now()}`,
             // Add volatility analyzer specific data
             strategy_type: strategyId,
             trade_type: tradeType,
             barrier: prediction,
             duration: ticksAmount,
             duration_unit: 't',
-            symbol: selectedSymbol
+            symbol: selectedSymbol,
+            // Additional fields for better integration
+            app_id: 1089,
+            purchase_time: Date.now() / 1000,
+            status: 'open'
           };
 
+          console.log('📊 Volatility Analyzer: Creating contract transaction:', contractData);
+
           // Push to transactions store
-          if (transactions) {
+          if (transactions && typeof transactions.onBotContractEvent === 'function') {
             transactions.onBotContractEvent(contractData);
           }
 
           // Emit global contract event
-          globalObserver.emit('bot.contract', contractData);
+          if (globalObserver && typeof globalObserver.emit === 'function') {
+            globalObserver.emit('bot.contract', contractData);
+          }
+
+          // Also emit to run panel
+          if (run_panel && typeof run_panel.onBotContractEvent === 'function') {
+            run_panel.onBotContractEvent(contractData);
+          }
         }
 
         // Only show alert for manual trades to avoid spam during auto trading
@@ -922,14 +927,38 @@ const VolatilityAnalyzer: React.FC = () => {
 
                 // Update run panel with contract outcome
                 if (run_panel && isRunPanelIntegrated) {
-                  run_panel.setHasOpenContract(false); // Assuming one contract at a time for simplicity
-                  run_panel.setContractStage(isWin ? 'WON' : 'LOST'); // Example stages
-                  globalObserver.emit('bot.contract', {
-                    ...contractData, // Use the contractData prepared earlier
+                  run_panel.setHasOpenContract(false);
+                  run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+
+                  // Create updated contract data with final results
+                  const completedContractData = {
+                    ...contractData,
                     is_completed: true,
                     profit: profit,
                     date_closed: Date.now() / 1000,
-                  });
+                    exit_tick: contract.exit_tick,
+                    exit_tick_display_value: contract.exit_tick_display_value,
+                    exit_tick_time: contract.exit_tick_time,
+                    sell_price: contract.sell_price,
+                    status: isWin ? 'won' : 'lost'
+                  };
+
+                  console.log(`📊 Volatility Analyzer: Contract ${isWin ? 'Won' : 'Lost'}:`, completedContractData);
+
+                  // Update transactions store
+                  if (transactions && typeof transactions.onBotContractEvent === 'function') {
+                    transactions.onBotContractEvent(completedContractData);
+                  }
+
+                  // Emit global contract event
+                  if (globalObserver && typeof globalObserver.emit === 'function') {
+                    globalObserver.emit('bot.contract', completedContractData);
+                  }
+
+                  // Also emit to run panel
+                  if (run_panel && typeof run_panel.onBotContractEvent === 'function') {
+                    run_panel.onBotContractEvent(completedContractData);
+                  }
                 }
 
                 // Clean up listener
@@ -1570,6 +1599,6 @@ const VolatilityAnalyzer: React.FC = () => {
       </div>
     </div>
   );
-};
+});
 
 export default VolatilityAnalyzer;
