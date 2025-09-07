@@ -1,0 +1,1094 @@
+Compilation failed
+
+File: /home/runner/workspace/src/components/trading-hub/trading-hub-display.tsx:1:1
+  × Module build failed:
+  ╰─▶   ×   × the name `analysisCount` is defined multiple times
+        │       ╭─[/home/runner/workspace/src/components/trading-hub/trading-hub-display.tsx:48:1]
+        │    45 │     const [profitLoss, setProfitLoss] = useState(0);
+        │    46 │
+        │    47 │     // Analysis data
+        │    48 │     const [analysisCount, setAnalysisCount] = useState(0);
+        │       ·            ──────┬──────
+        │       ·                  ╰── previous definition of `analysisCount` here
+        │    49 │     const [lastAnalysisTime, setLastAnalysisTime] = useState<string>('');
+        │    50 │
+        │    51 │     // Refs for continuous trading
+        │    52 │     const tradingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+        │    53 │     const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null);
+        │    54 │     const currentStakeRef = useRef(MINIMUM_STAKE);
+        │    55 │     const currentConsecutiveLossesRef = useRef(0);
+        │    56 │     const contractSettledTimeRef = useRef(0);
+        │    57 │     const waitingForSettlementRef = useRef(false);
+        │    58 │
+        │    59 │     const { run_panel, client } = useStore();
+        │    60 │
+        │    61 │     // Available symbols for analysis
+        │    62 │     const availableSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+        │    63 │
+        │    64 │     // Prepare run panel for trading hub integration
+        │    65 │     const prepareRunPanelForTradingHub = useCallback(() => {
+        │    66 │         if (run_panel) {
+        │    67 │             run_panel.setIsRunning(true);
+        │    68 │
+        │    69 │             // Ensure transactions store is initialized
+        │    70 │             if (run_panel.root_store?.transactions) {
+        │    71 │                 // Clear any existing transactions from previous sessions
+        │    72 │                 // but don't clear if there are already Trading Hub transactions
+        │    73 │                 const existingTransactions = run_panel.root_store.transactions.transactions || [];
+        │    74 │                 const hasTradingHubTransactions = existingTransactions.some(tx =>
+        │    75 │                     typeof tx.data === 'object' &&
+        │    76 │                     (tx.data?.contract_type?.includes('DIGIT') || tx.data?.contract_type === 'O5U4_DUAL')
+        │    77 │                 );
+        │    78 │
+        │    79 │                 if (!hasTradingHubTransactions) {
+        │    80 │                     console.log('Initializing transactions store for Trading Hub');
+        │    81 │                 }
+        │    82 │             }
+        │    83 │
+        │    84 │             console.log('Run panel prepared for Trading Hub');
+        │    85 │         }
+        │    86 │     }, [run_panel]);
+        │    87 │
+        │    88 │     // Enhanced market analysis with realistic patterns
+        │    89 │     const performMarketAnalysis = useCallback(() => {
+        │    90 │         setAnalysisCount(prev => prev + 1);
+        │    91 │         setLastAnalysisTime(new Date().toLocaleTimeString());
+        │    92 │
+        │    93 │         // Generate realistic market recommendations
+        │    94 │         const symbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+        │    95 │         const strategies = ['over', 'under', 'differ'] as const;
+        │    96 │         const barriers = ['3', '4', '5', '6', '7'];
+        │    97 │
+        │    98 │         const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
+        │    99 │         const randomStrategy = strategies[Math.floor(Math.random() * strategies.length)];
+        │   100 │         const randomBarrier = barriers[Math.floor(Math.random() * barriers.length)];
+        │   101 │         const confidence = Math.floor(Math.random() * 25) + 70; // 70-95% confidence
+        │   102 │
+        │   103 │         const newRecommendation: TradeRecommendation = {
+        │   104 │             symbol: randomSymbol,
+        │   105 │             strategy: randomStrategy,
+        │   106 │             barrier: randomStrategy === 'over' || randomStrategy === 'under' ? randomBarrier : undefined,
+        │   107 │             confidence,
+        │   108 │             reason: `Market pattern analysis detected with ${confidence}% confidence`,
+        │   109 │             timestamp: Date.now()
+        │   110 │         };
+        │   111 │
+        │   112 │         setRecommendation(newRecommendation);
+        │   113 │
+        │   114 │         if (!isAnalysisReady) {
+        │   115 │             setIsAnalysisReady(true);
+        │   116 │         }
+        │   117 │
+        │   118 │         // Immediately execute trade on new recommendation if trading is active
+        │   119 │         if (isContinuousTrading && !isTradeInProgress) {
+        │   120 │             setTimeout(async () => {
+        │   121 │                 try {
+        │   122 │                     if (isAutoDifferActive) {
+        │   123 │                         await executeDigitDifferTrade();
+        │   124 │                     } else if (isAutoOverUnderActive) {
+        │   125 │                         await executeDigitOverTrade();
+        │   126 │                     } else if (isAutoO5U4Active) {
+        │   127 │                         await executeO5U4Trade();
+        │   128 │                     }
+        │   129 │                 } catch (error) {
+        │   130 │                     console.error('Immediate trade execution error:', error);
+        │   131 │                 }
+        │   132 │             }, 100); // Execute almost immediately on new recommendation
+        │   133 │         }
+        │   134 │     }, [isAnalysisReady]);
+        │   135 │
+        │   136 │     // Enhanced stake management with martingale
+        │   137 │     const calculateNextStake = useCallback((isWin: boolean): string => {
+        │   138 │         if (isWin) {
+        │   139 │             setConsecutiveLosses(0);
+        │   140 │             currentConsecutiveLossesRef.current = 0;
+        │   141 │             return initialStake;
+        │   142 │         } else {
+        │   143 │             const newLossCount = consecutiveLosses + 1;
+        │   144 │             setConsecutiveLosses(newLossCount);
+        │   145 │             currentConsecutiveLossesRef.current = newLossCount;
+        │   146 │             const multiplier = parseFloat(martingale);
+        │   147 │             const newStake = (parseFloat(initialStake) * Math.pow(multiplier, Math.min(newLossCount, 8))).toFixed(2);
+        │   148 │             const calculatedStake = Math.max(parseFloat(newStake), parseFloat(MINIMUM_STAKE)).toFixed(2);
+        │   149 │             console.log(`Martingale calculation: Loss ${newLossCount}, New stake: ${calculatedStake}`);
+        │   150 │             return calculatedStake;
+        │   151 │         }
+        │   152 │     }, [consecutiveLosses, initialStake, martingale]);
+        │   153 │
+        │   154 │     // Check O5U4 trading conditions - optimized for immediate execution
+        │   155 │     const checkO5U4Conditions = useCallback((): boolean => {
+        │   156 │         const now = Date.now();
+        │   157 │         const timeSinceLastSettlement = now - contractSettledTimeRef.current;
+        │   158 │         const minimumWaitTime = 1000; // Reduced to 1 second between trades
+        │   159 │
+        │   160 │         if (waitingForSettlementRef.current) {
+        │   161 │             console.log('O5U4: Still waiting for contract settlement');
+        │   162 │             return false;
+        │   163 │         }
+        │   164 │
+        │   165 │         if (timeSinceLastSettlement < minimumWaitTime && contractSettledTimeRef.current > 0) {
+        │   166 │             console.log(`O5U4: Brief cooldown active (${timeSinceLastSettlement}ms < ${minimumWaitTime}ms)`);
+        │   167 │             return false;
+        │   168 │         }
+        │   169 │
+        │   170 │         return true;
+        │   171 │     }, []);
+        │   172 │
+        │   173 │     // Enhanced contract monitoring with accurate win/loss detection
+        │   174 │     const monitorContract = useCallback(async (contractId: string, isO5U4Part: boolean = false, contractType?: string, symbol?: string, stake?: number): Promise<boolean> => {
+        │   175 │         return new Promise((resolve) => {
+        │   176 │             let contractData: any = null;
+        │   177 │             let contractResolved = false;
+        │   178 │
+        │   179 │             const subscription = api_base.api?.onMessage().subscribe(async (response: any) => {
+        │   180 │                 if (response.proposal_open_contract &&
+        │   181 │                     response.proposal_open_contract.contract_id === contractId &&
+        │   182 │                     !contractResolved) {
+        │   183 │
+        │   184 │                     contractData = response.proposal_open_contract;
+        │   185 │
+        │   186 │                     if (contractData.is_settled) {
+        │   187 │                         contractResolved = true;
+        │   188 │
+        │   189 │                         // Enhanced win/loss detection for Over/Under trades
+        │   190 │                         const profit = parseFloat(contractData.profit || '0');
+        │   191 │                         const sellPrice = parseFloat(contractData.sell_price || '0');
+        │   192 │                         const buyPrice = parseFloat(contractData.buy_price || stake?.toString() || '0');
+        │   193 │                         const payout = parseFloat(contractData.payout || '0');
+        │   194 │
+        │   195 │                         // Multiple ways to detect win - use the most reliable for Over/Under
+        │   196 │                         let isWin = false;
+        │   197 │
+        │   198 │                         // For Over/Under trades, check multiple indicators
+        │   199 │                         if (contractData.status === 'won' || contractData.status === 'sold') {
+        │   200 │                             // Check if we actually made profit
+        │   201 │                             if (profit > 0 || sellPrice > buyPrice) {
+        │   202 │                                 isWin = true;
+        │   203 │                             }
+        │   204 │                         }
+        │   205 │
+        │   206 │                         // Fallback: Check payout received vs amount paid
+        │   207 │                         if (!isWin && payout > 0 && payout > buyPrice) {
+        │   208 │                             isWin = true;
+        │   209 │                         }
+        │   210 │
+        │   211 │                         // Final check: If sell price is significantly higher than buy price
+        │   212 │                         if (!isWin && sellPrice > (buyPrice * 1.01)) { // At least 1% gain
+        │   213 │                             isWin = true;
+        │   214 │                         }
+        │   215 │
+        │   216 │                         // Over/Under specific: Check if exit spot satisfies the barrier condition
+        │   217 │                         if (!isWin && contractData.exit_spot && contractData.barrier) {
+        │   218 │                             const exitSpot = parseFloat(contractData.exit_spot);
+        │   219 │                             const barrier = parseFloat(contractData.barrier);
+        │   220 │                             const lastDigit = Math.floor(exitSpot * 100) % 10;
+        │   221 │
+        │   222 │                             // Check if the prediction was correct based on contract type
+        │   223 │                             if (contractType === 'DIGITOVER' && lastDigit > barrier) {
+        │   224 │                                 isWin = true;
+        │   225 │                             } else if (contractType === 'DIGITUNDER' && lastDigit < barrier) {
+        │   226 │                                 isWin = true;
+        │   227 │                             }
+        │   228 │                         }
+        │   229 │
+        │   230 │                         subscription.unsubscribe();
+        │   231 │
+        │   232 │                         // Log detailed contract info for debugging
+        │   233 │                         console.log(`Contract ${contractId} detailed settlement:`, {
+        │   234 │                             contract_id: contractId,
+        │   235 │                             contract_type: contractType,
+        │   236 │                             status: contractData.status,
+        │   237 │                             profit: profit,
+        │   238 │                             buy_price: buyPrice,
+        │   239 │                             sell_price: sellPrice,
+        │   240 │                             payout: payout,
+        │   241 │                             is_win_calculated: isWin,
+        │   242 │                             entry_spot: contractData.entry_spot,
+        │   243 │                             exit_spot: contractData.exit_spot,
+        │   244 │                             barrier: contractData.barrier,
+        │   245 │                             last_digit: contractData.exit_spot ? Math.floor(parseFloat(contractData.exit_spot) * 100) % 10 : null,
+        │   246 │                             strategy_active: isAutoOverUnderActive ? 'Over/Under' : isAutoDifferActive ? 'Differ' : 'O5U4'
+        │   247 │                         });
+        │   248 │
+        │   249 │                         // Create transaction entry for run panel with correct win/loss status
+        │   250 │                         if (run_panel?.root_store?.transactions) {
+        │   251 │                             try {
+        │   252 │                                 // Calculate actual profit more accurately for Over/Under
+        │   253 │                                 let actualProfit;
+        │   254 │                                 if (isWin) {
+        │   255 │                                     // For wins, use the actual profit or calculate from payout
+        │   256 │                                     actualProfit = profit > 0 ? profit : (payout > 0 ? payout - buyPrice : sellPrice - buyPrice);
+        │   257 │                                 } else {
+        │   258 │                                     // For losses, it's negative of the stake
+        │   259 │                                     actualProfit = -Math.abs(buyPrice);
+        │   260 │                                 }
+        │   261 │
+        │   262 │                                 const profitPercentage = buyPrice > 0 ? ((actualProfit / buyPrice) * 100).toFixed(2) : '0.00';
+        │   263 │                                 const contractIdNum = typeof contractId === 'string' ? parseInt(contractId.replace(/[^0-9]/g, ''), 10) : contractId;
+        │   264 │
+        │   265 │                                 const formattedTransaction = {
+        │   266 │                                     contract_id: contractIdNum,
+        │   267 │                                     transaction_ids: {
+        │   268 │                                         buy: contractIdNum,
+        │   269 │                                         sell: contractData.transaction_ids?.sell || contractIdNum + 1
+        │   270 │                                     },
+        │   271 │                                     buy_price: buyPrice,
+        │   272 │                                     sell_price: isWin ? sellPrice : 0,
+        │   273 │                                     profit: actualProfit,
+        │   274 │                                     currency: client?.currency || 'USD',
+        │   275 │                                     contract_type: contractType || 'DIGITOVER',
+        │   276 │                                     underlying: symbol || 'R_100',
+        │   277 │                                     shortcode: contract.shortcode || `${contractType}_${symbol}_${contractIdNum}`,
+        │   278 │                                     display_name: contract.display_name || `${contractType} on ${symbol}`,
+        │   279 │                                     date_start: contractData.date_start || new Date().toISOString(),
+        │   280 │                                     entry_tick_display_value: contractData.entry_spot || contractData.entry_tick || 0,
+        │   281 │                                     exit_tick_display_value: contractData.exit_spot || contractData.exit_tick || 0,
+        │   282 │                                     entry_tick_time: contractData.entry_tick_time || contractData.date_start || new Date().toISOString(),
+        │   283 │                                     exit_tick_time: contractData.exit_tick_time || new Date().toISOString(),
+        │   284 │                                     barrier: contractData.barrier || '',
+        │   285 │                                     tick_count: contractData.tick_count || 1,
+        │   286 │                                     payout: isWin ? payout : 0,
+        │   287 │                                     is_completed: true,
+        │   288 │                                     is_sold: true,
+        │   289 │                                     profit_percentage: profitPercentage,
+        │   290 │                                     status: isWin ? 'won' : 'lost',
+        │   291 │                                     // Additional fields
+        │   292 │                                     longcode: `${contractType} prediction on ${symbol}`,
+        │   293 │                                     app_id: 16929,
+        │   294 │                                     purchase_time: contractData.date_start || new Date().toISOString(),
+        │   295 │                                     sell_time: contractData.exit_tick_time || new Date().toISOString(),
+        │   296 │                                     transaction_time: new Date().toISOString()
+        │   297 │                                 };
+        │   298 │
+        │   299 │                                 run_panel.root_store.transactions.onBotContractEvent(formattedTransaction);
+        │   300 │
+        │   301 │                                 console.log(`✅ Transaction recorded correctly:`, {
+        │   302 │                                     contract_id: contractId,
+        │   303 │                                     result: isWin ? 'WIN' : 'LOSS',
+        │   304 │                                     profit: actualProfit,
+        │   305 │                                     profit_percentage: profitPercentage + '%'
+        │   306 │                                 });
+        │   307 │                             } catch (error) {
+        │   308 │                                 console.error('Failed to add transaction to run panel:', error);
+        │   309 │                             }
+        │   310 │                         }
+        │   311 │
+        │   312 │                         // Update balance and cleanup for non-O5U4 trades
+        │   313 │                         if (!isO5U4Part) {
+        │   314 │                             try {
+        │   315 │                                 const balanceResponse = await api_base.api?.send({ balance: 1 });
+        │   316 │                                 console.log('Balance after settlement:', balanceResponse?.balance?.balance);
+        │   317 │
+        │   318 │                                 if (run_panel?.summary_card_store) {
+        │   319 │                                     run_panel.summary_card_store.updateBalance(balanceResponse?.balance?.balance || 0);
+        │   320 │                                 }
+        │   321 │                             } catch (error) {
+        │   322 │                                 console.error('Failed to update balance:', error);
+        │   323 │                             }
+        │   324 │
+        │   325 │                             contractSettledTimeRef.current = Date.now();
+        │   326 │                             waitingForSettlementRef.current = false;
+        │   327 │                         }
+        │   328 │
+        │   329 │                         const tradeType = isO5U4Part ? 'O5U4 Part' : 'Over/Under';
+        │   330 │                         globalObserver.emit('ui.log.info',
+        │   331 │                             `${tradeType} Contract ${contractId}: ${isWin ? 'WON' : 'LOST'} - Profit: ${profit.toFixed(2)}`);
+        │   332 │
+        │   333 │                         resolve(isWin);
+        │   334 │                     }
+        │   335 │                 }
+        │   336 │             });
+        │   337 │
+        │   338 │             // Send subscription request with immediate status check
+        │   339 │             Promise.all([
+        │   340 │                 api_base.api?.send({
+        │   341 │                     proposal_open_contract: 1,
+        │   342 │                     contract_id: contractId,
+        │   343 │                     subscribe: 1
+        │   344 │                 }),
+        │   345 │                 api_base.api?.send({
+        │   346 │                     proposal_open_contract: 1,
+        │   347 │                     contract_id: contractId
+        │   348 │                 })
+        │   349 │             ]).then(([subscriptionResponse, immediateResponse]) => {
+        │   350 │                 if (immediateResponse?.proposal_open_contract?.is_settled && !contractResolved) {
+        │   351 │                     console.log('Contract already settled on immediate check:', immediateResponse.proposal_open_contract);
+        │   352 │                 }
+        │   353 │             }).catch(error => {
+        │   354 │                 console.error('Error in contract monitoring setup:', error);
+        │   355 │             });
+        │   356 │
+        │   357 │             // Extended timeout for better contract settlement detection
+        │   358 │             setTimeout(() => {
+        │   359 │                 if (!contractResolved) {
+        │   360 │                     subscription.unsubscribe();
+        │   361 │
+        │   362 │                     // Final attempt to get contract status before timeout
+        │   363 │                     if (contractData && contractData.is_settled) {
+        │   364 │                         const profit = parseFloat(contractData.profit || '0');
+        │   365 │                         const isWin = profit > 0 || contractData.status === 'won';
+        │   366 │
+        │   367 │                         console.log(`Final timeout check - Contract ${contractId}: ${isWin ? 'WON' : 'LOST'}`);
+        │   368 │                         contractResolved = true;
+        │   369 │
+        │   370 │                         if (!isO5U4Part) {
+        │   371 │                             contractSettledTimeRef.current = Date.now();
+        │   372 │                             waitingForSettlementRef.current = false;
+        │   373 │                         }
+        │   374 │
+        │   375 │                         resolve(isWin);
+        │   376 │                     } else {
+        │   377 │                         // True timeout - contract not settled
+        │   378 │                         console.warn(`Contract ${contractId} timeout - no settlement data received`);
+        │   379 │
+        │   380 │                         if (!isO5U4Part) {
+        │   381 │                             contractSettledTimeRef.current = Date.now();
+        │   382 │                             waitingForSettlementRef.current = false;
+        │   383 │                         }
+        │   384 │
+        │   385 │                         globalObserver.emit('ui.log.error', `Contract ${contractId} monitoring timeout`);
+        │   386 │                         resolve(false);
+        │   387 │                     }
+        │   388 │                 }
+        │   389 │             }, 3000); // Extended to 3 seconds for better reliability
+        │   390 │         });
+        │   391 │     }, [run_panel, client]);
+        │   392 │
+        │   393 │     // Execute trade using the enhanced trade engine
+        │   394 │     const executeTrade = useCallback(async (
+        │   395 │         strategy: string,
+        │   396 │         symbol: string,
+        │   397 │         contractType: string,
+        │   398 │         barrier?: string,
+        │   399 │         isO5U4Part: boolean = false
+        │   400 │     ): Promise<boolean> => {
+        │   401 │         if (isTradeInProgress && !isO5U4Part) {
+        │   402 │             console.log('Trade already in progress, skipping...');
+        │   403 │             return false;
+        │   404 │         }
+        │   405 │
+        │   406 │         // Enhanced token retrieval with multiple fallbacks
+        │   407 │         let token = null;
+        │   408 │
+        │   409 │         // Try multiple token sources in order of preference
+        │   410 │         if (client?.getToken) {
+        │   411 │             token = client.getToken();
+        │   412 │         }
+        │   413 │         if (!token && client?.token) {
+        │   414 │             token = client.token;
+        │   415 │         }
+        │   416 │         if (!token) {
+        │   417 │             token = localStorage.getItem('authToken');
+        │   418 │         }
+        │   419 │         if (!token) {
+        │   420 │             token = localStorage.getItem('client_token');
+        │   421 │         }
+        │   422 │
+        │   423 │         console.log('Token retrieval result:', {
+        │   424 │             hasToken: !!token,
+        │   425 │             loginid: client?.loginid,
+        │   426 │             clientAvailable: !!client
+        │   427 │         });
+        │   428 │
+        │   429 │         if (!client?.loginid || !token) {
+        │   430 │             globalObserver.emit('ui.log.error', `Cannot execute trade: ${!client?.loginid ? 'not logged in' : 'no token available'}`);
+        │   431 │             return false;
+        │   432 │         }
+        │   433 │
+        │   434 │         if (!isO5U4Part) {
+        │   435 │             setIsTradeInProgress(true);
+        │   436 │         }
+        │   437 │
+        │   438 │         try {
+        │   439 │             // Enhanced API connection setup with better error handling
+        │   440 │             if (!api_base.api || api_base.api.connection?.readyState !== 1) {
+        │   441 │                 console.log('Connecting to API...');
+        │   442 │                 await api_base.init();
+        │   443 │                 await new Promise(resolve => setTimeout(resolve, 3000));
+        │   444 │
+        │   445 │                 if (!api_base.api || api_base.api.connection?.readyState !== 1) {
+        │   446 │                     throw new Error('Failed to establish API connection after initialization');
+        │   447 │                 }
+        │   448 │             }
+        │   449 │
+        │   450 │             // Enhanced authorization with detailed error handling
+        │   451 │             if (!api_base.is_authorized) {
+        │   452 │                 console.log('Authorizing API with token...');
+        │   453 │                 try {
+        │   454 │                     const authResponse = await api_base.api?.send({ authorize: token });
+        │   455 │                     console.log('Authorization response:', authResponse);
+        │   456 │                     await new Promise(resolve => setTimeout(resolve, 2000));
+        │   457 │
+        │   458 │                     if (!api_base.is_authorized && authResponse?.error) {
+        │   459 │                         throw new Error(`Authorization failed: ${authResponse.error.message || authResponse.error.code}`);
+        │   460 │                     }
+        │   461 │                 } catch (authError: any) {
+        │   462 │                     console.error('Authorization error:', authError);
+        │   463 │                     throw new Error(`API authorization error: ${authError.message || 'Unknown authorization error'}`);
+        │   464 │                 }
+        │   465 │             }
+        │   466 │
+        │   467 │             // Final verification of authorization status
+        │   468 │             if (!api_base.is_authorized) {
+        │   469 │                 throw new Error('API authorization verification failed. Please check your login status and try again.');
+        │   470 │             }
+        │   471 │
+        │   472 │             // Get current balance first
+        │   473 │             const balanceResponse = await api_base.api?.send({ balance: 1 });
+        │   474 │             console.log('Current balance before trade:', balanceResponse?.balance?.balance);
+        │   475 │
+        │   476 │             // Prepare enhanced trade parameters
+        │   477 │             const currentStake = isO5U4Part ? appliedStake : currentStakeRef.current;
+        │   478 │             const stakeAmount = parseFloat(currentStake);
+        │   479 │
+        │   480 │             // Validate stake amount
+        │   481 │             if (isNaN(stakeAmount) || stakeAmount < 0.35) {
+        │   482 │                 throw new Error(`Invalid stake amount: ${currentStake}. Minimum stake is 0.35`);
+        │   483 │             }
+        │   484 │
+        │   485 │             // Check if balance is sufficient
+        │   486 │             if (balanceResponse?.balance?.balance && parseFloat(balanceResponse.balance.balance) < stakeAmount) {
+        │   487 │                 throw new Error(`Insufficient balance. Required: ${stakeAmount}, Available: ${balanceResponse.balance.balance}`);
+        │   488 │             }
+        │   489 │
+        │   490 │             const tradeParams: any = {
+        │   491 │                 buy: 1,
+        │   492 │                 price: stakeAmount,
+        │   493 │                 parameters: {
+        │   494 │                     contract_type: contractType,
+        │   495 │                     symbol: symbol,
+        │   496 │                     duration: 1,
+        │   497 │                     duration_unit: 't',
+        │   498 │                     amount: stakeAmount,
+        │   499 │                     basis: 'stake',
+        │   500 │                     currency: client?.currency || 'USD'
+        │   501 │                 }
+        │   502 │             };
+        │   503 │
+        │   504 │             // Add barrier for over/under trades
+        │   505 │             if (barrier && (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER')) {
+        │   506 │                 tradeParams.parameters.barrier = barrier;
+        │   507 │             }
+        │   508 │
+        │   509 │             // Add prediction for digit contracts that require it
+        │   510 │             if (contractType === 'DIGITDIFF' || contractType === 'DIGITMATCH') {
+        │   511 │                 // For differ/match contracts, use a random digit 0-9 if no specific prediction
+        │   512 │                 const prediction = Math.floor(Math.random() * 10);
+        │   513 │                 tradeParams.parameters.barrier = prediction.toString();
+        │   514 │             }
+        │   515 │
+        │   516 │             // Ensure all digit contracts have a barrier/prediction parameter
+        │   517 │             if (contractType.startsWith('DIGIT') && !tradeParams.parameters.barrier) {
+        │   518 │                 // Default prediction for any digit contract without a barrier
+        │   519 │                 const defaultPrediction = Math.floor(Math.random() * 10);
+        │   520 │                 tradeParams.parameters.barrier = defaultPrediction.toString();
+        │   521 │             }
+        │   522 │
+        │   523 │             console.log(`Executing ${strategy} trade:`, tradeParams);
+        │   524 │             globalObserver.emit('ui.log.info', `${strategy}: ${contractType} on ${symbol} - Stake: ${currentStake}`);
+        │   525 │
+        │   526 │             // Send trade request through the API with optimized timeout
+        │   527 │             const response = await new Promise((resolve, reject) => {
+        │   528 │                 const subscription = api_base.api?.onMessage().subscribe((msg: any) => {
+        │   529 │                     if (msg.buy) {
+        │   530 │                         subscription.unsubscribe();
+        │   531 │                         resolve(msg);
+        │   532 │                     } else if (msg.error) {
+        │   533 │                         subscription.unsubscribe();
+        │   534 │                         reject(new Error(msg.error.message || msg.error.code));
+        │   535 │                     }
+        │   536 │                 });
+        │   537 │
+        │   538 │                 // Send the trade request
+        │   539 │                 api_base.api?.send(tradeParams).then((directResponse: any) => {
+        │   540 │                     // Handle immediate response if available
+        │   541 │                     if (directResponse?.buy) {
+        │   542 │                         subscription.unsubscribe();
+        │   543 │                         resolve(directResponse);
+        │   544 │                     } else if (directResponse?.error) {
+        │   545 │                         subscription.unsubscribe();
+        │   546 │                         reject(new Error(directResponse.error.message || directResponse.error.code));
+        │   547 │                     }
+        │   548 │                 }).catch(reject);
+        │   549 │
+        │   550 │                 // Reduced timeout to 10 seconds for faster execution
+        │   551 │                 setTimeout(() => {
+        │   552 │                     subscription.unsubscribe();
+        │   553 │                     reject(new Error('Trade request timeout - please check connection and try again'));
+        │   554 │                 }, 10000);
+        │   555 │             });
+        │   556 │
+        │   557 │             if (response?.buy && response.buy.contract_id) {
+        │   558 │                 const contractId = response.buy.contract_id;
+        │   559 │                 const buyPrice = response.buy.buy_price;
+        │   560 │                 globalObserver.emit('ui.log.success', `Trade executed: ${contractId} - Cost: ${buyPrice}`);
+        │   561 │
+        │   562 │                 // Update balance immediately after purchase
+        │   563 │                 const newBalanceResponse = await api_base.api?.send({ balance: 1 });
+        │   564 │                 console.log('Balance after trade:', newBalanceResponse?.balance?.balance);
+        │   565 │
+        │   566 │                 // Enhanced contract monitoring
+        │   567 │                 if (!isO5U4Part) {
+        │   568 │                     waitingForSettlementRef.current = true;
+        │   569 │                 }
+        │   570 │
+        │   571 │                 const contractResult = await monitorContract(contractId, isO5U4Part, contractType, symbol, stakeAmount);
+        │   572 │
+        │   573 │                 if (!isO5U4Part) {
+        │   574 │                     handleTradeResult(contractResult, buyPrice);
+        │   575 │                 }
+        │   576 │
+        │   577 │                 return contractResult;
+        │   578 │             } else {
+        │   579 │                 throw new Error('Invalid response from server - no contract ID received');
+        │   580 │             }
+        │   581 │
+        │   582 │         } catch (error: any) {
+        │   583 │             let errorMsg = 'Unknown trade execution error';
+        │   584 │
+        │   585 │             // Enhanced error message extraction
+        │   586 │             if (error?.message) {
+        │   587 │                 errorMsg = error.message;
+        │   588 │             } else if (error?.error?.message) {
+        │   589 │                 errorMsg = error.error.message;
+        │   590 │             } else if (error?.error?.code) {
+        │   591 │                 errorMsg = `API Error: ${error.error.code}`;
+        │   592 │             } else if (typeof error === 'string') {
+        │   593 │                 errorMsg = error;
+        │   594 │             }
+        │   595 │
+        │   596 │             console.error('Trade execution failed:', {
+        │   597 │                 error,
+        │   598 │                 errorMsg,
+        │   599 │                 apiConnected: api_base.api?.connection?.readyState === 1,
+        │   600 │                 isAuthorized: api_base.is_authorized,
+        │   601 │                 hasToken: !!token,
+        │   602 │                 loginid: client?.loginid
+        │   603 │             });
+        │   604 │
+        │   605 │             globalObserver.emit('ui.log.error', `Trade failed: ${errorMsg} - stopping trading`);
+        │   606 │
+        │   607 │             // Stop trading on API failures instead of continuing with dummy results
+        │   608 │             setIsContinuousTrading(false);
+        │   609 │             if (run_panel) {
+        │   610 │                 run_panel.setIsRunning(false);
+        │   611 │             }
+        │   612 │
+        │   613 │             return false;
+        │   614 │         } finally {
+        │   615 │             if (!isO5U4Part) {
+        │   616 │                 setIsTradeInProgress(false);
+        │   617 │             }
+        │   618 │         }
+        │   619 │     }, [isTradeInProgress, client, appliedStake, monitorContract]);
+        │   620 │
+        │   621 │     // Enhanced trade result handling with proper balance integration
+        │   622 │     const handleTradeResult = useCallback((isWin: boolean, buyPrice?: number) => {
+        │   623 │         const currentStakeAmount = buyPrice || parseFloat(appliedStake);
+        │   624 │         const newStake = calculateNextStake(isWin);
+        │   625 │         setAppliedStake(newStake);
+        │   626 │         currentStakeRef.current = newStake;
+        │   627 │         setTotalTrades(prev => prev + 1);
+        │   628 │
+        │   629 │         let profitAmount = 0;
+        │   630 │         if (isWin) {
+        │   631 │             setWinCount(prev => prev + 1);
+        │   632 │             setLastTradeResult('WIN');
+        │   633 │             profitAmount = currentStakeAmount * 0.95; // 95% payout
+        │   634 │             setProfitLoss(prev => prev + profitAmount);
+        │   635 │             globalObserver.emit('ui.log.success', `Trade WON! Profit: +${profitAmount.toFixed(2)}`);
+        │   636 │         } else {
+        │   637 │             setLossCount(prev => prev + 1);
+        │   638 │             setLastTradeResult('LOSS');
+        │   639 │             profitAmount = -currentStakeAmount;
+        │   640 │             setProfitLoss(prev => prev + profitAmount);
+        │   641 │             globalObserver.emit('ui.log.error', `Trade LOST! Loss: ${profitAmount.toFixed(2)}`);
+        │   642 │         }
+        │   643 │
+        │   644 │         // Update contract in summary card store for balance integration
+        │   645 │         if (run_panel?.summary_card_store) {
+        │   646 │             const newStats = {
+        │   647 │                 total_trades: totalTrades + 1,
+        │   648 │                 wins: isWin ? winCount + 1 : winCount,
+        │   649 │                 losses: !isWin ? lossCount + 1 : lossCount,
+        │   650 │                 profit_loss: profitLoss + profitAmount,
+        │   651 │                 last_trade_result: isWin ? 'WIN' : 'LOSS',
+        │   652 │                 current_stake: newStake
+        │   653 │             };
+        │   654 │
+        │   655 │             run_panel.summary_card_store.updateTradingHubStats(newStats);
+        │   656 │
+        │   657 │             // Trigger balance refresh
+        │   658 │             api_base.api?.send({ balance: 1 }).then((response: any) => {
+        │   659 │                 if (response?.balance?.balance) {
+        │   660 │                     run_panel.summary_card_store.updateBalance(response.balance.balance);
+        │   661 │                 }
+        │   662 │             }).catch((error: any) => {
+        │   663 │                 console.error('Failed to refresh balance:', error);
+        │   664 │             });
+        │   665 │         }
+        │   666 │     }, [calculateNextStake, appliedStake, totalTrades, winCount, lossCount, profitLoss, run_panel]);
+        │   667 │
+        │   668 │     // Strategy execution functions
+        │   669 │     const executeDigitDifferTrade = useCallback(async (): Promise<boolean> => {
+        │   670 │         if (!recommendation || isTradeInProgress) return false;
+        │   671 │
+        │   672 │         try {
+        │   673 │             console.log('Executing Auto Differ trade...');
+        │   674 │             return await executeTrade('Auto Differ', recommendation.symbol, 'DIGITDIFF');
+        │   675 │         } catch (error) {
+        │   676 │             console.error('Auto Differ execution failed:', error);
+        │   677 │             return false;
+        │   678 │         }
+        │   679 │     }, [recommendation, isTradeInProgress, executeTrade]);
+        │   680 │
+        │   681 │     const executeDigitOverTrade = useCallback(async (): Promise<boolean> => {
+        │   682 │         if (!recommendation || isTradeInProgress) {
+        │   683 │             console.log('Cannot execute Over/Under trade: no recommendation or trade in progress');
+        │   684 │             return false;
+        │   685 │         }
+        │   686 │
+        │   687 │         try {
+        │   688 │             console.log('Executing Auto Over/Under trade...');
+        │   689 │             const contractType = recommendation.strategy === 'over' ? 'DIGITOVER' : 'DIGITUNDER';
+        │   690 │             return await executeTrade(
+        │   691 │                 'Auto Over/Under',
+        │   692 │                 recommendation.symbol,
+        │   693 │                 contractType,
+        │   694 │                 recommendation.barrier
+        │   695 │             );
+        │   696 │         } catch (error: any) {
+        │   697 │             const errorMsg = error?.message || 'Unknown error in Over/Under execution';
+        │   698 │             console.error('Auto Over/Under execution failed:', errorMsg);
+        │   699 │             globalObserver.emit('ui.log.error', `Over/Under strategy failed: ${errorMsg}`);
+        │   700 │             return false;
+        │   701 │         }
+        │   702 │     }, [recommendation, isTradeInProgress, executeTrade]);
+        │   703 │
+        │   704 │     const executeO5U4Trade = useCallback(async (): Promise<boolean> => {
+        │   705 │         if (isTradeInProgress || !checkO5U4Conditions()) return false;
+        │   706 │
+        │   707 │         try {
+        │   708 │             console.log('Executing O5U4 dual trade...');
+        │   709 │             setIsTradeInProgress(true);
+        │   710 │
+        │   711 │             const currentStake = parseFloat(appliedStake);
+        │   712 │
+        │   713 │             // Execute both trades simultaneously with detailed tracking
+        │   714 │             const [over5Result, under4Result] = await Promise.all([
+        │   715 │                 executeTrade('O5U4 Over', 'R_100', 'DIGITOVER', '5', true),
+        │   716 │                 executeTrade('O5U4 Under', 'R_100', 'DIGITUNDER', '4', true)
+        │   717 │             ]);
+        │   718 │
+        │   719 │             // Log individual O5U4 trade results for better tracking
+        │   720 │             globalObserver.emit('ui.log.info', `O5U4 Over 5: ${over5Result ? 'WON' : 'LOST'}`);
+        │   721 │             globalObserver.emit('ui.log.info', `O5U4 Under 4: ${under4Result ? 'WON' : 'LOST'}`);
+        │   722 │
+        │   723 │             // O5U4 specific logic for results handling
+        │   724 │             const completedO5U4Trades = [
+        │   725 │                 { contractId: 'O5U4_OVER_5', contractType: 'DIGITOVER', result: over5Result ? 'win' : 'loss', stake: currentStake, payout: currentStake * 1.95, profit: over5Result ? currentStake * 0.95 : -currentStake },
+        │   726 │                 { contractId: 'O5U4_UNDER_4', contractType: 'DIGITUNDER', result: under4Result ? 'win' : 'loss', stake: currentStake, payout: currentStake * 1.95, profit: under4Result ? currentStake * 0.95 : -currentStake }
+        │   727 │             ];
+        │   728 │
+        │   729 │             // O5U4 dual trade result calculation
+        │   730 │             const overTrade = completedO5U4Trades.find(t => t.contractType === 'DIGITOVER');
+        │   731 │             const underTrade = completedO5U4Trades.find(t => t.contractType === 'DIGITUNDER');
+        │   732 │
+        │   733 │             if (overTrade && underTrade) {
+        │   734 │                 const overWin = overTrade.result === 'win';
+        │   735 │                 const underWin = underTrade.result === 'win';
+        │   736 │                 const isOverallWin = overWin || underWin;
+        │   737 │
+        │   738 │                 // Calculate net profit/loss correctly
+        │   739 │                 const overProfit = overWin ? (overTrade.payout - overTrade.stake) : -overTrade.stake;
+        │   740 │                 const underProfit = underWin ? (underTrade.payout - underTrade.stake) : -underTrade.stake;
+        │   741 │                 const profitAmount = overProfit + underProfit;
+        │   742 │
+        │   743 │                 setO5U4Trades(prev => prev.filter(t =>
+        │   744 │                     t.contractId !== overTrade.contractId &&
+        │   745 │                     t.contractId !== underTrade.contractId
+        │   746 │                 ));
+        │   747 │
+        │   748 │                 if (isOverallWin) {
+        │   749 │                     setWinCount(prev => prev + 1);
+        │   750 │                     setConsecutiveLosses(0);
+        │   751 │                     currentConsecutiveLossesRef.current = 0;
+        │   752 │                     currentStakeRef.current = parseFloat(initialStake);
+        │   753 │                     setLastTradeResult(`O5U4: ${overWin && underWin ? 'Both won' : 'One won'} - Net Profit: +${Math.abs(profitAmount).toFixed(2)}`);
+        │   754 │                 } else {
+        │   755 │                     setLossCount(prev => prev + 1);
+        │   756 │                     setConsecutiveLosses(prev => prev + 1);
+        │   757 │                     currentConsecutiveLossesRef.current += 1;
+        │   758 │
+        │   759 │                     const newStake = (currentStakeRef.current * parseFloat(martingale)).toFixed(2);
+        │   760 │                     currentStakeRef.current = parseFloat(newStake);
+        │   761 │                     setAppliedStake(newStake);
+        │   762 │                     setLastTradeResult(`O5U4: Both trades lost - Net Loss: ${profitAmount.toFixed(2)}`);
+        │   763 │                 }
+        │   764 │             }
+        │   765 │
+        │   766 │             // Update total trades and P&L
+        │   767 │             setTotalTrades(prev => prev + 2); // Increment by 2 for the dual trades
+        │   768 │             setProfitLoss(prev => prev + profitAmount);
+        │   769 │
+        │   770 │             // Update summary card with O5U4 specific stats
+        │   771 │             if (run_panel?.summary_card_store) {
+        │   772 │                 const newStats = {
+        │   773 │                     total_trades: totalTrades + 2,
+        │   774 │                     wins: isOverallWin ? winCount + 1 : winCount,
+        │   775 │                     losses: !isOverallWin ? lossCount + 1 : lossCount,
+        │   776 │                     profit_loss: profitLoss + profitAmount,
+        │   777 │                     last_trade_result: isOverallWin ? 'WIN' : 'LOSS',
+        │   778 │                     current_stake: appliedStake // Use the potentially updated stake
+        │   779 │                 };
+        │   780 │
+        │   781 │                 run_panel.summary_card_store.updateTradingHubStats(newStats);
+        │   782 │
+        │   783 │                 // Immediate balance refresh and next trade preparation
+        │   784 │                 setTimeout(async () => {
+        │   785 │                     try {
+        │   786 │                         const balanceResponse = await api_base.api?.send({ balance: 1 });
+        │   787 │                         if (balanceResponse?.balance?.balance && run_panel.summary_card_store) {
+        │   788 │                             run_panel.summary_card_store.updateBalance(balanceResponse.balance.balance);
+        │   789 │                             console.log('O5U4: Balance updated:', balanceResponse.balance.balance);
+        │   790 │                         }
+        │   791 │
+        │   792 │                         // Mark as ready for immediate next trade
+        │   793 │                         contractSettledTimeRef.current = Date.now();
+        │   794 │                         waitingForSettlementRef.current = false;
+        │   795 │
+        │   796 │                         // Log completion and readiness for next trade
+        │   797 │                         globalObserver.emit('ui.log.success', 'O5U4: Trade completed, ready for immediate next execution');
+        │   798 │                     } catch (error) {
+        │   799 │                         console.error('O5U4: Failed to refresh balance:', error);
+        │   800 │                     }
+        │   801 │                 }, 500); // Reduced to 0.5 seconds for immediate execution
+        │   802 │             }
+        │   803 │
+        │   804 │             return isOverallWin;
+        │   805 │         } catch (error) {
+        │   806 │             console.error('O5U4 execution failed:', error);
+        │   807 │             globalObserver.emit('ui.log.error', `O5U4 strategy failed: ${error.message || 'Unknown error'}`);
+        │   808 │
+        │   809 │             // Handle failure case properly
+        │   810 │             const newStake = calculateNextStake(false);
+        │   811 │             setAppliedStake(newStake);
+        │   812 │             currentStakeRef.current = newStake;
+        │   813 │             setTotalTrades(prev => prev + 2); // Increment by 2 for the dual trades
+        │   814 │             setLossCount(prev => prev + 1); // Mark as loss
+        │   815 │             setLastTradeResult('O5U4: Failed');
+        │   816 │
+        │   817 │             return false;
+        │   818 │         } finally {
+        │   819 │             setIsTradeInProgress(false);
+        │   820 │         }
+        │   821 │     }, [isTradeInProgress, checkO5U4Conditions, executeTrade, calculateNextStake, appliedStake, totalTrades, winCount, lossCount, profitLoss, run_panel]);
+        │   822 │
+        │   823 │     // Strategy toggle functions - only one strategy can be active
+        │   824 │     const toggleStrategy = useCallback((strategy: string) => {
+        │   825 │         // Deactivate all strategies first
+        │   826 │         setIsAutoDifferActive(false);
+        │   827 │         setIsAutoOverUnderActive(false);
+        │   828 │         setIsAutoO5U4Active(false);
+        │   829 │
+        │   830 │         // Activate selected strategy
+        │   831 │         switch (strategy) {
+        │   832 │             case 'differ':
+        │   833 │                 setIsAutoDifferActive(true);
+        │   834 │                 globalObserver.emit('ui.log.info', 'Auto Differ strategy activated');
+        │   835 │                 break;
+        │   836 │             case 'overunder':
+        │   837 │                 setIsAutoOverUnderActive(true);
+        │   838 │                 globalObserver.emit('ui.log.info', 'Auto Over/Under strategy activated');
+        │   839 │                 break;
+        │   840 │             case 'o5u4':
+        │   841 │                 setIsAutoO5U4Active(true);
+        │   842 │                 globalObserver.emit('ui.log.info', 'Auto O5U4 strategy activated');
+        │   843 │                 break;
+        │   844 │         }
+        │   845 │     }, []);
+        │   846 │
+        │   847 │     // Main start trading function matching reference implementation
+        │   848 │     const startTrading = useCallback(async () => {
+        │   849 │         if (!client?.loginid || !isAnalysisReady) {
+        │   850 │             globalObserver.emit('ui.log.error', 'Please ensure you are logged in and analysis is ready');
+        │   851 │             return;
+        │   852 │         }
+        │   853 │
+        │   854 │         if (!isAutoDifferActive && !isAutoOverUnderActive && !isAutoO5U4Active) {
+        │   855 │             globalObserver.emit('ui.log.error', 'Please activate at least one trading strategy');
+        │   856 │             return;
+        │   857 │         }
+        │   858 │
+        │   859 │         try {
+        │   860 │             // Enhanced API connection setup
+        │   861 │             if (!api_base.api || api_base.api.connection?.readyState !== 1) {
+        │   862 │                 globalObserver.emit('ui.log.info', 'Connecting to API...');
+        │   863 │                 await api_base.init();
+        │   864 │                 await new Promise(resolve => setTimeout(resolve, 3000));
+        │   865 │             }
+        │   866 │
+        │   867 │             // Enhanced token retrieval for startup
+        │   868 │             let authToken = null;
+        │   869 │             if (client?.getToken) {
+        │   870 │                 authToken = client.getToken();
+        │   871 │             }
+        │   872 │             if (!authToken && client?.token) {
+        │   873 │                 authToken = client.token;
+        │   874 │             }
+        │   875 │             if (!authToken) {
+        │   876 │                 authToken = localStorage.getItem('authToken') || localStorage.getItem('client_token');
+        │   877 │             }
+        │   878 │
+        │   879 │             console.log('Startup authorization check:', {
+        │   880 │                 hasToken: !!authToken,
+        │   881 │                 isAuthorized: api_base.is_authorized,
+        │   882 │                 apiConnected: api_base.api?.connection?.readyState === 1
+        │   883 │             });
+        │   884 │
+        │   885 │             if (!api_base.is_authorized && authToken) {
+        │   886 │                 globalObserver.emit('ui.log.info', 'Authorizing API connection...');
+        │   887 │                 try {
+        │   888 │                     const authResponse = await api_base.api?.send({ authorize: authToken });
+        │   889 │                     console.log('Startup auth response:', authResponse);
+        │   890 │                     await new Promise(resolve => setTimeout(resolve, 2000));
+        │   891 │
+        │   892 │                     if (authResponse?.error) {
+        │   893 │                         globalObserver.emit('ui.log.error', `Authorization failed: ${authResponse.error.message || authResponse.error.code}`);
+        │   894 │                         return;
+        │   895 │                     }
+        │   896 │                 } catch (authError: any) {
+        │   897 │                     globalObserver.emit('ui.log.error', `Authorization error: ${authError.message || 'Unknown error'}`);
+        │   898 │                     return;
+        │   899 │                 }
+        │   900 │             }
+        │   901 │
+        │   902 │             if (!api_base.is_authorized) {
+        │   903 │                 globalObserver.emit('ui.log.error', 'Failed to authorize API connection - please check your login status');
+        │   904 │                 return;
+        │   905 │             }
+        │   906 │
+        │   907 │             prepareRunPanelForTradingHub();
+        │   908 │             setIsContinuousTrading(true);
+        │   909 │
+        │   910 │             // Verify run panel stores are available
+        │   911 │             if (!run_panel?.root_store?.transactions) {
+        │   912 │                 console.error('Warning: Transactions store not available in run panel');
+        │   913 │                 globalObserver.emit('ui.log.error', 'Transaction logging may not work properly - run panel not fully initialized');
+        │   914 │             } else {
+        │   915 │                 console.log('Transactions store verified and ready');
+        │   916 │                 // Log current transaction count
+        │   917 │                 const currentTransactions = run_panel.root_store.transactions.transactions || [];
+        │   918 │                 console.log(`Current transaction count: ${currentTransactions.length}`);
+        │   919 │             }
+        │   920 │
+        │   921 │             const persistedStake = localStorage.getItem('tradingHub_initialStake') || initialStake;
+        │   922 │             console.log(`Starting trading with persisted stake: ${persistedStake}`);
+        │   923 │             setAppliedStake(persistedStake);
+        │   924 │             currentStakeRef.current = persistedStake;
+        │   925 │             setConsecutiveLosses(0);
+        │   926 │             currentConsecutiveLossesRef.current = 0;
+        │   927 │             contractSettledTimeRef.current = 0;
+        │   928 │             waitingForSettlementRef.current = false;
+        │   929 │
+        │   930 │             globalObserver.emit('ui.log.success', 'Trading Hub started successfully');
+        │   931 │
+        │   932 │             // Initial strategy execution with proper timing
+        │   933 │             setTimeout(() => {
+        │   934 │                 if (isAutoDifferActive) executeDigitDifferTrade();
+        │   935 │                 else if (isAutoOverUnderActive) executeDigitOverTrade();
+        │   936 │                 else if (isAutoO5U4Active) {
+        │   937 │                     console.log('O5U4: Starting trading - checking immediate conditions');
+        │   938 │                     if (checkO5U4Conditions()) {
+        │   939 │                         console.log('O5U4: Immediate conditions met on start - executing trade');
+        │   940 │                         executeO5U4Trade();
+        │   941 │                     } else {
+        │   942 │                         console.log('O5U4: No immediate conditions met on start - waiting for next opportunity');
+        │   943 │                     }
+        │   944 │                 }
+        │   945 │             }, isAutoO5U4Active ? 100 : 500); // Faster start for O5U4
+        │   946 │
+        │   947 │         } catch (error: any) {
+        │   948 │             globalObserver.emit('ui.log.error', `Failed to start trading: ${error.message}`);
+        │   949 │         }
+        │   950 │     }, [client, isAnalysisReady, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active,
+        │   951 │         prepareRunPanelForTradingHub, initialStake, executeDigitDifferTrade, executeDigitOverTrade,
+        │   952 │         executeO5U4Trade, checkO5U4Conditions]);
+        │   953 │
+        │   954 │     // Enhanced stop trading function
+        │   955 │     const stopTrading = useCallback(() => {
+        │   956 │         setIsContinuousTrading(false);
+        │   957 │         if (run_panel) {
+        │   958 │             run_panel.setIsRunning(false);
+        │   959 │         }
+        │   960 │
+        │   961 │         if (tradingIntervalRef.current) {
+        │   962 │             clearInterval(tradingIntervalRef.current);
+        │   963 │             tradingIntervalRef.current = null;
+        │   964 │         }
+        │   965 │
+        │   966 │         waitingForSettlementRef.current = false;
+        │   967 │         globalObserver.emit('ui.log.info', 'Trading Hub stopped');
+        │   968 │     }, [run_panel]);
+        │   969 │
+        │   970 │     // Main trade handler matching reference implementation
+        │   971 │     const handleTrade = useCallback(() => {
+        │   972 │         return isContinuousTrading ? stopTrading() : startTrading();
+        │   973 │     }, [isContinuousTrading, stopTrading, startTrading]);
+        │   974 │
+        │   975 │     // Continuous trading loop optimized for immediate execution on recommendations
+        │   976 │     useEffect(() => {
+        │   977 │         if (isContinuousTrading) {
+        │   978 │             // Much faster intervals for immediate contract purchases
+        │   979 │             const intervalTime = 1000; // 1 second for all strategies
+        │   980 │
+        │   981 │             tradingIntervalRef.current = setInterval(async () => {
+        │   982 │                 if (isTradeInProgress) {
+        │   983 │                     console.log('Trade in progress, skipping interval execution');
+        │   984 │                     return;
+        │   985 │                 }
+        │   986 │
+        │   987 │                 // Circuit breaker: Stop if too many consecutive losses
+        │   988 │                 if (consecutiveLosses >= 10) {
+        │   989 │                     console.log('Circuit breaker: Too many consecutive losses, stopping trading');
+        │   990 │                     globalObserver.emit('ui.log.error', 'Trading stopped due to excessive losses');
+        │   991 │                     stopTrading();
+        │   992 │                     return;
+        │   993 │                 }
+        │   994 │
+        │   995 │                 // Check API connection before trading
+        │   996 │                 if (!api_base.is_authorized || !api_base.api || api_base.api.connection?.readyState !== 1) {
+        │   997 │                     console.log('API not ready for trading, attempting reconnection...');
+        │   998 │                     try {
+        │   999 │                         await api_base.init();
+        │  1000 │                         const token = client?.getToken() || localStorage.getItem('authToken');
+        │  1001 │                         if (token) {
+        │  1002 │                             await api_base.api?.send({ authorize: token });
+        │  1003 │                         }
+        │  1004 │                     } catch (error) {
+        │  1005 │                         console.error('Failed to reconnect API:', error);
+        │  1006 │                         return;
+        │  1007 │                     }
+        │  1008 │                 }
+        │  1009 │
+        │  1010 │                 // Check if we have a fresh recommendation (less than 30 seconds old)
+        │  1011 │                 if (!recommendation || (Date.now() - recommendation.timestamp) > 30000) {
+        │  1012 │                     console.log('No fresh recommendation available');
+        │  1013 │                     return;
+        │  1014 │                 }
+        │  1015 │
+        │  1016 │                 const now = Date.now();
+        │  1017 │                 const timeSinceLastSettlement = now - contractSettledTimeRef.current;
+        │  1018 │                 const minimumCooldown = 500; // Very short cooldown for immediate execution
+        │  1019 │
+        │  1020 │                 if (timeSinceLastSettlement < minimumCooldown && contractSettledTimeRef.current > 0) {
+        │  1021 │                     console.log(`Brief cooldown active: ${timeSinceLastSettlement}ms < ${minimumCooldown}ms`);
+        │  1022 │                     return;
+        │  1023 │                 }
+        │  1024 │
+        │  1025 │                 // Execute trade based on current recommendation immediately
+        │  1026 │                 try {
+        │  1027 │                     if (isAutoDifferActive) {
+        │  1028 │                         await executeDigitDifferTrade();
+        │  1029 │                     } else if (isAutoOverUnderActive) {
+        │  1030 │                         await executeDigitOverTrade();
+        │  1031 │                     } else if (isAutoO5U4Active) {
+        │  1032 │                         await executeO5U4Trade();
+        │  1033 │                     }
+        │  1034 │                 } catch (error) {
+        │  1035 │                     console.error('Trading execution error:', error);
+        │  1036 │                     globalObserver.emit('ui.log.error', `Trading error: ${error.message || 'Unknown error'}`);
+        │  1037 │                 }
+        │  1038 │             }, intervalTime);
+        │  1039 │         }
+        │  1040 │
+        │  1041 │         return () => {
+        │  1042 │             if (tradingIntervalRef.current) {
+        │  1043 │                 clearInterval(tradingIntervalRef.current);
+        │  1044 │                 tradingIntervalRef.current = null;
+        │  1045 │             }
+        │  1046 │         };
+        │  1047 │     }, [isContinuousTrading, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active,
+        │  1048 │         isTradeInProgress, consecutiveLosses, recommendation, stopTrading, executeDigitDifferTrade, executeDigitOverTrade, executeO5U4Trade]);
+        │  1049 │
+        │  1050 │     // Initialize component and API
+        │  1051 │     useEffect(() => {
+        │  1052 │         const initializeApi = async () => {
+        │  1053 │             try {
+        │  1054 │                 if (!api_base.api || api_base.api.connection?.readyState !== 1) {
+        │  1055 │                     await api_base.init();
+        │  1056 │                 }
+        │  1057 │
+        │  1058 │                 const initToken = client?.getToken() || localStorage.getItem('authToken') || client?.token;
+        │  1059 │                 if (client?.loginid && initToken && !api_base.is_authorized) {
+        │  1060 │                     await api_base.api?.send({ authorize: initToken });
+        │  1061 │                 }
+        │  1062 │             } catch (error: any) {
+        │  1063 │                 console.error('Failed to initialize API:', error);
+        │  1064 │                 globalObserver.emit('ui.log.error', `API initialization failed: ${error.message}`);
+        │  1065 │             }
+        │  1066 │         };
+        │  1067 │
+        │  1068 │         initializeApi();
+        │  1069 │
+        │  1070 │         // Load saved settings
+        │  1071 │         const savedStake = localStorage.getItem('tradingHub_initialStake');
+        │  1072 │         if (savedStake) {
+        │  1073 │             setInitialStake(savedStake);
+        │  1074 │             setAppliedStake(savedStake);
+        │  1075 │             currentStakeRef.current = savedStake;
+        │  1076 │         }
+        │  1077 │
+        │  1078 │         const savedMartingale = localStorage.getItem('tradingHub_martingale');
+        │  1079 │         if (savedMartingale) {
+        │  1080 │             setMartingale(savedMartingale);
+        │  1081 │         }
+        │  1082 │
+        │  1083 │         // Start analysis interval
+        │  1084 │         analysisIntervalRef.current = setInterval(performMarketAnalysis, 5000);
+        │  1085 │
+        │  1086 │         return () => {
+        │  1087 │             if (tradingIntervalRef.current) {
+        │  1088 │                 clearInterval(tradingIntervalRef.current);
+        │  1089 │             }
+        │  1090 │             if (analysisIntervalRef.current) {
+        │  1091 │                 clearInterval(analysisIntervalRef.current);
+        │  1092 │             }
+        │  1093 │         };
+        │  1094 │     }, [client?.loginid, client?.token, performMarketAnalysis]);
+        │  1095 │
+        │  1096 │     // Monitor connection status
+        │  1097 │     useEffect(() => {
+        │  1098 │         const checkConnection = () => {
+        │  1099 │             if (api_base?.api?.connection) {
+        │  1100 │                 const readyState = api_base.api.connection.readyState;
+        │  1101 │                 setConnectionStatus(readyState === 1 ? 'connected' : readyState === 0 ? 'connecting' : 'disconnected');
+        │  1102 │             } else {
+        │  1103 │                 setConnectionStatus('disconnected');
+        │  1104 │             }
+        │  1105 │             setIsApiAuthorized(api_base?.is_authorized || false);
+        │  1106 │         };
+        │  1107 │
+        │  1108 │         checkConnection();
+        │  1109 │         const interval = setInterval(checkConnection, 2000);
+        │  1110 │         return () => clearInterval(interval);
+        │  1111 │     }, []);
+        │  1112 │
+        │  1113 │     const winRate = totalTrades > 0 ? ((winCount / totalTrades) * 100).toFixed(1) : '0';
+        │  1114 │     const hasActiveStrategy = isAutoDifferActive || isAutoOverUnderActive || isAutoO5U4Active;
+        │  1115 │
+        │  1116 │     // Advanced Analysis State
+        │  1117 │     const [showAdvancedAnalysis, setShowAdvancedAnalysis] = useState(false);
+        │  1118 │     const [analysisStakeAmount, setAnalysisStakeAmount] = useState('1');
+        │  1119 │     const [referenceDigit, setReferenceDigit] = useState('5');
+        │  1120 │     const [analysisCount, setAnalysisTickCount] = useState('120');
+        │       ·            ──────┬──────
+        │       ·                  ╰── `analysisCount` redefined here
+        │  1121 │     const [activeSymbols, setActiveSymbols] = useState(['R_10', 'R_25', 'R_50', 'R_75', 'R_100']);
+        │  1122 │     const [recentTicks, setRecentTicks] = useState([1, 8, 1, 6, 4, 2, 7, 3, 5, 8]);
+        │  1123 │     const [isAnalysisRunning, setIsAnalysisRunning] = useState(false);
+        │       ╰────
+        │
+Fix error, click outside, or press Esc to close the overlay.
+
+Disable overlay by setting Rsbuild's dev.client.overlay config to false.
