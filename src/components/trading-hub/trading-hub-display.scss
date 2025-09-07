@@ -428,16 +428,16 @@
                     }
 
                     .stat-value {
-                        font-size: 20px;
+                        font-size: 1.5rem;
                         font-weight: 700;
-                        color: white;
+                        color: var(--text-prominent);
 
                         &.positive {
-                            color: #10b981;
+                            color: var(--status-success);
                         }
 
                         &.negative {
-                            color: #ef4444;
+                            color: var(--status-danger);
                         }
                     }
 
@@ -464,6 +464,21 @@
                     &.total-trades {
                         border-left: 3px solid #6b7280;
                     }
+                }
+
+                .high-confidence {
+                    color: #22c55e !important;
+                    font-weight: 700;
+                }
+
+                .medium-confidence {
+                    color: #eab308 !important;
+                    font-weight: 600;
+                }
+
+                .low-confidence {
+                    color: #ef4444 !important;
+                    font-weight: 500;
                 }
             }
 

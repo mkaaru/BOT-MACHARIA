@@ -741,18 +741,43 @@ const TradingHubDisplay: React.FC = () => {
             return false;
         }
 
+        // Validate recommendation quality
+        if (recommendation.confidence < 70) {
+            console.log(`Over/Under confidence too low: ${recommendation.confidence}% < 70%`);
+            return false;
+        }
+
         try {
-            console.log('Executing Auto Over/Under trade...');
+            console.log(`Executing Enhanced Auto Over/Under trade:`, {
+                symbol: recommendation.symbol,
+                strategy: recommendation.strategy.toUpperCase(),
+                barrier: recommendation.barrier,
+                confidence: recommendation.confidence.toFixed(1) + '%',
+                reason: recommendation.reason
+            });
+            
+            globalObserver.emit('ui.log.info', 
+                `Auto Over/Under: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol} (${recommendation.confidence.toFixed(1)}% confidence)`
+            );
+
             const contractType = recommendation.strategy === 'over' ? 'DIGITOVER' : 'DIGITUNDER';
-            return await executeTrade(
-                'Auto Over/Under',
+            const success = await executeTrade(
+                'Enhanced Auto Over/Under',
                 recommendation.symbol,
                 contractType,
                 recommendation.barrier
             );
+
+            if (success) {
+                globalObserver.emit('ui.log.success', 
+                    `Over/Under trade executed successfully: ${recommendation.reason}`
+                );
+            }
+
+            return success;
         } catch (error: any) {
             const errorMsg = error?.message || 'Unknown error in Over/Under execution';
-            console.error('Auto Over/Under execution failed:', errorMsg);
+            console.error('Enhanced Auto Over/Under execution failed:', errorMsg);
             globalObserver.emit('ui.log.error', `Over/Under strategy failed: ${errorMsg}`);
             return false;
         }
@@ -1096,9 +1121,9 @@ const TradingHubDisplay: React.FC = () => {
                     }
                 }
 
-                // Check if we have a fresh recommendation (less than 30 seconds old)
-                if (!recommendation || (Date.now() - recommendation.timestamp) > 30000) {
-                    console.log('No fresh recommendation available');
+                // Check if we have a fresh recommendation (less than 20 seconds old for faster execution)
+                if (!recommendation || (Date.now() - recommendation.timestamp) > 20000) {
+                    console.log('No fresh recommendation available for immediate execution');
                     return;
                 }
 
@@ -1403,8 +1428,16 @@ const TradingHubDisplay: React.FC = () => {
                                         <strong>{recommendation.strategy.toUpperCase()} {recommendation.barrier}</strong>
                                     </div>
                                     <div className="rec-item">
-                                        <span>Confidence:</span>
-                                        <strong>{recommendation.confidence.toFixed(1)}%</strong>
+                                        <span>AI Confidence:</span>
+                                        <strong className={recommendation.confidence > 80 ? 'high-confidence' : recommendation.confidence > 75 ? 'medium-confidence' : 'low-confidence'}>
+                                            {recommendation.confidence.toFixed(1)}%
+                                        </strong>
+                                    </div>
+                                    <div className="rec-item">
+                                        <span>Pattern:</span>
+                                        <strong>{recommendation.reason.includes('Most frequent digit') ? 
+                                            `${recommendation.reason.match(/Most frequent digit (\d)/)?.[1]} vs ${recommendation.reason.match(/current (\d)/)?.[1]}` : 
+                                            'Secondary Pattern'}</strong>
                                     </div>
                                     <div className="rec-item">
                                         <span>Ready Markets:</span>

@@ -78,7 +78,7 @@ class MarketAnalyzer {
         // Start analysis interval - more frequent for real-time analysis
         this.analysisInterval = setInterval(() => {
             this.performAdvancedAnalysis();
-        }, 2000); // Analyze every 2 seconds
+        }, 1500); // Analyze every 1.5 seconds for faster recommendations
 
         // Simulate tick data for all symbols
         this.startTickSimulation();
@@ -192,9 +192,9 @@ class MarketAnalyzer {
     }
 
     private getTickDelay(symbol: string): number {
-        // High-frequency symbols tick faster
-        const baseDelay = symbol.includes('1HZ') ? 800 : 1200;
-        return baseDelay + Math.random() * 1000;
+        // High-frequency symbols tick faster for better pattern detection
+        const baseDelay = symbol.includes('1HZ') ? 600 : 1000;
+        return baseDelay + Math.random() * 800;
     }
 
     private addTick(symbol: string, tick: TickData) {
@@ -251,6 +251,23 @@ class MarketAnalyzer {
 
         // Sort O5U4 opportunities by score
         o5u4Opportunities.sort((a, b) => b.score - a.score);
+
+        // Debug logging for recommendation generation
+        if (bestOverUnderRecommendation) {
+            console.log('🤖 AI Generated Over/Under Recommendation:', {
+                symbol: bestOverUnderRecommendation.symbol,
+                strategy: bestOverUnderRecommendation.strategy,
+                barrier: bestOverUnderRecommendation.barrier,
+                confidence: bestOverUnderRecommendation.confidence.toFixed(1) + '%',
+                reason: bestOverUnderRecommendation.reason
+            });
+        } else {
+            const readySymbols = Object.keys(stats).filter(symbol => stats[symbol].isReady);
+            console.log('🔍 AI Analysis Complete - No recommendations generated', {
+                readySymbols: readySymbols.length,
+                symbolsAnalyzed: Object.keys(stats).length
+            });
+        }
 
         // Notify subscribers with enhanced data
         this.subscribers.forEach(callback => {
@@ -332,42 +349,130 @@ class MarketAnalyzer {
         const recommendations: TradeRecommendation[] = [];
 
         // Enhanced AI pattern recognition logic
-        const { mostFrequentDigit, currentLastDigit, lastDigitFrequency } = stats;
+        const { mostFrequentDigit, leastFrequentDigit, currentLastDigit, lastDigitFrequency, confidence: baseConfidence } = stats;
         
-        // Calculate frequency percentages
+        // Calculate frequency percentages and patterns
         const totalTicks = Object.values(lastDigitFrequency).reduce((a, b) => a + b, 0);
         const mostFreqPercent = (lastDigitFrequency[mostFrequentDigit] / totalTicks) * 100;
+        const currentDigitFreq = (lastDigitFrequency[currentLastDigit] / totalTicks) * 100;
+        
+        // Calculate frequency variance for pattern strength
+        const avgFrequency = totalTicks / 10;
+        const variance = Object.values(lastDigitFrequency).reduce((acc, freq) => 
+            acc + Math.pow(freq - avgFrequency, 2), 0) / 10;
+        const patternStrength = Math.min(variance / avgFrequency, 1);
 
-        // UNDER 7 Logic: Most frequent digit is low (0,1,2) AND current digit is high (7,8,9)
+        // UNDER 7 Logic: Advanced AI Pattern Recognition
+        // Condition: Most frequent digit is low (0,1,2) AND current digit is high (7,8,9)
         if ([0, 1, 2].includes(mostFrequentDigit) && [7, 8, 9].includes(currentLastDigit)) {
-            const confidence = Math.min(mostFreqPercent + 15, 95); // Boost confidence for pattern match
-            if (confidence > 70) {
+            // Enhanced confidence calculation
+            let aiConfidence = 65; // Base AI confidence
+            
+            // Pattern matching bonuses
+            aiConfidence += Math.min(mostFreqPercent - 15, 20); // Up to 20 points for frequency dominance
+            aiConfidence += patternStrength * 15; // Up to 15 points for pattern strength
+            
+            // Additional AI logic bonuses
+            if (currentDigitFreq < 8) aiConfidence += 10; // Current digit is rare
+            if ([8, 9].includes(currentLastDigit)) aiConfidence += 5; // Extra high current digit
+            if (mostFrequentDigit <= 1) aiConfidence += 8; // Very low most frequent
+            
+            // Sample size bonus
+            const sampleBonus = Math.min((totalTicks - 50) / 50 * 5, 10);
+            aiConfidence += sampleBonus;
+            
+            aiConfidence = Math.min(aiConfidence, 95); // Cap at 95%
+            
+            if (aiConfidence > 72) {
                 recommendations.push({
                     symbol,
                     strategy: 'under',
                     barrier: '7',
-                    confidence,
+                    confidence: aiConfidence,
                     overPercentage: 0,
-                    underPercentage: confidence,
-                    reason: `AI Pattern: Most frequent digit ${mostFrequentDigit} (low), current ${currentLastDigit} (high) - ${confidence.toFixed(1)}% confidence`,
-                    timestamp: Date.now()
+                    underPercentage: aiConfidence,
+                    reason: `AI Pattern Recognition: Most frequent digit ${mostFrequentDigit} (${mostFreqPercent.toFixed(1)}%), current ${currentLastDigit} (high) - Pattern strength: ${(patternStrength * 100).toFixed(1)}%`,
+                    timestamp: Date.now(),
+                    score: aiConfidence
                 });
             }
         }
 
-        // OVER 2 Logic: Most frequent digit is high (7,8,9) AND current digit is low (0,1,2)
+        // OVER 2 Logic: Advanced AI Pattern Recognition  
+        // Condition: Most frequent digit is high (7,8,9) AND current digit is low (0,1,2)
         if ([7, 8, 9].includes(mostFrequentDigit) && [0, 1, 2].includes(currentLastDigit)) {
-            const confidence = Math.min(mostFreqPercent + 15, 95); // Boost confidence for pattern match
-            if (confidence > 70) {
+            // Enhanced confidence calculation
+            let aiConfidence = 65; // Base AI confidence
+            
+            // Pattern matching bonuses
+            aiConfidence += Math.min(mostFreqPercent - 15, 20); // Up to 20 points for frequency dominance
+            aiConfidence += patternStrength * 15; // Up to 15 points for pattern strength
+            
+            // Additional AI logic bonuses
+            if (currentDigitFreq < 8) aiConfidence += 10; // Current digit is rare
+            if ([0, 1].includes(currentLastDigit)) aiConfidence += 5; // Extra low current digit
+            if (mostFrequentDigit >= 8) aiConfidence += 8; // Very high most frequent
+            
+            // Sample size bonus
+            const sampleBonus = Math.min((totalTicks - 50) / 50 * 5, 10);
+            aiConfidence += sampleBonus;
+            
+            aiConfidence = Math.min(aiConfidence, 95); // Cap at 95%
+            
+            if (aiConfidence > 72) {
                 recommendations.push({
                     symbol,
                     strategy: 'over',
                     barrier: '2',
+                    confidence: aiConfidence,
+                    overPercentage: aiConfidence,
+                    underPercentage: 0,
+                    reason: `AI Pattern Recognition: Most frequent digit ${mostFrequentDigit} (${mostFreqPercent.toFixed(1)}%), current ${currentLastDigit} (low) - Pattern strength: ${(patternStrength * 100).toFixed(1)}%`,
+                    timestamp: Date.now(),
+                    score: aiConfidence
+                });
+            }
+        }
+
+        // Secondary patterns for additional opportunities
+        // UNDER 6 Logic: When there's a strong bias towards lower digits
+        const lowDigitCount = [0,1,2,3,4].reduce((sum, digit) => sum + lastDigitFrequency[digit], 0);
+        const lowDigitPercent = (lowDigitCount / totalTicks) * 100;
+        
+        if (lowDigitPercent > 65 && [7, 8, 9].includes(currentLastDigit) && recommendations.length === 0) {
+            const confidence = Math.min(60 + (lowDigitPercent - 65) * 2, 85);
+            if (confidence > 70) {
+                recommendations.push({
+                    symbol,
+                    strategy: 'under',
+                    barrier: '6',
+                    confidence,
+                    overPercentage: 0,
+                    underPercentage: confidence,
+                    reason: `AI Secondary Pattern: Strong low digit bias (${lowDigitPercent.toFixed(1)}%), current ${currentLastDigit} (high)`,
+                    timestamp: Date.now(),
+                    score: confidence
+                });
+            }
+        }
+
+        // OVER 3 Logic: When there's a strong bias towards higher digits  
+        const highDigitCount = [5,6,7,8,9].reduce((sum, digit) => sum + lastDigitFrequency[digit], 0);
+        const highDigitPercent = (highDigitCount / totalTicks) * 100;
+        
+        if (highDigitPercent > 65 && [0, 1, 2].includes(currentLastDigit) && recommendations.length === 0) {
+            const confidence = Math.min(60 + (highDigitPercent - 65) * 2, 85);
+            if (confidence > 70) {
+                recommendations.push({
+                    symbol,
+                    strategy: 'over',
+                    barrier: '3',
                     confidence,
                     overPercentage: confidence,
                     underPercentage: 0,
-                    reason: `AI Pattern: Most frequent digit ${mostFrequentDigit} (high), current ${currentLastDigit} (low) - ${confidence.toFixed(1)}% confidence`,
-                    timestamp: Date.now()
+                    reason: `AI Secondary Pattern: Strong high digit bias (${highDigitPercent.toFixed(1)}%), current ${currentLastDigit} (low)`,
+                    timestamp: Date.now(),
+                    score: confidence
                 });
             }
         }
