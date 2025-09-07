@@ -2,6 +2,29 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Localize } from '@deriv-com/translations';
 import './volatility-analyzer.scss';
 
+// Assuming these are available globally or imported from a shared context/store
+// Mocking these for demonstration purposes as they are not provided in the original code
+const globalObserver = {
+  emit: (event: string, data: any) => console.log(`GlobalObserver: Emitting '${event}' with`, data),
+};
+const client = { currency: 'USD' };
+const transactions = {
+  onBotContractEvent: (contractData: any) => console.log('Transactions: onBotContractEvent called with', contractData),
+};
+const run_panel = {
+  setContractStage: (stage: string) => console.log(`RunPanel: Setting contract stage to ${stage}`),
+  setHasOpenContract: (hasOpen: boolean) => console.log(`RunPanel: Setting hasOpenContract to ${hasOpen}`),
+  setStopButtonEnabled: (enabled: boolean) => console.log(`RunPanel: Setting stopButtonEnabled to ${enabled}`),
+  run_id: 'mock_run_id_123',
+};
+const isRunPanelIntegrated = true; // Assume it's integrated for the changes
+const contract_stages = {
+  NOT_RUNNING: 'NOT_RUNNING',
+  PURCHASE_RECEIVED: 'PURCHASE_RECEIVED',
+  // Add other relevant stages if needed
+};
+
+
 interface AnalysisData {
   data?: {
     recommendation?: string;
@@ -396,14 +419,14 @@ const VolatilityAnalyzer: React.FC = () => {
         derivWs.onclose = null;
         derivWs.close();
       }
-      
+
       // Clear all trading intervals
       Object.values(tradingIntervals).forEach(interval => {
         if (interval) {
           clearInterval(interval);
         }
       });
-      
+
       // Reset trading intervals
       setTradingIntervals({
         'rise-fall': null,
@@ -413,7 +436,7 @@ const VolatilityAnalyzer: React.FC = () => {
         'over-under-2': null,
         'matches-differs': null,
       });
-      
+
       // Reset auto trading status
       setAutoTradingStatus({
         'rise-fall': false,
@@ -527,7 +550,7 @@ const VolatilityAnalyzer: React.FC = () => {
         const { generateDerivApiInstance, V2GetActiveToken } = await import('@/external/bot-skeleton/services/api/appId');
         const api = generateDerivApiInstance();
         setTradingApi(api);
-        
+
         // Try to authorize if token is available
         const token = V2GetActiveToken();
         if (token) {
@@ -551,18 +574,18 @@ const VolatilityAnalyzer: React.FC = () => {
 
   const authorizeIfNeeded = async () => {
     if (isAuthorized || !tradingApi) return;
-    
+
     const { V2GetActiveToken } = await import('@/external/bot-skeleton/services/api/appId');
     const token = V2GetActiveToken();
     if (!token) {
       throw new Error('No token found. Please log in and select an account.');
     }
-    
+
     const { authorize, error } = await tradingApi.authorize(token);
     if (error) {
       throw new Error(`Authorization error: ${error.message || error.code}`);
     }
-    
+
     setIsAuthorized(true);
     console.log('✅ Trading API authorized successfully');
   };
@@ -570,7 +593,7 @@ const VolatilityAnalyzer: React.FC = () => {
   const executeTrade = async (strategyId: string, tradeType: string) => {
     const timestamp = new Date().toLocaleTimeString();
     console.log(`[${timestamp}] 🚀 Executing ${tradeType} trade for ${strategyId}`);
-    
+
     if (connectionStatus !== 'connected') {
       const errorMsg = 'Cannot trade: Not connected to API';
       console.error(`[${timestamp}] ❌ ${errorMsg}`);
@@ -595,7 +618,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
       const data = analysisData[strategyId];
       const condition = tradingConditions[strategyId];
-      
+
       if (!data?.data) {
         const errorMsg = 'No analysis data available for trading';
         console.error(`[${timestamp}] ❌ ${errorMsg}`);
@@ -613,14 +636,14 @@ const VolatilityAnalyzer: React.FC = () => {
       // Calculate effective stake with martingale progression
       const currentStreak = lossStreaks[strategyId] || 0;
       const baseStake = baseStakes[strategyId] || stakeAmount;
-      const effectiveStake = currentStreak > 0 ? 
-        Number((baseStake * Math.pow(martingaleAmount, currentStreak)).toFixed(2)) : 
+      const effectiveStake = currentStreak > 0 ?
+        Number((baseStake * Math.pow(martingaleAmount, currentStreak)).toFixed(2)) :
         baseStake;
 
       // Determine contract type and prediction based on strategy and manual/auto mode
       let contractType = '';
       let prediction: number | undefined;
-      
+
       if (tradeType === 'manual') {
         // For manual trades, use trading conditions to determine trade direction
         const conditionMet = checkTradingConditions(strategyId, data.data, condition);
@@ -629,9 +652,9 @@ const VolatilityAnalyzer: React.FC = () => {
           alert(`Trading conditions not met for ${strategyId}. Check your condition settings.`);
           return;
         }
-        
+
         console.log(`✅ Trading conditions met for ${strategyId}, proceeding with manual trade`);
-        
+
         // Determine trade based on the condition that was met
         switch (strategyId) {
           case 'rise-fall':
@@ -644,7 +667,7 @@ const VolatilityAnalyzer: React.FC = () => {
               contractType = parseFloat(data.data.riseRatio || '0') > parseFloat(data.data.fallRatio || '0') ? 'CALL' : 'PUT';
             }
             break;
-            
+
           case 'even-odd':
           case 'even-odd-2':
             if (condition.condition === 'Even Prob') {
@@ -658,12 +681,12 @@ const VolatilityAnalyzer: React.FC = () => {
               contractType = evenProb > oddProb ? 'DIGITEVEN' : 'DIGITODD';
             }
             break;
-            
+
           case 'over-under':
           case 'over-under-2':
             const baseBarrier = data.data.barrier || 5;
             prediction = baseBarrier;
-            
+
             if (condition.condition === 'Over Prob') {
               contractType = 'DIGITOVER';
             } else if (condition.condition === 'Under Prob') {
@@ -675,10 +698,10 @@ const VolatilityAnalyzer: React.FC = () => {
               contractType = overProb > underProb ? 'DIGITOVER' : 'DIGITUNDER';
             }
             break;
-            
+
           case 'matches-differs':
             prediction = data.data.target;
-            
+
             if (condition.condition === 'Matches Prob') {
               contractType = 'DIGITMATCH';
             } else if (condition.condition === 'Differs Prob') {
@@ -689,7 +712,7 @@ const VolatilityAnalyzer: React.FC = () => {
               contractType = matchProb > 15 ? 'DIGITMATCH' : 'DIGITDIFF';
             }
             break;
-            
+
           default:
             console.error('Unknown strategy type for manual trade');
             return;
@@ -785,11 +808,17 @@ const VolatilityAnalyzer: React.FC = () => {
 
       // Execute the trade
       const { buy, error } = await tradingApi.buy(buy_req);
-      
+
       if (error) {
         console.error('❌ Purchase failed:', error);
         alert(`Purchase failed: ${error.message || 'Unknown error'}`);
         setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
+
+        // Update run panel with error
+        if (run_panel && isRunPanelIntegrated) {
+          run_panel.setContractStage(contract_stages.NOT_RUNNING);
+          globalObserver.emit('Error', { error: { message: error.message || 'Purchase failed' } });
+        }
         return;
       }
 
@@ -801,87 +830,139 @@ const VolatilityAnalyzer: React.FC = () => {
           tradeType,
           prediction
         });
-        
+
+        // Update run panel state
+        if (run_panel && isRunPanelIntegrated) {
+          run_panel.setHasOpenContract(true);
+          run_panel.setContractStage(contract_stages.PURCHASE_RECEIVED);
+
+          // Emit contract event for transaction tracking
+          const contractData = {
+            contract_id: buy.contract_id,
+            contract_type: contractType,
+            buy_price: effectiveStake,
+            payout: buy.payout || 0,
+            currency: client.currency || 'USD',
+            date_start: Date.now() / 1000,
+            shortcode: buy.shortcode || '',
+            transaction_ids: {
+              buy: buy.transaction_id
+            },
+            underlying: selectedSymbol,
+            entry_tick_display_value: prediction,
+            is_completed: false,
+            profit: 0,
+            run_id: run_panel.run_id,
+            // Add volatility analyzer specific data
+            strategy_type: strategyId,
+            trade_type: tradeType,
+            barrier: prediction,
+            duration: ticksAmount,
+            duration_unit: 't',
+            symbol: selectedSymbol
+          };
+
+          // Push to transactions store
+          if (transactions) {
+            transactions.onBotContractEvent(contractData);
+          }
+
+          // Emit global contract event
+          globalObserver.emit('bot.contract', contractData);
+        }
+
         // Only show alert for manual trades to avoid spam during auto trading
         if (tradeType === 'manual') {
           alert(`${contractType} contract purchased! ID: ${buy.contract_id}, Amount: ${effectiveStake}`);
         }
-        
-        // Track the contract outcome for martingale logic
-        const contractId = buy.contract_id;
-        
-        // Subscribe to contract updates to track win/loss
-        try {
-          const { subscription, error: subError } = await tradingApi.send({
-            proposal_open_contract: 1,
-            contract_id: contractId,
-            subscribe: 1,
-          });
+      }
 
-          if (subError) {
-            console.error('Error subscribing to contract:', subError);
-            return;
-          }
+      // Track the contract outcome for martingale logic
+      const contractId = buy.contract_id;
 
-          // Listen for contract completion
-          const handleContractUpdate = (evt: MessageEvent) => {
-            try {
-              const data = JSON.parse(evt.data);
-              if (data.msg_type === 'proposal_open_contract' && 
-                  data.proposal_open_contract &&
-                  String(data.proposal_open_contract.contract_id) === String(contractId)) {
-                
-                const contract = data.proposal_open_contract;
-                
-                if (contract.is_sold || contract.status === 'sold') {
-                  const profit = Number(contract.profit || 0);
-                  const isWin = profit > 0;
-                  
-                  if (isWin) {
-                    setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: false }));
-                    setLossStreaks(prev => ({ ...prev, [strategyId]: 0 }));
-                    console.log(`✅ Win! Profit: ${profit}`);
-                  } else {
-                    setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
-                    setLossStreaks(prev => ({ 
-                      ...prev, 
-                      [strategyId]: Math.min((prev[strategyId] || 0) + 1, 10)
-                    }));
-                    console.log(`❌ Loss! Profit: ${profit}`);
-                  }
-                  
-                  // Clean up listener
-                  tradingApi?.connection?.removeEventListener('message', handleContractUpdate);
-                }
-              }
-            } catch (error) {
-              console.error('Error parsing contract update:', error);
-            }
-          };
+      // Subscribe to contract updates to track win/loss
+      try {
+        const { subscription, error: subError } = await tradingApi.send({
+          proposal_open_contract: 1,
+          contract_id: contractId,
+          subscribe: 1,
+        });
 
-          // Add listener for contract updates
-          tradingApi?.connection?.addEventListener('message', handleContractUpdate);
-          
-          // Clean up listener after 5 minutes
-          setTimeout(() => {
-            tradingApi?.connection?.removeEventListener('message', handleContractUpdate);
-          }, 300000);
-
-        } catch (error) {
-          console.error('Error subscribing to contract updates:', error);
+        if (subError) {
+          console.error('Error subscribing to contract:', subError);
+          return;
         }
+
+        // Listen for contract completion
+        const handleContractUpdate = (evt: MessageEvent) => {
+          try {
+            const data = JSON.parse(evt.data);
+            if (data.msg_type === 'proposal_open_contract' &&
+                data.proposal_open_contract &&
+                String(data.proposal_open_contract.contract_id) === String(contractId)) {
+
+              const contract = data.proposal_open_contract;
+
+              if (contract.is_sold || contract.status === 'sold') {
+                const profit = Number(contract.profit || 0);
+                const isWin = profit > 0;
+
+                if (isWin) {
+                  setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: false }));
+                  setLossStreaks(prev => ({ ...prev, [strategyId]: 0 }));
+                  console.log(`✅ Win! Profit: ${profit}`);
+                } else {
+                  setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
+                  setLossStreaks(prev => ({
+                    ...prev,
+                    [strategyId]: Math.min((prev[strategyId] || 0) + 1, 10)
+                  }));
+                  console.log(`❌ Loss! Profit: ${profit}`);
+                }
+
+                // Update run panel with contract outcome
+                if (run_panel && isRunPanelIntegrated) {
+                  run_panel.setHasOpenContract(false); // Assuming one contract at a time for simplicity
+                  run_panel.setContractStage(isWin ? 'WON' : 'LOST'); // Example stages
+                  globalObserver.emit('bot.contract', {
+                    ...contractData, // Use the contractData prepared earlier
+                    is_completed: true,
+                    profit: profit,
+                    date_closed: Date.now() / 1000,
+                  });
+                }
+
+                // Clean up listener
+                tradingApi?.connection?.removeEventListener('message', handleContractUpdate);
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing contract update:', error);
+          }
+        };
+
+        // Add listener for contract updates
+        tradingApi?.connection?.addEventListener('message', handleContractUpdate);
+
+        // Clean up listener after 5 minutes
+        setTimeout(() => {
+          tradingApi?.connection?.removeEventListener('message', handleContractUpdate);
+        }, 300000);
+
+      } catch (error) {
+        console.error('Error subscribing to contract updates:', error);
       }
 
     } catch (error) {
       console.error(`[${timestamp}] ❌ Error executing ${tradeType} trade for ${strategyId}:`, error);
-      
+
       // Only show alert for manual trades to avoid spam during auto trading
       if (tradeType === 'manual') {
         alert(`Trade execution error: ${error.message}`);
       }
-      
+
       setLastOutcomeWasLoss(prev => ({ ...prev, [strategyId]: true }));
-      
+
       // For auto trading, log the error but don't stop the auto trading
       if (tradeType === 'auto') {
         console.log(`[${timestamp}] 🔄 Auto trading will continue for ${strategyId} despite this error`);
@@ -909,7 +990,7 @@ const VolatilityAnalyzer: React.FC = () => {
 
     // Determine interval based on volatility symbol - shorter intervals for continuous trading
     let intervalMs = 1500; // 1.5 seconds for faster response
-    
+
     // For 1s volatilities, use even faster interval
     if (selectedSymbol.includes('1HZ')) {
       intervalMs = 1000; // 1 second for 1s volatilities
@@ -926,7 +1007,7 @@ const VolatilityAnalyzer: React.FC = () => {
       try {
         // Use refs to get current state instead of closure
         const currentTime = Date.now();
-        
+
         // Check if enough time has passed since last trade
         if (currentTime - lastTradeTime < minTimeBetweenTrades) {
           return;
@@ -935,7 +1016,7 @@ const VolatilityAnalyzer: React.FC = () => {
         // Get current state directly from DOM or use a more reliable state check
         const autoTradingButton = document.querySelector(`[data-strategy="${strategyId}"] .start-trading-btn`);
         const isAutoTradingActive = autoTradingButton?.textContent?.includes('Stop Auto Trading');
-        
+
         // Check if auto trading is still active and connected
         if (!isAutoTradingActive || connectionStatus !== 'connected') {
           console.log(`Auto trading stopped for ${strategyId} - Button state: ${autoTradingButton?.textContent}, Connection: ${connectionStatus}`);
@@ -952,11 +1033,11 @@ const VolatilityAnalyzer: React.FC = () => {
 
         // Check if trading conditions are met with more robust checking
         const conditionsMet = checkTradingConditions(strategyId, data.data, condition);
-        
+
         if (conditionsMet) {
           console.log(`🔥 Auto trading conditions met for ${strategyId}, executing trade`);
           lastTradeTime = currentTime;
-          
+
           try {
             await executeTrade(strategyId, 'auto');
             console.log(`✅ Auto trade executed successfully for ${strategyId}`);
@@ -1009,10 +1090,10 @@ const VolatilityAnalyzer: React.FC = () => {
 
   const checkTradingConditions = (strategyId: string, data: any, condition: any) => {
     let currentValue = 0;
-    
+
     // More detailed logging for debugging
     const timestamp = new Date().toLocaleTimeString();
-    
+
     switch (condition.condition) {
       case 'Rise Prob':
         currentValue = parseFloat(data.riseRatio || '0');
@@ -1091,8 +1172,8 @@ const VolatilityAnalyzer: React.FC = () => {
           <span className="progress-percentage">{validPercentage.toFixed(1)}%</span>
         </div>
         <div className="progress-bar">
-          <div 
-            className="progress-fill" 
+          <div
+            className="progress-fill"
             style={{ width: `${validPercentage}%`, backgroundColor: color }}
           />
         </div>
@@ -1154,8 +1235,8 @@ const VolatilityAnalyzer: React.FC = () => {
               <div key={index} className="frequency-item">
                 <div className="frequency-digit">{freq.digit}</div>
                 <div className="frequency-bar">
-                  <div 
-                    className="frequency-fill" 
+                  <div
+                    className="frequency-fill"
                     style={{ height: `${Math.min(percentage * 2.5, 100)}%` }}
                   />
                 </div>
@@ -1306,7 +1387,7 @@ const VolatilityAnalyzer: React.FC = () => {
             <div className="condition-header">Trading Condition</div>
             <div className="condition-row">
               <span>If</span>
-              <select 
+              <select
                 value={condition.condition}
                 onChange={(e) => setTradingConditions(prev => ({
                   ...prev,
@@ -1317,7 +1398,7 @@ const VolatilityAnalyzer: React.FC = () => {
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
-              <select 
+              <select
                 value={condition.operator}
                 onChange={(e) => setTradingConditions(prev => ({
                   ...prev,
@@ -1328,8 +1409,8 @@ const VolatilityAnalyzer: React.FC = () => {
                 <option value="<">&lt;</option>
                 <option value="=">=</option>
               </select>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 value={condition.value}
                 onChange={(e) => setTradingConditions(prev => ({
                   ...prev,
@@ -1352,8 +1433,8 @@ const VolatilityAnalyzer: React.FC = () => {
           <div className="trading-controls">
             <div className="control-group">
               <label>Base Stake</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 value={stakeAmount}
                 onChange={(e) => {
                   const newStake = parseFloat(e.target.value);
@@ -1367,8 +1448,8 @@ const VolatilityAnalyzer: React.FC = () => {
             </div>
             <div className="control-group">
               <label>Ticks</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 value={ticksAmount}
                 onChange={(e) => setTicksAmount(parseInt(e.target.value))}
                 min="1"
@@ -1377,8 +1458,8 @@ const VolatilityAnalyzer: React.FC = () => {
             </div>
             <div className="control-group">
               <label>Martingale</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 value={martingaleAmount}
                 onChange={(e) => setMartingaleAmount(parseFloat(e.target.value))}
                 step="0.1"
@@ -1395,7 +1476,7 @@ const VolatilityAnalyzer: React.FC = () => {
             </div>
             <div className="status-item">
               <span>Current Stake: {
-                (lossStreaks[strategyId] || 0) > 0 ? 
+                (lossStreaks[strategyId] || 0) > 0 ?
                 Number(((baseStakes[strategyId] || stakeAmount) * Math.pow(martingaleAmount, lossStreaks[strategyId] || 0)).toFixed(2)) :
                 (baseStakes[strategyId] || stakeAmount)
               }</span>
@@ -1407,7 +1488,7 @@ const VolatilityAnalyzer: React.FC = () => {
         </div>
 
         <div className="card-footer">
-          <button 
+          <button
             className={`start-trading-btn ${autoTradingStatus[strategyId] ? 'trading-active' : ''}`}
             onClick={() => {
               if (autoTradingStatus[strategyId]) {
@@ -1420,7 +1501,7 @@ const VolatilityAnalyzer: React.FC = () => {
           >
             {autoTradingStatus[strategyId] ? 'Stop Auto Trading' : 'Start Auto Trading'}
           </button>
-          <button 
+          <button
             className="manual-trade-btn"
             onClick={() => executeTrade(strategyId, 'manual')}
             disabled={connectionStatus !== 'connected' || autoTradingStatus[strategyId]}

@@ -93,25 +93,25 @@
 
     @media (max-width: 768px) {
       gap: 8px;
-      
+
       .control-group {
         gap: 2px;
-        
+
         label {
           font-size: 11px;
         }
-        
+
         select,
         input {
           padding: 3px 6px;
           font-size: 11px;
           height: 26px;
         }
-        
+
         select {
           min-width: 100px;
         }
-        
+
         input[type="number"] {
           min-width: 50px;
         }

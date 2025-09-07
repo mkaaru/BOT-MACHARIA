@@ -3,6 +3,20 @@
 /**
 * @define -panel
 **/
+.volatility-analyzer-indicator {
+    padding: 8px 16px;
+    background: rgba(33, 150, 243, 0.1);
+    border-left: 3px solid #2196f3;
+    margin-bottom: 8px;
+
+    .volatility-analyzer-status {
+        margin: 0;
+        color: #2196f3;
+        font-weight: 600;
+        font-size: 12px;
+    }
+}
+
 .run-panel {
     height: 0;
 

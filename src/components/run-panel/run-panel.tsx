@@ -268,21 +268,30 @@ const RunPanel = observer(() => {
     }, []);
 
     const content = (
-        <DrawerContent
-            active_index={active_index}
-            currency={currency}
-            is_drawer_open={is_drawer_open}
-            is_mobile={!isDesktop}
-            lost_contracts={lost_contracts}
-            number_of_runs={number_of_runs}
-            setActiveTabIndex={setActiveTabIndex}
-            toggleStatisticsInfoModal={toggleStatisticsInfoModal}
-            total_payout={total_payout}
-            total_profit={total_profit}
-            total_stake={total_stake}
-            won_contracts={won_contracts}
-            active_tour={active_tour}
-        />
+        <div>
+            {isVolatilityAnalyzerRunning && (
+                <div className="volatility-analyzer-indicator">
+                    <Text as="p" size="xs" className="volatility-analyzer-status">
+                        <Localize i18n_default_text="🔬 Volatility Analyzer Active" />
+                    </Text>
+                </div>
+            )}
+            <DrawerContent
+                active_index={active_index}
+                currency={currency}
+                is_drawer_open={is_drawer_open}
+                is_mobile={!isDesktop}
+                lost_contracts={lost_contracts}
+                number_of_runs={number_of_runs}
+                setActiveTabIndex={setActiveTabIndex}
+                toggleStatisticsInfoModal={toggleStatisticsInfoModal}
+                total_payout={total_payout}
+                total_profit={total_profit}
+                total_stake={total_stake}
+                won_contracts={won_contracts}
+                active_tour={active_tour}
+            />
+        </div>
     );
 
     const footer = <DrawerFooter is_clear_stat_disabled={is_clear_stat_disabled} onClearStatClick={onClearStatClick} />;
@@ -299,6 +308,9 @@ const RunPanel = observer(() => {
     // Show run panel on all pages
     const show_run_panel = true;
     if (active_tour === 'bot_builder') return null;
+    
+    // Check if volatility analyzer is running
+    const isVolatilityAnalyzerRunning = run_id?.includes('volatility-analyzer');
 
     return (
         <>
