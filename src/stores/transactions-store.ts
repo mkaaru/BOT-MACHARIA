@@ -68,14 +68,27 @@ export default class TransactionsStore {
         );
         const statistics = trxs.reduce(
             (stats, { data }) => {
-                const { profit = 0, is_completed = false, buy_price = 0, payout, bid_price, status } = data as TContractInfo;
+                const { profit = 0, is_completed = false, buy_price = 0, payout = 0, bid_price = 0, status } = data as TContractInfo;
                 if (is_completed) {
-                    // Check multiple conditions to determine if it's a win
-                    const isWin = profit > 0 || status === 'won' || (payout && payout > buy_price);
+                    // Improved win detection logic
+                    let isWin = false;
+                    
+                    // Primary check: profit is positive
+                    if (profit > 0) {
+                        isWin = true;
+                    }
+                    // Secondary check: explicit status
+                    else if (status === 'won') {
+                        isWin = true;
+                    }
+                    // Tertiary check: payout greater than stake
+                    else if (payout > 0 && payout > buy_price) {
+                        isWin = true;
+                    }
                     
                     if (isWin) {
                         stats.won_contracts += 1;
-                        stats.total_payout += payout ?? bid_price ?? 0;
+                        stats.total_payout += payout || bid_price || 0;
                     } else {
                         stats.lost_contracts += 1;
                     }
