@@ -68,18 +68,55 @@ export default class TransactionsStore {
         );
         const statistics = trxs.reduce(
             (stats, { data }) => {
-                const { profit = 0, is_completed = false, buy_price = 0, payout, bid_price, status } = data as TContractInfo;
+                const { 
+                    profit = 0, 
+                    is_completed = false, 
+                    buy_price = 0, 
+                    payout = 0,
+                    bid_price = 0,
+                    sell_price = 0,
+                    status 
+                } = data as TContractInfo;
+                
                 if (is_completed) {
-                    // Check multiple conditions to determine if it's a win
-                    const isWin = profit > 0 || status === 'won' || (payout && payout > buy_price);
+                    // Enhanced win/loss detection logic
+                    let isWin = false;
+                    
+                    // Primary check: profit > 0
+                    if (profit > 0) {
+                        isWin = true;
+                    }
+                    // Secondary check: status is 'won'
+                    else if (status === 'won') {
+                        isWin = true;
+                    }
+                    // Tertiary check: sell_price > buy_price (accounting for fees)
+                    else if (sell_price > 0 && buy_price > 0 && sell_price > buy_price * 0.95) {
+                        isWin = true;
+                    }
+                    // Quaternary check: payout received > buy_price
+                    else if (payout > 0 && payout > buy_price) {
+                        isWin = true;
+                    }
+                    // Final fallback: if bid_price > buy_price
+                    else if (bid_price > 0 && bid_price > buy_price * 0.95) {
+                        isWin = true;
+                    }
                     
                     if (isWin) {
                         stats.won_contracts += 1;
-                        stats.total_payout += payout ?? bid_price ?? 0;
+                        stats.total_payout += payout || sell_price || bid_price || 0;
                     } else {
                         stats.lost_contracts += 1;
                     }
-                    stats.total_profit += profit;
+                    
+                    // Use actual profit if available, otherwise calculate from sell/buy prices
+                    let actualProfit = profit;
+                    if (actualProfit === 0 && sell_price > 0 && buy_price > 0) {
+                        actualProfit = sell_price - buy_price;
+                    }
+                    
+                    stats.total_profit += actualProfit;
                     stats.total_stake += buy_price;
                     total_runs += 1;
                 }

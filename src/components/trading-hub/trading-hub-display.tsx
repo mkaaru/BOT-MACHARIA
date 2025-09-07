@@ -49,7 +49,7 @@ const TradingHubDisplay: React.FC = () => {
     const [connectionStatus, setConnectionStatus] = useState('disconnected');
     const [isApiAuthorized, setIsApiAuthorized] = useState(false);
 
-    // Statistics
+    // Statistics from run panel
     const [winCount, setWinCount] = useState(0);
     const [lossCount, setLossCount] = useState(0);
     const [totalTrades, setTotalTrades] = useState(0);
@@ -99,8 +99,8 @@ const TradingHubDisplay: React.FC = () => {
                 // Clear any existing transactions from previous sessions
                 // but don't clear if there are already Trading Hub transactions
                 const existingTransactions = run_panel.root_store.transactions.transactions || [];
-                const hasTradingHubTransactions = existingTransactions.some(tx => 
-                    typeof tx.data === 'object' && 
+                const hasTradingHubTransactions = existingTransactions.some(tx =>
+                    typeof tx.data === 'object' &&
                     (tx.data?.contract_type?.includes('DIGIT') || tx.data?.contract_type === 'O5U4_DUAL')
                 );
 
@@ -198,7 +198,7 @@ const TradingHubDisplay: React.FC = () => {
             let contractResolved = false;
 
             const subscription = api_base.api?.onMessage().subscribe(async (response: any) => {
-                if (response.proposal_open_contract && 
+                if (response.proposal_open_contract &&
                     response.proposal_open_contract.contract_id === contractId &&
                     !contractResolved) {
 
@@ -408,10 +408,10 @@ const TradingHubDisplay: React.FC = () => {
             token = localStorage.getItem('client_token');
         }
 
-        console.log('Token retrieval result:', { 
-            hasToken: !!token, 
+        console.log('Token retrieval result:', {
+            hasToken: !!token,
             loginid: client?.loginid,
-            clientAvailable: !!client 
+            clientAvailable: !!client
         });
 
         if (!client?.loginid || !token) {
@@ -740,21 +740,21 @@ const TradingHubDisplay: React.FC = () => {
 
             // Enhanced O5U4 result processing
             const completedO5U4Trades = [
-                { 
-                    contractId: `O5U4_OVER_5_${selectedSymbol}`, 
-                    contractType: 'DIGITOVER', 
-                    result: over5Result ? 'win' : 'loss', 
-                    stake: currentStake, 
-                    payout: currentStake * 1.95, 
+                {
+                    contractId: `O5U4_OVER_5_${selectedSymbol}`,
+                    contractType: 'DIGITOVER',
+                    result: over5Result ? 'win' : 'loss',
+                    stake: currentStake,
+                    payout: currentStake * 1.95,
                     profit: over5Result ? currentStake * 0.95 : -currentStake,
                     symbol: selectedSymbol
                 },
-                { 
-                    contractId: `O5U4_UNDER_4_${selectedSymbol}`, 
-                    contractType: 'DIGITUNDER', 
-                    result: under4Result ? 'win' : 'loss', 
-                    stake: currentStake, 
-                    payout: currentStake * 1.95, 
+                {
+                    contractId: `O5U4_UNDER_4_${selectedSymbol}`,
+                    contractType: 'DIGITUNDER',
+                    result: under4Result ? 'win' : 'loss',
+                    stake: currentStake,
+                    payout: currentStake * 1.95,
                     profit: under4Result ? currentStake * 0.95 : -currentStake,
                     symbol: selectedSymbol
                 }
@@ -990,8 +990,8 @@ const TradingHubDisplay: React.FC = () => {
         } catch (error: any) {
             globalObserver.emit('ui.log.error', `Failed to start trading: ${error.message}`);
         }
-    }, [client, isAnalysisReady, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active, 
-        prepareRunPanelForTradingHub, initialStake, executeDigitDifferTrade, executeDigitOverTrade, 
+    }, [client, isAnalysisReady, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active,
+        prepareRunPanelForTradingHub, initialStake, executeDigitDifferTrade, executeDigitOverTrade,
         executeO5U4Trade, checkO5U4Conditions]);
 
     // Enhanced stop trading function
@@ -1087,7 +1087,7 @@ const TradingHubDisplay: React.FC = () => {
                 tradingIntervalRef.current = null;
             }
         };
-    }, [isContinuousTrading, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active, 
+    }, [isContinuousTrading, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active,
         isTradeInProgress, consecutiveLosses, recommendation, stopTrading, executeDigitDifferTrade, executeDigitOverTrade, executeO5U4Trade, client]);
 
     // Initialize component and enhanced market analyzer
@@ -1364,8 +1364,8 @@ const TradingHubDisplay: React.FC = () => {
                                     </div>
                                     <div className="rec-item">
                                         <span>Pattern:</span>
-                                        <strong>{recommendation.reason.includes('Most frequent digit') ? 
-                                            `${recommendation.reason.match(/Most frequent digit (\d)/)?.[1]} vs ${recommendation.reason.match(/current (\d)/)?.[1]}` : 
+                                        <strong>{recommendation.reason.includes('Most frequent digit') ?
+                                            `${recommendation.reason.match(/Most frequent digit (\d)/)?.[1]} vs ${recommendation.reason.match(/current (\d)/)?.[1]}` :
                                             'Secondary Pattern'}</strong>
                                     </div>
                                     <div className="rec-item">
