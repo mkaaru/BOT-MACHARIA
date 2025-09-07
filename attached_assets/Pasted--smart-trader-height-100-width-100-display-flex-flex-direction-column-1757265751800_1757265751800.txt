@@ -1,0 +1,154 @@
+.smart-trader {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--general-main-1);
+
+    &__container {
+        padding: 2.4rem;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 2.4rem;
+    }
+
+    &__header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+        border-bottom: 1px solid var(--border-normal);
+        padding-bottom: 1.6rem;
+    }
+
+    &__content {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    &__card {
+        width: 100%;
+        max-width: 980px;
+        background: linear-gradient(180deg, var(--general-main-2), var(--general-main-1));
+        border: 1px solid var(--border-normal);
+        border-radius: 12px;
+        padding: 1.6rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.2rem;
+        box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    }
+
+    &__row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.2rem;
+
+        &--compact { grid-template-columns: repeat(4, 1fr); }
+        &--two { grid-template-columns: repeat(2, 1fr); }
+
+        @media (max-width: 1024px) {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        @media (max-width: 640px) {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+
+        label {
+            font-size: 1.2rem;
+            color: var(--text-less-prominent);
+        }
+        select,
+        input {
+            background: var(--general-main-1);
+            border: 1px solid var(--border-normal);
+            border-radius: 0.6rem;
+            color: var(--text-prominent);
+            padding: 0.8rem 1rem;
+            height: 38px;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.8rem;
+        margin-top: 0.8rem;
+    }
+
+    &__run {
+        background: #2e9f42;
+        color: #fff;
+        border: none;
+        border-radius: 0.6rem;
+        padding: 0.8rem 1.6rem;
+        height: 40px;
+        font-weight: 600;
+        cursor: pointer;
+
+        &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    }
+    &__stop {
+        background: #ef4444;
+        color: #fff;
+        border: none;
+        border-radius: 0.6rem;
+        padding: 0.8rem 1.2rem;
+        height: 40px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    &__digits {
+        display: grid;
+        grid-template-columns: repeat(10, minmax(44px, 1fr));
+        gap: 0.8rem;
+        margin-top: 0.4rem;
+
+        @media (max-width: 640px) {
+            grid-template-columns: repeat(5, minmax(44px, 1fr));
+        }
+    }
+
+    &__digit {
+        height: 54px;
+        border-radius: 10px;
+        background: var(--general-main-1);
+        border: 2px solid var(--border-normal);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 1.4rem;
+        letter-spacing: .5px;
+        color: var(--text-prominent);
+        box-shadow: 0 2px 0 rgba(0,0,0,.12), inset 0 0 0 2px rgba(255,255,255,.03);
+        transition: background .2s ease, border-color .2s ease, transform .08s ease, box-shadow .2s ease;
+
+        &.is-current { background: #fff6cc; border-color: #fbbf24; color: #1f2937; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(250,204,21,.25), inset 0 0 0 2px rgba(255,255,255,.05); }
+        &.is-green { background: #dbfde9; border-color: #16a34a; color: #065f46; }
+        &.is-red { background: #ffe4e6; border-color: #f43f5e; color: #7f1d1d; }
+        &.is-neutral { background: #eef2ff; border-color: #6366f1; color: #1e3a8a; }
+    }
+
+    &__meta {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 0.6rem;
+    }
+
+    &__status {
+        margin-top: 0.4rem;
+    }
+}
