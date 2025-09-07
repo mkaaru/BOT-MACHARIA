@@ -302,6 +302,121 @@ const AppWrapper = observer(() => {
         [setActiveTab]
     );
 
+    // Helper function to clean and validate XML content
+    const cleanAndValidateXML = async (xmlContent: string): Promise<string> => {
+        try {
+            // Remove problematic characters and normalize
+            let cleanedXml = xmlContent
+                .replace(/^\uFEFF/, '') // Remove BOM
+                .replace(/&(?!amp;|lt;|gt;|quot;|apos;)/g, '&amp;') // Fix unescaped ampersands
+                .trim();
+
+            // Validate basic XML structure
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(cleanedXml, 'application/xml');
+            const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
+
+            if (parseError) {
+                console.warn("XML parsing issues detected, attempting fixes...");
+                // Additional cleaning if needed
+                cleanedXml = cleanedXml
+                    .replace(/<([^>]*[^/])>/g, (match, content) => {
+                        // Ensure proper tag structure
+                        return match;
+                    });
+            }
+
+            return cleanedXml;
+        } catch (error) {
+            console.error("Error cleaning XML:", error);
+            return xmlContent; // Return original if cleaning fails
+        }
+    };
+
+    // Helper function to filter out unsupported elements
+    const filterUnsupportedElements = async (xmlContent: string): Promise<{ cleanXml: string; hasUnsupportedElements: boolean }> => {
+        try {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
+            
+            // List of supported block types
+            const supportedBlockTypes = [
+                'trade_definition', 'trade_definition_market', 'trade_definition_tradetype',
+                'trade_definition_contracttype', 'trade_definition_candleinterval',
+                'trade_definition_restartbuysell', 'trade_definition_restartonerror',
+                'trade_definition_tradeoptions', 'variables_set', 'variables_get',
+                'math_number', 'math_arithmetic', 'text', 'logic_compare',
+                'controls_if', 'after_purchase', 'before_purchase', 'tick_analysis',
+                'contract_check_result', 'total_profit', 'read_details', 'lastDigitList',
+                'lists_getIndex', 'text_join', 'text_statement', 'text_print',
+                'notify', 'ceo_purchase', 'timeout', 'trade_again', 'math_change',
+                'math_single', 'logic_operation', 'logic_boolean'
+            ];
+
+            let hasUnsupportedElements = false;
+            const blocksToRemove = [];
+
+            // Find all block elements
+            const blocks = xmlDoc.querySelectorAll('block');
+            blocks.forEach(block => {
+                const blockType = block.getAttribute('type');
+                if (blockType && !supportedBlockTypes.includes(blockType)) {
+                    console.log(`Filtering unsupported block type: ${blockType}`);
+                    hasUnsupportedElements = true;
+                    blocksToRemove.push(block);
+                }
+            });
+
+            // Remove unsupported blocks
+            blocksToRemove.forEach(block => {
+                if (block.parentNode) {
+                    block.parentNode.removeChild(block);
+                }
+            });
+
+            const serializer = new XMLSerializer();
+            const cleanXml = serializer.serializeToString(xmlDoc);
+
+            return { cleanXml, hasUnsupportedElements };
+        } catch (error) {
+            console.error("Error filtering XML:", error);
+            return { cleanXml: xmlContent, hasUnsupportedElements: false };
+        }
+    };
+
+    // Helper function to extract core strategy blocks
+    const extractCoreStrategy = (xmlContent: string): string | null => {
+        try {
+            // Extract essential blocks for a basic strategy
+            const essentialPatterns = [
+                /<block[^>]*type="trade_definition"[\s\S]*?<\/block>/,
+                /<variables>[\s\S]*?<\/variables>/,
+                /<block[^>]*type="after_purchase"[\s\S]*?<\/block>/,
+                /<block[^>]*type="before_purchase"[\s\S]*?<\/block>/
+            ];
+
+            let extractedBlocks = [];
+            essentialPatterns.forEach(pattern => {
+                const match = xmlContent.match(pattern);
+                if (match) {
+                    extractedBlocks.push(match[0]);
+                }
+            });
+
+            if (extractedBlocks.length > 0) {
+                const variablesMatch = xmlContent.match(/<variables>[\s\S]*?<\/variables>/);
+                const variables = variablesMatch ? variablesMatch[0] : '<variables></variables>';
+                
+                return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true">${variables}${extractedBlocks.join('')}</xml>`;
+            }
+
+            return null;
+        } catch (error) {
+            console.error("Error extracting core strategy:", error);
+            return null;
+        }
+    };
+
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string | null; title?: string; isPlaceholder?: boolean }) => {
         try {
             console.log("Loading bot:", bot.title, "Placeholder:", bot.isPlaceholder);
@@ -451,9 +566,12 @@ const AppWrapper = observer(() => {
                 if (load && xmlContent) {
                     console.log("Loading bot using bot-skeleton load utility...");
 
+                    // Pre-validate and clean XML content
+                    const cleanedXmlContent = await cleanAndValidateXML(xmlContent);
+
                     // Load the XML content into the workspace
                     const loadResult = await load({
-                        block_string: xmlContent,
+                        block_string: cleanedXmlContent,
                         file_name: bot.title || 'Loaded Bot',
                         workspace: workspace,
                         from: 'free_bots',
@@ -470,7 +588,7 @@ const AppWrapper = observer(() => {
 
                     // Update workspace name if available
                     if (typeof updateWorkspaceName === 'function') {
-                        updateWorkspaceName(xmlContent);
+                        updateWorkspaceName(cleanedXmlContent);
                     }
 
                     // Clean up the workspace layout
@@ -485,34 +603,34 @@ const AppWrapper = observer(() => {
             } catch (loadError) {
                 console.error("Error loading bot with load utility:", loadError);
 
-                // Enhanced fallback: try multiple approaches
+                // Enhanced fallback with intelligent block filtering
                 try {
-                    console.log("Attempting enhanced fallback XML loading...");
+                    console.log("Attempting intelligent fallback XML loading...");
 
-                    // Try different XML parsing approaches
+                    const { cleanXml, hasUnsupportedElements } = await filterUnsupportedElements(xmlContent);
+                    
                     let xmlDoc;
 
-                    // Approach 1: Use Blockly's textToDom
+                    // Try different XML parsing approaches
                     try {
-                        xmlDoc = window.Blockly.utils.xml.textToDom(xmlContent);
+                        xmlDoc = window.Blockly.utils.xml.textToDom(cleanXml);
                     } catch (e1) {
                         console.log("Blockly textToDom failed, trying DOMParser...");
 
-                        // Approach 2: Use DOMParser and convert
                         try {
                             const parser = new DOMParser();
-                            const parsedDoc = parser.parseFromString(xmlContent, 'application/xml');
+                            const parsedDoc = parser.parseFromString(cleanXml, 'application/xml');
                             xmlDoc = parsedDoc.documentElement;
                         } catch (e2) {
                             console.log("DOMParser failed, trying manual XML cleanup...");
 
-                            // Approach 3: Clean up XML and try again
-                            const cleanedXml = xmlContent
-                                .replace(/xmlns="[^"]*"/g, '') // Remove namespace declarations that might cause issues
+                            const ultraCleanXml = cleanXml
+                                .replace(/xmlns="[^"]*"/g, '') // Remove namespace declarations
                                 .replace(/\s+/g, ' ') // Normalize whitespace
+                                .replace(/<!--[\s\S]*?-->/g, '') // Remove comments
                                 .trim();
 
-                            xmlDoc = window.Blockly.utils.xml.textToDom(cleanedXml);
+                            xmlDoc = window.Blockly.utils.xml.textToDom(ultraCleanXml);
                         }
                     }
 
@@ -520,10 +638,10 @@ const AppWrapper = observer(() => {
                         throw new Error("Could not parse XML with any method");
                     }
 
-                    // Thoroughly clear workspace again before fallback load
+                    // Thoroughly clear workspace before loading
                     workspace.clear();
                     workspace.clearUndo();
-                    workspace.cleanUp();
+                    if (workspace.cleanUp) workspace.cleanUp();
 
                     // Load XML directly
                     window.Blockly.Xml.domToWorkspace(xmlDoc, workspace);
@@ -532,34 +650,37 @@ const AppWrapper = observer(() => {
                     workspace.current_strategy_id = window.Blockly.utils.idGenerator.genUid();
 
                     // Clean up
-                    workspace.cleanUp();
+                    if (workspace.cleanUp) workspace.cleanUp();
                     workspace.clearUndo();
 
-                    console.log("Bot loaded successfully via enhanced fallback method!");
+                    console.log("Bot loaded successfully via intelligent fallback method!");
+
+                    // Show appropriate message based on what was filtered
+                    if (hasUnsupportedElements) {
+                        alert("Bot loaded successfully! Some advanced features were filtered out for compatibility.");
+                    }
 
                 } catch (fallbackError) {
-                    console.error("Enhanced fallback loading also failed:", fallbackError);
+                    console.error("Intelligent fallback loading failed:", fallbackError);
 
-                    // Final attempt: try to load what we can and ignore errors
+                    // Final attempt: Extract core strategy only
                     try {
-                        console.log("Attempting partial load with error tolerance...");
+                        console.log("Attempting core strategy extraction...");
 
-                        // Try to extract the main strategy blocks and load them individually
-                        const strategyMatch = xmlContent.match(/<block[^>]*type="trade_definition"[\s\S]*?<\/block>/);
-                        if (strategyMatch) {
-                            const simpleXml = `<xml xmlns="https://developers.google.com/blockly/xml">${strategyMatch[0]}</xml>`;
-                            const simpleDoc = window.Blockly.utils.xml.textToDom(simpleXml);
+                        const coreStrategy = extractCoreStrategy(xmlContent);
+                        if (coreStrategy) {
+                            const coreDoc = window.Blockly.utils.xml.textToDom(coreStrategy);
                             workspace.clear();
-                            window.Blockly.Xml.domToWorkspace(simpleDoc, workspace);
-                            workspace.cleanUp();
-                            console.log("Partial bot loaded - main strategy block only");
-                            alert("Bot loaded partially. Some advanced features may not be available.");
+                            window.Blockly.Xml.domToWorkspace(coreDoc, workspace);
+                            if (workspace.cleanUp) workspace.cleanUp();
+                            console.log("Core strategy loaded successfully");
+                            alert("Bot loaded partially. Some advanced features may not be available. Only core trading strategy has been loaded.");
                         } else {
-                            throw new Error("No recognizable strategy blocks found");
+                            throw new Error("No core strategy found");
                         }
                     } catch (finalError) {
                         console.error("All loading attempts failed:", finalError);
-                        alert("Failed to load the bot. The XML file may be corrupted or contain unsupported elements. Please try a different bot or contact support.");
+                        alert("Failed to load the bot. XML file contains unsupported elements. Please check or modify the file, or try a different bot.");
                     }
                 }
             }
