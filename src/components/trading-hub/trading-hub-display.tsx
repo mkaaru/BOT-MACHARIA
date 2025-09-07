@@ -190,6 +190,7 @@ const TradingHubDisplay: React.FC = () => {
         return new Promise((resolve) => {
             let contractData: any = null;
             let contractResolved = false;
+            let timeoutId: NodeJS.Timeout;
 
             const subscription = api_base.api?.onMessage().subscribe(async (response: any) => {
                 if (response.proposal_open_contract && 
@@ -197,9 +198,16 @@ const TradingHubDisplay: React.FC = () => {
                     !contractResolved) {
 
                     contractData = response.proposal_open_contract;
+                    console.log(`Contract ${contractId} update:`, {
+                        is_settled: contractData.is_settled,
+                        is_sold: contractData.is_sold,
+                        status: contractData.status,
+                        profit: contractData.profit
+                    });
 
-                    if (contractData.is_settled) {
+                    if (contractData.is_settled || contractData.is_sold || contractData.status === 'sold') {
                         contractResolved = true;
+                        clearTimeout(timeoutId);
 
                         // Enhanced win/loss detection for all trade types
                         const profit = parseFloat(contractData.profit || '0');
@@ -239,6 +247,7 @@ const TradingHubDisplay: React.FC = () => {
                         }
 
                         subscription.unsubscribe();
+                        clearTimeout(timeoutId);
 
                         // Log detailed contract info for debugging
                         console.log(`Contract ${contractId} detailed settlement:`, {
@@ -368,57 +377,108 @@ const TradingHubDisplay: React.FC = () => {
             });
 
             // Send subscription request with immediate status check
-            Promise.all([
-                api_base.api?.send({
-                    proposal_open_contract: 1,
-                    contract_id: contractId,
-                    subscribe: 1
-                }),
-                api_base.api?.send({
-                    proposal_open_contract: 1,
-                    contract_id: contractId
-                })
-            ]).then(([subscriptionResponse, immediateResponse]) => {
-                if (immediateResponse?.proposal_open_contract?.is_settled && !contractResolved) {
-                    console.log('Contract already settled on immediate check:', immediateResponse.proposal_open_contract);
-                }
-            }).catch(error => {
-                console.error('Error in contract monitoring setup:', error);
-            });
+            const setupMonitoring = async () => {
+                try {
+                    // Subscribe to contract updates
+                    const subscriptionResponse = await api_base.api?.send({
+                        proposal_open_contract: 1,
+                        contract_id: contractId,
+                        subscribe: 1
+                    });
 
-            // Extended timeout for better contract settlement detection
-            setTimeout(() => {
+                    // Also get immediate status
+                    const immediateResponse = await api_base.api?.send({
+                        proposal_open_contract: 1,
+                        contract_id: contractId
+                    });
+
+                    if (immediateResponse?.proposal_open_contract && !contractResolved) {
+                        const contract = immediateResponse.proposal_open_contract;
+                        console.log(`Immediate contract status for ${contractId}:`, {
+                            is_settled: contract.is_settled,
+                            is_sold: contract.is_sold,
+                            status: contract.status,
+                            profit: contract.profit
+                        });
+
+                        if (contract.is_settled || contract.is_sold || contract.status === 'sold') {
+                            contractData = contract;
+                            // Trigger the settlement logic immediately
+                            const event = { proposal_open_contract: contract };
+                            subscription.next(event);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error in contract monitoring setup:', error);
+                }
+            };
+
+            setupMonitoring();
+
+            // Reduced timeout with better fallback handling
+            timeoutId = setTimeout(async () => {
                 if (!contractResolved) {
+                    console.warn(`Contract ${contractId} monitoring timeout after 5 seconds`);
                     subscription.unsubscribe();
 
-                    // Final attempt to get contract status before timeout
-                    if (contractData && contractData.is_settled) {
-                        const profit = parseFloat(contractData.profit || '0');
-                        const isWin = profit > 0 || contractData.status === 'won';
+                    // Final attempt to get contract status
+                    try {
+                        const finalResponse = await api_base.api?.send({
+                            proposal_open_contract: 1,
+                            contract_id: contractId
+                        });
 
-                        console.log(`Final timeout check - Contract ${contractId}: ${isWin ? 'WON' : 'LOST'}`);
-                        contractResolved = true;
+                        if (finalResponse?.proposal_open_contract) {
+                            const finalContract = finalResponse.proposal_open_contract;
+                            console.log(`Final check for ${contractId}:`, finalContract);
 
-                        if (!isO5U4Part) {
-                            contractSettledTimeRef.current = Date.now();
-                            waitingForSettlementRef.current = false;
+                            if (finalContract.is_settled || finalContract.is_sold) {
+                                contractData = finalContract;
+                                const profit = parseFloat(finalContract.profit || '0');
+                                let isWin = profit > 0 || finalContract.status === 'won';
+
+                                // Additional win detection for digit contracts
+                                if (finalContract.exit_spot && finalContract.barrier) {
+                                    const exitSpot = parseFloat(finalContract.exit_spot);
+                                    const barrier = parseFloat(finalContract.barrier);
+                                    const lastDigit = Math.floor(exitSpot * 100) % 10;
+
+                                    if (contractType === 'DIGITOVER') {
+                                        isWin = lastDigit > barrier;
+                                    } else if (contractType === 'DIGITUNDER') {
+                                        isWin = lastDigit < barrier;
+                                    } else if (contractType === 'DIGITDIFF') {
+                                        isWin = lastDigit !== barrier;
+                                    }
+                                }
+
+                                console.log(`Final resolution for ${contractId}: ${isWin ? 'WON' : 'LOST'}`);
+                                contractResolved = true;
+
+                                if (!isO5U4Part) {
+                                    contractSettledTimeRef.current = Date.now();
+                                    waitingForSettlementRef.current = false;
+                                }
+
+                                resolve(isWin);
+                                return;
+                            }
                         }
-
-                        resolve(isWin);
-                    } else {
-                        // True timeout - contract not settled
-                        console.warn(`Contract ${contractId} timeout - no settlement data received`);
-
-                        if (!isO5U4Part) {
-                            contractSettledTimeRef.current = Date.now();
-                            waitingForSettlementRef.current = false;
-                        }
-
-                        globalObserver.emit('ui.log.error', `Contract ${contractId} monitoring timeout`);
-                        resolve(false);
+                    } catch (error) {
+                        console.error(`Error in final contract check for ${contractId}:`, error);
                     }
+
+                    // True timeout - treat as loss but don't spam logs
+                    globalObserver.emit('ui.log.error', `Contract ${contractId} settlement timeout`);
+
+                    if (!isO5U4Part) {
+                        contractSettledTimeRef.current = Date.now();
+                        waitingForSettlementRef.current = false;
+                    }
+
+                    resolve(false);
                 }
-            }, 3000); // Extended to 3 seconds for better reliability
+            }, 5000); // 5 seconds timeout
         });
     }, [run_panel, client, isAutoOverUnderActive, isAutoDifferActive]);
 
