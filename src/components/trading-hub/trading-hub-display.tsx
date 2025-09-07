@@ -6,6 +6,7 @@ import { useStore } from '@/hooks/useStore';
 import AdvancedDisplayModal from './advanced-display-modal';
 import DisplayToggle from './display-toggle';
 import ProfitLossDisplay from './profit-loss-display';
+import marketAnalyzer, { type O5U4Conditions, type MarketStats } from '../../services/market-analyzer';
 
 interface TradeRecommendation {
     symbol: string;
@@ -62,6 +63,12 @@ const TradingHubDisplay: React.FC = () => {
     const [analysisCount, setAnalysisCount] = useState(0);
     const [lastAnalysisTime, setLastAnalysisTime] = useState<string>('');
 
+    // Enhanced market analysis state
+    const [marketStats, setMarketStats] = useState<Record<string, MarketStats>>({});
+    const [o5u4Opportunities, setO5U4Opportunities] = useState<O5U4Conditions[]>([]);
+    const [readySymbolsCount, setReadySymbolsCount] = useState(0);
+    const [bestO5U4Opportunity, setBestO5U4Opportunity] = useState<O5U4Conditions | null>(null);
+
     // O5U4 specific state
     const [o5u4Trades, setO5U4Trades] = useState<O5U4Trade[]>([]);
 
@@ -106,51 +113,44 @@ const TradingHubDisplay: React.FC = () => {
         }
     }, [run_panel]);
 
-    // Enhanced market analysis with realistic patterns
-    const performMarketAnalysis = useCallback(() => {
+    // Enhanced market analysis callback
+    const handleMarketAnalysis = useCallback((newRecommendation: TradeRecommendation | null, stats: Record<string, MarketStats>, o5u4Data?: O5U4Conditions[]) => {
         setAnalysisCount(prev => prev + 1);
         setLastAnalysisTime(new Date().toLocaleTimeString());
+        setMarketStats(stats);
+        
+        if (o5u4Data) {
+            setO5U4Opportunities(o5u4Data);
+            setBestO5U4Opportunity(o5u4Data.length > 0 ? o5u4Data[0] : null);
+        }
 
-        // Generate realistic market recommendations
-        const symbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
-        const strategies = ['over', 'under', 'differ'] as const;
-        const barriers = ['3', '4', '5', '6', '7'];
+        // Count ready symbols
+        const readyCount = Object.values(stats).filter(stat => stat.isReady).length;
+        setReadySymbolsCount(readyCount);
 
-        const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
-        const randomStrategy = strategies[Math.floor(Math.random() * strategies.length)];
-        const randomBarrier = barriers[Math.floor(Math.random() * barriers.length)];
-        const confidence = Math.floor(Math.random() * 25) + 70; // 70-95% confidence
+        if (newRecommendation) {
+            setRecommendation(newRecommendation);
+        }
 
-        const newRecommendation: TradeRecommendation = {
-            symbol: randomSymbol,
-            strategy: randomStrategy,
-            barrier: randomStrategy === 'over' || randomStrategy === 'under' ? randomBarrier : undefined,
-            confidence,
-            reason: `Market pattern analysis detected with ${confidence}% confidence`,
-            timestamp: Date.now()
-        };
-
-        setRecommendation(newRecommendation);
-
-        if (!isAnalysisReady) {
+        if (!isAnalysisReady && readyCount >= 3) {
             setIsAnalysisReady(true);
         }
 
-        // Immediately execute trade on new recommendation if trading is active
+        // Execute trades based on active strategy and new data
         if (isContinuousTrading && !isTradeInProgress) {
             setTimeout(async () => {
                 try {
-                    if (isAutoDifferActive) {
+                    if (isAutoDifferActive && newRecommendation?.strategy === 'differ') {
                         await executeDigitDifferTrade();
-                    } else if (isAutoOverUnderActive) {
+                    } else if (isAutoOverUnderActive && newRecommendation && ['over', 'under'].includes(newRecommendation.strategy)) {
                         await executeDigitOverTrade();
-                    } else if (isAutoO5U4Active) {
+                    } else if (isAutoO5U4Active && o5u4Data && o5u4Data.length > 0) {
                         await executeO5U4Trade();
                     }
                 } catch (error) {
-                    console.error('Immediate trade execution error:', error);
+                    console.error('Advanced trade execution error:', error);
                 }
-            }, 100); // Execute almost immediately on new recommendation
+            }, 200);
         }
     }, [isAnalysisReady, isContinuousTrading, isTradeInProgress, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active]);
 
@@ -759,31 +759,54 @@ const TradingHubDisplay: React.FC = () => {
     }, [recommendation, isTradeInProgress, executeTrade]);
 
     const executeO5U4Trade = useCallback(async (): Promise<boolean> => {
-        if (isTradeInProgress || !checkO5U4Conditions()) return false;
+        if (isTradeInProgress || !bestO5U4Opportunity) return false;
 
         try {
-            console.log('Executing O5U4 dual trade...');
+            console.log(`Executing Enhanced O5U4 dual trade on ${bestO5U4Opportunity.symbol}...`);
             setIsTradeInProgress(true);
 
             const currentStake = parseFloat(appliedStake);
+            const selectedSymbol = bestO5U4Opportunity.symbol;
 
-            // Execute both trades simultaneously with detailed tracking
+            // Log the AI decision
+            globalObserver.emit('ui.log.info', 
+                `O5U4 AI Selection: ${selectedSymbol} (Score: ${bestO5U4Opportunity.score.toFixed(1)}, Conditions: ${bestO5U4Opportunity.conditionsMetCount}/3)`);
+
+            // Execute both trades simultaneously on the AI-selected symbol
             const [over5Result, under4Result] = await Promise.all([
-                executeTrade('O5U4 Over', 'R_100', 'DIGITOVER', '5', true),
-                executeTrade('O5U4 Under', 'R_100', 'DIGITUNDER', '4', true)
+                executeTrade('O5U4 Over', selectedSymbol, 'DIGITOVER', '5', true),
+                executeTrade('O5U4 Under', selectedSymbol, 'DIGITUNDER', '4', true)
             ]);
 
-            // Log individual O5U4 trade results for better tracking
-            globalObserver.emit('ui.log.info', `O5U4 Over 5: ${over5Result ? 'WON' : 'LOST'}`);
-            globalObserver.emit('ui.log.info', `O5U4 Under 4: ${under4Result ? 'WON' : 'LOST'}`);
+            // Log individual O5U4 trade results with enhanced detail
+            globalObserver.emit('ui.log.info', 
+                `O5U4 ${selectedSymbol} Over 5: ${over5Result ? 'WON' : 'LOST'}`);
+            globalObserver.emit('ui.log.info', 
+                `O5U4 ${selectedSymbol} Under 4: ${under4Result ? 'WON' : 'LOST'}`);
 
-            // O5U4 specific logic for results handling
+            // Enhanced O5U4 result processing
             const completedO5U4Trades = [
-                { contractId: 'O5U4_OVER_5', contractType: 'DIGITOVER', result: over5Result ? 'win' : 'loss', stake: currentStake, payout: currentStake * 1.95, profit: over5Result ? currentStake * 0.95 : -currentStake },
-                { contractId: 'O5U4_UNDER_4', contractType: 'DIGITUNDER', result: under4Result ? 'win' : 'loss', stake: currentStake, payout: currentStake * 1.95, profit: under4Result ? currentStake * 0.95 : -currentStake }
+                { 
+                    contractId: `O5U4_OVER_5_${selectedSymbol}`, 
+                    contractType: 'DIGITOVER', 
+                    result: over5Result ? 'win' : 'loss', 
+                    stake: currentStake, 
+                    payout: currentStake * 1.95, 
+                    profit: over5Result ? currentStake * 0.95 : -currentStake,
+                    symbol: selectedSymbol
+                },
+                { 
+                    contractId: `O5U4_UNDER_4_${selectedSymbol}`, 
+                    contractType: 'DIGITUNDER', 
+                    result: under4Result ? 'win' : 'loss', 
+                    stake: currentStake, 
+                    payout: currentStake * 1.95, 
+                    profit: under4Result ? currentStake * 0.95 : -currentStake,
+                    symbol: selectedSymbol
+                }
             ];
 
-            // O5U4 dual trade result calculation
+            // Enhanced O5U4 dual trade result calculation
             const overTrade = completedO5U4Trades.find(t => t.contractType === 'DIGITOVER');
             const underTrade = completedO5U4Trades.find(t => t.contractType === 'DIGITUNDER');
 
@@ -792,22 +815,23 @@ const TradingHubDisplay: React.FC = () => {
                 const underWin = underTrade.result === 'win';
                 const isOverallWin = overWin || underWin;
 
-                // Calculate net profit/loss correctly
+                // Calculate net profit/loss with enhanced tracking
                 const overProfit = overWin ? (overTrade.payout - overTrade.stake) : -overTrade.stake;
                 const underProfit = underWin ? (underTrade.payout - underTrade.stake) : -underTrade.stake;
                 const profitAmount = overProfit + underProfit;
 
-                setO5U4Trades(prev => prev.filter(t => 
-                    t.contractId !== overTrade.contractId && 
-                    t.contractId !== underTrade.contractId
-                ));
-
+                // Enhanced win/loss logic with AI feedback
                 if (isOverallWin) {
                     setWinCount(prev => prev + 1);
                     setConsecutiveLosses(0);
                     currentConsecutiveLossesRef.current = 0;
                     currentStakeRef.current = parseFloat(initialStake);
-                    setLastTradeResult(`O5U4: ${overWin && underWin ? 'Both won' : 'One won'} - Net Profit: +${Math.abs(profitAmount).toFixed(2)}`);
+                    
+                    const winType = overWin && underWin ? 'Both contracts won' : 'One contract won';
+                    setLastTradeResult(`O5U4 AI Win: ${winType} on ${selectedSymbol} - Profit: +${Math.abs(profitAmount).toFixed(2)}`);
+                    
+                    globalObserver.emit('ui.log.success', 
+                        `O5U4 Strategy Success: ${winType} on ${selectedSymbol} (AI Score: ${bestO5U4Opportunity.score.toFixed(1)})`);
                 } else {
                     setLossCount(prev => prev + 1);
                     setConsecutiveLosses(prev => prev + 1);
@@ -816,19 +840,22 @@ const TradingHubDisplay: React.FC = () => {
                     const newStake = (currentStakeRef.current * parseFloat(martingale)).toFixed(2);
                     currentStakeRef.current = parseFloat(newStake);
                     setAppliedStake(newStake);
-                    setLastTradeResult(`O5U4: Both trades lost - Net Loss: ${profitAmount.toFixed(2)}`);
+                    setLastTradeResult(`O5U4 Loss: Both contracts lost on ${selectedSymbol} - Loss: ${profitAmount.toFixed(2)}`);
+                    
+                    globalObserver.emit('ui.log.error', 
+                        `O5U4 Both lost on ${selectedSymbol} (Score was: ${bestO5U4Opportunity.score.toFixed(1)})`);
                 }
 
-                // Update total trades and P&L
-                setTotalTrades(prev => prev + 2); // Increment by 2 for the dual trades
-                setTotalStake(prev => prev + (currentStake * 2)); // Add stake for both trades
+                // Update comprehensive statistics
+                setTotalTrades(prev => prev + 2);
+                setTotalStake(prev => prev + (currentStake * 2));
                 setProfitLoss(prev => prev + profitAmount);
 
                 if (isOverallWin) {
                     setTotalPayout(prev => prev + overTrade.payout + underTrade.payout);
                 }
 
-                // Update summary card with O5U4 specific stats
+                // Enhanced summary card update with AI metrics
                 if (run_panel?.summary_card_store) {
                     const newStats = {
                         total_trades: totalTrades + 2,
@@ -836,30 +863,28 @@ const TradingHubDisplay: React.FC = () => {
                         losses: !isOverallWin ? lossCount + 1 : lossCount,
                         profit_loss: profitLoss + profitAmount,
                         last_trade_result: isOverallWin ? 'WIN' : 'LOSS',
-                        current_stake: appliedStake // Use the potentially updated stake
+                        current_stake: appliedStake
                     };
 
                     run_panel.summary_card_store.updateTradingHubStats(newStats);
 
-                    // Immediate balance refresh and next trade preparation
+                    // Quick balance refresh for immediate next trade
                     setTimeout(async () => {
                         try {
                             const balanceResponse = await api_base.api?.send({ balance: 1 });
                             if (balanceResponse?.balance?.balance && run_panel.summary_card_store) {
                                 run_panel.summary_card_store.updateBalance(balanceResponse.balance.balance);
-                                console.log('O5U4: Balance updated:', balanceResponse.balance.balance);
                             }
 
-                            // Mark as ready for immediate next trade
                             contractSettledTimeRef.current = Date.now();
                             waitingForSettlementRef.current = false;
 
-                            // Log completion and readiness for next trade
-                            globalObserver.emit('ui.log.success', 'O5U4: Trade completed, ready for immediate next execution');
+                            globalObserver.emit('ui.log.success', 
+                                'Enhanced O5U4: Ready for next AI-driven execution');
                         } catch (error) {
-                            console.error('O5U4: Failed to refresh balance:', error);
+                            console.error('Enhanced O5U4: Balance refresh failed:', error);
                         }
-                    }, 500); // Reduced to 0.5 seconds for immediate execution
+                    }, 300); // Faster execution cycle
                 }
 
                 return isOverallWin;
@@ -867,22 +892,22 @@ const TradingHubDisplay: React.FC = () => {
 
             return false;
         } catch (error) {
-            console.error('O5U4 execution failed:', error);
-            globalObserver.emit('ui.log.error', `O5U4 strategy failed: ${error.message || 'Unknown error'}`);
+            console.error('Enhanced O5U4 execution failed:', error);
+            globalObserver.emit('ui.log.error', `Enhanced O5U4 strategy failed: ${error.message || 'Unknown error'}`);
 
-            // Handle failure case properly
+            // Enhanced failure handling
             const newStake = calculateNextStake(false);
             setAppliedStake(newStake);
             currentStakeRef.current = newStake;
-            setTotalTrades(prev => prev + 2); // Increment by 2 for the dual trades
-            setLossCount(prev => prev + 1); // Mark as loss
-            setLastTradeResult('O5U4: Failed');
+            setTotalTrades(prev => prev + 2);
+            setLossCount(prev => prev + 1);
+            setLastTradeResult('Enhanced O5U4: Execution Failed');
 
             return false;
         } finally {
             setIsTradeInProgress(false);
         }
-    }, [isTradeInProgress, checkO5U4Conditions, executeTrade, calculateNextStake, appliedStake, totalTrades, winCount, lossCount, profitLoss, run_panel, initialStake, martingale]);
+    }, [isTradeInProgress, bestO5U4Opportunity, executeTrade, calculateNextStake, appliedStake, totalTrades, winCount, lossCount, profitLoss, run_panel, initialStake, martingale]);
 
     // Strategy toggle functions - only one strategy can be active
     const toggleStrategy = useCallback((strategy: string) => {
@@ -1111,7 +1136,7 @@ const TradingHubDisplay: React.FC = () => {
     }, [isContinuousTrading, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active, 
         isTradeInProgress, consecutiveLosses, recommendation, stopTrading, executeDigitDifferTrade, executeDigitOverTrade, executeO5U4Trade, client]);
 
-    // Initialize component and API
+    // Initialize component and enhanced market analyzer
     useEffect(() => {
         const initializeApi = async () => {
             try {
@@ -1144,8 +1169,11 @@ const TradingHubDisplay: React.FC = () => {
             setMartingale(savedMartingale);
         }
 
-        // Start analysis interval
-        analysisIntervalRef.current = setInterval(performMarketAnalysis, 5000);
+        // Initialize enhanced market analyzer
+        const unsubscribe = marketAnalyzer.onAnalysis(handleMarketAnalysis);
+        marketAnalyzer.start();
+
+        console.log('Enhanced Trading Hub initialized with multi-symbol market analyzer');
 
         return () => {
             if (tradingIntervalRef.current) {
@@ -1154,8 +1182,12 @@ const TradingHubDisplay: React.FC = () => {
             if (analysisIntervalRef.current) {
                 clearInterval(analysisIntervalRef.current);
             }
+            
+            // Clean up market analyzer
+            unsubscribe();
+            marketAnalyzer.stop();
         };
-    }, [client?.loginid, client?.token, performMarketAnalysis]);
+    }, [client?.loginid, client?.token, handleMarketAnalysis]);
 
     // Monitor connection status
     useEffect(() => {
@@ -1256,11 +1288,15 @@ const TradingHubDisplay: React.FC = () => {
                 <div className="status-bar">
                     <div className={`status-item ${isAnalysisReady ? 'ready' : 'loading'}`}>
                         <div className={`status-dot ${isAnalysisReady ? 'ready' : 'loading'}`}></div>
-                        Market Analysis: {isAnalysisReady ? 'Ready' : 'Loading...'}
+                        Multi-Symbol AI: {isAnalysisReady ? 'Ready' : 'Analyzing...'}
                     </div>
                     <div className="status-separator"></div>
                     <div className="status-item">
-                        Analysis Count: {analysisCount}
+                        Ready Markets: {readySymbolsCount}/12
+                    </div>
+                    <div className="status-separator"></div>
+                    <div className="status-item">
+                        Analysis: {analysisCount} cycles
                     </div>
                     <div className="status-separator"></div>
                     <div className="status-item">
@@ -1354,12 +1390,12 @@ const TradingHubDisplay: React.FC = () => {
                         </div>
 
                         <div className="card-content">
-                            <p>AI-driven over/under predictions with real-time market analysis.</p>
+                            <p>Advanced AI pattern recognition across 12 volatility indices. Analyzes digit frequencies and recommends UNDER 7 or OVER 2 based on optimal market conditions.</p>
 
                             {isAutoOverUnderActive && recommendation && (
                                 <div className="recommendation-display">
                                     <div className="rec-item">
-                                        <span>Symbol:</span>
+                                        <span>AI Selection:</span>
                                         <strong>{recommendation.symbol}</strong>
                                     </div>
                                     <div className="rec-item">
@@ -1367,8 +1403,12 @@ const TradingHubDisplay: React.FC = () => {
                                         <strong>{recommendation.strategy.toUpperCase()} {recommendation.barrier}</strong>
                                     </div>
                                     <div className="rec-item">
-                                        <span>Current Stake:</span>
-                                        <strong>${appliedStake}</strong>
+                                        <span>Confidence:</span>
+                                        <strong>{recommendation.confidence.toFixed(1)}%</strong>
+                                    </div>
+                                    <div className="rec-item">
+                                        <span>Ready Markets:</span>
+                                        <strong>{readySymbolsCount}/12</strong>
                                     </div>
                                 </div>
                             )}
@@ -1401,21 +1441,29 @@ const TradingHubDisplay: React.FC = () => {
                         </div>
 
                         <div className="card-content">
-                            <p>Simultaneous Over 5 and Under 4 contracts for maximum coverage.</p>
+                            <p>Sophisticated dual-contract AI strategy. Analyzes all 12 markets simultaneously, scores opportunities, and selects the best symbol meeting 3 critical conditions for 80% theoretical win rate.</p>
 
                             {isAutoO5U4Active && (
                                 <div className="recommendation-display">
                                     <div className="rec-item">
-                                        <span>Symbol:</span>
-                                        <strong>R_100</strong>
+                                        <span>AI Best Symbol:</span>
+                                        <strong>{bestO5U4Opportunity?.symbol || 'Analyzing...'}</strong>
                                     </div>
                                     <div className="rec-item">
                                         <span>Strategy:</span>
                                         <strong>OVER 5 + UNDER 4</strong>
                                     </div>
                                     <div className="rec-item">
-                                        <span>Current Stake:</span>
-                                        <strong>${appliedStake} (each)</strong>
+                                        <span>AI Score:</span>
+                                        <strong>{bestO5U4Opportunity?.score.toFixed(1) || '0.0'}/100</strong>
+                                    </div>
+                                    <div className="rec-item">
+                                        <span>Conditions:</span>
+                                        <strong>{bestO5U4Opportunity?.conditionsMetCount || 0}/3 Met</strong>
+                                    </div>
+                                    <div className="rec-item">
+                                        <span>Opportunities:</span>
+                                        <strong>{o5u4Opportunities.length} Found</strong>
                                     </div>
                                 </div>
                             )}

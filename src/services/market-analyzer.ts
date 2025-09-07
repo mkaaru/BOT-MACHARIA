@@ -14,6 +14,7 @@ export interface TradeRecommendation {
     underPercentage: number;
     reason: string;
     timestamp: number;
+    score?: number;
 }
 
 interface MarketStats {
@@ -23,11 +24,28 @@ interface MarketStats {
     confidence: number;
     tickCount: number;
     lastUpdate: number;
+    mostFrequentDigit: number;
+    leastFrequentDigit: number;
+    currentLastDigit: number;
+    isReady: boolean;
+}
+
+interface O5U4Conditions {
+    symbol: string;
+    conditionsMetCount: number;
+    score: number;
+    details: {
+        condition1: boolean; // Current last digit is 4 or 5
+        condition2: boolean; // Least appearing digit is 4 or 5
+        condition3: boolean; // Most appearing digit is >5 or <4
+        sampleSize: number;
+        frequencyDifference: number;
+    };
 }
 
 class MarketAnalyzer {
     private tickHistory: Map<string, TickData[]> = new Map();
-    private subscribers: ((recommendation: TradeRecommendation | null, stats: Record<string, MarketStats>) => void)[] = [];
+    private subscribers: ((recommendation: TradeRecommendation | null, stats: Record<string, MarketStats>, o5u4Data?: O5U4Conditions[]) => void)[] = [];
     private analysisInterval: NodeJS.Timeout | null = null;
     private isRunning = false;
     private analyticsInfo = {
@@ -35,7 +53,12 @@ class MarketAnalyzer {
         lastAnalysisTime: 0
     };
 
-    private readonly SYMBOLS = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+    // Extended symbol list including all volatility indices
+    private readonly SYMBOLS = [
+        'R_10', 'R_25', 'R_50', 'R_75', 'R_100',
+        'RDBEAR', 'RDBULL',
+        '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V'
+    ];
     private readonly MAX_TICK_HISTORY = 200;
     private readonly MIN_TICKS_FOR_ANALYSIS = 50;
 
@@ -50,14 +73,14 @@ class MarketAnalyzer {
         if (this.isRunning) return;
 
         this.isRunning = true;
-        console.log('Market Analyzer started');
+        console.log('Enhanced Market Analyzer started with multi-symbol analysis');
 
-        // Start analysis interval
+        // Start analysis interval - more frequent for real-time analysis
         this.analysisInterval = setInterval(() => {
-            this.performAnalysis();
-        }, 3000); // Analyze every 3 seconds
+            this.performAdvancedAnalysis();
+        }, 2000); // Analyze every 2 seconds
 
-        // Simulate tick data for demo purposes
+        // Simulate tick data for all symbols
         this.startTickSimulation();
     }
 
@@ -71,11 +94,11 @@ class MarketAnalyzer {
             this.analysisInterval = null;
         }
 
-        console.log('Market Analyzer stopped');
+        console.log('Enhanced Market Analyzer stopped');
     }
 
     private startTickSimulation() {
-        // Simulate tick data for all symbols
+        // Simulate tick data for all symbols with different characteristics
         this.SYMBOLS.forEach(symbol => {
             this.simulateTicksForSymbol(symbol);
         });
@@ -89,10 +112,13 @@ class MarketAnalyzer {
             const basePrice = this.getBasePrice(symbol);
             const volatility = this.getVolatility(symbol);
             
-            // Generate random price movement
+            // Generate realistic price movement with volatility characteristics
             const randomChange = (Math.random() - 0.5) * volatility;
             const quote = basePrice + randomChange;
-            const last_digit = Math.floor((quote * 10000) % 10);
+            
+            // Calculate last digit more realistically for different symbols
+            const multiplier = this.getDigitMultiplier(symbol);
+            const last_digit = Math.floor((quote * multiplier) % 10);
 
             const tick: TickData = {
                 time: now,
@@ -102,8 +128,8 @@ class MarketAnalyzer {
 
             this.addTick(symbol, tick);
 
-            // Schedule next tick (1-3 seconds)
-            const nextTickDelay = 1000 + Math.random() * 2000;
+            // Different tick frequencies for different symbols
+            const nextTickDelay = this.getTickDelay(symbol);
             setTimeout(generateTick, nextTickDelay);
         };
 
@@ -116,7 +142,14 @@ class MarketAnalyzer {
             'R_25': 2500.75,
             'R_50': 5000.25,
             'R_75': 7500.5,
-            'R_100': 10000.0
+            'R_100': 10000.0,
+            'RDBEAR': 8500.0,
+            'RDBULL': 9500.0,
+            '1HZ10V': 1100.0,
+            '1HZ25V': 2600.0,
+            '1HZ50V': 5100.0,
+            '1HZ75V': 7600.0,
+            '1HZ100V': 10100.0
         };
         return basePrices[symbol] || 1000.0;
     }
@@ -127,9 +160,41 @@ class MarketAnalyzer {
             'R_25': 0.25,
             'R_50': 0.5,
             'R_75': 0.75,
-            'R_100': 1.0
+            'R_100': 1.0,
+            'RDBEAR': 0.8,
+            'RDBULL': 0.9,
+            '1HZ10V': 0.15,
+            '1HZ25V': 0.3,
+            '1HZ50V': 0.6,
+            '1HZ75V': 0.8,
+            '1HZ100V': 1.1
         };
         return volatilities[symbol] || 0.5;
+    }
+
+    private getDigitMultiplier(symbol: string): number {
+        // Different multipliers to get realistic digit distributions
+        const multipliers = {
+            'R_10': 10000,
+            'R_25': 10000,
+            'R_50': 10000,
+            'R_75': 10000,
+            'R_100': 10000,
+            'RDBEAR': 10000,
+            'RDBULL': 10000,
+            '1HZ10V': 100000,
+            '1HZ25V': 100000,
+            '1HZ50V': 100000,
+            '1HZ75V': 100000,
+            '1HZ100V': 100000
+        };
+        return multipliers[symbol] || 10000;
+    }
+
+    private getTickDelay(symbol: string): number {
+        // High-frequency symbols tick faster
+        const baseDelay = symbol.includes('1HZ') ? 800 : 1200;
+        return baseDelay + Math.random() * 1000;
     }
 
     private addTick(symbol: string, tick: TickData) {
@@ -144,44 +209,56 @@ class MarketAnalyzer {
         this.tickHistory.set(symbol, ticks);
     }
 
-    private performAnalysis() {
+    private performAdvancedAnalysis() {
         if (!this.isRunning) return;
 
         this.analyticsInfo.analysisCount++;
         this.analyticsInfo.lastAnalysisTime = Date.now();
 
         const stats: Record<string, MarketStats> = {};
-        let bestRecommendation: TradeRecommendation | null = null;
-        let bestConfidence = 0;
+        const o5u4Opportunities: O5U4Conditions[] = [];
+        
+        let bestOverUnderRecommendation: TradeRecommendation | null = null;
+        let bestOverUnderConfidence = 0;
 
         // Analyze each symbol
         this.SYMBOLS.forEach(symbol => {
             const ticks = this.tickHistory.get(symbol) || [];
             
-            if (ticks.length < this.MIN_TICKS_FOR_ANALYSIS) return;
+            if (ticks.length < this.MIN_TICKS_FOR_ANALYSIS) {
+                stats[symbol] = this.createEmptyStats(symbol);
+                return;
+            }
 
-            const symbolStats = this.analyzeSymbol(symbol, ticks);
+            const symbolStats = this.analyzeSymbolAdvanced(symbol, ticks);
             stats[symbol] = symbolStats;
 
-            // Generate recommendations
-            const recommendations = this.generateRecommendations(symbol, symbolStats);
-            
-            // Find best recommendation
-            recommendations.forEach(rec => {
-                if (rec.confidence > bestConfidence) {
-                    bestConfidence = rec.confidence;
-                    bestRecommendation = rec;
+            // Generate Over/Under recommendations
+            const overUnderRecs = this.generateAdvancedOverUnderRecommendations(symbol, symbolStats);
+            overUnderRecs.forEach(rec => {
+                if (rec.confidence > bestOverUnderConfidence) {
+                    bestOverUnderConfidence = rec.confidence;
+                    bestOverUnderRecommendation = rec;
                 }
             });
+
+            // Check O5U4 conditions
+            const o5u4Condition = this.checkO5U4Conditions(symbol, symbolStats);
+            if (o5u4Condition.conditionsMetCount >= 3) {
+                o5u4Opportunities.push(o5u4Condition);
+            }
         });
 
-        // Notify subscribers
+        // Sort O5U4 opportunities by score
+        o5u4Opportunities.sort((a, b) => b.score - a.score);
+
+        // Notify subscribers with enhanced data
         this.subscribers.forEach(callback => {
-            callback(bestRecommendation, stats);
+            callback(bestOverUnderRecommendation, stats, o5u4Opportunities);
         });
     }
 
-    private analyzeSymbol(symbol: string, ticks: TickData[]): MarketStats {
+    private analyzeSymbolAdvanced(symbol: string, ticks: TickData[]): MarketStats {
         const lastDigitFrequency: Record<number, number> = {};
         const overUnderStats: Record<string, { over: number; under: number }> = {};
 
@@ -195,7 +272,7 @@ class MarketAnalyzer {
             overUnderStats[barrier.toString()] = { over: 0, under: 0 };
         }
 
-        // Analyze last 100 ticks
+        // Analyze recent ticks (last 100 for better real-time analysis)
         const recentTicks = ticks.slice(-100);
         
         recentTicks.forEach(tick => {
@@ -212,11 +289,30 @@ class MarketAnalyzer {
             }
         });
 
-        // Calculate confidence based on data variance
+        // Find most and least frequent digits
+        let mostFrequentDigit = 0;
+        let leastFrequentDigit = 0;
+        let maxCount = lastDigitFrequency[0];
+        let minCount = lastDigitFrequency[0];
+
+        for (let i = 1; i < 10; i++) {
+            if (lastDigitFrequency[i] > maxCount) {
+                maxCount = lastDigitFrequency[i];
+                mostFrequentDigit = i;
+            }
+            if (lastDigitFrequency[i] < minCount) {
+                minCount = lastDigitFrequency[i];
+                leastFrequentDigit = i;
+            }
+        }
+
+        // Calculate confidence based on data variance and sample size
         const frequencies = Object.values(lastDigitFrequency);
         const average = frequencies.reduce((a, b) => a + b, 0) / frequencies.length;
         const variance = frequencies.reduce((acc, freq) => acc + Math.pow(freq - average, 2), 0) / frequencies.length;
-        const confidence = Math.min(variance / 10, 1) * 100; // Convert to percentage
+        const confidence = Math.min((variance / 10) * (recentTicks.length / 100), 1) * 100;
+
+        const currentLastDigit = recentTicks.length > 0 ? recentTicks[recentTicks.length - 1].last_digit : 0;
 
         return {
             symbol,
@@ -224,66 +320,53 @@ class MarketAnalyzer {
             overUnderStats,
             confidence,
             tickCount: recentTicks.length,
-            lastUpdate: Date.now()
+            lastUpdate: Date.now(),
+            mostFrequentDigit,
+            leastFrequentDigit,
+            currentLastDigit,
+            isReady: recentTicks.length >= this.MIN_TICKS_FOR_ANALYSIS
         };
     }
 
-    private generateRecommendations(symbol: string, stats: MarketStats): TradeRecommendation[] {
+    private generateAdvancedOverUnderRecommendations(symbol: string, stats: MarketStats): TradeRecommendation[] {
         const recommendations: TradeRecommendation[] = [];
 
-        // Generate over/under recommendations for barriers 3-7
-        for (let barrier = 3; barrier <= 7; barrier++) {
-            const barrierStats = stats.overUnderStats[barrier.toString()];
-            const total = barrierStats.over + barrierStats.under;
-            
-            if (total < 20) continue; // Need sufficient data
+        // Enhanced AI pattern recognition logic
+        const { mostFrequentDigit, currentLastDigit, lastDigitFrequency } = stats;
+        
+        // Calculate frequency percentages
+        const totalTicks = Object.values(lastDigitFrequency).reduce((a, b) => a + b, 0);
+        const mostFreqPercent = (lastDigitFrequency[mostFrequentDigit] / totalTicks) * 100;
 
-            const overPercentage = (barrierStats.over / total) * 100;
-            const underPercentage = (barrierStats.under / total) * 100;
-
-            // Look for significant bias (>60% in one direction)
-            if (overPercentage > 60) {
-                recommendations.push({
-                    symbol,
-                    strategy: 'over',
-                    barrier: barrier.toString(),
-                    confidence: overPercentage,
-                    overPercentage,
-                    underPercentage,
-                    reason: `${overPercentage.toFixed(1)}% over barrier ${barrier} bias detected`,
-                    timestamp: Date.now()
-                });
-            } else if (underPercentage > 60) {
+        // UNDER 7 Logic: Most frequent digit is low (0,1,2) AND current digit is high (7,8,9)
+        if ([0, 1, 2].includes(mostFrequentDigit) && [7, 8, 9].includes(currentLastDigit)) {
+            const confidence = Math.min(mostFreqPercent + 15, 95); // Boost confidence for pattern match
+            if (confidence > 70) {
                 recommendations.push({
                     symbol,
                     strategy: 'under',
-                    barrier: barrier.toString(),
-                    confidence: underPercentage,
-                    overPercentage,
-                    underPercentage,
-                    reason: `${underPercentage.toFixed(1)}% under barrier ${barrier} bias detected`,
+                    barrier: '7',
+                    confidence,
+                    overPercentage: 0,
+                    underPercentage: confidence,
+                    reason: `AI Pattern: Most frequent digit ${mostFrequentDigit} (low), current ${currentLastDigit} (high) - ${confidence.toFixed(1)}% confidence`,
                     timestamp: Date.now()
                 });
             }
         }
 
-        // Generate differ recommendations based on digit frequency patterns
-        const digitFreqs = Object.values(stats.lastDigitFrequency);
-        const maxFreq = Math.max(...digitFreqs);
-        const minFreq = Math.min(...digitFreqs);
-        
-        if (maxFreq > minFreq * 2) { // Significant imbalance
-            const confidence = Math.min(((maxFreq - minFreq) / maxFreq) * 100, 95);
-            
-            if (confidence > 65) {
+        // OVER 2 Logic: Most frequent digit is high (7,8,9) AND current digit is low (0,1,2)
+        if ([7, 8, 9].includes(mostFrequentDigit) && [0, 1, 2].includes(currentLastDigit)) {
+            const confidence = Math.min(mostFreqPercent + 15, 95); // Boost confidence for pattern match
+            if (confidence > 70) {
                 recommendations.push({
                     symbol,
-                    strategy: 'differ',
-                    barrier: '0',
+                    strategy: 'over',
+                    barrier: '2',
                     confidence,
-                    overPercentage: 0,
+                    overPercentage: confidence,
                     underPercentage: 0,
-                    reason: `Strong digit imbalance detected (${confidence.toFixed(1)}% confidence)`,
+                    reason: `AI Pattern: Most frequent digit ${mostFrequentDigit} (high), current ${currentLastDigit} (low) - ${confidence.toFixed(1)}% confidence`,
                     timestamp: Date.now()
                 });
             }
@@ -292,7 +375,61 @@ class MarketAnalyzer {
         return recommendations;
     }
 
-    onAnalysis(callback: (recommendation: TradeRecommendation | null, stats: Record<string, MarketStats>) => void) {
+    private checkO5U4Conditions(symbol: string, stats: MarketStats): O5U4Conditions {
+        const { currentLastDigit, mostFrequentDigit, leastFrequentDigit, lastDigitFrequency } = stats;
+        
+        // Condition 1: Current last digit is 4 or 5
+        const condition1 = [4, 5].includes(currentLastDigit);
+        
+        // Condition 2: Least appearing digit is 4 or 5
+        const condition2 = [4, 5].includes(leastFrequentDigit);
+        
+        // Condition 3: Most appearing digit is >5 (6,7,8,9) or <4 (0,1,2,3)
+        const condition3 = mostFrequentDigit > 5 || mostFrequentDigit < 4;
+        
+        const conditionsMetCount = [condition1, condition2, condition3].filter(Boolean).length;
+        
+        // Calculate score based on frequency difference and sample size
+        const totalTicks = Object.values(lastDigitFrequency).reduce((a, b) => a + b, 0);
+        const mostFreqCount = lastDigitFrequency[mostFrequentDigit];
+        const leastFreqCount = lastDigitFrequency[leastFrequentDigit];
+        const frequencyDifference = mostFreqCount - leastFreqCount;
+        
+        // Score calculation: conditions met (30 points each) + frequency difference (up to 40 points)
+        let score = conditionsMetCount * 30;
+        score += Math.min((frequencyDifference / totalTicks) * 100 * 4, 40); // Frequency difference bonus
+        score += Math.min(totalTicks / 100 * 10, 10); // Sample size bonus
+
+        return {
+            symbol,
+            conditionsMetCount,
+            score,
+            details: {
+                condition1,
+                condition2,
+                condition3,
+                sampleSize: totalTicks,
+                frequencyDifference
+            }
+        };
+    }
+
+    private createEmptyStats(symbol: string): MarketStats {
+        return {
+            symbol,
+            lastDigitFrequency: {},
+            overUnderStats: {},
+            confidence: 0,
+            tickCount: 0,
+            lastUpdate: Date.now(),
+            mostFrequentDigit: 0,
+            leastFrequentDigit: 0,
+            currentLastDigit: 0,
+            isReady: false
+        };
+    }
+
+    onAnalysis(callback: (recommendation: TradeRecommendation | null, stats: Record<string, MarketStats>, o5u4Data?: O5U4Conditions[]) => void) {
         this.subscribers.push(callback);
         
         // Return unsubscribe function
@@ -305,14 +442,15 @@ class MarketAnalyzer {
     }
 
     isReadyForTrading(): boolean {
-        // Check if we have sufficient data for at least one symbol
+        // Check if we have sufficient data for at least 3 symbols
+        let readyCount = 0;
         for (const symbol of this.SYMBOLS) {
             const ticks = this.tickHistory.get(symbol) || [];
             if (ticks.length >= this.MIN_TICKS_FOR_ANALYSIS) {
-                return true;
+                readyCount++;
             }
         }
-        return false;
+        return readyCount >= 3;
     }
 
     getAnalyticsInfo() {
@@ -329,9 +467,27 @@ class MarketAnalyzer {
         const ticks = this.tickHistory.get(symbol) || [];
         return ticks.length > 0 ? ticks[ticks.length - 1] : null;
     }
+
+    // Get ready symbols count
+    getReadySymbolsCount(): number {
+        let count = 0;
+        this.SYMBOLS.forEach(symbol => {
+            const ticks = this.tickHistory.get(symbol) || [];
+            if (ticks.length >= this.MIN_TICKS_FOR_ANALYSIS) {
+                count++;
+            }
+        });
+        return count;
+    }
+
+    // Get best O5U4 opportunity
+    getBestO5U4Opportunity(o5u4Data: O5U4Conditions[]): O5U4Conditions | null {
+        return o5u4Data.length > 0 ? o5u4Data[0] : null;
+    }
 }
 
 // Create a singleton instance
 const marketAnalyzer = new MarketAnalyzer();
 
 export default marketAnalyzer;
+export type { O5U4Conditions, MarketStats };
