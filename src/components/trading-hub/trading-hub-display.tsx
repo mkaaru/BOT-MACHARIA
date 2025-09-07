@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './trading-hub-display.scss';
 import { api_base } from '../../external/bot-skeleton/services/api/api-base';
@@ -95,8 +96,6 @@ const TradingHubDisplay: React.FC = () => {
 
             // Ensure transactions store is initialized
             if (run_panel.root_store?.transactions) {
-                // Clear any existing transactions from previous sessions
-                // but don't clear if there are already Trading Hub transactions
                 const existingTransactions = run_panel.root_store.transactions.transactions || [];
                 const hasTradingHubTransactions = existingTransactions.some(tx => 
                     typeof tx.data === 'object' && 
@@ -1614,7 +1613,38 @@ const TradingHubDisplay: React.FC = () => {
                     </div>
                 </div>
 
-                
+                {/* Statistics Display */}
+                <div className="stats-display">
+                    <h3>Trading Statistics</h3>
+                    <div className="stats-grid">
+                        <div className="stat-item">
+                            <span className="stat-label">Total Trades:</span>
+                            <span className="stat-value">{totalTrades}</span>
+                        </div>
+                        <div className="stat-item">
+                            <span className="stat-label">Wins:</span>
+                            <span className="stat-value win">{winCount}</span>
+                        </div>
+                        <div className="stat-item">
+                            <span className="stat-label">Losses:</span>
+                            <span className="stat-value loss">{lossCount}</span>
+                        </div>
+                        <div className="stat-item">
+                            <span className="stat-label">Win Rate:</span>
+                            <span className="stat-value">{winRate}%</span>
+                        </div>
+                        <div className="stat-item">
+                            <span className="stat-label">Profit/Loss:</span>
+                            <span className={`stat-value ${profitLoss >= 0 ? 'profit' : 'loss'}`}>
+                                {profitLoss >= 0 ? '+' : ''}{profitLoss.toFixed(2)} {client?.currency || 'USD'}
+                            </span>
+                        </div>
+                        <div className="stat-item">
+                            <span className="stat-label">Current Stake:</span>
+                            <span className="stat-value">{appliedStake} {client?.currency || 'USD'}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Advanced Display Modal */}

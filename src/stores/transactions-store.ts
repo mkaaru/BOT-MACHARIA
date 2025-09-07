@@ -68,12 +68,22 @@ export default class TransactionsStore {
         );
         const statistics = trxs.reduce(
             (stats, { data }) => {
-                const { profit = 0, is_completed = false, buy_price = 0, payout = 0, bid_price = 0, status } = data as TContractInfo;
+                const { 
+                    profit = 0, 
+                    is_completed = false, 
+                    buy_price = 0, 
+                    payout = 0, 
+                    bid_price = 0, 
+                    status,
+                    sell_price = 0,
+                    contract_type = ''
+                } = data as TContractInfo;
+                
                 if (is_completed) {
-                    // Improved win detection logic
+                    // Enhanced win detection logic for accurate statistics
                     let isWin = false;
                     
-                    // Primary check: profit is positive
+                    // Primary check: profit is positive (most reliable)
                     if (profit > 0) {
                         isWin = true;
                     }
@@ -81,17 +91,28 @@ export default class TransactionsStore {
                     else if (status === 'won') {
                         isWin = true;
                     }
-                    // Tertiary check: payout greater than stake
+                    // Tertiary check: payout greater than stake (for cases where profit calculation might be off)
                     else if (payout > 0 && payout > buy_price) {
                         isWin = true;
+                    }
+                    // Quaternary check: sell price greater than buy price (for sold contracts)
+                    else if (sell_price > 0 && sell_price > buy_price) {
+                        isWin = true;
+                    }
+                    
+                    // Additional validation for digit contracts - check if profit matches expected outcome
+                    if (contract_type?.includes('DIGIT') && profit !== 0) {
+                        // For digit contracts, trust the profit value as the primary indicator
+                        isWin = profit > 0;
                     }
                     
                     if (isWin) {
                         stats.won_contracts += 1;
-                        stats.total_payout += payout || bid_price || 0;
+                        stats.total_payout += payout || sell_price || bid_price || 0;
                     } else {
                         stats.lost_contracts += 1;
                     }
+                    
                     stats.total_profit += profit;
                     stats.total_stake += buy_price;
                     total_runs += 1;
