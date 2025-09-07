@@ -925,6 +925,57 @@
     }
 }
 
+.transaction-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    flex-wrap: wrap;
+
+    .result {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+
+        &.pending { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
+        &.executed { background: rgba(0, 123, 255, 0.2); color: #007bff; }
+        &.win { background: rgba(40, 167, 69, 0.2); color: #28a745; }
+        &.loss { background: rgba(220, 53, 69, 0.2); color: #dc3545; }
+        &.failed { background: rgba(220, 53, 69, 0.3); color: #dc3545; }
+    }
+
+    .profit {
+        font-weight: 600;
+        &.positive { color: #28a745; }
+        &.negative { color: #dc3545; }
+    }
+
+    .transaction-note {
+        width: 100%;
+        font-size: 11px;
+        color: #6c757d;
+        margin-top: 4px;
+    }
+}
+
+.api-warning {
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid #ffc107;
+    border-radius: 8px;
+    padding: 12px;
+    margin: 16px 0;
+    color: #856404;
+    font-size: 14px;
+    text-align: center;
+}
+
+.status-dot {
+    &.disconnected {
+        background: #dc3545;
+    }
+}
+
 @keyframes slideDown {
     from {
         opacity: 0;

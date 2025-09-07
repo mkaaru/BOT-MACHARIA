@@ -83,6 +83,23 @@ const TradingHubDisplay: React.FC = () => {
     const contractSettledTimeRef = useRef(0);
     const waitingForSettlementRef = useRef(false);
 
+    // State for transaction history and API connection
+    const [transactionHistory, setTransactionHistory] = useState<{
+        id: string;
+        type: string;
+        symbol: string;
+        amount: number;
+        result: 'pending' | 'win' | 'loss' | 'failed' | 'executed';
+        timestamp: Date;
+        profit: number;
+        details?: string;
+    }[]>([]);
+    const [apiConnected, setApiConnected] = useState(false);
+
+    // Balance calculation state
+    const [initialBalance, setInitialBalance] = useState(0);
+    const [currentBalance, setCurrentBalance] = useState(0);
+
     const { run_panel, client } = useStore();
 
     // Available symbols for analysis
@@ -117,7 +134,7 @@ const TradingHubDisplay: React.FC = () => {
         setAnalysisCount(prev => prev + 1);
         setLastAnalysisTime(new Date().toLocaleTimeString());
         setMarketStats(stats);
-        
+
         if (o5u4Data) {
             setO5U4Opportunities(o5u4Data);
             setBestO5U4Opportunity(o5u4Data.length > 0 ? o5u4Data[0] : null);
@@ -195,21 +212,21 @@ const TradingHubDisplay: React.FC = () => {
 
             const resolveContract = (isWin: boolean, source: string) => {
                 if (contractResolved) return;
-                
+
                 contractResolved = true;
-                
+
                 if (timeoutId) {
                     clearTimeout(timeoutId);
                     timeoutId = null;
                 }
-                
+
                 if (subscription) {
                     subscription.unsubscribe();
                     subscription = null;
                 }
 
                 console.log(`Contract ${contractId} resolved via ${source}: ${isWin ? 'WIN' : 'LOSS'}`);
-                
+
                 if (!isO5U4Part) {
                     contractSettledTimeRef.current = Date.now();
                     waitingForSettlementRef.current = false;
@@ -223,7 +240,7 @@ const TradingHubDisplay: React.FC = () => {
 
                 // Check if contract is settled through multiple conditions
                 const isSettled = data.is_settled || data.is_sold || data.status === 'sold' || data.status === 'won' || data.status === 'lost';
-                
+
                 if (!isSettled) return false;
 
                 contractData = data;
@@ -359,7 +376,7 @@ const TradingHubDisplay: React.FC = () => {
                 if (response.proposal_open_contract && 
                     response.proposal_open_contract.contract_id === contractId &&
                     !contractResolved) {
-                    
+
                     checkContractSettlement(response.proposal_open_contract, 'subscription');
                 }
             });
@@ -391,7 +408,7 @@ const TradingHubDisplay: React.FC = () => {
             timeoutId = setTimeout(() => {
                 if (!contractResolved) {
                     console.warn(`Contract ${contractId} monitoring timeout after 5 seconds`);
-                    
+
                     // Final attempt with last known data
                     if (contractData) {
                         if (checkContractSettlement(contractData, 'timeout_fallback')) {
@@ -704,7 +721,7 @@ const TradingHubDisplay: React.FC = () => {
         setTimeout(() => {
             const runPanelProfitLoss = run_panel?.root_store?.transactions?.statistics?.total_profit || 0;
             const stopLossAmount = parseFloat(stopLoss);
-            
+
             // Stop trading if total loss from run panel exceeds user-defined stop loss
             if (runPanelProfitLoss < 0 && Math.abs(runPanelProfitLoss) >= stopLossAmount) {
                 globalObserver.emit('ui.log.error', 
@@ -715,6 +732,18 @@ const TradingHubDisplay: React.FC = () => {
                 }
             }
         }, 100); // Small delay to ensure transaction store is updated
+
+        // Update balance for non-O5U4 trades
+        if (!isO5U4Part) {
+             api_base.api?.send({ balance: 1 }).then((balanceResponse: any) => {
+                if (balanceResponse?.balance?.balance && run_panel?.summary_card_store) {
+                    run_panel.summary_card_store.updateBalance(balanceResponse.balance.balance);
+                }
+            }).catch(error => {
+                console.error('Failed to update balance:', error);
+            });
+        }
+
 
         // Update contract in summary card store for balance integration
         if (run_panel?.summary_card_store) {
@@ -773,7 +802,7 @@ const TradingHubDisplay: React.FC = () => {
                 confidence: recommendation.confidence.toFixed(1) + '%',
                 reason: recommendation.reason
             });
-            
+
             globalObserver.emit('ui.log.info', 
                 `Auto Over/Under: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol} (${recommendation.confidence.toFixed(1)}% confidence)`
             );
@@ -867,10 +896,10 @@ const TradingHubDisplay: React.FC = () => {
                 if (isOverallWin) {
                     setWinCount(prev => prev + 1);
                     currentStakeRef.current = parseFloat(initialStake);
-                    
+
                     const winType = overWin && underWin ? 'Both contracts won' : 'One contract won';
                     setLastTradeResult(`O5U4 AI Win: ${winType} on ${selectedSymbol} - Profit: +${Math.abs(profitAmount).toFixed(2)}`);
-                    
+
                     globalObserver.emit('ui.log.success', 
                         `O5U4 Strategy Success: ${winType} on ${selectedSymbol} (AI Score: ${bestO5U4Opportunity.score.toFixed(1)})`);
                 } else {
@@ -880,7 +909,7 @@ const TradingHubDisplay: React.FC = () => {
                     currentStakeRef.current = parseFloat(newStake);
                     setAppliedStake(newStake);
                     setLastTradeResult(`O5U4 Loss: Both contracts lost on ${selectedSymbol} - Loss: ${profitAmount.toFixed(2)}`);
-                    
+
                     globalObserver.emit('ui.log.error', 
                         `O5U4 Both lost on ${selectedSymbol} (Score was: ${bestO5U4Opportunity.score.toFixed(1)})`);
                 }
@@ -894,7 +923,7 @@ const TradingHubDisplay: React.FC = () => {
                 setTimeout(() => {
                     const runPanelProfitLoss = run_panel?.root_store?.transactions?.statistics?.total_profit || 0;
                     const stopLossAmount = parseFloat(stopLoss);
-                    
+
                     if (runPanelProfitLoss < 0 && Math.abs(runPanelProfitLoss) >= stopLossAmount) {
                         globalObserver.emit('ui.log.error', 
                             `Stop loss of ${stopLossAmount} reached. Run panel total loss: ${Math.abs(runPanelProfitLoss).toFixed(2)}. Trading stopped.`);
@@ -1231,7 +1260,7 @@ const TradingHubDisplay: React.FC = () => {
             if (analysisIntervalRef.current) {
                 clearInterval(analysisIntervalRef.current);
             }
-            
+
             // Clean up market analyzer
             unsubscribe();
             marketAnalyzer.stop();
@@ -1244,8 +1273,10 @@ const TradingHubDisplay: React.FC = () => {
             if (api_base?.api?.connection) {
                 const readyState = api_base.api.connection.readyState;
                 setConnectionStatus(readyState === 1 ? 'connected' : readyState === 0 ? 'connecting' : 'disconnected');
+                setApiConnected(readyState === WebSocket.OPEN);
             } else {
                 setConnectionStatus('disconnected');
+                setApiConnected(false);
             }
             setIsApiAuthorized(api_base?.is_authorized || false);
         };
@@ -1254,6 +1285,12 @@ const TradingHubDisplay: React.FC = () => {
         const interval = setInterval(checkConnection, 2000);
         return () => clearInterval(interval);
     }, []);
+
+    // Update balance based on transaction history
+    useEffect(() => {
+        const totalProfit = transactionHistory.reduce((sum, transaction) => sum + transaction.profit, 0);
+        setCurrentBalance(initialBalance + totalProfit);
+    }, [transactionHistory, initialBalance]);
 
     const winRate = totalTrades > 0 ? ((winCount / totalTrades) * 100).toFixed(1) : '0';
     const hasActiveStrategy = isAutoDifferActive || isAutoOverUnderActive || isAutoO5U4Active;
@@ -1353,7 +1390,7 @@ const TradingHubDisplay: React.FC = () => {
                 </div>
 
                 <div className="status-bar">
-                    <div className={`status-item ${isAnalysisReady ? 'ready' : 'loading'}`}>
+                    <div className="status-item">
                         <div className={`status-dot ${isAnalysisReady ? 'ready' : 'loading'}`}></div>
                         Multi-Symbol AI: {isAnalysisReady ? 'Ready' : 'Analyzing...'}
                     </div>
@@ -1375,6 +1412,11 @@ const TradingHubDisplay: React.FC = () => {
                         {connectionStatus === 'connected' ? 'Connected' :
                          connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
                         {connectionStatus === 'connected' && !isApiAuthorized && ' (Not Authorized)'}
+                    </div>
+                    <div className="status-separator"></div>
+                    <div className="status-item">
+                        <div className={`status-dot ${apiConnected ? 'connected' : 'disconnected'}`}></div>
+                        <span>{apiConnected ? 'API Connected' : 'API Disconnected'}</span>
                     </div>
                 </div>
             </div>
@@ -1578,7 +1620,40 @@ const TradingHubDisplay: React.FC = () => {
                     </div>
                 </div>
 
-                
+                {/* Transaction History */}
+                <div className="transaction-history">
+                    <h3>Transaction Log</h3>
+                    {transactionHistory.length === 0 ? (
+                        <p>No transactions yet.</p>
+                    ) : (
+                        <ul>
+                            {transactionHistory.map((transaction) => (
+                                <li key={transaction.id} className={`transaction-item ${transaction.result}`}>
+                                    <div className="transaction-info">
+                                        <span className="timestamp">{transaction.timestamp.toLocaleTimeString()}</span>
+                                        <span className="type">{transaction.type}</span>
+                                        <span className="symbol">{transaction.symbol}</span>
+                                        <span className="amount">${transaction.amount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="transaction-details">
+                                        <span className={`result ${transaction.result}`}>
+                                            {transaction.result.toUpperCase()}
+                                        </span>
+                                        <span className={`profit ${transaction.profit >= 0 ? 'positive' : 'negative'}`}>
+                                            {transaction.profit >= 0 ? '+' : ''}{transaction.profit.toFixed(2)} USD
+                                        </span>
+                                        {transaction.details && (
+                                            <div className="transaction-note">
+                                                {transaction.details}
+                                            </div>
+                                        )}
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+
             </div>
 
             {/* Advanced Display Modal */}
