@@ -1140,14 +1140,14 @@ const TradingHubDisplay: React.FC = () => {
             analysisCount: analysisCount,
             symbols: activeSymbols
         };
-        
+
         console.log('Applied analysis settings:', settings);
         globalObserver.emit('ui.log.success', `Analysis settings applied - Stake: ${analysisStakeAmount}, Reference: ${referenceDigit}`);
-        
+
         // Update applied stake to match analysis
         setAppliedStake(analysisStakeAmount);
         currentStakeRef.current = analysisStakeAmount;
-        
+
         // Restart analysis with new settings
         setIsAnalysisRunning(true);
     }, [analysisStakeAmount, referenceDigit, analysisCount, activeSymbols]);
@@ -1198,12 +1198,7 @@ const TradingHubDisplay: React.FC = () => {
                     <div className="settings-controls">
                         <div className="control-group">
                             <label>Initial Stake</label>
-                            <input</old_str>
-
-                    <div className="settings-controls">
-                        <div className="control-group">
-                            <label>Initial Stake</label>
-                            <input</old_str>
+                            <input
                                 type="number"
                                 value={initialStake}
                                 onChange={(e) => {
@@ -1443,7 +1438,7 @@ const TradingHubDisplay: React.FC = () => {
             )}
 
             <div className="trading-content">
-                <div className="strategy-grid"></old_str>
+                <div className="strategy-grid">
                     {/* Auto Differ Strategy */}
                     <div className={`strategy-card ${isAutoDifferActive ? 'active' : ''}`}>
                         <div className="card-header">
