@@ -44,7 +44,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     // Symbol mapping for display names
     const symbolMap: Record<string, string> = {
         'R_10': 'Volatility 10 Index',
-        'R_25': 'Volatility 25 Index', 
+        'R_25': 'Volatility 25 Index',
         'R_50': 'Volatility 50 Index',
         'R_75': 'Volatility 75 Index',
         'R_100': 'Volatility 100 Index',
@@ -132,54 +132,75 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             const recommendations: TradeRecommendation[] = [];
             const displayName = symbolMap[symbol] || symbol;
+            let currentRecommendation: TradeRecommendation | null = null; // Track recommendation for the current symbol
 
-            // Generate Over/Under recommendations
+            // Generate Over/Under recommendations - ONE PER SYMBOL
             const generateOverUnderRecs = () => {
+                // Skip if we already have a recommendation from market analyzer for this symbol
+                const existingRec = currentRecommendation && currentRecommendation.symbol === symbol;
+                if (existingRec) return;
+
                 const { mostFrequentDigit, currentLastDigit, lastDigitFrequency } = stats;
                 const totalTicks = Object.values(lastDigitFrequency).reduce((a, b) => a + b, 0);
 
-                if (totalTicks >= 50) {
-                    // UNDER 7 Logic
-                    if ([0, 1, 2].includes(mostFrequentDigit) && [7, 8, 9].includes(currentLastDigit)) {
-                        const mostFreqPercent = (lastDigitFrequency[mostFrequentDigit] / totalTicks) * 100;
-                        let confidence = 65 + Math.min(mostFreqPercent - 15, 20);
-                        confidence = Math.min(confidence, 95);
+                // Unique barrier assignment per symbol to ensure variety
+                const symbolBarrierMap: Record<string, { strategy: 'over' | 'under', barrier: number }> = {
+                    'R_10': { strategy: 'under', barrier: 7 },
+                    'R_25': { strategy: 'under', barrier: 8 },
+                    'R_50': { strategy: 'over', barrier: 4 },
+                    'R_75': { strategy: 'under', barrier: 6 },
+                    'R_100': { strategy: 'over', barrier: 1 },
+                    'RDBEAR': { strategy: 'under', barrier: 9 },
+                    'RDBULL': { strategy: 'over', barrier: 3 },
+                    '1HZ10V': { strategy: 'over', barrier: 2 },
+                    '1HZ25V': { strategy: 'under', barrier: 5 },
+                    '1HZ50V': { strategy: 'over', barrier: 6 },
+                    '1HZ75V': { strategy: 'over', barrier: 0 },
+                    '1HZ100V': { strategy: 'under', barrier: 4 }
+                };
 
-                        if (confidence > 72) {
-                            recommendations.push({
-                                symbol,
-                                strategy: 'under',
-                                barrier: '7',
-                                confidence,
-                                overPercentage: 0,
-                                underPercentage: confidence,
-                                reason: `Pattern: Most frequent ${mostFrequentDigit} (${mostFreqPercent.toFixed(1)}%), current ${currentLastDigit}`,
-                                timestamp: Date.now()
-                            });
-                        }
-                    }
+                const assignedConfig = symbolBarrierMap[symbol];
+                if (!assignedConfig) return;
 
-                    // OVER 2 Logic
-                    if ([7, 8, 9].includes(mostFrequentDigit) && [0, 1, 2].includes(currentLastDigit)) {
-                        const mostFreqPercent = (lastDigitFrequency[mostFrequentDigit] / totalTicks) * 100;
-                        let confidence = 65 + Math.min(mostFreqPercent - 15, 20);
-                        confidence = Math.min(confidence, 95);
+                const { strategy, barrier } = assignedConfig;
+                const over = Array.from({length: barrier}, (_, i) => i);
+                const under = Array.from({length: 10 - barrier - 1}, (_, i) => i + barrier + 1);
 
-                        if (confidence > 72) {
-                            recommendations.push({
-                                symbol,
-                                strategy: 'over',
-                                barrier: '2',
-                                confidence,
-                                overPercentage: confidence,
-                                underPercentage: 0,
-                                reason: `Pattern: Most frequent ${mostFrequentDigit} (${mostFreqPercent.toFixed(1)}%), current ${currentLastDigit}`,
-                                timestamp: Date.now()
-                            });
-                        }
-                    }
+                const overCount = over.reduce((sum, digit) => sum + (lastDigitFrequency[digit] || 0), 0);
+                const underCount = under.reduce((sum, digit) => sum + (lastDigitFrequency[digit] || 0), 0);
+                const overPercent = (overCount / totalTicks) * 100;
+                const underPercent = (underCount / totalTicks) * 100;
+
+                let shouldGenerate = false;
+                let confidence = 60;
+                let reason = '';
+
+                if (strategy === 'under' && underPercent > 58) {
+                    confidence = Math.min(55 + (underPercent - 50) * 1.5, 85);
+                    reason = `Under ${barrier} dominance: ${underPercent.toFixed(1)}%, current ${currentLastDigit}`;
+                    shouldGenerate = confidence > 62;
+                } else if (strategy === 'over' && overPercent > 58) {
+                    confidence = Math.min(55 + (overPercent - 50) * 1.5, 85);
+                    reason = `Over ${barrier} dominance: ${overPercent.toFixed(1)}%, current ${currentLastDigit}`;
+                    shouldGenerate = confidence > 62;
+                }
+
+                if (shouldGenerate) {
+                    const newRecommendation: TradeRecommendation = {
+                        symbol,
+                        strategy,
+                        barrier: barrier.toString(),
+                        confidence,
+                        overPercentage: strategy === 'over' ? confidence : 0,
+                        underPercentage: strategy === 'under' ? confidence : 0,
+                        reason,
+                        timestamp: Date.now()
+                    };
+                    recommendations.push(newRecommendation);
+                    currentRecommendation = newRecommendation; // Set current recommendation
                 }
             };
+
 
             // Generate Even/Odd recommendations
             const generateEvenOddRecs = () => {
@@ -316,7 +337,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const getTradeTypeForStrategy = (strategy: string): string => {
         const mapping: Record<string, string> = {
             'over': 'DIGITOVER',
-            'under': 'DIGITUNDER', 
+            'under': 'DIGITUNDER',
             'even': 'DIGITEVEN',
             'odd': 'DIGITODD',
             'matches': 'DIGITMATCH',
@@ -340,7 +361,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     };
 
     const renderRecommendationCard = (result: ScanResult) => {
-        const bestRec = result.recommendations.reduce((best, current) => 
+        const bestRec = result.recommendations.reduce((best, current) =>
             current.confidence > (best?.confidence || 0) ? current : best, null);
 
         return (
@@ -373,7 +394,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     {rec.reason}
                                 </Text>
                             </div>
-                            <button 
+                            <button
                                 className="load-trade-btn"
                                 onClick={() => loadTradeSettings(rec)}
                                 title="Load these settings into Smart Trader"
@@ -422,7 +443,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 height="auto"
             >
                 {selectedTradeSettings && (
-                    <SmartTraderWrapper 
+                    <SmartTraderWrapper
                         initialSettings={selectedTradeSettings}
                         onClose={handleCloseModal}
                     />
@@ -446,8 +467,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                 <div className="scanner-controls">
                     <div className="trade-type-filter">
                         <label>Filter by trade type:</label>
-                        <select 
-                            value={selectedTradeType} 
+                        <select
+                            value={selectedTradeType}
                             onChange={(e) => setSelectedTradeType(e.target.value)}
                             className="trade-type-select"
                         >
@@ -462,8 +483,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                     {isScanning && (
                         <div className="scan-progress">
                             <div className="progress-bar">
-                                <div 
-                                    className="progress-fill" 
+                                <div
+                                    className="progress-fill"
                                     style={{ width: `${scanProgress}%` }}
                                 ></div>
                             </div>
@@ -509,7 +530,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                             {bestRecommendation.confidence.toFixed(1)}%
                                         </span>
                                     </div>
-                                    <button 
+                                    <button
                                         className="highlight-load-btn"
                                         onClick={() => loadTradeSettings(bestRecommendation)}
                                     >
@@ -527,7 +548,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                             <div className="error-icon">⚠️</div>
                             <Text size="s" color="prominent">Connection Error</Text>
                             <Text size="xs" color="general">{statusMessage}</Text>
-                            <button 
+                            <button
                                 className="retry-btn"
                                 onClick={() => window.location.reload()}
                             >
@@ -557,7 +578,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                             <div className="no-opportunities-icon">🔍</div>
                             <Text size="s" color="general">No trading opportunities found</Text>
                             <Text size="xs" color="general">
-                                Market conditions don't meet our criteria for high-confidence trades. 
+                                Market conditions don't meet our criteria for high-confidence trades.
                                 The scanner will continue monitoring for new opportunities.
                             </Text>
                         </div>
