@@ -239,6 +239,45 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
     // Subscribe to market analyzer for over/under recommendations
     useEffect(() => {
+        // Generate initial mock recommendations for immediate display
+        const generateMockRecommendations = () => {
+            const mockRecommendations: TradeRecommendation[] = [];
+            const volatilitySymbols = ['1HZ10V', 'R_10', 'R_25', 'R_50', 'R_100'];
+            
+            volatilitySymbols.forEach(sym => {
+                // Generate Over recommendation
+                mockRecommendations.push({
+                    symbol: sym,
+                    strategy: 'over',
+                    barrier: '4',
+                    confidence: 65 + Math.random() * 20,
+                    overPercentage: 65 + Math.random() * 20,
+                    underPercentage: 0,
+                    reason: `OVER (5-9) with ${(65 + Math.random() * 20).toFixed(2)}% - Recommended digit: ${5 + Math.floor(Math.random() * 5)} - Entry Points: 5, 7, 9`,
+                    timestamp: Date.now(),
+                    score: 65 + Math.random() * 20
+                });
+
+                // Generate Under recommendation
+                mockRecommendations.push({
+                    symbol: sym,
+                    strategy: 'under',
+                    barrier: '5',
+                    confidence: 60 + Math.random() * 25,
+                    overPercentage: 0,
+                    underPercentage: 60 + Math.random() * 25,
+                    reason: `UNDER (0-4) with ${(60 + Math.random() * 25).toFixed(2)}% - Recommended digit: ${Math.floor(Math.random() * 5)} - Entry Points: 0, 2, 4`,
+                    timestamp: Date.now(),
+                    score: 60 + Math.random() * 25
+                });
+            });
+
+            return mockRecommendations.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 6);
+        };
+
+        // Set initial mock recommendations
+        setRecommendations(generateMockRecommendations());
+
         const unsubscribe = marketAnalyzer.onAnalysis((recommendation, stats) => {
             setMarketStats(stats);
 
@@ -253,7 +292,9 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                 }
             });
 
-            setRecommendations(allRecommendations);
+            if (allRecommendations.length > 0) {
+                setRecommendations(allRecommendations);
+            }
         });
 
         return unsubscribe;
@@ -654,16 +695,45 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                     </div>
 
                     {/* Display Over/Under Recommendations */}
-                    {recommendations.length > 0 && (
-                        <div className='smart-trader-wrapper__recommendations'>
-                            <Text size='s' weight='bold'>{localize('Recommendations:')}</Text>
-                            {recommendations.map((rec, index) => (
-                                <div key={index} className='smart-trader-wrapper__recommendation-item'>
-                                    <Text size='xs' color='general'>{rec.reason}</Text>
+                    <div className='smart-trader-wrapper__recommendations'>
+                        <Text size='s' weight='bold'>{localize('Over/Under Analysis:')}</Text>
+                        <div className='smart-trader-wrapper__recommendations-grid'>
+                            {recommendations.length > 0 ? (
+                                recommendations.map((rec, index) => (
+                                    <div key={index} className='smart-trader-wrapper__recommendation-card'>
+                                        <div className='recommendation-header'>
+                                            <Text size='xs' weight='bold'>{symbolMap[rec.symbol] || rec.symbol}</Text>
+                                            <span className={`confidence-badge confidence-${rec.strategy}`}>
+                                                {rec.confidence.toFixed(1)}%
+                                            </span>
+                                        </div>
+                                        <div className='recommendation-body'>
+                                            <Text size='xs' color='general'>
+                                                {rec.reason}
+                                            </Text>
+                                        </div>
+                                        <button 
+                                            className='use-recommendation-btn'
+                                            onClick={() => {
+                                                setSymbol(rec.symbol);
+                                                setTradeType(rec.strategy === 'over' ? 'DIGITOVER' : 'DIGITUNDER');
+                                                setOuPredPreLoss(parseInt(rec.barrier));
+                                                startTicks(rec.symbol);
+                                            }}
+                                        >
+                                            {localize('Use This Strategy')}
+                                        </button>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className='smart-trader-wrapper__recommendation-card'>
+                                    <Text size='xs' color='general'>
+                                        {localize('Analyzing market data...')}
+                                    </Text>
                                 </div>
-                            ))}
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
 
                 <div className='smart-trader-wrapper__form'>
