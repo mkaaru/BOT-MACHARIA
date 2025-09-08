@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <title>Deriv Signal Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+body::-webkit-scrollbar {
+    display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+body {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+        html {
+    scroll-behavior: smooth;
+}
+        body {
+    /* Remove overflow: hidden to enable scrolling */
+    background: black;
+    display: flex;
+    min-height: 100vh; /* Changed from height: 100vh */
+    align-items: flex-start; /* Changed from center */
+    justify-content: center;
+    padding: 20px 0; /* Add some padding */
+}
+
+.container {
+    position: relative; /* Changed from absolute */
+    width: 95%;
+    max-width: 500px;
+    padding: 30px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 10px;
+    border: 5px solid cyan;
+    box-shadow: 0 0 30px cyan;
+    z-index: 10;
+    margin: 20px 0; /* Add margin */
+}
+.background {
+    position: fixed; /* Keeps it in place while scrolling */
+    width: 100%;
+    height: 100vh;
+    color: lime;
+    font-size: 14px;
+    line-height: 1.2;
+    white-space: pre;
+    z-index: -1; /* Ensure it stays behind content */
+}
+        .scrolling-text {
+            position: absolute;
+            width: 100%;
+            height: 200%;
+            overflow: hidden;
+            animation: scroll 3s linear infinite;
+            word-wrap: break-word;
+        }
+        @keyframes scroll {
+            from { transform: translateY(0%); }
+            to { transform: translateY(-50%); }
+        }
+
+@media (min-width: 768px) {
+    .container {
+        max-width: 700px;
+        padding: 50px;
+    }
+}
+
+@media (max-width: 767px) {
+    .container {
+        min-height: 450px;
+    }
+}
+
+        h1 {
+            color: red;
+            margin-bottom: 20px;
+        }
+        label {
+            color: white;
+            display: block;
+            margin: 10px 0;
+        }
+        .dropdown {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: none;
+            border-radius: 5px;
+            background: #111;
+            color: red;
+            font-weight: bold;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .buttons button {
+            width: 100px;
+            padding: 10px;
+            margin: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .analyse { background: green; color: white; }
+        .popup {
+    display: none;
+    position: fixed; /* Keeps it in place while scrolling */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    max-width: 800px;
+    height: 70vh;
+    max-height: 600px;
+    background: black;
+    border: 2px solid cyan;
+    box-shadow: 0 0 20px cyan;
+    padding: 20px;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+        .popup-content {
+            color: white;
+            font-size: 16px;
+            height: 100%;
+            overflow-y: auto;
+            position: relative;
+        }
+        .terminal-header .dot {
+            height: 10px;
+            width: 10px;
+            margin: 5px;
+            background-color: red;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: red;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            z-index: 1001; /* Higher than popup's z-index */
+        }
+        .green { color: lime; }
+        .red { color: red; }
+
+        .contain {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #000;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 255, 0, 0.3);
+    margin: 20px auto;
+    max-width: 400px;
+    color: #0f0;
+    font-family: 'Orbitron', sans-serif;
+}
+
+.latest-tick {
+    font-size: 1.5em;
+    margin-bottom: 10px;
+    text-shadow: 0 0 5px #0f0, 0 0 10px #0f0;
+    letter-spacing: 1px;
+}
+
+.terminal-dashboard {
+    position: sticky;
+    top: 0;
+    background: black;
+    padding: 10px;
+    border-bottom: 1px solid cyan;
+    z-index: 1;
+}
+
+.terminal-scroll {
+    height: calc(100% - 60px);
+    overflow-y: auto;
+    margin-top: 10px;
+}
+
+.terminal-scroll-content {
+    animation: scroll-up 10s linear infinite;
+}
+
+@keyframes scroll-up {
+    from { transform: translateY(0); }
+    to { transform: translateY(-100%); }
+}
+
+    </style>
+</head>
+<body>
+    <div class="background">
+        <div class="scrolling-text" id="scrolling-text"></div>
+    </div>
+    <div class="container">
+        <h1>Deriv Signal Scanner</h1>
+        <label for="strategy">Select Strategy</label>
+        <select id="strategy" class="dropdown">
+            <option value="">-- Select Strategy --</option>
+            <option>Matches & Differs</option>
+            <option>Even & Odd</option>
+            <option>Over & Under</option>
+            <option>Rise & Fall</option>
+        </select>
+        <label for="market">Select Market</label>
+         <select id="market" class="dropdown" onchange="updateMarket()">
+                <option value="">Select Market</option>
+                <option value="R_10">Volatility 10 Index</option>
+                <option value="R_25">Volatility 25 Index</option>
+                <option value="R_50">Volatility 50 Index</option>
+                <option value="R_75">Volatility 75 Index</option>
+                <option value="R_100">Volatility 100 Index</option>
+                <option value="1HZ10V">Volatility 10(1s) Index</option>
+                <option value="1HZ25V">Volatility 25(1s) Index</option>
+                <option value="1HZ50V">Volatility 50(1s) Index</option>
+                <option value="1HZ75V">Volatility 75(1s) Index</option>
+                <option value="1HZ100V">Volatility 100(1s) Index</option>
+            </select>
+            <br>
+            <div class="contain">
+                <div class="latest-tick">Latest Tick: <span id="latestTick">--</span></div>
+                <div class="latest-tick">Last Digit: <span id="lastDigit">--</span></div>
+            </div>            
+
+        
+        <div class="buttons">
+            <button class="analyse">Analyse</button>
+        </div>
+        
+    </div>
+    <div id="popup" class="popup">
+        <div class="popup-content">
+            <button class="close-btn">X</button>
+            <div class="terminal-header">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+            </div>
+            <div class="terminal-dashboard" id="terminal-dashboard">
+                <p class="green">Analysis Dashboard</p>
+            </div>
+            <div class="terminal-scroll">
+                <div class="terminal-scroll-content" id="terminal-body">
+                    <p class="green">Connecting to server...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Updated audio element with preload -->
+    <audio id="timerSound" preload="auto">
+        <source src="https://www.fesliyanstudios.com/play-mp3/4386" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    
+    <script>
+        let socket;
+let tickHistory = [];
+let maxTicks = 100;
+let trackingInterval;
+let trackingTime = 60000;
+
+function updateMarket() {
+    const market = document.getElementById("market").value;
+    if (socket) {
+        socket.close();
+    }
+    tickHistory = [];
+    
+    if (market) {
+        socket = new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=66860");
+        socket.onopen = function() {
+            socket.send(JSON.stringify({ "ticks": market }));
+        };
+        socket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.tick) {
+                const tickQuote = data.tick.quote;
+                const lastDigit = tickQuote.toString().slice(-1);
+                document.getElementById("latestTick").innerText = tickQuote;
+                document.getElementById("lastDigit").innerText = lastDigit;
+                
+                tickHistory.push(parseInt(lastDigit));
+                if (tickHistory.length > maxTicks) {
+                    tickHistory.shift();
+                }
+            }
+        };
+    }
+}
+
+function playTimerSound() {
+            const sound = document.getElementById('timerSound');
+            sound.currentTime = 0; // Reset to start
+            sound.loop = true; // Make it loop
+            
+            // Try to play immediately
+            const playPromise = sound.play();
+            
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    // If autoplay is blocked, wait for user interaction
+                    document.addEventListener('click', function enableSound() {
+                        sound.play().catch(e => console.log("Sound play failed:", e));
+                    }, { once: true });
+                });
+            }
+        }
+        
+        function stopTimerSound() {
+            const sound = document.getElementById('timerSound');
+            sound.pause();
+            sound.currentTime = 0;
+        }
+        
+       function startFastMovingCodes(strategy) {
+    playTimerSound(); // Start the sound
+
+    const terminalBody = document.getElementById('terminal-body');
+    terminalBody.innerHTML += '<p class="green">Running deep analysis...</p>';
+
+    // Generate random codes at high speed
+    const codeInterval = setInterval(() => {
+        const randomCode = generateRandomCode();
+        terminalBody.innerHTML += `<p class="green" style="color: lime;">${randomCode}</p>`;
+
+        // Keep only the last 50 lines to prevent memory issues
+        const lines = terminalBody.innerHTML.split('</p>');
+        if (lines.length > 50) {
+            terminalBody.innerHTML = lines.slice(-50).join('</p>') + '</p>';
+        }
+    }, 50); // Very fast update
+
+    // After 5 seconds, stop the sound and show results
+    setTimeout(() => {
+        clearInterval(codeInterval);
+        stopTimerSound(); // Stop the sound
+        analyzeResults(strategy);
+    }, 5000);  // Changed from 30000 to 5000 (5 seconds)
+}
+
+    </script>
+    <script>
+        function generateFakeLogs() {
+            const logs = [
+                '[INFO] Connecting to server... [OK]',
+                '[INFO] Authenticating API key... [OK]',
+                '[WARNING] Unstable connection detected...',
+                '[ERROR] Connection timeout. Retrying...',
+                '[INFO] Fetching market data... [OK]',
+                '[INFO] Analysing Volatility Index...',
+                '[SUCCESS] Data stream established...',
+                '[SECURITY] Encryption enabled...',
+                '[INFO] Predicting next digit...',
+                '[WARNING] High market volatility detected...',
+                '[INFO] Compiling results...',
+                '[INFO] Data transmission complete...'
+            ];
+            let line = '';
+            for (let i = 0; i < 10; i++) {
+                line += logs[Math.floor(Math.random() * logs.length)] + ' ';
+            }
+            return line;
+        }
+        function updateScrollingText() {
+            const scrollingText = document.getElementById('scrolling-text');
+            let text = '';
+            for (let i = 0; i < 100; i++) {
+                text += generateFakeLogs() + '\n';
+            }
+            scrollingText.innerHTML = text + text;
+        }
+        setInterval(updateScrollingText, 200);
+        updateScrollingText();
+    </script>
+    <script>
+        document.querySelector('.analyse').addEventListener('click', function() {
+            let strategy = document.getElementById('strategy').value;
+            let market = document.getElementById('market').value;
+            let terminalBody = document.getElementById('terminal-body');
+            let terminalDashboard = document.getElementById('terminal-dashboard');
+            let popup = document.getElementById('popup');
+
+            if (!strategy || !market) {
+                alert('Error: Please select both strategy and market!');
+                return;
+            }
+
+            popup.style.display = 'block';
+            terminalDashboard.innerHTML = `<p class='green'>Analysis Dashboard - ${strategy} on ${market}</p>`;
+            terminalBody.innerHTML = `<p class='green'>Connecting to server...</p>`;
+
+            let messages = [
+                `<p class='green'>Analysing ${strategy} on ${market}...</p>`,
+                "<p class='green'>Retrieving market data...</p>",
+                "<p class='red'>Error: Timeout connecting to node...</p>",
+                "<p class='green'>Attempting reconnect...</p>",
+                "<p class='green'>Data stream detected...</p>",
+                "<p class='red'>Error: Unstable connection...</p>",
+                "<p class='green'>Finalizing analysis...</p>"
+            ];
+
+            let index = 0;
+            let interval = setInterval(() => {
+                if (index < messages.length) {
+                    terminalBody.innerHTML += messages[index];
+                    index++;
+                } else {
+                    clearInterval(interval);
+                    startFastMovingCodes(strategy);
+                }
+            }, 1000);
+        });
+
+        function startFastMovingCodes(strategy) {
+            playTimerSound(); // Play the timer sound
+            const terminalBody = document.getElementById('terminal-body');
+            terminalBody.innerHTML += '<p class="green">Running deep analysis...</p>';
+            
+            const codeInterval = setInterval(() => {
+                const randomCode = generateRandomCode();
+                terminalBody.innerHTML += `<p class="green" style="color: lime;">${randomCode}</p>`;
+                
+                const lines = terminalBody.innerHTML.split('</p>');
+                if (lines.length > 50) {
+                    terminalBody.innerHTML = lines.slice(-50).join('</p>') + '</p>';
+                }
+            }, 50);
+            
+            setTimeout(() => {
+                clearInterval(codeInterval);
+                analyzeResults(strategy);
+            }, 5000);
+        }
+        
+        function generateRandomCode() {
+            const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$#@!%^&*()';
+            let result = '';
+            for (let i = 0; i < 40; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+        
+        function analyzeResults(strategy) {
+            stopTimerSound(); // Stop the timer sound
+            const terminalBody = document.getElementById('terminal-body');
+            const terminalDashboard = document.getElementById('terminal-dashboard');
+            const lastDigits = tickHistory.slice(-30);
+            
+            if (strategy === "Matches & Differs") {
+                const digitCounts = {};
+                for (const digit of lastDigits) {
+                    digitCounts[digit] = (digitCounts[digit] || 0) + 1;
+                }
+                
+                let mostCommonDigit = null;
+                let leastCommonDigit = null;
+                let maxCount = 0;
+                let minCount = Infinity;
+                
+                for (const digit in digitCounts) {
+                    if (digitCounts[digit] > maxCount) {
+                        maxCount = digitCounts[digit];
+                        mostCommonDigit = digit;
+                    }
+                    if (digitCounts[digit] < minCount) {
+                        minCount = digitCounts[digit];
+                        leastCommonDigit = digit;
+                    }
+                }
+                
+                const matchPercentage = (maxCount / 30 * 100).toFixed(2);
+                const differPercentage = (minCount / 30 * 100).toFixed(2);
+                
+                terminalDashboard.innerHTML += `
+                    <p>Analysis Complete!</p>
+                    <p>MATCH with ${mostCommonDigit} (${matchPercentage}% accuracy)</p>
+                    <p>DIFFERS with ${leastCommonDigit} (${differPercentage}% accuracy)</p>
+                `;
+                
+                startCountdown();
+                
+            } else if (strategy === "Even & Odd") {
+                let evenCount = 0;
+                let oddCount = 0;
+                
+                for (const digit of lastDigits) {
+                    if (digit % 2 === 0) evenCount++;
+                    else oddCount++;
+                }
+                
+                const evenPercentage = (evenCount / 30 * 100).toFixed(2);
+                const oddPercentage = (oddCount / 30 * 100).toFixed(2);
+                
+                if (evenCount > oddCount) {
+                    terminalDashboard.innerHTML += `
+                        <p>Analysis Complete!</p>
+                        <p>EVEN numbers dominate (${evenPercentage}%)</p>
+                        <p>${getRandomEntryPoints(3).join(', ')}</p>
+                        <p>Entry Point: Run your bot whenever an even number appears after a sequence of 3 or more consecutive odd numbers.</p>
+                    `;
+                } else {
+                    terminalDashboard.innerHTML += `
+                        <p>Analysis Complete!</p>
+                        <p>ODD numbers dominate (${oddPercentage}%)</p>
+                        <p>${getRandomEntryPoints(3).join(', ')}</p>
+                        <p>Entry Point: Run your bot whenever an odd number appears after a sequence of 3 or more consecutive even numbers.</p>
+                    `;
+                }
+                
+                startCountdown();
+                
+            } else if (strategy === "Over & Under") {
+                let overCount = 0;
+                let underCount = 0;
+                
+                for (const digit of lastDigits) {
+                    if (digit <= 4) overCount++;
+                    else underCount++;
+                }
+                
+                const overPercentage = (overCount / 30 * 100).toFixed(2);
+                const underPercentage = (underCount / 30 * 100).toFixed(2);
+                
+                if (overCount < underCount) {
+                    const overDigits = lastDigits.filter(d => d <= 4);
+                    const leastCommonOver = findLeastCommonDigit(overDigits);
+                    
+                    terminalDashboard.innerHTML += `
+                        <p>Analysis Complete!</p>
+                        <p>OVER (0-4) with ${overPercentage}%</p>
+                        <p>Recommended digit: ${leastCommonOver}</p>
+                        <p>Entry Points: ${getRandomEntryPoints(3).join(', ')}</p>
+                    `;
+                } else {
+                    const underDigits = lastDigits.filter(d => d >= 5);
+                    const leastCommonUnder = findLeastCommonDigit(underDigits);
+                    
+                    terminalDashboard.innerHTML += `
+                        <p>Analysis Complete!</p>
+                        <p>UNDER (5-9) with ${underPercentage}%</p>
+                        <p>Recommended digit: ${leastCommonUnder}</p>
+                        <p>Entry Points: ${getRandomEntryPoints(3).join(', ')}</p>
+                    `;
+                }
+                
+                startCountdown();
+                
+            } else if (strategy === "Rise & Fall") {
+                const riseFallData = analyzeRiseFall(tickHistory.slice(-30));
+                
+                terminalDashboard.innerHTML += `
+                    <p>Analysis Complete!</p>
+                    <p>Market will ${riseFallData.prediction}</p>
+                    <p>Entry Point: ${riseFallData.entryPoint}</p>
+                `;
+                
+                startCountdown();
+            }
+        }
+        
+        function findLeastCommonDigit(digits) {
+            const counts = {};
+            for (const digit of digits) {
+                counts[digit] = (counts[digit] || 0) + 1;
+            }
+            
+            let leastCommon = null;
+            let minCount = Infinity;
+            
+            for (const digit in counts) {
+                if (counts[digit] < minCount) {
+                    minCount = counts[digit];
+                    leastCommon = digit;
+                }
+            }
+            
+            return leastCommon || digits[0] || '0';
+        }
+        
+        function getRandomEntryPoints(count) {
+            const entryPoints = [];
+            for (let i = 0; i < count; i++) {
+                entryPoints.push(Math.floor(Math.random() * 10));
+            }
+            return entryPoints;
+        }
+        
+        function analyzeRiseFall(tickData) {
+            let ups = 0;
+            let downs = 0;
+            
+            for (let i = 1; i < tickData.length; i++) {
+                if (tickData[i] > tickData[i-1]) ups++;
+                else if (tickData[i] < tickData[i-1]) downs++;
+            }
+            
+            if (ups > downs) {
+                return {
+                    prediction: "RISE",
+                    entryPoint: "Enter when price crosses above resistance"
+                };
+            } else {
+                return {
+                    prediction: "FALL",
+                    entryPoint: "Enter when price crosses below support"
+                };
+            }
+        }
+        
+        function startCountdown() {
+            const terminalDashboard = document.getElementById('terminal-dashboard');
+            let count = 5;
+            
+            const countdownInterval = setInterval(() => {
+                terminalDashboard.innerHTML += `<p>Running bot in ${count} seconds...</p>`;
+                count--;
+                
+                if (count < 0) {
+                    clearInterval(countdownInterval);
+                    terminalDashboard.innerHTML += `<p class="green">Bot activated!</p>`;
+                }
+            }, 1000);
+        }
+    
+        document.querySelector('.close-btn').addEventListener('click', function() {
+            document.getElementById('popup').style.display = 'none';
+            stopTimerSound(); // Also stop sound when closing popup
+        });
+    </script>
+</body>
+</html>
