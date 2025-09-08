@@ -7,6 +7,7 @@ import AdvancedDisplayModal from './advanced-display-modal';
 import DisplayToggle from './display-toggle';
 import ProfitLossDisplay from './profit-loss-display';
 import marketAnalyzer, { type O5U4Conditions, type MarketStats } from '../../services/market-analyzer';
+import { Text } from '@deriv/ui';
 
 interface TradeRecommendation {
     symbol: string;
@@ -159,6 +160,194 @@ const TradingHubDisplay: React.FC = () => {
             console.log('Run panel prepared for Trading Hub');
         }
     }, [run_panel]);
+
+    // Function to get recommendations based on advanced analysis
+    const getAdvancedDigitRecommendation = useCallback((overUnderAnalysis: any, evenCount: number, oddCount: number) => {
+        const recommendations = [];
+        const { bestBarrier, bestAccuracy, currentStreaks, overCount, underCount, pattern } = overUnderAnalysis;
+
+        // Advanced Over/Under recommendations
+        let confidence = 'Low';
+        if (bestAccuracy > 70) confidence = 'High';
+        else if (bestAccuracy > 60) confidence = 'Medium';
+
+        // Streak-based contrarian logic
+        if (currentStreaks.over >= 4) {
+            recommendations.push({ 
+                type: 'Under', 
+                confidence: currentStreaks.over >= 6 ? 'High' : 'Medium',
+                reason: `${currentStreaks.over} consecutive Over digits (Barrier: ${bestBarrier}) - Strong reversal signal`,
+                barrier: bestBarrier,
+                accuracy: bestAccuracy,
+                pattern: pattern
+            });
+        } else if (currentStreaks.under >= 4) {
+            recommendations.push({ 
+                type: 'Over', 
+                confidence: currentStreaks.under >= 6 ? 'High' : 'Medium',
+                reason: `${currentStreaks.under} consecutive Under digits (Barrier: ${bestBarrier}) - Strong reversal signal`,
+                barrier: bestBarrier,
+                accuracy: bestAccuracy,
+                pattern: pattern
+            });
+        } else {
+            // Pattern-based prediction when no strong streak
+            if (overCount > underCount + 3) {
+                recommendations.push({ 
+                    type: 'Under', 
+                    confidence: confidence,
+                    reason: `Over bias detected (${overCount}/${underCount}) with ${bestAccuracy.toFixed(1)}% accuracy`,
+                    barrier: bestBarrier,
+                    accuracy: bestAccuracy,
+                    pattern: pattern
+                });
+            } else if (underCount > overCount + 3) {
+                recommendations.push({ 
+                    type: 'Over', 
+                    confidence: confidence,
+                    reason: `Under bias detected (${underCount}/${overCount}) with ${bestAccuracy.toFixed(1)}% accuracy`,
+                    barrier: bestBarrier,
+                    accuracy: bestAccuracy,
+                    pattern: pattern
+                });
+            }
+        }
+
+        // Even/Odd analysis
+        if (evenCount > oddCount + 3) {
+            recommendations.push({ 
+                type: 'Odd', 
+                confidence: 'Medium', 
+                reason: `Even digits dominant (${evenCount}/${oddCount}) - expect reversal`,
+                pattern: 'even_odd'
+            });
+        } else if (oddCount > evenCount + 3) {
+            recommendations.push({ 
+                type: 'Even', 
+                confidence: 'Medium', 
+                reason: `Odd digits dominant (${oddCount}/${evenCount}) - expect reversal`,
+                pattern: 'even_odd'
+            });
+        }
+
+        return recommendations;
+    }, []);
+
+    // Enhanced digit analysis with advanced over/under analysis
+    const analyzeDigitPatterns = useCallback((symbol: string) => {
+        if (!tick_data[symbol] || tick_data[symbol].length < 20) return null;
+
+        const ticks = tick_data[symbol];
+        const lastTick = ticks[ticks.length - 1];
+        const lastDigit = Math.floor(lastTick.quote % 10);
+
+        // Get more historical data for better analysis
+        const recentDigits = ticks.slice(-50).map(tick => Math.floor(tick.quote % 10));
+        const last20Digits = recentDigits.slice(-20);
+
+        // Advanced Over/Under Analysis with Dynamic Barrier Optimization
+        const analyzeOverUnder = () => {
+            const barriers = [2, 3, 4, 5, 6, 7];
+            let bestBarrier = 5;
+            let bestAccuracy = 0;
+            const barrierAnalysis = {};
+
+            barriers.forEach(barrier => {
+                const predictions = [];
+                const actual = [];
+
+                // Analyze last 30 digits for pattern-based prediction
+                for (let i = 10; i < last20Digits.length - 1; i++) {
+                    const historyWindow = last20Digits.slice(i - 10, i);
+                    const overCount = historyWindow.filter(d => d > barrier).length;
+                    const underCount = historyWindow.filter(d => d < barrier).length;
+
+                    // Predict based on pattern
+                    const prediction = overCount > underCount ? 'over' : 'under';
+                    const actualNext = last20Digits[i + 1] > barrier ? 'over' : 'under';
+
+                    predictions.push(prediction);
+                    actual.push(actualNext);
+                }
+
+                // Calculate accuracy
+                const correct = predictions.filter((pred, idx) => pred === actual[idx]).length;
+                const accuracy = predictions.length > 0 ? (correct / predictions.length) * 100 : 0;
+
+                barrierAnalysis[barrier] = {
+                    accuracy: accuracy,
+                    overCount: last20Digits.filter(d => d > barrier).length,
+                    underCount: last20Digits.filter(d => d < barrier).length,
+                    equalCount: last20Digits.filter(d => d === barrier).length
+                };
+
+                if (accuracy > bestAccuracy) {
+                    bestAccuracy = accuracy;
+                    bestBarrier = barrier;
+                }
+            });
+
+            // Advanced streak detection
+            const currentStreaks = { over: 0, under: 0 };
+            const recentPattern = [];
+
+            for (let i = last20Digits.length - 1; i >= 0; i--) {
+                const digit = last20Digits[i];
+                const isOver = digit > bestBarrier;
+                const isUnder = digit < bestBarrier;
+
+                if (isOver) {
+                    recentPattern.unshift('O');
+                    if (currentStreaks.under === 0) {
+                        currentStreaks.over++;
+                    } else {
+                        break;
+                    }
+                } else if (isUnder) {
+                    recentPattern.unshift('U');
+                    if (currentStreaks.over === 0) {
+                        currentStreaks.under++;
+                    } else {
+                        break;
+                    }
+                } else {
+                    recentPattern.unshift('E');
+                    break;
+                }
+            }
+
+            return {
+                bestBarrier,
+                bestAccuracy,
+                barrierAnalysis,
+                currentStreaks,
+                pattern: recentPattern.slice(-10).join(''),
+                ...barrierAnalysis[bestBarrier]
+            };
+        };
+
+        const overUnderAnalysis = analyzeOverUnder();
+
+        // Analyze patterns
+        const digitCounts = last20Digits.reduce((acc, digit) => {
+            acc[digit] = (acc[digit] || 0) + 1;
+            return acc;
+        }, {} as Record<number, number>);
+
+        // Even/Odd analysis
+        const evenCount = last20Digits.filter(d => d % 2 === 0).length;
+        const oddCount = last20Digits.filter(d => d % 2 === 1).length;
+
+        return {
+            lastDigit,
+            recentDigits: last20Digits,
+            digitCounts,
+            overUnderAnalysis,
+            evenCount,
+            oddCount,
+            recommendation: getAdvancedDigitRecommendation(overUnderAnalysis, evenCount, oddCount)
+        };
+    }, [tick_data, getAdvancedDigitRecommendation]);
 
     // Enhanced market analyzer with advanced over/under analysis from volatility analyzer
     const handleMarketAnalysis = useCallback((analysisData: any) => {
@@ -1007,8 +1196,7 @@ const TradingHubDisplay: React.FC = () => {
 
             // Log successful purchase with enhanced details
             globalObserver.emit('ui.log.info', 
-                `Advanced Over/Under ${contractType} (Barrier: ${dynamicBarrier}) purchased: ID ${buyResponse.buy.contract_id}, Stake: ${appliedStake}, Confidence: ${Math.max(overPercentage, underPercentage).toFixed(1)}%`
-            );
+                `Advanced Over/Under ${contractType} (Barrier: ${dynamicBarrier}) purchased: ID ${buyResponse.buy.contract_id}, Stake: ${appliedStake}, Confidence: ${Math.max(overPercentage, underPercentage).toFixed(1)}%`);
 
             console.log(`[${timestamp}] ✅ Advanced Over/Under trade executed successfully:`, {
                 contractId: buyResponse.buy.contract_id,
