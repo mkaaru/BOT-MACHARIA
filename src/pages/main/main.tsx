@@ -170,6 +170,7 @@ const AppWrapper = observer(() => {
                 'Super Elite.xml',
                 'AUTO C4 PRO Version.xml',
                 'Mkorean SV4.xml',
+                'Digit Prediction Recovery Bot.xml',
             ];
 
             const loadedBots = [];
@@ -257,8 +258,27 @@ const AppWrapper = observer(() => {
                         continue;
                     }
 
+                    // Add specific metadata for bots
+                    const getDefaultDescription = (filename: string) => {
+                        switch(filename) {
+                            case 'Digit Prediction Recovery Bot.xml':
+                                return 'Advanced digit prediction strategy with probability-based recovery system. Uses martingale progression with smart digit selection to maximize win rates.';
+                            case 'Upgraded Candlemine.xml':
+                                return 'Enhanced candlestick analysis bot with improved market entry signals.';
+                            case 'Super Elite.xml':
+                                return 'Professional trading bot with advanced risk management features.';
+                            case 'AUTO C4 PRO Version.xml':
+                                return 'Automated trading system with professional-grade algorithms.';
+                            case 'Mkorean SV4.xml':
+                                return 'Korean-style speed trading bot optimized for quick trades.';
+                            default:
+                                return 'Advanced trading bot with automated strategies.';
+                        }
+                    };
+
                     loadedBots.push({
                         title: file.replace('.xml', ''),
+                        description: getDefaultDescription(file),
                         image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
                         filePath: file,
                         xmlContent: text,
