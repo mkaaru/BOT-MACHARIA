@@ -61,6 +61,11 @@ interface O5U4Trade {
 const TradingHubDisplay: React.FC = () => {
     const MINIMUM_STAKE = '0.35';
 
+    // Error handling state
+    const [hasError, setHasError] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [retryCount, setRetryCount] = useState(0);
+
     // Strategy states - only one can be active at a time
     const [isAutoDifferActive, setIsAutoDifferActive] = useState(false);
     const [isAutoOverUnderActive, setIsAutoOverUnderActive] = useState(false);
@@ -1595,10 +1600,30 @@ const TradingHubDisplay: React.FC = () => {
     }, [isContinuousTrading, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active, 
         isTradeInProgress, recommendation, stopTrading, executeDigitDifferTrade, executeDigitOverTrade, executeO5U4Trade, client]);
 
+    // Error recovery function
+    const handleError = useCallback((error: any, context: string) => {
+        console.error(`Trading Hub Error (${context}):`, error);
+        const message = error?.message || error?.toString() || 'Unknown error occurred';
+        setErrorMessage(`${context}: ${message}`);
+        setHasError(true);
+        
+        // Auto-retry mechanism for connection errors
+        if (retryCount < 3 && (message.includes('connection') || message.includes('network') || message.includes('fetch'))) {
+            setTimeout(() => {
+                setRetryCount(prev => prev + 1);
+                setHasError(false);
+                setErrorMessage('');
+            }, 2000 * (retryCount + 1));
+        }
+    }, [retryCount]);
+
     // Initialize component and enhanced market analyzer
     useEffect(() => {
         const initializeApi = async () => {
             try {
+                setHasError(false);
+                setErrorMessage('');
+                
                 if (!api_base.api || api_base.api.connection?.readyState !== 1) {
                     await api_base.init();
                 }
@@ -1608,8 +1633,7 @@ const TradingHubDisplay: React.FC = () => {
                     await api_base.api?.send({ authorize: initToken });
                 }
             } catch (error: any) {
-                console.error('Failed to initialize API:', error);
-                globalObserver.emit('ui.log.error', `API initialization failed: ${error.message}`);
+                handleError(error, 'API Initialization');
             }
         };
 
@@ -1633,11 +1657,15 @@ const TradingHubDisplay: React.FC = () => {
             setStopLoss(savedStopLoss);
         }
 
-        // Initialize enhanced market analyzer
-        const unsubscribe = marketAnalyzer.onAnalysis(handleMarketAnalysis);
-        marketAnalyzer.start();
-
-        console.log('Enhanced Trading Hub initialized with multi-symbol market analyzer');
+        // Initialize enhanced market analyzer with error handling
+        let unsubscribe: (() => void) | undefined;
+        try {
+            unsubscribe = marketAnalyzer.onAnalysis(handleMarketAnalysis);
+            marketAnalyzer.start();
+            console.log('Enhanced Trading Hub initialized with multi-symbol market analyzer');
+        } catch (error) {
+            handleError(error, 'Market Analyzer Initialization');
+        }
 
         return () => {
             if (tradingIntervalRef.current) {
@@ -1648,10 +1676,16 @@ const TradingHubDisplay: React.FC = () => {
             }
 
             // Clean up market analyzer
-            unsubscribe();
-            marketAnalyzer.stop();
+            try {
+                if (unsubscribe) {
+                    unsubscribe();
+                }
+                marketAnalyzer.stop();
+            } catch (error) {
+                console.warn('Error during cleanup:', error);
+            }
         };
-    }, [client?.loginid, client?.token, handleMarketAnalysis]);
+    }, [client?.loginid, client?.token, handleMarketAnalysis, handleError]);
 
     // Monitor connection status
     useEffect(() => {
@@ -1688,6 +1722,70 @@ const TradingHubDisplay: React.FC = () => {
         localStorage.setItem('tradingHub_initialStake', settings.stake);
         globalObserver.emit('ui.log.success', `Advanced settings applied - Stake: ${settings.stake}, Reference: ${settings.referenceDigit}`);
     };
+
+    // Error boundary display
+    if (hasError) {
+        return (
+            <div className="trading-hub-modern">
+                <div className="hub-header">
+                    <div className="error-container" style={{
+                        padding: '40px',
+                        textAlign: 'center',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        borderRadius: '12px',
+                        margin: '20px'
+                    }}>
+                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+                        <h2 style={{ color: '#ef4444', marginBottom: '16px' }}>Trading Hub Error</h2>
+                        <p style={{ color: 'rgba(255, 255, 255, 0.8)', marginBottom: '24px' }}>
+                            {errorMessage || 'An unexpected error occurred while loading the Trading Hub.'}
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                            <button
+                                onClick={() => {
+                                    setHasError(false);
+                                    setErrorMessage('');
+                                    setRetryCount(0);
+                                    window.location.reload();
+                                }}
+                                style={{
+                                    padding: '12px 24px',
+                                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontWeight: '600'
+                                }}
+                            >
+                                Retry
+                            </button>
+                            <button
+                                onClick={() => window.location.href = '/'}
+                                style={{
+                                    padding: '12px 24px',
+                                    background: 'rgba(255, 255, 255, 0.1)',
+                                    color: 'white',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontWeight: '600'
+                                }}
+                            >
+                                Go Home
+                            </button>
+                        </div>
+                        {retryCount > 0 && (
+                            <p style={{ color: 'rgba(255, 255, 255, 0.6)', marginTop: '16px', fontSize: '14px' }}>
+                                Retry attempt: {retryCount}/3
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="trading-hub-modern">
