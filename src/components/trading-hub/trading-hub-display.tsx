@@ -10,11 +10,41 @@ import marketAnalyzer, { type O5U4Conditions, type MarketStats } from '../../ser
 
 interface TradeRecommendation {
     symbol: string;
-    strategy: 'over' | 'under' | 'differ' | 'even' | 'odd';
-    barrier?: string;
-    confidence: number;
-    reason: string;
     timestamp: number;
+    evenOdd: {
+        recommendation: 'Even' | 'Odd' | null;
+        confidence: number;
+        evenPercentage: number;
+        oddPercentage: number;
+        streak?: {
+            type: 'even' | 'odd';
+            length: number;
+        };
+    };
+    overUnder: {
+        recommendation: 'Over' | 'Under' | null;
+        confidence: number;
+        overPercentage: number;
+        underPercentage: number;
+        barrier?: number;
+        streak?: {
+            type: 'over' | 'under';
+            length: number;
+        };
+        analysis?: {
+            dynamicBarrier: number;
+            accuracy: number;
+            pattern: string;
+        };
+    };
+    matchesDiffers: {
+        recommendation: 'Matches' | 'Differs' | null;
+        confidence: number;
+        targetDigit?: number;
+        currentDigit?: number;
+    };
+    totalTicks: number;
+    isReady: boolean;
 }
 
 interface O5U4Trade {
@@ -24,6 +54,7 @@ interface O5U4Trade {
     stake: number;
     payout: number;
     profit: number;
+    symbol: string;
 }
 
 const TradingHubDisplay: React.FC = () => {
@@ -129,46 +160,148 @@ const TradingHubDisplay: React.FC = () => {
         }
     }, [run_panel]);
 
-    // Enhanced market analysis callback
-    const handleMarketAnalysis = useCallback((newRecommendation: TradeRecommendation | null, stats: Record<string, MarketStats>, o5u4Data?: O5U4Conditions[]) => {
-        setAnalysisCount(prev => prev + 1);
-        setLastAnalysisTime(new Date().toLocaleTimeString());
-        setMarketStats(stats);
+    // Enhanced market analyzer with advanced over/under analysis from volatility analyzer
+    const handleMarketAnalysis = useCallback((analysisData: any) => {
+        if (!analysisData) return;
 
-        if (o5u4Data) {
-            setO5U4Opportunities(o5u4Data);
-            setBestO5U4Opportunity(o5u4Data.length > 0 ? o5u4Data[0] : null);
-        }
+        const {
+            symbol,
+            evenPercentage,
+            oddPercentage,
+            overPercentage,
+            underPercentage,
+            mostFrequentDigit,
+            currentLastDigit,
+            streakInfo,
+            totalTicks,
+            digitFrequencies,
+            tickHistory,
+            barrier = 5
+        } = analysisData;
 
-        // Count ready symbols
-        const readyCount = Object.values(stats).filter(stat => stat.isReady).length;
-        setReadySymbolsCount(readyCount);
+        // Advanced over/under analysis with barrier calculation
+        let advancedOverPercentage = overPercentage;
+        let advancedUnderPercentage = underPercentage;
+        let dynamicBarrier = barrier;
 
-        if (newRecommendation) {
-            setRecommendation(newRecommendation);
-        }
-
-        if (!isAnalysisReady && readyCount >= 3) {
-            setIsAnalysisReady(true);
-        }
-
-        // Execute trades based on active strategy and new data
-        if (isContinuousTrading && !isTradeInProgress) {
-            setTimeout(async () => {
-                try {
-                    if (isAutoDifferActive && newRecommendation?.strategy === 'differ') {
-                        await executeDigitDifferTrade();
-                    } else if (isAutoOverUnderActive && newRecommendation && ['over', 'under'].includes(newRecommendation.strategy)) {
-                        await executeDigitOverTrade();
-                    } else if (isAutoO5U4Active && o5u4Data && o5u4Data.length > 0) {
-                        await executeO5U4Trade();
-                    }
-                } catch (error) {
-                    console.error('Advanced trade execution error:', error);
+        if (tickHistory && Array.isArray(tickHistory) && tickHistory.length > 0) {
+            // Calculate digit frequencies for advanced analysis
+            const digitCounts = Array(10).fill(0);
+            tickHistory.forEach(tick => {
+                if (tick.last_digit !== undefined) {
+                    digitCounts[tick.last_digit]++;
                 }
-            }, 200);
+            });
+
+            // Dynamic barrier optimization - find the barrier that gives best prediction accuracy
+            let bestBarrier = 5;
+            let bestAccuracy = 0;
+
+            for (let testBarrier = 2; testBarrier <= 7; testBarrier++) {
+                let overCount = 0;
+                let underCount = 0;
+
+                for (let i = 0; i < 10; i++) {
+                    if (i >= testBarrier) {
+                        overCount += digitCounts[i];
+                    } else {
+                        underCount += digitCounts[i];
+                    }
+                }
+
+                const overPerc = (overCount / totalTicks) * 100;
+                const underPerc = (underCount / totalTicks) * 100;
+                const accuracy = Math.abs(overPerc - 50) + Math.abs(underPerc - 50);
+
+                if (accuracy > bestAccuracy) {
+                    bestAccuracy = accuracy;
+                    bestBarrier = testBarrier;
+                    advancedOverPercentage = overPerc;
+                    advancedUnderPercentage = underPerc;
+                }
+            }
+
+            dynamicBarrier = bestBarrier;
+
+            // Pattern-based enhancement for over/under
+            if (tickHistory.length >= 10) {
+                const recentDigits = tickHistory.slice(-10).map(tick => tick.last_digit || 0);
+                const recentOverCount = recentDigits.filter(digit => digit >= dynamicBarrier).length;
+                const recentUnderCount = 10 - recentOverCount;
+
+                // Adjust confidence based on recent patterns
+                const recentOverPerc = (recentOverCount / 10) * 100;
+                const recentUnderPerc = (recentUnderCount / 10) * 100;
+
+                // Weighted average of historical and recent data
+                advancedOverPercentage = (advancedOverPercentage * 0.7) + (recentOverPerc * 0.3);
+                advancedUnderPercentage = (advancedUnderPercentage * 0.7) + (recentUnderPerc * 0.3);
+            }
         }
-    }, [isAnalysisReady, isContinuousTrading, isTradeInProgress, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active]);
+
+        // Enhanced streak analysis for over/under
+        let overUnderStreak = { type: 'over' as 'over' | 'under', length: 0 };
+        if (tickHistory && tickHistory.length > 1) {
+            const lastDigit = tickHistory[tickHistory.length - 1]?.last_digit || 0;
+            const currentType: 'over' | 'under' = lastDigit >= dynamicBarrier ? 'over' : 'under';
+
+            let streakLength = 1;
+            for (let i = tickHistory.length - 2; i >= 0; i--) {
+                const digit = tickHistory[i]?.last_digit || 0;
+                const digitType: 'over' | 'under' = digit >= dynamicBarrier ? 'over' : 'under';
+
+                if (digitType === currentType) {
+                    streakLength++;
+                } else {
+                    break;
+                }
+            }
+            overUnderStreak = { type: currentType, length: streakLength };
+        }
+
+        // Update recommendation with advanced over/under analysis
+        const newRecommendation: TradeRecommendation = {
+            symbol,
+            timestamp: Date.now(),
+            evenOdd: {
+                recommendation: evenPercentage > 55 ? 'Even' : oddPercentage > 55 ? 'Odd' : null,
+                confidence: Math.max(evenPercentage, oddPercentage),
+                evenPercentage,
+                oddPercentage,
+                streak: streakInfo
+            },
+            overUnder: {
+                recommendation: advancedOverPercentage > 55 ? 'Over' : advancedUnderPercentage > 55 ? 'Under' : null,
+                confidence: Math.max(advancedOverPercentage, advancedUnderPercentage),
+                overPercentage: advancedOverPercentage,
+                underPercentage: advancedUnderPercentage,
+                barrier: dynamicBarrier,
+                streak: overUnderStreak,
+                analysis: {
+                    dynamicBarrier,
+                    accuracy: Math.abs(advancedOverPercentage - 50) + Math.abs(advancedUnderPercentage - 50),
+                    pattern: tickHistory?.slice(-5).map(tick => 
+                        (tick.last_digit || 0) >= dynamicBarrier ? 'O' : 'U'
+                    ).join('') || ''
+                }
+            },
+            matchesDiffers: {
+                recommendation: mostFrequentDigit !== undefined && digitFrequencies?.[mostFrequentDigit]?.percentage > 15 ? 'Matches' : 'Differs',
+                confidence: mostFrequentDigit !== undefined ? digitFrequencies?.[mostFrequentDigit]?.percentage || 0 : 0,
+                targetDigit: mostFrequentDigit,
+                currentDigit: currentLastDigit
+            },
+            totalTicks,
+            isReady: totalTicks >= 50
+        };
+
+        setRecommendation(newRecommendation);
+        setIsAnalysisReady(newRecommendation.isReady);
+
+        if (newRecommendation.isReady && !connectionStatus.includes('connected')) {
+            setConnectionStatus('connected');
+        }
+    }, [connectionStatus]);
 
     // Enhanced stake management with martingale
     const calculateNextStake = useCallback((isWin: boolean): string => {
@@ -631,7 +764,7 @@ const TradingHubDisplay: React.FC = () => {
                     console.warn('Transactions store not available for logging');
                 }
 
-                // Update balance immediately after purchase
+                // Update balance for non-O5U4 trades
                 if (!isO5U4Part) {
                     waitingForSettlementRef.current = true;
                 }
@@ -782,53 +915,118 @@ const TradingHubDisplay: React.FC = () => {
         }
     }, [recommendation, isTradeInProgress, executeTrade]);
 
-    const executeDigitOverTrade = useCallback(async (): Promise<boolean> => {
-        if (!recommendation || isTradeInProgress) {
-            console.log('Cannot execute Over/Under trade: no recommendation or trade in progress');
-            return false;
+    // Enhanced Auto Over/Under strategy with advanced volatility analyzer integration
+    const executeDigitOverTrade = useCallback(async () => {
+        if (!recommendation?.overUnder || isTradeInProgress || !client?.loginid || !api_base.is_authorized) {
+            return;
         }
 
-        // Validate recommendation quality
-        if (recommendation.confidence < 70) {
-            console.log(`Over/Under confidence too low: ${recommendation.confidence}% < 70%`);
-            return false;
+        const { 
+            overPercentage, 
+            underPercentage, 
+            barrier = 5, 
+            streak,
+            analysis 
+        } = recommendation.overUnder;
+
+        // Advanced decision logic using volatility analyzer insights
+        let contractType = '';
+        let dynamicBarrier = analysis?.dynamicBarrier || barrier;
+
+        // Enhanced confidence thresholds with streak consideration
+        const streakBonus = streak && streak.length >= 3 ? 2 : 0; // Bonus confidence for streaks
+        const requiredConfidence = 55 - streakBonus;
+
+        if (overPercentage > requiredConfidence + 2) {
+            contractType = 'DIGITOVER';
+        } else if (underPercentage > requiredConfidence + 2) {
+            contractType = 'DIGITUNDER';
+        } else if (overPercentage > underPercentage && overPercentage > requiredConfidence) {
+            contractType = 'DIGITOVER';
+        } else if (underPercentage > overPercentage && underPercentage > requiredConfidence) {
+            contractType = 'DIGITUNDER';
+        } else {
+            console.log('Over/Under conditions not met for trading', {
+                overPercentage: overPercentage.toFixed(2),
+                underPercentage: underPercentage.toFixed(2),
+                requiredConfidence,
+                barrier: dynamicBarrier,
+                streak: streak ? `${streak.length} ${streak.type}` : 'none'
+            });
+            return;
         }
+
+        // Streak-based barrier adjustment for better accuracy
+        if (streak && streak.length >= 4) {
+            if (streak.type === 'over' && contractType === 'DIGITUNDER') {
+                dynamicBarrier = Math.max(2, dynamicBarrier - 1); // Lower barrier for contrarian play
+            } else if (streak.type === 'under' && contractType === 'DIGITOVER') {
+                dynamicBarrier = Math.min(8, dynamicBarrier + 1); // Higher barrier for contrarian play
+            }
+        }
+
+        setIsTradeInProgress(true);
+        const timestamp = new Date().toLocaleTimeString();
 
         try {
-            console.log(`Executing Enhanced Auto Over/Under trade:`, {
-                symbol: recommendation.symbol,
-                strategy: recommendation.strategy.toUpperCase(),
-                barrier: recommendation.barrier,
-                confidence: recommendation.confidence.toFixed(1) + '%',
-                reason: recommendation.reason
+            console.log(`[${timestamp}] 🎯 Executing Advanced Over/Under trade:`, {
+                contractType,
+                barrier: dynamicBarrier,
+                confidence: Math.max(overPercentage, underPercentage).toFixed(2),
+                streak: streak ? `${streak.length} ${streak.type}` : 'none',
+                pattern: analysis?.pattern || 'N/A',
+                accuracy: analysis?.accuracy?.toFixed(2) || 'N/A'
             });
 
-            globalObserver.emit('ui.log.info', 
-                `Auto Over/Under: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol} (${recommendation.confidence.toFixed(1)}% confidence)`
-            );
+            const tradeParams = {
+                contract_type: contractType,
+                symbol: 'R_100',
+                basis: 'stake',
+                amount: parseFloat(appliedStake),
+                duration: 1,
+                duration_unit: 't',
+                barrier: dynamicBarrier.toString()
+            };
 
-            const contractType = recommendation.strategy === 'over' ? 'DIGITOVER' : 'DIGITUNDER';
-            const success = await executeTrade(
-                'Enhanced Auto Over/Under',
-                recommendation.symbol,
-                contractType,
-                recommendation.barrier
-            );
+            // Get proposal first
+            const proposalResponse = await api_base.api.send({ proposal: 1, ...tradeParams });
 
-            if (success) {
-                globalObserver.emit('ui.log.success', 
-                    `Over/Under trade executed successfully: ${recommendation.reason}`
-                );
+            if (proposalResponse.error) {
+                throw new Error(proposalResponse.error.message);
             }
 
-            return success;
+            // Execute the purchase
+            const buyResponse = await api_base.api.send({
+                buy: proposalResponse.proposal.id,
+                price: parseFloat(appliedStake)
+            });
+
+            if (buyResponse.error) {
+                throw new Error(buyResponse.error.message);
+            }
+
+            // Log successful purchase with enhanced details
+            globalObserver.emit('ui.log.info', 
+                `Advanced Over/Under ${contractType} (Barrier: ${dynamicBarrier}) purchased: ID ${buyResponse.buy.contract_id}, Stake: ${appliedStake}, Confidence: ${Math.max(overPercentage, underPercentage).toFixed(1)}%`
+            );
+
+            console.log(`[${timestamp}] ✅ Advanced Over/Under trade executed successfully:`, {
+                contractId: buyResponse.buy.contract_id,
+                contractType,
+                barrier: dynamicBarrier,
+                stake: appliedStake,
+                confidence: Math.max(overPercentage, underPercentage).toFixed(2),
+                streak: streak ? `${streak.length} ${streak.type}` : 'none',
+                pattern: analysis?.pattern || 'N/A'
+            });
+
         } catch (error: any) {
-            const errorMsg = error?.message || 'Unknown error in Over/Under execution';
-            console.error('Enhanced Auto Over/Under execution failed:', errorMsg);
-            globalObserver.emit('ui.log.error', `Over/Under strategy failed: ${errorMsg}`);
-            return false;
+            console.error(`[${timestamp}] ❌ Advanced Over/Under trade failed:`, error);
+            globalObserver.emit('ui.log.error', `Advanced Over/Under trade failed: ${error.message}`);
+        } finally {
+            setIsTradeInProgress(false);
         }
-    }, [recommendation, isTradeInProgress, executeTrade]);
+    }, [recommendation, isTradeInProgress, client, appliedStake]);
 
     const executeO5U4Trade = useCallback(async (): Promise<boolean> => {
         if (isTradeInProgress || !bestO5U4Opportunity) return false;
@@ -857,7 +1055,7 @@ const TradingHubDisplay: React.FC = () => {
                 `O5U4 ${selectedSymbol} Under 4: ${under4Result ? 'WON' : 'LOST'}`);
 
             // Enhanced O5U4 result processing
-            const completedO5U4Trades = [
+            const completedO5U4Trades: O5U4Trade[] = [
                 { 
                     contractId: `O5U4_OVER_5_${selectedSymbol}`, 
                     contractType: 'DIGITOVER', 
