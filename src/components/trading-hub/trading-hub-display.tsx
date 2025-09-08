@@ -2,8 +2,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
+import Modal from '@/components/shared_ui/modal';
 import { localize } from '@deriv-com/translations';
 import marketAnalyzer from '@/services/market-analyzer';
+import SmartTraderWrapper from './smart-trader-wrapper';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
 import './trading-hub-display.scss';
 
@@ -37,6 +39,8 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [symbolsAnalyzed, setSymbolsAnalyzed] = useState(0);
     const [totalSymbols] = useState(12);
     const [selectedTradeType, setSelectedTradeType] = useState<string>('all');
+    const [isSmartTraderModalOpen, setIsSmartTraderModalOpen] = useState(false);
+    const [selectedTradeSettings, setSelectedTradeSettings] = useState<TradeSettings | null>(null);
 
     // Symbol mapping for display names
     const symbolMap: Record<string, string> = {
@@ -304,9 +308,9 @@ const TradingHubDisplay: React.FC = observer(() => {
             settings.prediction = parseInt(recommendation.barrier || '5');
         }
 
-        // Here you would integrate with your Smart Trader component
-        console.log('Loading trade settings:', settings);
-        alert(`Loading settings for ${recommendation.strategy.toUpperCase()} trade on ${symbolMap[recommendation.symbol]} with ${recommendation.confidence.toFixed(1)}% confidence`);
+        // Store the settings and open the modal
+        setSelectedTradeSettings(settings);
+        setIsSmartTraderModalOpen(true);
     };
 
     // Helper function to map strategy to trade type
@@ -403,8 +407,29 @@ const TradingHubDisplay: React.FC = observer(() => {
         return 'low';
     };
 
+    const handleCloseModal = () => {
+        setIsSmartTraderModalOpen(false);
+        setSelectedTradeSettings(null);
+    };
+
     return (
         <div className="trading-hub-scanner">
+            {/* Smart Trader Modal */}
+            <Modal
+                is_open={isSmartTraderModalOpen}
+                title={`Smart Trader - ${selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}`}
+                toggleModal={handleCloseModal}
+                width="900px"
+                height="auto"
+            >
+                {selectedTradeSettings && (
+                    <SmartTraderWrapper 
+                        initialSettings={selectedTradeSettings}
+                        onClose={handleCloseModal}
+                    />
+                )}
+            </Modal>
+
             <div className="scanner-header">
                 <div className="scanner-title">
                     <div className="title-with-status">
