@@ -1,0 +1,393 @@
+<xml xmlns="https://developers.google.com/blockly/xml">
+  <variables>
+    <variable id="v_base_stake">base_stake</variable>
+    <variable id="v_recovery_mult">recovery_mult</variable>
+    <variable id="v_max_recoveries">max_recoveries</variable>
+    <variable id="v_session_loss_limit">session_loss_limit</variable>
+    <variable id="v_current_recovery">current_recovery</variable>
+    <variable id="v_last_digit">last_digit</variable>
+    <variable id="v_last_side">last_side</variable>
+    <variable id="v_start_bal">starting_balance</variable>
+    <variable id="v_chosen_digit">chosen_digit</variable>
+    <variable id="v_chosen_contract">chosen_contract</variable>
+  </variables>
+  <block type="controls_if" x="8" y="8" id="init">
+    <value name="IF0">
+      <block type="logic_boolean" id="true1"><field name="BOOL">TRUE</field></block>
+    </value>
+    <statement name="DO0">
+      <block type="variables_set" id="set_base">
+        <field name="VAR" id="v_base_stake">base_stake</field>
+        <value name="VALUE"><block type="math_number" id="n1"><field name="NUM">1</field></block></value>
+        <next>
+          <block type="variables_set" id="set_mult">
+            <field name="VAR" id="v_recovery_mult">recovery_mult</field>
+            <value name="VALUE"><block type="math_number" id="n2"><field name="NUM">2</field></block></value>
+            <next>
+              <block type="variables_set" id="set_max">
+                <field name="VAR" id="v_max_recoveries">max_recoveries</field>
+                <value name="VALUE"><block type="math_number" id="n3"><field name="NUM">4</field></block></value>
+                <next>
+                  <block type="variables_set" id="set_sess">
+                    <field name="VAR" id="v_session_loss_limit">session_loss_limit</field>
+                    <value name="VALUE"><block type="math_number" id="n4"><field name="NUM">-50</field></block></value>
+                    <next>
+                      <block type="variables_set" id="set_cur">
+                        <field name="VAR" id="v_current_recovery">current_recovery</field>
+                        <value name="VALUE"><block type="math_number" id="n5"><field name="NUM">0</field></block></value>
+                        <next>
+                          <block type="variables_set" id="set_lastd">
+                            <field name="VAR" id="v_last_digit">last_digit</field>
+                            <value name="VALUE"><block type="math_number" id="n6"><field name="NUM">-1</field></block></value>
+                            <next>
+                              <block type="variables_set" id="set_lasts">
+                                <field name="VAR" id="v_last_side">last_side</field>
+                                <value name="VALUE"><block type="text" id="t_init"><field name="TEXT">NONE</field></block></value>
+                                <next>
+                                  <block type="variables_set" id="set_startbal">
+                                    <field name="VAR" id="v_start_bal">starting_balance</field>
+                                    <value name="VALUE"><block type="account_balance" id="bal"/></value>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+  <block type="controls_whileUntil" x="8" y="260" id="main">
+    <field name="MODE">WHILE</field>
+    <value name="BOOL">
+      <block type="logic_compare" id="cmp">
+        <field name="OP">GT</field>
+        <value name="A">
+          <block type="math_arithmetic" id="pnl">
+            <field name="OP">MINUS</field>
+            <value name="A"><block type="account_balance" id="curbal"/></value>
+            <value name="B"><block type="variables_get" id="getstart"><field name="VAR" id="v_start_bal">starting_balance</field></block></value>
+          </block>
+        </value>
+        <value name="B"><block type="variables_get" id="getsess"><field name="VAR" id="v_session_loss_limit">session_loss_limit</field></block></value>
+      </block>
+    </value>
+    <statement name="DO">
+      <block type="procedures_callreturn" id="choosebest">
+        <mutation name="choose_best"/>
+      </block>
+      <next>
+        <block type="variables_set" id="calcstake">
+          <field name="VAR" id="v_base_stake">base_stake</field>
+          <value name="VALUE">
+            <block type="math_arithmetic" id="multstake">
+              <field name="OP">MULTIPLY</field>
+              <value name="A"><block type="variables_get" id="getbase"><field name="VAR" id="v_base_stake">base_stake</field></block></value>
+              <value name="B">
+                <block type="math_arithmetic" id="pow">
+                  <field name="OP">POWER</field>
+                  <value name="A"><block type="variables_get" id="getmult"><field name="VAR" id="v_recovery_mult">recovery_mult</field></block></value>
+                  <value name="B"><block type="variables_get" id="getcur"><field name="VAR" id="v_current_recovery">current_recovery</field></block></value>
+                </block>
+              </value>
+            </block>
+          </value>
+          <next>
+            <block type="trade_digit" id="trade">
+              <field name="CONTRACT">DIGITOVER</field>
+              <value name="AMOUNT"><block type="variables_get" id="getamt"><field name="VAR" id="v_base_stake">base_stake</field></block></value>
+              <value name="DURATION"><block type="math_number" id="d1"><field name="NUM">1</field></block></value>
+              <value name="DURATION_UNIT"><block type="text" id="tu1"><field name="TEXT">t</field></block></value>
+              <value name="DIGIT"><block type="variables_get" id="getdigit"><field name="VAR" id="v_chosen_digit">chosen_digit</field></block></value>
+            </block>
+            <next>
+              <block type="trade_result" id="wait">
+                <next>
+                  <block type="controls_if" id="resif">
+                    <value name="IF0">
+                      <block type="last_contract_win" id="lastwin"/>
+                    </value>
+                    <statement name="DO0">
+                      <block type="variables_set" id="reset1">
+                        <field name="VAR" id="v_current_recovery">current_recovery</field>
+                        <value name="VALUE"><block type="math_number" id="z0"><field name="NUM">0</field></block></value>
+                        <next>
+                          <block type="variables_set" id="setlastwin">
+                            <field name="VAR" id="v_last_digit">last_digit</field>
+                            <value name="VALUE"><block type="math_number" id="ldw"><field name="NUM">-1</field></block></value>
+                            <next>
+                              <block type="variables_set" id="setlastsw">
+                                <field name="VAR" id="v_last_side">last_side</field>
+                                <value name="VALUE"><block type="text" id="twin"><field name="TEXT">WIN</field></block></value>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                    <statement name="ELSE">
+                      <block type="variables_set" id="inc">
+                        <field name="VAR" id="v_current_recovery">current_recovery</field>
+                        <value name="VALUE">
+                          <block type="math_arithmetic" id="add1">
+                            <field name="OP">ADD</field>
+                            <value name="A"><block type="variables_get" id="gcur"><field name="VAR" id="v_current_recovery">current_recovery</field></block></value>
+                            <value name="B"><block type="math_number" id="one"><field name="NUM">1</field></block></value>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="storelastd">
+                            <field name="VAR" id="v_last_digit">last_digit</field>
+                            <value name="VALUE"><block type="variables_get" id="gch"><field name="VAR" id="v_chosen_digit">chosen_digit</field></block></value>
+                            <next>
+                              <block type="variables_set" id="storelasts">
+                                <field name="VAR" id="v_last_side">last_side</field>
+                                <value name="VALUE"><block type="variables_get" id="gcont"><field name="VAR" id="v_chosen_contract">chosen_contract</field></block></value>
+                                <next>
+                                  <block type="controls_if" id="checkmax">
+                                    <value name="IF0">
+                                      <block type="logic_compare" id="cmpmax"><field name="OP">GT</field>
+                                        <value name="A"><block type="variables_get" id="gcur2"><field name="VAR" id="v_current_recovery">current_recovery</field></block></value>
+                                        <value name="B"><block type="variables_get" id="gmax2"><field name="VAR" id="v_max_recoveries">max_recoveries</field></block></value>
+                                      </block>
+                                    </value>
+                                    <statement name="DO0">
+                                      <block type="bot_stop" id="stop1"/>
+                                    </statement>
+                                    <statement name="ELSE">
+                                      <block type="procedures_callreturn" id="chooserec">
+                                        <mutation name="choose_next_best"/>
+                                      </block>
+                                    </statement>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </next>
+        </next>
+      </block>
+    </statement>
+  </block>
+  <block type="procedures_defreturn" x="600" y="8" id="proc_choose_best">
+    <field name="NAME">choose_best</field>
+    <statement name="STACK">
+      <block type="variables_set" id="init_best">
+        <field name="VAR" id="best_val">best_val</field>
+        <value name="VALUE"><block type="math_number" id="bv0"><field name="NUM">0</field></block></value>
+        <next>
+          <block type="variables_set" id="init_choice">
+            <field name="VAR" id="v_chosen_contract">chosen_contract</field>
+            <value name="VALUE"><block type="text" id="tc0"><field name="TEXT">DIGITOVER</field></block></value>
+            <next>
+              <block type="variables_set" id="init_digit2">
+                <field name="VAR" id="v_chosen_digit">chosen_digit</field>
+                <value name="VALUE"><block type="math_number" id="dinit"><field name="NUM">1</field></block></value>
+                <next>
+                  <block type="controls_if" id="if_o1">
+                    <value name="IF0">
+                      <block type="logic_compare" id="cmp_o1"><field name="OP">GT</field>
+                        <value name="A"><block type="math_number"><field name="NUM">90</field></block></value>
+                        <value name="B"><block type="variables_get"><field name="VAR" id="best_val">best_val</field></block></value>
+                      </block>
+                    </value>
+                    <statement name="DO0">
+                      <block type="variables_set"><field name="VAR" id="best_val">best_val</field>
+                        <value name="VALUE"><block type="math_number"><field name="NUM">90</field></block></value>
+                        <next>
+                          <block type="variables_set"><field name="VAR" id="v_chosen_contract">chosen_contract</field>
+                            <value name="VALUE"><block type="text"><field name="TEXT">DIGITOVER</field></block></value>
+                            <next>
+                              <block type="variables_set"><field name="VAR" id="v_chosen_digit">chosen_digit</field>
+                                <value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                  </block>
+                  <next>
+                    <block type="controls_if" id="if_u8">
+                      <value name="IF0">
+                        <block type="logic_compare" id="cmp_u8"><field name="OP">GT</field>
+                          <value name="A"><block type="math_number"><field name="NUM">90</field></block></value>
+                          <value name="B"><block type="variables_get"><field name="VAR" id="best_val">best_val</field></block></value>
+                        </block>
+                      </value>
+                      <statement name="DO0">
+                        <block type="variables_set"><field name="VAR" id="best_val">best_val</field>
+                          <value name="VALUE"><block type="math_number"><field name="NUM">90</field></block></value>
+                          <next>
+                            <block type="variables_set"><field name="VAR" id="v_chosen_contract">chosen_contract</field>
+                              <value name="VALUE"><block type="text"><field name="TEXT">DIGITUNDER</field></block></value>
+                              <next>
+                                <block type="variables_set"><field name="VAR" id="v_chosen_digit">chosen_digit</field>
+                                  <value name="VALUE"><block type="math_number"><field name="NUM">8</field></block></value>
+                                </block>
+                              </next>
+                            </block>
+                          </next>
+                        </block>
+                      </statement>
+                    </block>
+                    <next>
+                      <block type="variables_set" id="finalset">
+                        <field name="VAR" id="v_chosen_contract">chosen_contract</field>
+                        <value name="VALUE"><block type="variables_get" id="gfin"><field name="VAR" id="v_chosen_contract">chosen_contract</field></block></value>
+                        <next>
+                          <block type="variables_set" id="finalset2">
+                            <field name="VAR" id="v_chosen_digit">chosen_digit</field>
+                            <value name="VALUE"><block type="variables_get" id="gfin2"><field name="VAR" id="v_chosen_digit">chosen_digit</field></block></value>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </next>
+                </next>
+              </next>
+            </next>
+          </next>
+        </next>
+      </block>
+    </statement>
+    <value name="RETURN"><block type="variables_get"><field name="VAR" id="v_chosen_digit">chosen_digit</field></block></value>
+  </block>
+  <block type="procedures_defreturn" x="600" y="440" id="proc_next_best">
+    <field name="NAME">choose_next_best</field>
+    <statement name="STACK">
+      <block type="variables_set" id="init_b2">
+        <field name="VAR" id="best_val2">best_val2</field>
+        <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+        <next>
+          <block type="variables_set" id="init_choice2">
+            <field name="VAR" id="v_chosen_contract">chosen_contract</field>
+            <value name="VALUE"><block type="text"><field name="TEXT">DIGITOVER</field></block></value>
+            <next>
+              <block type="variables_set" id="init_digit3">
+                <field name="VAR" id="v_chosen_digit">chosen_digit</field>
+                <value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value>
+                <next>
+                  <block type="controls_if" id="if_u8_rec">
+                    <value name="IF0">
+                      <block type="logic_compare" id="cmp_u8_rec"><field name="OP">AND</field>
+                        <value name="A"><block type="logic_compare"><field name="OP">GT</field>
+                          <value name="A"><block type="math_number"><field name="NUM">90</field></block></value>
+                          <value name="B"><block type="variables_get"><field name="VAR" id="best_val2">best_val2</field></block></value>
+                        </block></value>
+                        <value name="B"><block type="logic_compare"><field name="OP">NEQ</field>
+                          <value name="A"><block type="variables_get"><field name="VAR" id="v_last_digit">last_digit</field></block></value>
+                          <value name="B"><block type="math_number"><field name="NUM">8</field></block></value>
+                        </block></value>
+                      </block>
+                    </value>
+                    <statement name="DO0">
+                      <block type="variables_set"><field name="VAR" id="best_val2">best_val2</field>
+                        <value name="VALUE"><block type="math_number"><field name="NUM">90</field></block></value>
+                        <next>
+                          <block type="variables_set"><field name="VAR" id="v_chosen_contract">chosen_contract</field>
+                            <value name="VALUE"><block type="text"><field name="TEXT">DIGITUNDER</field></block></value>
+                            <next>
+                              <block type="variables_set"><field name="VAR" id="v_chosen_digit">chosen_digit</field>
+                                <value name="VALUE"><block type="math_number"><field name="NUM">8</field></block></value>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                  </block>
+                  <next>
+                    <block type="controls_if" id="if_u7_rec">
+                      <value name="IF0"><block type="logic_compare"><field name="OP">AND</field>
+                        <value name="A"><block type="logic_compare"><field name="OP">GT</field>
+                          <value name="A"><block type="math_number"><field name="NUM">85</field></block></value>
+                          <value name="B"><block type="variables_get"><field name="VAR" id="best_val2">best_val2</field></block></value>
+                        </block></value>
+                        <value name="B"><block type="logic_compare"><field name="OP">NEQ</field>
+                          <value name="A"><block type="variables_get"><field name="VAR" id="v_last_digit">last_digit</field></block></value>
+                          <value name="B"><block type="math_number"><field name="NUM">7</field></block></value>
+                        </block></value>
+                      </block></value>
+                      <statement name="DO0">
+                        <block type="variables_set"><field name="VAR" id="best_val2">best_val2</field>
+                          <value name="VALUE"><block type="math_number"><field name="NUM">85</field></block></value>
+                          <next>
+                            <block type="variables_set"><field name="VAR" id="v_chosen_contract">chosen_contract</field>
+                              <value name="VALUE"><block type="text"><field name="TEXT">DIGITUNDER</field></block></value>
+                              <next>
+                                <block type="variables_set"><field name="VAR" id="v_chosen_digit">chosen_digit</field>
+                                  <value name="VALUE"><block type="math_number"><field name="NUM">7</field></block></value>
+                                </block>
+                              </next>
+                            </block>
+                          </next>
+                        </block>
+                      </statement>
+                    </block>
+                    <next>
+                      <block type="controls_if" id="if_o1_rec">
+                        <value name="IF0"><block type="logic_compare"><field name="OP">AND</field>
+                          <value name="A"><block type="logic_compare"><field name="OP">GT</field>
+                            <value name="A"><block type="math_number"><field name="NUM">90</field></block></value>
+                            <value name="B"><block type="variables_get"><field name="VAR" id="best_val2">best_val2</field></block></value>
+                          </block></value>
+                          <value name="B"><block type="logic_compare"><field name="OP">NEQ</field>
+                            <value name="A"><block type="variables_get"><field name="VAR" id="v_last_digit">last_digit</field></block></value>
+                            <value name="B"><block type="math_number"><field name="NUM">1</field></block></value>
+                          </block></value>
+                        </block></value>
+                        <statement name="DO0">
+                          <block type="variables_set"><field name="VAR" id="best_val2">best_val2</field>
+                            <value name="VALUE"><block type="math_number"><field name="NUM">90</field></block></value>
+                            <next>
+                              <block type="variables_set"><field name="VAR" id="v_chosen_contract">chosen_contract</field>
+                                <value name="VALUE"><block type="text"><field name="TEXT">DIGITOVER</field></block></value>
+                                <next>
+                                  <block type="variables_set"><field name="VAR" id="v_chosen_digit">chosen_digit</field>
+                                    <value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </statement>
+                      </block>
+                      <next>
+                        <block type="variables_set" id="final_choice_rec">
+                          <field name="VAR" id="v_chosen_contract">chosen_contract</field>
+                          <value name="VALUE"><block type="variables_get" id="gfin"><field name="VAR" id="v_chosen_contract">chosen_contract</field></block></value>
+                          <next>
+                            <block type="variables_set" id="final_choice_rec2">
+                              <field name="VAR" id="v_chosen_digit">chosen_digit</field>
+                              <value name="VALUE"><block type="variables_get" id="gfin2"><field name="VAR" id="v_chosen_digit">chosen_digit</field></block></value>
+                            </block>
+                          </next>
+                        </block>
+                      </next>
+                    </next>
+                  </next>
+                </next>
+              </next>
+            </next>
+          </next>
+        </next>
+      </block>
+    </statement>
+    <value name="RETURN"><block type="variables_get"><field name="VAR" id="v_chosen_digit">chosen_digit</field></block></value>
+  </block>
+</xml>
