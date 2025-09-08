@@ -1502,38 +1502,48 @@ if __name__ == "__main__":
                         </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
-                            <div className={classNames('dashboard__chart-wrapper', {
-                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
-                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })}>
-                                <ErrorBoundary fallback={
+                            <div className="trading-hub-wrapper" style={{ height: '100%', width: '100%' }}>
+                                <Suspense fallback={
                                     <div style={{
-                                        padding: '40px',
-                                        textAlign: 'center',
-                                        background: 'rgba(239, 68, 68, 0.1)',
-                                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                                        borderRadius: '8px',
-                                        margin: '20px'
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        height: '400px',
+                                        fontSize: '16px',
+                                        color: '#666'
                                     }}>
-                                        <h3 style={{ color: '#ef4444' }}>Trading Hub Error</h3>
-                                        <p>The Trading Hub encountered an error. Please refresh the page.</p>
-                                        <button
-                                            onClick={() => window.location.reload()}
-                                            style={{
-                                                padding: '8px 16px',
-                                                background: '#10b981',
-                                                color: 'white',
-                                                border: 'none',
-                                                borderRadius: '4px',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Refresh Page
-                                        </button>
+                                        Loading Trading Hub...
                                     </div>
                                 }>
-                                    <TradingHubDisplay />
-                                </ErrorBoundary>
+                                    <ErrorBoundary fallback={
+                                        <div style={{
+                                            padding: '40px',
+                                            textAlign: 'center',
+                                            background: 'rgba(239, 68, 68, 0.1)',
+                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                            borderRadius: '8px',
+                                            margin: '20px'
+                                        }}>
+                                            <h3 style={{ color: '#ef4444' }}>Trading Hub Error</h3>
+                                            <p>The Trading Hub encountered an error. Please refresh the page.</p>
+                                            <button
+                                                onClick={() => window.location.reload()}
+                                                style={{
+                                                    padding: '8px 16px',
+                                                    background: '#10b981',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Refresh Page
+                                            </button>
+                                        </div>
+                                    }>
+                                        <TradingHubDisplay />
+                                    </ErrorBoundary>
+                                </Suspense>
                             </div>
                         </div>
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>

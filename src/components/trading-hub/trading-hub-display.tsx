@@ -530,7 +530,7 @@ const TradingHubDisplay: React.FC = () => {
     }, []);
 
     // Enhanced contract monitoring with improved settlement detection
-    const monitorContract = useCallback(async (contractId: string, isO5U4Part: boolean = false, contractType?: string, symbol?: string, stake?: number): Promise<boolean> => {
+    const monitorContract = useCallback((contractId: string, isO5U4Part: boolean = false, contractType?: string, symbol?: string, stake?: number): Promise<boolean> => {
         return new Promise((resolve) => {
             let contractData: any = null;
             let contractResolved = false;
@@ -752,7 +752,7 @@ const TradingHubDisplay: React.FC = () => {
     }, [run_panel, client]);
 
     // Execute trade using the enhanced trade engine
-    const executeTrade = useCallback(async (
+    const executeTrade = useCallback((
         strategy: string,
         symbol: string,
         contractType: string,
@@ -1606,7 +1606,7 @@ const TradingHubDisplay: React.FC = () => {
         const message = error?.message || error?.toString() || 'Unknown error occurred';
         setErrorMessage(`${context}: ${message}`);
         setHasError(true);
-        
+
         // Auto-retry mechanism for connection errors
         if (retryCount < 3 && (message.includes('connection') || message.includes('network') || message.includes('fetch'))) {
             setTimeout(() => {
@@ -1623,7 +1623,7 @@ const TradingHubDisplay: React.FC = () => {
             try {
                 setHasError(false);
                 setErrorMessage('');
-                
+
                 if (!api_base.api || api_base.api.connection?.readyState !== 1) {
                     await api_base.init();
                 }
@@ -1787,367 +1787,399 @@ const TradingHubDisplay: React.FC = () => {
         );
     }
 
-    return (
-        <div className="trading-hub-modern">
-            <div className="hub-header">
-                <div className="header-main">
-                    <div className="logo-section">
-                        <div className="logo-icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                            </svg>
-                        </div>
-                        <div className="title-group">
-                            <h1 className="hub-title">Trading Hub</h1>
-                            <p className="hub-subtitle">AI-Powered Trading Strategies</p>
-                        </div>
-                    </div>
-
-                    <div className="header-controls">
-                        <DisplayToggle onToggle={setIsAdvancedView} />
-                        <button
-                            className="advanced-settings-btn"
-                            onClick={() => setShowAdvancedModal(true)}
-                        >
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
-                            </svg>
-                            Advanced Settings
-                        </button>
-                    </div>
-
-                    <div className="settings-controls">
-                        <div className="control-group">
-                            <label>Initial Stake</label>
-                            <input
-                                type="number"
-                                value={initialStake}
-                                onChange={(e) => {
-                                    const value = Math.max(parseFloat(e.target.value), parseFloat(MINIMUM_STAKE)).toFixed(2);
-                                    setInitialStake(value);
-                                    setAppliedStake(value);
-                                    currentStakeRef.current = value;
-                                    localStorage.setItem('tradingHub_initialStake', value);
-                                }}
-                                className="stake-input"
-                                step="0.01"
-                                min={MINIMUM_STAKE}
-                                disabled={isContinuousTrading}
-                            />
-                        </div>
-
-                        <div className="control-group">
-                            <label>Martingale</label>
-                            <input
-                                type="number"
-                                value={martingale}
-                                onChange={(e) => {
-                                    const value = Math.max(parseFloat(e.target.value), 1.1).toFixed(2);
-                                    setMartingale(value);
-                                    localStorage.setItem('tradingHub_martingale', value);
-                                }}
-                                className="martingale-input"
-                                step="0.1"
-                                min="1.1"
-                                disabled={isContinuousTrading}
-                            />
-                        </div>
-
-                        <div className="control-group">
-                            <label>Stop Loss ($)<br/><small>Based on Run Panel Total</small></label>
-                            <input
-                                type="number"
-                                value={stopLoss}
-                                onChange={(e) => {
-                                    const value = Math.max(parseFloat(e.target.value), 1).toFixed(2);
-                                    setStopLoss(value);
-                                    localStorage.setItem('tradingHub_stopLoss', value);
-                                }}
-                                className="stop-loss-input"
-                                step="0.01"
-                                min="1"
-                                disabled={isContinuousTrading}
-                                title="Trading will stop when total loss in Run Panel exceeds this amount"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="status-bar">
-                    <div className="status-item">
-                        <div className={`status-dot ${isAnalysisReady ? 'ready' : 'loading'}`}></div>
-                        Multi-Symbol AI: {isAnalysisReady ? 'Ready' : 'Analyzing...'}
-                    </div>
-                    <div className="status-separator"></div>
-                    <div className="status-item">
-                        Ready Markets: {readySymbolsCount}/12
-                    </div>
-                    <div className="status-separator"></div>
-                    <div className="status-item">
-                        Analysis: {analysisCount} cycles
-                    </div>
-                    <div className="status-separator"></div>
-                    <div className="status-item">
-                        Last Update: {lastAnalysisTime || 'N/A'}
-                    </div>
-                    <div className="status-separator"></div>
-                    <div className="status-item">
-                        <div className={`status-dot ${connectionStatus}`}></div>
-                        {connectionStatus === 'connected' ? 'Connected' :
-                         connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-                        {connectionStatus === 'connected' && !isApiAuthorized && ' (Not Authorized)'}
-                    </div>
-                    <div className="status-separator"></div>
-                    <div className="status-item">
-                        <div className={`status-dot ${apiConnected ? 'connected' : 'disconnected'}`}></div>
-                        <span>{apiConnected ? 'API Connected' : 'API Disconnected'}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div className="trading-content">
-                <div className="strategy-grid">
-                    {/* Auto Differ Strategy */}
-                    <div className={`strategy-card ${isAutoDifferActive ? 'active' : ''}`}>
-                        <div className="card-header">
-                            <div className="strategy-icon">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+    try {
+        return (
+            <div className="trading-hub-modern">
+                <div className="hub-header">
+                    <div className="header-main">
+                        <div className="logo-section">
+                            <div className="logo-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                                 </svg>
                             </div>
-                            <div className="strategy-info">
-                                <h4>Auto Differ</h4>
-                                <p>Digit difference prediction</p>
-                            </div>
-                            <div className={`strategy-status ${isAutoDifferActive ? 'active' : 'inactive'}`}>
-                                {isAutoDifferActive ? 'ON' : 'OFF'}
+                            <div className="title-group">
+                                <h1 className="hub-title">Trading Hub</h1>
+                                <p className="hub-subtitle">AI-Powered Trading Strategies</p>
                             </div>
                         </div>
 
-                        <div className="card-content">
-                            <p>Advanced digit analysis with pattern recognition for differ contracts.</p>
-
-                            {isAutoDifferActive && recommendation && (
-                                <div className="recommendation-display">
-                                    <div className="rec-item">
-                                        <span>Symbol:</span>
-                                        <strong>{recommendation.symbol}</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Confidence:</span>
-                                        <strong>{recommendation.confidence}%</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Current Stake:</span>
-                                        <strong>${appliedStake}</strong>
-                                    </div>
-                                </div>
-                            )}
+                        <div className="header-controls">
+                            <DisplayToggle onToggle={setIsAdvancedView} />
+                            <button
+                                className="advanced-settings-btn"
+                                onClick={() => setShowAdvancedModal(true)}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+                                </svg>
+                                Advanced Settings
+                            </button>
                         </div>
 
-                        <button
-                            className={`strategy-toggle ${isAutoDifferActive ? 'active' : ''}`}
-                            onClick={() => toggleStrategy('differ')}
-                            disabled={!isAnalysisReady || isContinuousTrading}
-                        >
-                            {isAutoDifferActive ? 'Deactivate' : 'Activate'} Strategy
-                        </button>
+                        <div className="settings-controls">
+                            <div className="control-group">
+                                <label>Initial Stake</label>
+                                <input
+                                    type="number"
+                                    value={initialStake}
+                                    onChange={(e) => {
+                                        const value = Math.max(parseFloat(e.target.value), parseFloat(MINIMUM_STAKE)).toFixed(2);
+                                        setInitialStake(value);
+                                        setAppliedStake(value);
+                                        currentStakeRef.current = value;
+                                        localStorage.setItem('tradingHub_initialStake', value);
+                                    }}
+                                    className="stake-input"
+                                    step="0.01"
+                                    min={MINIMUM_STAKE}
+                                    disabled={isContinuousTrading}
+                                />
+                            </div>
+
+                            <div className="control-group">
+                                <label>Martingale</label>
+                                <input
+                                    type="number"
+                                    value={martingale}
+                                    onChange={(e) => {
+                                        const value = Math.max(parseFloat(e.target.value), 1.1).toFixed(2);
+                                        setMartingale(value);
+                                        localStorage.setItem('tradingHub_martingale', value);
+                                    }}
+                                    className="martingale-input"
+                                    step="0.1"
+                                    min="1.1"
+                                    disabled={isContinuousTrading}
+                                />
+                            </div>
+
+                            <div className="control-group">
+                                <label>Stop Loss ($)<br/><small>Based on Run Panel Total</small></label>
+                                <input
+                                    type="number"
+                                    value={stopLoss}
+                                    onChange={(e) => {
+                                        const value = Math.max(parseFloat(e.target.value), 1).toFixed(2);
+                                        setStopLoss(value);
+                                        localStorage.setItem('tradingHub_stopLoss', value);
+                                    }}
+                                    className="stop-loss-input"
+                                    step="0.01"
+                                    min="1"
+                                    disabled={isContinuousTrading}
+                                    title="Trading will stop when total loss in Run Panel exceeds this amount"
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Auto Over/Under Strategy */}
-                    <div className={`strategy-card ${isAutoOverUnderActive ? 'active' : ''}`}>
-                        <div className="card-header">
-                            <div className="strategy-icon">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M7 14l5-5 5 5z"/>
-                                    <path d="M7 10l5 5 5-5z"/>
-                                </svg>
-                            </div>
-                            <div className="strategy-info">
-                                <h4>Auto Over/Under</h4>
-                                <p>Dynamic barrier trading</p>
-                            </div>
-                            <div className={`strategy-status ${isAutoOverUnderActive ? 'active' : 'inactive'}`}>
-                                {isAutoOverUnderActive ? 'ON' : 'OFF'}
-                            </div>
+                    <div className="status-bar">
+                        <div className="status-item">
+                            <div className={`status-dot ${isAnalysisReady ? 'ready' : 'loading'}`}></div>
+                            Multi-Symbol AI: {isAnalysisReady ? 'Ready' : 'Analyzing...'}
                         </div>
-
-                        <div className="card-content">
-                            <p>Advanced AI pattern recognition across 12 volatility indices. Analyzes digit frequencies and recommends UNDER 7 or OVER 2 based on optimal market conditions.</p>
-
-                            {isAutoOverUnderActive && recommendation && (
-                                <div className="recommendation-display">
-                                    <div className="rec-item">
-                                        <span>AI Selection:</span>
-                                        <strong>{recommendation.symbol}</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Strategy:</span>
-                                        <strong>{recommendation.strategy.toUpperCase()} {recommendation.barrier}</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>AI Confidence:</span>
-                                        <strong className={recommendation.confidence > 80 ? 'high-confidence' : recommendation.confidence > 75 ? 'medium-confidence' : 'low-confidence'}>
-                                            {recommendation.confidence.toFixed(1)}%
-                                        </strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Pattern:</span>
-                                        <strong>{recommendation.reason.includes('Most frequent digit') ? 
-                                            `${recommendation.reason.match(/Most frequent digit (\d)/)?.[1]} vs ${recommendation.reason.match(/current (\d)/)?.[1]}` : 
-                                            'Secondary Pattern'}</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Ready Markets:</span>
-                                        <strong>{readySymbolsCount}/12</strong>
-                                    </div>
-                                </div>
-                            )}
+                        <div className="status-separator"></div>
+                        <div className="status-item">
+                            Ready Markets: {readySymbolsCount}/12
                         </div>
-
-                        <button
-                            className={`strategy-toggle ${isAutoOverUnderActive ? 'active' : ''}`}
-                            onClick={() => toggleStrategy('overunder')}
-                            disabled={!isAnalysisReady || isContinuousTrading}
-                        >
-                            {isAutoOverUnderActive ? 'Deactivate' : 'Activate'} Strategy
-                        </button>
-                    </div>
-
-                    {/* Auto O5U4 Strategy */}
-                    <div className={`strategy-card ${isAutoO5U4Active ? 'active' : ''}`}>
-                        <div className="card-header">
-                            <div className="strategy-icon">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                                </svg>
-                            </div>
-                            <div className="strategy-info">
-                                <h4>Auto O5U4</h4>
-                                <p>Dual contract strategy</p>
-                            </div>
-                            <div className={`strategy-status ${isAutoO5U4Active ? 'active' : 'inactive'}`}>
-                                {isAutoO5U4Active ? 'ON' : 'OFF'}
-                            </div>
+                        <div className="status-separator"></div>
+                        <div className="status-item">
+                            Analysis: {analysisCount} cycles
                         </div>
-
-                        <div className="card-content">
-                            <p>Sophisticated dual-contract AI strategy. Analyzes all 12 markets simultaneously, scores opportunities, and selects the best symbol meeting 3 critical conditions for 80% theoretical win rate.</p>
-
-                            {isAutoO5U4Active && (
-                                <div className="recommendation-display">
-                                    <div className="rec-item">
-                                        <span>AI Best Symbol:</span>
-                                        <strong>{bestO5U4Opportunity?.symbol || 'Analyzing...'}</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Strategy:</span>
-                                        <strong>OVER 5 + UNDER 4</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>AI Score:</span>
-                                        <strong>{bestO5U4Opportunity?.score.toFixed(1) || '0.0'}/100</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Conditions:</span>
-                                        <strong>{bestO5U4Opportunity?.conditionsMetCount || 0}/3 Met</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Opportunities:</span>
-                                        <strong>{o5u4Opportunities.length} Found</strong>
-                                    </div>
-                                </div>
-                            )}
+                        <div className="status-separator"></div>
+                        <div className="status-item">
+                            Last Update: {lastAnalysisTime || 'N/A'}
                         </div>
-
-                        <button
-                            className={`strategy-toggle ${isAutoO5U4Active ? 'active' : ''}`}
-                            onClick={() => toggleStrategy('o5u4')}
-                            disabled={!isAnalysisReady || isContinuousTrading}
-                        >
-                            {isAutoO5U4Active ? 'Deactivate' : 'Activate'} Strategy
-                        </button>
+                        <div className="status-separator"></div>
+                        <div className="status-item">
+                            <div className={`status-dot ${connectionStatus}`}></div>
+                            {connectionStatus === 'connected' ? 'Connected' :
+                             connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
+                            {connectionStatus === 'connected' && !isApiAuthorized && ' (Not Authorized)'}
+                        </div>
+                        <div className="status-separator"></div>
+                        <div className="status-item">
+                            <div className={`status-dot ${apiConnected ? 'connected' : 'disconnected'}`}></div>
+                            <span>{apiConnected ? 'API Connected' : 'API Disconnected'}</span>
+                        </div>
                     </div>
                 </div>
 
-                {/* Trading Controls */}
-                <div className="trading-controls">
-                    <div className="main-controls">
-                        <button
-                            className={`main-trading-btn ${isContinuousTrading ? 'stop' : 'start'}`}
-                            onClick={handleTrade}
-                            disabled={!isAnalysisReady || !hasActiveStrategy || (connectionStatus !== 'connected')}
-                        >
-                            <div className="btn-content">
-                                <div className="btn-icon">
-                                    {isContinuousTrading ? (
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                            <rect x="6" y="4" width="4" height="16"/>
-                                            <rect x="14" y="4" width="4" height="16"/>
-                                        </svg>
-                                    ) : (
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                            <polygon points="8,5 8,19 19,12"/>
-                                        </svg>
-                                    )}
+                <div className="trading-content">
+                    <div className="strategy-grid">
+                        {/* Auto Differ Strategy */}
+                        <div className={`strategy-card ${isAutoDifferActive ? 'active' : ''}`}>
+                            <div className="card-header">
+                                <div className="strategy-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                                    </svg>
                                 </div>
-                                <span>{isContinuousTrading ? 'STOP TRADING' : 'START TRADING'}</span>
+                                <div className="strategy-info">
+                                    <h4>Auto Differ</h4>
+                                    <p>Digit difference prediction</p>
+                                </div>
+                                <div className={`strategy-status ${isAutoDifferActive ? 'active' : 'inactive'}`}>
+                                    {isAutoDifferActive ? 'ON' : 'OFF'}
+                                </div>
                             </div>
-                        </button>
 
-                        {isTradeInProgress && (
-                            <div className="trade-progress">
-                                <div className="progress-spinner"></div>
-                                <span>Trade in progress...</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
+                            <div className="card-content">
+                                <p>Advanced digit analysis with pattern recognition for differ contracts.</p>
 
-                {/* Transaction History */}
-                <div className="transaction-history">
-                    <h3>Transaction Log</h3>
-                    {transactionHistory.length === 0 ? (
-                        <p>No transactions yet.</p>
-                    ) : (
-                        <ul>
-                            {transactionHistory.map((transaction) => (
-                                <li key={transaction.id} className={`transaction-item ${transaction.result}`}>
-                                    <div className="transaction-info">
-                                        <span className="timestamp">{transaction.timestamp.toLocaleTimeString()}</span>
-                                        <span className="type">{transaction.type}</span>
-                                        <span className="symbol">{transaction.symbol}</span>
-                                        <span className="amount">${transaction.amount.toFixed(2)}</span>
+                                {isAutoDifferActive && recommendation && (
+                                    <div className="recommendation-display">
+                                        <div className="rec-item">
+                                            <span>Symbol:</span>
+                                            <strong>{recommendation.symbol}</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Confidence:</span>
+                                            <strong>{recommendation.confidence}%</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Current Stake:</span>
+                                            <strong>${appliedStake}</strong>
+                                        </div>
                                     </div>
-                                    <div className="transaction-details">
-                                        <span className={`result ${transaction.result}`}>
-                                            {transaction.result.toUpperCase()}
-                                        </span>
-                                        <span className={`profit ${transaction.profit >= 0 ? 'positive' : 'negative'}`}>
-                                            {transaction.profit >= 0 ? '+' : ''}{transaction.profit.toFixed(2)} USD
-                                        </span>
-                                        {transaction.details && (
-                                            <div className="transaction-note">
-                                                {transaction.details}
-                                            </div>
+                                )}
+                            </div>
+
+                            <button
+                                className={`strategy-toggle ${isAutoDifferActive ? 'active' : ''}`}
+                                onClick={() => toggleStrategy('differ')}
+                                disabled={!isAnalysisReady || isContinuousTrading}
+                            >
+                                {isAutoDifferActive ? 'Deactivate' : 'Activate'} Strategy
+                            </button>
+                        </div>
+
+                        {/* Auto Over/Under Strategy */}
+                        <div className={`strategy-card ${isAutoOverUnderActive ? 'active' : ''}`}>
+                            <div className="card-header">
+                                <div className="strategy-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M7 14l5-5 5 5z"/>
+                                        <path d="M7 10l5 5 5-5z"/>
+                                    </svg>
+                                </div>
+                                <div className="strategy-info">
+                                    <h4>Auto Over/Under</h4>
+                                    <p>Dynamic barrier trading</p>
+                                </div>
+                                <div className={`strategy-status ${isAutoOverUnderActive ? 'active' : 'inactive'}`}>
+                                    {isAutoOverUnderActive ? 'ON' : 'OFF'}
+                                </div>
+                            </div>
+
+                            <div className="card-content">
+                                <p>Advanced AI pattern recognition across 12 volatility indices. Analyzes digit frequencies and recommends UNDER 7 or OVER 2 based on optimal market conditions.</p>
+
+                                {isAutoOverUnderActive && recommendation && (
+                                    <div className="recommendation-display">
+                                        <div className="rec-item">
+                                            <span>AI Selection:</span>
+                                            <strong>{recommendation.symbol}</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Strategy:</span>
+                                            <strong>{recommendation.strategy.toUpperCase()} {recommendation.barrier}</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>AI Confidence:</span>
+                                            <strong className={recommendation.confidence > 80 ? 'high-confidence' : recommendation.confidence > 75 ? 'medium-confidence' : 'low-confidence'}>
+                                                {recommendation.confidence.toFixed(1)}%
+                                            </strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Pattern:</span>
+                                            <strong>{recommendation.reason.includes('Most frequent digit') ? 
+                                                `${recommendation.reason.match(/Most frequent digit (\d)/)?.[1]} vs ${recommendation.reason.match(/current (\d)/)?.[1]}` : 
+                                                'Secondary Pattern'}</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Ready Markets:</span>
+                                            <strong>{readySymbolsCount}/12</strong>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                className={`strategy-toggle ${isAutoOverUnderActive ? 'active' : ''}`}
+                                onClick={() => toggleStrategy('overunder')}
+                                disabled={!isAnalysisReady || isContinuousTrading}
+                            >
+                                {isAutoOverUnderActive ? 'Deactivate' : 'Activate'} Strategy
+                            </button>
+                        </div>
+
+                        {/* Auto O5U4 Strategy */}
+                        <div className={`strategy-card ${isAutoO5U4Active ? 'active' : ''}`}>
+                            <div className="card-header">
+                                <div className="strategy-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                </div>
+                                <div className="strategy-info">
+                                    <h4>Auto O5U4</h4>
+                                    <p>Dual contract strategy</p>
+                                </div>
+                                <div className={`strategy-status ${isAutoO5U4Active ? 'active' : 'inactive'}`}>
+                                    {isAutoO5U4Active ? 'ON' : 'OFF'}
+                                </div>
+                            </div>
+
+                            <div className="card-content">
+                                <p>Sophisticated dual-contract AI strategy. Analyzes all 12 markets simultaneously, scores opportunities, and selects the best symbol meeting 3 critical conditions for 80% theoretical win rate.</p>
+
+                                {isAutoO5U4Active && (
+                                    <div className="recommendation-display">
+                                        <div className="rec-item">
+                                            <span>AI Best Symbol:</span>
+                                            <strong>{bestO5U4Opportunity?.symbol || 'Analyzing...'}</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Strategy:</span>
+                                            <strong>OVER 5 + UNDER 4</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>AI Score:</span>
+                                            <strong>{bestO5U4Opportunity?.score.toFixed(1) || '0.0'}/100</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Conditions:</span>
+                                            <strong>{bestO5U4Opportunity?.conditionsMetCount || 0}/3 Met</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Opportunities:</span>
+                                            <strong>{o5u4Opportunities.length} Found</strong>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                className={`strategy-toggle ${isAutoO5U4Active ? 'active' : ''}`}
+                                onClick={() => toggleStrategy('o5u4')}
+                                disabled={!isAnalysisReady || isContinuousTrading}
+                            >
+                                {isAutoO5U4Active ? 'Deactivate' : 'Activate'} Strategy
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Trading Controls */}
+                    <div className="trading-controls">
+                        <div className="main-controls">
+                            <button
+                                className={`main-trading-btn ${isContinuousTrading ? 'stop' : 'start'}`}
+                                onClick={handleTrade}
+                                disabled={!isAnalysisReady || !hasActiveStrategy || (connectionStatus !== 'connected')}
+                            >
+                                <div className="btn-content">
+                                    <div className="btn-icon">
+                                        {isContinuousTrading ? (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                                <rect x="6" y="4" width="4" height="16"/>
+                                                <rect x="14" y="4" width="4" height="16"/>
+                                            </svg>
+                                        ) : (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                                <polygon points="8,5 8,19 19,12"/>
+                                            </svg>
                                         )}
                                     </div>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
+                                    <span>{isContinuousTrading ? 'STOP TRADING' : 'START TRADING'}</span>
+                                </div>
+                            </button>
+
+                            {isTradeInProgress && (
+                                <div className="trade-progress">
+                                    <div className="progress-spinner"></div>
+                                    <span>Trade in progress...</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Transaction History */}
+                    <div className="transaction-history">
+                        <h3>Transaction Log</h3>
+                        {transactionHistory.length === 0 ? (
+                            <p>No transactions yet.</p>
+                        ) : (
+                            <ul>
+                                {transactionHistory.map((transaction) => (
+                                    <li key={transaction.id} className={`transaction-item ${transaction.result}`}>
+                                        <div className="transaction-info">
+                                            <span className="timestamp">{transaction.timestamp.toLocaleTimeString()}</span>
+                                            <span className="type">{transaction.type}</span>
+                                            <span className="symbol">{transaction.symbol}</span>
+                                            <span className="amount">${transaction.amount.toFixed(2)}</span>
+                                        </div>
+                                        <div className="transaction-details">
+                                            <span className={`result ${transaction.result}`}>
+                                                {transaction.result.toUpperCase()}
+                                            </span>
+                                            <span className={`profit ${transaction.profit >= 0 ? 'positive' : 'negative'}`}>
+                                                {transaction.profit >= 0 ? '+' : ''}{transaction.profit.toFixed(2)} USD
+                                            </span>
+                                            {transaction.details && (
+                                                <div className="transaction-note">
+                                                    {transaction.details}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+
                 </div>
 
+                {/* Advanced Display Modal */}
+                <AdvancedDisplayModal
+                    isOpen={showAdvancedModal}
+                    onClose={() => setShowAdvancedModal(false)}
+                    onApplySettings={handleAdvancedSettings}
+                />
             </div>
-
-            {/* Advanced Display Modal */}
-            <AdvancedDisplayModal
-                isOpen={showAdvancedModal}
-                onClose={() => setShowAdvancedModal(false)}
-                onApplySettings={handleAdvancedSettings}
-            />
-        </div>
-    );
+        );
+    } catch (error: any) {
+        console.error('Trading Hub Render Error:', error);
+        setHasError(true);
+        setErrorMessage(`Render error: ${error.message || 'Unknown render error'}`);
+        return (
+            <div className="trading-hub-error" style={{
+                padding: '40px',
+                textAlign: 'center',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '8px',
+                margin: '20px'
+            }}>
+                <h3 style={{ color: '#ef4444', marginBottom: '16px' }}>Trading Hub Render Error</h3>
+                <p style={{ marginBottom: '16px' }}>Failed to render Trading Hub component</p>
+                <button
+                    onClick={() => window.location.reload()}
+                    style={{
+                        padding: '8px 16px',
+                        background: '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Refresh Page
+                </button>
+            </div>
+        );
+    }
 };
 
 export default TradingHubDisplay;
