@@ -1,5 +1,4 @@
 export { D_ALEMBERT } from './d_alembert';
-export { DIGIT_PREDICTION_RECOVERY } from './digit_prediction_recovery';
 export { MARTINGALE } from './martingale';
 export { OSCARS_GRIND } from './oscars_grind';
 export { REVERSE_D_ALEMBERT } from './reverse_dalembert';

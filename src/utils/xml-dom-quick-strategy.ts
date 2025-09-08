@@ -35,30 +35,3 @@ export const addDynamicBlockToDOM = (
         }
     }
 };
-
-switch (strategy) {
-        case 'DIGIT_PREDICTION_RECOVERY':
-            xml_content = await import('../xml/digit_prediction_recovery.xml?raw');
-            break;
-        case 'MARTINGALE':
-            xml_content = await import('../xml/martingale.xml?raw');
-            break;
-        case 'D_ALEMBERT':
-            xml_content = await import('../xml/dalembert.xml?raw');
-            break;
-        case 'OSCARS_GRIND':
-            xml_content = await import('../xml/oscars_grind.xml?raw');
-            break;
-        case 'REVERSE_MARTINGALE':
-            xml_content = await import('../xml/reverse_martingale.xml?raw');
-            break;
-        case 'REVERSE_D_ALEMBERT':
-            xml_content = await import('../xml/reverse_dalembert.xml?raw');
-            break;
-        case 'STRATEGY_1_3_2_6':
-            xml_content = await import('../xml/martingale.xml?raw');
-            break;
-        default:
-            xml_content = await import('../xml/martingale.xml?raw');
-            break;
-    }
