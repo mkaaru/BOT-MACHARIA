@@ -7,14 +7,45 @@ import AdvancedDisplayModal from './advanced-display-modal';
 import DisplayToggle from './display-toggle';
 import ProfitLossDisplay from './profit-loss-display';
 import marketAnalyzer, { type O5U4Conditions, type MarketStats } from '../../services/market-analyzer';
+import { Text } from '@deriv/ui';
 
 interface TradeRecommendation {
     symbol: string;
-    strategy: 'over' | 'under' | 'differ' | 'even' | 'odd';
-    barrier?: string;
-    confidence: number;
-    reason: string;
     timestamp: number;
+    evenOdd: {
+        recommendation: 'Even' | 'Odd' | null;
+        confidence: number;
+        evenPercentage: number;
+        oddPercentage: number;
+        streak?: {
+            type: 'even' | 'odd';
+            length: number;
+        };
+    };
+    overUnder: {
+        recommendation: 'Over' | 'Under' | null;
+        confidence: number;
+        overPercentage: number;
+        underPercentage: number;
+        barrier?: number;
+        streak?: {
+            type: 'over' | 'under';
+            length: number;
+        };
+        analysis?: {
+            dynamicBarrier: number;
+            accuracy: number;
+            pattern: string;
+        };
+    };
+    matchesDiffers: {
+        recommendation: 'Matches' | 'Differs' | null;
+        confidence: number;
+        targetDigit?: number;
+        currentDigit?: number;
+    };
+    totalTicks: number;
+    isReady: boolean;
 }
 
 interface O5U4Trade {
@@ -24,10 +55,16 @@ interface O5U4Trade {
     stake: number;
     payout: number;
     profit: number;
+    symbol: string;
 }
 
 const TradingHubDisplay: React.FC = () => {
     const MINIMUM_STAKE = '0.35';
+
+    // Error handling state
+    const [hasError, setHasError] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [retryCount, setRetryCount] = useState(0);
 
     // Strategy states - only one can be active at a time
     const [isAutoDifferActive, setIsAutoDifferActive] = useState(false);
@@ -129,46 +166,336 @@ const TradingHubDisplay: React.FC = () => {
         }
     }, [run_panel]);
 
-    // Enhanced market analysis callback
-    const handleMarketAnalysis = useCallback((newRecommendation: TradeRecommendation | null, stats: Record<string, MarketStats>, o5u4Data?: O5U4Conditions[]) => {
-        setAnalysisCount(prev => prev + 1);
-        setLastAnalysisTime(new Date().toLocaleTimeString());
-        setMarketStats(stats);
+    // Function to get recommendations based on advanced analysis
+    const getAdvancedDigitRecommendation = useCallback((overUnderAnalysis: any, evenCount: number, oddCount: number) => {
+        const recommendations = [];
+        const { bestBarrier, bestAccuracy, currentStreaks, overCount, underCount, pattern } = overUnderAnalysis;
 
-        if (o5u4Data) {
-            setO5U4Opportunities(o5u4Data);
-            setBestO5U4Opportunity(o5u4Data.length > 0 ? o5u4Data[0] : null);
+        // Advanced Over/Under recommendations
+        let confidence = 'Low';
+        if (bestAccuracy > 70) confidence = 'High';
+        else if (bestAccuracy > 60) confidence = 'Medium';
+
+        // Streak-based contrarian logic
+        if (currentStreaks.over >= 4) {
+            recommendations.push({ 
+                type: 'Under', 
+                confidence: currentStreaks.over >= 6 ? 'High' : 'Medium',
+                reason: `${currentStreaks.over} consecutive Over digits (Barrier: ${bestBarrier}) - Strong reversal signal`,
+                barrier: bestBarrier,
+                accuracy: bestAccuracy,
+                pattern: pattern
+            });
+        } else if (currentStreaks.under >= 4) {
+            recommendations.push({ 
+                type: 'Over', 
+                confidence: currentStreaks.under >= 6 ? 'High' : 'Medium',
+                reason: `${currentStreaks.under} consecutive Under digits (Barrier: ${bestBarrier}) - Strong reversal signal`,
+                barrier: bestBarrier,
+                accuracy: bestAccuracy,
+                pattern: pattern
+            });
+        } else {
+            // Pattern-based prediction when no strong streak
+            if (overCount > underCount + 3) {
+                recommendations.push({ 
+                    type: 'Under', 
+                    confidence: confidence,
+                    reason: `Over bias detected (${overCount}/${underCount}) with ${bestAccuracy.toFixed(1)}% accuracy`,
+                    barrier: bestBarrier,
+                    accuracy: bestAccuracy,
+                    pattern: pattern
+                });
+            } else if (underCount > overCount + 3) {
+                recommendations.push({ 
+                    type: 'Over', 
+                    confidence: confidence,
+                    reason: `Under bias detected (${underCount}/${overCount}) with ${bestAccuracy.toFixed(1)}% accuracy`,
+                    barrier: bestBarrier,
+                    accuracy: bestAccuracy,
+                    pattern: pattern
+                });
+            }
         }
 
-        // Count ready symbols
-        const readyCount = Object.values(stats).filter(stat => stat.isReady).length;
-        setReadySymbolsCount(readyCount);
-
-        if (newRecommendation) {
-            setRecommendation(newRecommendation);
+        // Even/Odd analysis
+        if (evenCount > oddCount + 3) {
+            recommendations.push({ 
+                type: 'Odd', 
+                confidence: 'Medium', 
+                reason: `Even digits dominant (${evenCount}/${oddCount}) - expect reversal`,
+                pattern: 'even_odd'
+            });
+        } else if (oddCount > evenCount + 3) {
+            recommendations.push({ 
+                type: 'Even', 
+                confidence: 'Medium', 
+                reason: `Odd digits dominant (${oddCount}/${evenCount}) - expect reversal`,
+                pattern: 'even_odd'
+            });
         }
 
-        if (!isAnalysisReady && readyCount >= 3) {
-            setIsAnalysisReady(true);
-        }
+        return recommendations;
+    }, []);
 
-        // Execute trades based on active strategy and new data
-        if (isContinuousTrading && !isTradeInProgress) {
-            setTimeout(async () => {
-                try {
-                    if (isAutoDifferActive && newRecommendation?.strategy === 'differ') {
-                        await executeDigitDifferTrade();
-                    } else if (isAutoOverUnderActive && newRecommendation && ['over', 'under'].includes(newRecommendation.strategy)) {
-                        await executeDigitOverTrade();
-                    } else if (isAutoO5U4Active && o5u4Data && o5u4Data.length > 0) {
-                        await executeO5U4Trade();
-                    }
-                } catch (error) {
-                    console.error('Advanced trade execution error:', error);
+    // Enhanced digit analysis with advanced over/under analysis
+    const analyzeDigitPatterns = useCallback((symbol: string) => {
+        if (!tick_data[symbol] || tick_data[symbol].length < 20) return null;
+
+        const ticks = tick_data[symbol];
+        const lastTick = ticks[ticks.length - 1];
+        const lastDigit = Math.floor(lastTick.quote % 10);
+
+        // Get more historical data for better analysis
+        const recentDigits = ticks.slice(-50).map(tick => Math.floor(tick.quote % 10));
+        const last20Digits = recentDigits.slice(-20);
+
+        // Advanced Over/Under Analysis with Dynamic Barrier Optimization
+        const analyzeOverUnder = () => {
+            const barriers = [2, 3, 4, 5, 6, 7];
+            let bestBarrier = 5;
+            let bestAccuracy = 0;
+            const barrierAnalysis = {};
+
+            barriers.forEach(barrier => {
+                const predictions = [];
+                const actual = [];
+
+                // Analyze last 30 digits for pattern-based prediction
+                for (let i = 10; i < last20Digits.length - 1; i++) {
+                    const historyWindow = last20Digits.slice(i - 10, i);
+                    const overCount = historyWindow.filter(d => d > barrier).length;
+                    const underCount = historyWindow.filter(d => d < barrier).length;
+
+                    // Predict based on pattern
+                    const prediction = overCount > underCount ? 'over' : 'under';
+                    const actualNext = last20Digits[i + 1] > barrier ? 'over' : 'under';
+
+                    predictions.push(prediction);
+                    actual.push(actualNext);
                 }
-            }, 200);
+
+                // Calculate accuracy
+                const correct = predictions.filter((pred, idx) => pred === actual[idx]).length;
+                const accuracy = predictions.length > 0 ? (correct / predictions.length) * 100 : 0;
+
+                barrierAnalysis[barrier] = {
+                    accuracy: accuracy,
+                    overCount: last20Digits.filter(d => d > barrier).length,
+                    underCount: last20Digits.filter(d => d < barrier).length,
+                    equalCount: last20Digits.filter(d => d === barrier).length
+                };
+
+                if (accuracy > bestAccuracy) {
+                    bestAccuracy = accuracy;
+                    bestBarrier = barrier;
+                }
+            });
+
+            // Advanced streak detection
+            const currentStreaks = { over: 0, under: 0 };
+            const recentPattern = [];
+
+            for (let i = last20Digits.length - 1; i >= 0; i--) {
+                const digit = last20Digits[i];
+                const isOver = digit > bestBarrier;
+                const isUnder = digit < bestBarrier;
+
+                if (isOver) {
+                    recentPattern.unshift('O');
+                    if (currentStreaks.under === 0) {
+                        currentStreaks.over++;
+                    } else {
+                        break;
+                    }
+                } else if (isUnder) {
+                    recentPattern.unshift('U');
+                    if (currentStreaks.over === 0) {
+                        currentStreaks.under++;
+                    } else {
+                        break;
+                    }
+                } else {
+                    recentPattern.unshift('E');
+                    break;
+                }
+            }
+
+            return {
+                bestBarrier,
+                bestAccuracy,
+                barrierAnalysis,
+                currentStreaks,
+                pattern: recentPattern.slice(-10).join(''),
+                ...barrierAnalysis[bestBarrier]
+            };
+        };
+
+        const overUnderAnalysis = analyzeOverUnder();
+
+        // Analyze patterns
+        const digitCounts = last20Digits.reduce((acc, digit) => {
+            acc[digit] = (acc[digit] || 0) + 1;
+            return acc;
+        }, {} as Record<number, number>);
+
+        // Even/Odd analysis
+        const evenCount = last20Digits.filter(d => d % 2 === 0).length;
+        const oddCount = last20Digits.filter(d => d % 2 === 1).length;
+
+        return {
+            lastDigit,
+            recentDigits: last20Digits,
+            digitCounts,
+            overUnderAnalysis,
+            evenCount,
+            oddCount,
+            recommendation: getAdvancedDigitRecommendation(overUnderAnalysis, evenCount, oddCount)
+        };
+    }, [tick_data, getAdvancedDigitRecommendation]);
+
+    // Enhanced market analyzer with advanced over/under analysis from volatility analyzer
+    const handleMarketAnalysis = useCallback((analysisData: any) => {
+        if (!analysisData) return;
+
+        const {
+            symbol,
+            evenPercentage,
+            oddPercentage,
+            overPercentage,
+            underPercentage,
+            mostFrequentDigit,
+            currentLastDigit,
+            streakInfo,
+            totalTicks,
+            digitFrequencies,
+            tickHistory,
+            barrier = 5
+        } = analysisData;
+
+        // Advanced over/under analysis with barrier calculation
+        let advancedOverPercentage = overPercentage;
+        let advancedUnderPercentage = underPercentage;
+        let dynamicBarrier = barrier;
+
+        if (tickHistory && Array.isArray(tickHistory) && tickHistory.length > 0) {
+            // Calculate digit frequencies for advanced analysis
+            const digitCounts = Array(10).fill(0);
+            tickHistory.forEach(tick => {
+                if (tick.last_digit !== undefined) {
+                    digitCounts[tick.last_digit]++;
+                }
+            });
+
+            // Dynamic barrier optimization - find the barrier that gives best prediction accuracy
+            let bestBarrier = 5;
+            let bestAccuracy = 0;
+
+            for (let testBarrier = 2; testBarrier <= 7; testBarrier++) {
+                let overCount = 0;
+                let underCount = 0;
+
+                for (let i = 0; i < 10; i++) {
+                    if (i >= testBarrier) {
+                        overCount += digitCounts[i];
+                    } else {
+                        underCount += digitCounts[i];
+                    }
+                }
+
+                const overPerc = (overCount / totalTicks) * 100;
+                const underPerc = (underCount / totalTicks) * 100;
+                const accuracy = Math.abs(overPerc - 50) + Math.abs(underPerc - 50);
+
+                if (accuracy > bestAccuracy) {
+                    bestAccuracy = accuracy;
+                    bestBarrier = testBarrier;
+                    advancedOverPercentage = overPerc;
+                    advancedUnderPercentage = underPerc;
+                }
+            }
+
+            dynamicBarrier = bestBarrier;
+
+            // Pattern-based enhancement for over/under
+            if (tickHistory.length >= 10) {
+                const recentDigits = tickHistory.slice(-10).map(tick => tick.last_digit || 0);
+                const recentOverCount = recentDigits.filter(digit => digit >= dynamicBarrier).length;
+                const recentUnderCount = 10 - recentOverCount;
+
+                // Adjust confidence based on recent patterns
+                const recentOverPerc = (recentOverCount / 10) * 100;
+                const recentUnderPerc = (recentUnderCount / 10) * 100;
+
+                // Weighted average of historical and recent data
+                advancedOverPercentage = (advancedOverPercentage * 0.7) + (recentOverPerc * 0.3);
+                advancedUnderPercentage = (advancedUnderPercentage * 0.7) + (recentUnderPerc * 0.3);
+            }
         }
-    }, [isAnalysisReady, isContinuousTrading, isTradeInProgress, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active]);
+
+        // Enhanced streak analysis for over/under
+        let overUnderStreak = { type: 'over' as 'over' | 'under', length: 0 };
+        if (tickHistory && tickHistory.length > 1) {
+            const lastDigit = tickHistory[tickHistory.length - 1]?.last_digit || 0;
+            const currentType: 'over' | 'under' = lastDigit >= dynamicBarrier ? 'over' : 'under';
+
+            let streakLength = 1;
+            for (let i = tickHistory.length - 2; i >= 0; i--) {
+                const digit = tickHistory[i]?.last_digit || 0;
+                const digitType: 'over' | 'under' = digit >= dynamicBarrier ? 'over' : 'under';
+
+                if (digitType === currentType) {
+                    streakLength++;
+                } else {
+                    break;
+                }
+            }
+            overUnderStreak = { type: currentType, length: streakLength };
+        }
+
+        // Update recommendation with advanced over/under analysis
+        const newRecommendation: TradeRecommendation = {
+            symbol,
+            timestamp: Date.now(),
+            evenOdd: {
+                recommendation: evenPercentage > 55 ? 'Even' : oddPercentage > 55 ? 'Odd' : null,
+                confidence: Math.max(evenPercentage, oddPercentage),
+                evenPercentage,
+                oddPercentage,
+                streak: streakInfo
+            },
+            overUnder: {
+                recommendation: advancedOverPercentage > 55 ? 'Over' : advancedUnderPercentage > 55 ? 'Under' : null,
+                confidence: Math.max(advancedOverPercentage, advancedUnderPercentage),
+                overPercentage: advancedOverPercentage,
+                underPercentage: advancedUnderPercentage,
+                barrier: dynamicBarrier,
+                streak: overUnderStreak,
+                analysis: {
+                    dynamicBarrier,
+                    accuracy: Math.abs(advancedOverPercentage - 50) + Math.abs(advancedUnderPercentage - 50),
+                    pattern: tickHistory?.slice(-5).map(tick => 
+                        (tick.last_digit || 0) >= dynamicBarrier ? 'O' : 'U'
+                    ).join('') || ''
+                }
+            },
+            matchesDiffers: {
+                recommendation: mostFrequentDigit !== undefined && digitFrequencies?.[mostFrequentDigit]?.percentage > 15 ? 'Matches' : 'Differs',
+                confidence: mostFrequentDigit !== undefined ? digitFrequencies?.[mostFrequentDigit]?.percentage || 0 : 0,
+                targetDigit: mostFrequentDigit,
+                currentDigit: currentLastDigit
+            },
+            totalTicks,
+            isReady: totalTicks >= 50
+        };
+
+        setRecommendation(newRecommendation);
+        setIsAnalysisReady(newRecommendation.isReady);
+
+        if (newRecommendation.isReady && !connectionStatus.includes('connected')) {
+            setConnectionStatus('connected');
+        }
+    }, [connectionStatus]);
 
     // Enhanced stake management with martingale
     const calculateNextStake = useCallback((isWin: boolean): string => {
@@ -203,7 +530,7 @@ const TradingHubDisplay: React.FC = () => {
     }, []);
 
     // Enhanced contract monitoring with improved settlement detection
-    const monitorContract = useCallback(async (contractId: string, isO5U4Part: boolean = false, contractType?: string, symbol?: string, stake?: number): Promise<boolean> => {
+    const monitorContract = useCallback((contractId: string, isO5U4Part: boolean = false, contractType?: string, symbol?: string, stake?: number): Promise<boolean> => {
         return new Promise((resolve) => {
             let contractData: any = null;
             let contractResolved = false;
@@ -425,7 +752,7 @@ const TradingHubDisplay: React.FC = () => {
     }, [run_panel, client]);
 
     // Execute trade using the enhanced trade engine
-    const executeTrade = useCallback(async (
+    const executeTrade = useCallback((
         strategy: string,
         symbol: string,
         contractType: string,
@@ -631,7 +958,7 @@ const TradingHubDisplay: React.FC = () => {
                     console.warn('Transactions store not available for logging');
                 }
 
-                // Update balance immediately after purchase
+                // Update balance for non-O5U4 trades
                 if (!isO5U4Part) {
                     waitingForSettlementRef.current = true;
                 }
@@ -782,53 +1109,117 @@ const TradingHubDisplay: React.FC = () => {
         }
     }, [recommendation, isTradeInProgress, executeTrade]);
 
-    const executeDigitOverTrade = useCallback(async (): Promise<boolean> => {
-        if (!recommendation || isTradeInProgress) {
-            console.log('Cannot execute Over/Under trade: no recommendation or trade in progress');
-            return false;
+    // Enhanced Auto Over/Under strategy with advanced volatility analyzer integration
+    const executeDigitOverTrade = useCallback(async () => {
+        if (!recommendation?.overUnder || isTradeInProgress || !client?.loginid || !api_base.is_authorized) {
+            return;
         }
 
-        // Validate recommendation quality
-        if (recommendation.confidence < 70) {
-            console.log(`Over/Under confidence too low: ${recommendation.confidence}% < 70%`);
-            return false;
+        const { 
+            overPercentage, 
+            underPercentage, 
+            barrier = 5, 
+            streak,
+            analysis 
+        } = recommendation.overUnder;
+
+        // Advanced decision logic using volatility analyzer insights
+        let contractType = '';
+        let dynamicBarrier = analysis?.dynamicBarrier || barrier;
+
+        // Enhanced confidence thresholds with streak consideration
+        const streakBonus = streak && streak.length >= 3 ? 2 : 0; // Bonus confidence for streaks
+        const requiredConfidence = 55 - streakBonus;
+
+        if (overPercentage > requiredConfidence + 2) {
+            contractType = 'DIGITOVER';
+        } else if (underPercentage > requiredConfidence + 2) {
+            contractType = 'DIGITUNDER';
+        } else if (overPercentage > underPercentage && overPercentage > requiredConfidence) {
+            contractType = 'DIGITOVER';
+        } else if (underPercentage > overPercentage && underPercentage > requiredConfidence) {
+            contractType = 'DIGITUNDER';
+        } else {
+            console.log('Over/Under conditions not met for trading', {
+                overPercentage: overPercentage.toFixed(2),
+                underPercentage: underPercentage.toFixed(2),
+                requiredConfidence,
+                barrier: dynamicBarrier,
+                streak: streak ? `${streak.length} ${streak.type}` : 'none'
+            });
+            return;
         }
+
+        // Streak-based barrier adjustment for better accuracy
+        if (streak && streak.length >= 4) {
+            if (streak.type === 'over' && contractType === 'DIGITUNDER') {
+                dynamicBarrier = Math.max(2, dynamicBarrier - 1); // Lower barrier for contrarian play
+            } else if (streak.type === 'under' && contractType === 'DIGITOVER') {
+                dynamicBarrier = Math.min(8, dynamicBarrier + 1); // Higher barrier for contrarian play
+            }
+        }
+
+        setIsTradeInProgress(true);
+        const timestamp = new Date().toLocaleTimeString();
 
         try {
-            console.log(`Executing Enhanced Auto Over/Under trade:`, {
-                symbol: recommendation.symbol,
-                strategy: recommendation.strategy.toUpperCase(),
-                barrier: recommendation.barrier,
-                confidence: recommendation.confidence.toFixed(1) + '%',
-                reason: recommendation.reason
+            console.log(`[${timestamp}] 🎯 Executing Advanced Over/Under trade:`, {
+                contractType,
+                barrier: dynamicBarrier,
+                confidence: Math.max(overPercentage, underPercentage).toFixed(2),
+                streak: streak ? `${streak.length} ${streak.type}` : 'none',
+                pattern: analysis?.pattern || 'N/A',
+                accuracy: analysis?.accuracy?.toFixed(2) || 'N/A'
             });
 
-            globalObserver.emit('ui.log.info', 
-                `Auto Over/Under: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${recommendation.symbol} (${recommendation.confidence.toFixed(1)}% confidence)`
-            );
+            const tradeParams = {
+                contract_type: contractType,
+                symbol: 'R_100',
+                basis: 'stake',
+                amount: parseFloat(appliedStake),
+                duration: 1,
+                duration_unit: 't',
+                barrier: dynamicBarrier.toString()
+            };
 
-            const contractType = recommendation.strategy === 'over' ? 'DIGITOVER' : 'DIGITUNDER';
-            const success = await executeTrade(
-                'Enhanced Auto Over/Under',
-                recommendation.symbol,
-                contractType,
-                recommendation.barrier
-            );
+            // Get proposal first
+            const proposalResponse = await api_base.api.send({ proposal: 1, ...tradeParams });
 
-            if (success) {
-                globalObserver.emit('ui.log.success', 
-                    `Over/Under trade executed successfully: ${recommendation.reason}`
-                );
+            if (proposalResponse.error) {
+                throw new Error(proposalResponse.error.message);
             }
 
-            return success;
+            // Execute the purchase
+            const buyResponse = await api_base.api.send({
+                buy: proposalResponse.proposal.id,
+                price: parseFloat(appliedStake)
+            });
+
+            if (buyResponse.error) {
+                throw new Error(buyResponse.error.message);
+            }
+
+            // Log successful purchase with enhanced details
+            globalObserver.emit('ui.log.info', 
+                `Advanced Over/Under ${contractType} (Barrier: ${dynamicBarrier}) purchased: ID ${buyResponse.buy.contract_id}, Stake: ${appliedStake}, Confidence: ${Math.max(overPercentage, underPercentage).toFixed(1)}%`);
+
+            console.log(`[${timestamp}] ✅ Advanced Over/Under trade executed successfully:`, {
+                contractId: buyResponse.buy.contract_id,
+                contractType,
+                barrier: dynamicBarrier,
+                stake: appliedStake,
+                confidence: Math.max(overPercentage, underPercentage).toFixed(2),
+                streak: streak ? `${streak.length} ${streak.type}` : 'none',
+                pattern: analysis?.pattern || 'N/A'
+            });
+
         } catch (error: any) {
-            const errorMsg = error?.message || 'Unknown error in Over/Under execution';
-            console.error('Enhanced Auto Over/Under execution failed:', errorMsg);
-            globalObserver.emit('ui.log.error', `Over/Under strategy failed: ${errorMsg}`);
-            return false;
+            console.error(`[${timestamp}] ❌ Advanced Over/Under trade failed:`, error);
+            globalObserver.emit('ui.log.error', `Advanced Over/Under trade failed: ${error.message}`);
+        } finally {
+            setIsTradeInProgress(false);
         }
-    }, [recommendation, isTradeInProgress, executeTrade]);
+    }, [recommendation, isTradeInProgress, client, appliedStake]);
 
     const executeO5U4Trade = useCallback(async (): Promise<boolean> => {
         if (isTradeInProgress || !bestO5U4Opportunity) return false;
@@ -857,7 +1248,7 @@ const TradingHubDisplay: React.FC = () => {
                 `O5U4 ${selectedSymbol} Under 4: ${under4Result ? 'WON' : 'LOST'}`);
 
             // Enhanced O5U4 result processing
-            const completedO5U4Trades = [
+            const completedO5U4Trades: O5U4Trade[] = [
                 { 
                     contractId: `O5U4_OVER_5_${selectedSymbol}`, 
                     contractType: 'DIGITOVER', 
@@ -1209,10 +1600,30 @@ const TradingHubDisplay: React.FC = () => {
     }, [isContinuousTrading, isAutoDifferActive, isAutoOverUnderActive, isAutoO5U4Active, 
         isTradeInProgress, recommendation, stopTrading, executeDigitDifferTrade, executeDigitOverTrade, executeO5U4Trade, client]);
 
+    // Error recovery function
+    const handleError = useCallback((error: any, context: string) => {
+        console.error(`Trading Hub Error (${context}):`, error);
+        const message = error?.message || error?.toString() || 'Unknown error occurred';
+        setErrorMessage(`${context}: ${message}`);
+        setHasError(true);
+
+        // Auto-retry mechanism for connection errors
+        if (retryCount < 3 && (message.includes('connection') || message.includes('network') || message.includes('fetch'))) {
+            setTimeout(() => {
+                setRetryCount(prev => prev + 1);
+                setHasError(false);
+                setErrorMessage('');
+            }, 2000 * (retryCount + 1));
+        }
+    }, [retryCount]);
+
     // Initialize component and enhanced market analyzer
     useEffect(() => {
         const initializeApi = async () => {
             try {
+                setHasError(false);
+                setErrorMessage('');
+
                 if (!api_base.api || api_base.api.connection?.readyState !== 1) {
                     await api_base.init();
                 }
@@ -1222,8 +1633,7 @@ const TradingHubDisplay: React.FC = () => {
                     await api_base.api?.send({ authorize: initToken });
                 }
             } catch (error: any) {
-                console.error('Failed to initialize API:', error);
-                globalObserver.emit('ui.log.error', `API initialization failed: ${error.message}`);
+                handleError(error, 'API Initialization');
             }
         };
 
@@ -1247,11 +1657,15 @@ const TradingHubDisplay: React.FC = () => {
             setStopLoss(savedStopLoss);
         }
 
-        // Initialize enhanced market analyzer
-        const unsubscribe = marketAnalyzer.onAnalysis(handleMarketAnalysis);
-        marketAnalyzer.start();
-
-        console.log('Enhanced Trading Hub initialized with multi-symbol market analyzer');
+        // Initialize enhanced market analyzer with error handling
+        let unsubscribe: (() => void) | undefined;
+        try {
+            unsubscribe = marketAnalyzer.onAnalysis(handleMarketAnalysis);
+            marketAnalyzer.start();
+            console.log('Enhanced Trading Hub initialized with multi-symbol market analyzer');
+        } catch (error) {
+            handleError(error, 'Market Analyzer Initialization');
+        }
 
         return () => {
             if (tradingIntervalRef.current) {
@@ -1262,10 +1676,16 @@ const TradingHubDisplay: React.FC = () => {
             }
 
             // Clean up market analyzer
-            unsubscribe();
-            marketAnalyzer.stop();
+            try {
+                if (unsubscribe) {
+                    unsubscribe();
+                }
+                marketAnalyzer.stop();
+            } catch (error) {
+                console.warn('Error during cleanup:', error);
+            }
         };
-    }, [client?.loginid, client?.token, handleMarketAnalysis]);
+    }, [client?.loginid, client?.token, handleMarketAnalysis, handleError]);
 
     // Monitor connection status
     useEffect(() => {
@@ -1303,367 +1723,463 @@ const TradingHubDisplay: React.FC = () => {
         globalObserver.emit('ui.log.success', `Advanced settings applied - Stake: ${settings.stake}, Reference: ${settings.referenceDigit}`);
     };
 
-    return (
-        <div className="trading-hub-modern">
-            <div className="hub-header">
-                <div className="header-main">
-                    <div className="logo-section">
-                        <div className="logo-icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                            </svg>
-                        </div>
-                        <div className="title-group">
-                            <h1 className="hub-title">Trading Hub</h1>
-                            <p className="hub-subtitle">AI-Powered Trading Strategies</p>
-                        </div>
-                    </div>
-
-                    <div className="header-controls">
-                        <DisplayToggle onToggle={setIsAdvancedView} />
-                        <button
-                            className="advanced-settings-btn"
-                            onClick={() => setShowAdvancedModal(true)}
-                        >
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
-                            </svg>
-                            Advanced Settings
-                        </button>
-                    </div>
-
-                    <div className="settings-controls">
-                        <div className="control-group">
-                            <label>Initial Stake</label>
-                            <input
-                                type="number"
-                                value={initialStake}
-                                onChange={(e) => {
-                                    const value = Math.max(parseFloat(e.target.value), parseFloat(MINIMUM_STAKE)).toFixed(2);
-                                    setInitialStake(value);
-                                    setAppliedStake(value);
-                                    currentStakeRef.current = value;
-                                    localStorage.setItem('tradingHub_initialStake', value);
+    // Error boundary display
+    if (hasError) {
+        return (
+            <div className="trading-hub-modern">
+                <div className="hub-header">
+                    <div className="error-container" style={{
+                        padding: '40px',
+                        textAlign: 'center',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        borderRadius: '12px',
+                        margin: '20px'
+                    }}>
+                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+                        <h2 style={{ color: '#ef4444', marginBottom: '16px' }}>Trading Hub Error</h2>
+                        <p style={{ color: 'rgba(255, 255, 255, 0.8)', marginBottom: '24px' }}>
+                            {errorMessage || 'An unexpected error occurred while loading the Trading Hub.'}
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                            <button
+                                onClick={() => {
+                                    setHasError(false);
+                                    setErrorMessage('');
+                                    setRetryCount(0);
+                                    window.location.reload();
                                 }}
-                                className="stake-input"
-                                step="0.01"
-                                min={MINIMUM_STAKE}
-                                disabled={isContinuousTrading}
-                            />
-                        </div>
-
-                        <div className="control-group">
-                            <label>Martingale</label>
-                            <input
-                                type="number"
-                                value={martingale}
-                                onChange={(e) => {
-                                    const value = Math.max(parseFloat(e.target.value), 1.1).toFixed(2);
-                                    setMartingale(value);
-                                    localStorage.setItem('tradingHub_martingale', value);
+                                style={{
+                                    padding: '12px 24px',
+                                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontWeight: '600'
                                 }}
-                                className="martingale-input"
-                                step="0.1"
-                                min="1.1"
-                                disabled={isContinuousTrading}
-                            />
-                        </div>
-
-                        <div className="control-group">
-                            <label>Stop Loss ($)<br/><small>Based on Run Panel Total</small></label>
-                            <input
-                                type="number"
-                                value={stopLoss}
-                                onChange={(e) => {
-                                    const value = Math.max(parseFloat(e.target.value), 1).toFixed(2);
-                                    setStopLoss(value);
-                                    localStorage.setItem('tradingHub_stopLoss', value);
+                            >
+                                Retry
+                            </button>
+                            <button
+                                onClick={() => window.location.href = '/'}
+                                style={{
+                                    padding: '12px 24px',
+                                    background: 'rgba(255, 255, 255, 0.1)',
+                                    color: 'white',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontWeight: '600'
                                 }}
-                                className="stop-loss-input"
-                                step="0.01"
-                                min="1"
-                                disabled={isContinuousTrading}
-                                title="Trading will stop when total loss in Run Panel exceeds this amount"
-                            />
+                            >
+                                Go Home
+                            </button>
                         </div>
-                    </div>
-                </div>
-
-                <div className="status-bar">
-                    <div className="status-item">
-                        <div className={`status-dot ${isAnalysisReady ? 'ready' : 'loading'}`}></div>
-                        Multi-Symbol AI: {isAnalysisReady ? 'Ready' : 'Analyzing...'}
-                    </div>
-                    <div className="status-separator"></div>
-                    <div className="status-item">
-                        Ready Markets: {readySymbolsCount}/12
-                    </div>
-                    <div className="status-separator"></div>
-                    <div className="status-item">
-                        Analysis: {analysisCount} cycles
-                    </div>
-                    <div className="status-separator"></div>
-                    <div className="status-item">
-                        Last Update: {lastAnalysisTime || 'N/A'}
-                    </div>
-                    <div className="status-separator"></div>
-                    <div className="status-item">
-                        <div className={`status-dot ${connectionStatus}`}></div>
-                        {connectionStatus === 'connected' ? 'Connected' :
-                         connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-                        {connectionStatus === 'connected' && !isApiAuthorized && ' (Not Authorized)'}
-                    </div>
-                    <div className="status-separator"></div>
-                    <div className="status-item">
-                        <div className={`status-dot ${apiConnected ? 'connected' : 'disconnected'}`}></div>
-                        <span>{apiConnected ? 'API Connected' : 'API Disconnected'}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div className="trading-content">
-                <div className="strategy-grid">
-                    {/* Auto Differ Strategy */}
-                    <div className={`strategy-card ${isAutoDifferActive ? 'active' : ''}`}>
-                        <div className="card-header">
-                            <div className="strategy-icon">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                                </svg>
-                            </div>
-                            <div className="strategy-info">
-                                <h4>Auto Differ</h4>
-                                <p>Digit difference prediction</p>
-                            </div>
-                            <div className={`strategy-status ${isAutoDifferActive ? 'active' : 'inactive'}`}>
-                                {isAutoDifferActive ? 'ON' : 'OFF'}
-                            </div>
-                        </div>
-
-                        <div className="card-content">
-                            <p>Advanced digit analysis with pattern recognition for differ contracts.</p>
-
-                            {isAutoDifferActive && recommendation && (
-                                <div className="recommendation-display">
-                                    <div className="rec-item">
-                                        <span>Symbol:</span>
-                                        <strong>{recommendation.symbol}</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Confidence:</span>
-                                        <strong>{recommendation.confidence}%</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Current Stake:</span>
-                                        <strong>${appliedStake}</strong>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <button
-                            className={`strategy-toggle ${isAutoDifferActive ? 'active' : ''}`}
-                            onClick={() => toggleStrategy('differ')}
-                            disabled={!isAnalysisReady || isContinuousTrading}
-                        >
-                            {isAutoDifferActive ? 'Deactivate' : 'Activate'} Strategy
-                        </button>
-                    </div>
-
-                    {/* Auto Over/Under Strategy */}
-                    <div className={`strategy-card ${isAutoOverUnderActive ? 'active' : ''}`}>
-                        <div className="card-header">
-                            <div className="strategy-icon">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M7 14l5-5 5 5z"/>
-                                    <path d="M7 10l5 5 5-5z"/>
-                                </svg>
-                            </div>
-                            <div className="strategy-info">
-                                <h4>Auto Over/Under</h4>
-                                <p>Dynamic barrier trading</p>
-                            </div>
-                            <div className={`strategy-status ${isAutoOverUnderActive ? 'active' : 'inactive'}`}>
-                                {isAutoOverUnderActive ? 'ON' : 'OFF'}
-                            </div>
-                        </div>
-
-                        <div className="card-content">
-                            <p>Advanced AI pattern recognition across 12 volatility indices. Analyzes digit frequencies and recommends UNDER 7 or OVER 2 based on optimal market conditions.</p>
-
-                            {isAutoOverUnderActive && recommendation && (
-                                <div className="recommendation-display">
-                                    <div className="rec-item">
-                                        <span>AI Selection:</span>
-                                        <strong>{recommendation.symbol}</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Strategy:</span>
-                                        <strong>{recommendation.strategy.toUpperCase()} {recommendation.barrier}</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>AI Confidence:</span>
-                                        <strong className={recommendation.confidence > 80 ? 'high-confidence' : recommendation.confidence > 75 ? 'medium-confidence' : 'low-confidence'}>
-                                            {recommendation.confidence.toFixed(1)}%
-                                        </strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Pattern:</span>
-                                        <strong>{recommendation.reason.includes('Most frequent digit') ? 
-                                            `${recommendation.reason.match(/Most frequent digit (\d)/)?.[1]} vs ${recommendation.reason.match(/current (\d)/)?.[1]}` : 
-                                            'Secondary Pattern'}</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Ready Markets:</span>
-                                        <strong>{readySymbolsCount}/12</strong>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <button
-                            className={`strategy-toggle ${isAutoOverUnderActive ? 'active' : ''}`}
-                            onClick={() => toggleStrategy('overunder')}
-                            disabled={!isAnalysisReady || isContinuousTrading}
-                        >
-                            {isAutoOverUnderActive ? 'Deactivate' : 'Activate'} Strategy
-                        </button>
-                    </div>
-
-                    {/* Auto O5U4 Strategy */}
-                    <div className={`strategy-card ${isAutoO5U4Active ? 'active' : ''}`}>
-                        <div className="card-header">
-                            <div className="strategy-icon">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                                </svg>
-                            </div>
-                            <div className="strategy-info">
-                                <h4>Auto O5U4</h4>
-                                <p>Dual contract strategy</p>
-                            </div>
-                            <div className={`strategy-status ${isAutoO5U4Active ? 'active' : 'inactive'}`}>
-                                {isAutoO5U4Active ? 'ON' : 'OFF'}
-                            </div>
-                        </div>
-
-                        <div className="card-content">
-                            <p>Sophisticated dual-contract AI strategy. Analyzes all 12 markets simultaneously, scores opportunities, and selects the best symbol meeting 3 critical conditions for 80% theoretical win rate.</p>
-
-                            {isAutoO5U4Active && (
-                                <div className="recommendation-display">
-                                    <div className="rec-item">
-                                        <span>AI Best Symbol:</span>
-                                        <strong>{bestO5U4Opportunity?.symbol || 'Analyzing...'}</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Strategy:</span>
-                                        <strong>OVER 5 + UNDER 4</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>AI Score:</span>
-                                        <strong>{bestO5U4Opportunity?.score.toFixed(1) || '0.0'}/100</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Conditions:</span>
-                                        <strong>{bestO5U4Opportunity?.conditionsMetCount || 0}/3 Met</strong>
-                                    </div>
-                                    <div className="rec-item">
-                                        <span>Opportunities:</span>
-                                        <strong>{o5u4Opportunities.length} Found</strong>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <button
-                            className={`strategy-toggle ${isAutoO5U4Active ? 'active' : ''}`}
-                            onClick={() => toggleStrategy('o5u4')}
-                            disabled={!isAnalysisReady || isContinuousTrading}
-                        >
-                            {isAutoO5U4Active ? 'Deactivate' : 'Activate'} Strategy
-                        </button>
-                    </div>
-                </div>
-
-                {/* Trading Controls */}
-                <div className="trading-controls">
-                    <div className="main-controls">
-                        <button
-                            className={`main-trading-btn ${isContinuousTrading ? 'stop' : 'start'}`}
-                            onClick={handleTrade}
-                            disabled={!isAnalysisReady || !hasActiveStrategy || (connectionStatus !== 'connected')}
-                        >
-                            <div className="btn-content">
-                                <div className="btn-icon">
-                                    {isContinuousTrading ? (
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                            <rect x="6" y="4" width="4" height="16"/>
-                                            <rect x="14" y="4" width="4" height="16"/>
-                                        </svg>
-                                    ) : (
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                            <polygon points="8,5 8,19 19,12"/>
-                                        </svg>
-                                    )}
-                                </div>
-                                <span>{isContinuousTrading ? 'STOP TRADING' : 'START TRADING'}</span>
-                            </div>
-                        </button>
-
-                        {isTradeInProgress && (
-                            <div className="trade-progress">
-                                <div className="progress-spinner"></div>
-                                <span>Trade in progress...</span>
-                            </div>
+                        {retryCount > 0 && (
+                            <p style={{ color: 'rgba(255, 255, 255, 0.6)', marginTop: '16px', fontSize: '14px' }}>
+                                Retry attempt: {retryCount}/3
+                            </p>
                         )}
                     </div>
                 </div>
+            </div>
+        );
+    }
 
-                {/* Transaction History */}
-                <div className="transaction-history">
-                    <h3>Transaction Log</h3>
-                    {transactionHistory.length === 0 ? (
-                        <p>No transactions yet.</p>
-                    ) : (
-                        <ul>
-                            {transactionHistory.map((transaction) => (
-                                <li key={transaction.id} className={`transaction-item ${transaction.result}`}>
-                                    <div className="transaction-info">
-                                        <span className="timestamp">{transaction.timestamp.toLocaleTimeString()}</span>
-                                        <span className="type">{transaction.type}</span>
-                                        <span className="symbol">{transaction.symbol}</span>
-                                        <span className="amount">${transaction.amount.toFixed(2)}</span>
-                                    </div>
-                                    <div className="transaction-details">
-                                        <span className={`result ${transaction.result}`}>
-                                            {transaction.result.toUpperCase()}
-                                        </span>
-                                        <span className={`profit ${transaction.profit >= 0 ? 'positive' : 'negative'}`}>
-                                            {transaction.profit >= 0 ? '+' : ''}{transaction.profit.toFixed(2)} USD
-                                        </span>
-                                        {transaction.details && (
-                                            <div className="transaction-note">
-                                                {transaction.details}
-                                            </div>
-                                        )}
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
+    try {
+        return (
+            <div className="trading-hub-modern">
+                <div className="hub-header">
+                    <div className="header-main">
+                        <div className="logo-section">
+                            <div className="logo-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                                </svg>
+                            </div>
+                            <div className="title-group">
+                                <h1 className="hub-title">Trading Hub</h1>
+                                <p className="hub-subtitle">AI-Powered Trading Strategies</p>
+                            </div>
+                        </div>
+
+                        <div className="header-controls">
+                            <DisplayToggle onToggle={setIsAdvancedView} />
+                            <button
+                                className="advanced-settings-btn"
+                                onClick={() => setShowAdvancedModal(true)}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+                                </svg>
+                                Advanced Settings
+                            </button>
+                        </div>
+
+                        <div className="settings-controls">
+                            <div className="control-group">
+                                <label>Initial Stake</label>
+                                <input
+                                    type="number"
+                                    value={initialStake}
+                                    onChange={(e) => {
+                                        const value = Math.max(parseFloat(e.target.value), parseFloat(MINIMUM_STAKE)).toFixed(2);
+                                        setInitialStake(value);
+                                        setAppliedStake(value);
+                                        currentStakeRef.current = value;
+                                        localStorage.setItem('tradingHub_initialStake', value);
+                                    }}
+                                    className="stake-input"
+                                    step="0.01"
+                                    min={MINIMUM_STAKE}
+                                    disabled={isContinuousTrading}
+                                />
+                            </div>
+
+                            <div className="control-group">
+                                <label>Martingale</label>
+                                <input
+                                    type="number"
+                                    value={martingale}
+                                    onChange={(e) => {
+                                        const value = Math.max(parseFloat(e.target.value), 1.1).toFixed(2);
+                                        setMartingale(value);
+                                        localStorage.setItem('tradingHub_martingale', value);
+                                    }}
+                                    className="martingale-input"
+                                    step="0.1"
+                                    min="1.1"
+                                    disabled={isContinuousTrading}
+                                />
+                            </div>
+
+                            <div className="control-group">
+                                <label>Stop Loss ($)<br/><small>Based on Run Panel Total</small></label>
+                                <input
+                                    type="number"
+                                    value={stopLoss}
+                                    onChange={(e) => {
+                                        const value = Math.max(parseFloat(e.target.value), 1).toFixed(2);
+                                        setStopLoss(value);
+                                        localStorage.setItem('tradingHub_stopLoss', value);
+                                    }}
+                                    className="stop-loss-input"
+                                    step="0.01"
+                                    min="1"
+                                    disabled={isContinuousTrading}
+                                    title="Trading will stop when total loss in Run Panel exceeds this amount"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="status-bar">
+                        <div className="status-item">
+                            <div className={`status-dot ${isAnalysisReady ? 'ready' : 'loading'}`}></div>
+                            Multi-Symbol AI: {isAnalysisReady ? 'Ready' : 'Analyzing...'}
+                        </div>
+                        <div className="status-separator"></div>
+                        <div className="status-item">
+                            Ready Markets: {readySymbolsCount}/12
+                        </div>
+                        <div className="status-separator"></div>
+                        <div className="status-item">
+                            Analysis: {analysisCount} cycles
+                        </div>
+                        <div className="status-separator"></div>
+                        <div className="status-item">
+                            Last Update: {lastAnalysisTime || 'N/A'}
+                        </div>
+                        <div className="status-separator"></div>
+                        <div className="status-item">
+                            <div className={`status-dot ${connectionStatus}`}></div>
+                            {connectionStatus === 'connected' ? 'Connected' :
+                             connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
+                            {connectionStatus === 'connected' && !isApiAuthorized && ' (Not Authorized)'}
+                        </div>
+                        <div className="status-separator"></div>
+                        <div className="status-item">
+                            <div className={`status-dot ${apiConnected ? 'connected' : 'disconnected'}`}></div>
+                            <span>{apiConnected ? 'API Connected' : 'API Disconnected'}</span>
+                        </div>
+                    </div>
                 </div>
 
-            </div>
+                <div className="trading-content">
+                    <div className="strategy-grid">
+                        {/* Auto Differ Strategy */}
+                        <div className={`strategy-card ${isAutoDifferActive ? 'active' : ''}`}>
+                            <div className="card-header">
+                                <div className="strategy-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                                    </svg>
+                                </div>
+                                <div className="strategy-info">
+                                    <h4>Auto Differ</h4>
+                                    <p>Digit difference prediction</p>
+                                </div>
+                                <div className={`strategy-status ${isAutoDifferActive ? 'active' : 'inactive'}`}>
+                                    {isAutoDifferActive ? 'ON' : 'OFF'}
+                                </div>
+                            </div>
 
-            {/* Advanced Display Modal */}
-            <AdvancedDisplayModal
-                isOpen={showAdvancedModal}
-                onClose={() => setShowAdvancedModal(false)}
-                onApplySettings={handleAdvancedSettings}
-            />
-        </div>
-    );
+                            <div className="card-content">
+                                <p>Advanced digit analysis with pattern recognition for differ contracts.</p>
+
+                                {isAutoDifferActive && recommendation && (
+                                    <div className="recommendation-display">
+                                        <div className="rec-item">
+                                            <span>Symbol:</span>
+                                            <strong>{recommendation.symbol}</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Confidence:</span>
+                                            <strong>{recommendation.confidence}%</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Current Stake:</span>
+                                            <strong>${appliedStake}</strong>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                className={`strategy-toggle ${isAutoDifferActive ? 'active' : ''}`}
+                                onClick={() => toggleStrategy('differ')}
+                                disabled={!isAnalysisReady || isContinuousTrading}
+                            >
+                                {isAutoDifferActive ? 'Deactivate' : 'Activate'} Strategy
+                            </button>
+                        </div>
+
+                        {/* Auto Over/Under Strategy */}
+                        <div className={`strategy-card ${isAutoOverUnderActive ? 'active' : ''}`}>
+                            <div className="card-header">
+                                <div className="strategy-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M7 14l5-5 5 5z"/>
+                                        <path d="M7 10l5 5 5-5z"/>
+                                    </svg>
+                                </div>
+                                <div className="strategy-info">
+                                    <h4>Auto Over/Under</h4>
+                                    <p>Dynamic barrier trading</p>
+                                </div>
+                                <div className={`strategy-status ${isAutoOverUnderActive ? 'active' : 'inactive'}`}>
+                                    {isAutoOverUnderActive ? 'ON' : 'OFF'}
+                                </div>
+                            </div>
+
+                            <div className="card-content">
+                                <p>Advanced AI pattern recognition across 12 volatility indices. Analyzes digit frequencies and recommends UNDER 7 or OVER 2 based on optimal market conditions.</p>
+
+                                {isAutoOverUnderActive && recommendation && (
+                                    <div className="recommendation-display">
+                                        <div className="rec-item">
+                                            <span>AI Selection:</span>
+                                            <strong>{recommendation.symbol}</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Strategy:</span>
+                                            <strong>{recommendation.strategy.toUpperCase()} {recommendation.barrier}</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>AI Confidence:</span>
+                                            <strong className={recommendation.confidence > 80 ? 'high-confidence' : recommendation.confidence > 75 ? 'medium-confidence' : 'low-confidence'}>
+                                                {recommendation.confidence.toFixed(1)}%
+                                            </strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Pattern:</span>
+                                            <strong>{recommendation.reason.includes('Most frequent digit') ? 
+                                                `${recommendation.reason.match(/Most frequent digit (\d)/)?.[1]} vs ${recommendation.reason.match(/current (\d)/)?.[1]}` : 
+                                                'Secondary Pattern'}</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Ready Markets:</span>
+                                            <strong>{readySymbolsCount}/12</strong>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                className={`strategy-toggle ${isAutoOverUnderActive ? 'active' : ''}`}
+                                onClick={() => toggleStrategy('overunder')}
+                                disabled={!isAnalysisReady || isContinuousTrading}
+                            >
+                                {isAutoOverUnderActive ? 'Deactivate' : 'Activate'} Strategy
+                            </button>
+                        </div>
+
+                        {/* Auto O5U4 Strategy */}
+                        <div className={`strategy-card ${isAutoO5U4Active ? 'active' : ''}`}>
+                            <div className="card-header">
+                                <div className="strategy-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                </div>
+                                <div className="strategy-info">
+                                    <h4>Auto O5U4</h4>
+                                    <p>Dual contract strategy</p>
+                                </div>
+                                <div className={`strategy-status ${isAutoO5U4Active ? 'active' : 'inactive'}`}>
+                                    {isAutoO5U4Active ? 'ON' : 'OFF'}
+                                </div>
+                            </div>
+
+                            <div className="card-content">
+                                <p>Sophisticated dual-contract AI strategy. Analyzes all 12 markets simultaneously, scores opportunities, and selects the best symbol meeting 3 critical conditions for 80% theoretical win rate.</p>
+
+                                {isAutoO5U4Active && (
+                                    <div className="recommendation-display">
+                                        <div className="rec-item">
+                                            <span>AI Best Symbol:</span>
+                                            <strong>{bestO5U4Opportunity?.symbol || 'Analyzing...'}</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Strategy:</span>
+                                            <strong>OVER 5 + UNDER 4</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>AI Score:</span>
+                                            <strong>{bestO5U4Opportunity?.score.toFixed(1) || '0.0'}/100</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Conditions:</span>
+                                            <strong>{bestO5U4Opportunity?.conditionsMetCount || 0}/3 Met</strong>
+                                        </div>
+                                        <div className="rec-item">
+                                            <span>Opportunities:</span>
+                                            <strong>{o5u4Opportunities.length} Found</strong>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                className={`strategy-toggle ${isAutoO5U4Active ? 'active' : ''}`}
+                                onClick={() => toggleStrategy('o5u4')}
+                                disabled={!isAnalysisReady || isContinuousTrading}
+                            >
+                                {isAutoO5U4Active ? 'Deactivate' : 'Activate'} Strategy
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Trading Controls */}
+                    <div className="trading-controls">
+                        <div className="main-controls">
+                            <button
+                                className={`main-trading-btn ${isContinuousTrading ? 'stop' : 'start'}`}
+                                onClick={handleTrade}
+                                disabled={!isAnalysisReady || !hasActiveStrategy || (connectionStatus !== 'connected')}
+                            >
+                                <div className="btn-content">
+                                    <div className="btn-icon">
+                                        {isContinuousTrading ? (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                                <rect x="6" y="4" width="4" height="16"/>
+                                                <rect x="14" y="4" width="4" height="16"/>
+                                            </svg>
+                                        ) : (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                                <polygon points="8,5 8,19 19,12"/>
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <span>{isContinuousTrading ? 'STOP TRADING' : 'START TRADING'}</span>
+                                </div>
+                            </button>
+
+                            {isTradeInProgress && (
+                                <div className="trade-progress">
+                                    <div className="progress-spinner"></div>
+                                    <span>Trade in progress...</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Transaction History */}
+                    <div className="transaction-history">
+                        <h3>Transaction Log</h3>
+                        {transactionHistory.length === 0 ? (
+                            <p>No transactions yet.</p>
+                        ) : (
+                            <ul>
+                                {transactionHistory.map((transaction) => (
+                                    <li key={transaction.id} className={`transaction-item ${transaction.result}`}>
+                                        <div className="transaction-info">
+                                            <span className="timestamp">{transaction.timestamp.toLocaleTimeString()}</span>
+                                            <span className="type">{transaction.type}</span>
+                                            <span className="symbol">{transaction.symbol}</span>
+                                            <span className="amount">${transaction.amount.toFixed(2)}</span>
+                                        </div>
+                                        <div className="transaction-details">
+                                            <span className={`result ${transaction.result}`}>
+                                                {transaction.result.toUpperCase()}
+                                            </span>
+                                            <span className={`profit ${transaction.profit >= 0 ? 'positive' : 'negative'}`}>
+                                                {transaction.profit >= 0 ? '+' : ''}{transaction.profit.toFixed(2)} USD
+                                            </span>
+                                            {transaction.details && (
+                                                <div className="transaction-note">
+                                                    {transaction.details}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+
+                </div>
+
+                {/* Advanced Display Modal */}
+                <AdvancedDisplayModal
+                    isOpen={showAdvancedModal}
+                    onClose={() => setShowAdvancedModal(false)}
+                    onApplySettings={handleAdvancedSettings}
+                />
+            </div>
+        );
+    } catch (error: any) {
+        console.error('Trading Hub Render Error:', error);
+        setHasError(true);
+        setErrorMessage(`Render error: ${error.message || 'Unknown render error'}`);
+        return (
+            <div className="trading-hub-error" style={{
+                padding: '40px',
+                textAlign: 'center',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '8px',
+                margin: '20px'
+            }}>
+                <h3 style={{ color: '#ef4444', marginBottom: '16px' }}>Trading Hub Render Error</h3>
+                <p style={{ marginBottom: '16px' }}>Failed to render Trading Hub component</p>
+                <button
+                    onClick={() => window.location.reload()}
+                    style={{
+                        padding: '8px 16px',
+                        background: '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Refresh Page
+                </button>
+            </div>
+        );
+    }
 };
 
 export default TradingHubDisplay;

@@ -27,6 +27,39 @@ import SmartTrader from '@/components/smart-trader';
 import MLTrader from '@/components/ml-trader';
 import TradingHubDisplay from '@/components/trading-hub/trading-hub-display';
 
+// ErrorBoundary component for handling errors in child components
+const ErrorBoundary = ({ fallback, children }) => {
+    const [hasError, setHasError] = useState(false);
+
+    useEffect(() => {
+        const errorHandler = (event) => {
+            console.error("Global error caught:", event.error);
+            setHasError(true);
+        };
+        window.addEventListener('error', errorHandler);
+        return () => window.removeEventListener('error', errorHandler);
+    }, []);
+
+    // componentDidCatch equivalent for class components, or similar logic for functional components
+    // This is a simplified version; a more robust implementation might use getDerivedStateFromError
+    const componentDidCatch = (error, errorInfo) => {
+        console.error("Error caught by ErrorBoundary:", error, errorInfo);
+        setHasError(true);
+    };
+
+    if (hasError) {
+        return fallback;
+    }
+
+    // Wrap children in a try-catch for synchronous errors
+    try {
+        return <>{children}</>;
+    } catch (error) {
+        componentDidCatch(error, { componentStack: 'ErrorBoundary Fallback' });
+        return fallback;
+    }
+};
+
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
@@ -1469,11 +1502,48 @@ if __name__ == "__main__":
                         </div>
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
-                            <div className={classNames('dashboard__chart-wrapper', {
-                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
-                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })}>
-                                <TradingHubDisplay />
+                            <div className="trading-hub-wrapper" style={{ height: '100%', width: '100%' }}>
+                                <Suspense fallback={
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        height: '400px',
+                                        fontSize: '16px',
+                                        color: '#666'
+                                    }}>
+                                        Loading Trading Hub...
+                                    </div>
+                                }>
+                                    <ErrorBoundary fallback={
+                                        <div style={{
+                                            padding: '40px',
+                                            textAlign: 'center',
+                                            background: 'rgba(239, 68, 68, 0.1)',
+                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                            borderRadius: '8px',
+                                            margin: '20px'
+                                        }}>
+                                            <h3 style={{ color: '#ef4444' }}>Trading Hub Error</h3>
+                                            <p>The Trading Hub encountered an error. Please refresh the page.</p>
+                                            <button
+                                                onClick={() => window.location.reload()}
+                                                style={{
+                                                    padding: '8px 16px',
+                                                    background: '#10b981',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Refresh Page
+                                            </button>
+                                        </div>
+                                    }>
+                                        <TradingHubDisplay />
+                                    </ErrorBoundary>
+                                </Suspense>
                             </div>
                         </div>
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
