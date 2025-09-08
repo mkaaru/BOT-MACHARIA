@@ -26,10 +26,15 @@ import VolatilityAnalyzer from '@/components/volatility-analyzer';
 import SmartTrader from '@/components/smart-trader';
 import MLTrader from '@/components/ml-trader';
 import TradingHubDisplay from '@/components/trading-hub/trading-hub-display';
+import Icon from '@/components/icon';
 
 
-const Chart = lazy(() => import('../chart'));
-const Tutorial = lazy(() => import('../tutorials'));
+const ChartTab = lazy(() => import('../chart'));
+const TutorialTab = lazy(() => import('../tutorials'));
+const BotBuilderTab = lazy(() => import('../bot-builder'));
+const DashboardTab = lazy(() => import('../dashboard'));
+const MLTraderTab = lazy(() => import('@/components/ml-trader'));
+const SmartTraderTab = lazy(() => import('@/components/smart-trader'));
 
 const DashboardIcon = () => (
     <svg width="20" height="20" fill="var(--text-general)" viewBox="0 0 24 24">
@@ -1406,136 +1411,102 @@ if __name__ == "__main__":
     // Always show run panel on all pages
     const showRunPanel = true;
 
+    const tabs = [
+            {
+                icon: <Icon icon='IcDashboard' className='dashboard__tab-icon' />,
+                label: localize('Dashboard'),
+                value: TAB_IDS.DASHBOARD,
+            },
+            {
+                icon: <Icon icon='IcAnalysis' className='dashboard__tab-icon' />,
+                label: localize('AUTO'),
+                value: TAB_IDS.AUTO,
+            },
+            {
+                icon: <Icon icon='IcBotBuilder' className='dashboard__tab-icon' />,
+                label: localize('Bot Builder'),
+                value: TAB_IDS.BOT_BUILDER,
+            },
+            {
+                icon: <Icon icon='IcChartsTabDbot' className='dashboard__tab-icon' />,
+                label: localize('Charts'),
+                value: TAB_IDS.CHART,
+            },
+            {
+                icon: <Icon icon='IcTutorials' className='dashboard__tab-icon' />,
+                label: localize('Tutorials'),
+                value: TAB_IDS.TUTORIAL,
+            },
+            {
+                icon: <Icon icon='IcBotBuilder' className='dashboard__tab-icon' />,
+                label: localize('ML Trader'),
+                value: 5,
+            },
+            {
+                icon: <Icon icon='IcAnalysis' className='dashboard__tab-icon' />,
+                label: localize('Smart Trader'),
+                value: 6,
+            },
+        ];
+
+    const renderTabContent = (tabValue: number) => {
+        switch (tabValue) {
+            case TAB_IDS.TRADING_HUB:
+                return (
+                    <Suspense fallback={<ChunkLoader />}>
+                        <TradingHubDisplay />
+                    </Suspense>
+                );
+            case TAB_IDS.BOT_BUILDER:
+                return (
+                    <Suspense fallback={<ChunkLoader />}>
+                        <BotBuilderTab />
+                    </Suspense>
+                );
+            case TAB_IDS.CHART:
+                return (
+                    <Suspense fallback={<ChunkLoader />}>
+                        <ChartTab />
+                    </Suspense>
+                );
+            case TAB_IDS.TUTORIAL:
+                return (
+                    <Suspense fallback={<ChunkLoader />}>
+                        <TutorialTab />
+                    </Suspense>
+                );
+            case 5: // ML Trader tab value
+                return (
+                    <Suspense fallback={<ChunkLoader />}>
+                        <MLTraderTab />
+                    </Suspense>
+                );
+            case 6: // Smart Trader tab value
+                return (
+                    <Suspense fallback={<ChunkLoader />}>
+                        <SmartTraderTab />
+                    </Suspense>
+                );
+            default:
+                return (
+                    <Suspense fallback={<ChunkLoader />}>
+                        <DashboardTab />
+                    </Suspense>
+                );
+        }
+    };
+
 
     return (
         <>
             <div className='main'>
                 <div className='main__container main-content'>
-                    <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
-                        <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
-
-<div className='free-bots-container'>
-                            <Tabs active_index={0} className='free-bots-tabs' top>
-                                <div label={<Localize i18n_default_text='Free Bots' />} id='id-free-bots-list'>
-                                    <div className='free-bots'>
-                                        <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
-                                        <div className='free-bots__content-wrapper'>
-                                            <div className='free-bots__content'>
-                                                {bots.map((bot, index) => (
-                                                    <div
-                                                        className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
-                                                        key={index}
-                                                        onClick={() => {
-                                                            handleBotClick(bot);
-                                                        }}
-                                                        style={{
-                                                            cursor: 'pointer',
-                                                            opacity: bot.isPlaceholder ? 0.7 : 1
-                                                        }}
-                                                    >
-                                                        <div className='free-bot-card__icon'>
-                                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="#1976D2">
-                                                                <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
-                                                                <rect x="6" y="10" width="12" height="8" rx="2" fill="#1976D2"/>
-                                                                <circle cx="9" cy="13" r="1.5" fill="white"/>
-                                                                <circle cx="15" cy="13" r="1.5" fill="white"/>
-                                                                <rect x="10" y="15" width="4" height="1" rx="0.5" fill="white"/>
-                                                                <rect x="4" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
-                                                                <rect x="18" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
-                                                            </svg>
-                                                        </div>
-                                                        <div className='free-bot-card__details'>
-                                                            <h3 className='free-bot-card__title'>{bot.title}</h3>
-                                                            <p className='free-bot-card__description'>{bot.description}</p>
-                                                            <p className='free-bot-card__action'>
-                                                                {bot.isPlaceholder ? 'Loading bot...' : 'Click to load this bot'}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div label={<Localize i18n_default_text='Smart Trading' />} id='smart-trading'>
-                                    <VolatilityAnalyzer />
-                                </div>
-                                <div label={<Localize i18n_default_text='🤖 ML Trader' />} id='ml-trader'>
-                                    <MLTrader />
-                                </div>
-                            </Tabs>
-                        </div>
-
-                        </div>
-                        <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
-                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
-                            <div className={classNames('dashboard__chart-wrapper', {
-                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
-                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })}>
-                                <TradingHubDisplay />
+                    <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top tabs={tabs}>
+                        {tabs.map((tab, index) => (
+                            <div label={tab.label} id={tab.value} key={index}>
+                                {renderTabContent(tab.value)}
                             </div>
-                        </div>
-                        <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
-                            <div className={classNames('dashboard__chart-wrapper', {
-                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
-                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })}>
-                                <Tabs
-                                    className="analysis-tool-tabs"
-                                    active_tab_icon_color="var(--brand-secondary)"
-                                    background_color="var(--general-main-1)"
-                                    single_tab_has_no_label
-                                    should_update_hash={false}
-                                >
-                                    <div label={<Localize i18n_default_text='Technical Analysis' />} id='technical-analysis'>
-                                        <AnalysistoolComponent />
-                                    </div>
-                                    <div label={<Localize i18n_default_text='Market Analyzer' />} id='market-analyzer'>
-                                        <iframe
-                                            src="https://api.binarytool.site/"
-                                            title="Market Analyzer"
-                                        />
-                                    </div>
-                                </Tabs>
-                            </div>
-                        </div>
-                        <div label={<><SignalsIcon /><Localize i18n_default_text='Signal Scanner' /></>} id='id-signals'>
-                            <div className={classNames('dashboard__chart-wrapper', {
-                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
-                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
-                            })}>
-                                <iframe
-                                    src="https://tracktool.netlify.app/signals.html"
-                                    width="100%"
-                                    height="100%"
-                                    style={{
-                                        border: 'none',
-                                        display: 'block',
-                                        minHeight: '600px',
-                                        height: 'calc(100vh - 200px)'
-                                    }}
-                                    scrolling="yes"
-                                    title="Trading Signals"
-                                />
-                            </div>
-                        </div>
-                        <div label={<><ChartsIcon /><Localize i18n_default_text='Charts' /></>} id='id-charts'>
-                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}>
-                                <Chart show_digits_stats={false} />                            </Suspense>
-                        </div>
-                        <div label={<><TutorialsIcon /><Localize i18n_default_text='Tutorials' /></>} id='id-tutorials'>
-                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading tutorials...')} />}>
-                                <Tutorial handleTabChange={handleTabChange} />
-                            </Suspense>
-                        </div>
-                        <div label={<><AITraderIcon /><Localize i18n_default_text='AI Trader' /></>} id='id-ai-trader'>
-                            <SmartTrader />
-                        </div>
-                        <div label={<><DashboardIcon /><Localize i18n_default_text='Dashboard' /></>} id='id-dbot-dashboard'>
-                            <Dashboard handleTabChange={handleTabChange} />
-                            <button onClick={handleOpen}>Load Bot</button>
-                        </div>
+                        ))}
                     </Tabs>
                 </div>
             </div>

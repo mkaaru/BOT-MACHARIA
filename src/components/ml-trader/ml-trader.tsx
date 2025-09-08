@@ -99,6 +99,7 @@ const MLTrader = observer(() => {
     const [ticksRF, setTicksRF] = useState(1); // Duration in ticks for Rise/Fall
     const [martingaleRF, setMartingaleRF] = useState(1); // Martingale multiplier for Rise/Fall
     const [autoTradingActive, setAutoTradingActive] = useState(false); // Flag for auto trading Rise/Fall
+    const [tickData, setTickData] = useState<Array<{ time: number; quote: number }>>([]);
 
 
     // Refs for cleanup and state management
