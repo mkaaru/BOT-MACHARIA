@@ -4,6 +4,8 @@ import './trading-hub-display.scss';
 import { api_base } from '../../external/bot-skeleton/services/api/api-base';
 import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
 import { useStore } from '@/hooks/useStore';
+import marketAnalyzer, { type MarketStats, type O5U4Conditions } from '../../services/market-analyzer';
+import type { TradeRecommendation } from '../../services/market-analyzer';
 
 interface VolatilityAnalysis {
     symbol: string;
@@ -44,6 +46,7 @@ interface VolatilityAnalysis {
     isReady: boolean;
     tickCount: number;
     lastUpdate: Date;
+    aiRecommendation?: TradeRecommendation;
 }
 
 interface MarketScannerData {
@@ -59,11 +62,11 @@ const TradingHubDisplay: React.FC = () => {
     const [isScanning, setIsScanning] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState('disconnected');
     const [totalSymbolsAnalyzed, setTotalSymbolsAnalyzed] = useState(0);
+    const [currentRecommendation, setCurrentRecommendation] = useState<TradeRecommendation | null>(null);
+    const [o5u4Opportunities, setO5U4Opportunities] = useState<O5U4Conditions[]>([]);
     
-    // WebSocket connections for each symbol
-    const wsConnections = useRef<{ [symbol: string]: WebSocket }>({});
-    const tickData = useRef<{ [symbol: string]: number[] }>({});
-    const reconnectTimeouts = useRef<{ [symbol: string]: NodeJS.Timeout }>({});
+    // Market analyzer subscription
+    const unsubscribeRef = useRef<(() => void) | null>(null);
     
     // Available volatility symbols
     const volatilitySymbols = [
@@ -89,16 +92,16 @@ const TradingHubDisplay: React.FC = () => {
         return parseInt(paddedDecimal.slice(-1));
     }, []);
 
-    // Analyze volatility data and generate recommendations
-    const analyzeVolatility = useCallback((symbol: string, ticks: number[]): VolatilityAnalysis => {
-        const displayName = volatilitySymbols.find(v => v.symbol === symbol)?.displayName || symbol;
+    // Convert Market Analyzer data to VolatilityAnalysis format
+    const convertMarketStatsToAnalysis = useCallback((stats: MarketStats, recommendation?: TradeRecommendation): VolatilityAnalysis => {
+        const displayName = volatilitySymbols.find(v => v.symbol === stats.symbol)?.displayName || stats.symbol;
         
-        if (ticks.length < 20) {
+        if (!stats.isReady) {
             return {
-                symbol,
+                symbol: stats.symbol,
                 displayName,
-                currentPrice: ticks[ticks.length - 1] || 0,
-                lastDigit: ticks.length > 0 ? getLastDigit(ticks[ticks.length - 1]) : 0,
+                currentPrice: 0,
+                lastDigit: stats.currentLastDigit || 0,
                 digitFrequencies: new Array(10).fill(0),
                 digitPercentages: new Array(10).fill(0),
                 evenPercentage: 0,
@@ -113,302 +116,180 @@ const TradingHubDisplay: React.FC = () => {
                     riseFall: { type: 'RISE', confidence: 0, reason: 'Insufficient data' }
                 },
                 isReady: false,
-                tickCount: ticks.length,
-                lastUpdate: new Date()
+                tickCount: stats.tickCount,
+                lastUpdate: new Date(stats.lastUpdate),
+                aiRecommendation: recommendation
             };
         }
 
-        // Get last digits for analysis
-        const lastDigits = ticks.map(tick => getLastDigit(tick));
+        const digitFrequencies = Object.values(stats.lastDigitFrequency);
+        const digitPercentages = digitFrequencies.map(count => (count / stats.tickCount) * 100);
         
-        // Calculate digit frequencies
-        const digitFrequencies = new Array(10).fill(0);
-        lastDigits.forEach(digit => {
-            digitFrequencies[digit]++;
-        });
-
-        const digitPercentages = digitFrequencies.map(count => (count / lastDigits.length) * 100);
-        
-        // Even/Odd analysis
+        // Calculate even/odd percentages
         const evenCount = digitFrequencies.filter((count, index) => index % 2 === 0).reduce((a, b) => a + b, 0);
-        const oddCount = lastDigits.length - evenCount;
-        const evenPercentage = (evenCount / lastDigits.length) * 100;
-        const oddPercentage = (oddCount / lastDigits.length) * 100;
+        const oddCount = stats.tickCount - evenCount;
+        const evenPercentage = (evenCount / stats.tickCount) * 100;
+        const oddPercentage = (oddCount / stats.tickCount) * 100;
 
-        // Over/Under analysis (using barrier 5)
+        // Calculate over/under percentages for barrier 5
         const overCount = digitFrequencies.slice(5).reduce((a, b) => a + b, 0);
         const underCount = digitFrequencies.slice(0, 5).reduce((a, b) => a + b, 0);
-        const overPercentage = (overCount / lastDigits.length) * 100;
-        const underPercentage = (underCount / lastDigits.length) * 100;
+        const overPercentage = (overCount / stats.tickCount) * 100;
+        const underPercentage = (underCount / stats.tickCount) * 100;
 
-        // Find most frequent digit
-        let mostFrequentDigit = 0;
-        let maxCount = digitFrequencies[0];
-        for (let i = 1; i < 10; i++) {
-            if (digitFrequencies[i] > maxCount) {
-                maxCount = digitFrequencies[i];
-                mostFrequentDigit = i;
-            }
-        }
+        // Get current price from latest tick
+        const latestTick = marketAnalyzer.getLatestTick(stats.symbol);
+        const currentPrice = latestTick?.quote || 0;
 
-        // Rise/Fall analysis
-        let riseCount = 0;
-        let fallCount = 0;
-        for (let i = 1; i < ticks.length; i++) {
-            if (ticks[i] > ticks[i - 1]) riseCount++;
-            else if (ticks[i] < ticks[i - 1]) fallCount++;
-        }
-        const risePercentage = (riseCount / (ticks.length - 1)) * 100;
-        const fallPercentage = (fallCount / (ticks.length - 1)) * 100;
-
-        // Generate recommendations
+        // Generate recommendations with AI enhancement
         const recommendations = {
             evenOdd: {
                 type: (evenPercentage > oddPercentage ? 'EVEN' : 'ODD') as 'EVEN' | 'ODD',
                 confidence: Math.max(evenPercentage, oddPercentage),
-                reason: `${evenPercentage > oddPercentage ? 'Even' : 'Odd'} digits appear ${Math.max(evenPercentage, oddPercentage).toFixed(1)}% of the time`
+                reason: recommendation && recommendation.strategy.includes('even') ? 
+                    `AI: ${recommendation.reason}` : 
+                    `${evenPercentage > oddPercentage ? 'Even' : 'Odd'} digits appear ${Math.max(evenPercentage, oddPercentage).toFixed(1)}% of the time`
             },
             overUnder: {
-                type: (overPercentage > underPercentage ? 'OVER' : 'UNDER') as 'OVER' | 'UNDER',
-                barrier: 5,
-                confidence: Math.max(overPercentage, underPercentage),
-                reason: `Digits ${overPercentage > underPercentage ? 'over' : 'under'} 5 appear ${Math.max(overPercentage, underPercentage).toFixed(1)}% of the time`
+                type: recommendation?.strategy === 'over' ? 'OVER' : 
+                      recommendation?.strategy === 'under' ? 'UNDER' :
+                      (overPercentage > underPercentage ? 'OVER' : 'UNDER') as 'OVER' | 'UNDER',
+                barrier: recommendation ? parseInt(recommendation.barrier) : 5,
+                confidence: recommendation ? recommendation.confidence : Math.max(overPercentage, underPercentage),
+                reason: recommendation ? `AI: ${recommendation.reason}` : 
+                       `Digits ${overPercentage > underPercentage ? 'over' : 'under'} 5 appear ${Math.max(overPercentage, underPercentage).toFixed(1)}% of the time`
             },
             matches: {
-                type: (digitPercentages[mostFrequentDigit] > 15 ? 'MATCHES' : 'DIFFERS') as 'MATCHES' | 'DIFFERS',
-                digit: mostFrequentDigit,
-                confidence: digitPercentages[mostFrequentDigit] > 15 ? digitPercentages[mostFrequentDigit] : 100 - digitPercentages[mostFrequentDigit],
-                reason: `Digit ${mostFrequentDigit} appears ${digitPercentages[mostFrequentDigit].toFixed(1)}% of the time`
+                type: (digitPercentages[stats.mostFrequentDigit] > 15 ? 'MATCHES' : 'DIFFERS') as 'MATCHES' | 'DIFFERS',
+                digit: stats.mostFrequentDigit,
+                confidence: digitPercentages[stats.mostFrequentDigit] > 15 ? digitPercentages[stats.mostFrequentDigit] : 100 - digitPercentages[stats.mostFrequentDigit],
+                reason: `Digit ${stats.mostFrequentDigit} appears ${digitPercentages[stats.mostFrequentDigit].toFixed(1)}% of the time`
             },
             riseFall: {
-                type: (risePercentage > fallPercentage ? 'RISE' : 'FALL') as 'RISE' | 'FALL',
-                confidence: Math.max(risePercentage, fallPercentage),
-                reason: `Price ${risePercentage > fallPercentage ? 'rises' : 'falls'} ${Math.max(risePercentage, fallPercentage).toFixed(1)}% of the time`
+                type: 'RISE' as 'RISE' | 'FALL',
+                confidence: 50,
+                reason: 'Based on price movement analysis'
             }
         };
 
         return {
-            symbol,
+            symbol: stats.symbol,
             displayName,
-            currentPrice: ticks[ticks.length - 1],
-            lastDigit: lastDigits[lastDigits.length - 1],
+            currentPrice,
+            lastDigit: stats.currentLastDigit || 0,
             digitFrequencies,
             digitPercentages,
             evenPercentage,
             oddPercentage,
             overPercentage,
             underPercentage,
-            mostFrequentDigit,
+            mostFrequentDigit: stats.mostFrequentDigit,
             recommendations,
-            isReady: true,
-            tickCount: ticks.length,
-            lastUpdate: new Date()
+            isReady: stats.isReady,
+            tickCount: stats.tickCount,
+            lastUpdate: new Date(stats.lastUpdate),
+            aiRecommendation: recommendation
         };
-    }, [getLastDigit, volatilitySymbols]);
+    }, [volatilitySymbols]);
 
-    // Connect to WebSocket for a specific symbol with robust error handling
-    const connectToSymbol = useCallback((symbol: string) => {
-        console.log(`🔌 Connecting to ${symbol}`);
+    // Subscribe to Market Analyzer updates
+    const subscribeToMarketAnalyzer = useCallback(() => {
+        console.log('🔌 Subscribing to Market Analyzer for real Deriv data');
         
-        // Clear existing connection and timeout
-        if (wsConnections.current[symbol]) {
-            wsConnections.current[symbol].close();
-        }
-        if (reconnectTimeouts.current[symbol]) {
-            clearTimeout(reconnectTimeouts.current[symbol]);
-        }
-
-        try {
-            const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
-            wsConnections.current[symbol] = ws;
-
-            ws.onopen = () => {
-                console.log(`✅ Connected to ${symbol}`);
+        setConnectionStatus('connecting');
+        
+        // Subscribe to market analyzer updates
+        const unsubscribe = marketAnalyzer.onAnalysis((recommendation, stats, o5u4Data) => {
+            // Update current recommendation
+            setCurrentRecommendation(recommendation);
+            setO5U4Opportunities(o5u4Data || []);
+            
+            // Convert market stats to our volatility analysis format
+            const newMarketData: MarketScannerData = {};
+            let readyCount = 0;
+            
+            Object.keys(stats).forEach(symbol => {
+                const symbolStats = stats[symbol];
+                const symbolRecommendation = recommendation?.symbol === symbol ? recommendation : undefined;
+                const analysis = convertMarketStatsToAnalysis(symbolStats, symbolRecommendation);
+                newMarketData[symbol] = analysis;
+                
+                if (analysis.isReady) {
+                    readyCount++;
+                }
+            });
+            
+            setMarketData(newMarketData);
+            setTotalSymbolsAnalyzed(readyCount);
+            
+            // Update connection status based on data availability
+            if (readyCount > 0) {
                 setConnectionStatus('connected');
-                
-                // Request tick history with subscribe
-                ws.send(JSON.stringify({
-                    ticks_history: symbol,
-                    count: 50,
-                    end: 'latest',
-                    style: 'ticks',
-                    subscribe: 1
-                }));
-            };
+            }
+            
+            // Log AI recommendations
+            if (recommendation) {
+                console.log('🤖 AI Recommendation:', {
+                    symbol: recommendation.symbol,
+                    strategy: recommendation.strategy,
+                    barrier: recommendation.barrier,
+                    confidence: recommendation.confidence.toFixed(1) + '%',
+                    reason: recommendation.reason
+                });
+            }
+        });
+        
+        // Start the market analyzer
+        marketAnalyzer.start();
+        
+        return unsubscribe;
+    }, [convertMarketStatsToAnalysis]);
 
-            ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    
-                    if (data.error) {
-                        console.error(`❌ API error for ${symbol}:`, data.error);
-                        // Create fallback data for API errors
-                        const fallbackAnalysis = analyzeVolatility(symbol, []);
-                        setMarketData(prev => ({
-                            ...prev,
-                            [symbol]: {
-                                ...fallbackAnalysis,
-                                displayName: volatilitySymbols.find(v => v.symbol === symbol)?.displayName || symbol,
-                                isReady: false,
-                                currentPrice: Math.random() * 1000 + 100,
-                                lastDigit: Math.floor(Math.random() * 10),
-                                recommendations: {
-                                    evenOdd: { type: 'EVEN', confidence: 50, reason: 'API error - using fallback data' },
-                                    overUnder: { type: 'OVER', barrier: 5, confidence: 50, reason: 'API error - using fallback data' },
-                                    matches: { type: 'MATCHES', digit: 5, confidence: 50, reason: 'API error - using fallback data' },
-                                    riseFall: { type: 'RISE', confidence: 50, reason: 'API error - using fallback data' }
-                                }
-                            }
-                        }));
-                        return;
-                    }
-
-                    if (data.history) {
-                        // Process historical ticks
-                        const prices = data.history.prices.map((price: string) => parseFloat(price));
-                        tickData.current[symbol] = prices;
-
-                        // Analyze and update market data
-                        const analysis = analyzeVolatility(symbol, prices);
-                        setMarketData(prev => ({
-                            ...prev,
-                            [symbol]: analysis
-                        }));
-
-                        setTotalSymbolsAnalyzed(prev => {
-                            const newCount = prev + 1;
-                            return newCount;
-                        });
-                    } else if (data.tick && data.tick.symbol === symbol) {
-                        // Process live tick
-                        if (!tickData.current[symbol]) {
-                            tickData.current[symbol] = [];
-                        }
-
-                        tickData.current[symbol].push(parseFloat(data.tick.quote));
-
-                        // Keep only last 100 ticks
-                        if (tickData.current[symbol].length > 100) {
-                            tickData.current[symbol].shift();
-                        }
-
-                        // Re-analyze with new tick
-                        const analysis = analyzeVolatility(symbol, tickData.current[symbol]);
-                        setMarketData(prev => ({
-                            ...prev,
-                            [symbol]: analysis
-                        }));
-                    } else if (data.ping) {
-                        // Respond to ping
-                        ws.send(JSON.stringify({ pong: 1 }));
-                    }
-                } catch (error) {
-                    console.error(`Error processing message for ${symbol}:`, error);
-                }
-            };
-
-            ws.onerror = (error) => {
-                console.error(`❌ WebSocket error for ${symbol}:`, error);
-                setConnectionStatus('error');
-                
-                // Create fallback data for failed connections
-                const fallbackAnalysis = analyzeVolatility(symbol, []);
-                setMarketData(prev => ({
-                    ...prev,
-                    [symbol]: {
-                        ...fallbackAnalysis,
-                        displayName: volatilitySymbols.find(v => v.symbol === symbol)?.displayName || symbol,
-                        isReady: false,
-                        currentPrice: Math.random() * 1000 + 100,
-                        lastDigit: Math.floor(Math.random() * 10),
-                        recommendations: {
-                            evenOdd: { type: 'EVEN', confidence: 50, reason: 'Connection error - using fallback data' },
-                            overUnder: { type: 'OVER', barrier: 5, confidence: 50, reason: 'Connection error - using fallback data' },
-                            matches: { type: 'MATCHES', digit: 5, confidence: 50, reason: 'Connection error - using fallback data' },
-                            riseFall: { type: 'RISE', confidence: 50, reason: 'Connection error - using fallback data' }
-                        }
-                    }
-                }));
-                
-                // Schedule reconnection
-                reconnectTimeouts.current[symbol] = setTimeout(() => {
-                    console.log(`🔄 Reconnecting to ${symbol}...`);
-                    connectToSymbol(symbol);
-                }, 5000);
-            };
-
-            ws.onclose = () => {
-                console.log(`🔄 Disconnected from ${symbol}`);
-                setConnectionStatus('disconnected');
-                
-                // Schedule reconnection unless intentionally closed
-                if (ws.readyState !== WebSocket.CLOSED) {
-                    reconnectTimeouts.current[symbol] = setTimeout(() => {
-                        console.log(`🔄 Reconnecting to ${symbol}...`);
-                        connectToSymbol(symbol);
-                    }, 3000);
-                }
-            };
-
-        } catch (error) {
-            console.error(`Failed to create WebSocket for ${symbol}:`, error);
-            setConnectionStatus('error');
-        }
-    }, [analyzeVolatility, volatilitySymbols]);
-
-    // Start market scanning
+    // Start market scanning with Market Analyzer
     const startMarketScan = useCallback(async () => {
         setIsScanning(true);
         setScanningProgress(0);
         setTotalSymbolsAnalyzed(0);
         setConnectionStatus('connecting');
         
-        globalObserver.emit('ui.log.info', 'Starting market scan across all volatilities...');
+        globalObserver.emit('ui.log.info', 'Starting real-time market analysis with Deriv API...');
         
-        // Start progress animation immediately
+        // Start progress animation
         let currentProgress = 0;
         const progressInterval = setInterval(() => {
-            currentProgress += 10;
+            currentProgress += 15;
             setScanningProgress(Math.min(currentProgress, 90));
             if (currentProgress >= 90) {
                 clearInterval(progressInterval);
             }
-        }, 800);
+        }, 500);
         
-        // Connect to all symbols with reduced delay
-        volatilitySymbols.forEach((symbolData, index) => {
-            setTimeout(() => {
-                connectToSymbol(symbolData.symbol);
-            }, index * 100);
-        });
+        // Subscribe to market analyzer
+        const unsubscribe = subscribeToMarketAnalyzer();
+        unsubscribeRef.current = unsubscribe;
         
-        setConnectionStatus('connected');
-        
-        // Complete scanning in exactly 9 seconds
+        // Complete scanning animation in 5 seconds
         setTimeout(() => {
             clearInterval(progressInterval);
             setScanningProgress(100);
             setTimeout(() => {
                 setIsScanning(false);
-                globalObserver.emit('ui.log.success', `Market scan completed. Analyzing ${volatilitySymbols.length} volatility indices.`);
+                globalObserver.emit('ui.log.success', `Real-time market analysis active. Monitoring ${volatilitySymbols.length} volatility indices with AI.`);
             }, 500);
-        }, 9000);
-    }, [connectToSymbol, volatilitySymbols]);
+        }, 5000);
+    }, [subscribeToMarketAnalyzer, volatilitySymbols]);
 
     // Initialize market scanner on component mount
     useEffect(() => {
         startMarketScan();
         
-        // Cleanup WebSocket connections on unmount
+        // Cleanup market analyzer subscription on unmount
         return () => {
-            Object.values(wsConnections.current).forEach(ws => {
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.close();
-                }
-            });
-            Object.values(reconnectTimeouts.current).forEach(timeout => {
-                clearTimeout(timeout);
-            });
+            if (unsubscribeRef.current) {
+                unsubscribeRef.current();
+                unsubscribeRef.current = null;
+            }
+            marketAnalyzer.stop();
         };
     }, [startMarketScan]);
 
@@ -459,7 +340,7 @@ const TradingHubDisplay: React.FC = () => {
                 <div className="status-bar">
                     <div className="status-item">
                         <div className={`status-dot ${connectionStatus}`}></div>
-                        Status: {connectionStatus === 'connected' ? 'Connected' : 'Connecting...'}
+                        Status: {connectionStatus === 'connected' ? 'Real-time Deriv Data' : 'Connecting...'}
                     </div>
                     <div className="status-separator"></div>
                     <div className="status-item">
@@ -467,7 +348,13 @@ const TradingHubDisplay: React.FC = () => {
                     </div>
                     <div className="status-separator"></div>
                     <div className="status-item">
-                        Scan Progress: {scanningProgress.toFixed(0)}%
+                        {currentRecommendation ? (
+                            <span className="ai-recommendation">
+                                🤖 AI: {currentRecommendation.strategy.toUpperCase()} {currentRecommendation.barrier} on {currentRecommendation.symbol} ({currentRecommendation.confidence.toFixed(0)}%)
+                            </span>
+                        ) : (
+                            `Scan Progress: ${scanningProgress.toFixed(0)}%`
+                        )}
                     </div>
                     <div className="status-separator"></div>
                     <div className="status-item">
@@ -596,6 +483,17 @@ const TradingHubDisplay: React.FC = () => {
                                                 <span>Most Frequent:</span>
                                                 <strong>Digit {analysis.mostFrequentDigit} ({analysis.digitPercentages[analysis.mostFrequentDigit].toFixed(1)}%)</strong>
                                             </div>
+                                            {analysis.aiRecommendation && (
+                                                <div className="ai-recommendation-card">
+                                                    <div className="ai-badge">🤖 AI Recommendation</div>
+                                                    <div className="ai-strategy">
+                                                        {analysis.aiRecommendation.strategy.toUpperCase()} {analysis.aiRecommendation.barrier}
+                                                    </div>
+                                                    <div className="ai-confidence">
+                                                        Confidence: {analysis.aiRecommendation.confidence.toFixed(1)}%
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ) : (
