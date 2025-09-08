@@ -135,101 +135,47 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             // Generate Over/Under recommendations
             const generateOverUnderRecs = () => {
-                const { mostFrequentDigit, currentLastDigit, lastDigitFrequency, leastFrequentDigit } = stats;
+                const { mostFrequentDigit, currentLastDigit, lastDigitFrequency } = stats;
                 const totalTicks = Object.values(lastDigitFrequency).reduce((a, b) => a + b, 0);
 
-                if (totalTicks >= 30) { // Reduced threshold for faster detection
-                    // Calculate digit distribution for Over/Under barriers
-                    const overUnderAnalysis = [
-                        { barrier: '2', over: [3,4,5,6,7,8,9], under: [0,1] },
-                        { barrier: '3', over: [4,5,6,7,8,9], under: [0,1,2] },
-                        { barrier: '4', over: [5,6,7,8,9], under: [0,1,2,3] },
-                        { barrier: '5', over: [6,7,8,9], under: [0,1,2,3,4] },
-                        { barrier: '6', over: [7,8,9], under: [0,1,2,3,4,5] },
-                        { barrier: '7', over: [8,9], under: [0,1,2,3,4,5,6] }
-                    ];
+                if (totalTicks >= 50) {
+                    // UNDER 7 Logic
+                    if ([0, 1, 2].includes(mostFrequentDigit) && [7, 8, 9].includes(currentLastDigit)) {
+                        const mostFreqPercent = (lastDigitFrequency[mostFrequentDigit] / totalTicks) * 100;
+                        let confidence = 65 + Math.min(mostFreqPercent - 15, 20);
+                        confidence = Math.min(confidence, 95);
 
-                    overUnderAnalysis.forEach(({ barrier, over, under }) => {
-                        const overCount = over.reduce((sum, digit) => sum + (lastDigitFrequency[digit] || 0), 0);
-                        const underCount = under.reduce((sum, digit) => sum + (lastDigitFrequency[digit] || 0), 0);
-                        const overPercent = (overCount / totalTicks) * 100;
-                        const underPercent = (underCount / totalTicks) * 100;
-
-                        // OVER recommendations - when under digits are dominant and current is low
-                        if (underPercent > 60 && under.includes(currentLastDigit)) {
-                            let confidence = Math.min(55 + (underPercent - 50) * 1.5, 85);
-                            if (confidence > 62) {
-                                recommendations.push({
-                                    symbol,
-                                    strategy: 'over',
-                                    barrier,
-                                    confidence,
-                                    overPercentage: confidence,
-                                    underPercentage: 0,
-                                    reason: `Under ${barrier} dominance: ${underPercent.toFixed(1)}%, current ${currentLastDigit}`,
-                                    timestamp: Date.now()
-                                });
-                            }
+                        if (confidence > 72) {
+                            recommendations.push({
+                                symbol,
+                                strategy: 'under',
+                                barrier: '7',
+                                confidence,
+                                overPercentage: 0,
+                                underPercentage: confidence,
+                                reason: `Pattern: Most frequent ${mostFrequentDigit} (${mostFreqPercent.toFixed(1)}%), current ${currentLastDigit}`,
+                                timestamp: Date.now()
+                            });
                         }
+                    }
 
-                        // UNDER recommendations - when over digits are dominant and current is high
-                        if (overPercent > 60 && over.includes(currentLastDigit)) {
-                            let confidence = Math.min(55 + (overPercent - 50) * 1.5, 85);
-                            if (confidence > 62) {
-                                recommendations.push({
-                                    symbol,
-                                    strategy: 'under',
-                                    barrier,
-                                    confidence,
-                                    overPercentage: 0,
-                                    underPercentage: confidence,
-                                    reason: `Over ${barrier} dominance: ${overPercent.toFixed(1)}%, current ${currentLastDigit}`,
-                                    timestamp: Date.now()
-                                });
-                            }
-                        }
-                    });
+                    // OVER 2 Logic
+                    if ([7, 8, 9].includes(mostFrequentDigit) && [0, 1, 2].includes(currentLastDigit)) {
+                        const mostFreqPercent = (lastDigitFrequency[mostFrequentDigit] / totalTicks) * 100;
+                        let confidence = 65 + Math.min(mostFreqPercent - 15, 20);
+                        confidence = Math.min(confidence, 95);
 
-                    // Additional traditional logic for high confidence patterns
-                    if (totalTicks >= 50) {
-                        // UNDER 7 Logic - when low digits frequent and current is high
-                        if ([0, 1, 2].includes(mostFrequentDigit) && [7, 8, 9].includes(currentLastDigit)) {
-                            const mostFreqPercent = (lastDigitFrequency[mostFrequentDigit] / totalTicks) * 100;
-                            let confidence = 65 + Math.min(mostFreqPercent - 15, 20);
-                            confidence = Math.min(confidence, 95);
-
-                            if (confidence > 70) {
-                                recommendations.push({
-                                    symbol,
-                                    strategy: 'under',
-                                    barrier: '7',
-                                    confidence,
-                                    overPercentage: 0,
-                                    underPercentage: confidence,
-                                    reason: `AI Pattern: Most frequent ${mostFrequentDigit} (${mostFreqPercent.toFixed(1)}%), current ${currentLastDigit}`,
-                                    timestamp: Date.now()
-                                });
-                            }
-                        }
-
-                        // OVER 2 Logic - when high digits frequent and current is low
-                        if ([7, 8, 9].includes(mostFrequentDigit) && [0, 1, 2].includes(currentLastDigit)) {
-                            const mostFreqPercent = (lastDigitFrequency[mostFrequentDigit] / totalTicks) * 100;
-                            let confidence = 65 + Math.min(mostFreqPercent - 15, 20);
-                            confidence = Math.min(confidence, 95);
-
-                            if (confidence > 70) {
-                                recommendations.push({
-                                    symbol,
-                                    strategy: 'over',
-                                    barrier: '2',
-                                    confidence,
-                                    overPercentage: confidence,
-                                    underPercentage: 0,
-                                    reason: `AI Pattern: Most frequent ${mostFrequentDigit} (${mostFreqPercent.toFixed(1)}%), current ${currentLastDigit}`,
-                                    timestamp: Date.now()
-                                });
-                            }
+                        if (confidence > 72) {
+                            recommendations.push({
+                                symbol,
+                                strategy: 'over',
+                                barrier: '2',
+                                confidence,
+                                overPercentage: confidence,
+                                underPercentage: 0,
+                                reason: `Pattern: Most frequent ${mostFrequentDigit} (${mostFreqPercent.toFixed(1)}%), current ${currentLastDigit}`,
+                                timestamp: Date.now()
+                            });
                         }
                     }
                 }
