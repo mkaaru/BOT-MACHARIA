@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: red;
+            margin: 0;
+            padding: 0;
+        }
+        .navbar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #222;
+            padding: 15px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .dropdown select {
+            background-color: #222;
+            color: red;
+            padding: 10px;
+            font-size: 18px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: background-color 0.3s, border 0.3s;
+        }
+        .dropdown select:hover {
+            background-color: red;
+            color: #222;
+            border-radius: 5px;
+            border: 2px solid #00bfff;
+            box-shadow: 0 0 10px #00bfff;
+        }
+        .social-icon {
+            width: 32px;
+            height: 32px;
+            transition: transform 0.3s;
+        }
+        .social-icon:hover {
+            transform: scale(1.2);
+        }
+    </style>
+    <script>
+        function loadPage(page) {
+            if (page) {
+                document.getElementById('contentFrame').src = page;
+            }
+        }
+        
+        // Prevent Inspect Element
+        document.addEventListener('contextmenu', event => {
+            event.preventDefault();
+            alert('Right-click is disabled on this page!');
+        });
+        
+        document.addEventListener('keydown', event => {
+            if (event.key === 'F12' || (event.ctrlKey && event.shiftKey && event.key === 'I') ||
+                (event.ctrlKey && event.shiftKey && event.key === 'J') ||
+                (event.ctrlKey && event.key === 'U')) {
+                event.preventDefault();
+                alert('Inspecting the page is disabled!');
+            }
+        });
+    </script>
+</head>
+<body>
+    <div class="navbar">
+        <a href="https://whatsapp.com/channel/0029Vb6XXDE8aKvIEKj8KD2o" target="_blank">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" class="social-icon">
+        </a>
+        <div class="dropdown">
+            <select name="menu" onchange="loadPage(this.value)">
+                <option value="signals.html" selected>Signals</option>
+                <option value="digitshome.html" selected>Digits</option>
+                <option value="calculator.html">Calculator</option>
+                <option value="analyser.html">Market Analyser</option>
+                <option value="risefall.html">Risefall</option>
+                <option value="evenodd.html">Even/Odd</option>
+                <option value="overandunder.html">Over/Under</option>
+                <option value="percantages.html">Digits Percantages</option>
+                <option value="riskmanagement.html">Risk Management</option>
+                <option value="eo.html">Even Odd Strategies</option>
+                <option value="ou.html">Over Under Strategies</option>
+                <option value="rfstrategies.html">Rise Fall Strategies</option>
+                <option value="md.html">Matches and Differs Strategies</option>
+                <option value="analysistool.html" selected>Analysis Tool</option>
+            </select>
+        </div>
+        <a href="https://t.me/+YxTWcTntIK4zNTI8" target="_blank">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" alt="Telegram" class="social-icon">
+        </a>
+    </div>
+    <iframe id="contentFrame" class="content" src="analysistool.html" style="width: 100%; height: calc(100vh - 60px); border: none;"></iframe>
+</body>
+</html>
