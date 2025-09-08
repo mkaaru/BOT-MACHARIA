@@ -563,18 +563,94 @@ const AppWrapper = observer(() => {
                     try {
                         console.log("Attempting partial load with error tolerance...");
 
-                        // Try to extract the main strategy blocks and load them individually
-                        const strategyMatch = xmlContent.match(/<block[^>]*type="trade_definition"[\s\S]*?<\/block>/);
-                        if (strategyMatch) {
-                            const simpleXml = `<xml xmlns="https://developers.google.com/blockly/xml">${strategyMatch[0]}</xml>`;
-                            const simpleDoc = window.Blockly.utils.xml.textToDom(simpleXml);
-                            workspace.clear();
-                            window.Blockly.Xml.domToWorkspace(simpleDoc, workspace);
+                        // Clear workspace completely
+                        workspace.clear();
+                        workspace.clearUndo();
+
+                        // Create a more comprehensive parser for partial loading
+                        const xmlDoc = new DOMParser().parseFromString(xmlContent, 'application/xml');
+                        const blocks = xmlDoc.getElementsByTagName('block');
+                        
+                        let loadedAnyBlock = false;
+                        const supportedBlockTypes = [
+                            'trade_definition',
+                            'controls_if', 
+                            'variables_set',
+                            'math_number',
+                            'text',
+                            'logic_boolean',
+                            'math_arithmetic',
+                            'procedures_defnoreturn',
+                            'procedures_callnoreturn',
+                            'after_purchase',
+                            'contract_check_result',
+                            'balance',
+                            'trade_again'
+                        ];
+
+                        // Try to load each supported block individually
+                        for (let i = 0; i < blocks.length; i++) {
+                            const block = blocks[i];
+                            const blockType = block.getAttribute('type');
+                            
+                            if (supportedBlockTypes.includes(blockType)) {
+                                try {
+                                    // Create a simple wrapper XML for this block
+                                    const blockXml = `<xml xmlns="https://developers.google.com/blockly/xml">${block.outerHTML}</xml>`;
+                                    const blockDoc = window.Blockly.utils.xml.textToDom(blockXml);
+                                    
+                                    // Try to load this individual block
+                                    const blockElement = blockDoc.getElementsByTagName('block')[0];
+                                    if (blockElement) {
+                                        try {
+                                            window.Blockly.Xml.domToBlock(blockElement, workspace);
+                                            loadedAnyBlock = true;
+                                            console.log(`Successfully loaded block: ${blockType}`);
+                                        } catch (blockError) {
+                                            console.warn(`Failed to load block ${blockType}:`, blockError);
+                                        }
+                                    }
+                                } catch (blockError) {
+                                    console.warn(`Error processing block ${blockType}:`, blockError);
+                                }
+                            }
+                        }
+
+                        if (loadedAnyBlock) {
+                            // Try to connect compatible blocks
                             workspace.cleanUp();
-                            console.log("Partial bot loaded - main strategy block only");
-                            alert("Bot loaded partially. Some advanced features may not be available.");
+                            
+                            // Update workspace properties
+                            if (workspace.current_strategy_id === undefined) {
+                                workspace.current_strategy_id = window.Blockly.utils.idGenerator.genUid();
+                            }
+                            
+                            console.log("Partial bot loaded successfully with compatible blocks");
+                            alert("Bot loaded partially. Some advanced features may not be available, but core functionality should work. Please verify the strategy before running.");
                         } else {
-                            throw new Error("No recognizable strategy blocks found");
+                            // Last resort: try to extract just variables and basic structure
+                            const variablesMatch = xmlContent.match(/<variables>[\s\S]*?<\/variables>/);
+                            const basicBlocks = xmlContent.match(/<block[^>]*type="(?:variables_set|math_number|logic_boolean)"[^>]*>[\s\S]*?<\/block>/g);
+                            
+                            if (variablesMatch || basicBlocks) {
+                                let basicXml = '<xml xmlns="https://developers.google.com/blockly/xml">';
+                                if (variablesMatch) basicXml += variablesMatch[0];
+                                if (basicBlocks) {
+                                    basicBlocks.forEach(block => {
+                                        basicXml += block;
+                                    });
+                                }
+                                basicXml += '</xml>';
+                                
+                                const basicDoc = window.Blockly.utils.xml.textToDom(basicXml);
+                                window.Blockly.Xml.domToWorkspace(basicDoc, workspace);
+                                workspace.cleanUp();
+                                
+                                console.log("Loaded basic bot structure only");
+                                alert("Bot loaded with minimal features. You may need to rebuild the strategy manually.");
+                            } else {
+                                throw new Error("No compatible blocks found in the bot file");
+                            }
                         }
                     } catch (finalError) {
                         console.error("All loading attempts failed:", finalError);
