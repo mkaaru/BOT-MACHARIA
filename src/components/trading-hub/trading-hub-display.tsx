@@ -92,7 +92,7 @@ const TradingHubDisplay: React.FC = () => {
     const analyzeVolatility = useCallback((symbol: string, ticks: number[]): VolatilityAnalysis => {
         const displayName = volatilitySymbols.find(v => v.symbol === symbol)?.displayName || symbol;
         
-        if (ticks.length < 50) {
+        if (ticks.length < 20) { // Reduced from 50 to 20 for faster readiness
             return {
                 symbol,
                 displayName,
@@ -216,10 +216,10 @@ const TradingHubDisplay: React.FC = () => {
 
         ws.onopen = () => {
             console.log(`Connected to ${symbol}`);
-            // Request tick history
+            // Request smaller tick history for faster loading
             ws.send(JSON.stringify({
                 ticks_history: symbol,
-                count: 100,
+                count: 50, // Reduced from 100 to 50 for faster response
                 end: 'latest',
                 style: 'ticks',
                 subscribe: 1
@@ -241,7 +241,31 @@ const TradingHubDisplay: React.FC = () => {
                     [symbol]: analysis
                 }));
                 
-                setTotalSymbolsAnalyzed(prev => prev + 1);
+                setTotalSymbolsAnalyzed(prev => {
+                    const newCount = prev + 1;
+                    // Update progress based on symbols analyzed if still scanning
+                    if (newCount <= volatilitySymbols.length) {
+                        const progressPercent = Math.max(
+                            (newCount / volatilitySymbols.length) * 90, // Cap at 90%
+                            currentProgress
+                        );
+                        setScanningProgress(progressPercent);
+                    }
+                    return newCount;
+                });
+                
+                // If all symbols are analyzed and ready, complete faster
+                if (Object.keys(marketData).length + 1 >= volatilitySymbols.length) {
+                    setTimeout(() => {
+                        if (isScanning) {
+                            setScanningProgress(100);
+                            setTimeout(() => {
+                                setIsScanning(false);
+                                globalObserver.emit('ui.log.success', `Market scan completed. Analyzing ${volatilitySymbols.length} volatility indices.`);
+                            }, 300);
+                        }
+                    }, 500);
+                }
             } else if (data.tick && data.tick.symbol === symbol) {
                 // Process live tick
                 if (!tickData.current[symbol]) {
@@ -282,21 +306,34 @@ const TradingHubDisplay: React.FC = () => {
         
         globalObserver.emit('ui.log.info', 'Starting market scan across all volatilities...');
         
-        // Connect to all symbols
+        // Start progress animation immediately
+        let currentProgress = 0;
+        const progressInterval = setInterval(() => {
+            currentProgress += 10;
+            setScanningProgress(Math.min(currentProgress, 90));
+            if (currentProgress >= 90) {
+                clearInterval(progressInterval);
+            }
+        }, 800); // Update every 800ms to reach 90% in 8 seconds
+        
+        // Connect to all symbols with reduced delay
         volatilitySymbols.forEach((symbolData, index) => {
             setTimeout(() => {
                 connectToSymbol(symbolData.symbol);
-                setScanningProgress(((index + 1) / volatilitySymbols.length) * 100);
-            }, index * 500); // Stagger connections
+            }, index * 100); // Reduced stagger to 100ms instead of 500ms
         });
         
         setConnectionStatus('connected');
         
-        // Complete scanning after all connections are made
+        // Complete scanning in exactly 9 seconds
         setTimeout(() => {
-            setIsScanning(false);
-            globalObserver.emit('ui.log.success', `Market scan completed. Analyzing ${volatilitySymbols.length} volatility indices.`);
-        }, volatilitySymbols.length * 500 + 2000);
+            clearInterval(progressInterval);
+            setScanningProgress(100);
+            setTimeout(() => {
+                setIsScanning(false);
+                globalObserver.emit('ui.log.success', `Market scan completed. Analyzing ${volatilitySymbols.length} volatility indices.`);
+            }, 500);
+        }, 9000); // Complete in 9 seconds total
     }, [connectToSymbol, volatilitySymbols]);
 
     // Initialize market scanner on component mount
