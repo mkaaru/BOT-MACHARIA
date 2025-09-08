@@ -63,6 +63,7 @@ const TradingHubDisplay: React.FC = () => {
     // WebSocket connections for each symbol
     const wsConnections = useRef<{ [symbol: string]: WebSocket }>({});
     const tickData = useRef<{ [symbol: string]: number[] }>({});
+    const reconnectTimeouts = useRef<{ [symbol: string]: NodeJS.Timeout }>({});
     
     // Available volatility symbols
     const volatilitySymbols = [
@@ -92,7 +93,7 @@ const TradingHubDisplay: React.FC = () => {
     const analyzeVolatility = useCallback((symbol: string, ticks: number[]): VolatilityAnalysis => {
         const displayName = volatilitySymbols.find(v => v.symbol === symbol)?.displayName || symbol;
         
-        if (ticks.length < 20) { // Reduced from 50 to 20 for faster readiness
+        if (ticks.length < 20) {
             return {
                 symbol,
                 displayName,
@@ -205,97 +206,155 @@ const TradingHubDisplay: React.FC = () => {
         };
     }, [getLastDigit, volatilitySymbols]);
 
-    // Connect to WebSocket for a specific symbol
+    // Connect to WebSocket for a specific symbol with robust error handling
     const connectToSymbol = useCallback((symbol: string) => {
+        console.log(`🔌 Connecting to ${symbol}`);
+        
+        // Clear existing connection and timeout
         if (wsConnections.current[symbol]) {
             wsConnections.current[symbol].close();
         }
+        if (reconnectTimeouts.current[symbol]) {
+            clearTimeout(reconnectTimeouts.current[symbol]);
+        }
 
-        const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
-        wsConnections.current[symbol] = ws;
+        try {
+            const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=75771');
+            wsConnections.current[symbol] = ws;
 
-        ws.onopen = () => {
-            console.log(`Connected to ${symbol}`);
-            // Request smaller tick history for faster loading
-            ws.send(JSON.stringify({
-                ticks_history: symbol,
-                count: 50, // Reduced from 100 to 50 for faster response
-                end: 'latest',
-                style: 'ticks',
-                subscribe: 1
-            }));
-        };
-
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            
-            if (data.history) {
-                // Process historical ticks
-                const prices = data.history.prices.map((price: string) => parseFloat(price));
-                tickData.current[symbol] = prices;
+            ws.onopen = () => {
+                console.log(`✅ Connected to ${symbol}`);
+                setConnectionStatus('connected');
                 
-                // Analyze and update market data
-                const analysis = analyzeVolatility(symbol, prices);
-                setMarketData(prev => ({
-                    ...prev,
-                    [symbol]: analysis
+                // Request tick history with subscribe
+                ws.send(JSON.stringify({
+                    ticks_history: symbol,
+                    count: 50,
+                    end: 'latest',
+                    style: 'ticks',
+                    subscribe: 1
                 }));
-                
-                setTotalSymbolsAnalyzed(prev => {
-                    const newCount = prev + 1;
-                    // Update progress based on symbols analyzed if still scanning
-                    if (newCount <= volatilitySymbols.length) {
-                        const progressPercent = Math.max(
-                            (newCount / volatilitySymbols.length) * 90, // Cap at 90%
-                            currentProgress
-                        );
-                        setScanningProgress(progressPercent);
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.error) {
+                        console.error(`❌ API error for ${symbol}:`, data.error);
+                        // Create fallback data for API errors
+                        const fallbackAnalysis = analyzeVolatility(symbol, []);
+                        setMarketData(prev => ({
+                            ...prev,
+                            [symbol]: {
+                                ...fallbackAnalysis,
+                                displayName: volatilitySymbols.find(v => v.symbol === symbol)?.displayName || symbol,
+                                isReady: false,
+                                currentPrice: Math.random() * 1000 + 100,
+                                lastDigit: Math.floor(Math.random() * 10),
+                                recommendations: {
+                                    evenOdd: { type: 'EVEN', confidence: 50, reason: 'API error - using fallback data' },
+                                    overUnder: { type: 'OVER', barrier: 5, confidence: 50, reason: 'API error - using fallback data' },
+                                    matches: { type: 'MATCHES', digit: 5, confidence: 50, reason: 'API error - using fallback data' },
+                                    riseFall: { type: 'RISE', confidence: 50, reason: 'API error - using fallback data' }
+                                }
+                            }
+                        }));
+                        return;
                     }
-                    return newCount;
-                });
-                
-                // If all symbols are analyzed and ready, complete faster
-                if (Object.keys(marketData).length + 1 >= volatilitySymbols.length) {
-                    setTimeout(() => {
-                        if (isScanning) {
-                            setScanningProgress(100);
-                            setTimeout(() => {
-                                setIsScanning(false);
-                                globalObserver.emit('ui.log.success', `Market scan completed. Analyzing ${volatilitySymbols.length} volatility indices.`);
-                            }, 300);
+
+                    if (data.history) {
+                        // Process historical ticks
+                        const prices = data.history.prices.map((price: string) => parseFloat(price));
+                        tickData.current[symbol] = prices;
+
+                        // Analyze and update market data
+                        const analysis = analyzeVolatility(symbol, prices);
+                        setMarketData(prev => ({
+                            ...prev,
+                            [symbol]: analysis
+                        }));
+
+                        setTotalSymbolsAnalyzed(prev => {
+                            const newCount = prev + 1;
+                            return newCount;
+                        });
+                    } else if (data.tick && data.tick.symbol === symbol) {
+                        // Process live tick
+                        if (!tickData.current[symbol]) {
+                            tickData.current[symbol] = [];
                         }
-                    }, 500);
+
+                        tickData.current[symbol].push(parseFloat(data.tick.quote));
+
+                        // Keep only last 100 ticks
+                        if (tickData.current[symbol].length > 100) {
+                            tickData.current[symbol].shift();
+                        }
+
+                        // Re-analyze with new tick
+                        const analysis = analyzeVolatility(symbol, tickData.current[symbol]);
+                        setMarketData(prev => ({
+                            ...prev,
+                            [symbol]: analysis
+                        }));
+                    } else if (data.ping) {
+                        // Respond to ping
+                        ws.send(JSON.stringify({ pong: 1 }));
+                    }
+                } catch (error) {
+                    console.error(`Error processing message for ${symbol}:`, error);
                 }
-            } else if (data.tick && data.tick.symbol === symbol) {
-                // Process live tick
-                if (!tickData.current[symbol]) {
-                    tickData.current[symbol] = [];
-                }
+            };
+
+            ws.onerror = (error) => {
+                console.error(`❌ WebSocket error for ${symbol}:`, error);
+                setConnectionStatus('error');
                 
-                tickData.current[symbol].push(parseFloat(data.tick.quote));
-                
-                // Keep only last 100 ticks
-                if (tickData.current[symbol].length > 100) {
-                    tickData.current[symbol].shift();
-                }
-                
-                // Re-analyze with new tick
-                const analysis = analyzeVolatility(symbol, tickData.current[symbol]);
+                // Create fallback data for failed connections
+                const fallbackAnalysis = analyzeVolatility(symbol, []);
                 setMarketData(prev => ({
                     ...prev,
-                    [symbol]: analysis
+                    [symbol]: {
+                        ...fallbackAnalysis,
+                        displayName: volatilitySymbols.find(v => v.symbol === symbol)?.displayName || symbol,
+                        isReady: false,
+                        currentPrice: Math.random() * 1000 + 100,
+                        lastDigit: Math.floor(Math.random() * 10),
+                        recommendations: {
+                            evenOdd: { type: 'EVEN', confidence: 50, reason: 'Connection error - using fallback data' },
+                            overUnder: { type: 'OVER', barrier: 5, confidence: 50, reason: 'Connection error - using fallback data' },
+                            matches: { type: 'MATCHES', digit: 5, confidence: 50, reason: 'Connection error - using fallback data' },
+                            riseFall: { type: 'RISE', confidence: 50, reason: 'Connection error - using fallback data' }
+                        }
+                    }
                 }));
-            }
-        };
+                
+                // Schedule reconnection
+                reconnectTimeouts.current[symbol] = setTimeout(() => {
+                    console.log(`🔄 Reconnecting to ${symbol}...`);
+                    connectToSymbol(symbol);
+                }, 5000);
+            };
 
-        ws.onerror = (error) => {
-            console.error(`WebSocket error for ${symbol}:`, error);
-        };
+            ws.onclose = () => {
+                console.log(`🔄 Disconnected from ${symbol}`);
+                setConnectionStatus('disconnected');
+                
+                // Schedule reconnection unless intentionally closed
+                if (ws.readyState !== WebSocket.CLOSED) {
+                    reconnectTimeouts.current[symbol] = setTimeout(() => {
+                        console.log(`🔄 Reconnecting to ${symbol}...`);
+                        connectToSymbol(symbol);
+                    }, 3000);
+                }
+            };
 
-        ws.onclose = () => {
-            console.log(`Disconnected from ${symbol}`);
-        };
-    }, [analyzeVolatility]);
+        } catch (error) {
+            console.error(`Failed to create WebSocket for ${symbol}:`, error);
+            setConnectionStatus('error');
+        }
+    }, [analyzeVolatility, volatilitySymbols]);
 
     // Start market scanning
     const startMarketScan = useCallback(async () => {
@@ -314,13 +373,13 @@ const TradingHubDisplay: React.FC = () => {
             if (currentProgress >= 90) {
                 clearInterval(progressInterval);
             }
-        }, 800); // Update every 800ms to reach 90% in 8 seconds
+        }, 800);
         
         // Connect to all symbols with reduced delay
         volatilitySymbols.forEach((symbolData, index) => {
             setTimeout(() => {
                 connectToSymbol(symbolData.symbol);
-            }, index * 100); // Reduced stagger to 100ms instead of 500ms
+            }, index * 100);
         });
         
         setConnectionStatus('connected');
@@ -333,7 +392,7 @@ const TradingHubDisplay: React.FC = () => {
                 setIsScanning(false);
                 globalObserver.emit('ui.log.success', `Market scan completed. Analyzing ${volatilitySymbols.length} volatility indices.`);
             }, 500);
-        }, 9000); // Complete in 9 seconds total
+        }, 9000);
     }, [connectToSymbol, volatilitySymbols]);
 
     // Initialize market scanner on component mount
@@ -346,6 +405,9 @@ const TradingHubDisplay: React.FC = () => {
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     ws.close();
                 }
+            });
+            Object.values(reconnectTimeouts.current).forEach(timeout => {
+                clearTimeout(timeout);
             });
         };
     }, [startMarketScan]);
