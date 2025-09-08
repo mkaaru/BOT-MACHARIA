@@ -26,7 +26,6 @@ import VolatilityAnalyzer from '@/components/volatility-analyzer';
 import SmartTrader from '@/components/smart-trader';
 import MLTrader from '@/components/ml-trader';
 import TradingHubDisplay from '@/components/trading-hub/trading-hub-display';
-import Icon from '@/components/icon';
 
 
 const ChartTab = lazy(() => import('../chart'));
@@ -1413,37 +1412,37 @@ if __name__ == "__main__":
 
     const tabs = [
             {
-                icon: <Icon icon='IcDashboard' className='dashboard__tab-icon' />,
+                icon: <DashboardIcon />,
                 label: localize('Dashboard'),
                 value: TAB_IDS.DASHBOARD,
             },
             {
-                icon: <Icon icon='IcAnalysis' className='dashboard__tab-icon' />,
+                icon: <AnalysisToolIcon />,
                 label: localize('AUTO'),
                 value: TAB_IDS.AUTO,
             },
             {
-                icon: <Icon icon='IcBotBuilder' className='dashboard__tab-icon' />,
+                icon: <BotBuilderIcon />,
                 label: localize('Bot Builder'),
                 value: TAB_IDS.BOT_BUILDER,
             },
             {
-                icon: <Icon icon='IcChartsTabDbot' className='dashboard__tab-icon' />,
+                icon: <ChartsIcon />,
                 label: localize('Charts'),
                 value: TAB_IDS.CHART,
             },
             {
-                icon: <Icon icon='IcTutorials' className='dashboard__tab-icon' />,
+                icon: <TutorialsIcon />,
                 label: localize('Tutorials'),
                 value: TAB_IDS.TUTORIAL,
             },
             {
-                icon: <Icon icon='IcBotBuilder' className='dashboard__tab-icon' />,
+                icon: <AITraderIcon />,
                 label: localize('ML Trader'),
                 value: 5,
             },
             {
-                icon: <Icon icon='IcAnalysis' className='dashboard__tab-icon' />,
+                icon: <BotIcon />,
                 label: localize('Smart Trader'),
                 value: 6,
             },
