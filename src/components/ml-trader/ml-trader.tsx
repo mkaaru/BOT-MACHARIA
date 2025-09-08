@@ -15,6 +15,8 @@ const TRADE_TYPES = [
     { value: 'DIGITODD', label: 'Odd' },
     { value: 'DIGITMATCH', label: 'Matches' },
     { value: 'DIGITDIFF', label: 'Differs' },
+    // Rise/Fall Contracts
+    { value: 'RISEFALL', label: 'Rise/Fall' },
 ];
 
 // Volatility indices for digit trading
@@ -81,6 +83,10 @@ const MLTrader = observer(() => {
     const [accountCurrency, setAccountCurrency] = useState('USD');
     const [availableSymbols, setAvailableSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
 
+    // Market analysis state
+    const [marketAnalysis, setMarketAnalysis] = useState<Record<string, any>>({});
+    const [currentPrice, setCurrentPrice] = useState('-');
+
     // Refs for cleanup and state management
     const derivApiRef = useRef<any>(null);
     const tickStreamIdRef = useRef<string | null>(null);
@@ -130,6 +136,7 @@ const MLTrader = observer(() => {
         stopTicks();
         setTicksProcessed(0);
         setLastDigit('-');
+        setCurrentPrice('-');
 
         try {
             const { subscription, error } = await derivApiRef.current.send({ ticks: sym, subscribe: 1 });
@@ -143,8 +150,27 @@ const MLTrader = observer(() => {
                     if (data?.msg_type === 'tick' && data?.tick?.symbol === sym) {
                         const quote = data.tick.quote;
                         const digit = Number(String(quote).slice(-1));
-                        setLastDigit(digit.toString());
-                        setTicksProcessed(prev => prev + 1);
+
+                        // Update current symbol data
+                        if (sym === selectedVolatility) {
+                            setLastDigit(digit.toString());
+                            setTicksProcessed(prev => prev + 1);
+                            setCurrentPrice(quote.toFixed(5));
+                        }
+
+                        // Update market analysis data for real-time tracking
+                        setMarketAnalysis(prev => {
+                            if (prev[sym]) {
+                                return {
+                                    ...prev,
+                                    [sym]: {
+                                        ...prev[sym],
+                                        currentPrice: quote.toFixed(5)
+                                    }
+                                };
+                            }
+                            return prev;
+                        });
                     }
                     if (data?.forget?.id && data?.forget?.id === tickStreamIdRef.current) {
                         // stopped
@@ -169,19 +195,24 @@ const MLTrader = observer(() => {
                 // Fetch active symbols (volatility indices)
                 const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
                 if (asErr) throw asErr;
-                const syn = (active_symbols || [])
-                    .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol))
+
+                const volatilitySymbols = (active_symbols || [])
+                    .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol) || /1HZ.*V/.test(s.symbol))
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
-                setAvailableSymbols(syn);
-                if (!selectedVolatility && syn[0]?.symbol) setSelectedVolatility(syn[0].symbol);
+                setAvailableSymbols(volatilitySymbols);
+                if (!selectedVolatility && volatilitySymbols[0]?.symbol) setSelectedVolatility(volatilitySymbols[0].symbol);
 
                 setConnectionStatus('Connected');
-                
-                // Load historical data for selected volatility
-                await loadHistoricalData(selectedVolatility);
-                
-                if (syn[0]?.symbol) startTicks(selectedVolatility || syn[0].symbol);
-                
+
+                // Load historical data for all volatility markets
+                for (const symbolObj of volatilitySymbols) {
+                    await loadHistoricalData(symbolObj.symbol);
+                    // Start ticks for the initially selected symbol
+                    if (symbolObj.symbol === selectedVolatility) {
+                        startTicks(symbolObj.symbol);
+                    }
+                }
+
                 setStatusMessage('Ready to start trading');
             } catch (error: any) {
                 setConnectionStatus('Error');
@@ -213,7 +244,7 @@ const MLTrader = observer(() => {
 
         try {
             setStatusMessage(`Loading historical data for ${symbol}...`);
-            
+
             const historyResponse = await derivApiRef.current.send({
                 ticks_history: symbol,
                 count: 1000,
@@ -228,21 +259,32 @@ const MLTrader = observer(() => {
             if (historyResponse.history && historyResponse.history.prices) {
                 const prices = historyResponse.history.prices.map(price => parseFloat(price));
                 const times = historyResponse.history.times || [];
-                
+
                 console.log(`Loaded ${prices.length} historical ticks for ${symbol}`);
-                
+
                 // Process historical data to extract digits
                 const historicalDigits = prices.map(price => {
                     const priceStr = price.toFixed(5);
                     return parseInt(priceStr.slice(-1));
                 });
 
-                // Update ticks processed with historical data
-                setTicksProcessed(historicalDigits.length);
-                
-                // Set the last digit from historical data
-                if (historicalDigits.length > 0) {
-                    setLastDigit(historicalDigits[historicalDigits.length - 1].toString());
+                // Update market analysis state
+                setMarketAnalysis(prev => ({
+                    ...prev,
+                    [symbol]: {
+                        historicalDigits,
+                        averageDigit: historicalDigits.length > 0 ? historicalDigits.reduce((a, b) => a + b, 0) / historicalDigits.length : 0,
+                        // Add more analysis metrics as needed
+                    }
+                }));
+
+                // Update ticks processed with historical data for the selected symbol
+                if (symbol === selectedVolatility) {
+                    setTicksProcessed(historicalDigits.length);
+                    // Set the last digit from historical data
+                    if (historicalDigits.length > 0) {
+                        setLastDigit(historicalDigits[historicalDigits.length - 1].toString());
+                    }
                 }
 
                 setStatusMessage(`Loaded ${prices.length} historical ticks. Ready to start trading.`);
@@ -292,7 +334,7 @@ const MLTrader = observer(() => {
         setIsRunning(true);
         setIsTrading(true);
         stopFlagRef.current = false;
-        
+
         // Initialize run panel
         run_panel.toggleDrawer(true);
         run_panel.setActiveTabIndex(1); // Transactions tab index in run panel tabs
@@ -373,7 +415,7 @@ const MLTrader = observer(() => {
                                         run_panel.setHasOpenContract(false);
                                         if (pocSubId) derivApiRef.current?.forget?.({ forget: pocSubId });
                                         derivApiRef.current?.connection?.removeEventListener('message', onMsg);
-                                        
+
                                         const profit = Number(poc?.profit || 0);
                                         if (profit > 0) {
                                             lastOutcomeWasLossRef.current = false;
@@ -597,6 +639,9 @@ const MLTrader = observer(() => {
                                 <Text size='s'>
                                     {localize('Last Digit')}: {lastDigit}
                                 </Text>
+                                <Text size='s'>
+                                    {localize('Current Price')}: {currentPrice}
+                                </Text>
                             </div>
                         </div>
 
@@ -626,6 +671,23 @@ const MLTrader = observer(() => {
                                 </button>
                             )}
                         </div>
+                    </div>
+
+                    {/* Market Analysis Cards */}
+                    <div className='ml-trader__analysis-cards'>
+                        {availableSymbols.map(symbolObj => (
+                            <div key={symbolObj.symbol} className='ml-trader__analysis-card'>
+                                <h3 className='ml-trader__analysis-card-title'>{symbolObj.display_name}</h3>
+                                {marketAnalysis[symbolObj.symbol] ? (
+                                    <>
+                                        <p>{localize('Average Digit')}: {marketAnalysis[symbolObj.symbol].averageDigit?.toFixed(2)}</p>
+                                        {/* Add more analysis data here */}
+                                    </>
+                                ) : (
+                                    <p>{localize('Loading analysis...')}</p>
+                                )}
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
