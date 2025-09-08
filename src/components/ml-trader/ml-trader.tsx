@@ -16,7 +16,8 @@ const TRADE_TYPES = [
     { value: 'DIGITMATCH', label: 'Matches' },
     { value: 'DIGITDIFF', label: 'Differs' },
     // Rise/Fall Contracts
-    { value: 'RISEFALL', label: 'Rise/Fall' },
+    { value: 'RISE', label: 'Rise' },
+    { value: 'FALL', label: 'Fall' },
 ];
 
 // Volatility indices for digit trading
@@ -51,7 +52,8 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     if (trade_option.prediction !== undefined) {
         buy.parameters.barrier = trade_option.prediction;
     }
-    if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
+    // For Rise/Fall, barrier is not used directly in the same way as digits
+    if (!['RISE', 'FALL'].includes(contract_type) && trade_option.prediction !== undefined) {
         buy.parameters.barrier = trade_option.prediction;
     }
     return buy;
@@ -86,6 +88,18 @@ const MLTrader = observer(() => {
     // Market analysis state
     const [marketAnalysis, setMarketAnalysis] = useState<Record<string, any>>({});
     const [currentPrice, setCurrentPrice] = useState('-');
+
+    // Rise/Fall specific state
+    const [riseAnalysis, setRiseAnalysis] = useState({ percentage: 0, confidence: 0 });
+    const [fallAnalysis, setFallAnalysis] = useState({ percentage: 0, confidence: 0 });
+    const [riseFallVolatility, setRiseFallVolatility] = useState('R_100'); // Default to R_100 for Rise/Fall
+    const [tickCount, setTickCount] = useState(120); // Number of ticks to analyze for Rise/Fall
+    const [barrier, setBarrier] = useState(5); // Barrier for digit prediction, not directly used for Rise/Fall, but kept for consistency if needed
+    const [baseStakeRF, setBaseStakeRF] = useState(1); // Base stake for Rise/Fall
+    const [ticksRF, setTicksRF] = useState(1); // Duration in ticks for Rise/Fall
+    const [martingaleRF, setMartingaleRF] = useState(1); // Martingale multiplier for Rise/Fall
+    const [autoTradingActive, setAutoTradingActive] = useState(false); // Flag for auto trading Rise/Fall
+
 
     // Refs for cleanup and state management
     const derivApiRef = useRef<any>(null);
@@ -171,6 +185,13 @@ const MLTrader = observer(() => {
                             }
                             return prev;
                         });
+
+                        // Update tick data for Rise/Fall analysis
+                        setTickData(prevTickData => {
+                            const newTickData = [...prevTickData, { time: data.tick.ts, quote: parseFloat(quote) }];
+                            // Keep only the last `tickCount` ticks for analysis
+                            return newTickData.slice(-tickCount);
+                        });
                     }
                     if (data?.forget?.id && data?.forget?.id === tickStreamIdRef.current) {
                         // stopped
@@ -201,6 +222,7 @@ const MLTrader = observer(() => {
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
                 setAvailableSymbols(volatilitySymbols);
                 if (!selectedVolatility && volatilitySymbols[0]?.symbol) setSelectedVolatility(volatilitySymbols[0].symbol);
+                if (!riseFallVolatility && volatilitySymbols[0]?.symbol) setRiseFallVolatility(volatilitySymbols[0].symbol); // Set for Rise/Fall too
 
                 setConnectionStatus('Connected');
 
@@ -297,19 +319,81 @@ const MLTrader = observer(() => {
         }
     };
 
+    // Rise/Fall analysis calculation
+    const calculateRiseFallAnalysis = useCallback((tickData) => {
+        if (!tickData || tickData.length < 10) {
+            return { rise: 0, fall: 0 };
+        }
+
+        let riseCount = 0;
+        let fallCount = 0;
+        let totalMoves = 0;
+
+        for (let i = 1; i < tickData.length; i++) {
+            const prevPrice = tickData[i - 1]?.quote || tickData[i - 1];
+            const currentPrice = tickData[i]?.quote || tickData[i];
+
+            if (prevPrice !== undefined && currentPrice !== undefined) {
+                if (currentPrice > prevPrice) {
+                    riseCount++;
+                } else if (currentPrice < prevPrice) {
+                    fallCount++;
+                }
+                totalMoves++;
+            }
+        }
+
+        const risePercentage = totalMoves > 0 ? (riseCount / totalMoves) * 100 : 0;
+        const fallPercentage = totalMoves > 0 ? (fallCount / totalMoves) * 100 : 0;
+
+        return {
+            rise: risePercentage,
+            fall: fallPercentage,
+            totalMoves,
+            riseCount,
+            fallCount
+        };
+    }, []);
+
+    // Update Rise/Fall analysis when tick data changes
+    useEffect(() => {
+        if (tickData && tickData.length > 0) {
+            const analysis = calculateRiseFallAnalysis(tickData);
+            setRiseAnalysis({
+                percentage: analysis.rise,
+                confidence: Math.max(analysis.rise, analysis.fall)
+            });
+            setFallAnalysis({
+                percentage: analysis.fall,
+                confidence: Math.max(analysis.rise, analysis.fall)
+            });
+        }
+    }, [tickData, calculateRiseFallAnalysis]);
+
+
     // Purchase function
     const purchaseOnce = async () => {
         await authorizeIfNeeded();
 
+        let stakeToUse = stake;
+        if (selectedTradeType === 'RISE' || selectedTradeType === 'FALL') {
+            stakeToUse = baseStakeRF; // Use Rise/Fall specific stake
+        }
+
         const trade_option: any = {
-            amount: Number(stake),
+            amount: Number(stakeToUse),
             basis: 'stake',
-            contractTypes: [selectedTradeType],
             currency: accountCurrency,
-            duration: Number(duration),
-            duration_unit: durationType,
             symbol: selectedVolatility,
         };
+
+        if (selectedTradeType === 'RISE' || selectedTradeType === 'FALL') {
+            trade_option.duration = ticksRF;
+            trade_option.duration_unit = 't'; // Rise/Fall typically uses ticks duration
+        } else {
+            trade_option.duration = Number(duration);
+            trade_option.duration_unit = durationType;
+        }
 
         // Choose prediction based on trade type and last outcome
         if (selectedTradeType === 'DIGITOVER' || selectedTradeType === 'DIGITUNDER') {
@@ -319,7 +403,7 @@ const MLTrader = observer(() => {
         const buy_req = tradeOptionToBuy(selectedTradeType, trade_option);
         const { buy, error } = await derivApiRef.current.buy(buy_req);
         if (error) throw error;
-        setStatusMessage(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stake}`);
+        setStatusMessage(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeToUse}`);
         return buy;
     };
 
@@ -345,12 +429,23 @@ const MLTrader = observer(() => {
         try {
             let lossStreak = 0;
             let step = 0;
-            baseStake !== stake && setBaseStake(stake);
+            baseStake !== stake && setBaseStake(stake); // Sync with general stake if not using RF stake
 
             while (!stopFlagRef.current) {
+                // Determine which stake and duration to use based on trade type
+                let currentStake = stake;
+                let currentDuration = duration;
+                let currentDurationType = durationType;
+
+                if (selectedTradeType === 'RISE' || selectedTradeType === 'FALL') {
+                    currentStake = baseStakeRF;
+                    currentDuration = ticksRF;
+                    currentDurationType = 't'; // Explicitly set to ticks for Rise/Fall
+                }
+
                 // Adjust stake based on martingale strategy
-                const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
-                setStake(effectiveStake);
+                const effectiveStake = step > 0 ? Number((currentStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : currentStake;
+                setStake(effectiveStake); // Update general stake for display, but use specific ones for purchase
 
                 // Update prediction strategy based on prior outcomes
                 const isOU = selectedTradeType === 'DIGITOVER' || selectedTradeType === 'DIGITUNDER';
@@ -422,7 +517,10 @@ const MLTrader = observer(() => {
                                             lossStreak = 0;
                                             step = 0;
                                             // Reset to base stake on win
-                                            setStake(baseStake);
+                                            setStake(baseStake); // Reset general stake
+                                            if (selectedTradeType === 'RISE' || selectedTradeType === 'FALL') {
+                                                setBaseStakeRF(baseStakeRF); // Ensure RF base stake is maintained or reset if needed
+                                            }
                                         } else {
                                             lastOutcomeWasLossRef.current = true;
                                             lossStreak++;
@@ -455,7 +553,7 @@ const MLTrader = observer(() => {
             run_panel.setHasOpenContract(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
         }
-    }, [selectedVolatility, selectedTradeType, duration, durationType, stake, baseStake, overPrediction, underPrediction, martingaleMultiplier, accountCurrency, availableSymbols, run_panel, transactions]);
+    }, [selectedVolatility, selectedTradeType, duration, durationType, stake, baseStake, overPrediction, underPrediction, martingaleMultiplier, accountCurrency, availableSymbols, run_panel, transactions, baseStakeRF, ticksRF, martingaleRF]);
 
     // Stop trading function
     const handleStopTrading = () => {
@@ -511,11 +609,12 @@ const MLTrader = observer(() => {
                             <div className='ml-trader__row'>
                                 <div className='ml-trader__field'>
                                     <label>{localize('Volatility')}</label>
-                                    <select 
-                                        value={selectedVolatility} 
+                                    <select
+                                        value={selectedVolatility}
                                         onChange={(e) => {
                                             const newVolatility = e.target.value;
                                             setSelectedVolatility(newVolatility);
+                                            setRiseFallVolatility(newVolatility); // Also update for Rise/Fall card
                                             if (derivApiRef.current && !isTrading) {
                                                 loadHistoricalData(newVolatility);
                                                 startTicks(newVolatility);
@@ -533,8 +632,8 @@ const MLTrader = observer(() => {
 
                                 <div className='ml-trader__field'>
                                     <label>{localize('Trade type')}</label>
-                                    <select 
-                                        value={selectedTradeType} 
+                                    <select
+                                        value={selectedTradeType}
                                         onChange={(e) => setSelectedTradeType(e.target.value)}
                                         disabled={isTrading}
                                     >
@@ -551,10 +650,10 @@ const MLTrader = observer(() => {
                             <div className='ml-trader__row'>
                                 <div className='ml-trader__field'>
                                     <label>{localize('Duration Type')}</label>
-                                    <select 
-                                        value={durationType} 
+                                    <select
+                                        value={durationType}
                                         onChange={(e) => setDurationType(e.target.value)}
-                                        disabled={isTrading}
+                                        disabled={isTrading || selectedTradeType === 'RISE' || selectedTradeType === 'FALL'}
                                     >
                                         <option value="t">{localize('Ticks')}</option>
                                         <option value="s">{localize('Seconds')}</option>
@@ -568,8 +667,14 @@ const MLTrader = observer(() => {
                                         type='number'
                                         min='1'
                                         max='10'
-                                        value={duration}
-                                        onChange={(e) => setDuration(parseInt(e.target.value))}
+                                        value={selectedTradeType === 'RISE' || selectedTradeType === 'FALL' ? ticksRF : duration}
+                                        onChange={(e) => {
+                                            if (selectedTradeType === 'RISE' || selectedTradeType === 'FALL') {
+                                                setTicksRF(parseInt(e.target.value));
+                                            } else {
+                                                setDuration(parseInt(e.target.value));
+                                            }
+                                        }}
                                         disabled={isTrading}
                                     />
                                 </div>
@@ -583,50 +688,58 @@ const MLTrader = observer(() => {
                                         type='number'
                                         step='0.01'
                                         min='0.35'
-                                        value={stake}
-                                        onChange={(e) => setStake(parseFloat(e.target.value))}
+                                        value={selectedTradeType === 'RISE' || selectedTradeType === 'FALL' ? baseStakeRF : stake}
+                                        onChange={(e) => {
+                                            if (selectedTradeType === 'RISE' || selectedTradeType === 'FALL') {
+                                                setBaseStakeRF(parseFloat(e.target.value));
+                                            } else {
+                                                setStake(parseFloat(e.target.value));
+                                            }
+                                        }}
                                         disabled={isTrading}
                                     />
                                 </div>
 
-                                <div className='ml-trader__predictions'>
-                                    <div className='ml-trader__field'>
-                                        <label>{localize('Over/Under prediction (pre-loss)')}</label>
-                                        <input
-                                            type='number'
-                                            min='0'
-                                            max='9'
-                                            value={overPrediction}
-                                            onChange={(e) => setOverPrediction(parseInt(e.target.value))}
-                                            disabled={isTrading}
-                                        />
-                                    </div>
+                                {(selectedTradeType === 'DIGITOVER' || selectedTradeType === 'DIGITUNDER' || selectedTradeType === 'DIGITMATCH' || selectedTradeType === 'DIGITDIFF') && (
+                                    <div className='ml-trader__predictions'>
+                                        <div className='ml-trader__field'>
+                                            <label>{localize('Over/Under prediction (pre-loss)')}</label>
+                                            <input
+                                                type='number'
+                                                min='0'
+                                                max='9'
+                                                value={overPrediction}
+                                                onChange={(e) => setOverPrediction(parseInt(e.target.value))}
+                                                disabled={isTrading}
+                                            />
+                                        </div>
 
-                                    <div className='ml-trader__field'>
-                                        <label>{localize('Over/Under prediction (after loss)')}</label>
-                                        <input
-                                            type='number'
-                                            min='0'
-                                            max='9'
-                                            value={underPrediction}
-                                            onChange={(e) => setUnderPrediction(parseInt(e.target.value))}
-                                            disabled={isTrading}
-                                        />
-                                    </div>
+                                        <div className='ml-trader__field'>
+                                            <label>{localize('Over/Under prediction (after loss)')}</label>
+                                            <input
+                                                type='number'
+                                                min='0'
+                                                max='9'
+                                                value={underPrediction}
+                                                onChange={(e) => setUnderPrediction(parseInt(e.target.value))}
+                                                disabled={isTrading}
+                                            />
+                                        </div>
 
-                                    <div className='ml-trader__field'>
-                                        <label>{localize('Martingale multiplier')}</label>
-                                        <input
-                                            type='number'
-                                            step='0.1'
-                                            min='1'
-                                            max='3'
-                                            value={martingaleMultiplier}
-                                            onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value))}
-                                            disabled={isTrading}
-                                        />
+                                        <div className='ml-trader__field'>
+                                            <label>{localize('Martingale multiplier')}</label>
+                                            <input
+                                                type='number'
+                                                step='0.1'
+                                                min='1'
+                                                max='3'
+                                                value={martingaleMultiplier}
+                                                onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value))}
+                                                disabled={isTrading}
+                                            />
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         </div>
 
@@ -688,6 +801,32 @@ const MLTrader = observer(() => {
                                 )}
                             </div>
                         ))}
+
+                        {/* Rise/Fall Analysis Card */}
+                        <div className='ml-trader__analysis-card'>
+                            <h3 className='ml-trader__analysis-card-title'>{localize('Rise/Fall Analysis')}</h3>
+                            <select
+                                value={riseFallVolatility}
+                                onChange={(e) => {
+                                    setRiseFallVolatility(e.target.value);
+                                    if (!isTrading) {
+                                        loadHistoricalData(e.target.value);
+                                        startTicks(e.target.value); // Start ticks for the selected Rise/Fall volatility
+                                    }
+                                }}
+                                disabled={isTrading}
+                            >
+                                {availableSymbols.map(item => (
+                                    <option key={item.symbol} value={item.symbol}>
+                                        {item.display_name}
+                                    </option>
+                                ))}
+                            </select>
+                            <div>
+                                <p>{localize('Rise')}: {riseAnalysis.percentage.toFixed(2)}% (Confidence: {riseAnalysis.confidence.toFixed(2)}%)</p>
+                                <p>{localize('Fall')}: {fallAnalysis.percentage.toFixed(2)}% (Confidence: {fallAnalysis.confidence.toFixed(2)}%)</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
