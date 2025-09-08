@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
-import Modal from '@/components/shared_ui.modal';
+import Modal from '@/components/shared_ui/modal';
 import { localize } from '@deriv-com/translations';
 import marketAnalyzer from '@/services/market-analyzer';
 import SmartTraderWrapper from './smart-trader-wrapper';
