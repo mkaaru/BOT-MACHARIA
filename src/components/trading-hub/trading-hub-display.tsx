@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
-import Modal from '@/components/shared_ui/modal';
+import Modal from '@/components/shared_ui.modal';
 import { localize } from '@deriv-com/translations';
 import marketAnalyzer from '@/services/market-analyzer';
 import SmartTraderWrapper from './smart-trader-wrapper';
@@ -138,14 +137,14 @@ const TradingHubDisplay: React.FC = observer(() => {
             const generateOverUnderRecs = () => {
                 const { mostFrequentDigit, currentLastDigit, lastDigitFrequency } = stats;
                 const totalTicks = Object.values(lastDigitFrequency).reduce((a, b) => a + b, 0);
-                
+
                 if (totalTicks >= 50) {
                     // UNDER 7 Logic
                     if ([0, 1, 2].includes(mostFrequentDigit) && [7, 8, 9].includes(currentLastDigit)) {
                         const mostFreqPercent = (lastDigitFrequency[mostFrequentDigit] / totalTicks) * 100;
                         let confidence = 65 + Math.min(mostFreqPercent - 15, 20);
                         confidence = Math.min(confidence, 95);
-                        
+
                         if (confidence > 72) {
                             recommendations.push({
                                 symbol,
@@ -165,7 +164,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         const mostFreqPercent = (lastDigitFrequency[mostFrequentDigit] / totalTicks) * 100;
                         let confidence = 65 + Math.min(mostFreqPercent - 15, 20);
                         confidence = Math.min(confidence, 95);
-                        
+
                         if (confidence > 72) {
                             recommendations.push({
                                 symbol,
@@ -191,11 +190,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                 if (totalTicks >= 50) {
                     const evenPercent = (evenCount / totalTicks) * 100;
                     const oddPercent = (oddCount / totalTicks) * 100;
-                    
+
                     if (Math.abs(evenPercent - 50) > 15) {
                         const strategy = evenPercent > 55 ? 'even' : 'odd';
                         const confidence = Math.min(60 + Math.abs(evenPercent - 50), 85);
-                        
+
                         recommendations.push({
                             symbol,
                             strategy,
@@ -214,13 +213,13 @@ const TradingHubDisplay: React.FC = observer(() => {
             const generateMatchesDiffersRecs = () => {
                 const { mostFrequentDigit, leastFrequentDigit, lastDigitFrequency } = stats;
                 const totalTicks = Object.values(lastDigitFrequency).reduce((a, b) => a + b, 0);
-                
+
                 if (totalTicks >= 50) {
                     const mostFreqCount = lastDigitFrequency[mostFrequentDigit] || 0;
                     const leastFreqCount = lastDigitFrequency[leastFrequentDigit] || 0;
                     const mostFreqPercent = (mostFreqCount / totalTicks) * 100;
                     const leastFreqPercent = (leastFreqCount / totalTicks) * 100;
-                    
+
                     // Matches recommendation
                     if (mostFreqPercent > 15) {
                         const confidence = Math.min(55 + (mostFreqPercent - 10) * 2, 80);

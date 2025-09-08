@@ -89,6 +89,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(initialSettings.prediction || 5);
     const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(initialSettings.prediction || 5);
     const [mdPrediction, setMdPrediction] = useState<number>(initialSettings.prediction || 5);
+    const [overUnderBarrier, setOverUnderBarrier] = useState<string>(initialSettings.barrier || '5');
     
     // Higher/Lower barrier
     const [barrier, setBarrier] = useState<string>(initialSettings.barrier || '+0.37');
@@ -132,15 +133,15 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         if (tradeType === 'DIGITEVEN') return d % 2 === 0 ? 'is-green' : 'is-red';
         if (tradeType === 'DIGITODD') return d % 2 !== 0 ? 'is-green' : 'is-red';
         if ((tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER')) {
-            const activePred = lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss;
+            const barrier = Number(overUnderBarrier);
             if (tradeType === 'DIGITOVER') {
-                if (d > Number(activePred)) return 'is-green';
-                if (d < Number(activePred)) return 'is-red';
+                if (d > barrier) return 'is-green';
+                if (d < barrier) return 'is-red';
                 return 'is-neutral';
             }
             if (tradeType === 'DIGITUNDER') {
-                if (d < Number(activePred)) return 'is-green';
-                if (d > Number(activePred)) return 'is-red';
+                if (d < barrier) return 'is-green';
+                if (d > barrier) return 'is-red';
                 return 'is-neutral';
             }
         }
@@ -272,7 +273,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
-            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
+            trade_option.prediction = Number(overUnderBarrier);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
         } else if (tradeType === 'CALL' || tradeType === 'PUT') {
@@ -466,7 +467,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                             </Text>
                             {(tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') && (
                                 <Text size='xs' color='general'>
-                                    {localize('Prediction:')} {ouPredPreLoss}
+                                    {localize('Barrier:')} {overUnderBarrier}
                                 </Text>
                             )}
                             {(tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') && (
@@ -583,29 +584,24 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
                     {/* Prediction controls based on trade type */}
                     {(tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') && (
-                        <div className='smart-trader-wrapper__row smart-trader-wrapper__row--two'>
-                            <div className='smart-trader-wrapper__field'>
-                                <label htmlFor='stw-pred-pre'>{localize('Prediction (pre-loss)')}</label>
-                                <input
-                                    id='stw-pred-pre'
-                                    type='number'
-                                    min={0}
-                                    max={9}
-                                    value={ouPredPreLoss}
-                                    onChange={e => setOuPredPreLoss(Math.max(0, Math.min(9, Number(e.target.value))))}
-                                />
-                            </div>
-                            <div className='smart-trader-wrapper__field'>
-                                <label htmlFor='stw-pred-post'>{localize('Prediction (after loss)')}</label>
-                                <input
-                                    id='stw-pred-post'
-                                    type='number'
-                                    min={0}
-                                    max={9}
-                                    value={ouPredPostLoss}
-                                    onChange={e => setOuPredPostLoss(Math.max(0, Math.min(9, Number(e.target.value))))}
-                                />
-                            </div>
+                        <div className='smart-trader-wrapper__field'>
+                            <label htmlFor='stw-ou-barrier'>{localize('Over/Under Barrier')}</label>
+                            <select
+                                id='stw-ou-barrier'
+                                value={overUnderBarrier}
+                                onChange={e => setOverUnderBarrier(e.target.value)}
+                            >
+                                <option value='0'>0</option>
+                                <option value='1'>1</option>
+                                <option value='2'>2</option>
+                                <option value='3'>3</option>
+                                <option value='4'>4</option>
+                                <option value='5'>5</option>
+                                <option value='6'>6</option>
+                                <option value='7'>7</option>
+                                <option value='8'>8</option>
+                                <option value='9'>9</option>
+                            </select>
                         </div>
                     )}
 
