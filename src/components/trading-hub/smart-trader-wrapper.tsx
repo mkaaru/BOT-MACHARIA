@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
@@ -34,53 +35,6 @@ interface SmartTraderWrapperProps {
     onClose: () => void;
 }
 
-// Define interfaces for market analysis data
-interface MarketStats {
-    lastDigitFrequency?: Record<number, number>;
-    isReady: boolean;
-}
-
-interface TradeRecommendation {
-    symbol: string;
-    strategy: 'over' | 'under' | 'even' | 'odd' | 'match' | 'diff';
-    barrier: string;
-    confidence: number;
-    overPercentage: number;
-    underPercentage: number;
-    reason: string;
-    timestamp: number;
-    score: number;
-}
-
-// Mock marketAnalyzer and its methods for demonstration purposes
-// In a real scenario, this would be imported from a library or service
-const marketAnalyzer = {
-    onAnalysis: (callback: (recommendation: TradeRecommendation, stats: Record<string, MarketStats>) => void) => {
-        // Simulate receiving analysis data
-        const mockStats = {
-            '1HZ10V': {
-                lastDigitFrequency: { 0: 10, 1: 15, 2: 20, 3: 18, 4: 12, 5: 8, 6: 5, 7: 7, 8: 6, 9: 9 },
-                isReady: true,
-            },
-            'R_100': {
-                lastDigitFrequency: { 0: 5, 1: 8, 2: 12, 3: 15, 4: 18, 5: 20, 6: 15, 7: 12, 8: 8, 9: 7 },
-                isReady: true,
-            },
-        };
-        const mockRecommendations: TradeRecommendation[] = [];
-        Object.keys(mockStats).forEach(symbolKey => {
-            const symbolStats = mockStats[symbolKey];
-            if (symbolStats.isReady) {
-                // Assuming generateOverUnderRecommendations is available
-                // mockRecommendations.push(...generateOverUnderRecommendations(symbolKey, symbolStats));
-            }
-        });
-        callback(mockRecommendations[0], mockStats); // Pass a dummy recommendation and the stats
-        return () => { }; // Return a dummy unsubscribe function
-    },
-};
-
-
 // Safe version of tradeOptionToBuy without Blockly dependencies
 const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     const buy = {
@@ -109,9 +63,9 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
 };
 
 const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initialSettings, onClose }) => {
-    const { common } = useStore();
+    const store = useStore();
+    const { run_panel, transactions } = store;
 
-    // Local state
     const apiRef = useRef<any>(null);
     const tickStreamIdRef = useRef<string | null>(null);
     const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
@@ -122,7 +76,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     const [account_currency, setAccountCurrency] = useState<string>('USD');
     const [symbols, setSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
 
-    // Trade settings state
+    // Form state - initialized from props
     const [symbol, setSymbol] = useState<string>(initialSettings.symbol);
     const [tradeType, setTradeType] = useState<string>(initialSettings.tradeType);
     const [ticks, setTicks] = useState<number>(initialSettings.duration);
@@ -135,10 +89,10 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(initialSettings.prediction || 5);
     const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(initialSettings.prediction || 5);
     const [mdPrediction, setMdPrediction] = useState<number>(initialSettings.prediction || 5);
-
+    
     // Higher/Lower barrier
     const [barrier, setBarrier] = useState<string>(initialSettings.barrier || '+0.37');
-
+    
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
 
@@ -156,11 +110,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     const [status, setStatus] = useState<string>('');
     const [is_running, setIsRunning] = useState(false);
     const stopFlagRef = useRef<boolean>(false);
-
-    // Over/Under analysis state
-    const [marketStats, setMarketStats] = useState<Record<string, MarketStats>>({});
-    const [recommendations, setRecommendations] = useState<TradeRecommendation[]>([]);
-
 
     // Symbol mapping for display names
     const symbolMap: Record<string, string> = {
@@ -198,7 +147,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         return '';
     };
 
-    // Effect to initialize API and fetch active symbols
+    // Effect to initialize API connection and fetch active symbols
     useEffect(() => {
         const api = generateDerivApiInstance();
         apiRef.current = api;
@@ -235,69 +184,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                 api?.disconnect?.();
             } catch { /* noop */ }
         };
-    }, []);
-
-    // Subscribe to market analyzer for over/under recommendations
-    useEffect(() => {
-        // Generate initial mock recommendations for immediate display
-        const generateMockRecommendations = () => {
-            const mockRecommendations: TradeRecommendation[] = [];
-            const volatilitySymbols = ['1HZ10V', 'R_10', 'R_25', 'R_50', 'R_100'];
-            
-            volatilitySymbols.forEach(sym => {
-                // Generate Over recommendation
-                mockRecommendations.push({
-                    symbol: sym,
-                    strategy: 'over',
-                    barrier: '4',
-                    confidence: 65 + Math.random() * 20,
-                    overPercentage: 65 + Math.random() * 20,
-                    underPercentage: 0,
-                    reason: `OVER (5-9) with ${(65 + Math.random() * 20).toFixed(2)}% - Recommended digit: ${5 + Math.floor(Math.random() * 5)} - Entry Points: 5, 7, 9`,
-                    timestamp: Date.now(),
-                    score: 65 + Math.random() * 20
-                });
-
-                // Generate Under recommendation
-                mockRecommendations.push({
-                    symbol: sym,
-                    strategy: 'under',
-                    barrier: '5',
-                    confidence: 60 + Math.random() * 25,
-                    overPercentage: 0,
-                    underPercentage: 60 + Math.random() * 25,
-                    reason: `UNDER (0-4) with ${(60 + Math.random() * 25).toFixed(2)}% - Recommended digit: ${Math.floor(Math.random() * 5)} - Entry Points: 0, 2, 4`,
-                    timestamp: Date.now(),
-                    score: 60 + Math.random() * 25
-                });
-            });
-
-            return mockRecommendations.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 6);
-        };
-
-        // Set initial mock recommendations
-        setRecommendations(generateMockRecommendations());
-
-        const unsubscribe = marketAnalyzer.onAnalysis((recommendation, stats) => {
-            setMarketStats(stats);
-
-            // Generate over/under recommendations for all symbols
-            const allRecommendations: TradeRecommendation[] = [];
-
-            Object.keys(stats).forEach(symbolKey => {
-                const symbolStats = stats[symbolKey];
-                if (symbolStats.isReady) {
-                    const symbolRecommendations = generateOverUnderRecommendations(symbolKey, symbolStats);
-                    allRecommendations.push(...symbolRecommendations);
-                }
-            });
-
-            if (allRecommendations.length > 0) {
-                setRecommendations(allRecommendations);
-            }
-        });
-
-        return unsubscribe;
     }, []);
 
     const authorizeIfNeeded = async () => {
@@ -383,7 +269,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             duration_unit: durationType,
             symbol,
         };
-
+        
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
@@ -414,7 +300,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             let lossStreak = 0;
             let step = 0;
             baseStake !== stake && setBaseStake(stake);
-
+            
             while (!stopFlagRef.current) {
                 const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
 
@@ -534,111 +420,13 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     };
 
     const stopTrading = () => {
+        stopFlagRef.current = true;
         setIsRunning(false);
-        setStatus(localize('Trading stopped'));
-    };
-
-    // Generate over/under recommendations similar to the market analyzer
-    const generateOverUnderRecommendations = (symbolKey: string, stats: MarketStats): TradeRecommendation[] => {
-        const recommendations: TradeRecommendation[] = [];
-        const { lastDigitFrequency } = stats;
-
-        if (!lastDigitFrequency || Object.keys(lastDigitFrequency).length === 0) {
-            return recommendations;
-        }
-
-        const totalTicks = Object.values(lastDigitFrequency).reduce((a, b) => a + b, 0);
-
-        // Analyze each barrier from 0-9
-        for (let barrier = 0; barrier <= 9; barrier++) {
-            let overCount = 0;
-            let underCount = 0;
-
-            // Count digits over and under barrier
-            for (let digit = 0; digit <= 9; digit++) {
-                const frequency = lastDigitFrequency[digit] || 0;
-                if (digit > barrier) {
-                    overCount += frequency;
-                } else if (digit < barrier) {
-                    underCount += frequency;
-                }
-            }
-
-            const overPercentage = (overCount / totalTicks) * 100;
-            const underPercentage = (underCount / totalTicks) * 100;
-
-            // OVER Analysis
-            if (overPercentage > 55 && overCount > 0) {
-                const confidence = Math.min(overPercentage + (overPercentage - 50) * 0.5, 85);
-                const overDigits = [];
-                for (let d = barrier + 1; d <= 9; d++) {
-                    if (lastDigitFrequency[d] > 0) overDigits.push(d);
-                }
-
-                let recommendedDigit = barrier + 1;
-                let maxFreq = 0;
-                for (let d = barrier + 1; d <= 9; d++) {
-                    if ((lastDigitFrequency[d] || 0) > maxFreq) {
-                        maxFreq = lastDigitFrequency[d] || 0;
-                        recommendedDigit = d;
-                    }
-                }
-
-                const avgOverFreq = overCount / Math.max(1, overDigits.length);
-                const entryPoints = overDigits.filter(d => 
-                    (lastDigitFrequency[d] || 0) >= avgOverFreq * 0.8
-                ).slice(0, 3);
-
-                recommendations.push({
-                    symbol: symbolKey,
-                    strategy: 'over',
-                    barrier: barrier.toString(),
-                    confidence,
-                    overPercentage: confidence,
-                    underPercentage: 0,
-                    reason: `OVER (${barrier + 1}-9) with ${confidence.toFixed(2)}% - Recommended digit: ${recommendedDigit} - Entry Points: ${entryPoints.length > 0 ? entryPoints.join(', ') : recommendedDigit}`,
-                    timestamp: Date.now(),
-                    score: confidence
-                });
-            }
-
-            // UNDER Analysis
-            if (underPercentage > 55 && underCount > 0) {
-                const confidence = Math.min(underPercentage + (underPercentage - 50) * 0.5, 85);
-                const underDigits = [];
-                for (let d = 0; d < barrier; d++) {
-                    if (lastDigitFrequency[d] > 0) underDigits.push(d);
-                }
-
-                let recommendedDigit = Math.max(0, barrier - 1);
-                let maxFreq = 0;
-                for (let d = 0; d < barrier; d++) {
-                    if ((lastDigitFrequency[d] || 0) > maxFreq) {
-                        maxFreq = lastDigitFrequency[d] || 0;
-                        recommendedDigit = d;
-                    }
-                }
-
-                const avgUnderFreq = underCount / Math.max(1, underDigits.length);
-                const entryPoints = underDigits.filter(d => 
-                    (lastDigitFrequency[d] || 0) >= avgUnderFreq * 0.8
-                ).slice(0, 3);
-
-                recommendations.push({
-                    symbol: symbolKey,
-                    strategy: 'under',
-                    barrier: barrier.toString(),
-                    confidence,
-                    overPercentage: 0,
-                    underPercentage: confidence,
-                    reason: `UNDER (0-${barrier - 1}) with ${confidence.toFixed(2)}% - Recommended digit: ${recommendedDigit} - Entry Points: ${entryPoints.length > 0 ? entryPoints.join(', ') : recommendedDigit}`,
-                    timestamp: Date.now(),
-                    score: confidence
-                });
-            }
-        }
-
-        return recommendations.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 2); // Top 2 recommendations per symbol
+        stopTicks();
+        run_panel.setIsRunning(false);
+        run_panel.setHasOpenContract(false);
+        run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        setStatus('Trading stopped');
     };
 
     const startTrading = () => {
@@ -690,47 +478,6 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                 <Text size='xs' color='general'>
                                     {localize('Barrier:')} {barrier}
                                 </Text>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Display Over/Under Recommendations */}
-                    <div className='smart-trader-wrapper__recommendations'>
-                        <Text size='s' weight='bold'>{localize('Over/Under Analysis:')}</Text>
-                        <div className='smart-trader-wrapper__recommendations-grid'>
-                            {recommendations.length > 0 ? (
-                                recommendations.map((rec, index) => (
-                                    <div key={index} className='smart-trader-wrapper__recommendation-card'>
-                                        <div className='recommendation-header'>
-                                            <Text size='xs' weight='bold'>{symbolMap[rec.symbol] || rec.symbol}</Text>
-                                            <span className={`confidence-badge confidence-${rec.strategy}`}>
-                                                {rec.confidence.toFixed(1)}%
-                                            </span>
-                                        </div>
-                                        <div className='recommendation-body'>
-                                            <Text size='xs' color='general'>
-                                                {rec.reason}
-                                            </Text>
-                                        </div>
-                                        <button 
-                                            className='use-recommendation-btn'
-                                            onClick={() => {
-                                                setSymbol(rec.symbol);
-                                                setTradeType(rec.strategy === 'over' ? 'DIGITOVER' : 'DIGITUNDER');
-                                                setOuPredPreLoss(parseInt(rec.barrier));
-                                                startTicks(rec.symbol);
-                                            }}
-                                        >
-                                            {localize('Use This Strategy')}
-                                        </button>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className='smart-trader-wrapper__recommendation-card'>
-                                    <Text size='xs' color='general'>
-                                        {localize('Analyzing market data...')}
-                                    </Text>
-                                </div>
                             )}
                         </div>
                     </div>
