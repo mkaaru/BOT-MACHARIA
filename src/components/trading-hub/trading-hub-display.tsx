@@ -752,7 +752,7 @@ const TradingHubDisplay: React.FC = () => {
     }, [run_panel, client]);
 
     // Execute trade using the enhanced trade engine
-    const executeTrade = useCallback((
+    const executeTrade = useCallback(async (
         strategy: string,
         symbol: string,
         contractType: string,
@@ -761,7 +761,7 @@ const TradingHubDisplay: React.FC = () => {
     ): Promise<boolean> => {
         if (isTradeInProgress && !isO5U4Part) {
             console.log('Trade already in progress, skipping...');
-            return false;
+            return Promise.resolve(false);
         }
 
         // Enhanced token retrieval with multiple fallbacks
@@ -789,7 +789,7 @@ const TradingHubDisplay: React.FC = () => {
 
         if (!client?.loginid || !token) {
             globalObserver.emit('ui.log.error', `Cannot execute trade: ${!client?.loginid ? 'not logged in' : 'no token available'}`);
-            return false;
+            return Promise.resolve(false);
         }
 
         if (!isO5U4Part) {
@@ -1005,7 +1005,7 @@ const TradingHubDisplay: React.FC = () => {
                 run_panel.setIsRunning(false);
             }
 
-            return false;
+            return Promise.resolve(false);
         } finally {
             if (!isO5U4Part) {
                 setIsTradeInProgress(false);
