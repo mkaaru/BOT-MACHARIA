@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
@@ -75,19 +75,7 @@ const SmartTrader = observer(() => {
     // Higher/Lower barrier
     const [barrier, setBarrier] = useState<string>('+0.37');
     // Martingale/recovery
-    const [stakeAmount, setStakeAmount] = useState(1);
-    const [martingaleMultiplier, setMartingaleMultiplier] = useState(1.5);
-    const [maxStake, setMaxStake] = useState(100);
-    const [profitThreshold, setProfitThreshold] = useState(10);
-    const [lossThreshold, setLossThreshold] = useState(-10);
-    const [winStreak, setWinStreak] = useState(0);
-    const [lossStreak, setLossStreak] = useState(0);
-    const [totalProfit, setTotalProfit] = useState(0);
-    const [currentStake, setCurrentStake] = useState(stakeAmount);
-    const [originalStake, setOriginalStake] = useState(stakeAmount);
-    const [martingaleActive, setMartingaleActive] = useState(false);
-    const [isTrading, setIsTrading] = useState(false);
-    const [lastTradeResult, setLastTradeResult] = useState('');
+    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
 
     // Contract tracking state
     const [currentProfit, setCurrentProfit] = useState<number>(0);
@@ -115,13 +103,11 @@ const SmartTrader = observer(() => {
     const stopFlagRef = useRef<boolean>(false);
 
     // --- New State Variables for Run Panel Integration ---
-    // const [isTrading, setIsTrading] = useState(false); // Tracks if trading is active // Already declared above
+    const [isTrading, setIsTrading] = useState(false); // Tracks if trading is active
     const [isConnected, setIsConnected] = useState(false); // Tracks API connection status
     const [websocket, setWebsocket] = useState<any>(null); // Stores websocket instance
     const [autoExecute, setAutoExecute] = useState(false); // Flag for auto-execution
     const [tickHistory, setTickHistory] = useState<Array<{ time: number, price: number }>>([]); // For tick history
-    const [isWaitingForTradeResult, setIsWaitingForTradeResult] = useState(false);
-    const [pendingNextTrade, setPendingNextTrade] = useState(false);
 
     // --- Helper Functions ---
 
@@ -545,7 +531,7 @@ const SmartTrader = observer(() => {
     };
 
     const purchaseOnce = async () => {
-        return await purchaseOnceWithStake(currentStake); // Use currentStake for actual trade
+        return await purchaseOnceWithStake(stake);
     };
 
     const purchaseOnceWithStake = async (stakeAmount: number) => {
@@ -587,25 +573,22 @@ const SmartTrader = observer(() => {
         run_panel.setContractStage(contract_stages.STARTING);
 
         try {
-            let step = 0; // Martingale step
-            // Initialize baseStake from the current stake value when trading starts
-            setBaseStake(stake);
-            setOriginalStake(stake); // Ensure originalStake is also set
-            setCurrentStake(stake); // Ensure currentStake is also set
-            setMartingaleActive(false); // Ensure martingale is inactive at start
-
+            let lossStreak = 0;
+            let step = 0;
+            baseStake !== stake && setBaseStake(stake);
             while (!stopFlagRef.current) {
-                const currentTradeStake = martingaleActive ? currentStake : stake;
+                // Adjust stake and prediction based on prior outcomes (simple martingale)
+                const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
+
                 const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
-
-                // Update UI with the stake for the current trade
-                setStake(currentTradeStake); // Update the displayed stake
-
                 if (isOU) {
                     lastOutcomeWasLossRef.current = lossStreak > 0;
                 }
 
-                const buy = await purchaseOnceWithStake(currentTradeStake);
+                // Update UI stake display
+                setStake(effectiveStake);
+
+                const buy = await purchaseOnceWithStake(effectiveStake);
 
                 // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
                 try {
@@ -679,44 +662,23 @@ const SmartTrader = observer(() => {
                                         run_panel.setHasOpenContract(false);
                                         if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
                                         apiRef.current?.connection?.removeEventListener('message', onMsg);
-
                                         const profit = Number(poc?.profit || 0);
-                                        const result = { win: profit > 0, profit: profit };
-
-                                        if (result.win) {
-                                            const profitAmount = result.profit || 0;
-                                            setTotalProfit(prev => prev + profitAmount);
-                                            setWinStreak(prev => prev + 1);
-                                            setLossStreak(0);
-                                            setLastTradeResult(`Win: +$${profitAmount.toFixed(2)}`);
-
-                                            // Reset to original stake after recovery
-                                            if (martingaleActive) {
-                                                setCurrentStake(originalStake);
-                                                setMartingaleActive(false);
-                                            }
+                                        if (profit > 0) {
+                                            lastOutcomeWasLossRef.current = false;
+                                            lossStreak = 0;
+                                            step = 0;
+                                            // Reset to base stake on win
+                                            setStake(baseStake);
                                         } else {
-                                            const lossAmount = Math.abs(result.profit || currentStake);
-                                            setTotalProfit(prev => prev - lossAmount);
-                                            setLossStreak(prev => prev + 1);
-                                            setWinStreak(0);
-                                            setLastTradeResult(`Loss: -$${lossAmount.toFixed(2)}`);
-
-                                            // Activate martingale after first loss and calculate new stake
-                                            setMartingaleActive(true);
-                                            const newStake = Math.min(currentStake * martingaleMultiplier, maxStake);
-                                            setCurrentStake(newStake);
+                                            lastOutcomeWasLossRef.current = true;
+                                            lossStreak++;
+                                            step = Math.min(step + 1, 10); // Cap at 10 steps to prevent excessive stake
                                         }
-
                                         // Reset contract values
                                         setCurrentProfit(0);
                                         setContractValue(0);
                                         setPotentialPayout(0);
                                         setContractDuration('00:00:00');
-
-                                        // Trade completed, can proceed with next trade
-                                        setIsWaitingForTradeResult(false);
-                                        setPendingNextTrade(true);
                                     }
                                 }
                             }
@@ -801,62 +763,11 @@ const SmartTrader = observer(() => {
     };
 
     // Placeholder for executeNextTrade if it exists elsewhere or needs implementation
-    const executeTrade = useCallback(async () => {
-        if (!isTrading || isWaitingForTradeResult) return;
-
-        try {
-            // Set waiting state to prevent new trades until this one completes
-            setIsWaitingForTradeResult(true);
-            setPendingNextTrade(false);
-
-            // Trade execution logic here
-            const tradeParams = {
-                contract_type: tradeType,
-                symbol: symbol,
-                amount: currentStake,
-                duration: 1,
-                duration_unit: 't',
-                basis: 'stake'
-            };
-
-            // Send trade request
-            // await api.buy(tradeParams);
-
-        } catch (error) {
-            console.error('Trade execution error:', error);
-            setIsWaitingForTradeResult(false);
-        }
-    }, [isTrading, isWaitingForTradeResult, tradeType, symbol, currentStake]);
-
-    // Handle pending next trade after completion
-    useEffect(() => {
-        if (pendingNextTrade && !isWaitingForTradeResult && isTrading) {
-            // Add a small delay to ensure proper sequencing
-            const timer = setTimeout(() => {
-                executeTrade();
-            }, 1000); // 1 second delay between trades
-
-            return () => clearTimeout(timer);
-        }
-    }, [pendingNextTrade, isWaitingForTradeResult, isTrading, executeTrade]);
-
-
-    const resetStats = () => {
-        setWinStreak(0);
-        setLossStreak(0);
-        setTotalProfit(0);
-        setCurrentStake(stakeAmount);
-        setOriginalStake(stakeAmount);
-        setMartingaleActive(false);
-        setLastTradeResult('');
+    const executeNextTrade = () => {
+        // This function would typically trigger the purchase logic
+        // For now, it's a placeholder. Ensure it's defined if autoExecute is used.
+        console.log('Executing next trade...');
     };
-
-    useEffect(() => {
-        setCurrentStake(stakeAmount);
-        setOriginalStake(stakeAmount);
-        // Reset martingale when stake amount changes
-        setMartingaleActive(false);
-    }, [stakeAmount]);
 
     return (
         <div className='smart-trader'>
@@ -967,8 +878,8 @@ const SmartTrader = observer(() => {
                                     </div>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
-                                        <input id='st-martingale' type='number' min={1.1} max={3} step='0.1' value={martingaleMultiplier}
-                                            onChange={e => setMartingaleMultiplier(Math.max(1.1, Math.min(3, Number(e.target.value))))} />
+                                        <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
+                                            onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
                                     </div>
                                 </div>
                             ) : (tradeType !== 'CALL' && tradeType !== 'PUT') ? (
@@ -985,8 +896,8 @@ const SmartTrader = observer(() => {
                                     </div>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
-                                        <input id='st-martingale' type='number' min={1.1} max={3} step='0.1' value={martingaleMultiplier}
-                                            onChange={e => setMartingaleMultiplier(Math.max(1.1, Math.min(3, Number(e.target.value))))} />
+                                        <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
+                                            onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
                                     </div>
                                 </div>
                             ) : null}
@@ -1011,9 +922,10 @@ const SmartTrader = observer(() => {
                                     <input
                                         id='st-martingale-hl'
                                         type='number'
-                                        min={1.1} max={3} step='0.1'
+                                        min={1}
+                                        step='0.1'
                                         value={martingaleMultiplier}
-                                        onChange={e => setMartingaleMultiplier(Math.max(1.1, Math.min(3, Number(e.target.value))))}
+                                        onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
                                     />
                                 </div>
                             </div>
@@ -1159,11 +1071,6 @@ const SmartTrader = observer(() => {
                                 </Text>
                             </div>
                         )}
-
-                        <div className='smart-trader__status-row'>
-                            <span className='smart-trader__status-label'>{localize('Current stake')}:</span>
-                            <span className='smart-trader__status-value'>${currentStake.toFixed(2)} {martingaleActive ? '(Martingale Active)' : ''}</span>
-                        </div>
                     </div>
                 </div>
             </div>
