@@ -42,6 +42,37 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [isSmartTraderModalOpen, setIsSmartTraderModalOpen] = useState(false);
     const [selectedTradeSettings, setSelectedTradeSettings] = useState<TradeSettings | null>(null);
     const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
+    const [aiScanningPhase, setAiScanningPhase] = useState<'initializing' | 'analyzing' | 'evaluating' | 'recommending' | 'complete'>('initializing');
+    const [currentAiMessage, setCurrentAiMessage] = useState('');
+    const [processingSymbol, setProcessingSymbol] = useState<string>('');
+
+    // AI Scanning Messages
+    const aiScanningMessages = {
+        initializing: [
+            '🔍 Initializing AI market scanner...',
+            '🌐 Connecting to real-time market feeds...',
+            '⚡ Loading advanced pattern recognition models...'
+        ],
+        analyzing: [
+            '🧠 AI analyzing market volatility patterns...',
+            '📊 Processing tick frequency distributions...',
+            '🎯 Identifying statistical anomalies...',
+            '📈 Calculating probability matrices...',
+            '⚙️ Running machine learning algorithms...'
+        ],
+        evaluating: [
+            '🤖 AI evaluating trading opportunities...',
+            '💡 Cross-referencing historical patterns...',
+            '🔬 Analyzing market microstructure...',
+            '📋 Ranking volatility indices by potential...',
+            '⭐ Scoring recommendation confidence levels...'
+        ],
+        recommending: [
+            '🎯 AI preparing optimal trade recommendations...',
+            '💎 Finalizing high-confidence opportunities...',
+            '🚀 Ready to present best trading setups...'
+        ]
+    };
 
     // Symbol mapping for display names
     const symbolMap: Record<string, string> = {
@@ -67,6 +98,21 @@ const TradingHubDisplay: React.FC = observer(() => {
         { value: 'matches_differs', label: 'Matches/Differs' },
         { value: 'o5u4_strategy', label: 'O5U4 Strategy' }
     ];
+
+    // AI message rotation effect
+    useEffect(() => {
+        if (aiScanningPhase !== 'complete' && connectionStatus === 'scanning') {
+            const currentMessages = aiScanningMessages[aiScanningPhase];
+            if (currentMessages && currentMessages.length > 1) {
+                const interval = setInterval(() => {
+                    const randomIndex = Math.floor(Math.random() * currentMessages.length);
+                    setCurrentAiMessage(currentMessages[randomIndex]);
+                }, 2500); // Change message every 2.5 seconds
+
+                return () => clearInterval(interval);
+            }
+        }
+    }, [aiScanningPhase, connectionStatus]);
 
     // Initialize market analyzer and start scanning
     useEffect(() => {
@@ -102,16 +148,43 @@ const TradingHubDisplay: React.FC = observer(() => {
                     setSymbolsAnalyzed(readySymbolsCount);
                     setScanProgress((readySymbolsCount / totalSymbols) * 100);
 
-                    // Update status messages
+                    // Enhanced AI scanning phases
+                    const progressPercentage = (readySymbolsCount / totalSymbols) * 100;
+                    
                     if (readySymbolsCount === 0) {
-                        setStatusMessage('Establishing connections to all volatility indices...');
-                    } else if (readySymbolsCount < totalSymbols) {
-                        setStatusMessage(`Analyzing market data... ${readySymbolsCount}/${totalSymbols} symbols ready`);
+                        setAiScanningPhase('initializing');
+                        setCurrentAiMessage(aiScanningMessages.initializing[0]);
+                        setStatusMessage('🤖 AI initializing market analysis...');
+                    } else if (progressPercentage < 40) {
+                        setAiScanningPhase('analyzing');
+                        const msgIndex = Math.floor((progressPercentage / 40) * aiScanningMessages.analyzing.length);
+                        setCurrentAiMessage(aiScanningMessages.analyzing[Math.min(msgIndex, aiScanningMessages.analyzing.length - 1)]);
+                        setStatusMessage(`🧠 AI analyzing patterns... ${readySymbolsCount}/${totalSymbols} markets`);
                         setConnectionStatus('scanning');
+                        
+                        // Show which symbol is being processed
+                        const symbols = Object.keys(currentStats);
+                        if (symbols[readySymbolsCount - 1]) {
+                            const currentSymbol = symbols[readySymbolsCount - 1];
+                            const displayName = symbolMap[currentSymbol] || currentSymbol;
+                            setProcessingSymbol(displayName);
+                        }
+                    } else if (progressPercentage < 80) {
+                        setAiScanningPhase('evaluating');
+                        const msgIndex = Math.floor(((progressPercentage - 40) / 40) * aiScanningMessages.evaluating.length);
+                        setCurrentAiMessage(aiScanningMessages.evaluating[Math.min(msgIndex, aiScanningMessages.evaluating.length - 1)]);
+                        setStatusMessage(`🤖 AI evaluating opportunities... ${readySymbolsCount}/${totalSymbols} complete`);
+                    } else if (progressPercentage < 100) {
+                        setAiScanningPhase('recommending');
+                        setCurrentAiMessage(aiScanningMessages.recommending[0]);
+                        setStatusMessage(`🎯 AI preparing recommendations... ${readySymbolsCount}/${totalSymbols} analyzed`);
                     } else {
-                        setStatusMessage('All markets analyzed - Live updates active');
+                        setAiScanningPhase('complete');
+                        setCurrentAiMessage('✅ AI analysis complete - Ready to trade!');
+                        setStatusMessage('🚀 AI has identified the best trading opportunities');
                         setConnectionStatus('ready');
                         setIsScanning(false);
+                        setProcessingSymbol('');
                     }
                 });
 
@@ -602,17 +675,56 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                     {(connectionStatus === 'connecting' || connectionStatus === 'scanning') && (
                         <div className="scanner-loading">
-                            <div className="loading-spinner"></div>
-                            <Text size="s" color="general">
-                                {connectionStatus === 'connecting' ? 'Connecting to markets...' : 'Scanning for opportunities...'}
-                            </Text>
-                            {isScanning && (
-                                <div className="loading-details">
-                                    <Text size="xs" color="general">
-                                        This may take up to 10 seconds for complete analysis
+                            <div className="ai-scanning-display">
+                                <div className="ai-brain-icon">🧠</div>
+                                <div className="scanning-content">
+                                    <div className="ai-status-header">
+                                        <Text size="m" weight="bold" color="prominent">
+                                            AI Market Scanner Active
+                                        </Text>
+                                        <div className="scanning-dots">
+                                            <span className="dot"></span>
+                                            <span className="dot"></span>
+                                            <span className="dot"></span>
+                                        </div>
+                                    </div>
+                                    
+                                    <Text size="s" color="general" className="ai-current-message">
+                                        {currentAiMessage || statusMessage}
+                                    </Text>
+
+                                    {processingSymbol && (
+                                        <div className="processing-symbol">
+                                            <Text size="xs" color="general">
+                                                📊 Currently analyzing: <span className="symbol-name">{processingSymbol}</span>
+                                            </Text>
+                                        </div>
+                                    )}
+
+                                    <div className="ai-progress-section">
+                                        <div className="progress-bar-ai">
+                                            <div
+                                                className="progress-fill-ai"
+                                                style={{ width: `${scanProgress}%` }}
+                                            ></div>
+                                        </div>
+                                        <Text size="xs" color="general" className="progress-text">
+                                            AI Analysis: {symbolsAnalyzed}/{totalSymbols} volatility indices processed
+                                        </Text>
+                                    </div>
+
+                                    <div className="ai-capabilities">
+                                        <div className="capability-item">✓ Pattern Recognition</div>
+                                        <div className="capability-item">✓ Statistical Analysis</div>
+                                        <div className="capability-item">✓ Probability Calculation</div>
+                                        <div className="capability-item">✓ Risk Assessment</div>
+                                    </div>
+
+                                    <Text size="xs" color="general" className="ai-disclaimer">
+                                        🎯 AI is analyzing market patterns to recommend optimal trading opportunities
                                     </Text>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     )}
 
