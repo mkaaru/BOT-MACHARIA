@@ -382,96 +382,136 @@ class MarketAnalyzer {
             acc + Math.pow(freq - avgFrequency, 2), 0) / 10;
         const patternStrength = Math.min(variance / avgFrequency, 1);
 
-        // Assign unique single barrier per symbol to ensure no duplicates
-        const symbolBarrierMap: Record<string, { strategy: 'over' | 'under', barrier: string }> = {
-            'R_10': { strategy: 'under', barrier: '7' },
-            'R_25': { strategy: 'under', barrier: '8' },
-            'R_50': { strategy: 'over', barrier: '4' },
-            'R_75': { strategy: 'under', barrier: '6' },
-            'R_100': { strategy: 'over', barrier: '1' },
-            'RDBEAR': { strategy: 'under', barrier: '9' },
-            'RDBULL': { strategy: 'over', barrier: '3' },
-            '1HZ10V': { strategy: 'over', barrier: '2' },
-            '1HZ25V': { strategy: 'under', barrier: '5' },
-            '1HZ50V': { strategy: 'over', barrier: '6' },
-            '1HZ75V': { strategy: 'over', barrier: '0' },
-            '1HZ100V': { strategy: 'under', barrier: '4' }
-        };
-
-        const symbolPref = symbolBarrierMap[symbol];
-        if (!symbolPref) return recommendations;
-
-        const { strategy, barrier } = symbolPref;
-        const barrierNum = parseInt(barrier);
-        const overUnderData = overUnderStats[barrier];
+        // Generate over/under recommendations for multiple barriers
+        const barriers = ['4', '5', '6', '7'];
         
-        if (!overUnderData) return recommendations;
-
-        const overPercentage = (overUnderData.over / totalTicks) * 100;
-        const underPercentage = (overUnderData.under / totalTicks) * 100;
-        
-        // Check if the assigned strategy makes sense for current conditions
-        let shouldGenerate = false;
-        let aiConfidence = 60;
-        let reason = '';
-
-        if (strategy === 'under') {
-            // UNDER Logic: Check if current conditions favor under
-            if ([0, 1, 2].includes(mostFrequentDigit) && [6, 7, 8, 9].includes(currentLastDigit) && barrierNum >= 6) {
-                // Strong AI pattern for UNDER
-                aiConfidence = 75;
-                aiConfidence += Math.min(mostFreqPercent - 15, 20);
-                aiConfidence += patternStrength * 15;
-                if (currentDigitFreq < 8) aiConfidence += 10;
-                if ([8, 9].includes(currentLastDigit)) aiConfidence += 5;
-                if (mostFrequentDigit <= 1) aiConfidence += 8;
-                reason = `UNDER ${barrier}: Most frequent digit ${mostFrequentDigit} (${mostFreqPercent.toFixed(1)}%), current ${currentLastDigit} (high)`;
-                shouldGenerate = aiConfidence > 70;
-            } else if (underPercentage > 58 && currentLastDigit >= barrierNum) {
-                // General UNDER bias
-                aiConfidence = 60 + Math.min((underPercentage - 55) * 2, 25);
-                reason = `UNDER ${barrier} dominance: ${underPercentage.toFixed(1)}%, current digit ${currentLastDigit}`;
-                shouldGenerate = aiConfidence > 65;
+        barriers.forEach(barrier => {
+            const barrierNum = parseInt(barrier);
+            const overUnderData = overUnderStats[barrier];
+            
+            if (overUnderData) {
+                const overPercentage = (overUnderData.over / totalTicks) * 100;
+                const underPercentage = (overUnderData.under / totalTicks) * 100;
+                
+                // OVER recommendation logic
+                if (overPercentage > 65 && currentLastDigit <= barrierNum) {
+                    let confidence = 60 + Math.min((overPercentage - 65) * 2, 25);
+                    
+                    // Pattern bonuses
+                    if ([7, 8, 9].includes(mostFrequentDigit)) confidence += 10;
+                    if (currentLastDigit < barrierNum - 2) confidence += 8;
+                    confidence += patternStrength * 10;
+                    
+                    confidence = Math.min(confidence, 95);
+                    
+                    if (confidence > 70) {
+                        recommendations.push({
+                            symbol,
+                            strategy: 'over',
+                            barrier,
+                            confidence,
+                            overPercentage,
+                            underPercentage,
+                            reason: `Over ${barrier}: Strong bias (${overPercentage.toFixed(1)}% over), current digit ${currentLastDigit}, most frequent ${mostFrequentDigit}`,
+                            timestamp: Date.now(),
+                            score: confidence + 10 // Prioritize over/under
+                        });
+                    }
+                }
+                
+                // UNDER recommendation logic
+                if (underPercentage > 65 && currentLastDigit >= barrierNum) {
+                    let confidence = 60 + Math.min((underPercentage - 65) * 2, 25);
+                    
+                    // Pattern bonuses
+                    if ([0, 1, 2].includes(mostFrequentDigit)) confidence += 10;
+                    if (currentLastDigit > barrierNum + 2) confidence += 8;
+                    confidence += patternStrength * 10;
+                    
+                    confidence = Math.min(confidence, 95);
+                    
+                    if (confidence > 70) {
+                        recommendations.push({
+                            symbol,
+                            strategy: 'under',
+                            barrier,
+                            confidence,
+                            overPercentage,
+                            underPercentage,
+                            reason: `Under ${barrier}: Strong bias (${underPercentage.toFixed(1)}% under), current digit ${currentLastDigit}, most frequent ${mostFrequentDigit}`,
+                            timestamp: Date.now(),
+                            score: confidence + 10 // Prioritize over/under
+                        });
+                    }
+                }
             }
-        } else if (strategy === 'over') {
-            // OVER Logic: Check if current conditions favor over
-            if ([7, 8, 9].includes(mostFrequentDigit) && [0, 1, 2, 3].includes(currentLastDigit) && barrierNum <= 4) {
-                // Strong AI pattern for OVER
-                aiConfidence = 75;
-                aiConfidence += Math.min(mostFreqPercent - 15, 20);
-                aiConfidence += patternStrength * 15;
-                if (currentDigitFreq < 8) aiConfidence += 10;
-                if ([0, 1].includes(currentLastDigit)) aiConfidence += 5;
-                if (mostFrequentDigit >= 8) aiConfidence += 8;
-                reason = `OVER ${barrier}: Most frequent digit ${mostFrequentDigit} (${mostFreqPercent.toFixed(1)}%), current ${currentLastDigit} (low)`;
-                shouldGenerate = aiConfidence > 70;
-            } else if (overPercentage > 58 && currentLastDigit <= barrierNum) {
-                // General OVER bias
-                aiConfidence = 60 + Math.min((overPercentage - 55) * 2, 25);
-                reason = `OVER ${barrier} dominance: ${overPercentage.toFixed(1)}%, current digit ${currentLastDigit}`;
-                shouldGenerate = aiConfidence > 65;
-            }
-        }
+        });
 
-        if (shouldGenerate) {
+        // Advanced AI Pattern Recognition for specific barriers
+        // UNDER 7 Logic: Most frequent digit is low (0,1,2) AND current digit is high (7,8,9)
+        if ([0, 1, 2].includes(mostFrequentDigit) && [7, 8, 9].includes(currentLastDigit)) {
+            let aiConfidence = 65;
+            aiConfidence += Math.min(mostFreqPercent - 15, 20);
+            aiConfidence += patternStrength * 15;
+            if (currentDigitFreq < 8) aiConfidence += 10;
+            if ([8, 9].includes(currentLastDigit)) aiConfidence += 5;
+            if (mostFrequentDigit <= 1) aiConfidence += 8;
             const sampleBonus = Math.min((totalTicks - 50) / 50 * 5, 10);
             aiConfidence += sampleBonus;
             aiConfidence = Math.min(aiConfidence, 95);
-
-            recommendations.push({
-                symbol,
-                strategy,
-                barrier,
-                confidence: aiConfidence,
-                overPercentage,
-                underPercentage,
-                reason,
-                timestamp: Date.now(),
-                score: aiConfidence + 15
-            });
+            
+            if (aiConfidence > 72) {
+                const overUnderData = overUnderStats['7'];
+                const overPercentage = overUnderData ? (overUnderData.over / totalTicks) * 100 : 0;
+                const underPercentage = overUnderData ? (overUnderData.under / totalTicks) * 100 : 0;
+                
+                recommendations.push({
+                    symbol,
+                    strategy: 'under',
+                    barrier: '7',
+                    confidence: aiConfidence,
+                    overPercentage,
+                    underPercentage,
+                    reason: `AI Pattern: Most frequent digit ${mostFrequentDigit} (${mostFreqPercent.toFixed(1)}%), current ${currentLastDigit} (high) - Pattern strength: ${(patternStrength * 100).toFixed(1)}%`,
+                    timestamp: Date.now(),
+                    score: aiConfidence + 15 // Higher priority for AI patterns
+                });
+            }
         }
 
-        return recommendations;
+        // OVER 2 Logic: Most frequent digit is high (7,8,9) AND current digit is low (0,1,2)
+        if ([7, 8, 9].includes(mostFrequentDigit) && [0, 1, 2].includes(currentLastDigit)) {
+            let aiConfidence = 65;
+            aiConfidence += Math.min(mostFreqPercent - 15, 20);
+            aiConfidence += patternStrength * 15;
+            if (currentDigitFreq < 8) aiConfidence += 10;
+            if ([0, 1].includes(currentLastDigit)) aiConfidence += 5;
+            if (mostFrequentDigit >= 8) aiConfidence += 8;
+            const sampleBonus = Math.min((totalTicks - 50) / 50 * 5, 10);
+            aiConfidence += sampleBonus;
+            aiConfidence = Math.min(aiConfidence, 95);
+            
+            if (aiConfidence > 72) {
+                const overUnderData = overUnderStats['2'];
+                const overPercentage = overUnderData ? (overUnderData.over / totalTicks) * 100 : 0;
+                const underPercentage = overUnderData ? (overUnderData.under / totalTicks) * 100 : 0;
+                
+                recommendations.push({
+                    symbol,
+                    strategy: 'over',
+                    barrier: '2',
+                    confidence: aiConfidence,
+                    overPercentage,
+                    underPercentage,
+                    reason: `AI Pattern: Most frequent digit ${mostFrequentDigit} (${mostFreqPercent.toFixed(1)}%), current ${currentLastDigit} (low) - Pattern strength: ${(patternStrength * 100).toFixed(1)}%`,
+                    timestamp: Date.now(),
+                    score: aiConfidence + 15 // Higher priority for AI patterns
+                });
+            }
+        }
+
+        // Sort recommendations by score (highest first) to prioritize over/under
+        return recommendations.sort((a, b) => (b.score || 0) - (a.score || 0));
     }
 
     private checkO5U4Conditions(symbol: string, stats: MarketStats): O5U4Conditions {
