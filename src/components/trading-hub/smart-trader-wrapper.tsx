@@ -110,6 +110,10 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     const [status, setStatus] = useState<string>('');
     const [is_running, setIsRunning] = useState(false);
     const stopFlagRef = useRef<boolean>(false);
+    
+    // Rate limiting state
+    const lastRequestTimeRef = useRef<number>(0);
+    const requestQueueRef = useRef<Promise<any>>(Promise.resolve());
 
     // Symbol mapping for display names
     const symbolMap: Record<string, string> = {
@@ -125,6 +129,26 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         '1HZ50V': 'Volatility 50 (1s) Index',
         '1HZ75V': 'Volatility 75 (1s) Index',
         '1HZ100V': 'Volatility 100 (1s) Index'
+    };
+
+    // Rate limiting helper function
+    const throttleApiRequest = async <T>(requestFn: () => Promise<T>): Promise<T> => {
+        const minInterval = 1500; // Minimum 1.5 seconds between API requests
+        const now = Date.now();
+        const timeSinceLastRequest = now - lastRequestTimeRef.current;
+        
+        if (timeSinceLastRequest < minInterval) {
+            const waitTime = minInterval - timeSinceLastRequest;
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+        
+        // Queue requests to ensure they don't overlap
+        requestQueueRef.current = requestQueueRef.current.then(async () => {
+            lastRequestTimeRef.current = Date.now();
+            return requestFn();
+        });
+        
+        return requestQueueRef.current;
     };
 
     // Helper Functions
@@ -188,24 +212,27 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
-        const token = V2GetActiveToken();
-        if (!token) {
-            setStatus('No token found. Please log in and select an account.');
-            throw new Error('No token');
-        }
-        const { authorize, error } = await apiRef.current.authorize(token);
-        if (error) {
-            setStatus(`Authorization error: ${error.message || error.code}`);
-            throw error;
-        }
-        setIsAuthorized(true);
-        const loginid = authorize?.loginid || V2GetActiveClientId();
-        setAccountCurrency(authorize?.currency || 'USD');
-        try {
-            store?.client?.setLoginId?.(loginid || '');
-            store?.client?.setCurrency?.(authorize?.currency || 'USD');
-            store?.client?.setIsLoggedIn?.(true);
-        } catch {}
+        
+        return throttleApiRequest(async () => {
+            const token = V2GetActiveToken();
+            if (!token) {
+                setStatus('No token found. Please log in and select an account.');
+                throw new Error('No token');
+            }
+            const { authorize, error } = await apiRef.current.authorize(token);
+            if (error) {
+                setStatus(`Authorization error: ${error.message || error.code}`);
+                throw error;
+            }
+            setIsAuthorized(true);
+            const loginid = authorize?.loginid || V2GetActiveClientId();
+            setAccountCurrency(authorize?.currency || 'USD');
+            try {
+                store?.client?.setLoginId?.(loginid || '');
+                store?.client?.setCurrency?.(authorize?.currency || 'USD');
+                store?.client?.setIsLoggedIn?.(true);
+            } catch {}
+        });
     };
 
     const stopTicks = () => {
@@ -257,7 +284,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         }
     };
 
-    const purchaseOnceWithStake = async (stakeAmount: number) => {
+    const purchaseOnceWithStake = async (stakeAmount: number, retryCount = 0) => {
         await authorizeIfNeeded();
 
         const trade_option: any = {
@@ -279,11 +306,36 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             trade_option.barrier = barrier;
         }
 
-        const buy_req = tradeOptionToBuy(tradeType, trade_option);
-        const { buy, error } = await apiRef.current.buy(buy_req);
-        if (error) throw error;
-        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
-        return buy;
+        try {
+            const buy_req = tradeOptionToBuy(tradeType, trade_option);
+            const { buy, error } = await apiRef.current.buy(buy_req);
+            
+            // Handle rate limit errors
+            if (error && (error.code === 'RateLimit' || error.message?.includes('rate limit') || error.message?.includes('too many requests'))) {
+                if (retryCount < 3) {
+                    const backoffDelay = Math.pow(2, retryCount) * 2000 + Math.random() * 1000; // Exponential backoff
+                    setStatus(`Rate limit hit, retrying in ${Math.ceil(backoffDelay/1000)}s... (${retryCount + 1}/3)`);
+                    await new Promise(res => setTimeout(res, backoffDelay));
+                    return purchaseOnceWithStake(stakeAmount, retryCount + 1);
+                } else {
+                    throw new Error('Rate limit exceeded after 3 retries. Please wait and try again.');
+                }
+            }
+            
+            if (error) throw error;
+            setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
+            return buy;
+        } catch (e: any) {
+            if (e.message?.includes('rate limit') || e.message?.includes('too many requests')) {
+                if (retryCount < 3) {
+                    const backoffDelay = Math.pow(2, retryCount) * 2000 + Math.random() * 1000;
+                    setStatus(`Rate limit detected, waiting ${Math.ceil(backoffDelay/1000)}s before retry...`);
+                    await new Promise(res => setTimeout(res, backoffDelay));
+                    return purchaseOnceWithStake(stakeAmount, retryCount + 1);
+                }
+            }
+            throw e;
+        }
     };
 
     const onRun = async () => {
@@ -312,6 +364,9 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                 setStake(effectiveStake);
 
                 const buy = await purchaseOnceWithStake(effectiveStake);
+
+                // Add delay after purchase to avoid rate limits
+                await new Promise(res => setTimeout(res, 1000));
 
                 try {
                     const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
@@ -405,7 +460,9 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                     console.error('subscribe poc error', subErr);
                 }
 
-                await new Promise(res => setTimeout(res, 500));
+                // Minimum 3-5 seconds between trades to avoid rate limits
+                const minTradeInterval = 3000 + Math.random() * 2000; // 3-5 seconds random
+                await new Promise(res => setTimeout(res, minTradeInterval));
             }
         } catch (e: any) {
             console.error('SmartTrader run loop error', e);
