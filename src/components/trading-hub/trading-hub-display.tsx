@@ -143,46 +143,55 @@ const TradingHubDisplay: React.FC = observer(() => {
                 const { mostFrequentDigit, currentLastDigit, lastDigitFrequency } = stats;
                 const totalTicks = Object.values(lastDigitFrequency).reduce((a, b) => a + b, 0);
 
-                // Unique barrier assignment per symbol to ensure variety
+                // Enhanced barrier assignment including more UNDER markets
                 const symbolBarrierMap: Record<string, { strategy: 'over' | 'under', barrier: number }> = {
                     'R_10': { strategy: 'under', barrier: 7 },
-                    'R_25': { strategy: 'under', barrier: 8 },
-                    'R_50': { strategy: 'over', barrier: 4 },
-                    'R_75': { strategy: 'under', barrier: 6 },
-                    'R_100': { strategy: 'over', barrier: 1 },
-                    'RDBEAR': { strategy: 'under', barrier: 9 },
+                    'R_25': { strategy: 'under', barrier: 6 },
+                    'R_50': { strategy: 'under', barrier: 5 },
+                    'R_75': { strategy: 'under', barrier: 8 },
+                    'R_100': { strategy: 'under', barrier: 4 },
+                    'RDBEAR': { strategy: 'under', barrier: 3 },
                     'RDBULL': { strategy: 'over', barrier: 3 },
                     '1HZ10V': { strategy: 'over', barrier: 2 },
-                    '1HZ25V': { strategy: 'under', barrier: 5 },
+                    '1HZ25V': { strategy: 'under', barrier: 2 },
                     '1HZ50V': { strategy: 'over', barrier: 6 },
-                    '1HZ75V': { strategy: 'over', barrier: 0 },
-                    '1HZ100V': { strategy: 'under', barrier: 4 }
+                    '1HZ75V': { strategy: 'over', barrier: 5 },
+                    '1HZ100V': { strategy: 'under', barrier: 7 }
                 };
 
                 const assignedConfig = symbolBarrierMap[symbol];
                 if (!assignedConfig) return;
 
                 const { strategy, barrier } = assignedConfig;
-                const over = Array.from({length: barrier}, (_, i) => i);
-                const under = Array.from({length: 10 - barrier - 1}, (_, i) => i + barrier + 1);
+                
+                // Calculate actual over/under counts for the barrier
+                let overCount = 0;
+                let underCount = 0;
+                
+                for (let digit = 0; digit <= 9; digit++) {
+                    const digitFreq = lastDigitFrequency[digit] || 0;
+                    if (digit > barrier) {
+                        overCount += digitFreq;
+                    } else if (digit < barrier) {
+                        underCount += digitFreq;
+                    }
+                }
 
-                const overCount = over.reduce((sum, digit) => sum + (lastDigitFrequency[digit] || 0), 0);
-                const underCount = under.reduce((sum, digit) => sum + (lastDigitFrequency[digit] || 0), 0);
                 const overPercent = (overCount / totalTicks) * 100;
                 const underPercent = (underCount / totalTicks) * 100;
 
                 let shouldGenerate = false;
-                let confidence = 60;
+                let dominancePercent = 0;
                 let reason = '';
 
-                if (strategy === 'under' && underPercent > 58) {
-                    confidence = Math.min(55 + (underPercent - 50) * 1.5, 85);
+                if (strategy === 'under' && underPercent > 55) {
+                    dominancePercent = underPercent;
                     reason = `Under ${barrier} dominance: ${underPercent.toFixed(1)}%, current ${currentLastDigit}`;
-                    shouldGenerate = confidence > 62;
-                } else if (strategy === 'over' && overPercent > 58) {
-                    confidence = Math.min(55 + (overPercent - 50) * 1.5, 85);
+                    shouldGenerate = true;
+                } else if (strategy === 'over' && overPercent > 55) {
+                    dominancePercent = overPercent;
                     reason = `Over ${barrier} dominance: ${overPercent.toFixed(1)}%, current ${currentLastDigit}`;
-                    shouldGenerate = confidence > 62;
+                    shouldGenerate = true;
                 }
 
                 if (shouldGenerate) {
@@ -190,9 +199,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                         symbol,
                         strategy,
                         barrier: barrier.toString(),
-                        confidence,
-                        overPercentage: strategy === 'over' ? confidence : 0,
-                        underPercentage: strategy === 'under' ? confidence : 0,
+                        confidence: dominancePercent, // Use actual dominance percentage
+                        overPercentage: strategy === 'over' ? dominancePercent : overPercent,
+                        underPercentage: strategy === 'under' ? dominancePercent : underPercent,
                         reason,
                         timestamp: Date.now()
                     };
