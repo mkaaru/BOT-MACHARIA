@@ -353,19 +353,21 @@
                         }
 
                         .market-health {
-                            .health-indicator {
-                                font-size: 0.75rem;
-                                padding: 0.25rem 0.75rem;
-                                border-radius: 12px;
-                                background: rgba(255, 255, 255, 0.7);
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                        }
 
-                                &.healthy {
-                                    background: rgba(39, 174, 96, 0.2);
-                                }
+                        .health-indicator {
+                            font-size: 12px;
+                            font-weight: 500;
 
-                                &.limited {
-                                    background: rgba(230, 126, 34, 0.2);
-                                }
+                            &.healthy {
+                                color: #28a745;
+                            }
+
+                            &.limited {
+                                color: #ffc107;
                             }
                         }
                     }
@@ -493,15 +495,21 @@
 
                                 .recommendation-stats {
                                     display: flex;
-                                    gap: 12px;
+                                    gap: 8px;
                                     margin-top: 4px;
-                                    font-size: 11px;
 
                                     .stat-item {
-                                        padding: 2px 6px;
-                                        background: rgba(255, 255, 255, 0.1);
-                                        border-radius: 8px;
-                                        color: #ccc;
+                                        font-size: 11px;
+                                        padding: 2px 4px;
+                                        background: #f8f9fa;
+                                        border-radius: 3px;
+                                        border: 1px solid #e9ecef;
+
+                                        &:last-child {
+                                            background: #e3f2fd;
+                                            border-color: #2196f3;
+                                            color: #1976d2;
+                                        }
                                     }
                                 }
                             }
@@ -558,17 +566,30 @@
     }
 }
 
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+.real-time-badge {
+    background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    margin-left: 8px;
+    animation: pulse 2s infinite;
 }
+
+@keyframes pulse {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { opacity: 0.7; }
+}
+
 
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
 
-// Responsive design
+/* Responsive design */
 @media (max-width: 768px) {
     .trading-hub-scanner {
         .scanner-header {

@@ -31,6 +31,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [scanProgress, setScanProgress] = useState(0);
     const [scanResults, setScanResults] = useState<ScanResult[]>([]);
     const [marketStats, setMarketStats] = useState<Record<string, MarketStats>>({});
+    const [realTimeStats, setRealTimeStats] = useState<Record<string, MarketStats>>({});
     const [bestRecommendation, setBestRecommendation] = useState<TradeRecommendation | null>(null);
     const [o5u4Opportunities, setO5u4Opportunities] = useState<O5U4Conditions[]>([]);
     const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'scanning' | 'ready' | 'error'>('connecting');
@@ -40,6 +41,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [selectedTradeType, setSelectedTradeType] = useState<string>('all');
     const [isSmartTraderModalOpen, setIsSmartTraderModalOpen] = useState(false);
     const [selectedTradeSettings, setSelectedTradeSettings] = useState<TradeSettings | null>(null);
+    const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
 
     // Symbol mapping for display names
     const symbolMap: Record<string, string> = {
@@ -75,12 +77,28 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 // Subscribe to market analyzer updates
                 const unsubscribe = marketAnalyzer.onAnalysis((recommendation, stats, o5u4Data) => {
-                    setMarketStats(stats);
-                    setBestRecommendation(recommendation);
-                    setO5u4Opportunities(o5u4Data || []);
+                    if (stats) {
+                        // Merge real-time stats with full analysis stats
+                        const mergedStats = { ...marketStats, ...stats };
+                        setMarketStats(mergedStats);
+                        setRealTimeStats(stats);
+                        setLastUpdateTime(Date.now());
+                    }
+                    
+                    if (recommendation) {
+                        setBestRecommendation(recommendation);
+                    }
+                    
+                    if (o5u4Data) {
+                        setO5u4Opportunities(o5u4Data);
+                    }
 
                     // Update scan progress
-                    const readySymbolsCount = Object.keys(stats).filter(symbol => stats[symbol].isReady).length;
+                    const currentStats = stats || marketStats;
+                    const readySymbolsCount = Object.keys(currentStats).filter(symbol => 
+                        currentStats[symbol].isReady
+                    ).length;
+                    
                     setSymbolsAnalyzed(readySymbolsCount);
                     setScanProgress((readySymbolsCount / totalSymbols) * 100);
 
@@ -91,10 +109,17 @@ const TradingHubDisplay: React.FC = observer(() => {
                         setStatusMessage(`Analyzing market data... ${readySymbolsCount}/${totalSymbols} symbols ready`);
                         setConnectionStatus('scanning');
                     } else {
-                        setStatusMessage('All markets analyzed - Ready for trading recommendations');
+                        setStatusMessage('All markets analyzed - Live updates active');
                         setConnectionStatus('ready');
                         setIsScanning(false);
                     }
+                });
+
+                // Add error event listener
+                const errorUnsubscribe = marketAnalyzer.onError((error) => {
+                    console.error('Market analyzer error:', error);
+                    setConnectionStatus('error');
+                    setStatusMessage('Market data connection error. Attempting to reconnect...');
                 });
 
                 // Start the market analyzer
@@ -104,6 +129,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 return () => {
                     unsubscribe();
+                    errorUnsubscribe();
                     marketAnalyzer.stop();
                 };
 
@@ -125,89 +151,79 @@ const TradingHubDisplay: React.FC = observer(() => {
     // Generate comprehensive scan results
     const generateScanResults = useCallback((): ScanResult[] => {
         const results: ScanResult[] = [];
+        const currentStats = { ...marketStats, ...realTimeStats }; // Merge with real-time data
 
-        Object.keys(marketStats).forEach(symbol => {
-            const stats = marketStats[symbol];
+        Object.keys(currentStats).forEach(symbol => {
+            const stats = currentStats[symbol];
             if (!stats.isReady) return;
 
             const recommendations: TradeRecommendation[] = [];
             const displayName = symbolMap[symbol] || symbol;
             let currentRecommendation: TradeRecommendation | null = null; // Track recommendation for the current symbol
 
-            // Generate Over/Under recommendations - ONE PER SYMBOL
+            // Generate balanced Over/Under recommendations for ALL symbols
             const generateOverUnderRecs = () => {
-                // Skip if we already have a recommendation from market analyzer for this symbol
-                const existingRec = currentRecommendation && currentRecommendation.symbol === symbol;
-                if (existingRec) return;
-
-                const { mostFrequentDigit, currentLastDigit, lastDigitFrequency } = stats;
+                const { lastDigitFrequency, currentLastDigit } = stats;
                 const totalTicks = Object.values(lastDigitFrequency).reduce((a, b) => a + b, 0);
 
-                // Balanced barrier assignment with equal OVER and UNDER markets
-                const symbolBarrierMap: Record<string, { strategy: 'over' | 'under', barrier: number }> = {
-                    'R_10': { strategy: 'over', barrier: 4 },
-                    'R_25': { strategy: 'under', barrier: 6 },
-                    'R_50': { strategy: 'over', barrier: 5 },
-                    'R_75': { strategy: 'under', barrier: 3 },
-                    'R_100': { strategy: 'over', barrier: 2 },
-                    'RDBEAR': { strategy: 'under', barrier: 7 },
-                    'RDBULL': { strategy: 'over', barrier: 3 },
-                    '1HZ10V': { strategy: 'under', barrier: 4 },
-                    '1HZ25V': { strategy: 'over', barrier: 6 },
-                    '1HZ50V': { strategy: 'under', barrier: 5 },
-                    '1HZ75V': { strategy: 'over', barrier: 7 },
-                    '1HZ100V': { strategy: 'under', barrier: 8 }
+                if (totalTicks < 50) return;
+
+                // Balanced barrier assignment ensuring BOTH over and under recommendations
+                const symbolBarrierMap: Record<string, { overBarrier: number; underBarrier: number }> = {
+                    'R_10': { overBarrier: 4, underBarrier: 6 },
+                    'R_25': { overBarrier: 5, underBarrier: 5 },
+                    'R_50': { overBarrier: 6, underBarrier: 4 },
+                    'R_75': { overBarrier: 3, underBarrier: 7 },
+                    'R_100': { overBarrier: 2, underBarrier: 8 },
+                    'RDBEAR': { overBarrier: 7, underBarrier: 3 },
+                    'RDBULL': { overBarrier: 3, underBarrier: 7 },
+                    '1HZ10V': { overBarrier: 4, underBarrier: 6 },
+                    '1HZ25V': { overBarrier: 5, underBarrier: 5 },
+                    '1HZ50V': { overBarrier: 6, underBarrier: 4 },
+                    '1HZ75V': { overBarrier: 7, underBarrier: 3 },
+                    '1HZ100V': { overBarrier: 8, underBarrier: 2 }
                 };
 
-                const assignedConfig = symbolBarrierMap[symbol];
-                if (!assignedConfig) return;
+                const barriers = symbolBarrierMap[symbol] || { overBarrier: 5, underBarrier: 5 };
 
-                const { strategy, barrier } = assignedConfig;
-                
-                // Calculate actual over/under counts for the barrier
-                let overCount = 0;
-                let underCount = 0;
-                
-                for (let digit = 0; digit <= 9; digit++) {
-                    const digitFreq = lastDigitFrequency[digit] || 0;
-                    if (digit > barrier) {
-                        overCount += digitFreq;
-                    } else if (digit < barrier) {
-                        underCount += digitFreq;
+                // Generate BOTH over and under recommendations
+                ['over', 'under'].forEach(strategy => {
+                    const barrier = strategy === 'over' ? barriers.overBarrier : barriers.underBarrier;
+                    
+                    // Calculate actual over/under counts for the barrier
+                    let overCount = 0;
+                    let underCount = 0;
+                    
+                    for (let digit = 0; digit <= 9; digit++) {
+                        const digitFreq = lastDigitFrequency[digit] || 0;
+                        if (digit > barrier) {
+                            overCount += digitFreq;
+                        } else if (digit < barrier) {
+                            underCount += digitFreq;
+                        }
                     }
-                }
 
-                const overPercent = (overCount / totalTicks) * 100;
-                const underPercent = (underCount / totalTicks) * 100;
+                    const overPercent = (overCount / totalTicks) * 100;
+                    const underPercent = (underCount / totalTicks) * 100;
 
-                let shouldGenerate = false;
-                let dominancePercent = 0;
-                let reason = '';
+                    const dominancePercent = strategy === 'over' ? overPercent : underPercent;
+                    const oppositePercent = strategy === 'over' ? underPercent : overPercent;
 
-                if (strategy === 'under' && underPercent > 55) {
-                    dominancePercent = underPercent;
-                    reason = `Under ${barrier} dominance: ${underPercent.toFixed(1)}%, current ${currentLastDigit}`;
-                    shouldGenerate = true;
-                } else if (strategy === 'over' && overPercent > 55) {
-                    dominancePercent = overPercent;
-                    reason = `Over ${barrier} dominance: ${overPercent.toFixed(1)}%, current ${currentLastDigit}`;
-                    shouldGenerate = true;
-                }
-
-                if (shouldGenerate) {
-                    const newRecommendation: TradeRecommendation = {
-                        symbol,
-                        strategy,
-                        barrier: barrier.toString(),
-                        confidence: dominancePercent, // Use actual dominance percentage
-                        overPercentage: overPercent,
-                        underPercentage: underPercent,
-                        reason,
-                        timestamp: Date.now()
-                    };
-                    recommendations.push(newRecommendation);
-                    currentRecommendation = newRecommendation; // Set current recommendation
-                }
+                    if (dominancePercent > 52) { // Lower threshold for more balanced recommendations
+                        const confidence = Math.min(55 + (dominancePercent - 52) * 5, 85);
+                        
+                        recommendations.push({
+                            symbol,
+                            strategy: strategy as 'over' | 'under',
+                            barrier: barrier.toString(),
+                            confidence: dominancePercent, // Use actual market percentage
+                            overPercentage: overPercent,
+                            underPercentage: underPercent,
+                            reason: `${strategy.toUpperCase()} ${barrier} dominance: ${dominancePercent.toFixed(1)}% vs ${oppositePercent.toFixed(1)}%, current ${currentLastDigit}`,
+                            timestamp: Date.now()
+                        });
+                    }
+                });
             };
 
 
@@ -312,7 +328,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             const bMaxConf = Math.max(...b.recommendations.map(r => r.confidence), 0);
             return bMaxConf - aMaxConf;
         });
-    }, [marketStats, o5u4Opportunities, selectedTradeType]);
+    }, [marketStats, realTimeStats, o5u4Opportunities, selectedTradeType]);
 
     // Update scan results when data changes
     useEffect(() => {
@@ -384,6 +400,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                         <div className={`health-indicator ${result.stats.tickCount >= 50 ? 'healthy' : 'limited'}`}>
                             {result.stats.tickCount >= 50 ? '🟢' : '🟡'} {result.stats.tickCount} ticks
                         </div>
+                        <div className="real-time-badge">
+                            📈 Live
+                        </div>
                     </div>
                 </div>
 
@@ -405,6 +424,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 <div className="recommendation-stats">
                                     <span className="stat-item">Over: {rec.overPercentage.toFixed(1)}%</span>
                                     <span className="stat-item">Under: {rec.underPercentage.toFixed(1)}%</span>
+                                    <span className="stat-item">Diff: {Math.abs(rec.overPercentage - rec.underPercentage).toFixed(1)}%</span>
                                 </div>
                             </div>
                             <button
