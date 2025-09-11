@@ -355,3 +355,9 @@ $min-desktop-width: 1280px;
         @content;
     }
 }
+
+@mixin mobile {
+    @media (max-width: 768px) {
+        @content;
+    }
+}
