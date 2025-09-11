@@ -595,6 +595,10 @@
                         gap: 1rem;
 
                         .settings-header {
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            gap: 0.5rem;
                             font-size: 1rem;
                             font-weight: 700;
                             color: #00FFC4;
@@ -602,38 +606,82 @@
                             text-align: center;
                         }
 
-                        .settings-row {
+                        .settings-controls {
                             display: flex;
-                            align-items: center;
+                            flex-direction: column;
                             gap: 1rem;
-                            flex-wrap: wrap;
 
-                            .setting-label {
-                                font-size: 0.875rem;
-                                font-weight: 600;
-                                color: rgba(255, 255, 255, 0.9);
-                            }
+                            .control-row {
+                                display: flex;
+                                justify-content: center;
+                                gap: 2rem;
+                                flex-wrap: wrap;
 
-                            .setting-input {
-                                flex: 1;
-                                min-width: 100px;
-                                padding: 0.6rem 1rem;
-                                background: rgba(0, 188, 255, 0.1);
-                                border: 1px solid rgba(0, 188, 255, 0.3);
-                                border-radius: 8px;
-                                color: #00FFC4;
-                                font-size: 0.875rem;
-                                font-weight: 600;
-                                text-shadow: 0 0 8px rgba(0, 255, 196, 0.3);
+                                .control-group {
+                                    display: flex;
+                                    flex-direction: column;
+                                    align-items: center;
+                                    gap: 0.5rem;
+                                    min-width: 140px;
 
-                                &::placeholder {
-                                    color: rgba(0, 255, 196, 0.5);
-                                }
+                                    &.control-group--center {
+                                        flex: 1;
+                                        max-width: 200px;
+                                    }
 
-                                &:focus {
-                                    outline: none;
-                                    border-color: #00BCFF;
-                                    box-shadow: 0 0 12px rgba(0, 188, 255, 0.4);
+                                    .control-label {
+                                        font-size: 0.875rem;
+                                        font-weight: 600;
+                                        color: rgba(255, 255, 255, 0.9);
+                                        text-align: center;
+                                    }
+
+                                    .control-input {
+                                        width: 100%;
+                                        padding: 0.75rem 1rem;
+                                        background: rgba(0, 188, 255, 0.1);
+                                        border: 1px solid rgba(0, 188, 255, 0.3);
+                                        border-radius: 8px;
+                                        color: #00FFC4;
+                                        font-size: 0.875rem;
+                                        font-weight: 600;
+                                        text-shadow: 0 0 8px rgba(0, 255, 196, 0.3);
+                                        text-align: center;
+
+                                        &.control-input--large {
+                                            padding: 1rem 1.25rem;
+                                            font-size: 1rem;
+                                            min-width: 140px;
+                                        }
+
+                                        &::placeholder {
+                                            color: rgba(0, 255, 196, 0.5);
+                                        }
+
+                                        &:focus {
+                                            outline: none;
+                                            border-color: #00BCFF;
+                                            box-shadow: 0 0 12px rgba(0, 188, 255, 0.4);
+                                        }
+
+                                        &:disabled {
+                                            opacity: 0.6;
+                                            cursor: not-allowed;
+                                        }
+                                    }
+
+                                    .current-stake-display {
+                                        padding: 1rem 1.25rem;
+                                        background: rgba(0, 255, 196, 0.1);
+                                        border: 1px solid rgba(0, 255, 196, 0.3);
+                                        border-radius: 8px;
+                                        color: #00FFC4;
+                                        font-size: 1rem;
+                                        font-weight: 700;
+                                        text-shadow: 0 0 8px rgba(0, 255, 196, 0.4);
+                                        text-align: center;
+                                        min-width: 140px;
+                                    }
                                 }
                             }
                         }

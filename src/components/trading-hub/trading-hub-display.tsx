@@ -53,8 +53,8 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [activeToken, setActiveToken] = useState<string | null>(null);
     const [autoTradeCount, setAutoTradeCount] = useState(0);
     const [maxAutoTrades] = useState(5); // Maximum number of auto trades before switching
-    const [autoTradeStake, setAutoTradeStake] = useState(1);
-    const [autoTradeMartingale, setAutoTradeMartingale] = useState(2);
+    const [autoTradeStake, setAutoTradeStake] = useState(0.5); // Default initial stake
+    const [autoTradeMartingale, setAutoTradeMartingale] = useState(1); // Default martingale multiplier
 
     const { run_panel: store } = useStore();
     const apiRef = useRef<any>(null);
@@ -516,13 +516,13 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             // Prepare trade parameters
             const tradeType = getTradeTypeForStrategy(recommendation.strategy);
-            
+
             // Calculate stake based on auto trade count and martingale
             let currentStake = autoTradeStake;
             if (autoTradeCount > 0) {
                 currentStake = autoTradeStake * Math.pow(autoTradeMartingale, autoTradeCount);
             }
-            
+
             const trade_option: any = {
                 amount: currentStake,
                 basis: 'stake',
@@ -611,10 +611,10 @@ const TradingHubDisplay: React.FC = observer(() => {
 
         } catch (error: any) {
             console.error('Direct contract purchase failed:', error);
-            
+
             // Update status in UI
             setStatusMessage(`Purchase failed: ${error.message || 'Unknown error'}`);
-            
+
             if (store) {
                 store.setContractStage(contract_stages.NOT_RUNNING);
             }
@@ -643,7 +643,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     const data = JSON.parse(evt.data as any);
                     if (data?.msg_type === 'proposal_open_contract') {
                         const poc = data.proposal_open_contract;
-                        
+
                         if (String(poc?.contract_id || '') === targetId) {
                             // Update transactions
                             if (store?.root_store?.transactions) {
@@ -773,7 +773,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                             </div>
                         </div>
                     </div>
-                    
+
                     {bestRec && (
                         <div className="best-recommendation-banner">
                             <div className="crown-badge">👑</div>
@@ -790,7 +790,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         <h4>🎯 Trading Opportunities</h4>
                         <div className="opportunities-count">{result.recommendations.length} found</div>
                     </div>
-                    
+
                     <div className="recommendations-grid">
                         {result.recommendations.map((rec, index) => (
                             <div key={index} className={`recommendation-card ${rec === bestRec ? 'best-recommendation' : ''}`}>
@@ -898,7 +898,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         setIsAutoTradingBest(true);
         setAutoTradeCount(0); // Reset counter
         setStatusMessage('🤖 Auto trading started - purchasing contracts directly per recommendation');
-        
+
         // Set up API connection
         try {
             apiRef.current = await generateDerivApiInstance(activeToken);
@@ -1025,7 +1025,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 <div className="neural-node"></div>
                             </div>
                         </div>
-                        
+
                         <div className="ai-scanner-content">
                             <div className="ai-core-display">
                                 <div className="ai-brain-container">
@@ -1036,7 +1036,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                         <div className="pulse-ring pulse-ring-3"></div>
                                     </div>
                                 </div>
-                                
+
                                 <div className="ai-status-display">
                                     <div className="status-title">
                                         <Text size="l" weight="bold" color="prominent">
@@ -1196,47 +1196,51 @@ const TradingHubDisplay: React.FC = observer(() => {
                                                 <span className="strategy-barrier">{bestRecommendation.barrier}</span>
                                             </div>
                                         </div>
-                                        
+
                                         <div className="auto-trade-settings">
                                             <div className="settings-header">
                                                 <span className="settings-icon">⚙️</span>
                                                 <span className="settings-title">Auto Trade Settings</span>
                                             </div>
                                             <div className="settings-controls">
-                                                <div className="control-group">
-                                                    <label className="control-label">Initial Stake (USD)</label>
-                                                    <input
-                                                        type="number"
-                                                        min="0.35"
-                                                        step="0.01"
-                                                        value={autoTradeStake}
-                                                        onChange={(e) => setAutoTradeStake(Number(e.target.value))}
-                                                        className="control-input"
-                                                        disabled={isAutoTradingBest}
-                                                    />
+                                                <div className="control-row">
+                                                    <div className="control-group">
+                                                        <label className="control-label">Initial Stake (USD)</label>
+                                                        <input
+                                                            type="number"
+                                                            min="0.35"
+                                                            step="0.01"
+                                                            value={autoTradeStake}
+                                                            onChange={(e) => setAutoTradeStake(Number(e.target.value))}
+                                                            className="control-input control-input--large"
+                                                            disabled={isAutoTradingBest}
+                                                        />
+                                                    </div>
+                                                    <div className="control-group">
+                                                        <label className="control-label">Martingale Multiplier</label>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            step="0.1"
+                                                            value={autoTradeMartingale}
+                                                            onChange={(e) => setAutoTradeMartingale(Number(e.target.value))}
+                                                            className="control-input control-input--large"
+                                                            disabled={isAutoTradingBest}
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div className="control-group">
-                                                    <label className="control-label">Martingale Multiplier</label>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        step="0.1"
-                                                        value={autoTradeMartingale}
-                                                        onChange={(e) => setAutoTradeMartingale(Number(e.target.value))}
-                                                        className="control-input"
-                                                        disabled={isAutoTradingBest}
-                                                    />
-                                                </div>
-                                                <div className="control-group">
-                                                    <label className="control-label">Current Stake</label>
-                                                    <div className="current-stake-display">
-                                                        ${autoTradeCount > 0 ? (autoTradeStake * Math.pow(autoTradeMartingale, autoTradeCount)).toFixed(2) : autoTradeStake.toFixed(2)}
+                                                <div className="control-row">
+                                                    <div className="control-group control-group--center">
+                                                        <label className="control-label">Current Stake</label>
+                                                        <div className="current-stake-display">
+                                                            ${autoTradeCount > 0 ? (autoTradeStake * Math.pow(autoTradeMartingale, autoTradeCount)).toFixed(2) : autoTradeStake.toFixed(2)}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="highlight-actions">
                                         <button
                                             className="highlight-load-btn"
