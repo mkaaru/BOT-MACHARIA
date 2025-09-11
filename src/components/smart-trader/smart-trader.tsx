@@ -115,7 +115,7 @@ const SmartTrader = observer(() => {
 
     // Update after loss prediction when pre-loss prediction changes
     useEffect(() => {
-        setOuPredAfterLoss(getNextDigitAfterBarrier(ouPredPreLoss));
+        setOuPredPostLoss(getNextDigitAfterBarrier(ouPredPreLoss));
     }, [ouPredPreLoss]);
 
 
@@ -123,7 +123,7 @@ const SmartTrader = observer(() => {
         if (tradeType === 'DIGITEVEN') return d % 2 === 0 ? 'is-green' : 'is-red';
         if (tradeType === 'DIGITODD') return d % 2 !== 0 ? 'is-green' : 'is-red';
         if ((tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER')) {
-            const activePred = lastOutcomeWasLossRef.current ? ouPredAfterLoss : ouPredPreLoss;
+            const activePred = lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss;
             if (tradeType === 'DIGITOVER') {
                 if (d > Number(activePred)) return 'is-green';
                 if (d < Number(activePred)) return 'is-red';
