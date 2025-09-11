@@ -741,63 +741,86 @@ const TradingHubDisplay: React.FC = observer(() => {
             current.confidence > (best?.confidence || 0) ? current : best, null);
 
         return (
-            <div key={result.symbol} className="scanner-result-card">
-                <div className="scanner-result-header">
-                    <div className="symbol-info">
-                        <Text size="s" weight="bold">{result.displayName}</Text>
-                        <Text size="xs" color="general">{result.symbol}</Text>
+            <div key={result.symbol} className="volatility-card">
+                <div className="volatility-card-header">
+                    <div className="volatility-symbol">
+                        <div className="symbol-title">
+                            <Text size="s" weight="bold" color="prominent">{result.displayName}</Text>
+                            <div className="symbol-code">{result.symbol}</div>
+                        </div>
+                        <div className="tick-counter">
+                            <div className={`tick-indicator ${result.stats.tickCount >= 50 ? 'active' : 'loading'}`}>
+                                <span className="tick-dot"></span>
+                                <span className="tick-count">{result.stats.tickCount} ticks</span>
+                            </div>
+                        </div>
                     </div>
-                    <div className="market-health">
-                        <div className={`health-indicator ${result.stats.tickCount >= 50 ? 'healthy' : 'limited'}`}>
-                            {result.stats.tickCount >= 50 ? '🟢' : '🟡'} {result.stats.tickCount} ticks
-                        </div>
-                        <div className="real-time-badge">
-                            📈 Live
-                        </div>
+                    <div className="live-status">
+                        <div className="pulse-dot"></div>
+                        <span>LIVE</span>
                     </div>
                 </div>
 
-                <div className="recommendations-list">
+                <div className="volatility-recommendations">
                     {result.recommendations.map((rec, index) => (
-                        <div key={index} className={`recommendation-item ${rec === bestRec ? 'best-recommendation' : ''}`}>
-                            <div className="recommendation-content">
-                                <div className="strategy-badge">
-                                    <span className={`strategy-label strategy-label--${rec.strategy}`}>
-                                        {rec.strategy.toUpperCase()} {rec.barrier}
-                                    </span>
-                                    <span className={`confidence-badge confidence-${getConfidenceLevel(rec.confidence)}`}>
-                                        {rec.confidence.toFixed(1)}%
-                                    </span>
+                        <div key={index} className={`recommendation-row ${rec === bestRec ? 'top-recommendation' : ''}`}>
+                            <div className="recommendation-header">
+                                <div className={`strategy-type strategy-${rec.strategy}`}>
+                                    <span className="strategy-name">{rec.strategy.toUpperCase()}</span>
+                                    <span className="strategy-barrier">{rec.barrier}</span>
                                 </div>
-                                <Text size="xs" color="general" className="recommendation-reason">
-                                    {rec.reason}
-                                </Text>
-                                <div className="recommendation-stats">
-                                    <span className="stat-item">Over: {rec.overPercentage.toFixed(1)}%</span>
-                                    <span className="stat-item">Under: {rec.underPercentage.toFixed(1)}%</span>
-                                    <span className="stat-item">Diff: {Math.abs(rec.overPercentage - rec.underPercentage).toFixed(1)}%</span>
+                                <div className={`confidence-score confidence-level-${getConfidenceLevel(rec.confidence)}`}>
+                                    <span className="confidence-percentage">{rec.confidence.toFixed(1)}%</span>
+                                    <span className="confidence-label">confidence</span>
                                 </div>
                             </div>
-                            <button
-                                className="load-trade-btn"
-                                onClick={() => loadTradeSettings(rec)}
-                                title="Load these settings into Smart Trader"
-                            >
-                                ⚡ Load
-                            </button>
+                            
+                            <div className="dominance-info">
+                                <div className="dominance-text">
+                                    <Text size="xs" color="general">{rec.reason}</Text>
+                                </div>
+                                <div className="percentage-breakdown">
+                                    <div className="percentage-item over">
+                                        <span className="percentage-label">Over:</span>
+                                        <span className="percentage-value">{rec.overPercentage.toFixed(1)}%</span>
+                                    </div>
+                                    <div className="percentage-item under">
+                                        <span className="percentage-label">Under:</span>
+                                        <span className="percentage-value">{rec.underPercentage.toFixed(1)}%</span>
+                                    </div>
+                                    <div className="percentage-item difference">
+                                        <span className="percentage-label">Diff:</span>
+                                        <span className="percentage-value">{Math.abs(rec.overPercentage - rec.underPercentage).toFixed(1)}%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="recommendation-actions">
+                                <button
+                                    className={`trade-action-btn ${rec === bestRec ? 'primary-action' : 'secondary-action'}`}
+                                    onClick={() => loadTradeSettings(rec)}
+                                    title="Load trade settings"
+                                >
+                                    <span className="action-icon">⚡</span>
+                                    <span className="action-text">Load Trade</span>
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>
 
                 {result.o5u4Data && result.o5u4Data.conditionsMetCount >= 3 && (
-                    <div className="o5u4-opportunity">
-                        <div className="o5u4-header">
-                            <span className="o5u4-badge">🎯 O5U4 Opportunity</span>
-                            <span className="o5u4-score">{result.o5u4Data.score.toFixed(0)} pts</span>
+                    <div className="special-opportunity">
+                        <div className="opportunity-badge">
+                            <span className="opportunity-icon">🎯</span>
+                            <span className="opportunity-text">O5U4 Strategy Available</span>
+                            <span className="opportunity-score">{result.o5u4Data.score.toFixed(0)} pts</span>
                         </div>
-                        <Text size="xs" color="general">
-                            Conditions met: {result.o5u4Data.conditionsMetCount}/3 | Sample: {result.o5u4Data.details.sampleSize}
-                        </Text>
+                        <div className="opportunity-details">
+                            <Text size="xs" color="general">
+                                {result.o5u4Data.conditionsMetCount}/3 conditions met • Sample: {result.o5u4Data.details.sampleSize} ticks
+                            </Text>
+                        </div>
                     </div>
                 )}
             </div>
@@ -944,67 +967,129 @@ const TradingHubDisplay: React.FC = observer(() => {
                 )}
 
                 {(connectionStatus === 'connecting' || connectionStatus === 'scanning') && (
-                    <div className="scanner-loading">
-                        <div className="ai-scanning-display">
-                            <div className="ai-brain-icon">🧠</div>
-                            <div className="scanning-content">
-                                <div className="ai-status-header">
-                                    <Text size="m" weight="bold" color="prominent">
-                                        AI Market Scanner Active
-                                    </Text>
-                                    <div className="scanning-dots">
-                                        <span className="dot"></span>
-                                        <span className="dot"></span>
-                                        <span className="dot"></span>
+                    <div className="ai-scanner-container">
+                        <div className="ai-scanner-backdrop">
+                            <div className="neural-network-bg">
+                                <div className="neural-node"></div>
+                                <div className="neural-node"></div>
+                                <div className="neural-node"></div>
+                                <div className="neural-node"></div>
+                                <div className="neural-node"></div>
+                            </div>
+                        </div>
+                        
+                        <div className="ai-scanner-content">
+                            <div className="ai-core-display">
+                                <div className="ai-brain-container">
+                                    <div className="brain-pulse">
+                                        <div className="brain-icon">🧠</div>
+                                        <div className="pulse-ring"></div>
+                                        <div className="pulse-ring pulse-ring-2"></div>
+                                        <div className="pulse-ring pulse-ring-3"></div>
                                     </div>
                                 </div>
+                                
+                                <div className="ai-status-display">
+                                    <div className="status-title">
+                                        <Text size="l" weight="bold" color="prominent">
+                                            AI Market Scanner
+                                        </Text>
+                                        <div className="scanning-indicator">
+                                            <span className="indicator-dot active"></span>
+                                            <span className="indicator-dot active"></span>
+                                            <span className="indicator-dot"></span>
+                                            <span className="status-text">ACTIVE</span>
+                                        </div>
+                                    </div>
 
-                                <Text size="s" color="general" className="ai-current-message">
-                                    {currentAiMessage || statusMessage}
-                                </Text>
-
-                                {processingSymbol && (
-                                    <div className="processing-symbol">
-                                        <Text size="xs" color="general">
-                                            📊 Currently analyzing: <span className="symbol-name">{processingSymbol}</span>
+                                    <div className="ai-message-display">
+                                        <Text size="s" color="prominent" className="current-message">
+                                            {currentAiMessage || statusMessage}
                                         </Text>
                                     </div>
-                                )}
 
-                                <div className="ai-progress-section">
-                                    <div className="progress-bar-ai">
+                                    {processingSymbol && (
+                                        <div className="current-analysis">
+                                            <div className="analysis-header">
+                                                <span className="analysis-icon">🔍</span>
+                                                <Text size="s" color="general">Analyzing</Text>
+                                            </div>
+                                            <div className="symbol-display">
+                                                <Text size="s" weight="bold" color="prominent">{processingSymbol}</Text>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="analysis-progress-section">
+                                <div className="progress-header">
+                                    <Text size="s" color="prominent">Market Analysis Progress</Text>
+                                    <Text size="xs" color="general">{symbolsAnalyzed}/{totalSymbols} volatility indices</Text>
+                                </div>
+                                <div className="ai-progress-container">
+                                    <div className="progress-track">
                                         <div
-                                            className="progress-fill-ai"
+                                            className="progress-fill-gradient"
                                             style={{ width: `${scanProgress}%` }}
-                                        ></div>
+                                        >
+                                            <div className="progress-glow"></div>
+                                        </div>
                                     </div>
-                                    <Text size="xs" color="general" className="progress-text">
-                                        AI Analysis: {symbolsAnalyzed}/{totalSymbols} volatility indices processed
-                                    </Text>
-                                </div>
-
-                                <div className="ai-capabilities">
-                                    <div className="capability-item">✓ Pattern Recognition</div>
-                                    <div className="capability-item">✓ Statistical Analysis</div>
-                                    <div className="capability-item">✓ Probability Calculation</div>
-                                    <div className="capability-item">✓ Risk Assessment</div>
-                                </div>
-
-                                <div className="trading-truths-section">
-                                    <Text size="xs" weight="bold" color="prominent" className="truths-header">
-                                        📚 5 Fundamental Truths of Trading
-                                    </Text>
-                                    <div className="trading-truths">
-                                        <div className="truth-item">1. Anything can happen</div>
-                                        <div className="truth-item">2. You don\'t need to know what\'s next to profit</div>
-                                        <div className="truth-item">3. Random distribution between wins and losses</div>
-                                        <div className="truth-item">4. An edge = higher probability indication</div>
-                                        <div className="truth-item">5. Every market moment is unique</div>
+                                    <div className="progress-percentage">
+                                        {scanProgress.toFixed(0)}%
                                     </div>
                                 </div>
+                            </div>
 
+                            <div className="ai-capabilities-grid">
+                                <div className="capability-card">
+                                    <div className="capability-icon">🎯</div>
+                                    <div className="capability-name">Pattern Recognition</div>
+                                </div>
+                                <div className="capability-card">
+                                    <div className="capability-icon">📊</div>
+                                    <div className="capability-name">Statistical Analysis</div>
+                                </div>
+                                <div className="capability-card">
+                                    <div className="capability-icon">⚡</div>
+                                    <div className="capability-name">Real-time Processing</div>
+                                </div>
+                                <div className="capability-card">
+                                    <div className="capability-icon">🛡️</div>
+                                    <div className="capability-name">Risk Assessment</div>
+                                </div>
+                            </div>
+
+                            <div className="trading-principles-display">
+                                <div className="principles-header">
+                                    <Text size="s" weight="bold" color="prominent">
+                                        📚 Fundamental Trading Principles
+                                    </Text>
+                                </div>
+                                <div className="principles-grid">
+                                    <div className="principle-item">
+                                        <span className="principle-number">1</span>
+                                        <span className="principle-text">Anything can happen in markets</span>
+                                    </div>
+                                    <div className="principle-item">
+                                        <span className="principle-number">2</span>
+                                        <span className="principle-text">Edge = Higher probability outcomes</span>
+                                    </div>
+                                    <div className="principle-item">
+                                        <span className="principle-number">3</span>
+                                        <span className="principle-text">Random distribution of results</span>
+                                    </div>
+                                    <div className="principle-item">
+                                        <span className="principle-number">4</span>
+                                        <span className="principle-text">Every moment is unique</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="ai-footer">
                                 <Text size="xs" color="general" className="ai-disclaimer">
-                                    🎯 AI is analyzing market patterns using these fundamental trading principles
+                                    🤖 Advanced AI analyzing {totalSymbols} volatility indices using quantum pattern recognition algorithms
                                 </Text>
                             </div>
                         </div>
