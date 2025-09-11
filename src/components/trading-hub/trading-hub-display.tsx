@@ -54,7 +54,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [autoTradeCount, setAutoTradeCount] = useState(0);
     const [maxAutoTrades] = useState(5); // Maximum number of auto trades before switching
 
-    const { generalStore } = useStore();
+    const { run_panel: store } = useStore();
     const apiRef = useRef<any>(null);
 
     // AI Scanning Messages with Trading Truths
@@ -490,13 +490,13 @@ const TradingHubDisplay: React.FC = observer(() => {
             console.log(`[${new Date().toISOString()}] Purchasing contract for recommendation:`, recommendation);
 
             // Set up run panel if not already running
-            if (store?.run_panel) {
-                if (!store.run_panel.is_running) {
-                    store.run_panel.toggleDrawer(true);
-                    store.run_panel.setActiveTabIndex(1);
-                    store.run_panel.run_id = `auto-trade-${Date.now()}`;
-                    store.run_panel.setIsRunning(true);
-                    store.run_panel.setContractStage(contract_stages.STARTING);
+            if (store) {
+                if (!store.is_running) {
+                    store.toggleDrawer(true);
+                    store.setActiveTabIndex(1);
+                    store.run_id = `auto-trade-${Date.now()}`;
+                    store.setIsRunning(true);
+                    store.setContractStage(contract_stages.STARTING);
                 }
             }
 
@@ -576,9 +576,10 @@ const TradingHubDisplay: React.FC = observer(() => {
             });
 
             // Update transactions store
-            if (store?.transactions) {
+            const { transactions } = useStore();
+            if (transactions) {
                 const symbol_display = symbolMap[recommendation.symbol] || recommendation.symbol;
-                store.transactions.onBotContractEvent({
+                transactions.onBotContractEvent({
                     contract_id: buy?.contract_id,
                     transaction_ids: { buy: buy?.transaction_id },
                     buy_price: buy?.buy_price,
@@ -592,9 +593,9 @@ const TradingHubDisplay: React.FC = observer(() => {
             }
 
             // Update run panel
-            if (store?.run_panel) {
-                store.run_panel.setHasOpenContract(true);
-                store.run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+            if (store) {
+                store.setHasOpenContract(true);
+                store.setContractStage(contract_stages.PURCHASE_SENT);
             }
 
             // Monitor contract outcome
@@ -606,8 +607,8 @@ const TradingHubDisplay: React.FC = observer(() => {
             // Update status in UI
             setStatusMessage(`Purchase failed: ${error.message || 'Unknown error'}`);
             
-            if (store?.run_panel) {
-                store.run_panel.setContractStage(contract_stages.NOT_RUNNING);
+            if (store) {
+                store.setContractStage(contract_stages.NOT_RUNNING);
             }
         }
     };
@@ -637,8 +638,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                         
                         if (String(poc?.contract_id || '') === targetId) {
                             // Update transactions
-                            if (store?.transactions) {
-                                store.transactions.onBotContractEvent(poc);
+                            const { transactions } = useStore();
+                            if (transactions) {
+                                transactions.onBotContractEvent(poc);
                             }
 
                             // Check if contract is finished
@@ -663,9 +665,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 apiRef.current?.connection?.removeEventListener('message', onMsg);
 
                                 // Update run panel
-                                if (store?.run_panel) {
-                                    store.run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
-                                    store.run_panel.setHasOpenContract(false);
+                                if (store) {
+                                    store.setContractStage(contract_stages.CONTRACT_CLOSED);
+                                    store.setHasOpenContract(false);
                                 }
 
                                 // Check if we should stop auto trading
@@ -848,10 +850,10 @@ const TradingHubDisplay: React.FC = observer(() => {
         setIsSmartTraderModalOpen(false);
 
         // Stop the run panel activity
-        if (store?.run_panel) {
-            store.run_panel.setIsRunning(false);
-            store.run_panel.setHasOpenContract(false);
-            store.run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        if (store) {
+            store.setIsRunning(false);
+            store.setHasOpenContract(false);
+            store.setContractStage(contract_stages.NOT_RUNNING);
         }
 
         console.log("Auto trading stopped.");
