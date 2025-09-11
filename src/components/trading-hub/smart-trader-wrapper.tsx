@@ -110,7 +110,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     const [status, setStatus] = useState<string>('');
     const [is_running, setIsRunning] = useState(false);
     const stopFlagRef = useRef<boolean>(false);
-    
+
     // Rate limiting state
     const lastRequestTimeRef = useRef<number>(0);
     const requestQueueRef = useRef<Promise<any>>(Promise.resolve());
@@ -118,7 +118,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     // Symbol mapping for display names
     const symbolMap: Record<string, string> = {
         'R_10': 'Volatility 10 Index',
-        'R_25': 'Volatility 25 Index', 
+        'R_25': 'Volatility 25 Index',
         'R_50': 'Volatility 50 Index',
         'R_75': 'Volatility 75 Index',
         'R_100': 'Volatility 100 Index',
@@ -136,18 +136,18 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         const minInterval = 1500; // Minimum 1.5 seconds between API requests
         const now = Date.now();
         const timeSinceLastRequest = now - lastRequestTimeRef.current;
-        
+
         if (timeSinceLastRequest < minInterval) {
             const waitTime = minInterval - timeSinceLastRequest;
             await new Promise(resolve => setTimeout(resolve, waitTime));
         }
-        
+
         // Queue requests to ensure they don't overlap
         requestQueueRef.current = requestQueueRef.current.then(async () => {
             lastRequestTimeRef.current = Date.now();
             return requestFn();
         });
-        
+
         return requestQueueRef.current;
     };
 
@@ -157,7 +157,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         if (tradeType === 'DIGITODD') return d % 2 !== 0 ? 'is-green' : 'is-red';
         if ((tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER')) {
             // Pre-loss uses overUnderBarrier (from market scanner), after-loss uses fixed value 5
-            const activePred = lastOutcomeWasLossRef.current ? 5 : Number(overUnderBarrier);
+            const activePred = lastOutcomeWasLossRef.current ? ouPredPostLoss : Number(overUnderBarrier);
             if (tradeType === 'DIGITOVER') {
                 if (d > activePred) return 'is-green';
                 if (d < activePred) return 'is-red';
@@ -213,7 +213,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
-        
+
         return throttleApiRequest(async () => {
             const token = V2GetActiveToken();
             if (!token) {
@@ -301,7 +301,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
             // Pre-loss uses the barrier from market scanner recommendation, after-loss uses fixed value 5
-            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? 5 : overUnderBarrier);
+            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : overUnderBarrier);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
         } else if (tradeType === 'CALL' || tradeType === 'PUT') {
@@ -311,7 +311,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         try {
             const buy_req = tradeOptionToBuy(tradeType, trade_option);
             const { buy, error } = await apiRef.current.buy(buy_req);
-            
+
             // Handle rate limit errors
             if (error && (error.code === 'RateLimit' || error.message?.includes('rate limit') || error.message?.includes('too many requests'))) {
                 if (retryCount < 3) {
@@ -323,7 +323,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                     throw new Error('Rate limit exceeded after 3 retries. Please wait and try again.');
                 }
             }
-            
+
             if (error) throw error;
             setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
             return buy;
@@ -408,7 +408,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
                     const onMsg = (evt: MessageEvent) => {
                         try {
-                            const data = JSON.parse(evt.data as any);
+                            const data = JSON.JSON.parse(evt.data as any);
                             if (data?.msg_type === 'proposal_open_contract') {
                                 const poc = data.proposal_open_contract;
                                 if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
@@ -642,24 +642,35 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
                     {/* Prediction controls based on trade type */}
                     {(tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') && (
-                        <div className='smart-trader-wrapper__field'>
-                            <label htmlFor='stw-ou-barrier'>{localize('Over/Under Barrier')}</label>
-                            <select
-                                id='stw-ou-barrier'
-                                value={overUnderBarrier}
-                                onChange={e => setOverUnderBarrier(e.target.value)}
-                            >
-                                <option value='0'>0</option>
-                                <option value='1'>1</option>
-                                <option value='2'>2</option>
-                                <option value='3'>3</option>
-                                <option value='4'>4</option>
-                                <option value='5'>5</option>
-                                <option value='6'>6</option>
-                                <option value='7'>7</option>
-                                <option value='8'>8</option>
-                                <option value='9'>9</option>
-                            </select>
+                        <div className='smart-trader-wrapper__row smart-trader-wrapper__row--two'>
+                            <div className='smart-trader-wrapper__field'>
+                                <label htmlFor='stw-ou-pred-pre'>{localize('Over/Under prediction (pre-loss)')}</label>
+                                <select
+                                    id='stw-ou-pred-pre'
+                                    value={overUnderBarrier}
+                                    onChange={e => setOverUnderBarrier(e.target.value)}
+                                >
+                                    <option value='0'>0</option>
+                                    <option value='1'>1</option>
+                                    <option value='2'>2</option>
+                                    <option value='3'>3</option>
+                                    <option value='4'>4</option>
+                                    <option value='5'>5</option>
+                                    <option value='6'>6</option>
+                                    <option value='7'>7</option>
+                                    <option value='8'>8</option>
+                                    <option value='9'>9</option>
+                                </select>
+                            </div>
+                            <div className='smart-trader-wrapper__field'>
+                                <label htmlFor='stw-ou-pred-post'>{localize('Over/Under prediction (after loss)')}</label>
+                                <input
+                                    id='stw-ou-pred-post'
+                                    type='number'
+                                    value={5}
+                                    disabled
+                                />
+                            </div>
                         </div>
                     )}
 

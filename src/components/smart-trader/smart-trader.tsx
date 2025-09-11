@@ -70,7 +70,7 @@ const SmartTrader = observer(() => {
     const [baseStake, setBaseStake] = useState<number>(0.5);
     // Predictions
     const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(5);
-    const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(5);
+    const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(5); // Fixed at 5 for after-loss
     const [mdPrediction, setMdPrediction] = useState<number>(5); // for match/diff
     // Higher/Lower barrier
     const [barrier, setBarrier] = useState<string>('+0.37');
@@ -116,7 +116,7 @@ const SmartTrader = observer(() => {
         if (tradeType === 'DIGITODD') return d % 2 !== 0 ? 'is-green' : 'is-red';
         if ((tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER')) {
             // Pre-loss uses ouPredPreLoss (from market scanner), after-loss uses fixed value 5
-            const activePred = lastOutcomeWasLossRef.current ? 5 : ouPredPreLoss;
+            const activePred = lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss;
             if (tradeType === 'DIGITOVER') {
                 if (d > Number(activePred)) return 'is-green';
                 if (d < Number(activePred)) return 'is-red';
@@ -550,7 +550,7 @@ const SmartTrader = observer(() => {
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
             // Pre-loss uses the barrier from market scanner recommendation, after-loss uses fixed value 5
-            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? 5 : ouPredPreLoss);
+            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
         } else if (tradeType === 'CALL' || tradeType === 'PUT') {
@@ -893,7 +893,7 @@ const SmartTrader = observer(() => {
                                     </div>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-ou-pred-post'>{localize('Over/Under after loss (fixed: 5)')}</label>
-                                        <input id='st-ou-pred-post' type='number' min={0} max={9} value={5} disabled />
+                                        <input id='st-ou-pred-post' type='number' min={0} max={9} value={ouPredPostLoss} disabled />
                                     </div>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
