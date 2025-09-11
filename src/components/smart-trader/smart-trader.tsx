@@ -4,7 +4,7 @@ import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
 // import { tradeOptionToBuy } from '@/external/bot-skeleton/services/tradeEngine/utils/helpers';
-import { contract_stages } from '@constants/contract-stage';
+import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import './smart-trader.scss';
 
