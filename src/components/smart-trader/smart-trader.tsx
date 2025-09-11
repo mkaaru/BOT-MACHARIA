@@ -76,6 +76,7 @@ const SmartTrader = observer(() => {
     const [barrier, setBarrier] = useState<string>('+0.37');
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.5);
+    const [maxMartingaleMultiplier, setMaxMartingaleMultiplier] = useState<number>(4); // Default max is 4
 
     // Martingale strategy state
     const [initialStake, setInitialStake] = useState(1);
@@ -502,7 +503,7 @@ const SmartTrader = observer(() => {
             // Listen for streaming ticks on the raw websocket
             const onMsg = (evt: MessageEvent) => {
                 try {
-                    const data = JSON.parse(evt.data as any);
+                    const data = JSON.JSON.parse(evt.data as any);
                     if (data?.msg_type === 'tick' && data?.tick?.symbol === sym) {
                         const quote = data.tick.quote;
                         const digit = Number(String(quote).slice(-1));
@@ -587,12 +588,15 @@ const SmartTrader = observer(() => {
         try {
             let currentLossStreak = 0;
             let step = 0;
-            
+
             while (!stopFlagRef.current) {
                 // Calculate Martingale stake
-                const effectiveStake = step > 0 ? 
-                    Number((initialStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : 
+                // Ensure the stake does not exceed the maximum allowed multiplier
+                const effectiveStake = step > 0 ?
+                    Number((initialStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) :
                     initialStake;
+                const cappedStake = Math.min(effectiveStake, initialStake * maxMartingaleMultiplier);
+
 
                 const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
                 if (isOU) {
@@ -600,10 +604,10 @@ const SmartTrader = observer(() => {
                 }
 
                 // Update UI stake display
-                setCurrentStake(effectiveStake);
+                setCurrentStake(cappedStake);
                 setLossStreak(currentLossStreak);
 
-                const buy = await purchaseOnceWithStake(effectiveStake);
+                const buy = await purchaseOnceWithStake(cappedStake);
 
                 // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
                 try {
@@ -677,14 +681,14 @@ const SmartTrader = observer(() => {
                                         run_panel.setHasOpenContract(false);
                                         if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
                                         apiRef.current?.connection?.removeEventListener('message', onMsg);
-                                        
+
                                         const profit = Number(poc?.profit || 0);
                                         const isWin = profit > 0;
-                                        
+
                                         // Update trading statistics
                                         setTotalTrades(prev => prev + 1);
                                         setTotalProfit(prev => prev + profit);
-                                        
+
                                         if (isWin) {
                                             // Reset Martingale on win
                                             lastOutcomeWasLossRef.current = false;
@@ -696,17 +700,18 @@ const SmartTrader = observer(() => {
                                             // Apply Martingale on loss
                                             lastOutcomeWasLossRef.current = true;
                                             currentLossStreak++;
-                                            step = Math.min(step + 1, 10); // Cap at 10 steps
+                                            // Ensure step does not exceed maxMartingaleMultiplier - 1
+                                            step = Math.min(step + 1, maxMartingaleMultiplier - 1);
                                             setLastTradeResult('loss');
                                         }
-                                        
+
                                         // Update win rate
                                         setWinRate(prev => {
                                             const newTotal = totalTrades + 1;
                                             const totalWins = isWin ? Math.round(prev * totalTrades) + 1 : Math.round(prev * totalTrades);
                                             return totalWins / newTotal;
                                         });
-                                        
+
                                         // Reset contract values
                                         setCurrentProfit(0);
                                         setContractValue(0);
@@ -810,7 +815,9 @@ const SmartTrader = observer(() => {
             setLastTradeResult('win');
         } else {
             // Apply martingale multiplier after a loss
-            setCurrentStake(prev => Math.round((prev * martingaleMultiplier) * 100) / 100);
+            // Ensure the stake does not exceed the maximum allowed multiplier
+            const nextStake = Math.round((currentStake * martingaleMultiplier) * 100) / 100;
+            setCurrentStake(Math.min(nextStake, initialStake * maxMartingaleMultiplier));
             setLastTradeResult('loss');
         }
     };
@@ -968,11 +975,26 @@ const SmartTrader = observer(() => {
                                             onChange={e => { const v = Math.max(0, Math.min(9, Number(e.target.value))); setMdPrediction(v); }} />
                                     </div>
                                     <div className='smart-trader__field'>
-                                        <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
-                                        <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
-                                            onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
+                                        <label htmlFor='st-martingale-md'>{localize('Martingale multiplier')}</label>
+                                        <input id='st-martingale-md' type='number' min={1} max={maxMartingaleMultiplier} step='0.1' value={martingaleMultiplier}
+                                            onChange={e => setMartingaleMultiplier(Math.max(1, Math.min(maxMartingaleMultiplier, Number(e.target.value))))} />
                                         <small style={{color: '#999'}}>
                                             Multiplier applied to stake after each loss. Resets to initial stake after a win.
+                                        </small>
+                                    </div>
+                                    <div className='smart-trader__field'>
+                                        <label htmlFor='st-max-martingale-md'>{localize('Maximum martingale multiplier')}</label>
+                                        <input id='st-max-martingale-md' type='number' min={1} max={4} step='0.1' value={maxMartingaleMultiplier}
+                                            onChange={e => {
+                                                const newMax = Math.max(1, Math.min(4, Number(e.target.value)));
+                                                setMaxMartingaleMultiplier(newMax);
+                                                // Ensure current multiplier doesn't exceed new max
+                                                if (martingaleMultiplier > newMax) {
+                                                    setMartingaleMultiplier(newMax);
+                                                }
+                                            }} />
+                                        <small style={{color: '#999'}}>
+                                            Maximum allowed multiplier value (capped at 4x).
                                         </small>
                                     </div>
                                 </div>
@@ -990,10 +1012,25 @@ const SmartTrader = observer(() => {
                                     </div>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
-                                        <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
-                                            onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
+                                        <input id='st-martingale' type='number' min={1} max={maxMartingaleMultiplier} step='0.1' value={martingaleMultiplier}
+                                            onChange={e => setMartingaleMultiplier(Math.max(1, Math.min(maxMartingaleMultiplier, Number(e.target.value))))} />
                                         <small style={{color: '#999'}}>
                                             Multiplier applied to stake after each loss. Resets to initial stake after a win.
+                                        </small>
+                                    </div>
+                                    <div className='smart-trader__field'>
+                                        <label htmlFor='st-max-martingale'>{localize('Maximum martingale multiplier')}</label>
+                                        <input id='st-max-martingale' type='number' min={1} max={4} step='0.1' value={maxMartingaleMultiplier}
+                                            onChange={e => {
+                                                const newMax = Math.max(1, Math.min(4, Number(e.target.value)));
+                                                setMaxMartingaleMultiplier(newMax);
+                                                // Ensure current multiplier doesn't exceed new max
+                                                if (martingaleMultiplier > newMax) {
+                                                    setMartingaleMultiplier(newMax);
+                                                }
+                                            }} />
+                                        <small style={{color: '#999'}}>
+                                            Maximum allowed multiplier value (capped at 4x).
                                         </small>
                                     </div>
                                 </div>
@@ -1020,12 +1057,34 @@ const SmartTrader = observer(() => {
                                         id='st-martingale-hl'
                                         type='number'
                                         min={1}
+                                        max={maxMartingaleMultiplier}
                                         step='0.1'
                                         value={martingaleMultiplier}
-                                        onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
+                                        onChange={e => setMartingaleMultiplier(Math.max(1, Math.min(maxMartingaleMultiplier, Number(e.target.value))))}
                                     />
                                     <small style={{color: '#999'}}>
                                         Multiplier applied to stake after each loss. Resets to initial stake after a win.
+                                    </small>
+                                </div>
+                                <div className='smart-trader__field'>
+                                    <label htmlFor='st-max-martingale-hl'>{localize('Maximum martingale multiplier')}</label>
+                                    <input
+                                        id='st-max-martingale-hl'
+                                        type='number'
+                                        min={1}
+                                        max={4}
+                                        step='0.1'
+                                        value={maxMartingaleMultiplier}
+                                        onChange={e => {
+                                            const newMax = Math.max(1, Math.min(4, Number(e.target.value)));
+                                            setMaxMartingaleMultiplier(newMax);
+                                            // Ensure current multiplier doesn't exceed new max
+                                            if (martingaleMultiplier > newMax) {
+                                                setMartingaleMultiplier(newMax);
+                                            }
+                                        }} />
+                                    <small style={{color: '#999'}}>
+                                        Maximum allowed multiplier value (capped at 4x).
                                     </small>
                                 </div>
                             </div>
