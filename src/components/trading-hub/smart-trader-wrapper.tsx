@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
@@ -82,18 +81,18 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     const [ticks, setTicks] = useState<number>(initialSettings.duration);
     const [duration, setDuration] = useState<number>(initialSettings.duration);
     const [durationType, setDurationType] = useState<string>(initialSettings.durationType);
-    const [stake, setStake] = useState<number>(initialSettings.stake);
-    const [baseStake, setBaseStake] = useState<number>(initialSettings.stake);
+    const [stake, setStake] = useState<number>(0.5);
+    const [baseStake, setBaseStake] = useState<number>(0.5);
 
     // Predictions - set from initial settings
     const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(initialSettings.prediction || 5);
     const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(initialSettings.prediction || 5);
     const [mdPrediction, setMdPrediction] = useState<number>(initialSettings.prediction || 5);
     const [overUnderBarrier, setOverUnderBarrier] = useState<string>(initialSettings.barrier || '5');
-    
+
     // Higher/Lower barrier
     const [barrier, setBarrier] = useState<string>(initialSettings.barrier || '+0.37');
-    
+
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
 
@@ -270,7 +269,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             duration_unit: durationType,
             symbol,
         };
-        
+
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
             trade_option.prediction = Number(overUnderBarrier);
@@ -301,7 +300,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             let lossStreak = 0;
             let step = 0;
             baseStake !== stake && setBaseStake(stake);
-            
+
             while (!stopFlagRef.current) {
                 const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
 

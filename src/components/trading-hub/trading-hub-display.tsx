@@ -160,7 +160,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                     // Enhanced AI scanning phases - Load interface after 5 markets
                     const progressPercentage = (readySymbolsCount / totalSymbols) * 100;
-                    
+
                     if (readySymbolsCount === 0) {
                         setAiScanningPhase('initializing');
                         setCurrentAiMessage(aiScanningMessages.initializing[0]);
@@ -172,7 +172,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         setCurrentAiMessage(aiScanningMessages.analyzing[Math.min(msgIndex, aiScanningMessages.analyzing.length - 1)]);
                         setStatusMessage(`🧠 AI analyzing patterns... ${readySymbolsCount}/5 markets ready`);
                         setConnectionStatus('scanning');
-                        
+
                         // Show which symbol is being processed
                         const symbols = Object.keys(currentStats);
                         if (symbols[readySymbolsCount - 1]) {
@@ -194,7 +194,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         setCurrentAiMessage(aiScanningMessages.analyzing[Math.min(msgIndex, aiScanningMessages.analyzing.length - 1)]);
                         setStatusMessage(`🧠 AI analyzing patterns... ${readySymbolsCount}/${totalSymbols} markets`);
                         setConnectionStatus('scanning');
-                        
+
                         // Show which symbol is being processed
                         const symbols = Object.keys(currentStats);
                         if (symbols[readySymbolsCount - 1]) {
@@ -455,10 +455,10 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // Load trade settings to Smart Trader
     const loadTradeSettings = (recommendation: TradeRecommendation) => {
-        const settings: TradeSettings = {
+        const settings = {
             symbol: recommendation.symbol,
             tradeType: getTradeTypeForStrategy(recommendation.strategy),
-            stake: 1.0,
+            stake: 0.5,
             duration: 1,
             durationType: 't'
         };
@@ -721,7 +721,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                             <span className="dot"></span>
                                         </div>
                                     </div>
-                                    
+
                                     <Text size="s" color="general" className="ai-current-message">
                                         {currentAiMessage || statusMessage}
                                     </Text>
