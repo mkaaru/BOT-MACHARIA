@@ -71,7 +71,7 @@ const SmartTrader = observer(() => {
     // Higher/Lower barrier
     const [barrier, setBarrier] = useState<string>('+0.37');
     // Martingale/recovery
-    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.0); // Default to 1.0
+    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1); // Default to 1
     const [martingaleSteps, setMartingaleSteps] = useState<number>(4); // Default to 4 steps
 
     // Contract tracking state
@@ -905,22 +905,9 @@ const SmartTrader = observer(() => {
                                 />
                             </div>
 
-                            {/* Strategy controls */}
-                            {(tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') ? (
-                                <div className='smart-trader__row smart-trader__row--two'>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-md-pred'>{localize('Match/Diff prediction digit')}</label>
-                                        <input id='st-md-pred' type='number' min={0} max={9} value={mdPrediction}
-                                            onChange={e => { const v = Math.max(0, Math.min(9, Number(e.target.value))); setMdPrediction(v); }} />
-                                    </div>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
-                                        <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
-                                            onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
-                                    </div>
-                                </div>
-                            ) : (tradeType !== 'CALL' && tradeType !== 'PUT') ? (
-                                <div className='smart-trader__row smart-trader__row--four'>
+                            {/* Strategy controls for Over/Under */}
+                            {(tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') && (
+                                <div className='smart-trader__row smart-trader__row--three'>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-ou-pred-pre'>{localize('Over/Under prediction (pre-loss)')}</label>
                                         <input id='st-ou-pred-pre' type='number' min={0} max={9} value={ouPredPreLoss}
@@ -932,23 +919,28 @@ const SmartTrader = observer(() => {
                                             onChange={e => setOuPredPostLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
                                     </div>
                                     <div className='smart-trader__field'>
-                                        <label htmlFor='st-ou-pred-after'>{localize('After loss barrier (auto-calculated)')}</label>
-                                        <input id='st-ou-pred-after' type='number' min={0} max={9} value={ouPredAfterLoss}
-                                            onChange={e => setOuPredAfterLoss(Math.max(0, Math.min(9, Number(e.target.value))))}
-                                            title={`Next digit after barrier ${ouPredPreLoss}`} />
-                                    </div>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
-                                        <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
+                                        <label htmlFor='st-martingale-ou'>{localize('Martingale multiplier')}</label>
+                                        <input id='st-martingale-ou' type='number' min={1} step='0.1' value={martingaleMultiplier}
                                             onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
                                     </div>
+                                </div>
+                            )}
+
+                            {/* Strategy controls for Match/Diff */}
+                            {(tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') && (
+                                <div className='smart-trader__row smart-trader__row--two'>
                                     <div className='smart-trader__field'>
-                                        <label htmlFor='st-steps'>{localize('Martingale steps')}</label>
-                                        <input id='st-steps' type='number' min={1} max={20} value={martingaleSteps}
-                                            onChange={e => setMartingaleSteps(Math.max(1, Math.min(20, Number(e.target.value))))} />
+                                        <label htmlFor='st-md-pred'>{localize('Match/Diff prediction digit')}</label>
+                                        <input id='st-md-pred' type='number' min={0} max={9} value={mdPrediction}
+                                            onChange={e => { const v = Math.max(0, Math.min(9, Number(e.target.value))); setMdPrediction(v); }} />
+                                    </div>
+                                    <div className='smart-trader__field'>
+                                        <label htmlFor='st-martingale-md'>{localize('Martingale multiplier')}</label>
+                                        <input id='st-martingale-md' type='number' min={1} step='0.1' value={martingaleMultiplier}
+                                            onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
                                     </div>
                                 </div>
-                            ) : null}
+                            )}
 
                         </div>
 
