@@ -53,6 +53,8 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [activeToken, setActiveToken] = useState<string | null>(null);
     const [autoTradeCount, setAutoTradeCount] = useState(0);
     const [maxAutoTrades] = useState(5); // Maximum number of auto trades before switching
+    const [autoTradeStake, setAutoTradeStake] = useState(1);
+    const [autoTradeMartingale, setAutoTradeMartingale] = useState(2);
 
     const { run_panel: store } = useStore();
     const apiRef = useRef<any>(null);
@@ -514,8 +516,15 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             // Prepare trade parameters
             const tradeType = getTradeTypeForStrategy(recommendation.strategy);
+            
+            // Calculate stake based on auto trade count and martingale
+            let currentStake = autoTradeStake;
+            if (autoTradeCount > 0) {
+                currentStake = autoTradeStake * Math.pow(autoTradeMartingale, autoTradeCount);
+            }
+            
             const trade_option: any = {
-                amount: 1, // Default stake amount
+                amount: currentStake,
                 basis: 'stake',
                 contractTypes: [tradeType],
                 currency: authorize?.currency || 'USD',
@@ -1166,31 +1175,85 @@ const TradingHubDisplay: React.FC = observer(() => {
                         {bestRecommendation && (
                             <div className="best-recommendation-highlight">
                                 <div className="highlight-header">
-                                    <span className="crown-icon">👑</span>
-                                    <Text size="s" weight="bold">Best Opportunity</Text>
+                                    <div className="crown-section">
+                                        <span className="crown-icon">👑</span>
+                                        <Text size="s" weight="bold">Best Opportunity</Text>
+                                    </div>
+                                    <div className="ai-confidence-badge">
+                                        <span className="ai-label">AI CONFIDENCE</span>
+                                        <span className="confidence-value">{bestRecommendation.confidence.toFixed(1)}%</span>
+                                    </div>
                                 </div>
                                 <div className="highlight-content">
-                                    <div className="highlight-trade">
-                                        <span className="highlight-symbol">{symbolMap[bestRecommendation.symbol]}</span>
-                                        <span className={`highlight-strategy strategy-label--${bestRecommendation.strategy}`}>
-                                            {bestRecommendation.strategy.toUpperCase()} {bestRecommendation.barrier}
-                                        </span>
-                                        <span className="highlight-confidence">
-                                            {bestRecommendation.confidence.toFixed(1)}%
-                                        </span>
+                                    <div className="highlight-trade-section">
+                                        <div className="highlight-trade">
+                                            <div className="trade-symbol">
+                                                <span className="symbol-name">{symbolMap[bestRecommendation.symbol]}</span>
+                                                <span className="symbol-code">{bestRecommendation.symbol}</span>
+                                            </div>
+                                            <div className={`highlight-strategy strategy-badge--${bestRecommendation.strategy}`}>
+                                                <span className="strategy-text">{bestRecommendation.strategy.toUpperCase()}</span>
+                                                <span className="strategy-barrier">{bestRecommendation.barrier}</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="auto-trade-settings">
+                                            <div className="settings-header">
+                                                <span className="settings-icon">⚙️</span>
+                                                <span className="settings-title">Auto Trade Settings</span>
+                                            </div>
+                                            <div className="settings-controls">
+                                                <div className="control-group">
+                                                    <label className="control-label">Initial Stake (USD)</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0.35"
+                                                        step="0.01"
+                                                        value={autoTradeStake}
+                                                        onChange={(e) => setAutoTradeStake(Number(e.target.value))}
+                                                        className="control-input"
+                                                        disabled={isAutoTradingBest}
+                                                    />
+                                                </div>
+                                                <div className="control-group">
+                                                    <label className="control-label">Martingale Multiplier</label>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        step="0.1"
+                                                        value={autoTradeMartingale}
+                                                        onChange={(e) => setAutoTradeMartingale(Number(e.target.value))}
+                                                        className="control-input"
+                                                        disabled={isAutoTradingBest}
+                                                    />
+                                                </div>
+                                                <div className="control-group">
+                                                    <label className="control-label">Current Stake</label>
+                                                    <div className="current-stake-display">
+                                                        ${autoTradeCount > 0 ? (autoTradeStake * Math.pow(autoTradeMartingale, autoTradeCount)).toFixed(2) : autoTradeStake.toFixed(2)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
+                                    
                                     <div className="highlight-actions">
                                         <button
                                             className="highlight-load-btn"
                                             onClick={() => loadTradeSettings(bestRecommendation)}
                                         >
-                                            🚀 Load Best Trade
+                                            <span className="btn-icon">🚀</span>
+                                            <span className="btn-text">Load Best Trade</span>
                                         </button>
                                         <button
-                                            className="auto-trade-best-btn"
+                                            className={`auto-trade-best-btn ${isAutoTradingBest ? 'auto-trading-active' : ''}`}
                                             onClick={() => isAutoTradingBest ? stopAutoTradeBest() : startAutoTradeBest()}
+                                            disabled={!bestRecommendation}
                                         >
-                                            {isAutoTradingBest ? `🛑 Stop Auto (${autoTradeCount}/${maxAutoTrades})` : '⚡ Auto Trade Best'}
+                                            <span className="btn-icon">{isAutoTradingBest ? '🛑' : '⚡'}</span>
+                                            <span className="btn-text">
+                                                {isAutoTradingBest ? `Stop Auto (${autoTradeCount}/${maxAutoTrades})` : 'Auto Trade Best'}
+                                            </span>
                                         </button>
                                     </div>
                                 </div>
