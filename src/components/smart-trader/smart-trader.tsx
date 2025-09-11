@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
@@ -120,6 +120,8 @@ const SmartTrader = observer(() => {
     const [websocket, setWebsocket] = useState<any>(null); // Stores websocket instance
     const [autoExecute, setAutoExecute] = useState(false); // Flag for auto-execution
     const [tickHistory, setTickHistory] = useState<Array<{ time: number, price: number }>>([]); // For tick history
+    const [isWaitingForTradeResult, setIsWaitingForTradeResult] = useState(false);
+    const [pendingNextTrade, setPendingNextTrade] = useState(false);
 
     // --- Helper Functions ---
 
@@ -711,6 +713,10 @@ const SmartTrader = observer(() => {
                                         setContractValue(0);
                                         setPotentialPayout(0);
                                         setContractDuration('00:00:00');
+
+                                        // Trade completed, can proceed with next trade
+                                        setIsWaitingForTradeResult(false);
+                                        setPendingNextTrade(true);
                                     }
                                 }
                             }
@@ -795,11 +801,45 @@ const SmartTrader = observer(() => {
     };
 
     // Placeholder for executeNextTrade if it exists elsewhere or needs implementation
-    const executeNextTrade = () => {
-        // This function would typically trigger the purchase logic
-        // For now, it's a placeholder. Ensure it's defined if autoExecute is used.
-        console.log('Executing next trade...');
-    };
+    const executeTrade = useCallback(async () => {
+        if (!isTrading || isWaitingForTradeResult) return;
+
+        try {
+            // Set waiting state to prevent new trades until this one completes
+            setIsWaitingForTradeResult(true);
+            setPendingNextTrade(false);
+
+            // Trade execution logic here
+            const tradeParams = {
+                contract_type: tradeType,
+                symbol: symbol,
+                amount: currentStake,
+                duration: 1,
+                duration_unit: 't',
+                basis: 'stake'
+            };
+
+            // Send trade request
+            // await api.buy(tradeParams);
+
+        } catch (error) {
+            console.error('Trade execution error:', error);
+            setIsWaitingForTradeResult(false);
+        }
+    }, [isTrading, isWaitingForTradeResult, tradeType, symbol, currentStake]);
+
+    // Handle pending next trade after completion
+    useEffect(() => {
+        if (pendingNextTrade && !isWaitingForTradeResult && isTrading) {
+            // Add a small delay to ensure proper sequencing
+            const timer = setTimeout(() => {
+                executeTrade();
+            }, 1000); // 1 second delay between trades
+
+            return () => clearTimeout(timer);
+        }
+    }, [pendingNextTrade, isWaitingForTradeResult, isTrading, executeTrade]);
+
 
     const resetStats = () => {
         setWinStreak(0);
