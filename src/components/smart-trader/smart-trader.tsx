@@ -76,6 +76,7 @@ const SmartTrader = observer(() => {
     const [barrier, setBarrier] = useState<string>('+0.37');
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.5);
+    const [martingaleSteps, setMartingaleSteps] = useState<number>(4); // Default to 4 steps
 
     // Contract tracking state
     const [currentProfit, setCurrentProfit] = useState<number>(0);
@@ -672,7 +673,7 @@ const SmartTrader = observer(() => {
                                         } else {
                                             lastOutcomeWasLossRef.current = true;
                                             lossStreak++;
-                                            step = Math.min(step + 1, 10); // Cap at 10 steps to prevent excessive stake
+                                            step = Math.min(step + 1, martingaleSteps); // Cap at configured steps to prevent excessive stake
                                         }
                                         // Reset contract values
                                         setCurrentProfit(0);
@@ -881,6 +882,11 @@ const SmartTrader = observer(() => {
                                         <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
                                             onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
                                     </div>
+                                    <div className='smart-trader__field'>
+                                        <label htmlFor='st-steps-md'>{localize('Martingale steps')}</label>
+                                        <input id='st-steps-md' type='number' min={1} max={20} value={martingaleSteps}
+                                            onChange={e => setMartingaleSteps(Math.max(1, Math.min(20, Number(e.target.value))))} />
+                                    </div>
                                 </div>
                             ) : (tradeType !== 'CALL' && tradeType !== 'PUT') ? (
                                 <div className='smart-trader__row smart-trader__row--compact'>
@@ -898,6 +904,11 @@ const SmartTrader = observer(() => {
                                         <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
                                         <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
                                             onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
+                                    </div>
+                                    <div className='smart-trader__field'>
+                                        <label htmlFor='st-steps'>{localize('Martingale steps')}</label>
+                                        <input id='st-steps' type='number' min={1} max={20} value={martingaleSteps}
+                                            onChange={e => setMartingaleSteps(Math.max(1, Math.min(20, Number(e.target.value))))} />
                                     </div>
                                 </div>
                             ) : null}
@@ -927,6 +938,11 @@ const SmartTrader = observer(() => {
                                         value={martingaleMultiplier}
                                         onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
                                     />
+                                </div>
+                                <div className='smart-trader__field'>
+                                    <label htmlFor='st-steps'>{localize('Martingale steps')}</label>
+                                    <input id='st-steps' type='number' min={1} max={20} value={martingaleSteps}
+                                        onChange={e => setMartingaleSteps(Math.max(1, Math.min(20, Number(e.target.value))))} />
                                 </div>
                             </div>
                         )}
