@@ -301,8 +301,23 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             let step = 0;
             baseStake !== stake && setBaseStake(stake);
 
+            let winStreak = 0;
             while (!stopFlagRef.current) {
-                const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
+                // Determine if we should apply martingale
+                let shouldApplyMartingale = false;
+                
+                if (martingaleAfterWin) {
+                    // Apply martingale after win mode - apply for next two wins after a win
+                    shouldApplyMartingale = winStreak > 0 && winStreak <= 2;
+                } else {
+                    // Standard mode - apply after loss
+                    shouldApplyMartingale = lossStreak > 0;
+                }
+
+                // Adjust stake based on martingale logic
+                const effectiveStake = shouldApplyMartingale ? 
+                    Number((baseStake * Math.pow(martingaleMultiplier, Math.min(step, 10))).toFixed(2)) : 
+                    baseStake;
 
                 const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
                 if (isOU) {
@@ -310,6 +325,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                 }
 
                 setStake(effectiveStake);
+                setWinStreakCount(winStreak);
 
                 const buy = await purchaseOnceWithStake(effectiveStake);
 
@@ -379,16 +395,44 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                         if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
                                         apiRef.current?.connection?.removeEventListener('message', onMsg);
                                         const profit = Number(poc?.profit || 0);
+                                        
                                         if (profit > 0) {
+                                            // Win outcome
                                             lastOutcomeWasLossRef.current = false;
                                             lossStreak = 0;
-                                            step = 0;
-                                            setStake(baseStake);
+                                            
+                                            if (martingaleAfterWin) {
+                                                // In martingale after win mode
+                                                if (winStreak === 0) {
+                                                    winStreak = 1;
+                                                    step = 1;
+                                                } else if (winStreak < 2) {
+                                                    winStreak++;
+                                                    step++;
+                                                } else {
+                                                    winStreak = 0;
+                                                    step = 0;
+                                                    setStake(baseStake);
+                                                }
+                                            } else {
+                                                winStreak = 0;
+                                                step = 0;
+                                                setStake(baseStake);
+                                            }
                                         } else {
+                                            // Loss outcome
                                             lastOutcomeWasLossRef.current = true;
-                                            lossStreak++;
-                                            step = Math.min(step + 1, 10);
+                                            winStreak = 0;
+                                            
+                                            if (!martingaleAfterWin) {
+                                                lossStreak++;
+                                                step = Math.min(step + 1, 10);
+                                            } else {
+                                                lossStreak++;
+                                                step = 0;
+                                            }
                                         }
+                                        
                                         setCurrentProfit(0);
                                         setContractValue(0);
                                         setPotentialPayout(0);
@@ -579,6 +623,28 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                 onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
                             />
                         </div>
+                    </div>
+
+                    <div className='smart-trader-wrapper__row smart-trader-wrapper__row--two'>
+                        <div className='smart-trader-wrapper__field'>
+                            <label htmlFor='stw-martingale-after-win'>
+                                <input 
+                                    id='stw-martingale-after-win' 
+                                    type='checkbox' 
+                                    checked={martingaleAfterWin}
+                                    onChange={e => setMartingaleAfterWin(e.target.checked)}
+                                    style={{marginRight: '8px'}}
+                                />
+                                {localize('Apply martingale after wins (2 trades)')}
+                            </label>
+                        </div>
+                        {martingaleAfterWin && (
+                            <div className='smart-trader-wrapper__field'>
+                                <Text size='xs' color='general'>
+                                    {localize('Win streak:')} {winStreakCount}/2
+                                </Text>
+                            </div>
+                        )}
                     </div>
 
                     {/* Prediction controls based on trade type */}

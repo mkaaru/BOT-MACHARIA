@@ -75,7 +75,9 @@ const SmartTrader = observer(() => {
     // Higher/Lower barrier
     const [barrier, setBarrier] = useState<string>('+0.37');
     // Martingale/recovery
-    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
+    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.5);
+    const [martingaleAfterWin, setMartingaleAfterWin] = useState<boolean>(false);
+    const [winStreakCount, setWinStreakCount] = useState<number>(0);
 
     // Contract tracking state
     const [currentProfit, setCurrentProfit] = useState<number>(0);
@@ -664,15 +666,34 @@ const SmartTrader = observer(() => {
                                         apiRef.current?.connection?.removeEventListener('message', onMsg);
                                         const profit = Number(poc?.profit || 0);
                                         if (profit > 0) {
-                                            lastOutcomeWasLossRef.current = false;
-                                            lossStreak = 0;
-                                            step = 0;
-                                            // Reset to base stake on win
-                                            setStake(baseStake);
+                                            // Win
+                                            if (martingaleAfterWin) {
+                                                if (winStreakCount < 2) {
+                                                    setWinStreakCount(prev => prev + 1);
+                                                    lastOutcomeWasLossRef.current = false; // Apply martingale for next trade
+                                                    lossStreak = 0;
+                                                    step = 0; // Reset step to apply base stake on next trade
+                                                } else {
+                                                    // Reset after 2 wins
+                                                    setWinStreakCount(0);
+                                                    lastOutcomeWasLossRef.current = false;
+                                                    lossStreak = 0;
+                                                    step = 0;
+                                                    setStake(baseStake); // Reset to base stake
+                                                }
+                                            } else {
+                                                // Default behavior on win (no special handling)
+                                                lastOutcomeWasLossRef.current = false;
+                                                lossStreak = 0;
+                                                step = 0;
+                                                setStake(baseStake); // Reset to base stake
+                                            }
                                         } else {
+                                            // Loss
                                             lastOutcomeWasLossRef.current = true;
                                             lossStreak++;
                                             step = Math.min(step + 1, 10); // Cap at 10 steps to prevent excessive stake
+                                            setWinStreakCount(0); // Reset win streak on loss
                                         }
                                         // Reset contract values
                                         setCurrentProfit(0);
@@ -898,6 +919,18 @@ const SmartTrader = observer(() => {
                                         <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
                                         <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
                                             onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
+                                    </div>
+                                    <div className='smart-trader__field'>
+                                        <label htmlFor='st-martingale-after-win'>
+                                            <input
+                                                id='st-martingale-after-win'
+                                                type='checkbox'
+                                                checked={martingaleAfterWin}
+                                                onChange={e => setMartingaleAfterWin(e.target.checked)}
+                                                style={{marginRight: '8px'}}
+                                            />
+                                            {localize('Apply martingale after wins (2 trades)')}
+                                        </label>
                                     </div>
                                 </div>
                             ) : null}
