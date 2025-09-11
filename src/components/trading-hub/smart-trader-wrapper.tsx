@@ -368,7 +368,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             baseStake !== stake && setBaseStake(stake);
 
             // Ensure trading continues even after modal closes
-            while (!stopFlagRef.current && run_panel.is_running) {
+            while (!stopFlagRef.current) {
                 const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
 
                 const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
@@ -488,7 +488,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             run_panel.setIsRunning(false);
             run_panel.setHasOpenContract(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
-            
+
             // Cleanup observers when trading stops
             if (store?.run_panel?.dbot?.observer) {
                 store.run_panel.dbot.observer.unregisterAll('bot.stop');
@@ -512,7 +512,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         run_panel.setHasOpenContract(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
         setStatus('Trading stopped');
-        
+
         // Cleanup observers
         if (store?.run_panel?.dbot?.observer) {
             store.run_panel.dbot.observer.unregisterAll('bot.stop');
@@ -526,7 +526,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             return;
         }
         onRun();
-        
+
         // Auto-close the popup after starting trading, but don't stop the bot
         setTimeout(() => {
             if (onClose) {

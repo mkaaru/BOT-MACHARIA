@@ -45,6 +45,8 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [aiScanningPhase, setAiScanningPhase] = useState<'initializing' | 'analyzing' | 'evaluating' | 'recommending' | 'complete'>('initializing');
     const [currentAiMessage, setCurrentAiMessage] = useState('');
     const [processingSymbol, setProcessingSymbol] = useState<string>('');
+    const [isAutoTradingBest, setIsAutoTradingBest] = useState(false);
+    const [currentAutoTradeSettings, setCurrentAutoTradeSettings] = useState<TradeSettings | null>(null);
 
     // AI Scanning Messages with Trading Truths
     const aiScanningMessages = {
@@ -453,6 +455,42 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
     }, [connectionStatus, generateScanResults]);
 
+    // Monitor best recommendation changes for auto trading
+    useEffect(() => {
+        if (isAutoTradingBest && bestRecommendation && currentAutoTradeSettings) {
+            // Check if the best recommendation has changed significantly
+            const newSymbol = bestRecommendation.symbol;
+            const newStrategy = getTradeTypeForStrategy(bestRecommendation.strategy);
+            
+            if (newSymbol !== currentAutoTradeSettings.symbol || 
+                newStrategy !== currentAutoTradeSettings.tradeType) {
+                
+                // Update to new best recommendation
+                const newSettings = {
+                    symbol: bestRecommendation.symbol,
+                    tradeType: getTradeTypeForStrategy(bestRecommendation.strategy),
+                    stake: currentAutoTradeSettings.stake, // Keep current stake
+                    duration: currentAutoTradeSettings.duration,
+                    durationType: currentAutoTradeSettings.durationType
+                };
+
+                if (bestRecommendation.strategy === 'over' || bestRecommendation.strategy === 'under') {
+                    newSettings.barrier = bestRecommendation.barrier;
+                } else if (bestRecommendation.strategy === 'matches' || bestRecommendation.strategy === 'differs') {
+                    newSettings.prediction = parseInt(bestRecommendation.barrier || '5');
+                }
+
+                setCurrentAutoTradeSettings(newSettings);
+                
+                // Close current modal and open new one with updated settings
+                setTimeout(() => {
+                    setSelectedTradeSettings(newSettings);
+                    setIsSmartTraderModalOpen(true);
+                }, 1000);
+            }
+        }
+    }, [bestRecommendation, isAutoTradingBest, currentAutoTradeSettings]);
+
     // Load trade settings to Smart Trader
     const loadTradeSettings = (recommendation: TradeRecommendation) => {
         const settings = {
@@ -581,6 +619,36 @@ const TradingHubDisplay: React.FC = observer(() => {
         setSelectedTradeSettings(null);
     };
 
+    // Auto trade best recommendation function
+    const startAutoTradeBest = () => {
+        if (!bestRecommendation) return;
+        
+        setIsAutoTradingBest(true);
+        const settings = {
+            symbol: bestRecommendation.symbol,
+            tradeType: getTradeTypeForStrategy(bestRecommendation.strategy),
+            stake: 0.5,
+            duration: 1,
+            durationType: 't'
+        };
+
+        if (bestRecommendation.strategy === 'over' || bestRecommendation.strategy === 'under') {
+            settings.barrier = bestRecommendation.barrier;
+        } else if (bestRecommendation.strategy === 'matches' || bestRecommendation.strategy === 'differs') {
+            settings.prediction = parseInt(bestRecommendation.barrier || '5');
+        }
+
+        setCurrentAutoTradeSettings(settings);
+        setSelectedTradeSettings(settings);
+        setIsSmartTraderModalOpen(true);
+    };
+
+    // Stop auto trading function
+    const stopAutoTradeBest = () => {
+        setIsAutoTradingBest(false);
+        setCurrentAutoTradeSettings(null);
+    };
+
     return (
         <div className="trading-hub-scanner">
             {/* Smart Trader Modal */}
@@ -679,12 +747,21 @@ const TradingHubDisplay: React.FC = observer(() => {
                                             {bestRecommendation.confidence.toFixed(1)}%
                                         </span>
                                     </div>
-                                    <button
-                                        className="highlight-load-btn"
-                                        onClick={() => loadTradeSettings(bestRecommendation)}
-                                    >
-                                        🚀 Load Best Trade
-                                    </button>
+                                    <div className="highlight-actions">
+                                        <button
+                                            className="highlight-load-btn"
+                                            onClick={() => loadTradeSettings(bestRecommendation)}
+                                        >
+                                            🚀 Load Best Trade
+                                        </button>
+                                        <button
+                                            className="auto-trade-best-btn"
+                                            onClick={() => startAutoTradeBest()}
+                                            disabled={isAutoTradingBest}
+                                        >
+                                            {isAutoTradingBest ? '🔄 Auto Trading...' : '⚡ Auto Trade Best'}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         )}
