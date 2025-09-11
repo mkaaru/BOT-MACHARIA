@@ -3,8 +3,11 @@ import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import Modal from '@/components/shared_ui/modal';
 import { localize } from '@deriv-com/translations';
+import { contract_stages } from '@/constants/contract-stage';
 import marketAnalyzer from '@/services/market-analyzer';
 import SmartTraderWrapper from './smart-trader-wrapper';
+import { generateDerivApiInstance, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
+import { useStore } from '@/hooks/useStore';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
 import './trading-hub-display.scss';
 
@@ -47,6 +50,9 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [processingSymbol, setProcessingSymbol] = useState<string>('');
     const [isAutoTradingBest, setIsAutoTradingBest] = useState(false);
     const [currentAutoTradeSettings, setCurrentAutoTradeSettings] = useState<TradeSettings | null>(null);
+    const [activeToken, setActiveToken] = useState<string | null>(null);
+
+    const { generalStore } = useStore();
 
     // AI Scanning Messages with Trading Truths
     const aiScanningMessages = {
@@ -133,6 +139,14 @@ const TradingHubDisplay: React.FC = observer(() => {
                 setConnectionStatus('connecting');
                 setStatusMessage('Connecting to Deriv WebSocket API...');
 
+                // Get active token for API instance
+                const token = await V2GetActiveToken();
+                setActiveToken(token);
+                if (!token) {
+                    throw new Error('No active token found');
+                }
+                const derivAPI = await generateDerivApiInstance(token);
+
                 // Subscribe to market analyzer updates
                 const unsubscribe = marketAnalyzer.onAnalysis((recommendation, stats, o5u4Data) => {
                     if (stats) {
@@ -153,7 +167,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                     // Update scan progress
                     const currentStats = stats || marketStats;
-                    const readySymbolsCount = Object.keys(currentStats).filter(symbol => 
+                    const readySymbolsCount = Object.keys(currentStats).filter(symbol =>
                         currentStats[symbol].isReady
                     ).length;
 
@@ -461,10 +475,10 @@ const TradingHubDisplay: React.FC = observer(() => {
             // Check if the best recommendation has changed significantly
             const newSymbol = bestRecommendation.symbol;
             const newStrategy = getTradeTypeForStrategy(bestRecommendation.strategy);
-            
-            if (newSymbol !== currentAutoTradeSettings.symbol || 
+
+            if (newSymbol !== currentAutoTradeSettings.symbol ||
                 newStrategy !== currentAutoTradeSettings.tradeType) {
-                
+
                 // Update to new best recommendation
                 const newSettings = {
                     symbol: bestRecommendation.symbol,
@@ -481,7 +495,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 }
 
                 setCurrentAutoTradeSettings(newSettings);
-                
+
                 // Close current modal and open new one with updated settings
                 setTimeout(() => {
                     setSelectedTradeSettings(newSettings);
@@ -620,16 +634,18 @@ const TradingHubDisplay: React.FC = observer(() => {
     };
 
     // Auto trade best recommendation function
-    const startAutoTradeBest = () => {
-        if (!bestRecommendation) return;
-        
+    const startAutoTradeBest = async () => {
+        if (!bestRecommendation || !activeToken) return;
+
         setIsAutoTradingBest(true);
         const settings = {
             symbol: bestRecommendation.symbol,
             tradeType: getTradeTypeForStrategy(bestRecommendation.strategy),
-            stake: 0.5,
-            duration: 1,
-            durationType: 't'
+            stake: 1, // Default stake for auto-trading
+            duration: 1, // Default duration for auto-trading
+            durationType: 't', // Default duration type
+            // martingale multiplier needs to be set here if available in bestRecommendation
+            // martingaleMultiplier: bestRecommendation.martingaleMultiplier || 1
         };
 
         if (bestRecommendation.strategy === 'over' || bestRecommendation.strategy === 'under') {
@@ -647,6 +663,9 @@ const TradingHubDisplay: React.FC = observer(() => {
     const stopAutoTradeBest = () => {
         setIsAutoTradingBest(false);
         setCurrentAutoTradeSettings(null);
+        // Add logic here to stop any ongoing trades initiated by auto-trading
+        // This might involve calling a function on the SmartTraderWrapper or the API
+        console.log("Auto trading stopped.");
     };
 
     return (
@@ -663,6 +682,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                     <SmartTraderWrapper
                         initialSettings={selectedTradeSettings}
                         onClose={handleCloseModal}
+                        isAutoTrading={isAutoTradingBest} // Pass auto-trading state
+                        onStopAutoTrade={stopAutoTradeBest} // Pass stop function
                     />
                 )}
             </Modal>
@@ -714,6 +735,99 @@ const TradingHubDisplay: React.FC = observer(() => {
             </div>
 
             <div className="scanner-content">
+                {connectionStatus === 'error' && (
+                    <div className="scanner-error">
+                        <div className="error-icon">⚠️</div>
+                        <Text size="s" color="prominent">Connection Error</Text>
+                        <Text size="xs" color="general">{statusMessage}</Text>
+                        <button
+                            className="retry-btn"
+                            onClick={() => window.location.reload()}
+                        >
+                            Retry Connection
+                        </button>
+                    </div>
+                )}
+
+                {(connectionStatus === 'connecting' || connectionStatus === 'scanning') && (
+                    <div className="scanner-loading">
+                        <div className="ai-scanning-display">
+                            <div className="ai-brain-icon">🧠</div>
+                            <div className="scanning-content">
+                                <div className="ai-status-header">
+                                    <Text size="m" weight="bold" color="prominent">
+                                        AI Market Scanner Active
+                                    </Text>
+                                    <div className="scanning-dots">
+                                        <span className="dot"></span>
+                                        <span className="dot"></span>
+                                        <span className="dot"></span>
+                                    </div>
+                                </div>
+
+                                <Text size="s" color="general" className="ai-current-message">
+                                    {currentAiMessage || statusMessage}
+                                </Text>
+
+                                {processingSymbol && (
+                                    <div className="processing-symbol">
+                                        <Text size="xs" color="general">
+                                            📊 Currently analyzing: <span className="symbol-name">{processingSymbol}</span>
+                                        </Text>
+                                    </div>
+                                )}
+
+                                <div className="ai-progress-section">
+                                    <div className="progress-bar-ai">
+                                        <div
+                                            className="progress-fill-ai"
+                                            style={{ width: `${scanProgress}%` }}
+                                        ></div>
+                                    </div>
+                                    <Text size="xs" color="general" className="progress-text">
+                                        AI Analysis: {symbolsAnalyzed}/{totalSymbols} volatility indices processed
+                                    </Text>
+                                </div>
+
+                                <div className="ai-capabilities">
+                                    <div className="capability-item">✓ Pattern Recognition</div>
+                                    <div className="capability-item">✓ Statistical Analysis</div>
+                                    <div className="capability-item">✓ Probability Calculation</div>
+                                    <div className="capability-item">✓ Risk Assessment</div>
+                                </div>
+
+                                <div className="trading-truths-section">
+                                    <Text size="xs" weight="bold" color="prominent" className="truths-header">
+                                        📚 5 Fundamental Truths of Trading
+                                    </Text>
+                                    <div className="trading-truths">
+                                        <div className="truth-item">1. Anything can happen</div>
+                                        <div className="truth-item">2. You don\'t need to know what\'s next to profit</div>
+                                        <div className="truth-item">3. Random distribution between wins and losses</div>
+                                        <div className="truth-item">4. An edge = higher probability indication</div>
+                                        <div className="truth-item">5. Every market moment is unique</div>
+                                    </div>
+                                </div>
+
+                                <Text size="xs" color="general" className="ai-disclaimer">
+                                    🎯 AI is analyzing market patterns using these fundamental trading principles
+                                </Text>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {connectionStatus === 'ready' && scanResults.length === 0 && (
+                    <div className="no-opportunities">
+                        <div className="no-opportunities-icon">🔍</div>
+                        <Text size="s" color="general">No trading opportunities found</Text>
+                        <Text size="xs" color="general">
+                            Market conditions don't meet our criteria for high-confidence trades.
+                            The scanner will continue monitoring for new opportunities.
+                        </Text>
+                    </div>
+                )}
+
                 {connectionStatus === 'ready' && scanResults.length > 0 && (
                     <div className="scanner-summary">
                         <div className="summary-stats">
@@ -768,106 +882,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                     </div>
                 )}
 
-                <div className="scanner-results">
-                    {connectionStatus === 'error' && (
-                        <div className="scanner-error">
-                            <div className="error-icon">⚠️</div>
-                            <Text size="s" color="prominent">Connection Error</Text>
-                            <Text size="xs" color="general">{statusMessage}</Text>
-                            <button
-                                className="retry-btn"
-                                onClick={() => window.location.reload()}
-                            >
-                                Retry Connection
-                            </button>
-                        </div>
-                    )}
-
-                    {(connectionStatus === 'connecting' || connectionStatus === 'scanning') && (
-                        <div className="scanner-loading">
-                            <div className="ai-scanning-display">
-                                <div className="ai-brain-icon">🧠</div>
-                                <div className="scanning-content">
-                                    <div className="ai-status-header">
-                                        <Text size="m" weight="bold" color="prominent">
-                                            AI Market Scanner Active
-                                        </Text>
-                                        <div className="scanning-dots">
-                                            <span className="dot"></span>
-                                            <span className="dot"></span>
-                                            <span className="dot"></span>
-                                        </div>
-                                    </div>
-
-                                    <Text size="s" color="general" className="ai-current-message">
-                                        {currentAiMessage || statusMessage}
-                                    </Text>
-
-                                    {processingSymbol && (
-                                        <div className="processing-symbol">
-                                            <Text size="xs" color="general">
-                                                📊 Currently analyzing: <span className="symbol-name">{processingSymbol}</span>
-                                            </Text>
-                                        </div>
-                                    )}
-
-                                    <div className="ai-progress-section">
-                                        <div className="progress-bar-ai">
-                                            <div
-                                                className="progress-fill-ai"
-                                                style={{ width: `${scanProgress}%` }}
-                                            ></div>
-                                        </div>
-                                        <Text size="xs" color="general" className="progress-text">
-                                            AI Analysis: {symbolsAnalyzed}/{totalSymbols} volatility indices processed
-                                        </Text>
-                                    </div>
-
-                                    <div className="ai-capabilities">
-                                        <div className="capability-item">✓ Pattern Recognition</div>
-                                        <div className="capability-item">✓ Statistical Analysis</div>
-                                        <div className="capability-item">✓ Probability Calculation</div>
-                                        <div className="capability-item">✓ Risk Assessment</div>
-                                    </div>
-
-                                    <div className="trading-truths-section">
-                                        <Text size="xs" weight="bold" color="prominent" className="truths-header">
-                                            📚 5 Fundamental Truths of Trading
-                                        </Text>
-                                        <div className="trading-truths">
-                                            <div className="truth-item">1. Anything can happen</div>
-                                            <div className="truth-item">2. You don't need to know what's next to profit</div>
-                                            <div className="truth-item">3. Random distribution between wins and losses</div>
-                                            <div className="truth-item">4. An edge = higher probability indication</div>
-                                            <div className="truth-item">5. Every market moment is unique</div>
-                                        </div>
-                                    </div>
-
-                                    <Text size="xs" color="general" className="ai-disclaimer">
-                                        🎯 AI is analyzing market patterns using these fundamental trading principles
-                                    </Text>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {connectionStatus === 'ready' && scanResults.length === 0 && (
-                        <div className="no-opportunities">
-                            <div className="no-opportunities-icon">🔍</div>
-                            <Text size="s" color="general">No trading opportunities found</Text>
-                            <Text size="xs" color="general">
-                                Market conditions don't meet our criteria for high-confidence trades.
-                                The scanner will continue monitoring for new opportunities.
-                            </Text>
-                        </div>
-                    )}
-
-                    {connectionStatus === 'ready' && scanResults.length > 0 && (
-                        <div className="results-grid">
-                            {scanResults.map(renderRecommendationCard)}
-                        </div>
-                    )}
-                </div>
+                {connectionStatus === 'ready' && scanResults.length > 0 && (
+                    <div className="scanner-results">
+                        {scanResults.map(renderRecommendationCard)}
+                    </div>
+                )}
             </div>
         </div>
     );
