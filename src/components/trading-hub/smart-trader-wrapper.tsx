@@ -115,9 +115,10 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
     const [is_running, setIsRunning] = useState(false);
     const [maxTrades] = useState<number>(initialSettings.maxTrades || 5);
 
-    // Rate limiting state
-    const lastRequestTimeRef = useRef<number>(0);
-    const requestQueueRef = useRef<Promise<any>>(Promise.resolve());
+    // Connection state
+    const [isConnected, setIsConnected] = useState<boolean>(true);
+    const reconnectAttempts = useRef<number>(0);
+    const maxReconnectAttempts = 3;
 
     // Symbol mapping for display names
     const symbolMap: Record<string, string> = {
@@ -135,24 +136,36 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
         '1HZ100V': 'Volatility 100 (1s) Index'
     };
 
-    // Rate limiting helper function
-    const throttleApiRequest = async <T>(requestFn: () => Promise<T>): Promise<T> => {
-        const minInterval = 1500; // Minimum 1.5 seconds between API requests
-        const now = Date.now();
-        const timeSinceLastRequest = now - lastRequestTimeRef.current;
-
-        if (timeSinceLastRequest < minInterval) {
-            const waitTime = minInterval - timeSinceLastRequest;
-            await new Promise(resolve => setTimeout(resolve, waitTime));
+    // Connection recovery helper
+    const ensureConnection = async (): Promise<boolean> => {
+        try {
+            if (!apiRef.current?.connection?.readyState || apiRef.current.connection.readyState !== WebSocket.OPEN) {
+                setStatus('Reconnecting to API...');
+                setIsConnected(false);
+                
+                // Create new API instance
+                const newApi = generateDerivApiInstance();
+                apiRef.current = newApi;
+                
+                // Re-authorize
+                await authorizeIfNeeded();
+                setIsConnected(true);
+                reconnectAttempts.current = 0;
+                return true;
+            }
+            return true;
+        } catch (error) {
+            reconnectAttempts.current++;
+            if (reconnectAttempts.current >= maxReconnectAttempts) {
+                setStatus('Connection failed. Please refresh the page.');
+                return false;
+            }
+            
+            // Exponential backoff
+            const delay = Math.pow(2, reconnectAttempts.current) * 1000;
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return ensureConnection();
         }
-
-        // Queue requests to ensure they don't overlap
-        requestQueueRef.current = requestQueueRef.current.then(async () => {
-            lastRequestTimeRef.current = Date.now();
-            return requestFn();
-        });
-
-        return requestQueueRef.current;
     };
 
     // Helper Functions
@@ -224,12 +237,13 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
 
-        return throttleApiRequest(async () => {
-            const token = V2GetActiveToken();
-            if (!token) {
-                setStatus('No token found. Please log in and select an account.');
-                throw new Error('No token');
-            }
+        const token = V2GetActiveToken();
+        if (!token) {
+            setStatus('No token found. Please log in and select an account.');
+            throw new Error('No token');
+        }
+
+        try {
             const { authorize, error } = await apiRef.current.authorize(token);
             if (error) {
                 setStatus(`Authorization error: ${error.message || error.code}`);
@@ -243,7 +257,21 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
                 store?.client?.setCurrency?.(authorize?.currency || 'USD');
                 store?.client?.setIsLoggedIn?.(true);
             } catch {}
-        });
+        } catch (error) {
+            // If authorization fails, try to reconnect
+            if (!await ensureConnection()) {
+                throw error;
+            }
+            // Retry authorization after reconnection
+            const { authorize, error: retryError } = await apiRef.current.authorize(token);
+            if (retryError) {
+                setStatus(`Authorization error: ${retryError.message || retryError.code}`);
+                throw retryError;
+            }
+            setIsAuthorized(true);
+            const loginid = authorize?.loginid || V2GetActiveClientId();
+            setAccountCurrency(authorize?.currency || 'USD');
+        }
     };
 
     const stopTicks = () => {
@@ -296,6 +324,11 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
     };
 
     const purchaseOnceWithStake = async (stakeAmount: number, retryCount = 0) => {
+        // Ensure connection is stable
+        if (!await ensureConnection()) {
+            throw new Error('Unable to establish stable connection');
+        }
+
         await authorizeIfNeeded();
 
         const trade_option: any = {
@@ -322,27 +355,40 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
             const buy_req = tradeOptionToBuy(tradeType, trade_option);
             const { buy, error } = await apiRef.current.buy(buy_req);
 
-            // Handle rate limit errors
-            if (error && (error.code === 'RateLimit' || error.message?.includes('rate limit') || error.message?.includes('too many requests'))) {
-                if (retryCount < 3) {
-                    const backoffDelay = Math.pow(2, retryCount) * 2000 + Math.random() * 1000; // Exponential backoff
-                    setStatus(`Rate limit hit, retrying in ${Math.ceil(backoffDelay/1000)}s... (${retryCount + 1}/3)`);
-                    await new Promise(res => setTimeout(res, backoffDelay));
-                    return purchaseOnceWithStake(stakeAmount, retryCount + 1);
-                } else {
-                    throw new Error('Rate limit exceeded after 3 retries. Please wait and try again.');
+            // Handle specific error cases
+            if (error) {
+                if (error.code === 'RateLimit' || error.message?.includes('rate limit') || error.message?.includes('too many requests')) {
+                    if (retryCount < 2) {
+                        const backoffDelay = (retryCount + 1) * 3000; // Linear backoff: 3s, 6s
+                        setStatus(`Rate limit hit, retrying in ${Math.ceil(backoffDelay/1000)}s...`);
+                        await new Promise(res => setTimeout(res, backoffDelay));
+                        return purchaseOnceWithStake(stakeAmount, retryCount + 1);
+                    } else {
+                        throw new Error('Rate limit exceeded. Please wait before trying again.');
+                    }
                 }
+                
+                // Handle connection errors
+                if (error.code === 'DisconnectError' || error.message?.includes('disconnect') || error.message?.includes('network')) {
+                    if (retryCount < 2) {
+                        setStatus('Connection lost, reconnecting...');
+                        await ensureConnection();
+                        return purchaseOnceWithStake(stakeAmount, retryCount + 1);
+                    }
+                }
+                
+                throw error;
             }
 
-            if (error) throw error;
-            setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
+            setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: $${stakeAmount}`);
             return buy;
         } catch (e: any) {
-            if (e.message?.includes('rate limit') || e.message?.includes('too many requests')) {
-                if (retryCount < 3) {
-                    const backoffDelay = Math.pow(2, retryCount) * 2000 + Math.random() * 1000;
-                    setStatus(`Rate limit detected, waiting ${Math.ceil(backoffDelay/1000)}s before retry...`);
-                    await new Promise(res => setTimeout(res, backoffDelay));
+            // General connection error handling
+            if (e.message?.includes('network') || e.message?.includes('disconnect') || e.message?.includes('timeout')) {
+                if (retryCount < 2) {
+                    setStatus('Network error, reconnecting and retrying...');
+                    await ensureConnection();
+                    await new Promise(res => setTimeout(res, 2000));
                     return purchaseOnceWithStake(stakeAmount, retryCount + 1);
                 }
             }
@@ -383,9 +429,6 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
                 setStake(effectiveStake);
 
                 const buy = await purchaseOnceWithStake(effectiveStake);
-
-                // Add delay after purchase to avoid rate limits
-                await new Promise(res => setTimeout(res, 1000));
 
                 try {
                     const symbol_display = symbols.find(s => s.symbol === symbol)?.display_name || symbol;
@@ -506,9 +549,8 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
                     console.error('subscribe poc error', subErr);
                 }
 
-                // Minimum 3-5 seconds between trades to avoid rate limits
-                const minTradeInterval = 3000 + Math.random() * 2000; // 3-5 seconds random
-                await new Promise(res => setTimeout(res, minTradeInterval));
+                // Short delay between trades
+                await new Promise(res => setTimeout(res, 1500));
             }
         } catch (e: any) {
             console.error('SmartTrader run loop error', e);
@@ -802,6 +844,9 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
                                 {localize('Last Digit:')} {lastDigit ?? '-'}
                             </Text>
                         )}
+                        <Text size='xs' color={isConnected ? 'success' : 'loss-danger'}>
+                            {isConnected ? '🟢 Connected' : '🔴 Reconnecting...'}
+                        </Text>
                     </div>
 
                     <div className='smart-trader-wrapper__actions'>
