@@ -75,7 +75,7 @@ const SmartTrader = observer(() => {
     // Higher/Lower barrier
     const [barrier, setBarrier] = useState<string>('+0.37');
     // Martingale/recovery
-    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
+    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.0);
 
     // Contract tracking state
     const [currentProfit, setCurrentProfit] = useState<number>(0);
@@ -115,7 +115,8 @@ const SmartTrader = observer(() => {
         if (tradeType === 'DIGITEVEN') return d % 2 === 0 ? 'is-green' : 'is-red';
         if (tradeType === 'DIGITODD') return d % 2 !== 0 ? 'is-green' : 'is-red';
         if ((tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER')) {
-            const activePred = lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss;
+            // Pre-loss uses ouPredPreLoss (from market scanner), after-loss uses fixed value 5
+            const activePred = lastOutcomeWasLossRef.current ? 5 : ouPredPreLoss;
             if (tradeType === 'DIGITOVER') {
                 if (d > Number(activePred)) return 'is-green';
                 if (d < Number(activePred)) return 'is-red';
@@ -548,7 +549,8 @@ const SmartTrader = observer(() => {
         };
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
-            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
+            // Pre-loss uses the barrier from market scanner recommendation, after-loss uses fixed value 5
+            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? 5 : ouPredPreLoss);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
         } else if (tradeType === 'CALL' || tradeType === 'PUT') {
@@ -885,14 +887,13 @@ const SmartTrader = observer(() => {
                             ) : (tradeType !== 'CALL' && tradeType !== 'PUT') ? (
                                 <div className='smart-trader__row smart-trader__row--compact'>
                                     <div className='smart-trader__field'>
-                                        <label htmlFor='st-ou-pred-pre'>{localize('Over/Under prediction (pre-loss)')}</label>
+                                        <label htmlFor='st-ou-pred-pre'>{localize('Over/Under barrier (from scanner)')}</label>
                                         <input id='st-ou-pred-pre' type='number' min={0} max={9} value={ouPredPreLoss}
                                             onChange={e => setOuPredPreLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
                                     </div>
                                     <div className='smart-trader__field'>
-                                        <label htmlFor='st-ou-pred-post'>{localize('Over/Under prediction (after loss)')}</label>
-                                        <input id='st-ou-pred-post' type='number' min={0} max={9} value={ouPredPostLoss}
-                                            onChange={e => setOuPredPostLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
+                                        <label htmlFor='st-ou-pred-post'>{localize('Over/Under after loss (fixed: 5)')}</label>
+                                        <input id='st-ou-pred-post' type='number' min={0} max={9} value={5} disabled />
                                     </div>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
