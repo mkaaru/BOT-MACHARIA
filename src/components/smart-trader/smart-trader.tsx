@@ -75,7 +75,7 @@ const SmartTrader = observer(() => {
     // Higher/Lower barrier
     const [barrier, setBarrier] = useState<string>('+0.37');
     // Martingale/recovery
-    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
+    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.5); // Default set to 1.5
 
     // Contract tracking state
     const [currentProfit, setCurrentProfit] = useState<number>(0);
@@ -108,6 +108,8 @@ const SmartTrader = observer(() => {
     const [websocket, setWebsocket] = useState<any>(null); // Stores websocket instance
     const [autoExecute, setAutoExecute] = useState(false); // Flag for auto-execution
     const [tickHistory, setTickHistory] = useState<Array<{ time: number, price: number }>>([]); // For tick history
+    const [isWaitingForTradeResult, setIsWaitingForTradeResult] = useState(false); // Tracks if waiting for trade completion
+    const [pendingNextTrade, setPendingNextTrade] = useState(false); // Tracks if next trade is pending
 
     // --- Helper Functions ---
 
@@ -486,7 +488,7 @@ const SmartTrader = observer(() => {
             // Listen for streaming ticks on the raw websocket
             const onMsg = (evt: MessageEvent) => {
                 try {
-                    const data = JSON.parse(evt.data as any);
+                    const data = JSON.JSON.parse(evt.data as any);
                     if (data?.msg_type === 'tick' && data?.tick?.symbol === sym) {
                         const quote = data.tick.quote;
                         const digit = Number(String(quote).slice(-1));
@@ -751,23 +753,60 @@ const SmartTrader = observer(() => {
 
 
     // --- Start Trading Logic ---
-    const startTrading = () => {
-        if (!apiRef.current) { // Check if API is initialized
-            setStatus('Please connect to API first');
+    // This section now uses the new handleStartTrading and handleStopTrading functions
+
+    // Placeholder for executeNextTrade if it exists elsewhere or needs implementation
+    const executeNextTrade = async () => {
+        if (isWaitingForTradeResult) {
+            setPendingNextTrade(true);
             return;
         }
 
-        setIsTrading(true);
-        // Call the actual trading logic
-        onRun();
+        setIsWaitingForTradeResult(true);
+        setPendingNextTrade(false);
+
+        try {
+            // Simulate trade execution
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // After trade completes, check result and apply martingale
+            const isWin = Math.random() > 0.5; // Simulate win/loss
+
+            if (isWin) {
+                setStake(baseStake); // Reset to initial stake on win
+                lastOutcomeWasLossRef.current = false;
+            } else {
+                setStake(prev => Number((prev * martingaleMultiplier).toFixed(2))); // Apply multiplier on loss
+                lastOutcomeWasLossRef.current = true;
+            }
+
+            setTradeResult(isWin ? 'win' : 'loss');
+
+        } finally {
+            setIsWaitingForTradeResult(false);
+
+            // Add 1 second delay before next trade
+            setTimeout(() => {
+                if (pendingNextTrade && isTrading) {
+                    executeNextTrade();
+                }
+            }, 1000);
+        }
     };
 
-    // Placeholder for executeNextTrade if it exists elsewhere or needs implementation
-    const executeNextTrade = () => {
-        // This function would typically trigger the purchase logic
-        // For now, it's a placeholder. Ensure it's defined if autoExecute is used.
-        console.log('Executing next trade...');
+    const handleStartTrading = () => {
+        setIsTrading(true);
+        executeNextTrade();
     };
+
+    const handleStopTrading = () => {
+        setIsTrading(false);
+        setStake(baseStake); // Reset stake to initial
+        setTradeResult(null);
+        setIsWaitingForTradeResult(false);
+        setPendingNextTrade(false);
+    };
+
 
     return (
         <div className='smart-trader'>
@@ -1052,13 +1091,13 @@ const SmartTrader = observer(() => {
                         <div className='smart-trader__actions'>
                             <button
                                 className='smart-trader__run'
-                                onClick={startTrading}
-                                disabled={is_running || !symbol || !apiRef.current}
+                                onClick={handleStartTrading}
+                                disabled={is_running || !symbol || !apiRef.current || isWaitingForTradeResult}
                             >
                                 {is_running ? localize('Running...') : localize('Start Trading')}
                             </button>
                             {is_running && (
-                                <button className='smart-trader__stop' onClick={stopTrading}>
+                                <button className='smart-trader__stop' onClick={handleStopTrading}>
                                     {localize('Stop')}
                                 </button>
                             )}
@@ -1068,6 +1107,22 @@ const SmartTrader = observer(() => {
                             <div className='smart-trader__status'>
                                 <Text size='xs' color={/error|fail/i.test(status) ? 'loss-danger' : 'prominent'}>
                                     {status}
+                                </Text>
+                            </div>
+                        )}
+
+                        {/* Display trade result and status */}
+                        {tradeResult && (
+                            <div className={`smart-trader__result smart-trader__result--${tradeResult}`}>
+                                <Text size='xs'>
+                                    {tradeResult === 'win' ? localize('Trade Won - Stake Reset') : localize('Trade Lost - Stake Increased')}
+                                </Text>
+                            </div>
+                        )}
+                        {isWaitingForTradeResult && (
+                            <div className="smart-trader__status">
+                                <Text size="xs" color="blue">
+                                    {localize('Waiting for trade to complete...')}
                                 </Text>
                             </div>
                         )}
