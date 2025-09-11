@@ -75,7 +75,7 @@ const SmartTrader = observer(() => {
     // Higher/Lower barrier
     const [barrier, setBarrier] = useState<string>('+0.37');
     // Martingale/recovery
-    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.5); // Default set to 1.5
+    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
 
     // Contract tracking state
     const [currentProfit, setCurrentProfit] = useState<number>(0);
@@ -103,7 +103,11 @@ const SmartTrader = observer(() => {
     const stopFlagRef = useRef<boolean>(false);
 
     // --- New State Variables for Run Panel Integration ---
-    const [isWaitingForTradeResult, setIsWaitingForTradeResult] = useState(false); // Tracks if waiting for trade completion
+    const [isTrading, setIsTrading] = useState(false); // Tracks if trading is active
+    const [isConnected, setIsConnected] = useState(false); // Tracks API connection status
+    const [websocket, setWebsocket] = useState<any>(null); // Stores websocket instance
+    const [autoExecute, setAutoExecute] = useState(false); // Flag for auto-execution
+    const [tickHistory, setTickHistory] = useState<Array<{ time: number, price: number }>>([]); // For tick history
 
     // --- Helper Functions ---
 
@@ -482,7 +486,7 @@ const SmartTrader = observer(() => {
             // Listen for streaming ticks on the raw websocket
             const onMsg = (evt: MessageEvent) => {
                 try {
-                    const data = JSON.JSON.parse(evt.data as any);
+                    const data = JSON.parse(evt.data as any);
                     if (data?.msg_type === 'tick' && data?.tick?.symbol === sym) {
                         const quote = data.tick.quote;
                         const digit = Number(String(quote).slice(-1));
@@ -747,92 +751,23 @@ const SmartTrader = observer(() => {
 
 
     // --- Start Trading Logic ---
-    // This section now uses the new handleStartTrading and handleStopTrading functions
-
-    // Enhanced trade execution with proper martingale implementation
-    const executeTradeWithMartingale = async () => {
-        if (isWaitingForTradeResult || !is_running) {
+    const startTrading = () => {
+        if (!apiRef.current) { // Check if API is initialized
+            setStatus('Please connect to API first');
             return;
         }
 
-        setIsWaitingForTradeResult(true);
-
-        try {
-            // Use the actual purchase logic with current stake
-            const buy = await purchaseOnceWithStake(stake);
-            
-            if (buy?.contract_id) {
-                // Wait for contract completion by subscribing to updates
-                const contractResult = await waitForContractCompletion(buy.contract_id);
-                
-                // Apply martingale based on actual result
-                if (contractResult.profit > 0) {
-                    // Win: Reset to base stake
-                    setStake(baseStake);
-                    lastOutcomeWasLossRef.current = false;
-                } else {
-                    // Loss: Apply martingale multiplier
-                    const newStake = Number((stake * martingaleMultiplier).toFixed(2));
-                    setStake(newStake);
-                    lastOutcomeWasLossRef.current = true;
-                }
-            }
-
-        } catch (error) {
-            console.error('Trade execution error:', error);
-            setStatus(`Trade error: ${error.message}`);
-        } finally {
-            setIsWaitingForTradeResult(false);
-            
-            // Wait 1 second before next trade to ensure proper sequencing
-            if (is_running) {
-                setTimeout(() => {
-                    if (is_running) {
-                        executeTradeWithMartingale();
-                    }
-                }, 1000);
-            }
-        }
+        setIsTrading(true);
+        // Call the actual trading logic
+        onRun();
     };
 
-    // Helper function to wait for contract completion
-    const waitForContractCompletion = (contractId: string): Promise<{ profit: number }> => {
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(new Error('Contract completion timeout'));
-            }, 300000); // 5 minute timeout
-
-            const checkContract = async () => {
-                try {
-                    const response = await apiRef.current.send({
-                        proposal_open_contract: 1,
-                        contract_id: contractId
-                    });
-
-                    if (response.proposal_open_contract) {
-                        const contract = response.proposal_open_contract;
-                        
-                        if (contract.is_sold || contract.status === 'sold') {
-                            clearTimeout(timeout);
-                            resolve({ profit: Number(contract.profit || 0) });
-                        } else {
-                            // Check again after 1 second
-                            setTimeout(checkContract, 1000);
-                        }
-                    } else {
-                        // Check again after 1 second
-                        setTimeout(checkContract, 1000);
-                    }
-                } catch (error) {
-                    clearTimeout(timeout);
-                    reject(error);
-                }
-            };
-
-            checkContract();
-        });
+    // Placeholder for executeNextTrade if it exists elsewhere or needs implementation
+    const executeNextTrade = () => {
+        // This function would typically trigger the purchase logic
+        // For now, it's a placeholder. Ensure it's defined if autoExecute is used.
+        console.log('Executing next trade...');
     };
-
 
     return (
         <div className='smart-trader'>
@@ -1117,8 +1052,8 @@ const SmartTrader = observer(() => {
                         <div className='smart-trader__actions'>
                             <button
                                 className='smart-trader__run'
-                                onClick={onRun}
-                                disabled={is_running || !symbol || !apiRef.current || isWaitingForTradeResult}
+                                onClick={startTrading}
+                                disabled={is_running || !symbol || !apiRef.current}
                             >
                                 {is_running ? localize('Running...') : localize('Start Trading')}
                             </button>
@@ -1133,15 +1068,6 @@ const SmartTrader = observer(() => {
                             <div className='smart-trader__status'>
                                 <Text size='xs' color={/error|fail/i.test(status) ? 'loss-danger' : 'prominent'}>
                                     {status}
-                                </Text>
-                            </div>
-                        )}
-
-                        {/* Display waiting status */}
-                        {isWaitingForTradeResult && (
-                            <div className="smart-trader__status">
-                                <Text size="xs" color="blue">
-                                    {localize('Waiting for trade to complete...')}
                                 </Text>
                             </div>
                         )}
