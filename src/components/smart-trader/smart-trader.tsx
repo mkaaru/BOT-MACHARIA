@@ -379,8 +379,9 @@ const SmartTrader = observer(() => {
                     console.error('subscribe poc error', subErr);
                 }
 
-                // Wait minimally between purchases
-                await new Promise(res => setTimeout(res, 1000));
+                // Wait 3-5 seconds between purchases to avoid rate limits
+                const waitTime = 3000 + Math.random() * 2000; // 3-5 seconds random
+                await new Promise(res => setTimeout(res, waitTime));
             }
         } catch (e: any) {
             console.error('SmartTrader run loop error', e);
