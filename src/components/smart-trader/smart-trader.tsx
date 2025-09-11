@@ -904,27 +904,28 @@ const SmartTrader = observer(() => {
                                     onChange={e => setStake(Number(e.target.value))}
                                 />
                             </div>
+                        </div>
 
-                            {/* Strategy controls for Over/Under */}
-                            {(tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') && (
-                                <div className='smart-trader__row smart-trader__row--three'>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-ou-pred-pre'>{localize('Over/Under prediction (pre-loss)')}</label>
-                                        <input id='st-ou-pred-pre' type='number' min={0} max={9} value={ouPredPreLoss}
-                                            onChange={e => setOuPredPreLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
-                                    </div>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-ou-pred-post'>{localize('Over/Under prediction (after loss)')}</label>
-                                        <input id='st-ou-pred-post' type='number' min={0} max={9} value={ouPredPostLoss}
-                                            onChange={e => setOuPredPostLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
-                                    </div>
-                                    <div className='smart-trader__field'>
-                                        <label htmlFor='st-martingale-ou'>{localize('Martingale multiplier')}</label>
-                                        <input id='st-martingale-ou' type='number' min={1} step='0.1' value={martingaleMultiplier}
-                                            onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
-                                    </div>
+                        {/* Strategy controls for Over/Under */}
+                        {(tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') && (
+                            <div className='smart-trader__row smart-trader__row--three'>
+                                <div className='smart-trader__field'>
+                                    <label htmlFor='st-ou-pred-pre'>{localize('Over/Under prediction (pre-loss)')}</label>
+                                    <input id='st-ou-pred-pre' type='number' min={0} max={9} value={ouPredPreLoss}
+                                        onChange={e => setOuPredPreLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
                                 </div>
-                            )}
+                                <div className='smart-trader__field'>
+                                    <label htmlFor='st-ou-pred-post'>{localize('Over/Under prediction (after loss)')}</label>
+                                    <input id='st-ou-pred-post' type='number' min={0} max={9} value={ouPredPostLoss}
+                                        onChange={e => setOuPredPostLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
+                                </div>
+                                <div className='smart-trader__field'>
+                                    <label htmlFor='st-martingale-ou'>{localize('Martingale multiplier')}</label>
+                                    <input id='st-martingale-ou' type='number' min={1} step='0.1' value={martingaleMultiplier}
+                                        onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
+                                </div>
+                            </div>
+                        )}
 
                             {/* Strategy controls for Match/Diff */}
                             {(tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') && (
