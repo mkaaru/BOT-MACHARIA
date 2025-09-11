@@ -225,10 +225,17 @@ export default class RunPanelStore {
         this.is_contracy_buying_in_progress = false;
         const { is_multiplier } = this.root_store.summary_card;
 
-        if (is_multiplier) {
+        // Check if it's a Smart Trader session
+        const isSmartTrader = this.run_id?.includes('smart-');
+
+        if (is_multiplier && !isSmartTrader) {
             this.showStopMultiplierContractDialog();
         } else {
             this.stopBot();
+            // Emit stop event for Smart Trader and other external traders
+            if (this.dbot?.observer) {
+                this.dbot.observer.emit('bot.click_stop');
+            }
         }
     };
 
@@ -247,8 +254,12 @@ export default class RunPanelStore {
 
     stopBot = () => {
         const { ui } = this.core;
+        const isSmartTrader = this.run_id?.includes('smart-');
 
-        this.dbot.stopBot();
+        // Only call dbot.stopBot() for traditional bot builder bots
+        if (!isSmartTrader && this.dbot?.stopBot) {
+            this.dbot.stopBot();
+        }
 
         ui.setPromptHandler(false);
 
@@ -278,6 +289,11 @@ export default class RunPanelStore {
         if (window.sendRequestsStatistic) {
             window.sendRequestsStatistic(true);
             performance.clearMeasures();
+        }
+
+        // Emit stop event for external traders like Smart Trader
+        if (this.dbot?.observer) {
+            this.dbot.observer.emit('bot.stop');
         }
     };
 

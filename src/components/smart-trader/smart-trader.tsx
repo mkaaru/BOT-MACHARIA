@@ -144,6 +144,12 @@ const SmartTrader = observer(() => {
                 }
                 api?.disconnect?.();
             } catch { /* noop */ }
+
+            // Cleanup observers on unmount
+            if (store?.run_panel?.dbot?.observer) {
+                store.run_panel.dbot.observer.unregisterAll('bot.stop');
+                store.run_panel.dbot.observer.unregisterAll('bot.click_stop');
+            }
         };
     }, []);
 
@@ -272,6 +278,12 @@ const SmartTrader = observer(() => {
         run_panel.setIsRunning(true);
         run_panel.setContractStage(contract_stages.STARTING);
 
+        // Register observers for Run Panel stop events
+        if (store?.run_panel?.dbot?.observer) {
+            store.run_panel.dbot.observer.register('bot.stop', handleRunPanelStop);
+            store.run_panel.dbot.observer.register('bot.click_stop', handleRunPanelStop);
+        }
+
         try {
             let lossStreak = 0;
             let step = 0;
@@ -396,6 +408,13 @@ const SmartTrader = observer(() => {
         }
     };
 
+    // Handle Run Panel stop events
+    const handleRunPanelStop = () => {
+        if (is_running) {
+            onStop();
+        }
+    };
+
     const onStop = () => {
         stopFlagRef.current = true;
         setIsRunning(false);
@@ -404,6 +423,12 @@ const SmartTrader = observer(() => {
         run_panel.setHasOpenContract(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
         setStatus('Trading stopped');
+
+        // Cleanup observers
+        if (store?.run_panel?.dbot?.observer) {
+            store.run_panel.dbot.observer.unregisterAll('bot.stop');
+            store.run_panel.dbot.observer.unregisterAll('bot.click_stop');
+        }
     };
 
     return (

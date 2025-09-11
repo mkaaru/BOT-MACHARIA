@@ -494,6 +494,13 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             return;
         }
         onRun();
+        
+        // Auto-close the popup after starting trading
+        setTimeout(() => {
+            if (onClose) {
+                onClose();
+            }
+        }, 1000); // Small delay to allow user to see the "Starting" status
     };
 
     return (
