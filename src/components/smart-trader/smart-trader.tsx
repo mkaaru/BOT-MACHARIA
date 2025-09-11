@@ -231,24 +231,33 @@ const SmartTrader = observer(() => {
 
         // CORE LOGIC: Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
-            // After a loss, use ouPredPostLoss; otherwise, use ouPredPreLoss
-            const activePrediction = lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss;
+            // Check the loss state at the exact moment of purchase
+            const isAfterLoss = lastOutcomeWasLossRef.current;
+            const activePrediction = isAfterLoss ? ouPredPostLoss : ouPredPreLoss;
             trade_option.prediction = Number(activePrediction);
 
-            // Log for debugging
-            const predictionType = lastOutcomeWasLossRef.current ? 'after loss' : 'pre-loss';
-            console.log(`Over/Under prediction (${predictionType}): ${activePrediction}`);
-            setStatus(`Using ${tradeType.toLowerCase()} prediction: ${activePrediction} (${predictionType})`);
+            // Enhanced logging for debugging
+            const predictionType = isAfterLoss ? 'after loss' : 'pre-loss';
+            console.log(`🎯 Purchase Decision - Loss State: ${isAfterLoss}, Using ${predictionType} prediction: ${activePrediction} (${tradeType})`);
+            setStatus(`${tradeType}: ${activePrediction} (${predictionType}) - Stake: ${stakeAmount}`);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
+            setStatus(`${tradeType}: ${mdPrediction} - Stake: ${stakeAmount}`);
         }
 
         const buy_req = tradeOptionToBuy(tradeType, trade_option);
+        console.log('📦 Buy request payload:', {
+            contract_type: tradeType,
+            prediction: trade_option.prediction,
+            amount: stakeAmount,
+            after_loss: lastOutcomeWasLossRef.current
+        });
+
         const { buy, error } = await apiRef.current.buy(buy_req);
         if (error) throw error;
 
         contractInProgressRef.current = true;
-        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
+        console.log(`✅ Purchase confirmed: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
         return buy;
     };
 
@@ -272,12 +281,9 @@ const SmartTrader = observer(() => {
                 const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
                 setStake(effectiveStake);
 
-                // For Over/Under trades, set the loss flag before purchase
-                const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
-                if (isOU) {
-                    // This determines which prediction value to use
-                    lastOutcomeWasLossRef.current = lossStreak > 0;
-                }
+                // The loss flag is maintained from the previous contract outcome
+                // No need to set it here - it's already correct from the contract close handler
+                console.log(`🔄 Starting new trade - Loss streak: ${lossStreak}, After loss flag: ${lastOutcomeWasLossRef.current}`);
 
                 const buy = await purchaseOnceWithStake(effectiveStake);
 
@@ -343,17 +349,22 @@ const SmartTrader = observer(() => {
 
                                         if (profit > 0) {
                                             // WIN: Reset everything
+                                            console.log(`🎉 WIN: +${profit.toFixed(2)} ${account_currency} - Resetting loss flag`);
                                             lastOutcomeWasLossRef.current = false;
                                             lossStreak = 0;
                                             step = 0;
                                             setStake(baseStake);
                                             setStatus(`WIN: +${profit.toFixed(2)} ${account_currency} - Next trade uses pre-loss prediction`);
                                         } else {
-                                            // LOSS: Set flag for next trade
+                                            // LOSS: Immediately set flag for next trade
+                                            console.log(`😞 LOSS: ${profit.toFixed(2)} ${account_currency} - Setting after-loss flag`);
                                             lastOutcomeWasLossRef.current = true;
                                             lossStreak++;
                                             step = Math.min(step + 1, 10);
-                                            setStatus(`LOSS: ${profit.toFixed(2)} ${account_currency} - Next trade uses after-loss prediction`);
+                                            
+                                            // Force update the current prediction display
+                                            const nextPrediction = (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') ? ouPredPostLoss : 'N/A';
+                                            setStatus(`LOSS: ${profit.toFixed(2)} ${account_currency} - Next trade uses after-loss prediction (${nextPrediction})`);
                                         }
                                     }
                                 }
