@@ -74,6 +74,7 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
     const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
     const stopFlagRef = useRef<boolean>(false);
     const tradeCountRef = useRef<number>(0);
+    const lastOutcomeWasLossRef = useRef<boolean>(false);
 
     const [is_authorized, setIsAuthorized] = useState(false);
     const [account_currency, setAccountCurrency] = useState<string>('USD');
@@ -143,11 +144,18 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
                 setStatus('Reconnecting to API...');
                 setIsConnected(false);
                 
+                // Wait before attempting reconnection
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
                 // Create new API instance
                 const newApi = generateDerivApiInstance();
                 apiRef.current = newApi;
                 
+                // Wait for connection to establish
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
                 // Re-authorize
+                setIsAuthorized(false);
                 await authorizeIfNeeded();
                 setIsConnected(true);
                 reconnectAttempts.current = 0;
@@ -155,14 +163,15 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
             }
             return true;
         } catch (error) {
+            console.error('Connection recovery error:', error);
             reconnectAttempts.current++;
             if (reconnectAttempts.current >= maxReconnectAttempts) {
-                setStatus('Connection failed. Please refresh the page.');
+                setStatus('Connection failed. Please refresh the page and try again.');
                 return false;
             }
             
             // Exponential backoff
-            const delay = Math.pow(2, reconnectAttempts.current) * 1000;
+            const delay = Math.pow(2, reconnectAttempts.current) * 2000;
             await new Promise(resolve => setTimeout(resolve, delay));
             return ensureConnection();
         }
@@ -244,33 +253,59 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
         }
 
         try {
+            if (!apiRef.current) {
+                throw new Error('API connection not available');
+            }
+
             const { authorize, error } = await apiRef.current.authorize(token);
             if (error) {
-                setStatus(`Authorization error: ${error.message || error.code}`);
+                if (error.code === 'InvalidToken' || error.message?.includes('token')) {
+                    setStatus('Authentication failed. Please refresh the page and log in again.');
+                } else {
+                    setStatus(`Authorization error: ${error.message || error.code}`);
+                }
                 throw error;
             }
+            
             setIsAuthorized(true);
             const loginid = authorize?.loginid || V2GetActiveClientId();
             setAccountCurrency(authorize?.currency || 'USD');
+            
             try {
                 store?.client?.setLoginId?.(loginid || '');
                 store?.client?.setCurrency?.(authorize?.currency || 'USD');
                 store?.client?.setIsLoggedIn?.(true);
-            } catch {}
-        } catch (error) {
-            // If authorization fails, try to reconnect
-            if (!await ensureConnection()) {
+            } catch (e) {
+                console.warn('Store update error:', e);
+            }
+        } catch (error: any) {
+            console.error('Authorization error:', error);
+            
+            // If it's a connection error, try to recover
+            if (error.message?.includes('network') || error.message?.includes('disconnect')) {
+                setStatus('Network error during authorization. Retrying...');
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                if (await ensureConnection()) {
+                    // Retry authorization once more
+                    try {
+                        const { authorize, error: retryError } = await apiRef.current.authorize(token);
+                        if (retryError) {
+                            setStatus(`Authorization retry failed: ${retryError.message || retryError.code}`);
+                            throw retryError;
+                        }
+                        setIsAuthorized(true);
+                        const loginid = authorize?.loginid || V2GetActiveClientId();
+                        setAccountCurrency(authorize?.currency || 'USD');
+                    } catch (retryErr) {
+                        throw retryErr;
+                    }
+                } else {
+                    throw error;
+                }
+            } else {
                 throw error;
             }
-            // Retry authorization after reconnection
-            const { authorize, error: retryError } = await apiRef.current.authorize(token);
-            if (retryError) {
-                setStatus(`Authorization error: ${retryError.message || retryError.code}`);
-                throw retryError;
-            }
-            setIsAuthorized(true);
-            const loginid = authorize?.loginid || V2GetActiveClientId();
-            setAccountCurrency(authorize?.currency || 'USD');
         }
     };
 
@@ -549,8 +584,8 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
                     console.error('subscribe poc error', subErr);
                 }
 
-                // Short delay between trades
-                await new Promise(res => setTimeout(res, 1500));
+                // Longer delay between trades to avoid rate limiting
+                await new Promise(res => setTimeout(res, 3000));
             }
         } catch (e: any) {
             console.error('SmartTrader run loop error', e);
@@ -593,22 +628,40 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
         }
     };
 
-    const startTrading = () => {
+    const startTrading = async () => {
         if (!apiRef.current) {
             setStatus('Please connect to API first');
             return;
         }
-        onRun();
 
-        // Auto-close the popup after starting trading, but don't stop the bot
-        setTimeout(() => {
-            if (onClose) {
-                // Only close if trading has actually started successfully
-                if (is_running && !stopFlagRef.current) {
-                    onClose();
-                }
+        try {
+            setStatus('Initializing trading...');
+            
+            // Ensure we have a stable connection and authorization before starting
+            if (!await ensureConnection()) {
+                setStatus('Failed to establish connection. Please try again.');
+                return;
             }
-        }, 3000); // Give more time for trading to initialize properly
+
+            // Verify authorization
+            await authorizeIfNeeded();
+            
+            setStatus('Starting trading...');
+            onRun();
+
+            // Auto-close the popup after starting trading, but don't stop the bot
+            setTimeout(() => {
+                if (onClose) {
+                    // Only close if trading has actually started successfully
+                    if (is_running && !stopFlagRef.current) {
+                        onClose();
+                    }
+                }
+            }, 5000); // Give more time for trading to initialize properly
+        } catch (error: any) {
+            console.error('Failed to start trading:', error);
+            setStatus(`Failed to start: ${error.message || 'Unknown error'}`);
+        }
     };
 
     return (
