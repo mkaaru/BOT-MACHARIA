@@ -473,39 +473,82 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // Monitor best recommendation changes for auto trading
     useEffect(() => {
-        if (isAutoTradingBest && bestRecommendation && currentAutoTradeSettings) {
-            // Check if the best recommendation has changed significantly
-            const newSymbol = bestRecommendation.symbol;
-            const newStrategy = getTradeTypeForStrategy(bestRecommendation.strategy);
+        if (bestRecommendation && isAutoTradingBest && activeToken) {
+            console.log("Starting auto trade with best recommendation:", bestRecommendation);
 
-            if (newSymbol !== currentAutoTradeSettings.symbol ||
-                newStrategy !== currentAutoTradeSettings.tradeType) {
+            // Create settings for Smart Trader
+            const settings = {
+                symbol: bestRecommendation.symbol,
+                tradeType: getTradeTypeForStrategy(bestRecommendation.strategy),
+                stake: 1, // Default stake for auto-trading
+                duration: 1, // Default duration for auto-trading
+                durationType: 't', // Default duration type
+                maxTrades: maxAutoTrades, // Add max trades limit
+                // martingale multiplier needs to be set here if available in bestRecommendation
+                // martingaleMultiplier: bestRecommendation.martingaleMultiplier || 1
+            };
 
-                // Update to new best recommendation
-                const newSettings = {
-                    symbol: bestRecommendation.symbol,
-                    tradeType: getTradeTypeForStrategy(bestRecommendation.strategy),
-                    stake: currentAutoTradeSettings.stake, // Keep current stake
-                    duration: currentAutoTradeSettings.duration,
-                    durationType: currentAutoTradeSettings.durationType
-                };
-
-                if (bestRecommendation.strategy === 'over' || bestRecommendation.strategy === 'under') {
-                    newSettings.barrier = bestRecommendation.barrier;
-                } else if (bestRecommendation.strategy === 'matches' || bestRecommendation.strategy === 'differs') {
-                    newSettings.prediction = parseInt(bestRecommendation.barrier || '5');
-                }
-
-                setCurrentAutoTradeSettings(newSettings);
-
-                // Close current modal and open new one with updated settings
-                setTimeout(() => {
-                    setSelectedTradeSettings(newSettings);
-                    setIsSmartTraderModalOpen(true);
-                }, 1000);
+            if (bestRecommendation.strategy === 'over' || bestRecommendation.strategy === 'under') {
+                settings.barrier = bestRecommendation.barrier;
+            } else if (bestRecommendation.strategy === 'matches' || bestRecommendation.strategy === 'differs') {
+                settings.prediction = parseInt(bestRecommendation.barrier || '5');
             }
+
+            setCurrentAutoTradeSettings(settings);
+
+            // Start trading automatically without opening modal
+            startAutoTrading(settings);
         }
-    }, [bestRecommendation, isAutoTradingBest, currentAutoTradeSettings]);
+    }, [bestRecommendation, isAutoTradingBest]);
+
+    // Function to start automatic trading
+    const startAutoTrading = async (settings) => {
+        if (!settings || !activeToken) return;
+
+        try {
+            console.log("Starting automatic trading with settings:", settings);
+
+            // Set up run panel
+            if (store?.run_panel) {
+                store.run_panel.toggleDrawer(true);
+                store.run_panel.setActiveTabIndex(1);
+                store.run_panel.run_id = `auto-trade-${Date.now()}`;
+                store.run_panel.setIsRunning(true);
+                store.run_panel.setContractStage(contract_stages.STARTING);
+            }
+
+            // Import and start the smart trader logic directly
+            const { default: SmartTraderWrapper } = await import('./smart-trader-wrapper');
+
+            // Create a virtual instance to handle the trading
+            const traderInstance = {
+                settings,
+                isRunning: true,
+                tradeCount: 0,
+
+                async start() {
+                    // This would contain the core trading logic from SmartTraderWrapper
+                    // For now, we'll trigger the existing smart trader modal but auto-start it
+                    setSelectedTradeSettings(settings);
+                    setIsSmartTraderModalOpen(true);
+
+                    // Auto-start trading after a brief delay
+                    setTimeout(() => {
+                        const startButton = document.querySelector('.smart-trader-wrapper__start-btn');
+                        if (startButton && !startButton.disabled) {
+                            startButton.click();
+                        }
+                    }, 1000);
+                }
+            };
+
+            await traderInstance.start();
+
+        } catch (error) {
+            console.error("Failed to start automatic trading:", error);
+            setIsAutoTradingBest(false);
+        }
+    };
 
     // Load trade settings to Smart Trader
     const loadTradeSettings = (recommendation: TradeRecommendation) => {
@@ -669,22 +712,22 @@ const TradingHubDisplay: React.FC = observer(() => {
         setCurrentAutoTradeSettings(null);
         setAutoTradeCount(0);
         setIsSmartTraderModalOpen(false);
-        
+
         // Stop the run panel activity
         if (store?.run_panel) {
             store.run_panel.setIsRunning(false);
             store.run_panel.setHasOpenContract(false);
             store.run_panel.setContractStage(contract_stages.NOT_RUNNING);
         }
-        
+
         console.log("Auto trading stopped.");
     };
 
     return (
         <div className="trading-hub-scanner">
-            {/* Smart Trader Modal */}
+            {/* Smart Trader Modal - Only show if not auto-trading or if user manually opened it */}
             <Modal
-                is_open={isSmartTraderModalOpen}
+                is_open={isSmartTraderModalOpen && (!isAutoTradingBest || !bestRecommendation)}
                 title={`Smart Trader - ${selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}`}
                 toggleModal={handleCloseModal}
                 width="900px"
@@ -695,10 +738,34 @@ const TradingHubDisplay: React.FC = observer(() => {
                         initialSettings={selectedTradeSettings}
                         onClose={handleCloseModal}
                         isAutoTrading={isAutoTradingBest} // Pass auto-trading state
-                        onStopAutoTrade={stopAutoTradeBest} // Pass stop function
+                        onStopAutoTrade={stopAutoTradeBest}
+                        onTradeComplete={(tradeCount) => {
+                            setAutoTradeCount(tradeCount);
+                            if (tradeCount >= maxAutoTrades) {
+                                stopAutoTradeBest();
+                            }
+                        }}
                     />
                 )}
             </Modal>
+
+            {/* Hidden Smart Trader for Auto Trading */}
+            {isAutoTradingBest && bestRecommendation && (
+                <div style={{ display: 'none' }}>
+                    <SmartTraderWrapper
+                        initialSettings={currentAutoTradeSettings}
+                        onClose={() => {}}
+                        isAutoTrading={true}
+                        onStopAutoTrade={stopAutoTradeBest}
+                        onTradeComplete={(tradeCount) => {
+                            setAutoTradeCount(tradeCount);
+                            if (tradeCount >= maxAutoTrades) {
+                                stopAutoTradeBest();
+                            }
+                        }}
+                    />
+                </div>
+            )}
 
             <div className="scanner-header">
                 <div className="scanner-title">

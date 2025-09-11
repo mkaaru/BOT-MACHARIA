@@ -650,19 +650,29 @@ const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, 
             onRun();
 
             // Auto-close the popup after starting trading, but don't stop the bot
-            setTimeout(() => {
-                if (onClose) {
-                    // Only close if trading has actually started successfully
-                    if (is_running && !stopFlagRef.current) {
-                        onClose();
+            if (!isAutoTrading) {
+                setTimeout(() => {
+                    if (onClose) {
+                        // Only close if trading has actually started successfully
+                        if (is_running && !stopFlagRef.current) {
+                            onClose();
+                        }
                     }
-                }
-            }, 5000); // Give more time for trading to initialize properly
+                }, 5000); // Give more time for trading to initialize properly
+            }
         } catch (error: any) {
             console.error('Failed to start trading:', error);
             setStatus(`Failed to start: ${error.message || 'Unknown error'}`);
         }
     };
+
+    // Auto-start trading when in auto-trading mode
+    useEffect(() => {
+        if (isAutoTrading && !is_running && apiRef.current) {
+            console.log('Auto-starting trading for recommendation');
+            startTrading();
+        }
+    }, [isAutoTrading, apiRef.current]);
 
     return (
         <div className='smart-trader-wrapper'>
