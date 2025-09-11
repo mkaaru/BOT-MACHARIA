@@ -65,14 +65,13 @@ const SmartTrader = observer(() => {
     const [stake, setStake] = useState<number>(0.5);
     const [baseStake, setBaseStake] = useState<number>(0.5);
     // Predictions
-    const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(5);
-    const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(5);
-    const [ouPredAfterLoss, setOuPredAfterLoss] = useState<number>(6); // New after loss field
+    const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(3); // Over/Under prediction (pre-loss)
+    const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(5); // Over/Under prediction (after loss)
     const [mdPrediction, setMdPrediction] = useState<number>(5); // for match/diff
     // Higher/Lower barrier
     const [barrier, setBarrier] = useState<string>('+0.37');
     // Martingale/recovery
-    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.5);
+    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.0); // Default to 1.0
     const [martingaleSteps, setMartingaleSteps] = useState<number>(4); // Default to 4 steps
 
     // Contract tracking state
@@ -555,7 +554,7 @@ const SmartTrader = observer(() => {
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
             // Use after loss prediction if last outcome was loss, otherwise use pre-loss prediction
-            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredAfterLoss : ouPredPreLoss);
+            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
         } else if (tradeType === 'CALL' || tradeType === 'PUT') {
@@ -733,7 +732,7 @@ const SmartTrader = observer(() => {
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
             // Use after loss prediction if last outcome was loss, otherwise use pre-loss prediction
-            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredAfterLoss : ouPredPreLoss);
+            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
         } else if (tradeType === 'CALL' || tradeType === 'PUT') {
@@ -928,7 +927,7 @@ const SmartTrader = observer(() => {
                                             onChange={e => setOuPredPreLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
                                     </div>
                                     <div className='smart-trader__field'>
-                                        <label htmlFor='st-ou-pred-post'>{localize('Over/Under prediction (post-loss)')}</label>
+                                        <label htmlFor='st-ou-pred-post'>{localize('Over/Under prediction (after loss)')}</label>
                                         <input id='st-ou-pred-post' type='number' min={0} max={9} value={ouPredPostLoss}
                                             onChange={e => setOuPredPostLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
                                     </div>
