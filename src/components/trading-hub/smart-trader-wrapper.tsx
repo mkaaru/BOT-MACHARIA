@@ -27,11 +27,15 @@ interface TradeSettings {
     stake: number;
     duration: number;
     durationType: string;
+    maxTrades?: number;
 }
 
 interface SmartTraderWrapperProps {
     initialSettings: TradeSettings;
     onClose: () => void;
+    isAutoTrading?: boolean;
+    onStopAutoTrade?: () => void;
+    onTradeComplete?: (tradeCount: number) => void;
 }
 
 // Safe version of tradeOptionToBuy without Blockly dependencies
@@ -61,21 +65,21 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     return buy;
 };
 
-const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initialSettings, onClose }) => {
+const SmartTraderWrapper = observer(({ initialSettings, onClose, isAutoTrading, onStopAutoTrade, onTradeComplete }: SmartTraderWrapperProps) => {
     const store = useStore();
     const { run_panel, transactions } = store;
 
     const apiRef = useRef<any>(null);
     const tickStreamIdRef = useRef<string | null>(null);
     const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
-
-    const lastOutcomeWasLossRef = useRef(false);
+    const stopFlagRef = useRef<boolean>(false);
+    const tradeCountRef = useRef<number>(0);
 
     const [is_authorized, setIsAuthorized] = useState(false);
     const [account_currency, setAccountCurrency] = useState<string>('USD');
     const [symbols, setSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
 
-    // Form state - initialized from props
+    // Form state initialized from props
     const [symbol, setSymbol] = useState<string>(initialSettings.symbol);
     const [tradeType, setTradeType] = useState<string>(initialSettings.tradeType);
     const [ticks, setTicks] = useState<number>(initialSettings.duration);
@@ -109,7 +113,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
     const [status, setStatus] = useState<string>('');
     const [is_running, setIsRunning] = useState(false);
-    const stopFlagRef = useRef<boolean>(false);
+    const [maxTrades] = useState<number>(initialSettings.maxTrades || 5);
 
     // Rate limiting state
     const lastRequestTimeRef = useRef<number>(0);
@@ -419,11 +423,13 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                         run_panel.setHasOpenContract(true);
                     }
 
+                    // Listen for subsequent streaming updates
                     const onMsg = (evt: MessageEvent) => {
                         try {
-                            const data = JSON.JSON.parse(evt.data as any);
+                            const data = JSON.parse(evt.data as any);
                             if (data?.msg_type === 'proposal_open_contract') {
                                 const poc = data.proposal_open_contract;
+                                // capture subscription id for later forget
                                 if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
                                 if (String(poc?.contract_id || '') === targetId) {
                                     transactions.onBotContractEvent(poc);
@@ -448,21 +454,46 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                         run_panel.setHasOpenContract(false);
                                         if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
                                         apiRef.current?.connection?.removeEventListener('message', onMsg);
-                                        const profit = Number(poc?.profit || 0);
-                                        if (profit > 0) {
-                                            lastOutcomeWasLossRef.current = false;
-                                            lossStreak = 0;
-                                            step = 0;
-                                            setStake(baseStake);
-                                        } else {
-                                            lastOutcomeWasLossRef.current = true;
-                                            lossStreak++;
-                                            step = Math.min(step + 1, 10);
+
+                                        // Increment trade counter
+                                        tradeCountRef.current += 1;
+                                        const currentTradeCount = tradeCountRef.current;
+
+                                        // Check if we've reached max trades for auto trading
+                                        if (isAutoTrading && currentTradeCount >= maxTrades) {
+                                            console.log(`Auto trading completed ${maxTrades} trades. Closing...`);
+                                            stopFlagRef.current = true;
+
+                                            // Notify parent component
+                                            if (onTradeComplete) {
+                                                onTradeComplete(currentTradeCount);
+                                            }
+
+                                            // Auto close after a short delay
+                                            setTimeout(() => {
+                                                if (onClose) {
+                                                    onClose();
+                                                }
+                                            }, 2000);
                                         }
-                                        setCurrentProfit(0);
-                                        setContractValue(0);
-                                        setPotentialPayout(0);
-                                        setContractDuration('00:00:00');
+
+                                        // Reset for next trade
+                                        if (!stopFlagRef.current) {
+                                            if (poc?.profit > 0) {
+                                                lastOutcomeWasLossRef.current = false;
+                                                lossStreak = 0;
+                                                step = 0;
+                                                setStake(baseStake);
+                                            } else {
+                                                lastOutcomeWasLossRef.current = true;
+                                                lossStreak++;
+                                                step = Math.min(step + 1, 10);
+                                            }
+                                            setCurrentProfit(0);
+                                            setContractValue(0);
+                                            setPotentialPayout(0);
+                                            setContractDuration('00:00:00');
+                                        }
                                     }
                                 }
                             }
@@ -795,6 +826,14 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                         <div className='smart-trader-wrapper__status'>
                             <Text size='xs' color={/error|fail/i.test(status) ? 'loss-danger' : 'prominent'}>
                                 {status}
+                            </Text>
+                        </div>
+                    )}
+
+                    {isAutoTrading && (
+                        <div className='smart-trader-wrapper__auto-status'>
+                            <Text size='xs' color='prominent'>
+                                Auto Trading: {tradeCountRef.current}/{maxTrades} trades completed
                             </Text>
                         </div>
                     )}

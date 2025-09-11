@@ -51,6 +51,8 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [isAutoTradingBest, setIsAutoTradingBest] = useState(false);
     const [currentAutoTradeSettings, setCurrentAutoTradeSettings] = useState<TradeSettings | null>(null);
     const [activeToken, setActiveToken] = useState<string | null>(null);
+    const [autoTradeCount, setAutoTradeCount] = useState(0);
+    const [maxAutoTrades] = useState(5); // Maximum number of auto trades before switching
 
     const { generalStore } = useStore();
 
@@ -638,12 +640,14 @@ const TradingHubDisplay: React.FC = observer(() => {
         if (!bestRecommendation || !activeToken) return;
 
         setIsAutoTradingBest(true);
+        setAutoTradeCount(0); // Reset counter
         const settings = {
             symbol: bestRecommendation.symbol,
             tradeType: getTradeTypeForStrategy(bestRecommendation.strategy),
             stake: 1, // Default stake for auto-trading
             duration: 1, // Default duration for auto-trading
             durationType: 't', // Default duration type
+            maxTrades: maxAutoTrades, // Add max trades limit
             // martingale multiplier needs to be set here if available in bestRecommendation
             // martingaleMultiplier: bestRecommendation.martingaleMultiplier || 1
         };
@@ -663,8 +667,16 @@ const TradingHubDisplay: React.FC = observer(() => {
     const stopAutoTradeBest = () => {
         setIsAutoTradingBest(false);
         setCurrentAutoTradeSettings(null);
-        // Add logic here to stop any ongoing trades initiated by auto-trading
-        // This might involve calling a function on the SmartTraderWrapper or the API
+        setAutoTradeCount(0);
+        setIsSmartTraderModalOpen(false);
+        
+        // Stop the run panel activity
+        if (store?.run_panel) {
+            store.run_panel.setIsRunning(false);
+            store.run_panel.setHasOpenContract(false);
+            store.run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        }
+        
         console.log("Auto trading stopped.");
     };
 
@@ -870,10 +882,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                                         </button>
                                         <button
                                             className="auto-trade-best-btn"
-                                            onClick={() => startAutoTradeBest()}
-                                            disabled={isAutoTradingBest}
+                                            onClick={() => isAutoTradingBest ? stopAutoTradeBest() : startAutoTradeBest()}
                                         >
-                                            {isAutoTradingBest ? '🔄 Auto Trading...' : '⚡ Auto Trade Best'}
+                                            {isAutoTradingBest ? `🛑 Stop Auto (${autoTradeCount}/${maxAutoTrades})` : '⚡ Auto Trade Best'}
                                         </button>
                                     </div>
                                 </div>
