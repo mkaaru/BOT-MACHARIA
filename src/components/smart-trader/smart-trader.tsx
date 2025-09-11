@@ -115,7 +115,7 @@ const SmartTrader = observer(() => {
         if (tradeType === 'DIGITEVEN') return d % 2 === 0 ? 'is-green' : 'is-red';
         if (tradeType === 'DIGITODD') return d % 2 !== 0 ? 'is-green' : 'is-red';
         if ((tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER')) {
-            // Pre-loss uses ouPredPreLoss (from market scanner), after-loss uses fixed value 5
+            // After a loss, use ouPredPostLoss; otherwise, use ouPredPreLoss
             const activePred = lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss;
             if (tradeType === 'DIGITOVER') {
                 if (d > Number(activePred)) return 'is-green';
@@ -549,7 +549,7 @@ const SmartTrader = observer(() => {
         };
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
-            // Pre-loss uses the barrier from market scanner recommendation, after-loss uses fixed value 5
+            // After a loss, use ouPredPostLoss; otherwise, use ouPredPreLoss
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);

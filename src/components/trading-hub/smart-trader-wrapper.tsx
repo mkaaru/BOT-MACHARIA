@@ -156,7 +156,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         if (tradeType === 'DIGITEVEN') return d % 2 === 0 ? 'is-green' : 'is-red';
         if (tradeType === 'DIGITODD') return d % 2 !== 0 ? 'is-green' : 'is-red';
         if ((tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER')) {
-            // Pre-loss uses overUnderBarrier (from market scanner), after-loss uses fixed value 5
+            // After a loss, use ouPredPostLoss; otherwise, use overUnderBarrier (from market scanner)
             const activePred = lastOutcomeWasLossRef.current ? ouPredPostLoss : Number(overUnderBarrier);
             if (tradeType === 'DIGITOVER') {
                 if (d > activePred) return 'is-green';
@@ -300,7 +300,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
-            // Pre-loss uses the barrier from market scanner recommendation, after-loss uses fixed value 5
+            // After a loss, use ouPredPostLoss; otherwise, use overUnderBarrier (from market scanner)
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : overUnderBarrier);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
