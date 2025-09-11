@@ -70,7 +70,7 @@ const MLTrader = observer(() => {
     const [baseStake, setBaseStake] = useState(0.5);
     const [overPrediction, setOverPrediction] = useState(5);
     const [underPrediction, setUnderPrediction] = useState(5);
-    const [martingaleMultiplier, setMartingaleMultiplier] = useState(1);
+    const [martingaleMultiplier, setMartingaleMultiplier] = useState(1.5);
 
     // Trading state
     const [isTrading, setIsTrading] = useState(false);
