@@ -55,6 +55,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [maxAutoTrades] = useState(5); // Maximum number of auto trades before switching
 
     const { generalStore } = useStore();
+    const apiRef = useRef<any>(null);
 
     // AI Scanning Messages with Trading Truths
     const aiScanningMessages = {
@@ -474,79 +475,216 @@ const TradingHubDisplay: React.FC = observer(() => {
     // Monitor best recommendation changes for auto trading
     useEffect(() => {
         if (bestRecommendation && isAutoTradingBest && activeToken) {
-            console.log("Starting auto trade with best recommendation:", bestRecommendation);
+            console.log("New recommendation detected, purchasing contract directly:", bestRecommendation);
 
-            // Create settings for Smart Trader
-            const settings = {
-                symbol: bestRecommendation.symbol,
-                tradeType: getTradeTypeForStrategy(bestRecommendation.strategy),
-                stake: 1, // Default stake for auto-trading
-                duration: 1, // Default duration for auto-trading
-                durationType: 't', // Default duration type
-                maxTrades: maxAutoTrades, // Add max trades limit
-                // martingale multiplier needs to be set here if available in bestRecommendation
-                // martingaleMultiplier: bestRecommendation.martingaleMultiplier || 1
-            };
-
-            if (bestRecommendation.strategy === 'over' || bestRecommendation.strategy === 'under') {
-                settings.barrier = bestRecommendation.barrier;
-            } else if (bestRecommendation.strategy === 'matches' || bestRecommendation.strategy === 'differs') {
-                settings.prediction = parseInt(bestRecommendation.barrier || '5');
-            }
-
-            setCurrentAutoTradeSettings(settings);
-
-            // Start trading automatically without opening modal
-            startAutoTrading(settings);
+            // Purchase contract directly without Smart Trader modal
+            purchaseContractDirectly(bestRecommendation);
         }
     }, [bestRecommendation, isAutoTradingBest]);
 
-    // Function to start automatic trading
-    const startAutoTrading = async (settings) => {
-        if (!settings || !activeToken) return;
+    // Function to purchase contract directly based on recommendation
+    const purchaseContractDirectly = async (recommendation: TradeRecommendation) => {
+        if (!recommendation || !activeToken) return;
 
         try {
-            console.log("Starting automatic trading with settings:", settings);
+            console.log(`[${new Date().toISOString()}] Purchasing contract for recommendation:`, recommendation);
 
-            // Set up run panel
+            // Set up run panel if not already running
             if (store?.run_panel) {
-                store.run_panel.toggleDrawer(true);
-                store.run_panel.setActiveTabIndex(1);
-                store.run_panel.run_id = `auto-trade-${Date.now()}`;
-                store.run_panel.setIsRunning(true);
-                store.run_panel.setContractStage(contract_stages.STARTING);
+                if (!store.run_panel.is_running) {
+                    store.run_panel.toggleDrawer(true);
+                    store.run_panel.setActiveTabIndex(1);
+                    store.run_panel.run_id = `auto-trade-${Date.now()}`;
+                    store.run_panel.setIsRunning(true);
+                    store.run_panel.setContractStage(contract_stages.STARTING);
+                }
             }
 
-            // Import and start the smart trader logic directly
-            const { default: SmartTraderWrapper } = await import('./smart-trader-wrapper');
+            // Create API instance if needed
+            if (!apiRef.current) {
+                const { generateDerivApiInstance } = await import('@/external/bot-skeleton/services/api/appId');
+                apiRef.current = await generateDerivApiInstance(activeToken);
+            }
 
-            // Create a virtual instance to handle the trading
-            const traderInstance = {
-                settings,
-                isRunning: true,
-                tradeCount: 0,
+            // Authorize if needed
+            const { authorize, error: authError } = await apiRef.current.authorize(activeToken);
+            if (authError) {
+                throw new Error(`Authorization failed: ${authError.message}`);
+            }
 
-                async start() {
-                    // This would contain the core trading logic from SmartTraderWrapper
-                    // For now, we'll trigger the existing smart trader modal but auto-start it
-                    setSelectedTradeSettings(settings);
-                    setIsSmartTraderModalOpen(true);
+            // Prepare trade parameters
+            const tradeType = getTradeTypeForStrategy(recommendation.strategy);
+            const trade_option: any = {
+                amount: 1, // Default stake amount
+                basis: 'stake',
+                contractTypes: [tradeType],
+                currency: authorize?.currency || 'USD',
+                duration: 1, // Default 1 tick
+                duration_unit: 't',
+                symbol: recommendation.symbol,
+            };
 
-                    // Auto-start trading after a brief delay
-                    setTimeout(() => {
-                        const startButton = document.querySelector('.smart-trader-wrapper__start-btn');
-                        if (startButton && !startButton.disabled) {
-                            startButton.click();
+            // Set prediction/barrier based on strategy
+            if (recommendation.strategy === 'over' || recommendation.strategy === 'under') {
+                trade_option.prediction = Number(recommendation.barrier);
+            } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
+                trade_option.prediction = Number(recommendation.barrier);
+            }
+
+            // Helper function to convert trade option to buy request
+            const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
+                const buy = {
+                    buy: '1',
+                    price: trade_option.amount,
+                    parameters: {
+                        amount: trade_option.amount,
+                        basis: trade_option.basis,
+                        contract_type,
+                        currency: trade_option.currency,
+                        duration: trade_option.duration,
+                        duration_unit: trade_option.duration_unit,
+                        symbol: trade_option.symbol,
+                    },
+                };
+                if (trade_option.prediction !== undefined) {
+                    buy.parameters.selected_tick = trade_option.prediction;
+                }
+                if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
+                    buy.parameters.barrier = trade_option.prediction;
+                }
+                return buy;
+            };
+
+            const buy_req = tradeOptionToBuy(tradeType, trade_option);
+            console.log('Sending purchase request:', buy_req);
+
+            const { buy, error } = await apiRef.current.buy(buy_req);
+            if (error) {
+                throw new Error(`Purchase failed: ${error.message}`);
+            }
+
+            console.log(`✅ Contract purchased successfully:`, {
+                contractId: buy?.contract_id,
+                longcode: buy?.longcode,
+                price: buy?.buy_price,
+                recommendation: {
+                    symbol: recommendation.symbol,
+                    strategy: recommendation.strategy,
+                    barrier: recommendation.barrier,
+                    confidence: recommendation.confidence
+                }
+            });
+
+            // Update transactions store
+            if (store?.transactions) {
+                const symbol_display = symbolMap[recommendation.symbol] || recommendation.symbol;
+                store.transactions.onBotContractEvent({
+                    contract_id: buy?.contract_id,
+                    transaction_ids: { buy: buy?.transaction_id },
+                    buy_price: buy?.buy_price,
+                    currency: authorize?.currency || 'USD',
+                    contract_type: tradeType as any,
+                    underlying: recommendation.symbol,
+                    display_name: symbol_display,
+                    date_start: Math.floor(Date.now() / 1000),
+                    status: 'open',
+                } as any);
+            }
+
+            // Update run panel
+            if (store?.run_panel) {
+                store.run_panel.setHasOpenContract(true);
+                store.run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+            }
+
+            // Monitor contract outcome
+            monitorContract(buy?.contract_id, recommendation);
+
+        } catch (error: any) {
+            console.error('Direct contract purchase failed:', error);
+            
+            // Update status in UI
+            setStatusMessage(`Purchase failed: ${error.message || 'Unknown error'}`);
+            
+            if (store?.run_panel) {
+                store.run_panel.setContractStage(contract_stages.NOT_RUNNING);
+            }
+        }
+    };
+
+    // Function to monitor contract outcome
+    const monitorContract = async (contractId: string, recommendation: TradeRecommendation) => {
+        if (!contractId || !apiRef.current) return;
+
+        try {
+            const res = await apiRef.current.send({
+                proposal_open_contract: 1,
+                contract_id: contractId,
+                subscribe: 1,
+            });
+
+            const { error, subscription } = res || {};
+            if (error) throw error;
+
+            const pocSubId = subscription?.id;
+            const targetId = String(contractId);
+
+            const onMsg = (evt: MessageEvent) => {
+                try {
+                    const data = JSON.parse(evt.data as any);
+                    if (data?.msg_type === 'proposal_open_contract') {
+                        const poc = data.proposal_open_contract;
+                        
+                        if (String(poc?.contract_id || '') === targetId) {
+                            // Update transactions
+                            if (store?.transactions) {
+                                store.transactions.onBotContractEvent(poc);
+                            }
+
+                            // Check if contract is finished
+                            if (poc?.is_sold || poc?.status === 'sold') {
+                                console.log(`Contract ${contractId} completed:`, {
+                                    profit: poc?.profit,
+                                    payout: poc?.payout,
+                                    recommendation: {
+                                        symbol: recommendation.symbol,
+                                        strategy: recommendation.strategy,
+                                        confidence: recommendation.confidence
+                                    }
+                                });
+
+                                // Update auto trade count
+                                setAutoTradeCount(prev => prev + 1);
+
+                                // Cleanup subscription
+                                if (pocSubId) {
+                                    apiRef.current?.forget?.({ forget: pocSubId });
+                                }
+                                apiRef.current?.connection?.removeEventListener('message', onMsg);
+
+                                // Update run panel
+                                if (store?.run_panel) {
+                                    store.run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                                    store.run_panel.setHasOpenContract(false);
+                                }
+
+                                // Check if we should stop auto trading
+                                if (autoTradeCount >= maxAutoTrades - 1) {
+                                    console.log(`Reached max trades (${maxAutoTrades}), stopping auto trading`);
+                                    stopAutoTradeBest();
+                                }
+                            }
                         }
-                    }, 1000);
+                    }
+                } catch (e) {
+                    console.error('Error processing contract update:', e);
                 }
             };
 
-            await traderInstance.start();
+            apiRef.current?.connection?.addEventListener('message', onMsg);
 
         } catch (error) {
-            console.error("Failed to start automatic trading:", error);
-            setIsAutoTradingBest(false);
+            console.error('Contract monitoring failed:', error);
         }
     };
 
@@ -680,30 +818,26 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // Auto trade best recommendation function
     const startAutoTradeBest = async () => {
-        if (!bestRecommendation || !activeToken) return;
-
-        setIsAutoTradingBest(true);
-        setAutoTradeCount(0); // Reset counter
-        const settings = {
-            symbol: bestRecommendation.symbol,
-            tradeType: getTradeTypeForStrategy(bestRecommendation.strategy),
-            stake: 1, // Default stake for auto-trading
-            duration: 1, // Default duration for auto-trading
-            durationType: 't', // Default duration type
-            maxTrades: maxAutoTrades, // Add max trades limit
-            // martingale multiplier needs to be set here if available in bestRecommendation
-            // martingaleMultiplier: bestRecommendation.martingaleMultiplier || 1
-        };
-
-        if (bestRecommendation.strategy === 'over' || bestRecommendation.strategy === 'under') {
-            settings.barrier = bestRecommendation.barrier;
-        } else if (bestRecommendation.strategy === 'matches' || bestRecommendation.strategy === 'differs') {
-            settings.prediction = parseInt(bestRecommendation.barrier || '5');
+        if (!activeToken) {
+            setStatusMessage('No active token found. Please ensure you are logged in.');
+            return;
         }
 
-        setCurrentAutoTradeSettings(settings);
-        setSelectedTradeSettings(settings);
-        setIsSmartTraderModalOpen(true);
+        console.log('Starting direct auto trading mode...');
+        setIsAutoTradingBest(true);
+        setAutoTradeCount(0); // Reset counter
+        setStatusMessage('🤖 Auto trading started - purchasing contracts directly per recommendation');
+        
+        // Set up API connection
+        try {
+            const { generateDerivApiInstance } = await import('@/external/bot-skeleton/services/api/appId');
+            apiRef.current = await generateDerivApiInstance(activeToken);
+            console.log('API connection established for direct trading');
+        } catch (error) {
+            console.error('Failed to establish API connection:', error);
+            setStatusMessage('Failed to connect to trading API');
+            setIsAutoTradingBest(false);
+        }
     };
 
     // Stop auto trading function
@@ -725,9 +859,9 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     return (
         <div className="trading-hub-scanner">
-            {/* Smart Trader Modal - Only show if not auto-trading or if user manually opened it */}
+            {/* Smart Trader Modal - Only show for manual trading */}
             <Modal
-                is_open={isSmartTraderModalOpen && (!isAutoTradingBest || !bestRecommendation)}
+                is_open={isSmartTraderModalOpen && !isAutoTradingBest}
                 title={`Smart Trader - ${selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}`}
                 toggleModal={handleCloseModal}
                 width="900px"
@@ -737,7 +871,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     <SmartTraderWrapper
                         initialSettings={selectedTradeSettings}
                         onClose={handleCloseModal}
-                        isAutoTrading={isAutoTradingBest} // Pass auto-trading state
+                        isAutoTrading={false}
                         onStopAutoTrade={stopAutoTradeBest}
                         onTradeComplete={(tradeCount) => {
                             setAutoTradeCount(tradeCount);
@@ -748,24 +882,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                     />
                 )}
             </Modal>
-
-            {/* Hidden Smart Trader for Auto Trading */}
-            {isAutoTradingBest && bestRecommendation && (
-                <div style={{ display: 'none' }}>
-                    <SmartTraderWrapper
-                        initialSettings={currentAutoTradeSettings}
-                        onClose={() => {}}
-                        isAutoTrading={true}
-                        onStopAutoTrade={stopAutoTradeBest}
-                        onTradeComplete={(tradeCount) => {
-                            setAutoTradeCount(tradeCount);
-                            if (tradeCount >= maxAutoTrades) {
-                                stopAutoTradeBest();
-                            }
-                        }}
-                    />
-                </div>
-            )}
 
             <div className="scanner-header">
                 <div className="scanner-title">
