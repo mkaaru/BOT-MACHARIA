@@ -46,11 +46,6 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [currentAiMessage, setCurrentAiMessage] = useState('');
     const [processingSymbol, setProcessingSymbol] = useState<string>('');
 
-    // Progressive loading states
-    const [showInterface, setShowInterface] = useState(false);
-    const [analyzedMarkets, setAnalyzedMarkets] = useState(0);
-
-
     // AI Scanning Messages
     const aiScanningMessages = {
         initializing: [
@@ -155,7 +150,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                     // Enhanced AI scanning phases
                     const progressPercentage = (readySymbolsCount / totalSymbols) * 100;
-
+                    
                     if (readySymbolsCount === 0) {
                         setAiScanningPhase('initializing');
                         setCurrentAiMessage(aiScanningMessages.initializing[0]);
@@ -166,7 +161,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         setCurrentAiMessage(aiScanningMessages.analyzing[Math.min(msgIndex, aiScanningMessages.analyzing.length - 1)]);
                         setStatusMessage(`🧠 AI analyzing patterns... ${readySymbolsCount}/${totalSymbols} markets`);
                         setConnectionStatus('scanning');
-
+                        
                         // Show which symbol is being processed
                         const symbols = Object.keys(currentStats);
                         if (symbols[readySymbolsCount - 1]) {
@@ -553,80 +548,6 @@ const TradingHubDisplay: React.FC = observer(() => {
         setSelectedTradeSettings(null);
     };
 
-    const handleAnalysisUpdate = useCallback((newRecommendations: TradeRecommendation[]) => {
-            setScanResults(prevResults => {
-                const currentStats = { ...marketStats, ...realTimeStats };
-                const updatedResults: ScanResult[] = [];
-                const processedSymbols = new Set(prevResults.map(r => r.symbol));
-
-                newRecommendations.forEach(rec => {
-                    const existingResult = prevResults.find(r => r.symbol === rec.symbol);
-                    const stats = currentStats[rec.symbol];
-                    const o5u4Data = o5u4Opportunities.find(opp => opp.symbol === rec.symbol);
-
-                    if (!stats || !stats.isReady) return;
-
-                    if (existingResult) {
-                        // Update existing result if recommendations changed
-                        const updatedRecommendations = [...existingResult.recommendations];
-                        const recIndex = updatedRecommendations.findIndex(r => r.strategy === rec.strategy);
-                        if (recIndex > -1) {
-                            updatedRecommendations[recIndex] = rec;
-                        } else {
-                            updatedRecommendations.push(rec);
-                        }
-                        updatedResults.push({ ...existingResult, recommendations: updatedRecommendations, stats, o5u4Data });
-                    } else {
-                        // Add new result
-                        const displayName = symbolMap[rec.symbol] || rec.symbol;
-                        updatedResults.push({
-                            symbol: rec.symbol,
-                            displayName,
-                            recommendations: [rec],
-                            stats,
-                            o5u4Data
-                        });
-                    }
-                    processedSymbols.delete(rec.symbol);
-                });
-
-                // Add back results that were not updated in this batch but are still valid
-                prevResults.forEach(result => {
-                    if (processedSymbols.has(result.symbol)) {
-                        updatedResults.push(result);
-                    }
-                });
-
-                return updatedResults.sort((a, b) => {
-                    const aMaxConf = Math.max(...a.recommendations.map(r => r.confidence), 0);
-                    const bMaxConf = Math.max(...b.recommendations.map(r => r.confidence), 0);
-                    return bMaxConf - aMaxConf;
-                });
-            });
-
-            setAnalyzedMarkets(newRecommendations.length);
-            setScanProgress(Math.min(100, (newRecommendations.length / totalSymbols) * 100));
-
-            // Show interface after 5 markets are analyzed
-            if (newRecommendations.length >= 5 && !showInterface) {
-                setShowInterface(true);
-            }
-
-            if (newRecommendations.length >= totalSymbols) {
-                setIsScanning(false);
-            }
-        }, [showInterface, marketStats, realTimeStats, o5u4Opportunities, symbolMap, totalSymbols]);
-
-    const startScanning = useCallback(() => {
-            setIsScanning(true);
-            setScanProgress(0);
-            setScanResults([]);
-            setShowInterface(false);
-            setAnalyzedMarkets(0);
-            marketAnalyzer.startAnalysis(handleAnalysisUpdate);
-        }, [handleAnalysisUpdate]);
-
-
     return (
         <div className="trading-hub-scanner">
             {/* Smart Trader Modal */}
@@ -752,35 +673,62 @@ const TradingHubDisplay: React.FC = observer(() => {
                         </div>
                     )}
 
-                    {isScanning && (
-                        <div className="scanning-status">
-                            <div className="scanning-header">
-                                <div className="scanning-icon">🤖</div>
-                                <div>
-                                    <h3>AI Market Scanner Active</h3>
-                                    <p>Analyzing volatility patterns across all markets...</p>
-                                </div>
-                            </div>
-                            <div className="scanning-progress">
-                                <div className="progress-bar">
-                                    <div
-                                        className="progress-fill"
-                                        style={{ width: `${scanProgress}%` }}
-                                    ></div>
-                                </div>
-                                <div className="progress-text">
-                                    {analyzedMarkets < 5 ?
-                                        `Analyzing markets... ${analyzedMarkets}/${totalSymbols} markets scanned` :
-                                        analyzedMarkets < totalSymbols ?
-                                        `Loading interface... ${analyzedMarkets}/${totalSymbols} markets complete` :
-                                        'Analysis complete! All recommendations ready.'
-                                    }
+                    {(connectionStatus === 'connecting' || connectionStatus === 'scanning') && (
+                        <div className="scanner-loading">
+                            <div className="ai-scanning-display">
+                                <div className="ai-brain-icon">🧠</div>
+                                <div className="scanning-content">
+                                    <div className="ai-status-header">
+                                        <Text size="m" weight="bold" color="prominent">
+                                            AI Market Scanner Active
+                                        </Text>
+                                        <div className="scanning-dots">
+                                            <span className="dot"></span>
+                                            <span className="dot"></span>
+                                            <span className="dot"></span>
+                                        </div>
+                                    </div>
+                                    
+                                    <Text size="s" color="general" className="ai-current-message">
+                                        {currentAiMessage || statusMessage}
+                                    </Text>
+
+                                    {processingSymbol && (
+                                        <div className="processing-symbol">
+                                            <Text size="xs" color="general">
+                                                📊 Currently analyzing: <span className="symbol-name">{processingSymbol}</span>
+                                            </Text>
+                                        </div>
+                                    )}
+
+                                    <div className="ai-progress-section">
+                                        <div className="progress-bar-ai">
+                                            <div
+                                                className="progress-fill-ai"
+                                                style={{ width: `${scanProgress}%` }}
+                                            ></div>
+                                        </div>
+                                        <Text size="xs" color="general" className="progress-text">
+                                            AI Analysis: {symbolsAnalyzed}/{totalSymbols} volatility indices processed
+                                        </Text>
+                                    </div>
+
+                                    <div className="ai-capabilities">
+                                        <div className="capability-item">✓ Pattern Recognition</div>
+                                        <div className="capability-item">✓ Statistical Analysis</div>
+                                        <div className="capability-item">✓ Probability Calculation</div>
+                                        <div className="capability-item">✓ Risk Assessment</div>
+                                    </div>
+
+                                    <Text size="xs" color="general" className="ai-disclaimer">
+                                        🎯 AI is analyzing market patterns to recommend optimal trading opportunities
+                                    </Text>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {connectionStatus === 'ready' && !showInterface && scanResults.length === 0 && (
+                    {connectionStatus === 'ready' && scanResults.length === 0 && (
                         <div className="no-opportunities">
                             <div className="no-opportunities-icon">🔍</div>
                             <Text size="s" color="general">No trading opportunities found</Text>
@@ -791,7 +739,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         </div>
                     )}
 
-                    {showInterface && recommendations.length > 0 && (
+                    {connectionStatus === 'ready' && scanResults.length > 0 && (
                         <div className="results-grid">
                             {scanResults.map(renderRecommendationCard)}
                         </div>
