@@ -374,13 +374,13 @@ class MarketAnalyzer {
             }
         });
 
-        // Even/Odd analysis
+        // Even/Odd analysis - Higher threshold for better accuracy
         const evenCount = [0, 2, 4, 6, 8].reduce((sum, digit) => sum + (digitFreq[digit] || 0), 0);
         const oddCount = [1, 3, 5, 7, 9].reduce((sum, digit) => sum + (digitFreq[digit] || 0), 0);
         const evenPercent = (evenCount / totalTicks) * 100;
         const oddPercent = (oddCount / totalTicks) * 100;
 
-        if (evenPercent > 55) {
+        if (evenPercent > 60) {
             recommendations.push({
                 symbol,
                 strategy: 'even',
@@ -388,12 +388,12 @@ class MarketAnalyzer {
                 confidence: evenPercent,
                 overPercentage: evenPercent,
                 underPercentage: oddPercent,
-                reason: `EVEN dominance: ${evenPercent.toFixed(1)}%`,
+                reason: `STRONG EVEN dominance: ${evenPercent.toFixed(1)}% vs ${oddPercent.toFixed(1)}%`,
                 timestamp: Date.now()
             });
         }
 
-        if (oddPercent > 55) {
+        if (oddPercent > 60) {
             recommendations.push({
                 symbol,
                 strategy: 'odd',
@@ -401,7 +401,7 @@ class MarketAnalyzer {
                 confidence: oddPercent,
                 overPercentage: evenPercent,
                 underPercentage: oddPercent,
-                reason: `ODD dominance: ${oddPercent.toFixed(1)}%`,
+                reason: `STRONG ODD dominance: ${oddPercent.toFixed(1)}% vs ${evenPercent.toFixed(1)}%`,
                 timestamp: Date.now()
             });
         }

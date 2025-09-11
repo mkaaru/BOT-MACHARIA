@@ -84,11 +84,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                         setRealTimeStats(stats);
                         setLastUpdateTime(Date.now());
                     }
-                    
+
                     if (recommendation) {
                         setBestRecommendation(recommendation);
                     }
-                    
+
                     if (o5u4Data) {
                         setO5u4Opportunities(o5u4Data);
                     }
@@ -98,7 +98,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     const readySymbolsCount = Object.keys(currentStats).filter(symbol => 
                         currentStats[symbol].isReady
                     ).length;
-                    
+
                     setSymbolsAnalyzed(readySymbolsCount);
                     setScanProgress((readySymbolsCount / totalSymbols) * 100);
 
@@ -189,11 +189,11 @@ const TradingHubDisplay: React.FC = observer(() => {
                 // Generate BOTH over and under recommendations
                 ['over', 'under'].forEach(strategy => {
                     const barrier = strategy === 'over' ? barriers.overBarrier : barriers.underBarrier;
-                    
+
                     // Calculate actual over/under counts for the barrier
                     let overCount = 0;
                     let underCount = 0;
-                    
+
                     for (let digit = 0; digit <= 9; digit++) {
                         const digitFreq = lastDigitFrequency[digit] || 0;
                         if (digit > barrier) {
@@ -211,7 +211,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                     if (dominancePercent > 52) { // Lower threshold for more balanced recommendations
                         const confidence = Math.min(55 + (dominancePercent - 52) * 5, 85);
-                        
+
                         recommendations.push({
                             symbol,
                             strategy: strategy as 'over' | 'under',
@@ -237,18 +237,28 @@ const TradingHubDisplay: React.FC = observer(() => {
                     const evenPercent = (evenCount / totalTicks) * 100;
                     const oddPercent = (oddCount / totalTicks) * 100;
 
-                    if (Math.abs(evenPercent - 50) > 15) {
-                        const strategy = evenPercent > 55 ? 'even' : 'odd';
-                        const confidence = Math.min(60 + Math.abs(evenPercent - 50), 85);
-
+                    if (evenPercent > 60) {
                         recommendations.push({
                             symbol,
-                            strategy,
-                            barrier: strategy,
-                            confidence,
+                            strategy: 'even',
+                            barrier: 'even',
+                            confidence: evenPercent,
                             overPercentage: evenPercent,
                             underPercentage: oddPercent,
-                            reason: `${strategy.toUpperCase()} dominance: ${(strategy === 'even' ? evenPercent : oddPercent).toFixed(1)}%`,
+                            reason: `STRONG EVEN dominance: ${evenPercent.toFixed(1)}% vs ${oddPercent.toFixed(1)}%, current ${stats.currentLastDigit}`,
+                            timestamp: Date.now()
+                        });
+                    }
+
+                    if (oddPercent > 60) {
+                        recommendations.push({
+                            symbol,
+                            strategy: 'odd',
+                            barrier: 'odd',
+                            confidence: oddPercent,
+                            overPercentage: evenPercent,
+                            underPercentage: oddPercent,
+                            reason: `STRONG ODD dominance: ${oddPercent.toFixed(1)}% vs ${evenPercent.toFixed(1)}%, current ${stats.currentLastDigit}`,
                             timestamp: Date.now()
                         });
                     }
