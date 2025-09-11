@@ -143,20 +143,20 @@ const TradingHubDisplay: React.FC = observer(() => {
                 const { mostFrequentDigit, currentLastDigit, lastDigitFrequency } = stats;
                 const totalTicks = Object.values(lastDigitFrequency).reduce((a, b) => a + b, 0);
 
-                // Enhanced barrier assignment including more UNDER markets
+                // Balanced barrier assignment with equal OVER and UNDER markets
                 const symbolBarrierMap: Record<string, { strategy: 'over' | 'under', barrier: number }> = {
-                    'R_10': { strategy: 'under', barrier: 7 },
+                    'R_10': { strategy: 'over', barrier: 4 },
                     'R_25': { strategy: 'under', barrier: 6 },
-                    'R_50': { strategy: 'under', barrier: 5 },
-                    'R_75': { strategy: 'under', barrier: 8 },
-                    'R_100': { strategy: 'under', barrier: 4 },
-                    'RDBEAR': { strategy: 'under', barrier: 3 },
+                    'R_50': { strategy: 'over', barrier: 5 },
+                    'R_75': { strategy: 'under', barrier: 3 },
+                    'R_100': { strategy: 'over', barrier: 2 },
+                    'RDBEAR': { strategy: 'under', barrier: 7 },
                     'RDBULL': { strategy: 'over', barrier: 3 },
-                    '1HZ10V': { strategy: 'over', barrier: 2 },
-                    '1HZ25V': { strategy: 'under', barrier: 2 },
-                    '1HZ50V': { strategy: 'over', barrier: 6 },
-                    '1HZ75V': { strategy: 'over', barrier: 5 },
-                    '1HZ100V': { strategy: 'under', barrier: 7 }
+                    '1HZ10V': { strategy: 'under', barrier: 4 },
+                    '1HZ25V': { strategy: 'over', barrier: 6 },
+                    '1HZ50V': { strategy: 'under', barrier: 5 },
+                    '1HZ75V': { strategy: 'over', barrier: 7 },
+                    '1HZ100V': { strategy: 'under', barrier: 8 }
                 };
 
                 const assignedConfig = symbolBarrierMap[symbol];
@@ -199,9 +199,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                         symbol,
                         strategy,
                         barrier: barrier.toString(),
-                        confidence: Math.min(dominancePercent + 10, 85), // Add confidence bonus but cap at 85%
-                        overPercentage: strategy === 'over' ? dominancePercent : overPercent,
-                        underPercentage: strategy === 'under' ? dominancePercent : underPercent,
+                        confidence: dominancePercent, // Use actual dominance percentage
+                        overPercentage: overPercent,
+                        underPercentage: underPercent,
                         reason,
                         timestamp: Date.now()
                     };
