@@ -367,7 +367,8 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             let step = 0;
             baseStake !== stake && setBaseStake(stake);
 
-            while (!stopFlagRef.current) {
+            // Ensure trading continues even after modal closes
+            while (!stopFlagRef.current && run_panel.is_running) {
                 const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
 
                 const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
@@ -528,10 +529,13 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         
         // Auto-close the popup after starting trading, but don't stop the bot
         setTimeout(() => {
-            if (onClose && is_running) {
-                onClose();
+            if (onClose) {
+                // Only close if trading has actually started successfully
+                if (is_running && !stopFlagRef.current) {
+                    onClose();
+                }
             }
-        }, 2000); // Slightly longer delay to ensure trading is properly started
+        }, 3000); // Give more time for trading to initialize properly
     };
 
     return (
