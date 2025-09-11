@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import Modal from '@/components/shared_ui/modal';
@@ -576,10 +576,9 @@ const TradingHubDisplay: React.FC = observer(() => {
             });
 
             // Update transactions store
-            const { transactions } = useStore();
-            if (transactions) {
+            if (store?.root_store?.transactions) {
                 const symbol_display = symbolMap[recommendation.symbol] || recommendation.symbol;
-                transactions.onBotContractEvent({
+                store.root_store.transactions.onBotContractEvent({
                     contract_id: buy?.contract_id,
                     transaction_ids: { buy: buy?.transaction_id },
                     buy_price: buy?.buy_price,
@@ -638,9 +637,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                         
                         if (String(poc?.contract_id || '') === targetId) {
                             // Update transactions
-                            const { transactions } = useStore();
-                            if (transactions) {
-                                transactions.onBotContractEvent(poc);
+                            if (store?.root_store?.transactions) {
+                                store.root_store.transactions.onBotContractEvent(poc);
                             }
 
                             // Check if contract is finished
@@ -832,7 +830,6 @@ const TradingHubDisplay: React.FC = observer(() => {
         
         // Set up API connection
         try {
-            const { generateDerivApiInstance } = await import('@/external/bot-skeleton/services/api/appId');
             apiRef.current = await generateDerivApiInstance(activeToken);
             console.log('API connection established for direct trading');
         } catch (error) {
