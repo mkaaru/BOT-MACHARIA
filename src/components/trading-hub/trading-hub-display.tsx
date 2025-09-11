@@ -46,31 +46,41 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [currentAiMessage, setCurrentAiMessage] = useState('');
     const [processingSymbol, setProcessingSymbol] = useState<string>('');
 
-    // AI Scanning Messages
+    // AI Scanning Messages with Trading Truths
     const aiScanningMessages = {
         initializing: [
             '🔍 Initializing AI market scanner...',
             '🌐 Connecting to real-time market feeds...',
-            '⚡ Loading advanced pattern recognition models...'
+            '⚡ Loading advanced pattern recognition models...',
+            '💡 Truth #1: Anything can happen in the markets...',
+            '🎯 Remember: Every moment in the market is unique...'
         ],
         analyzing: [
             '🧠 AI analyzing market volatility patterns...',
             '📊 Processing tick frequency distributions...',
             '🎯 Identifying statistical anomalies...',
             '📈 Calculating probability matrices...',
-            '⚙️ Running machine learning algorithms...'
+            '⚙️ Running machine learning algorithms...',
+            '💡 Truth #2: You don\'t need to know what happens next to profit...',
+            '🔬 Truth #3: Wins and losses are randomly distributed...',
+            '⭐ An edge is just higher probability, not certainty...'
         ],
         evaluating: [
             '🤖 AI evaluating trading opportunities...',
             '💡 Cross-referencing historical patterns...',
             '🔬 Analyzing market microstructure...',
             '📋 Ranking volatility indices by potential...',
-            '⭐ Scoring recommendation confidence levels...'
+            '⭐ Scoring recommendation confidence levels...',
+            '🎯 Truth #4: An edge indicates higher probability outcomes...',
+            '💎 Remember: Random distribution exists in any edge...',
+            '🚀 Every market moment brings unique opportunities...'
         ],
         recommending: [
             '🎯 AI preparing optimal trade recommendations...',
             '💎 Finalizing high-confidence opportunities...',
-            '🚀 Ready to present best trading setups...'
+            '🚀 Ready to present best trading setups...',
+            '⚡ Truth #5: Every moment in the market is unique...',
+            '🏆 AI has processed the fundamental truths of trading...'
         ]
     };
 
@@ -148,13 +158,36 @@ const TradingHubDisplay: React.FC = observer(() => {
                     setSymbolsAnalyzed(readySymbolsCount);
                     setScanProgress((readySymbolsCount / totalSymbols) * 100);
 
-                    // Enhanced AI scanning phases
+                    // Enhanced AI scanning phases - Load interface after 5 markets
                     const progressPercentage = (readySymbolsCount / totalSymbols) * 100;
                     
                     if (readySymbolsCount === 0) {
                         setAiScanningPhase('initializing');
                         setCurrentAiMessage(aiScanningMessages.initializing[0]);
                         setStatusMessage('🤖 AI initializing market analysis...');
+                    } else if (readySymbolsCount < 5) {
+                        // Keep scanning state until 5 markets are analyzed
+                        setAiScanningPhase('analyzing');
+                        const msgIndex = Math.floor((readySymbolsCount / 5) * aiScanningMessages.analyzing.length);
+                        setCurrentAiMessage(aiScanningMessages.analyzing[Math.min(msgIndex, aiScanningMessages.analyzing.length - 1)]);
+                        setStatusMessage(`🧠 AI analyzing patterns... ${readySymbolsCount}/5 markets ready`);
+                        setConnectionStatus('scanning');
+                        
+                        // Show which symbol is being processed
+                        const symbols = Object.keys(currentStats);
+                        if (symbols[readySymbolsCount - 1]) {
+                            const currentSymbol = symbols[readySymbolsCount - 1];
+                            const displayName = symbolMap[currentSymbol] || currentSymbol;
+                            setProcessingSymbol(displayName);
+                        }
+                    } else if (readySymbolsCount === 5) {
+                        // Switch to ready state after 5 markets are analyzed
+                        setAiScanningPhase('complete');
+                        setCurrentAiMessage('✅ AI analysis ready - 5 markets analyzed, loading interface...');
+                        setStatusMessage('🚀 AI has identified trading opportunities - Interface loading...');
+                        setConnectionStatus('ready');
+                        setIsScanning(false);
+                        setProcessingSymbol('');
                     } else if (progressPercentage < 40) {
                         setAiScanningPhase('analyzing');
                         const msgIndex = Math.floor((progressPercentage / 40) * aiScanningMessages.analyzing.length);
@@ -720,8 +753,21 @@ const TradingHubDisplay: React.FC = observer(() => {
                                         <div className="capability-item">✓ Risk Assessment</div>
                                     </div>
 
+                                    <div className="trading-truths-section">
+                                        <Text size="xs" weight="bold" color="prominent" className="truths-header">
+                                            📚 5 Fundamental Truths of Trading
+                                        </Text>
+                                        <div className="trading-truths">
+                                            <div className="truth-item">1. Anything can happen</div>
+                                            <div className="truth-item">2. You don't need to know what's next to profit</div>
+                                            <div className="truth-item">3. Random distribution between wins and losses</div>
+                                            <div className="truth-item">4. An edge = higher probability indication</div>
+                                            <div className="truth-item">5. Every market moment is unique</div>
+                                        </div>
+                                    </div>
+
                                     <Text size="xs" color="general" className="ai-disclaimer">
-                                        🎯 AI is analyzing market patterns to recommend optimal trading opportunities
+                                        🎯 AI is analyzing market patterns using these fundamental trading principles
                                     </Text>
                                 </div>
                             </div>

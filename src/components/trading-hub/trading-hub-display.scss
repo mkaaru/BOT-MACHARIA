@@ -389,9 +389,54 @@
                         }
                     }
 
+                    .trading-truths-section {
+                        margin: 20px 0;
+                        padding: 16px;
+                        background: rgba(255, 255, 255, 0.05);
+                        border-radius: 8px;
+                        border: 1px solid rgba(255, 255, 255, 0.1);
+
+                        .truths-header {
+                            margin-bottom: 12px;
+                            text-align: center;
+                        }
+
+                        .trading-truths {
+                            display: flex;
+                            flex-direction: column;
+                            gap: 8px;
+
+                            .truth-item {
+                                font-size: 11px;
+                                color: var(--text-general);
+                                padding: 6px 12px;
+                                background: rgba(255, 255, 255, 0.03);
+                                border-radius: 6px;
+                                border-left: 3px solid var(--brand-red-coral);
+                                opacity: 0.9;
+                                transition: opacity 0.3s ease;
+
+                                &:hover {
+                                    opacity: 1;
+                                }
+                            }
+                        }
+
+                        @media (max-width: 768px) {
+                            margin: 16px 0;
+                            padding: 12px;
+
+                            .trading-truths .truth-item {
+                                font-size: 10px;
+                                padding: 4px 8px;
+                            }
+                        }
+                    }
+
                     .ai-disclaimer {
-                        font-style: italic;
-                        color: var(--text-general);
+                        text-align: center;
+                        margin-top: 16px;
+                        opacity: 0.8;
                     }
                 }
 
