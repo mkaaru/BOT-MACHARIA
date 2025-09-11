@@ -208,6 +208,12 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                 }
                 api?.disconnect?.();
             } catch { /* noop */ }
+
+            // Cleanup observers on unmount
+            if (store?.run_panel?.dbot?.observer) {
+                store.run_panel.dbot.observer.unregisterAll('bot.stop');
+                store.run_panel.dbot.observer.unregisterAll('bot.click_stop');
+            }
         };
     }, []);
 
@@ -350,6 +356,12 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         run_panel.setIsRunning(true);
         run_panel.setContractStage(contract_stages.STARTING);
 
+        // Register observers for Run Panel stop events before starting trading
+        if (store?.run_panel?.dbot?.observer) {
+            store.run_panel.dbot.observer.register('bot.stop', handleRunPanelStop);
+            store.run_panel.dbot.observer.register('bot.click_stop', handleRunPanelStop);
+        }
+
         try {
             let lossStreak = 0;
             let step = 0;
@@ -475,6 +487,19 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             run_panel.setIsRunning(false);
             run_panel.setHasOpenContract(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
+            
+            // Cleanup observers when trading stops
+            if (store?.run_panel?.dbot?.observer) {
+                store.run_panel.dbot.observer.unregisterAll('bot.stop');
+                store.run_panel.dbot.observer.unregisterAll('bot.click_stop');
+            }
+        }
+    };
+
+    // Handle Run Panel stop events
+    const handleRunPanelStop = () => {
+        if (is_running) {
+            stopTrading();
         }
     };
 
@@ -486,6 +511,12 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         run_panel.setHasOpenContract(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
         setStatus('Trading stopped');
+        
+        // Cleanup observers
+        if (store?.run_panel?.dbot?.observer) {
+            store.run_panel.dbot.observer.unregisterAll('bot.stop');
+            store.run_panel.dbot.observer.unregisterAll('bot.click_stop');
+        }
     };
 
     const startTrading = () => {
@@ -495,12 +526,12 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         }
         onRun();
         
-        // Auto-close the popup after starting trading
+        // Auto-close the popup after starting trading, but don't stop the bot
         setTimeout(() => {
-            if (onClose) {
+            if (onClose && is_running) {
                 onClose();
             }
-        }, 1000); // Small delay to allow user to see the "Starting" status
+        }, 2000); // Slightly longer delay to ensure trading is properly started
     };
 
     return (
