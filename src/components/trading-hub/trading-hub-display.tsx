@@ -199,7 +199,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         symbol,
                         strategy,
                         barrier: barrier.toString(),
-                        confidence: dominancePercent, // Use actual dominance percentage
+                        confidence: Math.min(dominancePercent + 10, 85), // Add confidence bonus but cap at 85%
                         overPercentage: strategy === 'over' ? dominancePercent : overPercent,
                         underPercentage: strategy === 'under' ? dominancePercent : underPercent,
                         reason,
@@ -230,8 +230,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                             strategy,
                             barrier: strategy,
                             confidence,
-                            overPercentage: strategy === 'even' ? evenPercent : oddPercent,
-                            underPercentage: 0,
+                            overPercentage: evenPercent,
+                            underPercentage: oddPercent,
                             reason: `${strategy.toUpperCase()} dominance: ${(strategy === 'even' ? evenPercent : oddPercent).toFixed(1)}%`,
                             timestamp: Date.now()
                         });
@@ -259,7 +259,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                             barrier: mostFrequentDigit.toString(),
                             confidence,
                             overPercentage: mostFreqPercent,
-                            underPercentage: 0,
+                            underPercentage: 100 - mostFreqPercent,
                             reason: `Digit ${mostFrequentDigit} appears ${mostFreqPercent.toFixed(1)}% of time`,
                             timestamp: Date.now()
                         });
@@ -273,7 +273,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                             strategy: 'differs',
                             barrier: leastFrequentDigit.toString(),
                             confidence,
-                            overPercentage: 0,
+                            overPercentage: leastFreqPercent,
                             underPercentage: 100 - leastFreqPercent,
                             reason: `Digit ${leastFrequentDigit} appears only ${leastFreqPercent.toFixed(1)}% of time`,
                             timestamp: Date.now()
@@ -402,6 +402,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 <Text size="xs" color="general" className="recommendation-reason">
                                     {rec.reason}
                                 </Text>
+                                <div className="recommendation-stats">
+                                    <span className="stat-item">Over: {rec.overPercentage.toFixed(1)}%</span>
+                                    <span className="stat-item">Under: {rec.underPercentage.toFixed(1)}%</span>
+                                </div>
                             </div>
                             <button
                                 className="load-trade-btn"
