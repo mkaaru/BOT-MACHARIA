@@ -103,13 +103,7 @@ const SmartTrader = observer(() => {
     const stopFlagRef = useRef<boolean>(false);
 
     // --- New State Variables for Run Panel Integration ---
-    const [isTrading, setIsTrading] = useState(false); // Tracks if trading is active
-    const [isConnected, setIsConnected] = useState(false); // Tracks API connection status
-    const [websocket, setWebsocket] = useState<any>(null); // Stores websocket instance
-    const [autoExecute, setAutoExecute] = useState(false); // Flag for auto-execution
-    const [tickHistory, setTickHistory] = useState<Array<{ time: number, price: number }>>([]); // For tick history
     const [isWaitingForTradeResult, setIsWaitingForTradeResult] = useState(false); // Tracks if waiting for trade completion
-    const [pendingNextTrade, setPendingNextTrade] = useState(false); // Tracks if next trade is pending
 
     // --- Helper Functions ---
 
@@ -755,56 +749,88 @@ const SmartTrader = observer(() => {
     // --- Start Trading Logic ---
     // This section now uses the new handleStartTrading and handleStopTrading functions
 
-    // Placeholder for executeNextTrade if it exists elsewhere or needs implementation
-    const executeNextTrade = async () => {
-        if (isWaitingForTradeResult) {
-            setPendingNextTrade(true);
+    // Enhanced trade execution with proper martingale implementation
+    const executeTradeWithMartingale = async () => {
+        if (isWaitingForTradeResult || !is_running) {
             return;
         }
 
         setIsWaitingForTradeResult(true);
-        setPendingNextTrade(false);
 
         try {
-            // Simulate trade execution
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // After trade completes, check result and apply martingale
-            const isWin = Math.random() > 0.5; // Simulate win/loss
-
-            if (isWin) {
-                setStake(baseStake); // Reset to initial stake on win
-                lastOutcomeWasLossRef.current = false;
-            } else {
-                setStake(prev => Number((prev * martingaleMultiplier).toFixed(2))); // Apply multiplier on loss
-                lastOutcomeWasLossRef.current = true;
+            // Use the actual purchase logic with current stake
+            const buy = await purchaseOnceWithStake(stake);
+            
+            if (buy?.contract_id) {
+                // Wait for contract completion by subscribing to updates
+                const contractResult = await waitForContractCompletion(buy.contract_id);
+                
+                // Apply martingale based on actual result
+                if (contractResult.profit > 0) {
+                    // Win: Reset to base stake
+                    setStake(baseStake);
+                    lastOutcomeWasLossRef.current = false;
+                } else {
+                    // Loss: Apply martingale multiplier
+                    const newStake = Number((stake * martingaleMultiplier).toFixed(2));
+                    setStake(newStake);
+                    lastOutcomeWasLossRef.current = true;
+                }
             }
 
-            setTradeResult(isWin ? 'win' : 'loss');
-
+        } catch (error) {
+            console.error('Trade execution error:', error);
+            setStatus(`Trade error: ${error.message}`);
         } finally {
             setIsWaitingForTradeResult(false);
-
-            // Add 1 second delay before next trade
-            setTimeout(() => {
-                if (pendingNextTrade && isTrading) {
-                    executeNextTrade();
-                }
-            }, 1000);
+            
+            // Wait 1 second before next trade to ensure proper sequencing
+            if (is_running) {
+                setTimeout(() => {
+                    if (is_running) {
+                        executeTradeWithMartingale();
+                    }
+                }, 1000);
+            }
         }
     };
 
-    const handleStartTrading = () => {
-        setIsTrading(true);
-        executeNextTrade();
-    };
+    // Helper function to wait for contract completion
+    const waitForContractCompletion = (contractId: string): Promise<{ profit: number }> => {
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error('Contract completion timeout'));
+            }, 300000); // 5 minute timeout
 
-    const handleStopTrading = () => {
-        setIsTrading(false);
-        setStake(baseStake); // Reset stake to initial
-        setTradeResult(null);
-        setIsWaitingForTradeResult(false);
-        setPendingNextTrade(false);
+            const checkContract = async () => {
+                try {
+                    const response = await apiRef.current.send({
+                        proposal_open_contract: 1,
+                        contract_id: contractId
+                    });
+
+                    if (response.proposal_open_contract) {
+                        const contract = response.proposal_open_contract;
+                        
+                        if (contract.is_sold || contract.status === 'sold') {
+                            clearTimeout(timeout);
+                            resolve({ profit: Number(contract.profit || 0) });
+                        } else {
+                            // Check again after 1 second
+                            setTimeout(checkContract, 1000);
+                        }
+                    } else {
+                        // Check again after 1 second
+                        setTimeout(checkContract, 1000);
+                    }
+                } catch (error) {
+                    clearTimeout(timeout);
+                    reject(error);
+                }
+            };
+
+            checkContract();
+        });
     };
 
 
@@ -1091,13 +1117,13 @@ const SmartTrader = observer(() => {
                         <div className='smart-trader__actions'>
                             <button
                                 className='smart-trader__run'
-                                onClick={handleStartTrading}
+                                onClick={onRun}
                                 disabled={is_running || !symbol || !apiRef.current || isWaitingForTradeResult}
                             >
                                 {is_running ? localize('Running...') : localize('Start Trading')}
                             </button>
                             {is_running && (
-                                <button className='smart-trader__stop' onClick={handleStopTrading}>
+                                <button className='smart-trader__stop' onClick={stopTrading}>
                                     {localize('Stop')}
                                 </button>
                             )}
@@ -1111,14 +1137,7 @@ const SmartTrader = observer(() => {
                             </div>
                         )}
 
-                        {/* Display trade result and status */}
-                        {tradeResult && (
-                            <div className={`smart-trader__result smart-trader__result--${tradeResult}`}>
-                                <Text size='xs'>
-                                    {tradeResult === 'win' ? localize('Trade Won - Stake Reset') : localize('Trade Lost - Stake Increased')}
-                                </Text>
-                            </div>
-                        )}
+                        {/* Display waiting status */}
                         {isWaitingForTradeResult && (
                             <div className="smart-trader__status">
                                 <Text size="xs" color="blue">
