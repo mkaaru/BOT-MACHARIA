@@ -81,6 +81,10 @@ const SmartTrader = observer(() => {
     const [initialStake, setInitialStake] = useState(1);
     const [currentStake, setCurrentStake] = useState(1);
     const [lastTradeResult, setLastTradeResult] = useState<'win' | 'loss' | null>(null);
+    const [lossStreak, setLossStreak] = useState(0);
+    const [totalTrades, setTotalTrades] = useState(0);
+    const [totalProfit, setTotalProfit] = useState(0);
+    const [winRate, setWinRate] = useState(0);
 
     // Contract tracking state
     const [currentProfit, setCurrentProfit] = useState<number>(0);
@@ -581,20 +585,23 @@ const SmartTrader = observer(() => {
         run_panel.setContractStage(contract_stages.STARTING);
 
         try {
-            let lossStreak = 0;
+            let currentLossStreak = 0;
             let step = 0;
-            // baseStake !== stake && setBaseStake(stake); // No longer needed
+            
             while (!stopFlagRef.current) {
-                // Adjust stake and prediction based on prior outcomes (simple martingale)
-                const effectiveStake = step > 0 ? Number((initialStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : initialStake;
+                // Calculate Martingale stake
+                const effectiveStake = step > 0 ? 
+                    Number((initialStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : 
+                    initialStake;
 
                 const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
                 if (isOU) {
-                    lastOutcomeWasLossRef.current = lossStreak > 0;
+                    lastOutcomeWasLossRef.current = currentLossStreak > 0;
                 }
 
                 // Update UI stake display
-                setCurrentStake(effectiveStake); // Update the current stake display
+                setCurrentStake(effectiveStake);
+                setLossStreak(currentLossStreak);
 
                 const buy = await purchaseOnceWithStake(effectiveStake);
 
@@ -670,19 +677,36 @@ const SmartTrader = observer(() => {
                                         run_panel.setHasOpenContract(false);
                                         if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
                                         apiRef.current?.connection?.removeEventListener('message', onMsg);
+                                        
                                         const profit = Number(poc?.profit || 0);
                                         const isWin = profit > 0;
+                                        
+                                        // Update trading statistics
+                                        setTotalTrades(prev => prev + 1);
+                                        setTotalProfit(prev => prev + profit);
+                                        
                                         if (isWin) {
-                                            // lastOutcomeWasLossRef.current = false; // Handled by applyMartingaleStrategy
-                                            lossStreak = 0;
+                                            // Reset Martingale on win
+                                            lastOutcomeWasLossRef.current = false;
+                                            currentLossStreak = 0;
                                             step = 0;
-                                            // Reset to base stake on win
-                                            // setStake(initialStake); // Not needed here, handled by applyMartingaleStrategy
+                                            setLastTradeResult('win');
+                                            setCurrentStake(initialStake);
                                         } else {
-                                            // lastOutcomeWasLossRef.current = true; // Handled by applyMartingaleStrategy
-                                            lossStreak++;
-                                            step = Math.min(step + 1, 10); // Cap at 10 steps to prevent excessive stake
+                                            // Apply Martingale on loss
+                                            lastOutcomeWasLossRef.current = true;
+                                            currentLossStreak++;
+                                            step = Math.min(step + 1, 10); // Cap at 10 steps
+                                            setLastTradeResult('loss');
                                         }
+                                        
+                                        // Update win rate
+                                        setWinRate(prev => {
+                                            const newTotal = totalTrades + 1;
+                                            const totalWins = isWin ? Math.round(prev * totalTrades) + 1 : Math.round(prev * totalTrades);
+                                            return totalWins / newTotal;
+                                        });
+                                        
                                         // Reset contract values
                                         setCurrentProfit(0);
                                         setContractValue(0);
@@ -765,6 +789,14 @@ const SmartTrader = observer(() => {
             setStatus('Please connect to API first');
             return;
         }
+
+        // Reset statistics for new session
+        setTotalTrades(0);
+        setTotalProfit(0);
+        setWinRate(0);
+        setLossStreak(0);
+        setLastTradeResult(null);
+        setCurrentStake(initialStake);
 
         setIsTrading(true);
         // Call the actual trading logic
@@ -1094,6 +1126,45 @@ const SmartTrader = observer(() => {
                                         {d}
                                     </div>
                                 ))}
+                            </div>
+                        )}
+
+                        {/* Martingale Statistics */}
+                        {(totalTrades > 0 || is_running) && (
+                            <div className='smart-trader__stats'>
+                                <div className='smart-trader__stats-header'>
+                                    <Text size='s' weight='bold'>{localize('Trading Statistics')}</Text>
+                                </div>
+                                <div className='smart-trader__stats-grid'>
+                                    <div className='smart-trader__stat-item'>
+                                        <Text size='xs' color='general'>{localize('Total Trades:')}</Text>
+                                        <Text size='xs' color='prominent'>{totalTrades}</Text>
+                                    </div>
+                                    <div className='smart-trader__stat-item'>
+                                        <Text size='xs' color='general'>{localize('Win Rate:')}</Text>
+                                        <Text size='xs' color='prominent'>{(winRate * 100).toFixed(1)}%</Text>
+                                    </div>
+                                    <div className='smart-trader__stat-item'>
+                                        <Text size='xs' color='general'>{localize('Loss Streak:')}</Text>
+                                        <Text size='xs' color={lossStreak > 2 ? 'loss-danger' : 'prominent'}>{lossStreak}</Text>
+                                    </div>
+                                    <div className='smart-trader__stat-item'>
+                                        <Text size='xs' color='general'>{localize('Total P&L:')}</Text>
+                                        <Text size='xs' color={totalProfit >= 0 ? 'profit-success' : 'loss-danger'}>
+                                            {totalProfit >= 0 ? '+' : ''}{totalProfit.toFixed(2)} {account_currency}
+                                        </Text>
+                                    </div>
+                                    <div className='smart-trader__stat-item'>
+                                        <Text size='xs' color='general'>{localize('Next Stake:')}</Text>
+                                        <Text size='xs' color={currentStake > initialStake ? 'loss-danger' : 'prominent'}>
+                                            {currentStake.toFixed(2)} {account_currency}
+                                        </Text>
+                                    </div>
+                                    <div className='smart-trader__stat-item'>
+                                        <Text size='xs' color='general'>{localize('Multiplier:')}</Text>
+                                        <Text size='xs' color='prominent'>{martingaleMultiplier}x</Text>
+                                    </div>
+                                </div>
                             </div>
                         )}
                         <div className='smart-trader__meta'>

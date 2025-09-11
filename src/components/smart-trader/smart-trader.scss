@@ -319,4 +319,41 @@
         text-align: right;
         font-family: 'IBM Plex Mono', monospace;
     }
+
+    &__stats {
+        margin-top: var(--general-section-1);
+        padding: var(--general-section-1);
+        background: var(--general-section-1);
+        border-radius: var(--border-radius-s);
+        border: 1px solid var(--border-normal);
+
+        &-header {
+            margin-bottom: var(--general-section-2);
+            text-align: center;
+        }
+
+        &-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--general-section-2);
+
+            @include mobile {
+                grid-template-columns: 1fr;
+            }
+        }
+    }
+
+    &__stat-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--general-section-3);
+        background: var(--general-main-2);
+        border-radius: var(--border-radius-xs);
+        border: 1px solid var(--border-disabled);
+
+        &:hover {
+            border-color: var(--border-hover);
+        }
+    }
 }
