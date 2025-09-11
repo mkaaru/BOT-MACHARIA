@@ -86,7 +86,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
     // Predictions - set from initial settings
     const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(initialSettings.prediction || 5);
-    const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(5); // Fixed at 5 for after-loss
+    const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(5); // Default 5 for after-loss, but editable
     const [mdPrediction, setMdPrediction] = useState<number>(initialSettings.prediction || 5);
     const [overUnderBarrier, setOverUnderBarrier] = useState<string>(initialSettings.barrier || '5');
 
@@ -667,8 +667,10 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                 <input
                                     id='stw-ou-pred-post'
                                     type='number'
-                                    value={5}
-                                    disabled
+                                    min={0}
+                                    max={9}
+                                    value={ouPredPostLoss}
+                                    onChange={e => setOuPredPostLoss(Math.max(0, Math.min(9, Number(e.target.value))))}
                                 />
                             </div>
                         </div>

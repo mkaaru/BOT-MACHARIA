@@ -70,7 +70,7 @@ const SmartTrader = observer(() => {
     const [baseStake, setBaseStake] = useState<number>(0.5);
     // Predictions
     const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(5);
-    const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(5); // Fixed at 5 for after-loss
+    const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(5); // Default 5 for after-loss, but editable
     const [mdPrediction, setMdPrediction] = useState<number>(5); // for match/diff
     // Higher/Lower barrier
     const [barrier, setBarrier] = useState<string>('+0.37');
@@ -892,8 +892,9 @@ const SmartTrader = observer(() => {
                                             onChange={e => setOuPredPreLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
                                     </div>
                                     <div className='smart-trader__field'>
-                                        <label htmlFor='st-ou-pred-post'>{localize('Over/Under after loss (fixed: 5)')}</label>
-                                        <input id='st-ou-pred-post' type='number' min={0} max={9} value={ouPredPostLoss} disabled />
+                                        <label htmlFor='st-ou-pred-post'>{localize('Over/Under after loss (default: 5)')}</label>
+                                        <input id='st-ou-pred-post' type='number' min={0} max={9} value={ouPredPostLoss}
+                                            onChange={e => setOuPredPostLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
                                     </div>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
