@@ -16,9 +16,8 @@ const TRADE_TYPES = [
     { value: 'DIGITODD', label: 'Odd' },
     { value: 'DIGITMATCH', label: 'Matches' },
     { value: 'DIGITDIFF', label: 'Differs' },
-    { value: 'CALL', label: 'Higher' },
-    { value: 'PUT', label: 'Lower' },
 ];
+
 // Safe version of tradeOptionToBuy without Blockly dependencies
 const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     const buy = {
@@ -39,9 +38,6 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     }
     if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
         buy.parameters.barrier = trade_option.prediction;
-    }
-    if (trade_option.barrier !== undefined) {
-        buy.parameters.barrier = trade_option.barrier;
     }
     return buy;
 };
@@ -71,11 +67,13 @@ const SmartTrader = observer(() => {
     // Predictions
     const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(5);
     const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(5);
+    const [ouPredAfterLoss, setOuPredAfterLoss] = useState<number>(6); // New after loss field
     const [mdPrediction, setMdPrediction] = useState<number>(5); // for match/diff
     // Higher/Lower barrier
     const [barrier, setBarrier] = useState<string>('+0.37');
     // Martingale/recovery
-    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(2.0);
+    const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.5);
+    const [martingaleSteps, setMartingaleSteps] = useState<number>(4); // Default to 4 steps
 
     // Contract tracking state
     const [currentProfit, setCurrentProfit] = useState<number>(0);
@@ -111,11 +109,22 @@ const SmartTrader = observer(() => {
 
     // --- Helper Functions ---
 
+    // Function to get the next digit following the selected barrier
+    const getNextDigitAfterBarrier = (barrier: number): number => {
+        return barrier < 9 ? barrier + 1 : 0; // Wrap around if barrier is 9
+    };
+
+    // Update after loss prediction when pre-loss prediction changes
+    useEffect(() => {
+        setOuPredAfterLoss(getNextDigitAfterBarrier(ouPredPreLoss));
+    }, [ouPredPreLoss]);
+
+
     const getHintClass = (d: number) => {
         if (tradeType === 'DIGITEVEN') return d % 2 === 0 ? 'is-green' : 'is-red';
         if (tradeType === 'DIGITODD') return d % 2 !== 0 ? 'is-green' : 'is-red';
         if ((tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER')) {
-            const activePred = lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss;
+            const activePred = lastOutcomeWasLossRef.current ? ouPredAfterLoss : ouPredPreLoss;
             if (tradeType === 'DIGITOVER') {
                 if (d > Number(activePred)) return 'is-green';
                 if (d < Number(activePred)) return 'is-red';
@@ -531,24 +540,22 @@ const SmartTrader = observer(() => {
     };
 
     const purchaseOnce = async () => {
-        return await purchaseOnceWithStake(stake);
-    };
-
-    const purchaseOnceWithStake = async (stakeAmount: number) => {
         await authorizeIfNeeded();
 
         const trade_option: any = {
-            amount: Number(stakeAmount),
+            amount: Number(stake),
             basis: 'stake',
             contractTypes: [tradeType],
             currency: account_currency,
+            // Note: duration and duration_unit need to be correctly set based on `durationType` and `duration` or `ticks` state
             duration: durationType === 't' ? Number(ticks) : Number(duration),
             duration_unit: durationType,
             symbol,
         };
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
-            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
+            // Use after loss prediction if last outcome was loss, otherwise use pre-loss prediction
+            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredAfterLoss : ouPredPreLoss);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
         } else if (tradeType === 'CALL' || tradeType === 'PUT') {
@@ -558,7 +565,7 @@ const SmartTrader = observer(() => {
         const buy_req = tradeOptionToBuy(tradeType, trade_option);
         const { buy, error } = await apiRef.current.buy(buy_req);
         if (error) throw error;
-        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
+        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stake}`);
         return buy;
     };
 
@@ -588,7 +595,7 @@ const SmartTrader = observer(() => {
                 // Update UI stake display
                 setStake(effectiveStake);
 
-                const buy = await purchaseOnceWithStake(effectiveStake);
+                const buy = await purchaseOnceWithStake(effectiveStake); // Use the passed effectiveStake
 
                 // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
                 try {
@@ -672,7 +679,7 @@ const SmartTrader = observer(() => {
                                         } else {
                                             lastOutcomeWasLossRef.current = true;
                                             lossStreak++;
-                                            step = Math.min(step + 1, 10); // Cap at 10 steps to prevent excessive stake
+                                            step = Math.min(step + 1, martingaleSteps); // Cap at configured steps to prevent excessive stake
                                         }
                                         // Reset contract values
                                         setCurrentProfit(0);
@@ -709,6 +716,37 @@ const SmartTrader = observer(() => {
 
         }
     };
+
+    // Helper function to handle purchase with stake amount
+    const purchaseOnceWithStake = async (stakeAmount: number) => {
+        await authorizeIfNeeded();
+
+        const trade_option: any = {
+            amount: Number(stakeAmount), // Use the provided stakeAmount
+            basis: 'stake',
+            contractTypes: [tradeType],
+            currency: account_currency,
+            duration: durationType === 't' ? Number(ticks) : Number(duration),
+            duration_unit: durationType,
+            symbol,
+        };
+        // Choose prediction based on trade type and last outcome
+        if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
+            // Use after loss prediction if last outcome was loss, otherwise use pre-loss prediction
+            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredAfterLoss : ouPredPreLoss);
+        } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
+            trade_option.prediction = Number(mdPrediction);
+        } else if (tradeType === 'CALL' || tradeType === 'PUT') {
+            trade_option.barrier = barrier;
+        }
+
+        const buy_req = tradeOptionToBuy(tradeType, trade_option);
+        const { buy, error } = await apiRef.current.buy(buy_req);
+        if (error) throw error;
+        setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
+        return buy;
+    };
+
 
     // --- Stop Trading Logic ---
     const stopTrading = () => {
@@ -883,21 +921,32 @@ const SmartTrader = observer(() => {
                                     </div>
                                 </div>
                             ) : (tradeType !== 'CALL' && tradeType !== 'PUT') ? (
-                                <div className='smart-trader__row smart-trader__row--compact'>
+                                <div className='smart-trader__row smart-trader__row--four'>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-ou-pred-pre'>{localize('Over/Under prediction (pre-loss)')}</label>
                                         <input id='st-ou-pred-pre' type='number' min={0} max={9} value={ouPredPreLoss}
                                             onChange={e => setOuPredPreLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
                                     </div>
                                     <div className='smart-trader__field'>
-                                        <label htmlFor='st-ou-pred-post'>{localize('Over/Under prediction (after loss)')}</label>
+                                        <label htmlFor='st-ou-pred-post'>{localize('Over/Under prediction (post-loss)')}</label>
                                         <input id='st-ou-pred-post' type='number' min={0} max={9} value={ouPredPostLoss}
                                             onChange={e => setOuPredPostLoss(Math.max(0, Math.min(9, Number(e.target.value))))} />
+                                    </div>
+                                    <div className='smart-trader__field'>
+                                        <label htmlFor='st-ou-pred-after'>{localize('After loss barrier (auto-calculated)')}</label>
+                                        <input id='st-ou-pred-after' type='number' min={0} max={9} value={ouPredAfterLoss}
+                                            onChange={e => setOuPredAfterLoss(Math.max(0, Math.min(9, Number(e.target.value))))}
+                                            title={`Next digit after barrier ${ouPredPreLoss}`} />
                                     </div>
                                     <div className='smart-trader__field'>
                                         <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
                                         <input id='st-martingale' type='number' min={1} step='0.1' value={martingaleMultiplier}
                                             onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))} />
+                                    </div>
+                                    <div className='smart-trader__field'>
+                                        <label htmlFor='st-steps'>{localize('Martingale steps')}</label>
+                                        <input id='st-steps' type='number' min={1} max={20} value={martingaleSteps}
+                                            onChange={e => setMartingaleSteps(Math.max(1, Math.min(20, Number(e.target.value))))} />
                                     </div>
                                 </div>
                             ) : null}
@@ -906,7 +955,7 @@ const SmartTrader = observer(() => {
 
                         {/* Higher/Lower Barrier Controls */}
                         {(tradeType === 'CALL' || tradeType === 'PUT') && (
-                            <div className='smart-trader__row smart-trader__row--two'>
+                            <div className='smart-trader__row smart-trader__row--three'>
                                 <div className='smart-trader__field'>
                                     <label htmlFor='st-barrier'>{localize('Barrier')}</label>
                                     <input
@@ -927,6 +976,11 @@ const SmartTrader = observer(() => {
                                         value={martingaleMultiplier}
                                         onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
                                     />
+                                </div>
+                                <div className='smart-trader__field'>
+                                    <label htmlFor='st-steps-hl'>{localize('Martingale steps')}</label>
+                                    <input id='st-steps-hl' type='number' min={1} max={20} value={martingaleSteps}
+                                        onChange={e => setMartingaleSteps(Math.max(1, Math.min(20, Number(e.target.value))))} />
                                 </div>
                             </div>
                         )}
