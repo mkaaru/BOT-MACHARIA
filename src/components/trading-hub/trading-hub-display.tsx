@@ -41,6 +41,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [selectedTradeType, setSelectedTradeType] = useState<string>('all');
     const [isSmartTraderModalOpen, setIsSmartTraderModalOpen] = useState(false);
     const [selectedTradeSettings, setSelectedTradeSettings] = useState<TradeSettings | null>(null);
+    const [modalError, setModalError] = useState('');
     const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
     const [aiScanningPhase, setAiScanningPhase] = useState<'initializing' | 'analyzing' | 'evaluating' | 'recommending' | 'complete'>('initializing');
     const [currentAiMessage, setCurrentAiMessage] = useState('');
@@ -578,26 +579,41 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     const handleCloseModal = () => {
         setIsSmartTraderModalOpen(false);
-        setSelectedTradeSettings(null);
+        setModalError('');
     };
 
     return (
         <div className="trading-hub-scanner">
             {/* Smart Trader Modal */}
-            <Modal
-                is_open={isSmartTraderModalOpen}
-                title={`Smart Trader - ${selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}`}
-                toggleModal={handleCloseModal}
-                width="900px"
-                height="auto"
-            >
-                {selectedTradeSettings && (
-                    <SmartTraderWrapper
-                        initialSettings={selectedTradeSettings}
-                        onClose={handleCloseModal}
-                    />
-                )}
-            </Modal>
+            {isSmartTraderModalOpen && selectedTradeSettings && (
+                <Modal
+                    title={localize('Smart Trader')}
+                    is_open={isSmartTraderModalOpen}
+                    toggleModal={() => {
+                        setIsSmartTraderModalOpen(false);
+                        setModalError('');
+                    }}
+                    width="90vw"
+                    height="90vh"
+                >
+                    <Modal.Body>
+                        {modalError ? (
+                            <div className="modal-error">
+                                <Text color="loss-danger">{modalError}</Text>
+                                <button onClick={() => setModalError('')}>Try Again</button>
+                            </div>
+                        ) : (
+                            <SmartTraderWrapper
+                                initialSettings={selectedTradeSettings}
+                                onClose={() => {
+                                    setIsSmartTraderModalOpen(false);
+                                    setModalError('');
+                                }}
+                            />
+                        )}
+                    </Modal.Body>
+                </Modal>
+            )}
 
             <div className="scanner-header">
                 <div className="scanner-title">
