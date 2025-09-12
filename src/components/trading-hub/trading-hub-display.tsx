@@ -55,18 +55,31 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [maxAutoTrades] = useState(5); // Maximum number of auto trades before switching
     const [autoTradeStake, setAutoTradeStake] = useState(0.5); // Default initial stake
     const [autoTradeMartingale, setAutoTradeMartingale] = useState(1); // Default martingale multiplier
+    const [loadingCountdown, setLoadingCountdown] = useState(10); // Countdown for engagement
 
     const { run_panel: store } = useStore();
     const apiRef = useRef<any>(null);
 
-    // AI Scanning Messages with Trading Truths
+    // Countdown timer for engagement during loading
+    useEffect(() => {
+        if (connectionStatus === 'scanning' && loadingCountdown > 0) {
+            const timer = setTimeout(() => {
+                setLoadingCountdown(prev => prev - 1);
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [connectionStatus, loadingCountdown]);
+
+    // AI Scanning Messages with Trading Truths - More engaging
     const aiScanningMessages = {
         initializing: [
             '🔍 Initializing AI market scanner...',
             '🌐 Connecting to real-time market feeds...',
             '⚡ Loading advanced pattern recognition models...',
             '💡 Truth #1: Anything can happen in the markets...',
-            '🎯 Remember: Every moment in the market is unique...'
+            '🎯 Remember: Every moment in the market is unique...',
+            '🚀 Preparing quantum analysis algorithms...',
+            '💎 Scanning for high-probability opportunities...'
         ],
         analyzing: [
             '🧠 AI analyzing market volatility patterns...',
@@ -76,7 +89,10 @@ const TradingHubDisplay: React.FC = observer(() => {
             '⚙️ Running machine learning algorithms...',
             '💡 Truth #2: You don\'t need to know what happens next to profit...',
             '🔬 Truth #3: Wins and losses are randomly distributed...',
-            '⭐ An edge is just higher probability, not certainty...'
+            '⭐ An edge is just higher probability, not certainty...',
+            '⏱️ Almost ready! Finding the best opportunities...',
+            '🔥 High-confidence patterns detected!',
+            '💰 Profitable setups incoming...'
         ],
         evaluating: [
             '🤖 AI evaluating trading opportunities...',
@@ -122,7 +138,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         { value: 'o5u4_strategy', label: 'O5U4 Strategy' }
     ];
 
-    // AI message rotation effect
+    // AI message rotation effect - faster rotation for better engagement
     useEffect(() => {
         if (aiScanningPhase !== 'complete' && connectionStatus === 'scanning') {
             const currentMessages = aiScanningMessages[aiScanningPhase];
@@ -130,7 +146,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 const interval = setInterval(() => {
                     const randomIndex = Math.floor(Math.random() * currentMessages.length);
                     setCurrentAiMessage(currentMessages[randomIndex]);
-                }, 2500); // Change message every 2.5 seconds
+                }, 1500); // Faster rotation - every 1.5 seconds
 
                 return () => clearInterval(interval);
             }
@@ -186,12 +202,12 @@ const TradingHubDisplay: React.FC = observer(() => {
                         setAiScanningPhase('initializing');
                         setCurrentAiMessage(aiScanningMessages.initializing[0]);
                         setStatusMessage('🤖 AI initializing market analysis...');
-                    } else if (readySymbolsCount < 5) {
-                        // Keep scanning state until 5 markets are analyzed
+                    } else if (readySymbolsCount < 3) {
+                        // Reduced from 5 to 3 markets for faster loading
                         setAiScanningPhase('analyzing');
-                        const msgIndex = Math.floor((readySymbolsCount / 5) * aiScanningMessages.analyzing.length);
+                        const msgIndex = Math.floor((readySymbolsCount / 3) * aiScanningMessages.analyzing.length);
                         setCurrentAiMessage(aiScanningMessages.analyzing[Math.min(msgIndex, aiScanningMessages.analyzing.length - 1)]);
-                        setStatusMessage(`🧠 AI analyzing patterns... ${readySymbolsCount}/5 markets ready`);
+                        setStatusMessage(`🧠 AI analyzing patterns... ${readySymbolsCount}/3 markets ready`);
                         setConnectionStatus('scanning');
 
                         // Show which symbol is being processed
@@ -201,10 +217,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                             const displayName = symbolMap[currentSymbol] || currentSymbol;
                             setProcessingSymbol(displayName);
                         }
-                    } else if (readySymbolsCount === 5) {
-                        // Switch to ready state after 5 markets are analyzed
+                    } else if (readySymbolsCount === 3) {
+                        // Switch to ready state after 3 markets are analyzed (faster)
                         setAiScanningPhase('complete');
-                        setCurrentAiMessage('✅ AI analysis ready - 5 markets analyzed, loading interface...');
+                        setCurrentAiMessage('✅ AI analysis ready - 3 markets analyzed, loading interface...');
                         setStatusMessage('🚀 AI has identified trading opportunities - Interface loading...');
                         setConnectionStatus('ready');
                         setIsScanning(false);
@@ -1047,6 +1063,12 @@ const TradingHubDisplay: React.FC = observer(() => {
                                             <span className="indicator-dot active"></span>
                                             <span className="indicator-dot"></span>
                                             <span className="status-text">ACTIVE</span>
+                                            {loadingCountdown > 0 && (
+                                                <div className="countdown-display">
+                                                    <span className="countdown-timer">{loadingCountdown}s</span>
+                                                    <span className="countdown-label">to opportunities</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
