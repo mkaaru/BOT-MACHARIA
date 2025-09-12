@@ -436,19 +436,17 @@
     z-index: 1000;
     
     @media (max-width: 768px) {
-        position: relative;
+        position: static;
         min-height: auto;
         padding: 0.5rem 0;
         z-index: auto;
-        position: static;
     }
     
     @media (max-height: 600px) {
-        position: relative;
+        position: static;
         min-height: auto;
         padding: 0.25rem 0;
         z-index: auto;
-        position: static;
     }
     
     @media (max-width: 480px) {
