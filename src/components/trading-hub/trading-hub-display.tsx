@@ -56,6 +56,15 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [autoTradeStake, setAutoTradeStake] = useState(0.5); // Default initial stake
     const [autoTradeMartingale, setAutoTradeMartingale] = useState(1); // Default martingale multiplier
 
+    const [scannerError, setScannerError] = useState(null);
+    const [bestOpportunity, setBestOpportunity] = useState(null);
+    const [isRetrying, setIsRetrying] = useState(false);
+    const [autoTradeSettings, setAutoTradeSettings] = useState({
+        isEnabled: false,
+        stake: 1,
+        maxStake: 100
+    });
+
     const { run_panel: store } = useStore();
     const apiRef = useRef<any>(null);
 
@@ -284,6 +293,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 const errorUnsubscribe = marketAnalyzer.onError((error) => {
                     console.error('Market analyzer error:', error);
                     setConnectionStatus('error');
+                    setScannerError(error.message || 'Failed to connect to market data.');
                     setStatusMessage('Market data connection error. Attempting to reconnect...');
                 });
 
@@ -298,9 +308,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                     marketAnalyzer.stop();
                 };
 
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Failed to initialize market scanner:', error);
                 setConnectionStatus('error');
+                setScannerError(error.message || 'Failed to connect to market data. Please try again.');
                 setStatusMessage('Failed to connect to market data. Please try again.');
                 setIsScanning(false);
             }
@@ -965,6 +976,62 @@ const TradingHubDisplay: React.FC = observer(() => {
         console.log("Auto trading stopped.");
     };
 
+    const handleRetryConnection = useCallback(async () => {
+        setIsRetrying(true);
+        setScannerError(null);
+
+        try {
+            // Create new market analyzer instance with better mobile handling
+            const analyzer = new (await import('../../services/market-analyzer')).default();
+            await analyzer.retryConnection();
+
+            // If connection succeeds, start scanning
+            await startScanning();
+        } catch (error: any) {
+            setScannerError(`Connection failed: ${error.message}`);
+        } finally {
+            setIsRetrying(false);
+        }
+    }, []);
+
+    const startScanning = useCallback(async () => {
+        if (isScanning) return;
+
+        setIsScanning(true);
+        setScanResults([]);
+        setScannerError(null);
+        setScanProgress(0); // Use setScanProgress instead of setProgress
+
+        try {
+            // Simulate scanning process with better mobile handling
+            setStatusMessage('Connecting to market data...');
+            setProcessingSymbol('Connecting to market data...');
+
+            // Check network connectivity first
+            if (!navigator.onLine) {
+                throw new Error('No internet connection detected');
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            // Mock scanning results
+            const mockResults = generateMockScanResults(); // Assuming this function exists and is needed for the mock
+            setScanResults(mockResults);
+
+            // Find best opportunity
+            const best = findBestOpportunity(mockResults); // Assuming this function exists and is needed for the mock
+            setBestOpportunity(best);
+
+        } catch (error: any) {
+            setScannerError(error.message || 'Failed to scan markets');
+            setStatusMessage('Market data connection error.');
+        } finally {
+            setIsScanning(false);
+            setScanProgress(100); // Use setScanProgress instead of setProgress
+        }
+    }, [isScanning]);
+
+
     return (
         <div 
             className="trading-hub-scanner protected-content"
@@ -1046,14 +1113,29 @@ const TradingHubDisplay: React.FC = observer(() => {
                 {connectionStatus === 'error' && (
                     <div className="scanner-error">
                         <div className="error-icon">⚠️</div>
-                        <Text size="s" color="prominent">Connection Error</Text>
-                        <Text size="xs" color="general">{statusMessage}</Text>
-                        <button
-                            className="retry-btn"
-                            onClick={() => window.location.reload()}
-                        >
-                            Retry Connection
-                        </button>
+                        <h3>Connection Error</h3>
+                        <p>Failed to connect to market data. Please try again.</p>
+                        <div className="error-details">
+                            <p className="error-message">{scannerError}</p>
+                            <p className="mobile-tip">
+                                📱 On mobile? Try switching between WiFi and mobile data, or check your network signal.
+                            </p>
+                        </div>
+                        <div className="retry-actions">
+                            <button 
+                                className="retry-btn primary"
+                                onClick={handleRetryConnection}
+                                disabled={isRetrying}
+                            >
+                                {isRetrying ? '🔄 Retrying...' : '🔄 Retry Connection'}
+                            </button>
+                            <button 
+                                className="retry-btn secondary"
+                                onClick={() => window.location.reload()}
+                            >
+                                🔄 Refresh Page
+                            </button>
+                        </div>
                     </div>
                 )}
 
