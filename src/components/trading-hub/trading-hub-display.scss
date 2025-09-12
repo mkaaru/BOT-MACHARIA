@@ -9,13 +9,21 @@
     overflow: hidden;
     
     @media (max-width: 768px) {
-        height: 100vh;
-        min-height: 100vh;
+        height: auto;
+        min-height: calc(100vh - 80px);
+        padding-bottom: 2rem;
     }
     
     @media (max-height: 600px) {
-        height: 100vh;
-        min-height: 100vh;
+        height: auto;
+        min-height: calc(100vh - 60px);
+        padding-bottom: 1.5rem;
+    }
+    
+    @media (max-width: 480px) {
+        height: auto;
+        min-height: calc(100vh - 70px);
+        padding-bottom: 1rem;
     }
 
     /* Protection styles */
