@@ -9,7 +9,10 @@
     @media (max-width: 768px) {
         height: auto;
         min-height: 100vh;
+        max-height: none;
         overflow: visible;
+        overflow-y: visible;
+        position: relative;
     }
 
     .deriv-header {
