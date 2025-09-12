@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/deriv-logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deriv Bot</title>
+
+    <!-- Protection Meta Tags -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+
+    <!-- Protection Styles -->
+    <link rel="stylesheet" href="/css/protection.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Protection Script -->
+    <script src="/js/protection.js"></script>
+
+    <!-- Additional inline protection -->
+    <script>
+        // Immediate protection
+        document.onkeydown = function(e) {
+            if (e.keyCode === 123 || (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74))) {
+                return false;
+            }
+        };
+
+        // Disable right-click immediately
+        document.oncontextmenu = function() {
+            return false;
+        };
+    </script>
+  </body>
+</html>

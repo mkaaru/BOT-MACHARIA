@@ -59,6 +59,44 @@ const TradingHubDisplay: React.FC = observer(() => {
     const { run_panel: store } = useStore();
     const apiRef = useRef<any>(null);
 
+    // Enhanced protection for trading hub
+    useEffect(() => {
+        const protectTradingHub = () => {
+            // Disable dev tools detection
+            let devtools = false;
+            const interval = setInterval(() => {
+                if (window.outerHeight - window.innerHeight > 200 || window.outerWidth - window.innerWidth > 200) {
+                    if (!devtools) {
+                        devtools = true;
+                        // Hide sensitive content
+                        const tradingElements = document.querySelectorAll('.trading-hub-scanner, .best-recommendation-highlight, .volatility-card');
+                        tradingElements.forEach(el => {
+                            if (el instanceof HTMLElement) {
+                                el.style.visibility = 'hidden';
+                            }
+                        });
+                    }
+                } else {
+                    if (devtools) {
+                        devtools = false;
+                        // Show content again
+                        const tradingElements = document.querySelectorAll('.trading-hub-scanner, .best-recommendation-highlight, .volatility-card');
+                        tradingElements.forEach(el => {
+                            if (el instanceof HTMLElement) {
+                                el.style.visibility = 'visible';
+                            }
+                        });
+                    }
+                }
+            }, 1000);
+
+            return () => clearInterval(interval);
+        };
+
+        const cleanup = protectTradingHub();
+        return cleanup;
+    }, []);
+
     // AI Scanning Messages with Trading Truths
     const aiScanningMessages = {
         initializing: [
@@ -928,7 +966,11 @@ const TradingHubDisplay: React.FC = observer(() => {
     };
 
     return (
-        <div className="trading-hub-scanner">
+        <div 
+            className="trading-hub-scanner protected-content"
+            onContextMenu={(e) => e.preventDefault()}
+            onSelectStart={(e) => e.preventDefault()}
+            onDragStart={(e) => e.preventDefault()}
             {/* Smart Trader Modal - Only show for manual trading */}
             <Modal
                 is_open={isSmartTraderModalOpen && !isAutoTradingBest}

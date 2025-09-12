@@ -7,6 +7,31 @@
     color: #2c3e50;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     overflow: hidden;
+    
+    /* Protection styles */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    
+    /* Prevent text highlighting */
+    &::selection {
+        background: transparent;
+    }
+    
+    &::-moz-selection {
+        background: transparent;
+    }
+    
+    /* Disable drag and drop */
+    * {
+        -webkit-user-drag: none;
+        -khtml-user-drag: none;
+        -moz-user-drag: none;
+        -o-user-drag: none;
+        user-drag: none;
+    }
 
     .scanner-header {
         background: rgba(255, 255, 255, 0.5);
