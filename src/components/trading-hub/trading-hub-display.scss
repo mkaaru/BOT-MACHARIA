@@ -697,13 +697,17 @@
                         .mobile-tip {
                             font-size: 0.75rem;
                             color: #7f8c8d;
-                            background: rgba(255, 255, 255, 0.8);
-                            padding: 0.75rem;
+                            background: rgba(255, 255, 255, 0.9);
+                            padding: 1rem;
                             border-radius: 8px;
                             margin-top: 1rem;
+                            border-left: 4px solid #3498db;
+                            line-height: 1.4;
 
                             @media (max-width: 768px) {
                                 display: block;
+                                font-size: 0.8rem;
+                                padding: 1.2rem;
                             }
 
                             @media (min-width: 769px) {

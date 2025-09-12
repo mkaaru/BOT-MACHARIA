@@ -979,16 +979,37 @@ const TradingHubDisplay: React.FC = observer(() => {
     const handleRetryConnection = useCallback(async () => {
         setIsRetrying(true);
         setScannerError(null);
+        setConnectionStatus('connecting');
+        setStatusMessage('Retrying connection...');
 
         try {
-            // Create new market analyzer instance with better mobile handling
-            const analyzer = new (await import('../../services/market-analyzer')).default();
-            await analyzer.retryConnection();
+            // Check network connectivity first
+            if (!navigator.onLine) {
+                throw new Error('No internet connection. Please check your network settings.');
+            }
 
-            // If connection succeeds, start scanning
-            await startScanning();
+            // Clear previous analyzer instance
+            marketAnalyzer.stop();
+            
+            // Wait a moment for cleanup
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Restart the analyzer
+            marketAnalyzer.start();
+            
+            // Reset states
+            setSymbolsAnalyzed(0);
+            setScanProgress(0);
+            setScanResults([]);
+            setBestRecommendation(null);
+            setO5u4Opportunities([]);
+            
         } catch (error: any) {
-            setScannerError(`Connection failed: ${error.message}`);
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const mobileHint = isMobile ? ' Try switching between WiFi and mobile data.' : '';
+            setScannerError(`Connection failed: ${error.message}${mobileHint}`);
+            setConnectionStatus('error');
+            setStatusMessage('Connection failed. Please try again.');
         } finally {
             setIsRetrying(false);
         }
