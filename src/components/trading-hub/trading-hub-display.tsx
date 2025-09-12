@@ -1203,39 +1203,37 @@ const TradingHubDisplay: React.FC = observer(() => {
                                                 <span className="settings-title">Auto Trade Settings</span>
                                             </div>
                                             <div className="settings-controls">
-                                                <div className="control-row">
-                                                    <div className="control-group">
-                                                        <label className="control-label">Initial Stake (USD)</label>
-                                                        <input
-                                                            type="number"
-                                                            min="0.35"
-                                                            step="0.01"
-                                                            value={autoTradeStake}
-                                                            onChange={(e) => setAutoTradeStake(Number(e.target.value))}
-                                                            className="control-input control-input--large"
-                                                            disabled={isAutoTradingBest}
-                                                        />
-                                                    </div>
-                                                    <div className="control-group">
-                                                        <label className="control-label">Martingale Multiplier</label>
-                                                        <input
-                                                            type="number"
-                                                            min="1"
-                                                            step="0.1"
-                                                            value={autoTradeMartingale}
-                                                            onChange={(e) => setAutoTradeMartingale(Number(e.target.value))}
-                                                            className="control-input control-input--large"
-                                                            disabled={isAutoTradingBest}
-                                                        />
-                                                    </div>
+                                                <div className="control-group">
+                                                    <label className="control-label">Initial Stake (USD)</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0.35"
+                                                        step="0.01"
+                                                        value={autoTradeStake}
+                                                        onChange={(e) => setAutoTradeStake(Number(e.target.value))}
+                                                        className="control-input"
+                                                        disabled={isAutoTradingBest}
+                                                        placeholder="0.50"
+                                                    />
                                                 </div>
-                                                <div className="control-row">
-                                                    <div className="control-group control-group--center">
-                                                        <label className="control-label">Current Stake</label>
-                                                        <div className="current-stake-display">
-                                                            ${autoTradeCount > 0 ? (autoTradeStake * Math.pow(autoTradeMartingale, autoTradeCount)).toFixed(2) : autoTradeStake.toFixed(2)}
-                                                        </div>
-                                                    </div>
+                                                <div className="control-group">
+                                                    <label className="control-label">Martingale Multiplier</label>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        step="0.1"
+                                                        value={autoTradeMartingale}
+                                                        onChange={(e) => setAutoTradeMartingale(Number(e.target.value))}
+                                                        className="control-input"
+                                                        disabled={isAutoTradingBest}
+                                                        placeholder="1.0"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="current-stake-section">
+                                                <label className="current-stake-label">Current Stake</label>
+                                                <div className="current-stake-display">
+                                                    ${autoTradeCount > 0 ? (autoTradeStake * Math.pow(autoTradeMartingale, autoTradeCount)).toFixed(2) : autoTradeStake.toFixed(2)}
                                                 </div>
                                             </div>
                                         </div>

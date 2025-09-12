@@ -367,49 +367,6 @@
                         filter: drop-shadow(0 0 20px rgba(0, 188, 255, 0.4));
                     }
 
-                    .scanning-content {
-                        position: relative;
-                        z-index: 3;
-                    }
-
-                    .ai-status-header {
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 16px;
-                        margin-bottom: 28px;
-
-                        .ai-status-title {
-                            font-size: 18px;
-                            font-weight: 700;
-                            background: linear-gradient(135deg, #00BCFF, #00FFC4);
-                            -webkit-background-clip: text;
-                            -webkit-text-fill-color: transparent;
-                            background-clip: text;
-                            text-shadow: 0 0 20px rgba(0, 188, 255, 0.3);
-                        }
-
-                        .scanning-dots {
-                            display: flex;
-                            gap: 6px;
-
-                            .dot {
-                                width: 10px;
-                                height: 10px;
-                                border-radius: 50%;
-                                background: linear-gradient(135deg, #00BCFF, #00D4FF);
-                                box-shadow: 
-                                    0 0 12px rgba(0, 188, 255, 0.6),
-                                    0 0 24px rgba(0, 188, 255, 0.3);
-                                animation: quantumDots 2s ease-in-out infinite;
-
-                                &:nth-child(1) { animation-delay: 0s; }
-                                &:nth-child(2) { animation-delay: 0.4s; }
-                                &:nth-child(3) { animation-delay: 0.8s; }
-                            }
-                        }
-                    }
-
                     .ai-current-message {
                         font-weight: 600;
                         font-size: 16px;
@@ -575,119 +532,142 @@
                         }
                     }
 
-                    .ai-disclaimer {
-                        text-align: center;
-                        margin-top: 20px;
-                        font-size: 12px;
-                        color: rgba(255, 255, 255, 0.6);
-                        opacity: 0.8;
-                    }
-
                     /* Auto Trade Settings */
                     .auto-trade-settings {
-                        margin-top: 1.5rem;
-                        padding: 1.25rem;
-                        background: rgba(0, 188, 255, 0.05);
-                        border: 1px solid rgba(0, 188, 255, 0.2);
-                        border-radius: 12px;
-                        display: flex;
-                        flex-direction: column;
-                        gap: 1rem;
+                        margin: 1.5rem 0;
+                        padding: 1.5rem;
+                        background: linear-gradient(135deg, rgba(0, 188, 255, 0.08) 0%, rgba(0, 255, 196, 0.05) 100%);
+                        border: 1px solid rgba(0, 188, 255, 0.25);
+                        border-radius: 16px;
+                        box-shadow: 0 4px 20px rgba(0, 188, 255, 0.1);
 
                         .settings-header {
                             display: flex;
                             align-items: center;
                             justify-content: center;
-                            gap: 0.5rem;
-                            font-size: 1rem;
-                            font-weight: 700;
-                            color: #00FFC4;
-                            text-shadow: 0 0 10px rgba(0, 255, 196, 0.4);
-                            text-align: center;
+                            gap: 0.75rem;
+                            margin-bottom: 2rem;
+
+                            .settings-icon {
+                                font-size: 1.25rem;
+                                animation: rotate 3s linear infinite;
+                            }
+
+                            .settings-title {
+                                font-size: 1.125rem;
+                                font-weight: 700;
+                                color: #00FFC4;
+                                text-shadow: 0 0 12px rgba(0, 255, 196, 0.5);
+                                letter-spacing: 0.5px;
+                            }
                         }
 
                         .settings-controls {
-                            display: flex;
-                            flex-direction: column;
-                            gap: 1rem;
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            gap: 2rem;
+                            margin-bottom: 1.5rem;
 
-                            .control-row {
+                            .control-group {
                                 display: flex;
-                                justify-content: center;
-                                gap: 2rem;
-                                flex-wrap: wrap;
+                                flex-direction: column;
+                                gap: 0.75rem;
 
-                                .control-group {
-                                    display: flex;
-                                    flex-direction: column;
-                                    align-items: center;
-                                    gap: 0.5rem;
-                                    min-width: 140px;
+                                .control-label {
+                                    font-size: 0.9rem;
+                                    font-weight: 600;
+                                    color: rgba(255, 255, 255, 0.95);
+                                    text-align: center;
+                                    margin-bottom: 0.5rem;
+                                    letter-spacing: 0.3px;
+                                }
 
-                                    &.control-group--center {
-                                        flex: 1;
-                                        max-width: 200px;
+                                .control-input {
+                                    width: 100%;
+                                    padding: 1rem 1.25rem;
+                                    background: rgba(255, 255, 255, 0.08);
+                                    border: 2px solid rgba(0, 188, 255, 0.3);
+                                    border-radius: 12px;
+                                    color: #00FFC4;
+                                    font-size: 1.1rem;
+                                    font-weight: 700;
+                                    text-shadow: 0 0 8px rgba(0, 255, 196, 0.4);
+                                    text-align: center;
+                                    transition: all 0.3s ease;
+
+                                    &::placeholder {
+                                        color: rgba(0, 255, 196, 0.5);
                                     }
 
-                                    .control-label {
-                                        font-size: 0.875rem;
-                                        font-weight: 600;
-                                        color: rgba(255, 255, 255, 0.9);
-                                        text-align: center;
+                                    &:focus {
+                                        outline: none;
+                                        border-color: #00BCFF;
+                                        background: rgba(255, 255, 255, 0.12);
+                                        box-shadow: 0 0 16px rgba(0, 188, 255, 0.5);
+                                        transform: translateY(-1px);
                                     }
 
-                                    .control-input {
-                                        width: 100%;
-                                        padding: 0.75rem 1rem;
-                                        background: rgba(0, 188, 255, 0.1);
-                                        border: 1px solid rgba(0, 188, 255, 0.3);
-                                        border-radius: 8px;
-                                        color: #00FFC4;
-                                        font-size: 0.875rem;
-                                        font-weight: 600;
-                                        text-shadow: 0 0 8px rgba(0, 255, 196, 0.3);
-                                        text-align: center;
-
-                                        &.control-input--large {
-                                            padding: 1rem 1.25rem;
-                                            font-size: 1rem;
-                                            min-width: 140px;
-                                        }
-
-                                        &::placeholder {
-                                            color: rgba(0, 255, 196, 0.5);
-                                        }
-
-                                        &:focus {
-                                            outline: none;
-                                            border-color: #00BCFF;
-                                            box-shadow: 0 0 12px rgba(0, 188, 255, 0.4);
-                                        }
-
-                                        &:disabled {
-                                            opacity: 0.6;
-                                            cursor: not-allowed;
-                                        }
-                                    }
-
-                                    .current-stake-display {
-                                        padding: 1rem 1.25rem;
-                                        background: rgba(0, 255, 196, 0.1);
-                                        border: 1px solid rgba(0, 255, 196, 0.3);
-                                        border-radius: 8px;
-                                        color: #00FFC4;
-                                        font-size: 1rem;
-                                        font-weight: 700;
-                                        text-shadow: 0 0 8px rgba(0, 255, 196, 0.4);
-                                        text-align: center;
-                                        min-width: 140px;
+                                    &:disabled {
+                                        opacity: 0.6;
+                                        cursor: not-allowed;
                                     }
                                 }
                             }
                         }
+
+                        .current-stake-section {
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            gap: 0.75rem;
+                            padding: 1.25rem;
+                            background: linear-gradient(135deg, rgba(0, 255, 196, 0.12) 0%, rgba(0, 188, 255, 0.08) 100%);
+                            border: 1px solid rgba(0, 255, 196, 0.3);
+                            border-radius: 12px;
+                            margin-top: 1rem;
+
+                            .current-stake-label {
+                                font-size: 0.9rem;
+                                font-weight: 600;
+                                color: rgba(255, 255, 255, 0.9);
+                                text-align: center;
+                                letter-spacing: 0.3px;
+                            }
+
+                            .current-stake-display {
+                                padding: 0.75rem 1.5rem;
+                                background: rgba(0, 255, 196, 0.15);
+                                border: 2px solid rgba(0, 255, 196, 0.4);
+                                border-radius: 10px;
+                                color: #00FFC4;
+                                font-size: 1.25rem;
+                                font-weight: 800;
+                                text-shadow: 0 0 12px rgba(0, 255, 196, 0.6);
+                                text-align: center;
+                                min-width: 120px;
+                                box-shadow: 0 2px 12px rgba(0, 255, 196, 0.2);
+                            }
+                        }
+
+                        @keyframes rotate {
+                            from { transform: rotate(0deg); }
+                            to { transform: rotate(360deg); }
+                        }
+
+                        @media (max-width: 768px) {
+                            padding: 1.25rem;
+
+                            .settings-controls {
+                                grid-template-columns: 1fr;
+                                gap: 1.5rem;
+                            }
+
+                            .current-stake-section {
+                                padding: 1rem;
+                            }
+                        }
                     }
 
-                    // Enhanced Animations
                     @keyframes scanningBeam {
                         0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
                         100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
