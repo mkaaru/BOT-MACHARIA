@@ -971,6 +971,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             onContextMenu={(e) => e.preventDefault()}
             onSelectStart={(e) => e.preventDefault()}
             onDragStart={(e) => e.preventDefault()}
+        >
             {/* Smart Trader Modal - Only show for manual trading */}
             <Modal
                 is_open={isSmartTraderModalOpen && !isAutoTradingBest}
