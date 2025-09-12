@@ -1,0 +1,36 @@
+while am on mobile , am not able to scroll the site when am the market scanner page , looks blank on a small page but on a laptop screen looks ok
+
+MK
+
+smartrader1989
+Assistant
+11 minutes ago
+I can see the issue with mobile scrolling on the market scanner page. Looking at the screenshots, the mobile view appears blank and isn't scrollable, while the desktop version works fine. This is a common issue with mobile layouts where the container has overflow:hidden or improper height calculations.
+
+Let me fix the mobile responsive issues in the trading hub display styles:
+
+src/components/trading-hub/trading-hub-display.scss
+Fix mobile scrolling and layout issues, Fix scanner content mobile layout, Fix scanner header mobile padding
+Now let me also ensure the overall app layout doesn't interfere with mobile scrolling by updating the layout styles:
+
+src/components/layout/layout.scss
+Fix main layout for mobile scrolling
+Let me also check if there's a main body component that might need adjustment:
+
+src/components/layout/main-body/main-body.scss
+Fix main body mobile layout
+The changes I've made address the mobile scrolling issues by:
+
+Enabling scrolling on mobile: Changed overflow: hidden to overflow-y: auto for mobile devices
+Adding touch scrolling support: Added -webkit-overflow-scrolling: touch for smoother iOS scrolling
+Fixing height calculations: Changed from fixed height: 100vh to min-height: 100vh on mobile
+Adjusting flex behavior: Changed flex: 1 to flex: none on mobile to prevent content compression
+Reducing padding: Adjusted padding for smaller screens to maximize content space
+Layout container fixes: Updated the main layout containers to allow scrolling on mobile
+These changes will ensure that:
+
+The market scanner page is scrollable on mobile devices
+Content is properly visible and accessible
+Touch scrolling works smoothly on iOS devices
+The layout adapts properly to different screen sizes
+The mobile version should now display the market scanner content properly and allow users to scroll through all the trading opportunities and analysis results.
