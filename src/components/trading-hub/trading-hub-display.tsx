@@ -1058,129 +1058,61 @@ const TradingHubDisplay: React.FC = observer(() => {
                 )}
 
                 {(connectionStatus === 'connecting' || connectionStatus === 'scanning') && (
-                    <div className="ai-scanner-container">
-                        <div className="ai-scanner-backdrop">
-                            <div className="neural-network-bg">
-                                <div className="neural-node"></div>
-                                <div className="neural-node"></div>
-                                <div className="neural-node"></div>
-                                <div className="neural-node"></div>
-                                <div className="neural-node"></div>
-                            </div>
-                        </div>
-
-                        <div className="ai-scanner-content">
-                            <div className="ai-core-display">
-                                <div className="ai-brain-container">
-                                    <div className="brain-pulse">
-                                        <div className="brain-icon">🧠</div>
-                                        <div className="pulse-ring"></div>
-                                        <div className="pulse-ring pulse-ring-2"></div>
-                                        <div className="pulse-ring pulse-ring-3"></div>
-                                    </div>
-                                </div>
-
-                                <div className="ai-status-display">
-                                    <div className="status-title">
-                                        <Text size="l" weight="bold" color="prominent">
-                                            AI Market Scanner
-                                        </Text>
-                                        <div className="scanning-indicator">
-                                            <span className="indicator-dot active"></span>
-                                            <span className="indicator-dot active"></span>
-                                            <span className="indicator-dot"></span>
-                                            <span className="status-text">ACTIVE</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="ai-message-display">
-                                        <Text size="s" color="prominent" className="current-message">
-                                            {currentAiMessage || statusMessage}
-                                        </Text>
-                                    </div>
-
-                                    {processingSymbol && (
-                                        <div className="current-analysis">
-                                            <div className="analysis-header">
-                                                <span className="analysis-icon">🔍</span>
-                                                <Text size="s" color="general">Analyzing</Text>
-                                            </div>
-                                            <div className="symbol-display">
-                                                <Text size="s" weight="bold" color="prominent">{processingSymbol}</Text>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                    <div className="scanner-loading">
+                        <div className="loading-container">
+                            <div className="loading-header">
+                                <div className="brain-icon">🧠</div>
+                                <Text size="l" weight="bold" color="prominent">
+                                    AI Market Scanner Active
+                                </Text>
                             </div>
 
-                            <div className="analysis-progress-section">
-                                <div className="progress-header">
-                                    <Text size="s" color="prominent">Market Analysis Progress</Text>
-                                    <Text size="xs" color="general">{symbolsAnalyzed}/{totalSymbols} volatility indices</Text>
-                                </div>
-                                <div className="ai-progress-container">
-                                    <div className="progress-track">
+                            <div className="loading-content">
+                                <div className="scanner-icon">🔍</div>
+                                <Text size="s" color="prominent" className="scanning-text">
+                                    {currentAiMessage || `AI Analysis: ${symbolsAnalyzed}/${totalSymbols} volatility indices processed`}
+                                </Text>
+
+                                {processingSymbol && (
+                                    <div className="processing-symbol">
+                                        <Text size="s" color="general">Processing: {processingSymbol}</Text>
+                                    </div>
+                                )}
+
+                                <div className="progress-section">
+                                    <div className="progress-bar">
                                         <div
-                                            className="progress-fill-gradient"
+                                            className="progress-fill"
                                             style={{ width: `${scanProgress}%` }}
-                                        >
-                                            <div className="progress-glow"></div>
-                                        </div>
+                                        ></div>
                                     </div>
-                                    <div className="progress-percentage">
-                                        {scanProgress.toFixed(0)}%
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="ai-capabilities-grid">
-                                <div className="capability-card">
-                                    <div className="capability-icon">🎯</div>
-                                    <div className="capability-name">Pattern Recognition</div>
-                                </div>
-                                <div className="capability-card">
-                                    <div className="capability-icon">📊</div>
-                                    <div className="capability-name">Statistical Analysis</div>
-                                </div>
-                                <div className="capability-card">
-                                    <div className="capability-icon">⚡</div>
-                                    <div className="capability-name">Real-time Processing</div>
-                                </div>
-                                <div className="capability-card">
-                                    <div className="capability-icon">🛡️</div>
-                                    <div className="capability-name">Risk Assessment</div>
-                                </div>
-                            </div>
-
-                            <div className="trading-principles-display">
-                                <div className="principles-header">
-                                    <Text size="s" weight="bold" color="prominent">
-                                        📚 Fundamental Trading Principles
+                                    <Text size="xs" color="general">
+                                        {symbolsAnalyzed}/{totalSymbols} markets analyzed
                                     </Text>
                                 </div>
-                                <div className="principles-grid">
-                                    <div className="principle-item">
-                                        <span className="principle-number">1</span>
-                                        <span className="principle-text">Anything can happen in markets</span>
-                                    </div>
-                                    <div className="principle-item">
-                                        <span className="principle-number">2</span>
-                                        <span className="principle-text">Edge = Higher probability outcomes</span>
-                                    </div>
-                                    <div className="principle-item">
-                                        <span className="principle-number">3</span>
-                                        <span className="principle-text">Random distribution of results</span>
-                                    </div>
-                                    <div className="principle-item">
-                                        <span className="principle-number">4</span>
-                                        <span className="principle-text">Every moment is unique</span>
+
+                                <div className="capabilities-list">
+                                    <div className="capability-item">🎯 Pattern Recognition</div>
+                                    <div className="capability-item">📊 Statistical Analysis</div>
+                                    <div className="capability-item">⚡ Real-time Processing</div>
+                                    <div className="capability-item">🛡️ Risk Assessment</div>
+                                </div>
+
+                                <div className="trading-principles">
+                                    <Text size="s" weight="bold" color="prominent">
+                                        📚 5 Fundamental Truths of Trading
+                                    </Text>
+                                    <div className="principles-list">
+                                        <div className="principle">1. Anything can happen</div>
+                                        <div className="principle">2. You don't need to know what happens next to profit</div>
+                                        <div className="principle">3. Random distribution between wins and losses</div>
+                                        <div className="principle">4. An edge = higher probability indication</div>
+                                        <div className="principle">5. Every moment in the market is unique</div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="ai-footer">
-                                <Text size="xs" color="general" className="ai-disclaimer">
-                                    🤖 Advanced AI analyzing {totalSymbols} volatility indices using quantum pattern recognition algorithms
+                                <Text size="xs" color="general" className="disclaimer">
+                                    🤖 AI is analyzing market patterns using these fundamental trading principles
                                 </Text>
                             </div>
                         </div>
