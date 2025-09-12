@@ -632,6 +632,17 @@
                 grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
                 gap: 2rem;
                 margin-top: 2rem;
+
+                @media (max-width: 768px) {
+                    grid-template-columns: 1fr;
+                    gap: 1.5rem;
+                    margin-top: 1.5rem;
+                }
+
+                @media (max-width: 480px) {
+                    gap: 1rem;
+                    margin-top: 1rem;
+                }
             }
 
             .volatility-card {
@@ -1376,151 +1387,6 @@
                     }
                 }
             }
-
-            .real-time-badge {
-                background: linear-gradient(45deg, #ff6b6b, #ee5a24);
-                color: white;
-                padding: 2px 6px;
-                border-radius: 4px;
-                font-size: 10px;
-                font-weight: bold;
-                margin-left: 8px;
-                animation: pulse 2s infinite;
-            }
-
-            @keyframes pulse {
-                0% { opacity: 0.7; }
-                50% { opacity: 1; }
-                100% { opacity: 0.7; }
-            }
-
-
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-
-            /* Responsive design */
-            @media (max-width: 768px) {
-                .trading-hub-scanner {
-                    .scanner-header {
-                        padding: 1rem;
-
-                        .scanner-controls {
-                            flex-direction: column;
-                            align-items: stretch;
-                            gap: 1rem;
-                        }
-
-                        .scanner-title .title-with-status {
-                            flex-direction: column;
-                            align-items: flex-start;
-                            gap: 0.5rem;
-
-                            h1 {
-                                font-size: 1.5rem;
-                            }
-                        }
-                    }
-
-                    .scanner-content {
-                        padding: 1rem;
-
-                        .volatility-cards-grid {
-                            grid-template-columns: 1fr;
-                            gap: 1.5rem;
-                        }
-
-                        .volatility-card {
-                            .volatility-card-header {
-                                padding: 1.25rem 1.25rem 0.75rem;
-
-                                .volatility-symbol-info {
-                                    .symbol-main .symbol-icon {
-                                        font-size: 1.5rem;
-                                        padding: 0.5rem;
-                                    }
-                                }
-
-                                .best-recommendation-banner {
-                                    padding: 0.5rem 0.75rem;
-
-                                    .best-rec-info {
-                                        .best-rec-strategy {
-                                            font-size: 0.75rem;
-                                        }
-
-                                        .best-rec-confidence {
-                                            font-size: 1rem;
-                                        }
-                                    }
-                                }
-                            }
-
-                            .volatility-recommendations-section {
-                                padding: 1.25rem;
-
-                                .recommendations-grid {
-                                    .recommendation-card {
-                                        padding: 1rem;
-
-                                        .confidence-display .confidence-circle {
-                                            width: 70px;
-                                            height: 70px;
-
-                                            .confidence-inner {
-                                                width: 50px;
-                                                height: 50px;
-
-                                                .confidence-percent {
-                                                    font-size: 0.875rem;
-                                                }
-                                            }
-                                        }
-
-                                        .market-breakdown .breakdown-stats {
-                                            gap: 0.5rem;
-
-                                            .stat-item {
-                                                padding: 0.5rem;
-
-                                                .stat-label {
-                                                    font-size: 0.5rem;
-                                                }
-
-                                                .stat-value {
-                                                    font-size: 0.75rem;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                .special-strategy-banner {
-                                    margin: 0 1.25rem 1.25rem;
-                                    padding: 0.75rem;
-
-                                    .special-strategy-content {
-                                        .special-icon {
-                                            font-size: 1.5rem;
-                                        }
-
-                                        .special-score {
-                                            font-size: 1.25rem;
-                                            padding: 0.375rem 0.5rem;
-                                        }
-                                    }
-                                }
-                            }
-
-                            .scanner-summary .summary-stats {
-                                grid-template-columns: repeat(2, 1fr);
-                                gap: 1rem;
-                            }
-                        }
-                    }
-                }
-            }
         }
 
         .scanner-results {
@@ -1734,6 +1600,17 @@
                 grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
                 gap: 2rem;
                 margin-top: 2rem;
+
+                @media (max-width: 768px) {
+                    grid-template-columns: 1fr;
+                    gap: 1.5rem;
+                    margin-top: 1.5rem;
+                }
+
+                @media (max-width: 480px) {
+                    gap: 1rem;
+                    margin-top: 1rem;
+                }
             }
 
             .volatility-card {
