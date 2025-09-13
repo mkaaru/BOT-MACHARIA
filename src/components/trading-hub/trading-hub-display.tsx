@@ -6,6 +6,7 @@ import { localize } from '@deriv-com/translations';
 import marketAnalyzer from '@/services/market-analyzer';
 import SmartTraderWrapper from './smart-trader-wrapper';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
+import { useStore } from '@/hooks/useStore';
 import './trading-hub-display.scss';
 
 interface ScanResult {
@@ -27,6 +28,7 @@ interface TradeSettings {
 }
 
 const TradingHubDisplay: React.FC = observer(() => {
+    const { run_panel } = useStore();
     const [isScanning, setIsScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState(0);
     const [scanResults, setScanResults] = useState<ScanResult[]>([]);
@@ -45,6 +47,15 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [aiScanningPhase, setAiScanningPhase] = useState<'initializing' | 'analyzing' | 'evaluating' | 'recommending' | 'complete'>('initializing');
     const [currentAiMessage, setCurrentAiMessage] = useState('');
     const [processingSymbol, setProcessingSymbol] = useState<string>('');
+    
+    // Auto Trade Best states
+    const [isAutoTrading, setIsAutoTrading] = useState(false);
+    const [autoTradeCount, setAutoTradeCount] = useState(0);
+    const [maxAutoTrades] = useState(10);
+    const [currentAutoContract, setCurrentAutoContract] = useState<any>(null);
+    const [lastTradedRecommendation, setLastTradedRecommendation] = useState<string>('');
+    const [autoTradeStake, setAutoTradeStake] = useState(0.5);
+    const [tradingSocket, setTradingSocket] = useState<WebSocket | null>(null);
 
     // AI Scanning Messages with Trading Truths
     const aiScanningMessages = {
@@ -253,6 +264,209 @@ const TradingHubDisplay: React.FC = observer(() => {
             marketAnalyzer.stop();
         };
     }, []);
+
+    // Cleanup auto trading on unmount
+    useEffect(() => {
+        return () => {
+            if (isAutoTrading) {
+                stopAutoTrading();
+            }
+        };
+    }, [isAutoTrading, stopAutoTrading]);
+
+    // Auto Trade Best functionality
+    const initializeTradingSocket = useCallback(() => {
+        if (tradingSocket) return tradingSocket;
+
+        const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+        
+        ws.onopen = () => {
+            console.log('✅ Trading WebSocket connected');
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            handleTradingMessage(data);
+        };
+
+        ws.onerror = (error) => {
+            console.error('❌ Trading WebSocket error:', error);
+        };
+
+        ws.onclose = () => {
+            console.log('🔌 Trading WebSocket disconnected');
+            setTradingSocket(null);
+        };
+
+        setTradingSocket(ws);
+        return ws;
+    }, [tradingSocket]);
+
+    const handleTradingMessage = useCallback((data: any) => {
+        if (data.error) {
+            console.error('Trading API error:', data.error);
+            return;
+        }
+
+        if (data.buy) {
+            console.log('✅ Contract purchased:', data.buy);
+            setCurrentAutoContract(data.buy);
+            run_panel.setHasOpenContract(true);
+            
+            // Subscribe to contract updates
+            const ws = tradingSocket;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    proposal_open_contract: 1,
+                    contract_id: data.buy.contract_id,
+                    subscribe: 1
+                }));
+            }
+        }
+
+        if (data.proposal_open_contract) {
+            const contract = data.proposal_open_contract;
+            console.log('📊 Contract update:', contract);
+            
+            if (contract.is_sold) {
+                const profit = parseFloat(contract.profit || '0');
+                const isWin = profit > 0;
+                
+                console.log(`🎯 Contract completed: ${isWin ? 'WIN' : 'LOSS'} - Profit: $${profit}`);
+                
+                setCurrentAutoContract(null);
+                run_panel.setHasOpenContract(false);
+                setAutoTradeCount(prev => prev + 1);
+                
+                // Check if should continue auto trading
+                if (autoTradeCount + 1 >= maxAutoTrades) {
+                    stopAutoTrading();
+                } else {
+                    // Wait a bit before next trade
+                    setTimeout(() => {
+                        if (isAutoTrading && bestRecommendation) {
+                            executeAutoTrade(bestRecommendation);
+                        }
+                    }, 2000);
+                }
+            }
+        }
+    }, [tradingSocket, autoTradeCount, maxAutoTrades, isAutoTrading, bestRecommendation]);
+
+    const executeAutoTrade = useCallback(async (recommendation: TradeRecommendation) => {
+        if (!recommendation || !isAutoTrading) return;
+
+        const ws = initializeTradingSocket();
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            console.error('❌ Trading socket not ready');
+            return;
+        }
+
+        // Create unique identifier for this recommendation
+        const recId = `${recommendation.symbol}-${recommendation.strategy}-${recommendation.barrier}-${recommendation.timestamp}`;
+        
+        // Skip if we already traded this exact recommendation
+        if (recId === lastTradedRecommendation) {
+            return;
+        }
+
+        const tradeTypeMap: Record<string, string> = {
+            'over': 'DIGITOVER',
+            'under': 'DIGITUNDER',
+            'even': 'DIGITEVEN',
+            'odd': 'DIGITODD',
+            'matches': 'DIGITMATCH',
+            'differs': 'DIGITDIFF'
+        };
+
+        const contractType = tradeTypeMap[recommendation.strategy];
+        if (!contractType) {
+            console.error('❌ Unknown strategy:', recommendation.strategy);
+            return;
+        }
+
+        // Prepare purchase parameters
+        const purchaseParams: any = {
+            buy: 1,
+            price: autoTradeStake,
+            subscribe: 1,
+            parameters: {
+                contract_type: contractType,
+                symbol: recommendation.symbol,
+                duration: 1,
+                duration_unit: 't'
+            }
+        };
+
+        // Add barrier/prediction based on strategy
+        if (recommendation.strategy === 'over' || recommendation.strategy === 'under') {
+            purchaseParams.parameters.barrier = recommendation.barrier;
+        } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
+            purchaseParams.parameters.prediction = parseInt(recommendation.barrier);
+        }
+
+        try {
+            console.log(`🚀 Auto trading: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${symbolMap[recommendation.symbol]} (${recommendation.confidence.toFixed(1)}% confidence)`);
+            
+            ws.send(JSON.stringify(purchaseParams));
+            setLastTradedRecommendation(recId);
+            
+        } catch (error) {
+            console.error('❌ Failed to execute auto trade:', error);
+        }
+    }, [isAutoTrading, autoTradeStake, lastTradedRecommendation, initializeTradingSocket, symbolMap]);
+
+    const startAutoTrading = useCallback(() => {
+        if (isAutoTrading) return;
+        
+        setIsAutoTrading(true);
+        setAutoTradeCount(0);
+        setLastTradedRecommendation('');
+        
+        // Set run panel to indicate auto trading is active
+        run_panel.setIsRunning(true);
+        run_panel.run_id = `auto-trade-best-${Date.now()}`;
+        
+        console.log('🎯 Auto Trade Best started');
+        
+        // Execute first trade if best recommendation exists
+        if (bestRecommendation) {
+            executeAutoTrade(bestRecommendation);
+        }
+    }, [isAutoTrading, bestRecommendation, executeAutoTrade, run_panel]);
+
+    const stopAutoTrading = useCallback(() => {
+        if (!isAutoTrading) return;
+        
+        setIsAutoTrading(false);
+        setCurrentAutoContract(null);
+        setLastTradedRecommendation('');
+        
+        // Update run panel
+        run_panel.setIsRunning(false);
+        run_panel.setHasOpenContract(false);
+        
+        if (tradingSocket) {
+            tradingSocket.close();
+            setTradingSocket(null);
+        }
+        
+        console.log('🛑 Auto Trade Best stopped');
+    }, [isAutoTrading, tradingSocket, run_panel]);
+
+    // Auto execute trades when best recommendation changes
+    useEffect(() => {
+        if (isAutoTrading && bestRecommendation && !currentAutoContract) {
+            const recId = `${bestRecommendation.symbol}-${bestRecommendation.strategy}-${bestRecommendation.barrier}-${bestRecommendation.timestamp}`;
+            
+            // Only trade if this is a new recommendation
+            if (recId !== lastTradedRecommendation) {
+                setTimeout(() => {
+                    executeAutoTrade(bestRecommendation);
+                }, 1000);
+            }
+        }
+    }, [bestRecommendation, isAutoTrading, currentAutoContract, lastTradedRecommendation, executeAutoTrade]);
 
     // Generate comprehensive scan results
     const generateScanResults = useCallback((): ScanResult[] => {
@@ -668,6 +882,12 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 <div className="highlight-header">
                                     <span className="crown-icon">👑</span>
                                     <Text size="s" weight="bold">Best Opportunity</Text>
+                                    {isAutoTrading && (
+                                        <div className="auto-trading-indicator">
+                                            <span className="auto-trade-pulse"></span>
+                                            <Text size="xs" color="prominent">Auto Trading Active ({autoTradeCount}/{maxAutoTrades})</Text>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="highlight-content">
                                     <div className="highlight-trade">
@@ -679,12 +899,40 @@ const TradingHubDisplay: React.FC = observer(() => {
                                             {bestRecommendation.confidence.toFixed(1)}%
                                         </span>
                                     </div>
-                                    <button
-                                        className="highlight-load-btn"
-                                        onClick={() => loadTradeSettings(bestRecommendation)}
-                                    >
-                                        🚀 Load Best Trade
-                                    </button>
+                                    <div className="highlight-buttons">
+                                        <button
+                                            className="highlight-load-btn"
+                                            onClick={() => loadTradeSettings(bestRecommendation)}
+                                            disabled={isAutoTrading}
+                                        >
+                                            🚀 Load Best Trade
+                                        </button>
+                                        <button
+                                            className={`auto-trade-btn ${isAutoTrading ? 'auto-trading-active' : ''}`}
+                                            onClick={isAutoTrading ? stopAutoTrading : startAutoTrading}
+                                            disabled={connectionStatus !== 'ready' || autoTradeCount >= maxAutoTrades}
+                                        >
+                                            {isAutoTrading ? (
+                                                <>
+                                                    🛑 Stop Auto Trade
+                                                    {currentAutoContract && (
+                                                        <span className="contract-status">
+                                                            📊 Trading...
+                                                        </span>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                `⚡ Auto Trade Best`
+                                            )}
+                                        </button>
+                                    </div>
+                                    {isAutoTrading && (
+                                        <div className="auto-trade-status">
+                                            <Text size="xs" color="general">
+                                                Stake: ${autoTradeStake} • {currentAutoContract ? 'Contract Active' : 'Monitoring for next opportunity'}
+                                            </Text>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

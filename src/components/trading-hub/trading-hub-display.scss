@@ -224,20 +224,77 @@
                         }
                     }
 
+                    .highlight-buttons {
+                        display: flex;
+                        gap: 8px;
+                        flex-wrap: wrap;
+                    }
+
                     .highlight-load-btn {
-                        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
-                        color: #ffffff;
+                        background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+                        color: white;
                         border: none;
-                        border-radius: 6px;
-                        padding: 0.625rem 1rem;
-                        font-size: 0.875rem;
-                        font-weight: 700;
+                        padding: 8px 16px;
+                        border-radius: 20px;
+                        font-size: 12px;
+                        font-weight: bold;
                         cursor: pointer;
                         transition: all 0.3s ease;
+                        box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
 
-                        &:hover {
-                            transform: translateY(-1px);
-                            box-shadow: 0 6px 20px rgba(243, 156, 18, 0.4);
+                        &:hover:not(:disabled) {
+                            transform: translateY(-2px);
+                            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+                        }
+
+                        &:active {
+                            transform: translateY(0);
+                        }
+
+                        &:disabled {
+                            opacity: 0.6;
+                            cursor: not-allowed;
+                        }
+                    }
+
+                    .auto-trade-btn {
+                        background: linear-gradient(135deg, #4CAF50, #45a049);
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 20px;
+                        font-size: 12px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+
+                        &:hover:not(:disabled) {
+                            transform: translateY(-2px);
+                            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+                        }
+
+                        &:active {
+                            transform: translateY(0);
+                        }
+
+                        &:disabled {
+                            opacity: 0.6;
+                            cursor: not-allowed;
+                        }
+
+                        &.auto-trading-active {
+                            background: linear-gradient(135deg, #f44336, #d32f2f);
+                            animation: pulse 2s infinite;
+
+                            .contract-status {
+                                margin-left: 4px;
+                                font-size: 10px;
+                                opacity: 0.9;
+                            }
                         }
                     }
                 }
@@ -751,29 +808,84 @@
                 }
             }
         }
-    }
 
-    .real-time-badge {
-        background: linear-gradient(45deg, #ff6b6b, #ee5a24);
-        color: white;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 10px;
-        font-weight: bold;
-        margin-left: 8px;
-        animation: pulse 2s infinite;
-    }
+        .real-time-badge {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-left: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .auto-trading-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+
+            .auto-trade-pulse {
+                width: 8px;
+                height: 8px;
+                background: #4CAF50;
+                border-radius: 50%;
+                animation: pulse 1.5s infinite;
+            }
+        }
+
+        .auto-trade-status {
+            width: 100%;
+            margin-top: 8px;
+            padding: 6px 12px;
+            background: rgba(76, 175, 80, 0.1);
+            border-radius: 12px;
+            border-left: 3px solid #4CAF50;
+        }
 
     @keyframes pulse {
+        0% {
+            transform: scale(1);
+            opacity: 1;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.8;
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    @keyframes scanningBeam {
+        0% { transform: translateX(-20%); }
+        50% { transform: translateX(100%); }
+        100% { transform: translateX(-20%); }
+    }
+
+    @keyframes scanning {
+        0% { opacity: 0; }
+        50% { opacity: 1; }
+        100% { opacity: 0; }
+    }
+
+    @keyframes progressGlow {
+        0% { opacity: 0.5; }
+        50% { opacity: 1; }
+        100% { opacity: 0.5; }
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes capabilityPulse {
         0% { opacity: 0.7; }
         50% { opacity: 1; }
         100% { opacity: 0.7; }
-    }
-
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
     }
 
     /* Responsive design */
