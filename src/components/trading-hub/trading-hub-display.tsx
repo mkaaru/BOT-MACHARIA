@@ -45,6 +45,11 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [aiScanningPhase, setAiScanningPhase] = useState<'initializing' | 'analyzing' | 'evaluating' | 'recommending' | 'complete'>('initializing');
     const [currentAiMessage, setCurrentAiMessage] = useState('');
     const [processingSymbol, setProcessingSymbol] = useState<string>('');
+    
+    // AI Auto Trade configuration state
+    const [aiRiskTolerance, setAiRiskTolerance] = useState<number>(3);
+    const [aiProfitTarget, setAiProfitTarget] = useState<number>(10);
+    const [aiMartingaleMultiplier, setAiMartingaleMultiplier] = useState<number>(2.1);
 
     // AI Scanning Messages with Trading Truths
     const aiScanningMessages = {
@@ -499,6 +504,33 @@ const TradingHubDisplay: React.FC = observer(() => {
         setIsSmartTraderModalOpen(true);
     };
 
+    // Load AI Auto Trade settings with user-configured values
+    const loadAIAutoTradeSettingsWithConfig = (recommendation: TradeRecommendation) => {
+        const settings = {
+            symbol: recommendation.symbol,
+            tradeType: getTradeTypeForStrategy(recommendation.strategy),
+            stake: 0.5,
+            duration: 1,
+            durationType: 't',
+            // AI Auto Trade specific settings with user configuration
+            aiAutoTrade: true,
+            martingaleMultiplier: aiMartingaleMultiplier,
+            riskTolerance: aiRiskTolerance,
+            profitTarget: aiProfitTarget,
+            ouPredPostLoss: 5 // Default Over/Under prediction after loss
+        };
+
+        if (recommendation.strategy === 'over' || recommendation.strategy === 'under') {
+            settings.barrier = recommendation.barrier;
+        } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
+            settings.prediction = parseInt(recommendation.barrier || '5');
+        }
+
+        // Store the settings and open the modal
+        setSelectedTradeSettings(settings);
+        setIsSmartTraderModalOpen(true);
+    };
+
     // Helper function to map strategy to trade type
     const getTradeTypeForStrategy = (strategy: string): string => {
         const mapping: Record<string, string> = {
@@ -704,6 +736,55 @@ const TradingHubDisplay: React.FC = observer(() => {
                                             {bestRecommendation.confidence.toFixed(1)}%
                                         </span>
                                     </div>
+
+                                    {/* AI Auto Trade Configuration */}
+                                    <div className="ai-auto-trade-config">
+                                        <div className="ai-config-header">
+                                            <span className="ai-icon">🤖</span>
+                                            <Text size="s" weight="bold" color="prominent">
+                                                AI Auto Trade Configuration
+                                            </Text>
+                                            <Text size="xs" color="general">
+                                                Enhanced settings for automated AI trading
+                                            </Text>
+                                        </div>
+                                        <div className="ai-config-fields">
+                                            <div className="ai-config-field">
+                                                <label htmlFor="ai-risk-tolerance">Risk Tolerance (1-5)</label>
+                                                <input
+                                                    id="ai-risk-tolerance"
+                                                    type="number"
+                                                    min={1}
+                                                    max={5}
+                                                    value={aiRiskTolerance}
+                                                    onChange={e => setAiRiskTolerance(Math.max(1, Math.min(5, Number(e.target.value))))}
+                                                />
+                                            </div>
+                                            <div className="ai-config-field">
+                                                <label htmlFor="ai-profit-target">Profit Target ($)</label>
+                                                <input
+                                                    id="ai-profit-target"
+                                                    type="number"
+                                                    min={1}
+                                                    step="0.5"
+                                                    value={aiProfitTarget}
+                                                    onChange={e => setAiProfitTarget(Math.max(1, Number(e.target.value)))}
+                                                />
+                                            </div>
+                                            <div className="ai-config-field">
+                                                <label htmlFor="ai-martingale-multiplier">AI Martingale Multiplier</label>
+                                                <input
+                                                    id="ai-martingale-multiplier"
+                                                    type="number"
+                                                    min={1}
+                                                    step="0.1"
+                                                    value={aiMartingaleMultiplier}
+                                                    onChange={e => setAiMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div className="highlight-actions">
                                         <button
                                             className="highlight-load-btn"
@@ -713,7 +794,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                         </button>
                                         <button
                                             className="highlight-ai-auto-btn"
-                                            onClick={() => loadAIAutoTradeSettings(bestRecommendation)}
+                                            onClick={() => loadAIAutoTradeSettingsWithConfig(bestRecommendation)}
                                         >
                                             🤖 AI Auto Trade
                                         </button>

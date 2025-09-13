@@ -178,66 +178,142 @@
             }
 
             .best-recommendation-highlight {
-                background: linear-gradient(135deg, rgba(243, 156, 18, 0.15) 0%, rgba(241, 196, 15, 0.1) 100%);
-                border: 1px solid rgba(243, 156, 18, 0.4);
-                border-radius: 8px;
-                padding: 1rem;
-                margin-top: 1rem;
+                background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+                border: 2px solid #ffd700;
+                border-radius: 12px;
+                padding: 16px;
+                margin-bottom: 20px;
+                box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
 
                 .highlight-header {
                     display: flex;
                     align-items: center;
-                    gap: 0.5rem;
-                    margin-bottom: 1rem;
+                    gap: 8px;
+                    margin-bottom: 12px;
 
                     .crown-icon {
-                        font-size: 1.25rem;
+                        font-size: 20px;
                     }
                 }
 
                 .highlight-content {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-
                     .highlight-trade {
                         display: flex;
                         align-items: center;
-                        gap: 1rem;
+                        gap: 12px;
+                        margin-bottom: 16px;
+                        flex-wrap: wrap;
 
                         .highlight-symbol {
-                            font-weight: 600;
-                            color: #2c3e50;
+                            font-weight: bold;
+                            color: #333;
+                            font-size: 14px;
                         }
 
                         .highlight-strategy {
-                            padding: 0.25rem 0.75rem;
-                            border-radius: 20px;
-                            font-size: 0.75rem;
-                            font-weight: 600;
+                            padding: 4px 8px;
+                            border-radius: 6px;
+                            font-size: 12px;
+                            font-weight: bold;
                         }
 
                         .highlight-confidence {
-                            font-size: 1.25rem;
-                            font-weight: 700;
-                            color: #27ae60;
+                            background: rgba(255, 255, 255, 0.9);
+                            padding: 4px 8px;
+                            border-radius: 6px;
+                            font-weight: bold;
+                            color: #333;
+                            font-size: 14px;
                         }
                     }
 
-                    .highlight-load-btn {
-                        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
-                        color: #ffffff;
-                        border: none;
-                        border-radius: 6px;
-                        padding: 0.625rem 1rem;
-                        font-size: 0.875rem;
-                        font-weight: 700;
-                        cursor: pointer;
-                        transition: all 0.3s ease;
+                    .ai-auto-trade-config {
+                        background: rgba(255, 255, 255, 0.95);
+                        border: 1px solid #e0e0e0;
+                        border-radius: 8px;
+                        padding: 16px;
+                        margin-bottom: 16px;
 
-                        &:hover {
-                            transform: translateY(-1px);
-                            box-shadow: 0 6px 20px rgba(243, 156, 18, 0.4);
+                        .ai-config-header {
+                            display: flex;
+                            flex-direction: column;
+                            gap: 4px;
+                            margin-bottom: 12px;
+                            text-align: center;
+
+                            .ai-icon {
+                                font-size: 18px;
+                                margin-bottom: 4px;
+                            }
+                        }
+
+                        .ai-config-fields {
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                            gap: 12px;
+
+                            .ai-config-field {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 4px;
+
+                                label {
+                                    font-size: 12px;
+                                    font-weight: 600;
+                                    color: #333;
+                                }
+
+                                input {
+                                    padding: 8px;
+                                    border: 1px solid #ddd;
+                                    border-radius: 6px;
+                                    font-size: 14px;
+                                    background: white;
+
+                                    &:focus {
+                                        outline: none;
+                                        border-color: #4a90e2;
+                                        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    .highlight-actions {
+                        display: flex;
+                        gap: 12px;
+                        flex-wrap: wrap;
+
+                        .highlight-load-btn,
+                        .highlight-ai-auto-btn {
+                            padding: 10px 16px;
+                            border: none;
+                            border-radius: 8px;
+                            font-weight: bold;
+                            cursor: pointer;
+                            transition: all 0.2s ease;
+                            font-size: 14px;
+                        }
+
+                        .highlight-load-btn {
+                            background: #ff6b35;
+                            color: white;
+
+                            &:hover {
+                                background: #e55a2b;
+                                transform: translateY(-1px);
+                            }
+                        }
+
+                        .highlight-ai-auto-btn {
+                            background: #4a90e2;
+                            color: white;
+
+                            &:hover {
+                                background: #357abd;
+                                transform: translateY(-1px);
+                            }
                         }
                     }
                 }
