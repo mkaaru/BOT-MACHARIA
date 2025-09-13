@@ -30,6 +30,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
 
 import { SplashScreen } from '@/components/splash-screen';
+import ErrorBoundary from '@/components/error-boundary';
 
 const AppContent = observer(() => {
     const [is_api_initialized, setIsApiInitialized] = React.useState(false);
@@ -209,10 +210,11 @@ const AppContent = observer(() => {
     
      React.useEffect(() => {
         const timeout = setTimeout(() => {
-            console.log('⏰ Force showing app after 5 seconds');
+            console.log('⏰ Force showing app after 10 seconds due to initialization timeout');
             setForceShowApp(true);
             setShowSplashScreen(false);
-        }, 5000); // Show app after 5 seconds regardless
+            setIsLoading(false);
+        }, 10000); // Increased timeout to 10 seconds
 
         return () => clearTimeout(timeout);
     }, []);
@@ -234,12 +236,41 @@ const AppContent = observer(() => {
         return <SplashScreen onComplete={handleSplashScreenComplete} />;
     }
 
-    if (common?.error) return null;
+    // Handle critical errors with fallback UI
+    if (common?.error) {
+        return (
+            <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                height: '100vh',
+                padding: '20px',
+                textAlign: 'center'
+            }}>
+                <h2>Connection Error</h2>
+                <p>We're having trouble connecting to our servers.</p>
+                <button 
+                    onClick={() => window.location.reload()} 
+                    style={{
+                        padding: '10px 20px',
+                        backgroundColor: '#4CAF50',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Refresh Page
+                </button>
+            </div>
+        );
+    }
 
     return is_loading && !forceShowApp ? (
         <MatrixLoading message={localize('Initializing your account...')} show={true} />
     ) : (
-        <>
+        <ErrorBoundary>
             <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
                 <BlocklyLoading />
                 <div className='bot-dashboard bot' data-testid='dt_bot_dashboard'>
@@ -252,7 +283,7 @@ const AppContent = observer(() => {
                     <TncStatusUpdateModal />
                 </div>
             </ThemeProvider>
-        </>
+        </ErrorBoundary>
     );
 });
 

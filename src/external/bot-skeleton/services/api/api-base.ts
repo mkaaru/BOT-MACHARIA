@@ -54,30 +54,18 @@ class APIBase {
             try {
                 console.log('🔄 Creating new WebSocket connection...');
                 
+                // Clear any existing API instance
+                if (this.api && typeof this.api.disconnect === 'function') {
+                    try {
+                        this.api.disconnect();
+                    } catch (e) {
+                        console.warn('Error disconnecting existing API:', e);
+                    }
+                }
+                
                 // Create a direct WebSocket connection
                 const websocket = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=16929');
                 
-                // Import DerivAPI and create instance
-                const DerivAPI = require('@deriv/deriv-api/dist/DerivAPI');
-                this.api = new DerivAPI({ connection: websocket });
-
-                websocket.onopen = () => {
-                    console.log('✅ WebSocket connection opened successfully');
-                    this.onsocketopen();
-                    resolve(true);
-                };
-
-                websocket.onerror = (error) => {
-                    console.error('❌ WebSocket connection error:', error);
-                    this.onsocketclose();
-                    reject(error);
-                };
-
-                websocket.onclose = (event) => {
-                    console.log('🔌 WebSocket connection closed:', event.code, event.reason);
-                    this.onsocketclose();
-                };
-
                 // Set timeout for connection
                 const connectionTimeout = setTimeout(() => {
                     if (websocket.readyState !== WebSocket.OPEN) {
@@ -87,12 +75,43 @@ class APIBase {
                     }
                 }, 10000);
 
-                // Clear timeout on successful connection
                 websocket.onopen = () => {
                     clearTimeout(connectionTimeout);
                     console.log('✅ WebSocket connection opened successfully');
-                    this.onsocketopen();
-                    resolve(true);
+                    
+                    try {
+                        // Import DerivAPI dynamically to avoid build issues
+                        import('@deriv/deriv-api').then((DerivAPIModule) => {
+                            const DerivAPI = DerivAPIModule.default || DerivAPIModule;
+                            this.api = new DerivAPI({ connection: websocket });
+                            this.onsocketopen();
+                            resolve(true);
+                        }).catch((importError) => {
+                            console.error('❌ Failed to import DerivAPI:', importError);
+                            // Fallback: try to create a simple API wrapper
+                            this.api = { connection: websocket };
+                            this.onsocketopen();
+                            resolve(true);
+                        });
+                    } catch (apiError) {
+                        console.error('❌ Failed to create API instance:', apiError);
+                        this.api = { connection: websocket };
+                        this.onsocketopen();
+                        resolve(true);
+                    }
+                };
+
+                websocket.onerror = (error) => {
+                    clearTimeout(connectionTimeout);
+                    console.error('❌ WebSocket connection error:', error);
+                    this.onsocketclose();
+                    reject(error);
+                };
+
+                websocket.onclose = (event) => {
+                    clearTimeout(connectionTimeout);
+                    console.log('🔌 WebSocket connection closed:', event.code, event.reason);
+                    this.onsocketclose();
                 };
 
             } catch (error) {
