@@ -133,9 +133,12 @@ const AppContent = observer(() => {
         // Check if api is initialized and then subscribe to the api messages
         // Also we should only subscribe to the messages once user is logged in
         // And is not already subscribed to the messages
-        if (!is_subscribed_to_msg_listener.current && client.is_logged_in && is_api_initialized && api_base?.api) {
+        if (!is_subscribed_to_msg_listener.current && client.is_logged_in && is_api_initialized && api_base?.api && typeof api_base.api.onMessage === 'function') {
             is_subscribed_to_msg_listener.current = true;
-            msg_listener.current = api_base.api.onMessage()?.subscribe(handleMessage);
+            const messageSubscription = api_base.api.onMessage();
+            if (messageSubscription && typeof messageSubscription.subscribe === 'function') {
+                msg_listener.current = messageSubscription.subscribe(handleMessage);
+            }
         }
         return () => {
             if (is_subscribed_to_msg_listener.current && msg_listener.current) {
