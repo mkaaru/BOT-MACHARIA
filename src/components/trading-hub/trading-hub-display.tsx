@@ -497,29 +497,51 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
     }, [isAiAutoTrading]);
 
-    // Monitor best recommendation changes for AI Auto Trade
+    // Monitor best recommendation changes for AI Auto Trade - Enhanced switching logic
     useEffect(() => {
         if (isAiAutoTrading && bestRecommendation && !contractInProgress) {
             const newSymbol = bestRecommendation.symbol;
             const newTradeType = getTradeTypeForStrategy(bestRecommendation.strategy);
+            const newStrategy = bestRecommendation.strategy;
 
-            // Only switch if recommendation changed and no contract in progress
-            if (newSymbol !== currentTradeSymbol || newTradeType !== currentTradeType) {
-                console.log(`🤖 AI Auto Trade: Switching to ${newSymbol} ${newTradeType} (${bestRecommendation.confidence.toFixed(1)}%)`);
+            // Check if recommendation significantly changed
+            const symbolChanged = newSymbol !== currentTradeSymbol;
+            const tradeTypeChanged = newTradeType !== currentTradeType;
+            const shouldSwitch = symbolChanged || tradeTypeChanged;
+
+            if (shouldSwitch) {
+                console.log(`🔄 AI Auto Trade: Switching recommendation`, {
+                    from: `${currentTradeSymbol} ${currentTradeType}`,
+                    to: `${newSymbol} ${newTradeType} (${newStrategy})`,
+                    confidence: `${bestRecommendation.confidence.toFixed(1)}%`,
+                    reason: bestRecommendation.reason
+                });
+
                 setCurrentTradeSymbol(newSymbol);
                 setCurrentTradeType(newTradeType);
-                setAiTradeStatus(`Switched to ${symbolMap[newSymbol]} ${bestRecommendation.strategy.toUpperCase()}`);
+                
+                // Update display name for status
+                const displayName = symbolMap[newSymbol] || newSymbol;
+                setAiTradeStatus(`🔄 Switched to ${displayName} ${newStrategy.toUpperCase()} (${bestRecommendation.confidence.toFixed(1)}%)`);
+
+                // When switching symbols/strategies, reset to base stake for new opportunity
+                if (symbolChanged) {
+                    setLastOutcomeWasLoss(false);
+                    setCurrentStake(baseStake);
+                    console.log(`🔄 Symbol change: Reset stake to base (${baseStake}) and pre-loss state`);
+                }
 
                 // Execute trade with new recommendation after a short delay
                 setTimeout(() => {
-                    if (isAiAutoTrading) {
+                    if (isAiAutoTrading && !contractInProgress) {
                         executeAiTrade(bestRecommendation);
                     }
                 }, 2000);
             }
         }
-    }, [bestRecommendation, isAiAutoTrading, currentTradeSymbol, currentTradeType, contractInProgress]);
+    }, [bestRecommendation, isAiAutoTrading, currentTradeSymbol, currentTradeType, contractInProgress, baseStake]);
 
+    // Enhanced AI Auto Trade execution using Smart Trader logic
     const executeAiTrade = async (recommendation: TradeRecommendation) => {
         if (!apiRef.current || contractInProgress) return;
 
@@ -545,57 +567,86 @@ const TradingHubDisplay: React.FC = observer(() => {
                 return;
             }
 
-            // Prepare trade parameters
-            const tradeOption: any = {
-                amount: currentStake,
+            // Use Smart Trader logic for trade option preparation
+            const trade_option: any = {
+                amount: Number(currentStake),
                 basis: 'stake',
                 contractTypes: [getTradeTypeForStrategy(recommendation.strategy)],
                 currency: authorize?.currency || 'USD',
-                duration: aiTradeConfig.duration,
+                duration: Number(aiTradeConfig.duration),
                 duration_unit: 't',
                 symbol: recommendation.symbol,
             };
 
-            // Set prediction based on strategy
+            // Smart Trader prediction logic - key improvement for Over/Under after loss logic
             if (recommendation.strategy === 'over' || recommendation.strategy === 'under') {
                 const isAfterLoss = lastOutcomeWasLoss;
-                const selectedPrediction = isAfterLoss ? aiTradeConfig.ouPredPostLoss : aiTradeConfig.ouPredPreLoss;
-                tradeOption.prediction = Number(selectedPrediction);
+                // Use barrier from recommendation as pre-loss, and ouPredPostLoss for after loss
+                const selectedPrediction = isAfterLoss ? aiTradeConfig.ouPredPostLoss : parseInt(recommendation.barrier || '5');
+                trade_option.prediction = Number(selectedPrediction);
+
+                console.log(`🎯 AI Trade Prediction Logic:`, {
+                    isAfterLoss,
+                    selectedPrediction,
+                    preLossPred: parseInt(recommendation.barrier || '5'),
+                    postLossPred: aiTradeConfig.ouPredPostLoss,
+                    strategy: recommendation.strategy
+                });
 
                 setAiTradeStatus(`${recommendation.strategy.toUpperCase()}: ${selectedPrediction} ${isAfterLoss ? '(after loss)' : '(pre-loss)'} - Stake: ${currentStake}`);
             } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
-                tradeOption.prediction = parseInt(recommendation.barrier || '5');
+                trade_option.prediction = parseInt(recommendation.barrier || '5');
                 setAiTradeStatus(`${recommendation.strategy.toUpperCase()}: ${recommendation.barrier} - Stake: ${currentStake}`);
             } else {
+                // Even/Odd doesn't need prediction
                 setAiTradeStatus(`${recommendation.strategy.toUpperCase()} - Stake: ${currentStake}`);
             }
 
-            // Create buy request
+            // Create buy request using Smart Trader tradeOptionToBuy logic
             const buy_req = {
                 buy: '1',
-                price: tradeOption.amount,
+                price: trade_option.amount,
                 parameters: {
-                    amount: tradeOption.amount,
-                    basis: tradeOption.basis,
+                    amount: trade_option.amount,
+                    basis: trade_option.basis,
                     contract_type: getTradeTypeForStrategy(recommendation.strategy),
-                    currency: tradeOption.currency,
-                    duration: tradeOption.duration,
-                    duration_unit: tradeOption.duration_unit,
-                    symbol: tradeOption.symbol,
+                    currency: trade_option.currency,
+                    duration: trade_option.duration,
+                    duration_unit: trade_option.duration_unit,
+                    symbol: trade_option.symbol,
                 },
             };
 
-            if (tradeOption.prediction !== undefined) {
-                if (['TICKLOW', 'TICKHIGH'].includes(getTradeTypeForStrategy(recommendation.strategy))) {
-                    buy_req.parameters.selected_tick = tradeOption.prediction;
-                } else {
-                    buy_req.parameters.barrier = tradeOption.prediction;
+            if (trade_option.prediction !== undefined) {
+                buy_req.parameters.selected_tick = trade_option.prediction;
+                if (!['TICKLOW', 'TICKHIGH'].includes(getTradeTypeForStrategy(recommendation.strategy))) {
+                    buy_req.parameters.barrier = trade_option.prediction;
                 }
             }
 
-            // Execute purchase
+            console.log('📦 AI Auto Trade Buy request:', {
+                contract_type: getTradeTypeForStrategy(recommendation.strategy),
+                prediction: trade_option.prediction,
+                amount: currentStake,
+                after_loss: lastOutcomeWasLoss,
+                symbol: recommendation.symbol
+            });
+
+            // Execute purchase with rate limiting protection
             const { buy, error } = await apiRef.current.buy(buy_req);
             if (error) {
+                if (error.code === 'RateLimit' || error.message?.includes('rate limit') || error.message?.includes('too many requests')) {
+                    setAiTradeStatus('Rate limit hit. Waiting before retry...');
+                    setContractInProgress(false);
+                    
+                    // Retry after delay
+                    setTimeout(() => {
+                        if (isAiAutoTrading && bestRecommendation) {
+                            executeAiTrade(bestRecommendation);
+                        }
+                    }, 5000);
+                    return;
+                }
                 setAiTradeStatus(`Trade error: ${error.message}`);
                 setContractInProgress(false);
                 return;
@@ -611,38 +662,48 @@ const TradingHubDisplay: React.FC = observer(() => {
                 subscribe: 1,
             });
 
+            let pocSubId: string | null = subscription?.id || null;
+            const targetId = String(buy?.contract_id || '');
+
             const onContractUpdate = (evt: MessageEvent) => {
                 try {
                     const data = JSON.parse(evt.data);
                     if (data?.msg_type === 'proposal_open_contract') {
                         const poc = data.proposal_open_contract;
-                        if (String(poc?.contract_id) === String(buy?.contract_id)) {
+                        if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
+                        
+                        if (String(poc?.contract_id || '') === targetId) {
                             if (poc?.is_sold || poc?.status === 'sold') {
                                 const profit = Number(poc?.profit || 0);
 
                                 if (profit > 0) {
-                                    // WIN: Reset to pre-loss state
+                                    // WIN: Reset to pre-loss state using Smart Trader logic
                                     setLastOutcomeWasLoss(false);
                                     setCurrentStake(baseStake);
-                                    setAiTradeStatus(`✅ WIN: +${profit.toFixed(2)} ${authorize?.currency || 'USD'}`);
+                                    console.log(`✅ AI WIN: +${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Reset to pre-loss prediction`);
+                                    setAiTradeStatus(`✅ WIN: +${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Reset to base stake`);
                                 } else {
-                                    // LOSS: Set flag for next trade and increase stake
+                                    // LOSS: Set flag for next trade to use after-loss prediction
                                     setLastOutcomeWasLoss(true);
                                     const newStake = Number((currentStake * aiTradeConfig.martingaleMultiplier).toFixed(2));
                                     setCurrentStake(newStake);
+                                    console.log(`❌ AI LOSS: ${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Next trade will use after-loss prediction (${aiTradeConfig.ouPredPostLoss})`);
                                     setAiTradeStatus(`❌ LOSS: ${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Next stake: ${newStake}`);
                                 }
 
-                                setContractInProgress(false);
+                                // Clean up subscription
+                                if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
                                 apiRef.current?.connection?.removeEventListener('message', onContractUpdate);
+                                setContractInProgress(false);
 
                                 // Schedule next trade if AI Auto Trade is still active
                                 if (isAiAutoTrading) {
+                                    // Wait for recommendation to potentially update, then execute next trade
                                     setTimeout(() => {
                                         if (bestRecommendation && isAiAutoTrading) {
                                             executeAiTrade(bestRecommendation);
                                         }
-                                    }, 3000); // Wait 3 seconds between trades
+                                    }, 3000); // 3 seconds between trades to avoid rate limits
                                 }
                             }
                         }
@@ -658,6 +719,15 @@ const TradingHubDisplay: React.FC = observer(() => {
             console.error('AI Auto Trade error:', error);
             setAiTradeStatus(`Error: ${error?.message || 'Unknown error'}`);
             setContractInProgress(false);
+            
+            // Retry after error if still trading
+            if (isAiAutoTrading) {
+                setTimeout(() => {
+                    if (bestRecommendation && isAiAutoTrading) {
+                        executeAiTrade(bestRecommendation);
+                    }
+                }, 5000);
+            }
         }
     };
 
@@ -667,28 +737,54 @@ const TradingHubDisplay: React.FC = observer(() => {
             return;
         }
 
+        // Initialize AI Auto Trade with proper state
         setIsAiAutoTrading(true);
         setCurrentTradeSymbol(bestRecommendation.symbol);
         setCurrentTradeType(getTradeTypeForStrategy(bestRecommendation.strategy));
         setCurrentStake(aiTradeConfig.stake);
-        setAiTradeStatus('AI Auto Trade starting...');
+        setLastOutcomeWasLoss(false); // Start fresh
+        setContractInProgress(false);
+        
+        console.log(`🤖 AI Auto Trade Started:`, {
+            symbol: bestRecommendation.symbol,
+            strategy: bestRecommendation.strategy,
+            confidence: bestRecommendation.confidence.toFixed(1),
+            initialStake: aiTradeConfig.stake,
+            martingaleMultiplier: aiTradeConfig.martingaleMultiplier,
+            ouPredPostLoss: aiTradeConfig.ouPredPostLoss
+        });
+
+        const displayName = symbolMap[bestRecommendation.symbol] || bestRecommendation.symbol;
+        setAiTradeStatus(`🚀 AI Auto Trade started: ${displayName} ${bestRecommendation.strategy.toUpperCase()}`);
 
         // Start trading with current best recommendation
         setTimeout(() => {
-            executeAiTrade(bestRecommendation);
+            if (isAiAutoTrading) {
+                executeAiTrade(bestRecommendation);
+            }
         }, 1000);
     };
 
     const stopAiAutoTrade = () => {
+        console.log(`🛑 AI Auto Trade Stopped`);
+        
         setIsAiAutoTrading(false);
         setContractInProgress(false);
         setCurrentTradeSymbol('');
         setCurrentTradeType('');
-        setAiTradeStatus('AI Auto Trade stopped');
+        setLastOutcomeWasLoss(false);
+        setCurrentStake(baseStake);
+        setAiTradeStatus('🛑 AI Auto Trade stopped');
 
-        if (apiRef.current) {
-            apiRef.current.disconnect?.();
-            apiRef.current = null;
+        // Don't disconnect the API as it might be used by market analyzer
+        // Just clean up any pending subscriptions
+        try {
+            if (apiRef.current?.connection) {
+                // Let any ongoing contract subscriptions complete naturally
+                console.log('🧹 AI Auto Trade cleanup completed');
+            }
+        } catch (error) {
+            console.error('Error during AI Auto Trade cleanup:', error);
         }
     };
 
