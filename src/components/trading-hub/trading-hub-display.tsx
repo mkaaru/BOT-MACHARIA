@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import Modal from '@/components/shared_ui/modal';
-import { localize } from '@deriv-com/translations';
 import { contract_stages } from '@/constants/contract-stage';
 import marketAnalyzer from '@/services/market-analyzer';
 import SmartTraderWrapper from './smart-trader-wrapper';
@@ -44,12 +43,10 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [selectedTradeType, setSelectedTradeType] = useState<string>('all');
     const [isSmartTraderModalOpen, setIsSmartTraderModalOpen] = useState(false);
     const [selectedTradeSettings, setSelectedTradeSettings] = useState<TradeSettings | null>(null);
-    const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
     const [aiScanningPhase, setAiScanningPhase] = useState<'initializing' | 'analyzing' | 'evaluating' | 'recommending' | 'complete'>('initializing');
     const [currentAiMessage, setCurrentAiMessage] = useState('');
     const [processingSymbol, setProcessingSymbol] = useState<string>('');
     const [isAutoTradingBest, setIsAutoTradingBest] = useState(false);
-    const [currentAutoTradeSettings, setCurrentAutoTradeSettings] = useState<TradeSettings | null>(null);
     const [activeToken, setActiveToken] = useState<string | null>(null);
     const [autoTradeCount, setAutoTradeCount] = useState(0);
     const [maxAutoTrades] = useState(5); // Maximum number of auto trades before switching
@@ -166,7 +163,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                 if (!token) {
                     throw new Error('No active token found');
                 }
-                const derivAPI = generateDerivApiInstance();
 
                 // Subscribe to market analyzer updates
                 const unsubscribe = marketAnalyzer.onAnalysis((recommendation, stats, o5u4Data) => {
@@ -302,7 +298,6 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             const recommendations: TradeRecommendation[] = [];
             const displayName = symbolMap[symbol] || symbol;
-            let currentRecommendation: TradeRecommendation | null = null; // Track recommendation for the current symbol
 
             // Generate balanced Over/Under recommendations for ALL symbols
             const generateOverUnderRecs = () => {
@@ -353,7 +348,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                     const oppositePercent = strategy === 'over' ? underPercent : overPercent;
 
                     if (dominancePercent > 52) { // Lower threshold for more balanced recommendations
-                        const confidence = Math.min(55 + (dominancePercent - 52) * 5, 85);
 
                         recommendations.push({
                             symbol,
