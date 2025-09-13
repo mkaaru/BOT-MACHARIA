@@ -63,14 +63,6 @@ class MarketAnalyzer {
         if (this.isRunning) return;
 
         this.isRunning = true;
-        
-        // Add network state listener for mobile
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        if (isMobile) {
-            window.addEventListener('online', this.handleNetworkOnline.bind(this));
-            window.addEventListener('offline', this.handleNetworkOffline.bind(this));
-        }
-        
         this.connectToDerivAPI();
         this.startAnalysis();
     }
@@ -88,28 +80,10 @@ class MarketAnalyzer {
             this.analysisInterval = null;
         }
 
-        // Remove network listeners
-        window.removeEventListener('online', this.handleNetworkOnline.bind(this));
-        window.removeEventListener('offline', this.handleNetworkOffline.bind(this));
-
         this.reconnectAttempts = 0;
         symbolAnalyzer.clearAll();
         this.tickHistory = {};
         this.subscriptionIds = {};
-    }
-
-    private handleNetworkOnline() {
-        console.log('📱 Network came back online');
-        if (this.isRunning && (!this.ws || this.ws.readyState !== WebSocket.OPEN)) {
-            setTimeout(() => {
-                this.connectToDerivAPI();
-            }, 1000); // Wait a moment for network to stabilize
-        }
-    }
-
-    private handleNetworkOffline() {
-        console.log('📱 Network went offline');
-        this.handleError('Network connection lost. Waiting for connection to resume...');
     }
 
     onAnalysis(callback: AnalysisCallback): () => void {
@@ -137,35 +111,13 @@ class MarketAnalyzer {
             return;
         }
 
-        // Check network connectivity first
-        if (!navigator.onLine) {
-            this.handleError('No internet connection detected. Please check your network.');
-            return;
-        }
-
         try {
-            // Detect mobile device for adjusted settings
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            
-            // Use different app_id or connection strategy for mobile if needed
-            const wsUrl = 'wss://ws.derivws.com/websockets/v3?app_id=1089';
-            console.log(`🔗 Attempting WebSocket connection to: ${wsUrl} (${isMobile ? 'mobile' : 'desktop'})`);
-            
-            this.ws = new WebSocket(wsUrl);
-
-            // Longer timeout for mobile networks
-            const connectionTimeout = isMobile ? 20000 : 10000;
+            this.ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
 
             this.ws.onopen = () => {
                 console.log('✅ Connected to Deriv WebSocket API');
                 this.reconnectAttempts = 0;
-                
-                // Add small delay before subscribing on mobile
-                if (isMobile) {
-                    setTimeout(() => this.subscribeToSymbols(), 500);
-                } else {
-                    this.subscribeToSymbols();
-                }
+                this.subscribeToSymbols();
             };
 
             this.ws.onmessage = (event) => {
@@ -174,10 +126,7 @@ class MarketAnalyzer {
 
             this.ws.onerror = (error) => {
                 console.error('❌ Deriv WebSocket error:', error);
-                const errorMessage = isMobile 
-                    ? 'Mobile connection failed. Please check your network signal or try switching between WiFi and mobile data.'
-                    : 'WebSocket connection error';
-                this.handleError(errorMessage);
+                this.handleError('WebSocket connection error');
             };
 
             this.ws.onclose = (event) => {
@@ -187,60 +136,36 @@ class MarketAnalyzer {
                 }
             };
 
-            // Connection timeout with mobile-specific handling
+            // Connection timeout
             setTimeout(() => {
                 if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
                     console.log('⌛ WebSocket connection timeout');
                     this.ws.close();
-                    const timeoutMessage = isMobile 
-                        ? 'Connection timeout on mobile. Please ensure you have a stable internet connection and try again.'
-                        : 'Connection timeout';
-                    this.handleError(timeoutMessage);
                     this.scheduleReconnect();
                 }
-            }, connectionTimeout);
+            }, 10000);
 
         } catch (error) {
             console.error('Failed to create WebSocket connection:', error);
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            const errorMessage = isMobile
-                ? 'Failed to establish mobile connection to market data. Please check your network settings.'
-                : 'Failed to establish connection to market data. Please check your internet connection.';
-            this.handleError(errorMessage);
+            this.handleError('Failed to establish connection to market data');
             this.scheduleReconnect();
         }
     }
 
     private scheduleReconnect() {
         if (!this.isRunning || this.reconnectAttempts >= this.maxReconnectAttempts) {
-            this.handleError('Maximum reconnection attempts reached. Please refresh the page or check your internet connection.');
-            return;
-        }
-
-        // Check network connectivity before reconnecting
-        if (!navigator.onLine) {
-            this.handleError('Device is offline. Please check your internet connection.');
+            this.handleError('Maximum reconnection attempts reached');
             return;
         }
 
         this.reconnectAttempts++;
-        
-        // Exponential backoff with mobile considerations
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        const baseDelay = isMobile ? 3000 : this.reconnectDelay;
-        const exponentialDelay = baseDelay * Math.pow(2, this.reconnectAttempts - 1);
-        const maxDelay = isMobile ? 30000 : 20000;
-        const finalDelay = Math.min(exponentialDelay, maxDelay);
-        
-        console.log(`🔄 Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${finalDelay}ms`);
+        console.log(`🔄 Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${this.reconnectDelay}ms`);
 
         setTimeout(() => {
-            if (this.isRunning && navigator.onLine) {
+            if (this.isRunning) {
                 this.connectToDerivAPI();
-            } else if (!navigator.onLine) {
-                this.handleError('Still offline. Please check your internet connection.');
             }
-        }, finalDelay);
+        }, this.reconnectDelay);
     }
 
     private subscribeToSymbols() {
