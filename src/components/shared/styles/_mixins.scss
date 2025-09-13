@@ -311,15 +311,8 @@
 }
 
 /** Need to add new breakpoints for mixins */
-$max-mobile-width: 768px;
-$min-tablet-width: 769px;
-$min-desktop-width: 1024px;
-
-@mixin extra-small-screen {
-    @media (max-width: 480px) {
-        @content;
-    }
-}
+$max-mobile-width: 600px;
+$min-desktop-width: 1280px;
 
 @mixin mobile-screen {
     @media (max-width: #{$max-mobile-width}) {
@@ -328,7 +321,7 @@ $min-desktop-width: 1024px;
 }
 
 @mixin tablet-screen {
-    @media (min-width: #{$min-tablet-width}) and (max-width: #{$min-desktop-width - 1}) {
+    @media (min-width: #{$max-mobile-width + 1}) and (max-width: #{$min-desktop-width - 1}) {
         @content;
     }
 }

@@ -10,6 +10,9 @@ import { TAuthData } from '@/types/api-types';
 import { initializeI18n, localize, TranslationProvider } from '@deriv-com/translations';
 import CoreStoreProvider from './CoreStoreProvider';
 import './app-root.scss';
+import React from 'react';
+import { observer } from 'mobx-react-lite';
+import { useProtection } from '@/hooks/useProtection';
 
 const Layout = lazy(() => import('../components/layout'));
 const AppRoot = lazy(() => import('./app-root'));
@@ -125,6 +128,9 @@ function App() {
             });
         }
     }, []);
+
+    // Initialize protection
+    useProtection();
 
     return <RouterProvider router={router} />;
 }
