@@ -139,12 +139,18 @@ class MarketAnalyzer {
         }
 
         try {
-            this.ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+            // Use different app_id and ensure proper WebSocket URL
+            const wsUrl = 'wss://ws.derivws.com/websockets/v3?app_id=1089&l=en&brand=deriv';
+            this.ws = new WebSocket(wsUrl);
 
             this.ws.onopen = () => {
                 console.log('✅ Connected to Deriv WebSocket API');
                 this.reconnectAttempts = 0;
-                this.subscribeToSymbols();
+                
+                // Add a small delay before subscribing to ensure connection is stable
+                setTimeout(() => {
+                    this.subscribeToSymbols();
+                }, 100);
             };
 
             this.ws.onmessage = (event) => {
@@ -153,49 +159,70 @@ class MarketAnalyzer {
 
             this.ws.onerror = (error) => {
                 console.error('❌ Deriv WebSocket error:', error);
-                // Provide more specific error messages for mobile users
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                const errorMessage = isMobile 
-                    ? 'Connection failed on mobile. Check your network and try switching between WiFi/cellular data.'
-                    : 'WebSocket connection error';
+                
+                // More detailed error handling
+                let errorMessage = 'Failed to connect to market data. ';
+                
+                if (!navigator.onLine) {
+                    errorMessage += 'No internet connection detected.';
+                } else {
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                    if (isMobile) {
+                        errorMessage += 'Mobile connection issue. Try switching between WiFi/cellular.';
+                    } else {
+                        errorMessage += 'Please check your network connection.';
+                    }
+                }
+                
                 this.handleError(errorMessage);
             };
 
             this.ws.onclose = (event) => {
                 console.log('🔌 Deriv WebSocket disconnected:', event.code, event.reason);
                 
-                // Handle specific close codes for better mobile experience
+                if (!this.isRunning) return;
+                
+                // Handle specific close codes
                 let errorMessage = 'Connection lost';
                 if (event.code === 1006) {
-                    errorMessage = 'Network connection interrupted. Reconnecting...';
+                    errorMessage = 'Network connection interrupted';
                 } else if (event.code === 1000) {
                     errorMessage = 'Connection closed normally';
                 } else if (event.code === 1001) {
-                    errorMessage = 'Server going away. Reconnecting...';
+                    errorMessage = 'Server going away';
+                } else if (event.code === 1002) {
+                    errorMessage = 'Protocol error';
+                } else if (event.code === 1003) {
+                    errorMessage = 'Unsupported data';
+                } else if (event.code === 1011) {
+                    errorMessage = 'Server error';
                 }
                 
-                if (this.isRunning && !event.wasClean) {
-                    this.handleError(errorMessage);
+                if (!event.wasClean) {
+                    this.handleError(`${errorMessage}. Attempting to reconnect...`);
                     this.scheduleReconnect();
                 }
             };
 
-            // Shorter timeout for mobile devices
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            const connectionTimeout = isMobile ? 8000 : 10000;
-            
-            setTimeout(() => {
+            // Set a connection timeout
+            const connectionTimeout = 15000; // 15 seconds
+            const timeoutId = setTimeout(() => {
                 if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
                     console.log('⌛ WebSocket connection timeout');
                     this.ws.close();
-                    this.handleError('Connection timeout. Please check your network and try again.');
+                    this.handleError('Connection timeout. The market data server may be busy. Please try again.');
                     this.scheduleReconnect();
                 }
             }, connectionTimeout);
 
+            // Clear timeout once connected
+            this.ws.addEventListener('open', () => {
+                clearTimeout(timeoutId);
+            });
+
         } catch (error) {
             console.error('Failed to create WebSocket connection:', error);
-            this.handleError('Failed to establish connection to market data. Please try again.');
+            this.handleError('Failed to establish connection to market data. Please check your internet connection and try again.');
             this.scheduleReconnect();
         }
     }
@@ -229,39 +256,106 @@ class MarketAnalyzer {
 
     private subscribeToSymbols() {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            console.log('WebSocket not ready for subscription');
             return;
         }
 
-        this.symbols.forEach(symbol => {
-            const subscribeMsg = {
-                ticks: symbol,
-                subscribe: 1
-            };
+        // Subscribe to symbols one by one with error handling
+        this.symbols.forEach((symbol, index) => {
+            setTimeout(() => {
+                if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+                
+                const subscribeMsg = {
+                    ticks: symbol,
+                    subscribe: 1,
+                    req_id: `tick_${symbol}_${Date.now()}`
+                };
 
-            try {
-                this.ws!.send(JSON.stringify(subscribeMsg));
-                console.log(`📊 Subscribed to ${symbol}`);
-            } catch (error) {
-                console.error(`Failed to subscribe to ${symbol}:`, error);
-            }
+                try {
+                    this.ws!.send(JSON.stringify(subscribeMsg));
+                    console.log(`📊 Subscribed to ${symbol}`);
+                    this.subscriptionIds[symbol] = subscribeMsg.req_id;
+                } catch (error) {
+                    console.error(`Failed to subscribe to ${symbol}:`, error);
+                }
+            }, index * 100); // Stagger subscriptions
         });
+
+        // Set up ping to keep connection alive
+        this.setupPingPong();
+    }
+
+    private setupPingPong() {
+        // Send ping every 30 seconds to keep connection alive
+        const pingInterval = setInterval(() => {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                try {
+                    this.ws.send(JSON.stringify({ ping: 1 }));
+                } catch (error) {
+                    console.error('Failed to send ping:', error);
+                    clearInterval(pingInterval);
+                }
+            } else {
+                clearInterval(pingInterval);
+            }
+        }, 30000);
+
+        // Clear interval when WebSocket closes
+        if (this.ws) {
+            this.ws.addEventListener('close', () => {
+                clearInterval(pingInterval);
+            });
+        }
     }
 
     private handleWebSocketMessage(event: MessageEvent) {
         try {
             const data = JSON.parse(event.data);
 
+            // Handle errors
             if (data.error) {
                 console.error('WebSocket error response:', data.error);
-                this.handleError(`API Error: ${data.error.message}`);
+                let errorMessage = `API Error: ${data.error.message}`;
+                
+                // Handle specific error codes
+                if (data.error.code === 'InvalidToken') {
+                    errorMessage = 'Authentication failed. Please refresh the page.';
+                } else if (data.error.code === 'RateLimit') {
+                    errorMessage = 'Too many requests. Please wait a moment.';
+                } else if (data.error.code === 'MarketClosed') {
+                    errorMessage = 'Market is currently closed.';
+                } else if (data.error.code === 'InvalidSymbol') {
+                    errorMessage = 'Invalid trading symbol.';
+                }
+                
+                this.handleError(errorMessage);
                 return;
             }
 
+            // Handle pong responses
+            if (data.pong) {
+                console.log('Received pong - connection alive');
+                return;
+            }
+
+            // Handle subscription confirmations
+            if (data.msg_type === 'tick' && data.subscription) {
+                console.log(`✅ Subscription confirmed for ${data.subscription.id}`);
+            }
+
+            // Process tick data
             if (data.tick) {
                 this.processTick(data.tick);
             }
+
+            // Handle other message types
+            if (data.msg_type === 'authorize') {
+                console.log('Authorization successful');
+            }
+
         } catch (error) {
             console.error('Error parsing WebSocket message:', error);
+            // Don't trigger error handler for parsing errors unless it's critical
         }
     }
 
