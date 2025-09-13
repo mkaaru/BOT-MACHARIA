@@ -64,11 +64,12 @@ const TradingHubDisplay: React.FC = observer(() => {
     // AI Auto Trade state
     const [isAiAutoTrading, setIsAiAutoTrading] = useState(false);
     const [aiTradeConfig, setAiTradeConfig] = useState({
-        ouPredPreLoss: 5,
         ouPredPostLoss: 5,
         martingaleMultiplier: 1.0, // Default changed to 1.0
         stake: 0.5,
-        duration: 1
+        duration: 1,
+        stopLoss: 0,
+        takeProfit: 0
     });
     const [currentTradeSymbol, setCurrentTradeSymbol] = useState<string>('');
     const [currentTradeType, setCurrentTradeType] = useState<string>('');
@@ -1135,18 +1136,35 @@ const TradingHubDisplay: React.FC = observer(() => {
                                         <div className="ai-config-section">
                                             <div className="ai-config-row">
                                                 <div className="ai-config-field">
-                                                    <label>Over/Under (pre-loss):</label>
+                                                    <label>Stop Loss (USD):</label>
                                                     <input
                                                         type="number"
                                                         min={0}
-                                                        max={9}
-                                                        value={aiTradeConfig.ouPredPreLoss}
+                                                        step={0.01}
+                                                        value={aiTradeConfig.stopLoss || 0}
                                                         onChange={(e) => setAiTradeConfig(prev => ({
                                                             ...prev,
-                                                            ouPredPreLoss: Math.max(0, Math.min(9, Number(e.target.value)))
+                                                            stopLoss: Math.max(0, Number(e.target.value))
                                                         }))}
+                                                        placeholder="0.00"
                                                     />
                                                 </div>
+                                                <div className="ai-config-field">
+                                                    <label>Take Profit (USD):</label>
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        step={0.01}
+                                                        value={aiTradeConfig.takeProfit || 0}
+                                                        onChange={(e) => setAiTradeConfig(prev => ({
+                                                            ...prev,
+                                                            takeProfit: Math.max(0, Number(e.target.value))
+                                                        }))}
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="ai-config-row">
                                                 <div className="ai-config-field">
                                                     <label>Over/Under (after loss):</label>
                                                     <input
@@ -1160,10 +1178,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                                                         }))}
                                                     />
                                                 </div>
-                                            </div>
-                                            <div className="ai-config-row">
                                                 <div className="ai-config-field">
-                                                    <label htmlFor="ai-martingale-multiplier">AI Martingale Multiplier</label>
+                                                    <label htmlFor="ai-martingale-multiplier">Martingale Multiplier:</label>
                                                     <input
                                                         id="ai-martingale-multiplier"
                                                         type="number"
@@ -1174,6 +1190,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                                                         placeholder="1.0"
                                                     />
                                                 </div>
+                                            </div>
+                                            <div className="ai-config-row">
                                                 <div className="ai-config-field">
                                                     <label>Stake:</label>
                                                     <input
