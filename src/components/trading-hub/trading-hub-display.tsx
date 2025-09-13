@@ -8,6 +8,15 @@ import SmartTraderWrapper from './smart-trader-wrapper';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
 import './trading-hub-display.scss';
 
+// Assuming contract_stages and related stores are available
+// Mocking them here for completeness if they are not directly imported or available
+const contract_stages = {
+    STARTING: 'STARTING',
+    RUNNING: 'RUNNING',
+    ENDED: 'ENDED',
+    NOT_RUNNING: 'NOT_RUNNING',
+};
+
 interface ScanResult {
     symbol: string;
     displayName: string;
@@ -519,7 +528,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 setCurrentTradeSymbol(newSymbol);
                 setCurrentTradeType(newTradeType);
-                
+
                 // Update display name for status
                 const displayName = symbolMap[newSymbol] || newSymbol;
                 setAiTradeStatus(`🔄 Switched to ${displayName} ${newStrategy.toUpperCase()} (${bestRecommendation.confidence.toFixed(1)}%)`);
@@ -541,7 +550,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
     }, [bestRecommendation, isAiAutoTrading, currentTradeSymbol, currentTradeType, contractInProgress, baseStake]);
 
-    // Enhanced AI Auto Trade execution using Smart Trader logic
+    // AI Auto Trade execution using Smart Trader logic
     const executeAiTrade = async (recommendation: TradeRecommendation) => {
         if (!apiRef.current || contractInProgress) return;
 
@@ -549,8 +558,20 @@ const TradingHubDisplay: React.FC = observer(() => {
             setContractInProgress(true);
             setAiTradeStatus(`Placing trade: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier}...`);
 
-            // Import necessary functions
+            // Import necessary functions and stores
             const { V2GetActiveToken, V2GetActiveClientId } = await import('@/external/bot-skeleton/services/api/appId');
+            const { useStore } = await import('@/hooks/useStore');
+
+            // Get store instance for Run Panel and Transactions integration
+            const store = useStore();
+            const { run_panel, transactions } = store;
+
+            // Set up Run Panel state like Smart Trader
+            run_panel.toggleDrawer(true);
+            run_panel.setActiveTabIndex(1); // Transactions tab
+            run_panel.run_id = `ai-auto-trade-${Date.now()}`;
+            run_panel.setIsRunning(true);
+            run_panel.setContractStage(contract_stages.STARTING);
 
             // Authorize if needed
             const token = V2GetActiveToken();
@@ -558,6 +579,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                 setAiTradeStatus('Error: No authorization token found');
                 setIsAiAutoTrading(false);
                 setContractInProgress(false);
+                run_panel.setIsRunning(false);
+                run_panel.setContractStage(contract_stages.NOT_RUNNING);
                 return;
             }
 
@@ -566,7 +589,19 @@ const TradingHubDisplay: React.FC = observer(() => {
                 setAiTradeStatus(`Auth error: ${authError.message}`);
                 setIsAiAutoTrading(false);
                 setContractInProgress(false);
+                run_panel.setIsRunning(false);
+                run_panel.setContractStage(contract_stages.NOT_RUNNING);
                 return;
+            }
+
+            // Sync AI Auto Trade auth state into shared ClientStore for transactions
+            try {
+                const loginid = authorize?.loginid || V2GetActiveClientId();
+                store?.client?.setLoginId?.(loginid || '');
+                store?.client?.setCurrency?.(authorize?.currency || 'USD');
+                store?.client?.setIsLoggedIn?.(true);
+            } catch (error) {
+                console.log('Client store sync warning:', error);
             }
 
             // Use Smart Trader logic for trade option preparation - exact same as Smart Trader
@@ -641,11 +676,11 @@ const TradingHubDisplay: React.FC = observer(() => {
             const { buy, error } = await apiRef.current.buy(buy_req);
             if (error) {
                 console.error('❌ AI Trade Purchase failed:', error);
-                
+
                 if (error.code === 'RateLimit' || error.message?.includes('rate limit') || error.message?.includes('too many requests')) {
                     setAiTradeStatus('Rate limit hit. Waiting before retry...');
                     setContractInProgress(false);
-                    
+
                     // Retry after delay
                     setTimeout(() => {
                         if (isAiAutoTrading && bestRecommendation) {
@@ -654,10 +689,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                     }, 5000);
                     return;
                 }
-                
+
                 setAiTradeStatus(`Trade error: ${error.message || error.code || 'Unknown error'}`);
                 setContractInProgress(false);
-                
+
                 // Don't stop trading on single error, retry after delay
                 if (isAiAutoTrading) {
                     setTimeout(() => {
@@ -682,7 +717,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 amount: currentStake,
                 strategy: recommendation.strategy
             });
-            
+
             setAiTradeStatus(`✅ Trade placed: ${buy?.longcode || 'Contract'} (ID: ${buy.contract_id})`);
 
             // Subscribe to contract updates - exact same as Smart Trader
@@ -708,13 +743,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                         if (data?.msg_type === 'proposal_open_contract') {
                             const poc = data.proposal_open_contract;
                             if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
-                            
+
                             if (String(poc?.contract_id || '') === targetId) {
                                 // Update status while contract is running
                                 if (!poc?.is_sold && poc?.status !== 'sold') {
                                     setAiTradeStatus(`📊 Contract running: ${poc?.current_spot || 'N/A'} | Profit: ${Number(poc?.profit || 0).toFixed(2)}`);
                                 }
-                                
+
                                 // Handle contract completion
                                 if (poc?.is_sold || poc?.status === 'sold') {
                                     const profit = Number(poc?.profit || 0);
@@ -768,7 +803,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             console.error('AI Auto Trade execution error:', error);
             setAiTradeStatus(`Error: ${error?.message || 'Unknown error'}`);
             setContractInProgress(false);
-            
+
             // Retry after error if still trading
             if (isAiAutoTrading) {
                 setTimeout(() => {
@@ -806,7 +841,7 @@ const TradingHubDisplay: React.FC = observer(() => {
         setCurrentStake(aiTradeConfig.stake);
         setLastOutcomeWasLoss(false); // Start fresh
         setContractInProgress(false);
-        
+
         console.log(`🤖 AI Auto Trade Started:`, {
             symbol: bestRecommendation.symbol,
             strategy: bestRecommendation.strategy,
@@ -829,7 +864,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     const stopAiAutoTrade = () => {
         console.log(`🛑 AI Auto Trade Stopped`);
-        
+
         setIsAiAutoTrading(false);
         setContractInProgress(false);
         setCurrentTradeSymbol('');
@@ -1481,7 +1516,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                         </Text>
                                         <div className="trading-truths">
                                             <div className="truth-item">1. Anything can happen</div>
-                                            <div className="truth-item">2. You don't need to know what's next to profit</div>
+                                            <div className="truth-item">2. You don\'t need to know what\'s next to profit</div>
                                             <div className="truth-item">3. Random distribution between wins and losses</div>
                                             <div className="truth-item">4. An edge = higher probability indication</div>
                                             <div className="truth-item">5. Every market moment is unique</div>
