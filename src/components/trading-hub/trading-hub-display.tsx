@@ -474,6 +474,31 @@ const TradingHubDisplay: React.FC = observer(() => {
         setIsSmartTraderModalOpen(true);
     };
 
+    // Load AI Auto Trade settings with enhanced configuration
+    const loadAIAutoTradeSettings = (recommendation: TradeRecommendation) => {
+        const settings = {
+            symbol: recommendation.symbol,
+            tradeType: getTradeTypeForStrategy(recommendation.strategy),
+            stake: 0.5,
+            duration: 1,
+            durationType: 't',
+            // AI Auto Trade specific settings
+            aiAutoTrade: true,
+            martingaleMultiplier: 2.1,
+            ouPredPostLoss: 5 // Default Over/Under prediction after loss
+        };
+
+        if (recommendation.strategy === 'over' || recommendation.strategy === 'under') {
+            settings.barrier = recommendation.barrier;
+        } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
+            settings.prediction = parseInt(recommendation.barrier || '5');
+        }
+
+        // Store the settings and open the modal
+        setSelectedTradeSettings(settings);
+        setIsSmartTraderModalOpen(true);
+    };
+
     // Helper function to map strategy to trade type
     const getTradeTypeForStrategy = (strategy: string): string => {
         const mapping: Record<string, string> = {
@@ -679,12 +704,20 @@ const TradingHubDisplay: React.FC = observer(() => {
                                             {bestRecommendation.confidence.toFixed(1)}%
                                         </span>
                                     </div>
-                                    <button
-                                        className="highlight-load-btn"
-                                        onClick={() => loadTradeSettings(bestRecommendation)}
-                                    >
-                                        🚀 Load Best Trade
-                                    </button>
+                                    <div className="highlight-actions">
+                                        <button
+                                            className="highlight-load-btn"
+                                            onClick={() => loadTradeSettings(bestRecommendation)}
+                                        >
+                                            🚀 Load Best Trade
+                                        </button>
+                                        <button
+                                            className="highlight-ai-auto-btn"
+                                            onClick={() => loadAIAutoTradeSettings(bestRecommendation)}
+                                        >
+                                            🤖 AI Auto Trade
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         )}
