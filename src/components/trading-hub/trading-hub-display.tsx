@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import Modal from '@/components/shared_ui/modal';
 import { localize } from '@deriv-com/translations';
 import marketAnalyzer from '@/services/market-analyzer';
 import SmartTraderWrapper from './smart-trader-wrapper';
+import { useStore } from '@/hooks/useStore';
+import { generateDerivApiInstance, V2GetActiveToken, V2GetActiveClientId } from '@/external/bot-skeleton/services/api/appId';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
 import './trading-hub-display.scss';
 
@@ -27,6 +29,7 @@ interface TradeSettings {
 }
 
 const TradingHubDisplay: React.FC = observer(() => {
+    const store = useStore();
     const [isScanning, setIsScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState(0);
     const [scanResults, setScanResults] = useState<ScanResult[]>([]);
@@ -475,9 +478,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     
     useEffect(() => {
         if (isAiAutoTrading && !apiRef.current) {
-            import('@/external/bot-skeleton/services/api/appId').then(({ generateDerivApiInstance }) => {
-                apiRef.current = generateDerivApiInstance();
-            });
+            apiRef.current = generateDerivApiInstance();
         }
     }, [isAiAutoTrading]);
 
@@ -511,9 +512,6 @@ const TradingHubDisplay: React.FC = observer(() => {
             setContractInProgress(true);
             setAiTradeStatus(`Placing trade: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier}...`);
 
-            // Import necessary functions
-            const { V2GetActiveToken, V2GetActiveClientId } = await import('@/external/bot-skeleton/services/api/appId');
-            
             // Authorize if needed
             const token = V2GetActiveToken();
             if (!token) {
@@ -588,6 +586,32 @@ const TradingHubDisplay: React.FC = observer(() => {
             console.log(`✅ AI Auto Trade executed: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
             setAiTradeStatus(`Trade placed: ${buy?.longcode || 'Contract'}`);
 
+            // Update run panel if available
+            if (store?.run_panel) {
+                store.run_panel.setIsRunning(true);
+                store.run_panel.setHasOpenContract(true);
+            }
+
+            // Add to transactions if available
+            if (store?.transactions && buy?.contract_id) {
+                const symbol_display = symbolMap[recommendation.symbol] || recommendation.symbol;
+                try {
+                    store.transactions.onBotContractEvent({
+                        contract_id: buy?.contract_id,
+                        transaction_ids: { buy: buy?.transaction_id },
+                        buy_price: buy?.buy_price,
+                        currency: authorize?.currency || 'USD',
+                        contract_type: getTradeTypeForStrategy(recommendation.strategy) as any,
+                        underlying: recommendation.symbol,
+                        display_name: symbol_display,
+                        date_start: Math.floor(Date.now() / 1000),
+                        status: 'open',
+                    } as any);
+                } catch (e) {
+                    console.error('Error updating transactions:', e);
+                }
+            }
+
             // Subscribe to contract updates
             const { subscription } = await apiRef.current.send({
                 proposal_open_contract: 1,
@@ -601,8 +625,22 @@ const TradingHubDisplay: React.FC = observer(() => {
                     if (data?.msg_type === 'proposal_open_contract') {
                         const poc = data.proposal_open_contract;
                         if (String(poc?.contract_id) === String(buy?.contract_id)) {
+                            // Update transactions with contract updates
+                            if (store?.transactions) {
+                                try {
+                                    store.transactions.onBotContractEvent(poc);
+                                } catch (e) {
+                                    console.error('Error updating transaction:', e);
+                                }
+                            }
+
                             if (poc?.is_sold || poc?.status === 'sold') {
                                 const profit = Number(poc?.profit || 0);
+                                
+                                // Update run panel
+                                if (store?.run_panel) {
+                                    store.run_panel.setHasOpenContract(false);
+                                }
                                 
                                 if (profit > 0) {
                                     // WIN: Reset to pre-loss state
@@ -669,6 +707,12 @@ const TradingHubDisplay: React.FC = observer(() => {
         setCurrentTradeSymbol('');
         setCurrentTradeType('');
         setAiTradeStatus('AI Auto Trade stopped');
+        
+        // Update run panel
+        if (store?.run_panel) {
+            store.run_panel.setIsRunning(false);
+            store.run_panel.setHasOpenContract(false);
+        }
         
         if (apiRef.current) {
             apiRef.current.disconnect?.();
