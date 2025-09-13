@@ -224,77 +224,75 @@
                         }
                     }
 
-                    .highlight-buttons {
+                    .highlight-actions {
                         display: flex;
-                        gap: 8px;
+                        gap: 10px;
                         flex-wrap: wrap;
                     }
 
                     .highlight-load-btn {
-                        background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+                        background: linear-gradient(135deg, #00d4aa 0%, #00b4d8 100%);
                         color: white;
                         border: none;
-                        padding: 8px 16px;
-                        border-radius: 20px;
-                        font-size: 12px;
-                        font-weight: bold;
+                        padding: 12px 20px;
+                        border-radius: 8px;
+                        font-weight: 600;
+                        font-size: 14px;
                         cursor: pointer;
                         transition: all 0.3s ease;
-                        box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+                        box-shadow: 0 4px 15px rgba(0, 212, 170, 0.3);
 
-                        &:hover:not(:disabled) {
+                        &:hover {
                             transform: translateY(-2px);
-                            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+                            box-shadow: 0 6px 20px rgba(0, 212, 170, 0.4);
                         }
 
                         &:active {
                             transform: translateY(0);
-                        }
-
-                        &:disabled {
-                            opacity: 0.6;
-                            cursor: not-allowed;
                         }
                     }
 
-                    .auto-trade-btn {
-                        background: linear-gradient(135deg, #4CAF50, #45a049);
+                    .auto-trade-best-btn {
+                        background: linear-gradient(135deg, #ff6b35, #f7931e);
                         color: white;
                         border: none;
                         padding: 8px 16px;
-                        border-radius: 20px;
+                        border-radius: 6px;
                         font-size: 12px;
-                        font-weight: bold;
+                        font-weight: 600;
                         cursor: pointer;
-                        transition: all 0.3s ease;
-                        box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
-                        display: flex;
-                        align-items: center;
-                        gap: 4px;
+                        transition: all 0.2s ease;
 
-                        &:hover:not(:disabled) {
-                            transform: translateY(-2px);
-                            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
-                        }
-
-                        &:active {
-                            transform: translateY(0);
+                        &:hover {
+                            transform: translateY(-1px);
+                            box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
                         }
 
                         &:disabled {
-                            opacity: 0.6;
+                            opacity: 0.7;
                             cursor: not-allowed;
+                            transform: none;
                         }
 
                         &.auto-trading-active {
-                            background: linear-gradient(135deg, #f44336, #d32f2f);
+                            background: linear-gradient(135deg, #e74c3c, #c0392b);
                             animation: pulse 2s infinite;
 
-                            .contract-status {
-                                margin-left: 4px;
-                                font-size: 10px;
-                                opacity: 0.9;
+                            &:hover {
+                                box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
                             }
+                        }
+                    }
+
+                    @keyframes pulse {
+                        0% {
+                            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+                        }
+                        50% {
+                            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.6);
+                        }
+                        100% {
+                            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
                         }
                     }
                 }
@@ -807,122 +805,66 @@
                     }
                 }
             }
-        }
 
-        .real-time-badge {
-            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
-            color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: bold;
-            margin-left: 8px;
-            animation: pulse 2s infinite;
-        }
-
-        .auto-trading-indicator {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin-left: auto;
-
-            .auto-trade-pulse {
-                width: 8px;
-                height: 8px;
-                background: #4CAF50;
-                border-radius: 50%;
-                animation: pulse 1.5s infinite;
+            .real-time-badge {
+                background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+                color: white;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 10px;
+                font-weight: bold;
+                margin-left: 8px;
+                animation: pulse 2s infinite;
             }
-        }
 
-        .auto-trade-status {
-            width: 100%;
-            margin-top: 8px;
-            padding: 6px 12px;
-            background: rgba(76, 175, 80, 0.1);
-            border-radius: 12px;
-            border-left: 3px solid #4CAF50;
-        }
-    }
+            @keyframes pulse {
+                0% { opacity: 0.7; }
+                50% { opacity: 1; }
+                100% { opacity: 0.7; }
+            }
 
-    @keyframes pulse {
-        0% {
-            transform: scale(1);
-            opacity: 1;
-        }
-        50% {
-            transform: scale(1.05);
-            opacity: 0.8;
-        }
-        100% {
-            transform: scale(1);
-            opacity: 1;
-        }
-    }
 
-    @keyframes scanningBeam {
-        0% { transform: translateX(-20%); }
-        50% { transform: translateX(100%); }
-        100% { transform: translateX(-20%); }
-    }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
 
-    @keyframes scanning {
-        0% { opacity: 0; }
-        50% { opacity: 1; }
-        100% { opacity: 0; }
-    }
+            /* Responsive design */
+            @media (max-width: 768px) {
+                .trading-hub-scanner {
+                    .scanner-header {
+                        padding: 1rem;
 
-    @keyframes progressGlow {
-        0% { opacity: 0.5; }
-        50% { opacity: 1; }
-        100% { opacity: 0.5; }
-    }
+                        .scanner-controls {
+                            flex-direction: column;
+                            align-items: stretch;
+                            gap: 1rem;
+                        }
 
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
+                        .scanner-title .title-with-status {
+                            flex-direction: column;
+                            align-items: flex-start;
+                            gap: 0.5rem;
 
-    @keyframes capabilityPulse {
-        0% { opacity: 0.7; }
-        50% { opacity: 1; }
-        100% { opacity: 0.7; }
-    }
-
-    /* Responsive design */
-    @media (max-width: 768px) {
-        .trading-hub-scanner {
-            .scanner-header {
-                padding: 1rem;
-
-                .scanner-controls {
-                    flex-direction: column;
-                    align-items: stretch;
-                    gap: 1rem;
-                }
-
-                .scanner-title .title-with-status {
-                    flex-direction: column;
-                    align-items: flex-start;
-                    gap: 0.5rem;
-
-                    h1 {
-                        font-size: 1.5rem;
+                            h1 {
+                                font-size: 1.5rem;
+                            }
+                        }
                     }
-                }
-            }
 
-            .scanner-content {
-                padding: 1rem;
+                    .scanner-content {
+                        padding: 1rem;
 
-                .results-grid {
-                    grid-template-columns: 1fr;
-                    gap: 1rem;
-                }
+                        .results-grid {
+                            grid-template-columns: 1fr;
+                            gap: 1rem;
+                        }
 
-                .scanner-summary .summary-stats {
-                    grid-template-columns: repeat(2, 1fr);
-                    gap: 1rem;
+                        .scanner-summary .summary-stats {
+                            grid-template-columns: repeat(2, 1fr);
+                            gap: 1rem;
+                        }
+                    }
                 }
             }
         }

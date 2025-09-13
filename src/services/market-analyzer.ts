@@ -1,3 +1,4 @@
+
 import { symbolAnalyzer, SymbolAnalysis } from './symbol-analyzer';
 
 export interface TradeRecommendation {
@@ -61,7 +62,7 @@ class MarketAnalyzer {
 
     start() {
         if (this.isRunning) return;
-
+        
         this.isRunning = true;
         this.connectToDerivAPI();
         this.startAnalysis();
@@ -69,17 +70,17 @@ class MarketAnalyzer {
 
     stop() {
         this.isRunning = false;
-
+        
         if (this.ws) {
             this.ws.close();
             this.ws = null;
         }
-
+        
         if (this.analysisInterval) {
             clearInterval(this.analysisInterval);
             this.analysisInterval = null;
         }
-
+        
         this.reconnectAttempts = 0;
         symbolAnalyzer.clearAll();
         this.tickHistory = {};
@@ -113,7 +114,7 @@ class MarketAnalyzer {
 
         try {
             this.ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
-
+            
             this.ws.onopen = () => {
                 console.log('✅ Connected to Deriv WebSocket API');
                 this.reconnectAttempts = 0;
@@ -160,7 +161,7 @@ class MarketAnalyzer {
 
         this.reconnectAttempts++;
         console.log(`🔄 Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${this.reconnectDelay}ms`);
-
+        
         setTimeout(() => {
             if (this.isRunning) {
                 this.connectToDerivAPI();
@@ -178,7 +179,7 @@ class MarketAnalyzer {
                 ticks: symbol,
                 subscribe: 1
             };
-
+            
             try {
                 this.ws!.send(JSON.stringify(subscribeMsg));
                 console.log(`📊 Subscribed to ${symbol}`);
@@ -191,7 +192,7 @@ class MarketAnalyzer {
     private handleWebSocketMessage(event: MessageEvent) {
         try {
             const data = JSON.parse(event.data);
-
+            
             if (data.error) {
                 console.error('WebSocket error response:', data.error);
                 this.handleError(`API Error: ${data.error.message}`);
@@ -208,7 +209,7 @@ class MarketAnalyzer {
 
     private processTick(tick: any) {
         const { symbol, quote, epoch } = tick;
-
+        
         if (!this.symbols.includes(symbol)) {
             return;
         }
@@ -223,7 +224,7 @@ class MarketAnalyzer {
         if (!this.tickHistory[symbol]) {
             this.tickHistory[symbol] = [];
         }
-
+        
         this.tickHistory[symbol].push({
             time: epoch * 1000,
             quote: parseFloat(quote),
@@ -287,7 +288,7 @@ class MarketAnalyzer {
 
                 const mostFreqDigit = Object.entries(digitFreq)
                     .reduce((a, b) => digitFreq[parseInt(a[0])] > digitFreq[parseInt(b[0])] ? a : b)[0];
-
+                
                 const leastFreqDigit = Object.entries(digitFreq)
                     .reduce((a, b) => digitFreq[parseInt(a[0])] < digitFreq[parseInt(b[0])] ? a : b)[0];
 
@@ -333,7 +334,7 @@ class MarketAnalyzer {
         barriers.forEach(barrier => {
             let overCount = 0;
             let underCount = 0;
-
+            
             for (let digit = 0; digit <= 9; digit++) {
                 const count = digitFreq[digit] || 0;
                 if (digit > barrier) {
@@ -413,13 +414,6 @@ class MarketAnalyzer {
     }
 }
 
-// Create a singleton instance with proper error handling
-let marketAnalyzer: MarketAnalyzer;
-try {
-    marketAnalyzer = new MarketAnalyzer();
-} catch (error) {
-    console.error('Failed to initialize MarketAnalyzer:', error);
-    marketAnalyzer = {} as MarketAnalyzer; // Fallback to prevent app crash
-}
-
+// Create singleton instance
+const marketAnalyzer = new MarketAnalyzer();
 export default marketAnalyzer;

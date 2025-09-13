@@ -3,10 +3,12 @@ import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import Modal from '@/components/shared_ui/modal';
 import { localize } from '@deriv-com/translations';
+import { contract_stages } from '@/constants/contract-stage';
 import marketAnalyzer from '@/services/market-analyzer';
 import SmartTraderWrapper from './smart-trader-wrapper';
-import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
+import { generateDerivApiInstance, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
 import { useStore } from '@/hooks/useStore';
+import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
 import './trading-hub-display.scss';
 
 interface ScanResult {
@@ -28,7 +30,6 @@ interface TradeSettings {
 }
 
 const TradingHubDisplay: React.FC = observer(() => {
-    const { run_panel } = useStore();
     const [isScanning, setIsScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState(0);
     const [scanResults, setScanResults] = useState<ScanResult[]>([]);
@@ -47,15 +48,13 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [aiScanningPhase, setAiScanningPhase] = useState<'initializing' | 'analyzing' | 'evaluating' | 'recommending' | 'complete'>('initializing');
     const [currentAiMessage, setCurrentAiMessage] = useState('');
     const [processingSymbol, setProcessingSymbol] = useState<string>('');
-    
-    // Auto Trade Best states
-    const [isAutoTrading, setIsAutoTrading] = useState(false);
+    const [isAutoTradingBest, setIsAutoTradingBest] = useState(false);
+    const [currentAutoTradeSettings, setCurrentAutoTradeSettings] = useState<TradeSettings | null>(null);
+    const [activeToken, setActiveToken] = useState<string | null>(null);
     const [autoTradeCount, setAutoTradeCount] = useState(0);
-    const [maxAutoTrades] = useState(10);
-    const [currentAutoContract, setCurrentAutoContract] = useState<any>(null);
-    const [lastTradedRecommendation, setLastTradedRecommendation] = useState<string>('');
-    const [autoTradeStake, setAutoTradeStake] = useState(0.5);
-    const [tradingSocket, setTradingSocket] = useState<WebSocket | null>(null);
+    const [maxAutoTrades] = useState(5); // Maximum number of auto trades before switching
+
+    const { generalStore } = useStore();
 
     // AI Scanning Messages with Trading Truths
     const aiScanningMessages = {
@@ -142,6 +141,14 @@ const TradingHubDisplay: React.FC = observer(() => {
                 setConnectionStatus('connecting');
                 setStatusMessage('Connecting to Deriv WebSocket API...');
 
+                // Get active token for API instance
+                const token = await V2GetActiveToken();
+                setActiveToken(token);
+                if (!token) {
+                    throw new Error('No active token found');
+                }
+                const derivAPI = await generateDerivApiInstance(token);
+
                 // Subscribe to market analyzer updates
                 const unsubscribe = marketAnalyzer.onAnalysis((recommendation, stats, o5u4Data) => {
                     if (stats) {
@@ -162,7 +169,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                     // Update scan progress
                     const currentStats = stats || marketStats;
-                    const readySymbolsCount = Object.keys(currentStats).filter(symbol => 
+                    const readySymbolsCount = Object.keys(currentStats).filter(symbol =>
                         currentStats[symbol].isReady
                     ).length;
 
@@ -264,209 +271,6 @@ const TradingHubDisplay: React.FC = observer(() => {
             marketAnalyzer.stop();
         };
     }, []);
-
-    // Cleanup auto trading on unmount
-    useEffect(() => {
-        return () => {
-            if (isAutoTrading) {
-                stopAutoTrading();
-            }
-        };
-    }, [isAutoTrading, stopAutoTrading]);
-
-    // Auto Trade Best functionality
-    const initializeTradingSocket = useCallback(() => {
-        if (tradingSocket) return tradingSocket;
-
-        const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
-        
-        ws.onopen = () => {
-            console.log('✅ Trading WebSocket connected');
-        };
-
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            handleTradingMessage(data);
-        };
-
-        ws.onerror = (error) => {
-            console.error('❌ Trading WebSocket error:', error);
-        };
-
-        ws.onclose = () => {
-            console.log('🔌 Trading WebSocket disconnected');
-            setTradingSocket(null);
-        };
-
-        setTradingSocket(ws);
-        return ws;
-    }, [tradingSocket]);
-
-    const handleTradingMessage = useCallback((data: any) => {
-        if (data.error) {
-            console.error('Trading API error:', data.error);
-            return;
-        }
-
-        if (data.buy) {
-            console.log('✅ Contract purchased:', data.buy);
-            setCurrentAutoContract(data.buy);
-            run_panel.setHasOpenContract(true);
-            
-            // Subscribe to contract updates
-            const ws = tradingSocket;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    proposal_open_contract: 1,
-                    contract_id: data.buy.contract_id,
-                    subscribe: 1
-                }));
-            }
-        }
-
-        if (data.proposal_open_contract) {
-            const contract = data.proposal_open_contract;
-            console.log('📊 Contract update:', contract);
-            
-            if (contract.is_sold) {
-                const profit = parseFloat(contract.profit || '0');
-                const isWin = profit > 0;
-                
-                console.log(`🎯 Contract completed: ${isWin ? 'WIN' : 'LOSS'} - Profit: $${profit}`);
-                
-                setCurrentAutoContract(null);
-                run_panel.setHasOpenContract(false);
-                setAutoTradeCount(prev => prev + 1);
-                
-                // Check if should continue auto trading
-                if (autoTradeCount + 1 >= maxAutoTrades) {
-                    stopAutoTrading();
-                } else {
-                    // Wait a bit before next trade
-                    setTimeout(() => {
-                        if (isAutoTrading && bestRecommendation) {
-                            executeAutoTrade(bestRecommendation);
-                        }
-                    }, 2000);
-                }
-            }
-        }
-    }, [tradingSocket, autoTradeCount, maxAutoTrades, isAutoTrading, bestRecommendation]);
-
-    const executeAutoTrade = useCallback(async (recommendation: TradeRecommendation) => {
-        if (!recommendation || !isAutoTrading) return;
-
-        const ws = initializeTradingSocket();
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-            console.error('❌ Trading socket not ready');
-            return;
-        }
-
-        // Create unique identifier for this recommendation
-        const recId = `${recommendation.symbol}-${recommendation.strategy}-${recommendation.barrier}-${recommendation.timestamp}`;
-        
-        // Skip if we already traded this exact recommendation
-        if (recId === lastTradedRecommendation) {
-            return;
-        }
-
-        const tradeTypeMap: Record<string, string> = {
-            'over': 'DIGITOVER',
-            'under': 'DIGITUNDER',
-            'even': 'DIGITEVEN',
-            'odd': 'DIGITODD',
-            'matches': 'DIGITMATCH',
-            'differs': 'DIGITDIFF'
-        };
-
-        const contractType = tradeTypeMap[recommendation.strategy];
-        if (!contractType) {
-            console.error('❌ Unknown strategy:', recommendation.strategy);
-            return;
-        }
-
-        // Prepare purchase parameters
-        const purchaseParams: any = {
-            buy: 1,
-            price: autoTradeStake,
-            subscribe: 1,
-            parameters: {
-                contract_type: contractType,
-                symbol: recommendation.symbol,
-                duration: 1,
-                duration_unit: 't'
-            }
-        };
-
-        // Add barrier/prediction based on strategy
-        if (recommendation.strategy === 'over' || recommendation.strategy === 'under') {
-            purchaseParams.parameters.barrier = recommendation.barrier;
-        } else if (recommendation.strategy === 'matches' || recommendation.strategy === 'differs') {
-            purchaseParams.parameters.prediction = parseInt(recommendation.barrier);
-        }
-
-        try {
-            console.log(`🚀 Auto trading: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier} on ${symbolMap[recommendation.symbol]} (${recommendation.confidence.toFixed(1)}% confidence)`);
-            
-            ws.send(JSON.stringify(purchaseParams));
-            setLastTradedRecommendation(recId);
-            
-        } catch (error) {
-            console.error('❌ Failed to execute auto trade:', error);
-        }
-    }, [isAutoTrading, autoTradeStake, lastTradedRecommendation, initializeTradingSocket, symbolMap]);
-
-    const startAutoTrading = useCallback(() => {
-        if (isAutoTrading) return;
-        
-        setIsAutoTrading(true);
-        setAutoTradeCount(0);
-        setLastTradedRecommendation('');
-        
-        // Set run panel to indicate auto trading is active
-        run_panel.setIsRunning(true);
-        run_panel.run_id = `auto-trade-best-${Date.now()}`;
-        
-        console.log('🎯 Auto Trade Best started');
-        
-        // Execute first trade if best recommendation exists
-        if (bestRecommendation) {
-            executeAutoTrade(bestRecommendation);
-        }
-    }, [isAutoTrading, bestRecommendation, executeAutoTrade, run_panel]);
-
-    const stopAutoTrading = useCallback(() => {
-        if (!isAutoTrading) return;
-        
-        setIsAutoTrading(false);
-        setCurrentAutoContract(null);
-        setLastTradedRecommendation('');
-        
-        // Update run panel
-        run_panel.setIsRunning(false);
-        run_panel.setHasOpenContract(false);
-        
-        if (tradingSocket) {
-            tradingSocket.close();
-            setTradingSocket(null);
-        }
-        
-        console.log('🛑 Auto Trade Best stopped');
-    }, [isAutoTrading, tradingSocket, run_panel]);
-
-    // Auto execute trades when best recommendation changes
-    useEffect(() => {
-        if (isAutoTrading && bestRecommendation && !currentAutoContract) {
-            const recId = `${bestRecommendation.symbol}-${bestRecommendation.strategy}-${bestRecommendation.barrier}-${bestRecommendation.timestamp}`;
-            
-            // Only trade if this is a new recommendation
-            if (recId !== lastTradedRecommendation) {
-                setTimeout(() => {
-                    executeAutoTrade(bestRecommendation);
-                }, 1000);
-            }
-        }
-    }, [bestRecommendation, isAutoTrading, currentAutoContract, lastTradedRecommendation, executeAutoTrade]);
 
     // Generate comprehensive scan results
     const generateScanResults = useCallback((): ScanResult[] => {
@@ -667,6 +471,42 @@ const TradingHubDisplay: React.FC = observer(() => {
         }
     }, [connectionStatus, generateScanResults]);
 
+    // Monitor best recommendation changes for auto trading
+    useEffect(() => {
+        if (isAutoTradingBest && bestRecommendation && currentAutoTradeSettings) {
+            // Check if the best recommendation has changed significantly
+            const newSymbol = bestRecommendation.symbol;
+            const newStrategy = getTradeTypeForStrategy(bestRecommendation.strategy);
+
+            if (newSymbol !== currentAutoTradeSettings.symbol ||
+                newStrategy !== currentAutoTradeSettings.tradeType) {
+
+                // Update to new best recommendation
+                const newSettings = {
+                    symbol: bestRecommendation.symbol,
+                    tradeType: getTradeTypeForStrategy(bestRecommendation.strategy),
+                    stake: currentAutoTradeSettings.stake, // Keep current stake
+                    duration: currentAutoTradeSettings.duration,
+                    durationType: currentAutoTradeSettings.durationType
+                };
+
+                if (bestRecommendation.strategy === 'over' || bestRecommendation.strategy === 'under') {
+                    newSettings.barrier = bestRecommendation.barrier;
+                } else if (bestRecommendation.strategy === 'matches' || bestRecommendation.strategy === 'differs') {
+                    newSettings.prediction = parseInt(bestRecommendation.barrier || '5');
+                }
+
+                setCurrentAutoTradeSettings(newSettings);
+
+                // Close current modal and open new one with updated settings
+                setTimeout(() => {
+                    setSelectedTradeSettings(newSettings);
+                    setIsSmartTraderModalOpen(true);
+                }, 1000);
+            }
+        }
+    }, [bestRecommendation, isAutoTradingBest, currentAutoTradeSettings]);
+
     // Load trade settings to Smart Trader
     const loadTradeSettings = (recommendation: TradeRecommendation) => {
         const settings = {
@@ -795,6 +635,51 @@ const TradingHubDisplay: React.FC = observer(() => {
         setSelectedTradeSettings(null);
     };
 
+    // Auto trade best recommendation function
+    const startAutoTradeBest = async () => {
+        if (!bestRecommendation || !activeToken) return;
+
+        setIsAutoTradingBest(true);
+        setAutoTradeCount(0); // Reset counter
+        const settings = {
+            symbol: bestRecommendation.symbol,
+            tradeType: getTradeTypeForStrategy(bestRecommendation.strategy),
+            stake: 1, // Default stake for auto-trading
+            duration: 1, // Default duration for auto-trading
+            durationType: 't', // Default duration type
+            maxTrades: maxAutoTrades, // Add max trades limit
+            // martingale multiplier needs to be set here if available in bestRecommendation
+            // martingaleMultiplier: bestRecommendation.martingaleMultiplier || 1
+        };
+
+        if (bestRecommendation.strategy === 'over' || bestRecommendation.strategy === 'under') {
+            settings.barrier = bestRecommendation.barrier;
+        } else if (bestRecommendation.strategy === 'matches' || bestRecommendation.strategy === 'differs') {
+            settings.prediction = parseInt(bestRecommendation.barrier || '5');
+        }
+
+        setCurrentAutoTradeSettings(settings);
+        setSelectedTradeSettings(settings);
+        setIsSmartTraderModalOpen(true);
+    };
+
+    // Stop auto trading function
+    const stopAutoTradeBest = () => {
+        setIsAutoTradingBest(false);
+        setCurrentAutoTradeSettings(null);
+        setAutoTradeCount(0);
+        setIsSmartTraderModalOpen(false);
+        
+        // Stop the run panel activity
+        if (store?.run_panel) {
+            store.run_panel.setIsRunning(false);
+            store.run_panel.setHasOpenContract(false);
+            store.run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        }
+        
+        console.log("Auto trading stopped.");
+    };
+
     return (
         <div className="trading-hub-scanner">
             {/* Smart Trader Modal */}
@@ -809,6 +694,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                     <SmartTraderWrapper
                         initialSettings={selectedTradeSettings}
                         onClose={handleCloseModal}
+                        isAutoTrading={isAutoTradingBest} // Pass auto-trading state
+                        onStopAutoTrade={stopAutoTradeBest} // Pass stop function
                     />
                 )}
             </Modal>
@@ -860,6 +747,99 @@ const TradingHubDisplay: React.FC = observer(() => {
             </div>
 
             <div className="scanner-content">
+                {connectionStatus === 'error' && (
+                    <div className="scanner-error">
+                        <div className="error-icon">⚠️</div>
+                        <Text size="s" color="prominent">Connection Error</Text>
+                        <Text size="xs" color="general">{statusMessage}</Text>
+                        <button
+                            className="retry-btn"
+                            onClick={() => window.location.reload()}
+                        >
+                            Retry Connection
+                        </button>
+                    </div>
+                )}
+
+                {(connectionStatus === 'connecting' || connectionStatus === 'scanning') && (
+                    <div className="scanner-loading">
+                        <div className="ai-scanning-display">
+                            <div className="ai-brain-icon">🧠</div>
+                            <div className="scanning-content">
+                                <div className="ai-status-header">
+                                    <Text size="m" weight="bold" color="prominent">
+                                        AI Market Scanner Active
+                                    </Text>
+                                    <div className="scanning-dots">
+                                        <span className="dot"></span>
+                                        <span className="dot"></span>
+                                        <span className="dot"></span>
+                                    </div>
+                                </div>
+
+                                <Text size="s" color="general" className="ai-current-message">
+                                    {currentAiMessage || statusMessage}
+                                </Text>
+
+                                {processingSymbol && (
+                                    <div className="processing-symbol">
+                                        <Text size="xs" color="general">
+                                            📊 Currently analyzing: <span className="symbol-name">{processingSymbol}</span>
+                                        </Text>
+                                    </div>
+                                )}
+
+                                <div className="ai-progress-section">
+                                    <div className="progress-bar-ai">
+                                        <div
+                                            className="progress-fill-ai"
+                                            style={{ width: `${scanProgress}%` }}
+                                        ></div>
+                                    </div>
+                                    <Text size="xs" color="general" className="progress-text">
+                                        AI Analysis: {symbolsAnalyzed}/{totalSymbols} volatility indices processed
+                                    </Text>
+                                </div>
+
+                                <div className="ai-capabilities">
+                                    <div className="capability-item">✓ Pattern Recognition</div>
+                                    <div className="capability-item">✓ Statistical Analysis</div>
+                                    <div className="capability-item">✓ Probability Calculation</div>
+                                    <div className="capability-item">✓ Risk Assessment</div>
+                                </div>
+
+                                <div className="trading-truths-section">
+                                    <Text size="xs" weight="bold" color="prominent" className="truths-header">
+                                        📚 5 Fundamental Truths of Trading
+                                    </Text>
+                                    <div className="trading-truths">
+                                        <div className="truth-item">1. Anything can happen</div>
+                                        <div className="truth-item">2. You don\'t need to know what\'s next to profit</div>
+                                        <div className="truth-item">3. Random distribution between wins and losses</div>
+                                        <div className="truth-item">4. An edge = higher probability indication</div>
+                                        <div className="truth-item">5. Every market moment is unique</div>
+                                    </div>
+                                </div>
+
+                                <Text size="xs" color="general" className="ai-disclaimer">
+                                    🎯 AI is analyzing market patterns using these fundamental trading principles
+                                </Text>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {connectionStatus === 'ready' && scanResults.length === 0 && (
+                    <div className="no-opportunities">
+                        <div className="no-opportunities-icon">🔍</div>
+                        <Text size="s" color="general">No trading opportunities found</Text>
+                        <Text size="xs" color="general">
+                            Market conditions don't meet our criteria for high-confidence trades.
+                            The scanner will continue monitoring for new opportunities.
+                        </Text>
+                    </div>
+                )}
+
                 {connectionStatus === 'ready' && scanResults.length > 0 && (
                     <div className="scanner-summary">
                         <div className="summary-stats">
@@ -882,12 +862,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 <div className="highlight-header">
                                     <span className="crown-icon">👑</span>
                                     <Text size="s" weight="bold">Best Opportunity</Text>
-                                    {isAutoTrading && (
-                                        <div className="auto-trading-indicator">
-                                            <span className="auto-trade-pulse"></span>
-                                            <Text size="xs" color="prominent">Auto Trading Active ({autoTradeCount}/{maxAutoTrades})</Text>
-                                        </div>
-                                    )}
                                 </div>
                                 <div className="highlight-content">
                                     <div className="highlight-trade">
@@ -899,146 +873,31 @@ const TradingHubDisplay: React.FC = observer(() => {
                                             {bestRecommendation.confidence.toFixed(1)}%
                                         </span>
                                     </div>
-                                    <div className="highlight-buttons">
+                                    <div className="highlight-actions">
                                         <button
                                             className="highlight-load-btn"
                                             onClick={() => loadTradeSettings(bestRecommendation)}
-                                            disabled={isAutoTrading}
                                         >
                                             🚀 Load Best Trade
                                         </button>
                                         <button
-                                            className={`auto-trade-btn ${isAutoTrading ? 'auto-trading-active' : ''}`}
-                                            onClick={isAutoTrading ? stopAutoTrading : startAutoTrading}
-                                            disabled={connectionStatus !== 'ready' || autoTradeCount >= maxAutoTrades}
+                                            className="auto-trade-best-btn"
+                                            onClick={() => isAutoTradingBest ? stopAutoTradeBest() : startAutoTradeBest()}
                                         >
-                                            {isAutoTrading ? (
-                                                <>
-                                                    🛑 Stop Auto Trade
-                                                    {currentAutoContract && (
-                                                        <span className="contract-status">
-                                                            📊 Trading...
-                                                        </span>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                `⚡ Auto Trade Best`
-                                            )}
+                                            {isAutoTradingBest ? `🛑 Stop Auto (${autoTradeCount}/${maxAutoTrades})` : '⚡ Auto Trade Best'}
                                         </button>
                                     </div>
-                                    {isAutoTrading && (
-                                        <div className="auto-trade-status">
-                                            <Text size="xs" color="general">
-                                                Stake: ${autoTradeStake} • {currentAutoContract ? 'Contract Active' : 'Monitoring for next opportunity'}
-                                            </Text>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         )}
                     </div>
                 )}
 
-                <div className="scanner-results">
-                    {connectionStatus === 'error' && (
-                        <div className="scanner-error">
-                            <div className="error-icon">⚠️</div>
-                            <Text size="s" color="prominent">Connection Error</Text>
-                            <Text size="xs" color="general">{statusMessage}</Text>
-                            <button
-                                className="retry-btn"
-                                onClick={() => window.location.reload()}
-                            >
-                                Retry Connection
-                            </button>
-                        </div>
-                    )}
-
-                    {(connectionStatus === 'connecting' || connectionStatus === 'scanning') && (
-                        <div className="scanner-loading">
-                            <div className="ai-scanning-display">
-                                <div className="ai-brain-icon">🧠</div>
-                                <div className="scanning-content">
-                                    <div className="ai-status-header">
-                                        <Text size="m" weight="bold" color="prominent">
-                                            AI Market Scanner Active
-                                        </Text>
-                                        <div className="scanning-dots">
-                                            <span className="dot"></span>
-                                            <span className="dot"></span>
-                                            <span className="dot"></span>
-                                        </div>
-                                    </div>
-
-                                    <Text size="s" color="general" className="ai-current-message">
-                                        {currentAiMessage || statusMessage}
-                                    </Text>
-
-                                    {processingSymbol && (
-                                        <div className="processing-symbol">
-                                            <Text size="xs" color="general">
-                                                📊 Currently analyzing: <span className="symbol-name">{processingSymbol}</span>
-                                            </Text>
-                                        </div>
-                                    )}
-
-                                    <div className="ai-progress-section">
-                                        <div className="progress-bar-ai">
-                                            <div
-                                                className="progress-fill-ai"
-                                                style={{ width: `${scanProgress}%` }}
-                                            ></div>
-                                        </div>
-                                        <Text size="xs" color="general" className="progress-text">
-                                            AI Analysis: {symbolsAnalyzed}/{totalSymbols} volatility indices processed
-                                        </Text>
-                                    </div>
-
-                                    <div className="ai-capabilities">
-                                        <div className="capability-item">✓ Pattern Recognition</div>
-                                        <div className="capability-item">✓ Statistical Analysis</div>
-                                        <div className="capability-item">✓ Probability Calculation</div>
-                                        <div className="capability-item">✓ Risk Assessment</div>
-                                    </div>
-
-                                    <div className="trading-truths-section">
-                                        <Text size="xs" weight="bold" color="prominent" className="truths-header">
-                                            📚 5 Fundamental Truths of Trading
-                                        </Text>
-                                        <div className="trading-truths">
-                                            <div className="truth-item">1. Anything can happen</div>
-                                            <div className="truth-item">2. You don't need to know what's next to profit</div>
-                                            <div className="truth-item">3. Random distribution between wins and losses</div>
-                                            <div className="truth-item">4. An edge = higher probability indication</div>
-                                            <div className="truth-item">5. Every market moment is unique</div>
-                                        </div>
-                                    </div>
-
-                                    <Text size="xs" color="general" className="ai-disclaimer">
-                                        🎯 AI is analyzing market patterns using these fundamental trading principles
-                                    </Text>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {connectionStatus === 'ready' && scanResults.length === 0 && (
-                        <div className="no-opportunities">
-                            <div className="no-opportunities-icon">🔍</div>
-                            <Text size="s" color="general">No trading opportunities found</Text>
-                            <Text size="xs" color="general">
-                                Market conditions don't meet our criteria for high-confidence trades.
-                                The scanner will continue monitoring for new opportunities.
-                            </Text>
-                        </div>
-                    )}
-
-                    {connectionStatus === 'ready' && scanResults.length > 0 && (
-                        <div className="results-grid">
-                            {scanResults.map(renderRecommendationCard)}
-                        </div>
-                    )}
-                </div>
+                {connectionStatus === 'ready' && scanResults.length > 0 && (
+                    <div className="scanner-results">
+                        {scanResults.map(renderRecommendationCard)}
+                    </div>
+                )}
             </div>
         </div>
     );

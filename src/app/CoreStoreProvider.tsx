@@ -132,16 +132,9 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
     );
 
     useEffect(() => {
-        if (!isAuthorizing && client && api_base?.api && typeof api_base.api.onMessage === 'function') {
-            try {
-                const messageStream = api_base.api.onMessage();
-                if (messageStream && typeof messageStream.subscribe === 'function') {
-                    const subscription = messageStream.subscribe(handleMessages);
-                    msg_listener.current = { unsubscribe: subscription?.unsubscribe };
-                }
-            } catch (error) {
-                console.warn('Failed to subscribe to API messages:', error);
-            }
+        if (!isAuthorizing && client) {
+            const subscription = api_base?.api?.onMessage().subscribe(handleMessages);
+            msg_listener.current = { unsubscribe: subscription?.unsubscribe };
         }
 
         return () => {
