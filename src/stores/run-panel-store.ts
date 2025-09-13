@@ -225,18 +225,16 @@ export default class RunPanelStore {
         this.is_contracy_buying_in_progress = false;
         const { is_multiplier } = this.root_store.summary_card;
 
-        // Check if it's a Smart Trader session or auto trading session
+        // Check if it's a Smart Trader session
         const isSmartTrader = this.run_id?.includes('smart-');
-        const isAutoTrading = this.run_id?.includes('auto-');
 
-        if (is_multiplier && !isSmartTrader && !isAutoTrading) {
+        if (is_multiplier && !isSmartTrader) {
             this.showStopMultiplierContractDialog();
         } else {
             this.stopBot();
             // Emit stop event for Smart Trader and other external traders
             if (this.dbot?.observer) {
                 this.dbot.observer.emit('bot.click_stop');
-                this.dbot.observer.emit('bot.stop');
             }
         }
     };
