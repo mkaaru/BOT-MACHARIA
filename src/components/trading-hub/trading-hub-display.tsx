@@ -161,12 +161,12 @@ const TradingHubDisplay: React.FC = observer(() => {
                 setStatusMessage('Connecting to Deriv WebSocket API...');
 
                 // Get active token for API instance
-                const token = await V2GetActiveToken();
+                const token = V2GetActiveToken();
                 setActiveToken(token);
                 if (!token) {
                     throw new Error('No active token found');
                 }
-                const derivAPI = await generateDerivApiInstance(token);
+                const derivAPI = generateDerivApiInstance();
 
                 // Subscribe to market analyzer updates
                 const unsubscribe = marketAnalyzer.onAnalysis((recommendation, stats, o5u4Data) => {

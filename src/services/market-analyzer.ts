@@ -461,8 +461,10 @@ class MarketAnalyzer {
             });
 
             // Find best recommendation
-            const bestRecommendation = recommendations.reduce((best, current) => 
-                current.confidence > (best?.confidence || 0) ? current : best, null);
+            const bestRecommendation = recommendations.length > 0 
+                ? recommendations.reduce((best, current) => 
+                    current.confidence > best.confidence ? current : best) 
+                : null;
 
             // Notify all callbacks
             this.analysisCallbacks.forEach(callback => {
