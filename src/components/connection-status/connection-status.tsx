@@ -1,12 +1,18 @@
-
 import React from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { CONNECTION_STATUS } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
 import './connection-status.scss';
 
-const ConnectionStatus = () => {
-    const { common } = useStore();
+const ConnectionStatus = observer(() => {
+    const store = useStore();
+
+    // Early return if store is not available yet
+    if (!store) {
+        return null;
+    }
+
+    const { common } = store;
     const connectionStatus = common.connection_status;
 
     const getStatusInfo = () => {
@@ -40,6 +46,6 @@ const ConnectionStatus = () => {
             <span className="connection-status__text">{statusInfo.text}</span>
         </div>
     );
-};
+});
 
-export default observer(ConnectionStatus);
+export default ConnectionStatus;
