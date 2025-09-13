@@ -52,6 +52,7 @@ class MarketAnalyzer {
     private errorCallbacks: ErrorCallback[] = [];
     private tickHistory: Record<string, any[]> = {};
     private subscriptionIds: Record<string, string> = {};
+    private networkStatusHandler: (() => void) | null = null;
 
     private symbols = [
         'R_10', 'R_25', 'R_50', 'R_75', 'R_100',
@@ -63,6 +64,18 @@ class MarketAnalyzer {
         if (this.isRunning) return;
 
         this.isRunning = true;
+        
+        // Set up network status monitoring for better mobile experience
+        this.networkStatusHandler = () => {
+            if (navigator.onLine && (!this.ws || this.ws.readyState !== WebSocket.OPEN)) {
+                console.log('📶 Network connection restored, attempting to reconnect');
+                this.reconnectAttempts = 0; // Reset attempts on network restore
+                this.connectToDerivAPI();
+            }
+        };
+        
+        window.addEventListener('online', this.networkStatusHandler);
+        
         this.connectToDerivAPI();
         this.startAnalysis();
     }
@@ -78,6 +91,12 @@ class MarketAnalyzer {
         if (this.analysisInterval) {
             clearInterval(this.analysisInterval);
             this.analysisInterval = null;
+        }
+
+        // Clean up network status monitoring
+        if (this.networkStatusHandler) {
+            window.removeEventListener('online', this.networkStatusHandler);
+            this.networkStatusHandler = null;
         }
 
         this.reconnectAttempts = 0;
@@ -111,6 +130,14 @@ class MarketAnalyzer {
             return;
         }
 
+        // Check network connectivity first
+        if (!navigator.onLine) {
+            console.log('📵 No network connection detected');
+            this.handleError('No internet connection. Please check your network and try again.');
+            this.scheduleReconnect();
+            return;
+        }
+
         try {
             this.ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
 
@@ -126,46 +153,78 @@ class MarketAnalyzer {
 
             this.ws.onerror = (error) => {
                 console.error('❌ Deriv WebSocket error:', error);
-                this.handleError('WebSocket connection error');
+                // Provide more specific error messages for mobile users
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                const errorMessage = isMobile 
+                    ? 'Connection failed on mobile. Check your network and try switching between WiFi/cellular data.'
+                    : 'WebSocket connection error';
+                this.handleError(errorMessage);
             };
 
             this.ws.onclose = (event) => {
                 console.log('🔌 Deriv WebSocket disconnected:', event.code, event.reason);
+                
+                // Handle specific close codes for better mobile experience
+                let errorMessage = 'Connection lost';
+                if (event.code === 1006) {
+                    errorMessage = 'Network connection interrupted. Reconnecting...';
+                } else if (event.code === 1000) {
+                    errorMessage = 'Connection closed normally';
+                } else if (event.code === 1001) {
+                    errorMessage = 'Server going away. Reconnecting...';
+                }
+                
                 if (this.isRunning && !event.wasClean) {
+                    this.handleError(errorMessage);
                     this.scheduleReconnect();
                 }
             };
 
-            // Connection timeout
+            // Shorter timeout for mobile devices
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const connectionTimeout = isMobile ? 8000 : 10000;
+            
             setTimeout(() => {
                 if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
                     console.log('⌛ WebSocket connection timeout');
                     this.ws.close();
+                    this.handleError('Connection timeout. Please check your network and try again.');
                     this.scheduleReconnect();
                 }
-            }, 10000);
+            }, connectionTimeout);
 
         } catch (error) {
             console.error('Failed to create WebSocket connection:', error);
-            this.handleError('Failed to establish connection to market data');
+            this.handleError('Failed to establish connection to market data. Please try again.');
             this.scheduleReconnect();
         }
     }
 
     private scheduleReconnect() {
         if (!this.isRunning || this.reconnectAttempts >= this.maxReconnectAttempts) {
-            this.handleError('Maximum reconnection attempts reached');
+            this.handleError('Maximum reconnection attempts reached. Please refresh the page and try again.');
             return;
         }
 
         this.reconnectAttempts++;
-        console.log(`🔄 Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${this.reconnectDelay}ms`);
+        
+        // Progressive backoff delay, shorter initial delays for better mobile UX
+        const baseDelay = 2000; // Start with 2 seconds
+        const delay = Math.min(baseDelay * Math.pow(1.5, this.reconnectAttempts - 1), 30000); // Max 30 seconds
+        
+        console.log(`🔄 Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${Math.round(delay/1000)}s`);
 
+        // Check network status before attempting reconnection
         setTimeout(() => {
             if (this.isRunning) {
-                this.connectToDerivAPI();
+                if (navigator.onLine) {
+                    this.connectToDerivAPI();
+                } else {
+                    console.log('📵 Still no network connection, delaying reconnect');
+                    this.scheduleReconnect(); // Try again with increased delay
+                }
             }
-        }, this.reconnectDelay);
+        }, delay);
     }
 
     private subscribeToSymbols() {
