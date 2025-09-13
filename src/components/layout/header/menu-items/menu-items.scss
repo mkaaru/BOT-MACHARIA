@@ -2,3 +2,19 @@
     gap: 0.8rem;
     padding: 1.25rem 1.25rem 1.25rem 1.5rem;
 }
+
+.app-header__menu {
+    .derivs-text {
+        font-weight: 400;
+        color: var(--text-general);
+
+        &:hover {
+            color: var(--text-prominent);
+        }
+
+        @include mobile-or-tablet-screen {
+            font-size: 0.7rem;
+            line-height: 1.2;
+        }
+    }
+}
