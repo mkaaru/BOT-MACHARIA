@@ -238,8 +238,19 @@ const SmartTrader = observer(() => {
 
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
-            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss);
-            setStatus(`${tradeType}: ${trade_option.prediction} - Stake: ${stakeAmount}`);
+            const isAfterLoss = lastOutcomeWasLossRef.current;
+            const selectedPrediction = isAfterLoss ? ouPredPostLoss : ouPredPreLoss;
+            trade_option.prediction = Number(selectedPrediction);
+            
+            console.log(`🎯 Prediction Logic:`, {
+                isAfterLoss,
+                selectedPrediction,
+                preLossPred: ouPredPreLoss,
+                postLossPred: ouPredPostLoss,
+                tradeType
+            });
+            
+            setStatus(`${tradeType}: ${trade_option.prediction} ${isAfterLoss ? '(after loss)' : '(pre-loss)'} - Stake: ${stakeAmount}`);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
             setStatus(`${tradeType}: ${mdPrediction} - Stake: ${stakeAmount}`);
@@ -289,12 +300,6 @@ const SmartTrader = observer(() => {
                 // Adjust stake based on martingale progression
                 const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
                 setStake(effectiveStake);
-
-                // Set loss flag for Over/Under trades based on current loss streak
-                const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
-                if (isOU) {
-                    lastOutcomeWasLossRef.current = lossStreak > 0;
-                }
 
                 const buy = await purchaseOnceWithStake(effectiveStake);
 
@@ -359,14 +364,18 @@ const SmartTrader = observer(() => {
                                         const profit = Number(poc?.profit || 0);
 
                                         if (profit > 0) {
+                                            // WIN: Reset to pre-loss state
                                             lastOutcomeWasLossRef.current = false;
                                             lossStreak = 0;
                                             step = 0;
                                             setStake(baseStake);
+                                            console.log(`✅ WIN: +${profit.toFixed(2)} ${account_currency} - Reset to pre-loss prediction`);
                                         } else {
+                                            // LOSS: Set flag for next trade to use after-loss prediction
                                             lastOutcomeWasLossRef.current = true;
                                             lossStreak++;
                                             step = Math.min(step + 1, 10);
+                                            console.log(`❌ LOSS: ${profit.toFixed(2)} ${account_currency} - Next trade will use after-loss prediction (${ouPredPostLoss})`);
                                         }
                                     }
                                 }
