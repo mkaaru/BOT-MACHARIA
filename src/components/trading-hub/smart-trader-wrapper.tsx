@@ -27,6 +27,12 @@ interface TradeSettings {
     stake: number;
     duration: number;
     durationType: string;
+    // AI Auto Trade specific fields
+    aiAutoTrade?: boolean;
+    martingaleMultiplier?: number;
+    ouPredPostLoss?: number;
+    riskTolerance?: number;
+    profitTarget?: number;
 }
 
 interface SmartTraderWrapperProps {
@@ -89,8 +95,13 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
     // Predictions - key improvement for Over/Under after loss logic  
     const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(parseInt(initialSettings.barrier || '5'));
-    const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(parseInt(initialSettings.barrier || '5'));
+    const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(initialSettings.ouPredPostLoss || 5);
     const [mdPrediction, setMdPrediction] = useState<number>(initialSettings.prediction || 5);
+
+    // AI Auto Trade fields
+    const [aiAutoTradeEnabled, setAiAutoTradeEnabled] = useState<boolean>(initialSettings.aiAutoTrade || false);
+    const [riskTolerance, setRiskTolerance] = useState<number>(initialSettings.riskTolerance || 3);
+    const [profitTarget, setProfitTarget] = useState<number>(initialSettings.profitTarget || 10);
 
     // Initialize ticks from duration if duration type is ticks
     React.useEffect(() => {
@@ -707,6 +718,55 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                             />
                         </div>
                     </div>
+
+                    {/* AI Auto Trade Configuration */}
+                    {aiAutoTradeEnabled && (
+                        <div className='smart-trader-wrapper__ai-config'>
+                            <div className='smart-trader-wrapper__ai-header'>
+                                <Text size='s' weight='bold' color='prominent'>
+                                    🤖 AI Auto Trade Configuration
+                                </Text>
+                                <Text size='xs' color='general'>
+                                    Enhanced settings for automated AI trading
+                                </Text>
+                            </div>
+                            <div className='smart-trader-wrapper__row smart-trader-wrapper__row--three'>
+                                <div className='smart-trader-wrapper__field'>
+                                    <label htmlFor='st-risk-tolerance'>{localize('Risk Tolerance (1-5)')}</label>
+                                    <input
+                                        id='st-risk-tolerance'
+                                        type='number'
+                                        min={1}
+                                        max={5}
+                                        value={riskTolerance}
+                                        onChange={e => setRiskTolerance(Math.max(1, Math.min(5, Number(e.target.value))))}
+                                    />
+                                </div>
+                                <div className='smart-trader-wrapper__field'>
+                                    <label htmlFor='st-profit-target'>{localize('Profit Target ($)')}</label>
+                                    <input
+                                        id='st-profit-target'
+                                        type='number'
+                                        min={1}
+                                        step='0.5'
+                                        value={profitTarget}
+                                        onChange={e => setProfitTarget(Math.max(1, Number(e.target.value)))}
+                                    />
+                                </div>
+                                <div className='smart-trader-wrapper__field'>
+                                    <label htmlFor='st-ai-martingale'>{localize('AI Martingale Multiplier')}</label>
+                                    <input
+                                        id='st-ai-martingale'
+                                        type='number'
+                                        min={1}
+                                        step='0.1'
+                                        value={martingaleMultiplier}
+                                        onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Strategy controls based on trade type */}
                     {(tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') ? (
