@@ -49,6 +49,16 @@ const AppContent = observer(() => {
 
     initTrackJS(client.loginid);
 
+    // Start API connection immediately
+    React.useEffect(() => {
+        console.log('🚀 Starting API connection on app load...');
+        if (!api_base.api) {
+            api_base.init().catch(error => {
+                console.error('❌ Initial API connection failed:', error);
+            });
+        }
+    }, []);
+
     const livechat_client_information = {
         is_client_store_initialized: client?.is_logged_in ? !!client?.account_settings?.email : !!client,
         is_logged_in: client?.is_logged_in,
@@ -157,27 +167,27 @@ const AppContent = observer(() => {
 
     React.useEffect(() => {
         if (is_api_initialized) {
+            console.log('API initialized, starting app initialization...');
             init();
             setIsLoading(true);
             if (!client.is_logged_in) {
                 changeActiveSymbolLoadingState();
             }
         } else {
-            // Check API connection status and retry if needed
-            const checkConnection = () => {
-                if (connectionStatus === CONNECTION_STATUS.CLOSED || connectionStatus === CONNECTION_STATUS.UNKNOWN) {
-                    console.log('API connection not ready, retrying...');
-                    // Force reconnection attempt
-                    if (api_base && api_base.init) {
-                        api_base.init(true).catch(error => {
-                            console.error('API reconnection failed:', error);
-                        });
-                    }
-                }
-            };
+            console.log('API not initialized, checking connection status...', connectionStatus);
             
-            const connectionTimer = setTimeout(checkConnection, 2000);
-            return () => clearTimeout(connectionTimer);
+            // Initialize API connection if not done yet
+            if (!api_base.api || connectionStatus === CONNECTION_STATUS.CLOSED || connectionStatus === CONNECTION_STATUS.UNKNOWN) {
+                console.log('🔄 Starting API initialization...');
+                api_base.init(true).catch(error => {
+                    console.error('❌ API initialization failed:', error);
+                    // Set a fallback to show the app even if API fails
+                    setTimeout(() => {
+                        setIsLoading(false);
+                        setForceShowApp(true);
+                    }, 5000);
+                });
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_api_initialized, connectionStatus]);
@@ -199,12 +209,21 @@ const AppContent = observer(() => {
     
      React.useEffect(() => {
         const timeout = setTimeout(() => {
+            console.log('⏰ Force showing app after 5 seconds');
             setForceShowApp(true);
             setShowSplashScreen(false);
         }, 5000); // Show app after 5 seconds regardless
 
         return () => clearTimeout(timeout);
     }, []);
+
+    // Add connection status monitoring
+    React.useEffect(() => {
+        console.log('🔌 Connection status changed:', connectionStatus);
+        console.log('📊 API initialized:', is_api_initialized);
+        console.log('👤 Client logged in:', client.is_logged_in);
+        console.log('🔄 Loading state:', is_loading);
+    }, [connectionStatus, is_api_initialized, client.is_logged_in, is_loading]);
 
     const handleSplashScreenComplete = () => {
         setShowSplashScreen(false);
