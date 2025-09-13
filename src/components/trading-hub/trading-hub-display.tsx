@@ -1156,6 +1156,15 @@ const TradingHubDisplay: React.FC = observer(() => {
                             >
                                 🔄 Refresh Page
                             </button>
+                            <div className="mobile-troubleshoot">
+                                <p className="troubleshoot-title">📱 Mobile Connection Tips:</p>
+                                <ul className="troubleshoot-list">
+                                    <li>Switch between WiFi and mobile data</li>
+                                    <li>Move to an area with better signal</li>
+                                    <li>Check if other apps can connect to internet</li>
+                                    <li>Try refreshing the page</li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 )}

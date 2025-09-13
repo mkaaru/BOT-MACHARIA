@@ -63,6 +63,14 @@ class MarketAnalyzer {
         if (this.isRunning) return;
 
         this.isRunning = true;
+        
+        // Add network state listener for mobile
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isMobile) {
+            window.addEventListener('online', this.handleNetworkOnline.bind(this));
+            window.addEventListener('offline', this.handleNetworkOffline.bind(this));
+        }
+        
         this.connectToDerivAPI();
         this.startAnalysis();
     }
@@ -80,10 +88,28 @@ class MarketAnalyzer {
             this.analysisInterval = null;
         }
 
+        // Remove network listeners
+        window.removeEventListener('online', this.handleNetworkOnline.bind(this));
+        window.removeEventListener('offline', this.handleNetworkOffline.bind(this));
+
         this.reconnectAttempts = 0;
         symbolAnalyzer.clearAll();
         this.tickHistory = {};
         this.subscriptionIds = {};
+    }
+
+    private handleNetworkOnline() {
+        console.log('📱 Network came back online');
+        if (this.isRunning && (!this.ws || this.ws.readyState !== WebSocket.OPEN)) {
+            setTimeout(() => {
+                this.connectToDerivAPI();
+            }, 1000); // Wait a moment for network to stabilize
+        }
+    }
+
+    private handleNetworkOffline() {
+        console.log('📱 Network went offline');
+        this.handleError('Network connection lost. Waiting for connection to resume...');
     }
 
     onAnalysis(callback: AnalysisCallback): () => void {
@@ -118,20 +144,28 @@ class MarketAnalyzer {
         }
 
         try {
-            // Use mobile-friendly WebSocket URL with better fallback
+            // Detect mobile device for adjusted settings
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            // Use different app_id or connection strategy for mobile if needed
             const wsUrl = 'wss://ws.derivws.com/websockets/v3?app_id=1089';
-            console.log(`🔗 Attempting WebSocket connection to: ${wsUrl}`);
+            console.log(`🔗 Attempting WebSocket connection to: ${wsUrl} (${isMobile ? 'mobile' : 'desktop'})`);
             
             this.ws = new WebSocket(wsUrl);
 
-            // Detect mobile device for adjusted timeouts
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            const connectionTimeout = isMobile ? 15000 : 10000; // Longer timeout for mobile
+            // Longer timeout for mobile networks
+            const connectionTimeout = isMobile ? 20000 : 10000;
 
             this.ws.onopen = () => {
                 console.log('✅ Connected to Deriv WebSocket API');
                 this.reconnectAttempts = 0;
-                this.subscribeToSymbols();
+                
+                // Add small delay before subscribing on mobile
+                if (isMobile) {
+                    setTimeout(() => this.subscribeToSymbols(), 500);
+                } else {
+                    this.subscribeToSymbols();
+                }
             };
 
             this.ws.onmessage = (event) => {
@@ -141,7 +175,7 @@ class MarketAnalyzer {
             this.ws.onerror = (error) => {
                 console.error('❌ Deriv WebSocket error:', error);
                 const errorMessage = isMobile 
-                    ? 'Connection failed. Try switching between WiFi and mobile data.'
+                    ? 'Mobile connection failed. Please check your network signal or try switching between WiFi and mobile data.'
                     : 'WebSocket connection error';
                 this.handleError(errorMessage);
             };
@@ -153,13 +187,13 @@ class MarketAnalyzer {
                 }
             };
 
-            // Mobile-aware connection timeout
+            // Connection timeout with mobile-specific handling
             setTimeout(() => {
                 if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
                     console.log('⌛ WebSocket connection timeout');
                     this.ws.close();
                     const timeoutMessage = isMobile 
-                        ? 'Connection timeout. Please check your network signal and try again.'
+                        ? 'Connection timeout on mobile. Please ensure you have a stable internet connection and try again.'
                         : 'Connection timeout';
                     this.handleError(timeoutMessage);
                     this.scheduleReconnect();
@@ -168,7 +202,11 @@ class MarketAnalyzer {
 
         } catch (error) {
             console.error('Failed to create WebSocket connection:', error);
-            this.handleError('Failed to establish connection to market data. Please check your internet connection.');
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const errorMessage = isMobile
+                ? 'Failed to establish mobile connection to market data. Please check your network settings.'
+                : 'Failed to establish connection to market data. Please check your internet connection.';
+            this.handleError(errorMessage);
             this.scheduleReconnect();
         }
     }

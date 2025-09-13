@@ -668,12 +668,12 @@
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    min-height: 300px;
+                    padding: 2rem;
                     text-align: center;
+                    min-height: 300px;
                     background: rgba(231, 76, 60, 0.1);
                     border: 1px solid rgba(231, 76, 60, 0.3);
                     border-radius: 12px;
-                    padding: 2rem;
 
                     @media (max-width: 768px) {
                         padding: 1.5rem;
