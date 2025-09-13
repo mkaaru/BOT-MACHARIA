@@ -70,10 +70,27 @@ const AppContent = observer(() => {
         if (connectionStatus === CONNECTION_STATUS.OPENED) {
             setIsApiInitialized(true);
             common.setSocketOpened(true);
-        } else if (connectionStatus !== CONNECTION_STATUS.OPENED) {
+            console.log('✅ API connection established successfully');
+        } else if (connectionStatus === CONNECTION_STATUS.CLOSED) {
             common.setSocketOpened(false);
+            setIsApiInitialized(false);
+            console.log('❌ API connection lost, attempting to reconnect...');
+            
+            // Attempt reconnection after a delay
+            const reconnectTimer = setTimeout(() => {
+                if (api_base && api_base.init) {
+                    api_base.init(true).catch(error => {
+                        console.error('API reconnection failed:', error);
+                    });
+                }
+            }, 3000);
+            
+            return () => clearTimeout(reconnectTimer);
+        } else if (connectionStatus === CONNECTION_STATUS.UNKNOWN) {
+            common.setSocketOpened(false);
+            console.log('⚠️ API connection status unknown');
         }
-    }, [common, connectionStatus]);
+    }, [common, connectionStatus, api_base]);
 
     const { current_language } = common;
     const html = document.documentElement;
@@ -145,9 +162,25 @@ const AppContent = observer(() => {
             if (!client.is_logged_in) {
                 changeActiveSymbolLoadingState();
             }
+        } else {
+            // Check API connection status and retry if needed
+            const checkConnection = () => {
+                if (connectionStatus === CONNECTION_STATUS.CLOSED || connectionStatus === CONNECTION_STATUS.UNKNOWN) {
+                    console.log('API connection not ready, retrying...');
+                    // Force reconnection attempt
+                    if (api_base && api_base.init) {
+                        api_base.init(true).catch(error => {
+                            console.error('API reconnection failed:', error);
+                        });
+                    }
+                }
+            };
+            
+            const connectionTimer = setTimeout(checkConnection, 2000);
+            return () => clearTimeout(connectionTimer);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [is_api_initialized]);
+    }, [is_api_initialized, connectionStatus]);
 
     // use is_landing_company_loaded to know got details of accounts to identify should show an error or not
     React.useEffect(() => {

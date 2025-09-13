@@ -47,6 +47,47 @@ class APIBase {
     pip_sizes = {};
     account_info = {};
     is_running = false;
+
+
+    async createNewConnection() {
+        return new Promise((resolve, reject) => {
+            try {
+                const DerivAPI = require('@deriv/deriv-api/dist/DerivAPI');
+                
+                this.api = new DerivAPI({
+                    connection: new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=16929'),
+                });
+
+                this.api.connection.onopen = () => {
+                    console.log('✅ New WebSocket connection established');
+                    this.onsocketopen();
+                    resolve(true);
+                };
+
+                this.api.connection.onerror = (error) => {
+                    console.error('❌ WebSocket connection error:', error);
+                    reject(error);
+                };
+
+                this.api.connection.onclose = (event) => {
+                    console.log('🔌 WebSocket connection closed:', event);
+                    this.onsocketclose();
+                };
+
+                // Timeout after 10 seconds
+                setTimeout(() => {
+                    if (this.api.connection.readyState !== WebSocket.OPEN) {
+                        reject(new Error('Connection timeout'));
+                    }
+                }, 10000);
+
+            } catch (error) {
+                console.error('Failed to create WebSocket connection:', error);
+                reject(error);
+            }
+        });
+    }
+
     subscriptions: CurrentSubscription[] = [];
     time_interval: ReturnType<typeof setInterval> | null = null;
     has_active_symbols = false;
@@ -76,15 +117,56 @@ class APIBase {
     }
 
     onsocketclose() {
+        console.log('🔌 WebSocket connection closed');
         setConnectionStatus(CONNECTION_STATUS.CLOSED);
         this.reconnectIfNotConnected();
     }
 
+    // Add connection health check
+    checkConnectionHealth() {
+        return new Promise((resolve, reject) => {
+            if (!this.api || !this.api.connection || this.api.connection.readyState !== WebSocket.OPEN) {
+                reject(new Error('WebSocket connection not available'));
+                return;
+            }
+
+            // Send a ping to verify connection
+            this.api.send({ ping: 1 })
+                .then(response => {
+                    if (response.pong) {
+                        resolve(true);
+                    } else {
+                        reject(new Error('Ping failed'));
+                    }
+                })
+                .catch(error => {
+                    reject(error);
+                });
+        });
+    }
+
     async init(force_create_connection = false) {
         this.toggleRunButton(true);
+        console.log('🔄 Initializing API connection...');
 
         if (this.api) {
             this.unsubscribeAllSubscriptions();
+        }
+
+        try {
+            // Check if we need to force create a new connection
+            if (force_create_connection || !this.api || this.api.connection?.readyState !== WebSocket.OPEN) {
+                console.log('Creating new WebSocket connection...');
+                await this.createNewConnection();
+            } else {
+                // Test existing connection
+                await this.checkConnectionHealth();
+                console.log('✅ Existing connection is healthy');
+            }
+        } catch (error) {
+            console.error('❌ API initialization failed:', error);
+            setConnectionStatus(CONNECTION_STATUS.CLOSED);
+            throw error;
         }
 
         if (!this.api || this.api?.connection.readyState !== 1 || force_create_connection) {
