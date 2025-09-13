@@ -85,11 +85,19 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     const [durationType, setDurationType] = useState<string>(initialSettings.durationType || 't');
     const [barrier, setBarrier] = useState<string>(initialSettings.barrier || '5');
     const [prediction, setPrediction] = useState<number>(initialSettings.prediction || 5);
+    const [ticks, setTicks] = useState<number>(initialSettings.duration || 1);
 
-    // Predictions - key improvement for Over/Under after loss logic
+    // Predictions - key improvement for Over/Under after loss logic  
     const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(parseInt(initialSettings.barrier || '5'));
     const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(parseInt(initialSettings.barrier || '5'));
     const [mdPrediction, setMdPrediction] = useState<number>(initialSettings.prediction || 5);
+
+    // Initialize ticks from duration if duration type is ticks
+    React.useEffect(() => {
+        if (durationType === 't') {
+            setTicks(duration);
+        }
+    }, [duration, durationType]);
 
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.0);
