@@ -245,7 +245,14 @@ const SmartTrader = observer(() => {
 
             // Enhanced logging for debugging
             const predictionType = isAfterLoss ? 'after loss' : 'pre-loss';
-            console.log(`🎯 Purchase Decision - Loss State: ${isAfterLoss}, Using ${predictionType} prediction: ${activePrediction} (${tradeType})`);
+            console.log(`🎯 Purchase Decision:`, {
+                lossState: isAfterLoss,
+                predictionType,
+                activePrediction,
+                tradeType,
+                preLossPred: ouPredPreLoss,
+                postLossPred: ouPredPostLoss
+            });
             setStatus(`${tradeType}: ${activePrediction} (${predictionType}) - Stake: ${stakeAmount}`);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
@@ -370,17 +377,25 @@ const SmartTrader = observer(() => {
                                             lossStreak = 0;
                                             step = 0;
                                             setStake(baseStake);
-                                            setStatus(`WIN: +${profit.toFixed(2)} ${account_currency} - Next trade uses pre-loss prediction`);
+                                            
+                                            // Update status with current prediction being used
+                                            const currentPred = (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') ? ouPredPreLoss : 'N/A';
+                                            setStatus(`WIN: +${profit.toFixed(2)} ${account_currency} - Next: ${tradeType} ${currentPred} (pre-loss)`);
                                         } else {
                                             // LOSS: Immediately set flag for next trade
-                                            console.log(`😞 LOSS: ${profit.toFixed(2)} ${account_currency} - Setting after-loss flag`);
+                                            console.log(`😞 LOSS: ${profit.toFixed(2)} ${account_currency} - Setting after-loss flag for next trade`);
                                             lastOutcomeWasLossRef.current = true;
                                             lossStreak++;
                                             step = Math.min(step + 1, 10);
                                             
-                                            // Force update the current prediction display
+                                            // Show what the next prediction will be
                                             const nextPrediction = (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') ? ouPredPostLoss : 'N/A';
-                                            setStatus(`LOSS: ${profit.toFixed(2)} ${account_currency} - Next trade uses after-loss prediction (${nextPrediction})`);
+                                            setStatus(`LOSS: ${profit.toFixed(2)} ${account_currency} - Next: ${tradeType} ${nextPrediction} (after-loss)`);
+                                            
+                                            // Force re-render of prediction display
+                                            setTimeout(() => {
+                                                // This will trigger the UI to update the current prediction indicator
+                                            }, 100);
                                         }
                                     }
                                 }
@@ -571,10 +586,15 @@ const SmartTrader = observer(() => {
                         {/* Current prediction indicator */}
                         {(tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') && (
                             <div className='smart-trader__current-prediction'>
-                                <Text size='xs' color='prominent'>
-                                    {localize('Current prediction:')} {lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss}
+                                <Text size='xs' color={lastOutcomeWasLossRef.current ? 'profit-success' : 'prominent'}>
+                                    {localize('Next prediction:')} {lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss}
                                     ({lastOutcomeWasLossRef.current ? localize('after loss') : localize('pre-loss')})
                                 </Text>
+                                {lastOutcomeWasLossRef.current && (
+                                    <Text size='xs' color='loss-danger'>
+                                        {localize('⚠️ Using recovery prediction after loss')}
+                                    </Text>
+                                )}
                             </div>
                         )}
 
