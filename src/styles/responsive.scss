@@ -1,0 +1,110 @@
+
+/* Small screen optimizations */
+@use 'components/shared/styles/mixins' as *;
+
+@include extra-small-screen {
+    /* Hide hamburger menu on very small screens and use compact layout */
+    .header {
+        padding: 0.5rem;
+        
+        &__logo {
+            height: 24px;
+        }
+    }
+    
+    /* Compact navigation tabs */
+    .tabs {
+        &__nav {
+            padding: 0.25rem;
+            overflow-x: auto;
+            white-space: nowrap;
+            
+            &::-webkit-scrollbar {
+                height: 2px;
+            }
+        }
+        
+        &__tab {
+            font-size: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            min-width: auto;
+        }
+    }
+    
+    /* Market Scanner responsive adjustments */
+    .market-scanner {
+        padding: 0.5rem;
+        
+        &__header {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        &__filter {
+            width: 100%;
+            min-width: unset;
+        }
+    }
+    
+    /* Form elements on small screens */
+    .input-field,
+    .select-native {
+        font-size: 0.875rem;
+        padding: 0.5rem;
+    }
+    
+    /* Button adjustments */
+    .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+}
+
+@include mobile-screen {
+    /* General mobile optimizations */
+    .container {
+        padding: 0 1rem;
+    }
+    
+    /* Responsive text scaling */
+    .text {
+        &--large {
+            font-size: 1.25rem;
+        }
+        
+        &--medium {
+            font-size: 1rem;
+        }
+        
+        &--small {
+            font-size: 0.875rem;
+        }
+    }
+    
+    /* Mobile navigation improvements */
+    .mobile-menu {
+        &__content {
+            padding: 1rem;
+        }
+        
+        &__item {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+    }
+    
+    /* Card components responsive */
+    .card {
+        margin: 0.5rem 0;
+        padding: 1rem;
+        border-radius: 8px;
+    }
+    
+    /* Modal adjustments for mobile */
+    .modal {
+        &__content {
+            margin: 1rem;
+            max-height: calc(100vh - 2rem);
+        }
+    }
+}
