@@ -250,6 +250,9 @@ const SmartTrader = observer(() => {
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
             setStatus(`${tradeType}: ${mdPrediction} - Stake: ${stakeAmount}`);
+        } else {
+            // Even/Odd doesn't need prediction
+            setStatus(`${tradeType} - Stake: ${stakeAmount}`);
         }
 
         const buy_req = tradeOptionToBuy(tradeType, trade_option);
