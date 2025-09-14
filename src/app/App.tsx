@@ -52,6 +52,21 @@ function App() {
         initSurvicate();
         window?.dataLayer?.push({ event: 'page_load' });
 
+        // Handle extension-related errors
+        window.addEventListener('error', (event) => {
+            if (event.filename && event.filename.includes('content_script.js')) {
+                console.warn('Browser extension error detected:', event.message);
+                event.preventDefault();
+            }
+        });
+
+        window.addEventListener('unhandledrejection', (event) => {
+            if (event.reason?.stack?.includes('content_script.js')) {
+                console.warn('Browser extension promise rejection:', event.reason);
+                event.preventDefault();
+            }
+        });
+
         return () => {
             const survicateBox = document.getElementById('survicate-box');
             if (survicateBox) {
