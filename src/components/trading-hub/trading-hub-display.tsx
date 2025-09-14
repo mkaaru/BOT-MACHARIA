@@ -761,7 +761,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     const profit = Number(poc?.profit || 0);
 
                                     if (profit > 0) {
-                                        // WIN: Reset to pre-loss state using Smart Trader logic
+                                        // WIN: Reset progression using Smart Trader logic
                                         setLastOutcomeWasLoss(false);
                                         setCurrentStake(baseStake);
                                         console.log(`✅ AI WIN: +${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Reset to pre-loss prediction`);
@@ -784,12 +784,12 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                                     // Schedule next trade if AI Auto Trade is still active
                                     if (isAiAutoTrading) {
-                                        // Wait longer between trades to avoid rate limits
+                                        // Reduced wait time between trades
                                         setTimeout(() => {
                                             if (bestRecommendation && isAiAutoTrading && !contractInProgress) {
                                                 executeAiTrade(bestRecommendation);
                                             }
-                                        }, 8000); // 8 seconds between trades to avoid rate limits
+                                        }, 4000); // 4 seconds between trades (reduced from 8)
                                     }
                                 }
                             }

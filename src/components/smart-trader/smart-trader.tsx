@@ -389,8 +389,8 @@ const SmartTrader = observer(() => {
                     console.error('subscribe poc error', subErr);
                 }
 
-                // Wait 3-5 seconds between purchases to avoid rate limits
-                const waitTime = 3000 + Math.random() * 2000; // 3-5 seconds random
+                // Wait 1.5-2.5 seconds between purchases to avoid rate limits
+                const waitTime = 1500 + Math.random() * 1000; // 1.5-2.5 seconds random
                 await new Promise(res => setTimeout(res, waitTime));
             }
         } catch (e: any) {
