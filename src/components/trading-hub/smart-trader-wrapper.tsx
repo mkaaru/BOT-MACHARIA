@@ -27,6 +27,12 @@ interface TradeSettings {
     stake: number;
     duration: number;
     durationType: string;
+    // AI Auto Trade specific fields
+    aiAutoTrade?: boolean;
+    martingaleMultiplier?: number;
+    ouPredPostLoss?: number;
+    riskTolerance?: number;
+    profitTarget?: number;
 }
 
 interface SmartTraderWrapperProps {
@@ -69,32 +75,44 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
     const tickStreamIdRef = useRef<string | null>(null);
     const messageHandlerRef = useRef<((evt: MessageEvent) => void) | null>(null);
 
+    // Track last outcome for Over/Under prediction switching
     const lastOutcomeWasLossRef = useRef(false);
+    const contractInProgressRef = useRef(false);
 
     const [is_authorized, setIsAuthorized] = useState(false);
     const [account_currency, setAccountCurrency] = useState<string>('USD');
     const [symbols, setSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
 
-    // Form state - initialized from props
-    const [symbol, setSymbol] = useState<string>(initialSettings.symbol);
-    const [tradeType, setTradeType] = useState<string>(initialSettings.tradeType);
-    const [ticks, setTicks] = useState<number>(initialSettings.duration);
-    const [duration, setDuration] = useState<number>(initialSettings.duration);
-    const [durationType, setDurationType] = useState<string>(initialSettings.durationType);
-    const [stake, setStake] = useState<number>(0.5);
-    const [baseStake, setBaseStake] = useState<number>(0.5);
+    // Form state from initial settings
+    const [symbol, setSymbol] = useState<string>(initialSettings.symbol || '');
+    const [tradeType, setTradeType] = useState<string>(initialSettings.tradeType || 'DIGITOVER');
+    const [stake, setStake] = useState<number>(initialSettings.stake || 0.5);
+    const [duration, setDuration] = useState<number>(initialSettings.duration || 1);
+    const [durationType, setDurationType] = useState<string>(initialSettings.durationType || 't');
+    const [barrier, setBarrier] = useState<string>(initialSettings.barrier || '5');
+    const [prediction, setPrediction] = useState<number>(initialSettings.prediction || 5);
+    const [ticks, setTicks] = useState<number>(initialSettings.duration || 1);
 
-    // Predictions - set from initial settings
-    const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(initialSettings.prediction || 5);
-    const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(5); // Default 5 for after-loss, but editable
+    // Predictions - key improvement for Over/Under after loss logic  
+    const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(parseInt(initialSettings.barrier || '5'));
+    const [ouPredPostLoss, setOuPredPostLoss] = useState<number>(initialSettings.ouPredPostLoss || 5);
     const [mdPrediction, setMdPrediction] = useState<number>(initialSettings.prediction || 5);
-    const [overUnderBarrier, setOverUnderBarrier] = useState<string>(initialSettings.barrier || '5');
 
-    // Higher/Lower barrier
-    const [barrier, setBarrier] = useState<string>(initialSettings.barrier || '+0.37');
+    // AI Auto Trade fields
+    const [aiAutoTradeEnabled, setAiAutoTradeEnabled] = useState<boolean>(initialSettings.aiAutoTrade || false);
+    const [riskTolerance, setRiskTolerance] = useState<number>(initialSettings.riskTolerance || 3);
+    const [profitTarget, setProfitTarget] = useState<number>(initialSettings.profitTarget || 10);
+
+    // Initialize ticks from duration if duration type is ticks
+    React.useEffect(() => {
+        if (durationType === 't') {
+            setTicks(duration);
+        }
+    }, [duration, durationType]);
 
     // Martingale/recovery
     const [martingaleMultiplier, setMartingaleMultiplier] = useState<number>(1.0);
+    const [baseStake, setBaseStake] = useState<number>(initialSettings.stake || 0.5);
 
     // Contract tracking state
     const [currentProfit, setCurrentProfit] = useState<number>(0);
@@ -157,7 +175,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         if (tradeType === 'DIGITODD') return d % 2 !== 0 ? 'is-green' : 'is-red';
         if ((tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER')) {
             // After a loss, use ouPredPostLoss; otherwise, use overUnderBarrier (from market scanner)
-            const activePred = lastOutcomeWasLossRef.current ? ouPredPostLoss : Number(overUnderBarrier);
+            const activePred = lastOutcomeWasLossRef.current ? ouPredPostLoss : Number(barrier);
             if (tradeType === 'DIGITOVER') {
                 if (d > activePred) return 'is-green';
                 if (d < activePred) return 'is-red';
@@ -291,7 +309,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         }
     };
 
-    const purchaseOnceWithStake = async (stakeAmount: number, retryCount = 0) => {
+    const purchaseOnceWithStake = async (stakeAmount: number) => {
         await authorizeIfNeeded();
 
         const trade_option: any = {
@@ -306,41 +324,59 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
         // Choose prediction based on trade type and last outcome
         if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
-            // After a loss, use ouPredPostLoss; otherwise, use overUnderBarrier (from market scanner)
-            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? ouPredPostLoss : overUnderBarrier);
+            const isAfterLoss = lastOutcomeWasLossRef.current;
+            const selectedPrediction = isAfterLoss ? ouPredPostLoss : ouPredPreLoss;
+            trade_option.prediction = Number(selectedPrediction);
+
+            console.log(`🎯 Prediction Logic:`, {
+                isAfterLoss,
+                selectedPrediction,
+                preLossPred: ouPredPreLoss,
+                postLossPred: ouPredPostLoss,
+                tradeType
+            });
+
+            setStatus(`${tradeType}: ${trade_option.prediction} ${isAfterLoss ? '(after loss)' : '(pre-loss)'} - Stake: ${stakeAmount}`);
         } else if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(mdPrediction);
+            setStatus(`${tradeType}: ${mdPrediction} - Stake: ${stakeAmount}`);
         } else if (tradeType === 'CALL' || tradeType === 'PUT') {
-            trade_option.barrier = barrier;
+            if (barrier) {
+                trade_option.barrier = barrier;
+            }
+            setStatus(`${tradeType} - Stake: ${stakeAmount}`);
+        } else {
+            // Even/Odd doesn't need prediction
+            setStatus(`${tradeType} - Stake: ${stakeAmount}`);
         }
 
+        const buy_req = tradeOptionToBuy(tradeType, trade_option);
+        console.log('📦 Buy request payload:', {
+            contract_type: tradeType,
+            prediction: trade_option.prediction,
+            amount: stakeAmount,
+            after_loss: lastOutcomeWasLossRef.current
+        });
+
+        // Handle rate limit errors
         try {
-            const buy_req = tradeOptionToBuy(tradeType, trade_option);
             const { buy, error } = await apiRef.current.buy(buy_req);
 
-            // Handle rate limit errors
             if (error && (error.code === 'RateLimit' || error.message?.includes('rate limit') || error.message?.includes('too many requests'))) {
-                if (retryCount < 3) {
-                    const backoffDelay = Math.pow(2, retryCount) * 2000 + Math.random() * 1000; // Exponential backoff
-                    setStatus(`Rate limit hit, retrying in ${Math.ceil(backoffDelay/1000)}s... (${retryCount + 1}/3)`);
-                    await new Promise(res => setTimeout(res, backoffDelay));
-                    return purchaseOnceWithStake(stakeAmount, retryCount + 1);
-                } else {
-                    throw new Error('Rate limit exceeded after 3 retries. Please wait and try again.');
-                }
+                throw new Error('Rate limit exceeded');
             }
 
             if (error) throw error;
-            setStatus(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stakeAmount}`);
+
+            contractInProgressRef.current = true;
+            console.log(`✅ Purchase confirmed: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
             return buy;
         } catch (e: any) {
-            if (e.message?.includes('rate limit') || e.message?.includes('too many requests')) {
-                if (retryCount < 3) {
-                    const backoffDelay = Math.pow(2, retryCount) * 2000 + Math.random() * 1000;
-                    setStatus(`Rate limit detected, waiting ${Math.ceil(backoffDelay/1000)}s before retry...`);
-                    await new Promise(res => setTimeout(res, backoffDelay));
-                    return purchaseOnceWithStake(stakeAmount, retryCount + 1);
-                }
+             if (e.message?.includes('rate limit') || e.message?.includes('too many requests')) {
+                // This specific implementation doesn't have retry logic here,
+                // but it could be added if needed.
+                setStatus(`Rate limit hit. Please wait and try again. ${e.message}`);
+                throw e;
             }
             throw e;
         }
@@ -367,8 +403,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             let step = 0;
             baseStake !== stake && setBaseStake(stake);
 
-            // Ensure trading continues even after modal closes
-            while (!stopFlagRef.current && run_panel.is_running) {
+            while (!stopFlagRef.current) {
                 const effectiveStake = step > 0 ? Number((baseStake * Math.pow(martingaleMultiplier, step)).toFixed(2)) : baseStake;
 
                 const isOU = tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER';
@@ -421,7 +456,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
 
                     const onMsg = (evt: MessageEvent) => {
                         try {
-                            const data = JSON.JSON.parse(evt.data as any);
+                            const data = JSON.parse(evt.data as any);
                             if (data?.msg_type === 'proposal_open_contract') {
                                 const poc = data.proposal_open_contract;
                                 if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
@@ -449,15 +484,20 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                                         if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
                                         apiRef.current?.connection?.removeEventListener('message', onMsg);
                                         const profit = Number(poc?.profit || 0);
+
                                         if (profit > 0) {
+                                            // WIN: Reset to pre-loss state
                                             lastOutcomeWasLossRef.current = false;
                                             lossStreak = 0;
                                             step = 0;
                                             setStake(baseStake);
+                                            console.log(`✅ WIN: +${profit.toFixed(2)} ${account_currency} - Reset to pre-loss prediction`);
                                         } else {
+                                            // LOSS: Set flag for next trade to use after-loss prediction
                                             lastOutcomeWasLossRef.current = true;
                                             lossStreak++;
                                             step = Math.min(step + 1, 10);
+                                            console.log(`❌ LOSS: ${profit.toFixed(2)} ${account_currency} - Next trade will use after-loss prediction (${ouPredPostLoss})`);
                                         }
                                         setCurrentProfit(0);
                                         setContractValue(0);
@@ -488,7 +528,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             run_panel.setIsRunning(false);
             run_panel.setHasOpenContract(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
-            
+
             // Cleanup observers when trading stops
             if (store?.run_panel?.dbot?.observer) {
                 store.run_panel.dbot.observer.unregisterAll('bot.stop');
@@ -512,7 +552,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
         run_panel.setHasOpenContract(false);
         run_panel.setContractStage(contract_stages.NOT_RUNNING);
         setStatus('Trading stopped');
-        
+
         // Cleanup observers
         if (store?.run_panel?.dbot?.observer) {
             store.run_panel.dbot.observer.unregisterAll('bot.stop');
@@ -526,16 +566,13 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
             return;
         }
         onRun();
-        
+
         // Auto-close the popup after starting trading, but don't stop the bot
         setTimeout(() => {
-            if (onClose) {
-                // Only close if trading has actually started successfully
-                if (is_running && !stopFlagRef.current) {
-                    onClose();
-                }
+            if (onClose && is_running) {
+                onClose();
             }
-        }, 3000); // Give more time for trading to initialize properly
+        }, 2000); // Slightly longer delay to ensure trading is properly started
     };
 
     return (
@@ -567,7 +604,7 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                             </Text>
                             {(tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') && (
                                 <Text size='xs' color='general'>
-                                    {localize('Barrier:')} {overUnderBarrier}
+                                    {localize('Barrier:')} {barrier}
                                 </Text>
                             )}
                             {(tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') && (
@@ -682,83 +719,159 @@ const SmartTraderWrapper: React.FC<SmartTraderWrapperProps> = observer(({ initia
                         </div>
                     </div>
 
-                    {/* Prediction controls based on trade type */}
-                    {(tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') && (
-                        <div className='smart-trader-wrapper__row smart-trader-wrapper__row--two'>
-                            <div className='smart-trader-wrapper__field'>
-                                <label htmlFor='stw-ou-pred-pre'>{localize('Over/Under prediction (pre-loss)')}</label>
-                                <select
-                                    id='stw-ou-pred-pre'
-                                    value={overUnderBarrier}
-                                    onChange={e => setOverUnderBarrier(e.target.value)}
-                                >
-                                    <option value='0'>0</option>
-                                    <option value='1'>1</option>
-                                    <option value='2'>2</option>
-                                    <option value='3'>3</option>
-                                    <option value='4'>4</option>
-                                    <option value='5'>5</option>
-                                    <option value='6'>6</option>
-                                    <option value='7'>7</option>
-                                    <option value='8'>8</option>
-                                    <option value='9'>9</option>
-                                </select>
+                    {/* AI Auto Trade Configuration */}
+                    {aiAutoTradeEnabled && (
+                        <div className='smart-trader-wrapper__ai-config'>
+                            <div className='smart-trader-wrapper__ai-header'>
+                                <Text size='s' weight='bold' color='prominent'>
+                                    🤖 AI Auto Trade Configuration
+                                </Text>
+                                <Text size='xs' color='general'>
+                                    Enhanced settings for automated AI trading
+                                </Text>
                             </div>
+                            <div className='smart-trader-wrapper__row smart-trader-wrapper__row--three'>
+                                <div className='smart-trader-wrapper__field'>
+                                    <label htmlFor='st-risk-tolerance'>{localize('Risk Tolerance (1-5)')}</label>
+                                    <input
+                                        id='st-risk-tolerance'
+                                        type='number'
+                                        min={1}
+                                        max={5}
+                                        value={riskTolerance}
+                                        onChange={e => setRiskTolerance(Math.max(1, Math.min(5, Number(e.target.value))))}
+                                    />
+                                </div>
+                                <div className='smart-trader-wrapper__field'>
+                                    <label htmlFor='st-profit-target'>{localize('Profit Target ($)')}</label>
+                                    <input
+                                        id='st-profit-target'
+                                        type='number'
+                                        min={1}
+                                        step='0.5'
+                                        value={profitTarget}
+                                        onChange={e => setProfitTarget(Math.max(1, Number(e.target.value)))}
+                                    />
+                                </div>
+                                <div className='smart-trader-wrapper__field'>
+                                    <label htmlFor='st-ai-martingale'>{localize('AI Martingale Multiplier')}</label>
+                                    <input
+                                        id='st-ai-martingale'
+                                        type='number'
+                                        min={1}
+                                        step='0.1'
+                                        value={martingaleMultiplier}
+                                        onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Strategy controls based on trade type */}
+                    {(tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') ? (
+                        <div className='smart-trader-wrapper__row'>
                             <div className='smart-trader-wrapper__field'>
-                                <label htmlFor='stw-ou-pred-post'>{localize('Over/Under prediction (after loss)')}</label>
+                                <label htmlFor='st-md-pred'>{localize('Match/Diff prediction digit')}</label>
                                 <input
-                                    id='stw-ou-pred-post'
+                                    id='st-md-pred'
                                     type='number'
                                     min={0}
                                     max={9}
-                                    value={ouPredPostLoss}
-                                    onChange={e => setOuPredPostLoss(Math.max(0, Math.min(9, Number(e.target.value))))}
+                                    value={mdPrediction}
+                                    onChange={e => {
+                                        const v = Math.max(0, Math.min(9, Number(e.target.value)));
+                                        setMdPrediction(v);
+                                    }}
+                                />
+                            </div>
+                            <div className='smart-trader-wrapper__field'>
+                                <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
+                                <input
+                                    id='st-martingale'
+                                    type='number'
+                                    min={1}
+                                    step='0.1'
+                                    value={martingaleMultiplier}
+                                    onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
+                                />
+                            </div>
+                        </div>
+                    ) : (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') ? (
+                        <div className='smart-trader-wrapper__predictions'>
+                            <div className='smart-trader-wrapper__row'>
+                                <div className='smart-trader-wrapper__field'>
+                                    <label htmlFor='st-ou-pred-pre'>{localize('Over/Under prediction (pre-loss)')}</label>
+                                    <input
+                                        id='st-ou-pred-pre'
+                                        type='number'
+                                        min={0}
+                                        max={9}
+                                        value={ouPredPreLoss}
+                                        onChange={e => setOuPredPreLoss(Math.max(0, Math.min(9, Number(e.target.value))))}
+                                    />
+                                </div>
+                                <div className='smart-trader-wrapper__field'>
+                                    <label htmlFor='st-ou-pred-post'>{localize('Over/Under prediction (after loss)')}</label>
+                                    <input
+                                        id='st-ou-pred-post'
+                                        type='number'
+                                        min={0}
+                                        max={9}
+                                        value={ouPredPostLoss}
+                                        onChange={e => setOuPredPostLoss(Math.max(0, Math.min(9, Number(e.target.value))))}
+                                    />
+                                </div>
+                            </div>
+                            <div className='smart-trader-wrapper__field'>
+                                <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
+                                <input
+                                    id='st-martingale'
+                                    type='number'
+                                    min={1}
+                                    step='0.1'
+                                    value={martingaleMultiplier}
+                                    onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
+                                />
+                            </div>
+                        </div>
+                    ) : (
+                        <div className='smart-trader-wrapper__row'>
+                            <div className='smart-trader-wrapper__field'>
+                                <label htmlFor='st-barrier'>{localize('Barrier')}</label>
+                                <input
+                                    id='st-barrier'
+                                    type='text'
+                                    value={barrier}
+                                    onChange={e => setBarrier(e.target.value)}
+                                />
+                            </div>
+                            <div className='smart-trader-wrapper__field'>
+                                <label htmlFor='st-martingale'>{localize('Martingale multiplier')}</label>
+                                <input
+                                    id='st-martingale'
+                                    type='number'
+                                    min={1}
+                                    step='0.1'
+                                    value={martingaleMultiplier}
+                                    onChange={e => setMartingaleMultiplier(Math.max(1, Number(e.target.value)))}
                                 />
                             </div>
                         </div>
                     )}
 
-                    {(tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') && (
-                        <div className='smart-trader-wrapper__field'>
-                            <label htmlFor='stw-md-pred'>{localize('Prediction digit')}</label>
-                            <input
-                                id='stw-md-pred'
-                                type='number'
-                                min={0}
-                                max={9}
-                                value={mdPrediction}
-                                onChange={e => setMdPrediction(Math.max(0, Math.min(9, Number(e.target.value))))}
-                            />
-                        </div>
-                    )}
-
-                    {(tradeType === 'CALL' || tradeType === 'PUT') && (
-                        <div className='smart-trader-wrapper__field'>
-                            <label htmlFor='stw-barrier'>{localize('Barrier')}</label>
-                            <input
-                                id='stw-barrier'
-                                type='text'
-                                value={barrier}
-                                onChange={e => setBarrier(e.target.value)}
-                                placeholder='+0.37'
-                            />
-                        </div>
-                    )}
-
-                    {/* Live digits display for digit trades */}
-                    {(tradeType !== 'CALL' && tradeType !== 'PUT') && (
-                        <div className='smart-trader-wrapper__digits'>
-                            <Text size='s' weight='bold'>{localize('Live Digits:')}</Text>
-                            <div className='smart-trader-wrapper__digits-row'>
-                                {digits.map((d, idx) => (
-                                    <div
-                                        key={`${idx}-${d}`}
-                                        className={`smart-trader-wrapper__digit ${d === lastDigit ? 'is-current' : ''} ${getHintClass(d)}`}
-                                    >
-                                        {d}
-                                    </div>
-                                ))}
-                            </div>
+                    {/* Current prediction indicator */}
+                    {(tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') && (
+                        <div className='smart-trader-wrapper__current-prediction'>
+                            <Text size='xs' color={lastOutcomeWasLossRef.current ? 'profit-success' : 'prominent'}>
+                                {localize('Next prediction:')} {lastOutcomeWasLossRef.current ? ouPredPostLoss : ouPredPreLoss}
+                                ({lastOutcomeWasLossRef.current ? localize('after loss') : localize('pre-loss')})
+                            </Text>
+                            {lastOutcomeWasLossRef.current && (
+                                <Text size='xs' color='loss-danger'>
+                                    {localize('⚠️ Using recovery prediction after loss')}
+                                </Text>
+                            )}
                         </div>
                     )}
 

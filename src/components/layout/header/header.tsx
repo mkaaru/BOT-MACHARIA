@@ -20,7 +20,6 @@ import PlatformSwitcher from './platform-switcher';
 import './header.scss';
 import React, { useState } from 'react';
 import Modal from '@/components/shared_ui/modal'; // Import the modal component
-import ConnectionStatus from '@/components/connection-status';
 
 const InfoIcon = () => {
     const [showModal, setShowModal] = useState(false);
@@ -48,34 +47,34 @@ const InfoIcon = () => {
 
     return (
         <>
-            <button
+            <button 
                 className="info-icon"
                 onClick={() => setShowModal(true)}
             >
                 <svg width="32" height="32" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
                     {/* Main circle background */}
                     <circle cx="32" cy="32" r="30" fill="url(#socialGradient)"/>
-
+                    
                     {/* Decorative rings */}
                     <circle cx="32" cy="32" r="24" stroke="#FFF" strokeWidth="2" strokeDasharray="4 4"/>
                     <circle cx="32" cy="32" r="18" fill="rgba(255,255,255,0.1)"/>
-
+                    
                     {/* Connect dots pattern */}
                     <circle cx="32" cy="20" r="3" fill="#FFD700"/>
                     <circle cx="44" cy="32" r="3" fill="#4CAF50"/>
                     <circle cx="32" cy="44" r="3" fill="#FF5722"/>
                     <circle cx="20" cy="32" r="3" fill="#2196F3"/>
-
+                    
                     {/* Connection lines */}
                     <path d="M32 23L44 32" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/>
                     <path d="M44 32L32 44" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/>
                     <path d="M32 44L20 32" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/>
                     <path d="M20 32L32 20" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/>
-
+                    
                     {/* Center hub */}
                     <circle cx="32" cy="32" r="6" fill="white"/>
                     <circle cx="32" cy="32" r="4" fill="#E91E63"/>
-
+                    
                     {/* Gradient definition */}
                     <defs>
                         <linearGradient id="socialGradient" x1="0" y1="0" x2="64" y2="64">
@@ -94,7 +93,7 @@ const InfoIcon = () => {
             >
                 <div className="social-links-modal">
                     {socialLinks.map((link, index) => (
-                        <a
+                        <a 
                             key={index}
                             href={link.url}
                             target="_blank"
@@ -229,12 +228,7 @@ const AppHeader = observer(() => {
                     {isToggled ? 'ON' : 'OFF'}
                 </button>
             </Wrapper>
-            <Wrapper variant='right'>
-                <div className="header__menu-right">
-                    <ConnectionStatus />
-                    <MenuItems />
-                </div>
-            </Wrapper>
+            <Wrapper variant='right'>{renderAccountSection()}</Wrapper>
 
             {isModalOpen && (
                 <Modal

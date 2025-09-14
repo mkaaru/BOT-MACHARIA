@@ -7,7 +7,7 @@ import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import './ml-trader.scss';
 
-// Minimal trade types we will support initially
+// Comprehensive trade types including Rise/Fall and Higher/Lower
 const TRADE_TYPES = [
     { value: 'DIGITOVER', label: 'Digits Over' },
     { value: 'DIGITUNDER', label: 'Digits Under' },
@@ -16,7 +16,11 @@ const TRADE_TYPES = [
     { value: 'DIGITMATCH', label: 'Matches' },
     { value: 'DIGITDIFF', label: 'Differs' },
     // Rise/Fall Contracts
-    { value: 'RISEFALL', label: 'Rise/Fall' },
+    { value: 'CALL', label: 'Rise' },
+    { value: 'PUT', label: 'Fall' },
+    // Higher/Lower Contracts
+    { value: 'CALLE', label: 'Higher' },
+    { value: 'PUTE', label: 'Lower' },
 ];
 
 // Volatility indices for digit trading
@@ -48,12 +52,18 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
             symbol: trade_option.symbol,
         },
     };
-    if (trade_option.prediction !== undefined) {
+    
+    // Handle different contract types
+    if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(contract_type) && trade_option.prediction !== undefined) {
         buy.parameters.barrier = trade_option.prediction;
     }
-    if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
-        buy.parameters.barrier = trade_option.prediction;
+    
+    // Handle Higher/Lower contracts with barriers
+    if (['CALLE', 'PUTE'].includes(contract_type) && trade_option.barrier !== undefined) {
+        buy.parameters.barrier = trade_option.barrier;
     }
+    
+    // Rise/Fall contracts don't need barriers
     return buy;
 };
 
@@ -70,6 +80,8 @@ const MLTrader = observer(() => {
     const [baseStake, setBaseStake] = useState(0.5);
     const [overPrediction, setOverPrediction] = useState(5);
     const [underPrediction, setUnderPrediction] = useState(5);
+    const [higherBarrier, setHigherBarrier] = useState('+0.1');
+    const [lowerBarrier, setLowerBarrier] = useState('-0.1');
     const [martingaleMultiplier, setMartingaleMultiplier] = useState(1);
 
     // Trading state
@@ -311,9 +323,15 @@ const MLTrader = observer(() => {
             symbol: selectedVolatility,
         };
 
-        // Choose prediction based on trade type and last outcome
+        // Choose prediction/barrier based on trade type and last outcome
         if (selectedTradeType === 'DIGITOVER' || selectedTradeType === 'DIGITUNDER') {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? underPrediction : overPrediction);
+        } else if (selectedTradeType === 'DIGITMATCH' || selectedTradeType === 'DIGITDIFF') {
+            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? underPrediction : overPrediction);
+        } else if (selectedTradeType === 'CALLE') {
+            trade_option.barrier = higherBarrier;
+        } else if (selectedTradeType === 'PUTE') {
+            trade_option.barrier = lowerBarrier;
         }
 
         const buy_req = tradeOptionToBuy(selectedTradeType, trade_option);
@@ -455,7 +473,7 @@ const MLTrader = observer(() => {
             run_panel.setHasOpenContract(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
         }
-    }, [selectedVolatility, selectedTradeType, duration, durationType, stake, baseStake, overPrediction, underPrediction, martingaleMultiplier, accountCurrency, availableSymbols, run_panel, transactions]);
+    }, [selectedVolatility, selectedTradeType, duration, durationType, stake, baseStake, overPrediction, underPrediction, higherBarrier, lowerBarrier, martingaleMultiplier, accountCurrency, availableSymbols, run_panel, transactions]);
 
     // Stop trading function
     const handleStopTrading = () => {
@@ -589,44 +607,123 @@ const MLTrader = observer(() => {
                                     />
                                 </div>
 
-                                <div className='ml-trader__predictions'>
-                                    <div className='ml-trader__field'>
-                                        <label>{localize('Over/Under prediction (pre-loss)')}</label>
-                                        <input
-                                            type='number'
-                                            min='0'
-                                            max='9'
-                                            value={overPrediction}
-                                            onChange={(e) => setOverPrediction(parseInt(e.target.value))}
-                                            disabled={isTrading}
-                                        />
-                                    </div>
+                                {/* Digit Predictions for Over/Under, Match/Diff */}
+                                {['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedTradeType) && (
+                                    <div className='ml-trader__predictions'>
+                                        <div className='ml-trader__field'>
+                                            <label>{localize('Digit prediction (pre-loss)')}</label>
+                                            <input
+                                                type='number'
+                                                min='0'
+                                                max='9'
+                                                value={overPrediction}
+                                                onChange={(e) => setOverPrediction(parseInt(e.target.value))}
+                                                disabled={isTrading}
+                                            />
+                                        </div>
 
-                                    <div className='ml-trader__field'>
-                                        <label>{localize('Over/Under prediction (after loss)')}</label>
-                                        <input
-                                            type='number'
-                                            min='0'
-                                            max='9'
-                                            value={underPrediction}
-                                            onChange={(e) => setUnderPrediction(parseInt(e.target.value))}
-                                            disabled={isTrading}
-                                        />
-                                    </div>
+                                        <div className='ml-trader__field'>
+                                            <label>{localize('Digit prediction (after loss)')}</label>
+                                            <input
+                                                type='number'
+                                                min='0'
+                                                max='9'
+                                                value={underPrediction}
+                                                onChange={(e) => setUnderPrediction(parseInt(e.target.value))}
+                                                disabled={isTrading}
+                                            />
+                                        </div>
 
-                                    <div className='ml-trader__field'>
-                                        <label>{localize('Martingale multiplier')}</label>
-                                        <input
-                                            type='number'
-                                            step='0.1'
-                                            min='1'
-                                            max='3'
-                                            value={martingaleMultiplier}
-                                            onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value))}
-                                            disabled={isTrading}
-                                        />
+                                        <div className='ml-trader__field'>
+                                            <label>{localize('Martingale multiplier')}</label>
+                                            <input
+                                                type='number'
+                                                step='0.1'
+                                                min='1'
+                                                max='3'
+                                                value={martingaleMultiplier}
+                                                onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value))}
+                                                disabled={isTrading}
+                                            />
+                                        </div>
                                     </div>
-                                </div>
+                                )}
+
+                                {/* Barriers for Higher/Lower contracts */}
+                                {['CALLE', 'PUTE'].includes(selectedTradeType) && (
+                                    <div className='ml-trader__predictions'>
+                                        <div className='ml-trader__field'>
+                                            <label>{localize('Higher barrier')}</label>
+                                            <input
+                                                type='text'
+                                                value={higherBarrier}
+                                                onChange={(e) => setHigherBarrier(e.target.value)}
+                                                disabled={isTrading}
+                                                placeholder='+0.1'
+                                            />
+                                        </div>
+
+                                        <div className='ml-trader__field'>
+                                            <label>{localize('Lower barrier')}</label>
+                                            <input
+                                                type='text'
+                                                value={lowerBarrier}
+                                                onChange={(e) => setLowerBarrier(e.target.value)}
+                                                disabled={isTrading}
+                                                placeholder='-0.1'
+                                            />
+                                        </div>
+
+                                        <div className='ml-trader__field'>
+                                            <label>{localize('Martingale multiplier')}</label>
+                                            <input
+                                                type='number'
+                                                step='0.1'
+                                                min='1'
+                                                max='3'
+                                                value={martingaleMultiplier}
+                                                onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value))}
+                                                disabled={isTrading}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Rise/Fall contracts only need Martingale */}
+                                {['CALL', 'PUT'].includes(selectedTradeType) && (
+                                    <div className='ml-trader__predictions'>
+                                        <div className='ml-trader__field'>
+                                            <label>{localize('Martingale multiplier')}</label>
+                                            <input
+                                                type='number'
+                                                step='0.1'
+                                                min='1'
+                                                max='3'
+                                                value={martingaleMultiplier}
+                                                onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value))}
+                                                disabled={isTrading}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Even/Odd contracts only need Martingale */}
+                                {['DIGITEVEN', 'DIGITODD'].includes(selectedTradeType) && (
+                                    <div className='ml-trader__predictions'>
+                                        <div className='ml-trader__field'>
+                                            <label>{localize('Martingale multiplier')}</label>
+                                            <input
+                                                type='number'
+                                                step='0.1'
+                                                min='1'
+                                                max='3'
+                                                value={martingaleMultiplier}
+                                                onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value))}
+                                                disabled={isTrading}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -636,12 +733,19 @@ const MLTrader = observer(() => {
                                 <Text size='s'>
                                     {localize('Ticks Processed')}: {ticksProcessed}
                                 </Text>
-                                <Text size='s'>
-                                    {localize('Last Digit')}: {lastDigit}
-                                </Text>
+                                {['DIGITOVER', 'DIGITUNDER', 'DIGITEVEN', 'DIGITODD', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedTradeType) && (
+                                    <Text size='s'>
+                                        {localize('Last Digit')}: {lastDigit}
+                                    </Text>
+                                )}
                                 <Text size='s'>
                                     {localize('Current Price')}: {currentPrice}
                                 </Text>
+                                {['CALLE', 'PUTE'].includes(selectedTradeType) && (
+                                    <Text size='s'>
+                                        {localize('Active Barrier')}: {selectedTradeType === 'CALLE' ? higherBarrier : lowerBarrier}
+                                    </Text>
+                                )}
                             </div>
                         </div>
 
