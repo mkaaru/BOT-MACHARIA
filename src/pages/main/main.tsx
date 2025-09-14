@@ -115,7 +115,7 @@ const AppWrapper = observer(() => {
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
-    
+
     // Create mock history object for Tabs component
     const history = {
         location,
@@ -123,10 +123,10 @@ const AppWrapper = observer(() => {
             navigate(path, { replace: true });
         }
     };
-    
+
     // Normalize active_tab to prevent blank page from invalid indices
     const validActiveTab = (active_tab >= 0 && active_tab <= 10) ? active_tab : TRADING_HUB;
-    
+
     // Set valid active tab if current one is invalid
     React.useEffect(() => {
         if (active_tab < 0 || active_tab > 10) {
