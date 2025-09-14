@@ -63,11 +63,6 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
         buy.parameters.barrier = trade_option.barrier;
     }
 
-    // Handle Higher/Lower contracts without barriers (CALLE/PUTE - Rise/Fall equal)
-    if (['CALLE', 'PUTE'].includes(contract_type) && trade_option.barrier !== undefined) {
-        buy.parameters.barrier = trade_option.barrier;
-    }
-
     return buy;
 };
 
@@ -490,9 +485,15 @@ const MLTrader = observer(() => {
         } else if (selectedTradeType === 'DIGITMATCH' || selectedTradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? underPrediction : overPrediction);
         } else if (selectedTradeType === 'CALL') {
+            // For Higher contracts, use the higher barrier value
             trade_option.barrier = higherBarrier;
         } else if (selectedTradeType === 'PUT') {
+            // For Lower contracts, use the lower barrier value  
             trade_option.barrier = lowerBarrier;
+        } else if (selectedTradeType === 'CALLE' || selectedTradeType === 'PUTE') {
+            // Rise/Fall contracts don't need barriers for basic contracts
+            // But if you want to use barriers for Rise/Fall Equal, uncomment below:
+            // trade_option.barrier = selectedTradeType === 'CALLE' ? higherBarrier : lowerBarrier;
         }
 
         const buy_req = tradeOptionToBuy(selectedTradeType, trade_option);
@@ -872,22 +873,36 @@ const MLTrader = observer(() => {
                                 {['CALL', 'PUT'].includes(selectedTradeType) && (
                                     <div className='ml-trader__predictions'>
                                         <div className='ml-trader__field'>
-                                            <label>{localize('Higher barrier')}</label>
+                                            <label>{localize('Higher barrier (e.g., +0.1, +0.5)')}</label>
                                             <input
                                                 type='text'
                                                 value={higherBarrier}
-                                                onChange={(e) => setHigherBarrier(e.target.value)}
+                                                onChange={(e) => {
+                                                    let value = e.target.value;
+                                                    // Auto-add + for positive values if not present
+                                                    if (value && !value.startsWith('+') && !value.startsWith('-')) {
+                                                        value = '+' + value;
+                                                    }
+                                                    setHigherBarrier(value);
+                                                }}
                                                 disabled={isTrading}
                                                 placeholder='+0.1'
                                             />
                                         </div>
 
                                         <div className='ml-trader__field'>
-                                            <label>{localize('Lower barrier')}</label>
+                                            <label>{localize('Lower barrier (e.g., -0.1, -0.5)')}</label>
                                             <input
                                                 type='text'
                                                 value={lowerBarrier}
-                                                onChange={(e) => setLowerBarrier(e.target.value)}
+                                                onChange={(e) => {
+                                                    let value = e.target.value;
+                                                    // Auto-add - for negative values if not present
+                                                    if (value && !value.startsWith('+') && !value.startsWith('-')) {
+                                                        value = '-' + value;
+                                                    }
+                                                    setLowerBarrier(value);
+                                                }}
                                                 disabled={isTrading}
                                                 placeholder='-0.1'
                                             />
@@ -962,7 +977,8 @@ const MLTrader = observer(() => {
                                 </Text>
                                 {['CALL', 'PUT'].includes(selectedTradeType) && (
                                     <Text size='s'>
-                                        {localize('Active Barrier')}: {selectedTradeType === 'CALL' ? higherBarrier : lowerBarrier}
+                                        {localize('Active Barrier')}: {selectedTradeType === 'CALL' ? higherBarrier : lowerBarrier} 
+                                        ({selectedTradeType === 'CALL' ? 'Higher' : 'Lower'})
                                     </Text>
                                 )}
                             </div>
