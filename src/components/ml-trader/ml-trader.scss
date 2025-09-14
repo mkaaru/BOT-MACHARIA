@@ -125,17 +125,6 @@
         @media (max-width: 640px) {
             grid-template-columns: 1fr;
         }
-
-        // Single column for simple contracts (Even/Odd, Rise/Fall)
-        &--single {
-            grid-template-columns: 1fr;
-            max-width: 200px;
-        }
-
-        // Two column for barrier contracts
-        &--barriers {
-            grid-template-columns: 1fr 1fr 1fr;
-        }
     }
 
     &__status {
