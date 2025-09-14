@@ -1114,7 +1114,7 @@ const AppWrapper = observer(() => {
 
             const updatedScripts = [...savedScripts, newScript];
             setSavedScripts(updatedScripts);
-            localStorage.setItem('pythonTradingScripts', JSON.stringify(updatedScripts));
+            localStorage.setItem('pythonTradingScripts', JSON.JSON.stringify(updatedScripts));
             addOutput('success', `Script '${scriptName}' saved successfully`);
         }
     }, [pythonCode, savedScripts]);
@@ -1406,6 +1406,19 @@ if __name__ == "__main__":
     // Always show run panel on all pages
     const showRunPanel = true;
 
+    // Define tab references
+    const dashboard_tab_ref = useRef<HTMLDivElement>(null);
+    const bot_builder_tab_ref = useRef<HTMLDivElement>(null);
+    const charts_tab_ref = useRef<HTMLDivElement>(null);
+    const tutorials_tab_ref = useRef<HTMLDivElement>(null);
+    const free_bots_tab_ref = useRef<HTMLDivElement>(null);
+    const ml_trader_tab_ref = useRef<HTMLDivElement>(null);
+    const smart_trading_tab_ref = useRef<HTMLDivElement>(null);
+    const analysis_tool_tab_ref = useRef<HTMLDivElement>(null);
+    const signals_tab_ref = useRef<HTMLDivElement>(null);
+    const trading_hub_tab_ref = useRef<HTMLDivElement>(null);
+    const ai_trader_tab_ref = useRef<HTMLDivElement>(null);
+
 
     return (
         <>
@@ -1423,58 +1436,54 @@ if __name__ == "__main__":
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
                         <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
 
-<div className='free-bots-container'>
-                            <Tabs active_index={0} className='free-bots-tabs' top>
-                                <div label={<Localize i18n_default_text='Free Bots' />} id='id-free-bots-list'>
-                                    <div className='free-bots'>
-                                        <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
-                                        <div className='free-bots__content-wrapper'>
-                                            <div className='free-bots__content'>
-                                                {bots.map((bot, index) => (
-                                                    <div
-                                                        className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
-                                                        key={index}
-                                                        onClick={() => {
-                                                            handleBotClick(bot);
-                                                        }}
-                                                        style={{
-                                                            cursor: 'pointer',
-                                                            opacity: bot.isPlaceholder ? 0.7 : 1
-                                                        }}
-                                                    >
-                                                        <div className='free-bot-card__icon'>
-                                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="#1976D2">
-                                                                <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
-                                                                <rect x="6" y="10" width="12" height="8" rx="2" fill="#1976D2"/>
-                                                                <circle cx="9" cy="13" r="1.5" fill="white"/>
-                                                                <circle cx="15" cy="13" r="1.5" fill="white"/>
-                                                                <rect x="10" y="15" width="4" height="1" rx="0.5" fill="white"/>
-                                                                <rect x="4" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
-                                                                <rect x="18" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
-                                                            </svg>
-                                                        </div>
-                                                        <div className='free-bot-card__details'>
-                                                            <h3 className='free-bot-card__title'>{bot.title}</h3>
-                                                            <p className='free-bot-card__description'>{bot.description}</p>
-                                                            <p className='free-bot-card__action'>
-                                                                {bot.isPlaceholder ? 'Loading bot...' : 'Click to load this bot'}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                            <div className="free-bots">
+                                <h2 className="free-bots__heading">{localize('Free Trading Bots')}</h2>
+                                <div className="free-bots__content-wrapper">
+                                    <div className="free-bots__content">
+                                        {bots.map((bot, index) => (
+                                            <div
+                                                key={index}
+                                                className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
+                                                onClick={() => handleBotClick(bot)}
+                                            >
+                                                <div className="free-bot-card__icon">
+                                                    <BotIcon />
+                                                </div>
+                                                <div className="free-bot-card__details">
+                                                    <h3 className="free-bot-card__title">{bot.title}</h3>
+                                                    <p className="free-bot-card__description">
+                                                        {bot.isPlaceholder
+                                                            ? 'This bot template is currently loading...'
+                                                            : 'Advanced trading strategy with built-in risk management and optimized entry/exit signals.'
+                                                        }
+                                                    </p>
+                                                    <p className="free-bot-card__action">
+                                                        {bot.isPlaceholder ? 'Please wait...' : 'Click to load into Bot Builder'}
+                                                    </p>
+                                                </div>
                                             </div>
-                                        </div>
+                                        ))}
                                     </div>
                                 </div>
-                                <div label={<Localize i18n_default_text='Smart Trading' />} id='smart-trading'>
-                                    <VolatilityAnalyzer />
-                                </div>
-                                <div label={<Localize i18n_default_text='🤖 ML Trader' />} id='ml-trader'>
-                                    <MLTrader />
-                                </div>
-                            </Tabs>
-                        </div>
+                            </div>
 
+                        </div>
+                        <div label={<><AITraderIcon /><Localize i18n_default_text='ML Trader' /></>} id='id-ml-trader'>
+                            <MLTrader />
+                        </div>
+                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Smart Trading' /></>} id='id-smart-trading'>
+                            <div className="auto-trades-container">
+                                <div className="auto-trades-tabs">
+                                    <Tabs>
+                                        <div label={localize('Smart Trading')}>
+                                            <SmartTrader />
+                                        </div>
+                                        <div label={localize('Volatility Analyzer')}>
+                                            <VolatilityAnalyzer />
+                                        </div>
+                                    </Tabs>
+                                </div>
+                            </div>
                         </div>
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
                             <div className={classNames('dashboard__chart-wrapper', {

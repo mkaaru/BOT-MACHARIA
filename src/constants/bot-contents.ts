@@ -12,15 +12,17 @@ export const tabs_title: TTabsTitle = Object.freeze({
 });
 
 export const DBOT_TABS = {
-    TRADING_HUB: 0,
+    DASHBOARD: 0,
     BOT_BUILDER: 1,
-    FREE_BOTS: 2,
-    ANALYSIS_TOOL: 3,
-    SIGNALS: 4,
-    CHARTS: 5,
-    TUTORIALS: 6,
-    AI_TRADER: 7,
-    DASHBOARD: 8,
+    CHART: 2,
+    TUTORIAL: 3,
+    FREE_BOTS: 4,
+    ML_TRADER: 5,
+    SMART_TRADING: 6,
+    ANALYSIS_TOOL: 7,
+    SIGNALS: 8,
+    TRADING_HUB: 9,
+    AI_TRADER: 10,
 } as const;
 
 export const MAX_STRATEGIES = 10;
