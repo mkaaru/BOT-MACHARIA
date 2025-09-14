@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useState, useCallback, useRef } from 'react';
+import React, { lazy, Suspense, useEffect, useState, useCallback } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -111,30 +111,12 @@ const AppWrapper = observer(() => {
     const { is_dialog_open, dialog_options, onCancelButtonClick, onCloseDialog, onOkButtonClick, stopBot, is_drawer_open } = run_panel;
     const { cancel_button_text, ok_button_text, title, message } = dialog_options as { [key: string]: string };
     const { clear } = summary_card;
-    const { FREE_BOTS, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, DASHBOARD, AI_TRADER, TRADING_HUB, ML_TRADER, SMART_TRADING, CHART, TUTORIAL } = DBOT_TABS;
+    const { FREE_BOTS, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, DASHBOARD, AI_TRADER, TRADING_HUB } = DBOT_TABS;
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
 
-    // Create mock history object for Tabs component
-    const history = {
-        location,
-        replace: (path: string) => {
-            navigate(path, { replace: true });
-        }
-    };
-
-    // Normalize active_tab to prevent blank page from invalid indices
-    const validActiveTab = (active_tab >= 0 && active_tab <= 10) ? active_tab : TRADING_HUB;
-
-    // Set valid active tab if current one is invalid
-    React.useEffect(() => {
-        if (active_tab < 0 || active_tab > 10) {
-            setActiveTab(TRADING_HUB);
-        }
-    }, [active_tab, setActiveTab]);
-
-    const [bots, setBots] = useState<any[]>([]);
+    const [bots, setBots] = useState([]);
     // Digits Trading Bot States
   const [selectedIndex, setSelectedIndex] = useState('R_100')
   const [contractType, setContractType] = useState('DIGITEVEN')
@@ -160,8 +142,8 @@ const AppWrapper = observer(() => {
   const [currentStreak, setCurrentStreak] = useState(0)
   const [websocket, setWebsocket] = useState<WebSocket | null>(null)
     const [pythonCode, setPythonCode] = useState('');
-    const [pythonOutput, setPythonOutput] = useState<any[]>([]);
-    const [savedScripts, setSavedScripts] = useState<any[]>([]);
+    const [pythonOutput, setPythonOutput] = useState([]);
+    const [savedScripts, setSavedScripts] = useState([]);
     const [isExecuting, setIsExecuting] = useState(false);
     // Add new state for analysis tool URL
 
@@ -425,7 +407,7 @@ const AppWrapper = observer(() => {
             }
 
             // First switch to Bot Builder tab
-            setActiveTab(BOT_BUILDER);
+            setActiveTab(DBOT_TABS.BOT_BUILDER);
 
             // Wait for the tab to load and workspace to be ready
             await new Promise(resolve => setTimeout(resolve, 300));
@@ -1132,7 +1114,7 @@ const AppWrapper = observer(() => {
 
             const updatedScripts = [...savedScripts, newScript];
             setSavedScripts(updatedScripts);
-            localStorage.setItem('pythonTradingScripts', JSON.JSON.stringify(updatedScripts));
+            localStorage.setItem('pythonTradingScripts', JSON.stringify(updatedScripts));
             addOutput('success', `Script '${scriptName}' saved successfully`);
         }
     }, [pythonCode, savedScripts]);
@@ -1424,37 +1406,12 @@ if __name__ == "__main__":
     // Always show run panel on all pages
     const showRunPanel = true;
 
-    // Define tab references
-    const dashboard_tab_ref = useRef<HTMLDivElement>(null);
-    const bot_builder_tab_ref = useRef<HTMLDivElement>(null);
-    const charts_tab_ref = useRef<HTMLDivElement>(null);
-    const tutorials_tab_ref = useRef<HTMLDivElement>(null);
-    const free_bots_tab_ref = useRef<HTMLDivElement>(null);
-    const ml_trader_tab_ref = useRef<HTMLDivElement>(null);
-    const smart_trading_tab_ref = useRef<HTMLDivElement>(null);
-    const analysis_tool_tab_ref = useRef<HTMLDivElement>(null);
-    const signals_tab_ref = useRef<HTMLDivElement>(null);
-    const trading_hub_tab_ref = useRef<HTMLDivElement>(null);
-    const ai_trader_tab_ref = useRef<HTMLDivElement>(null);
-
-
-    // Early return if store is not ready
-    if (!dashboard || !run_panel || !quick_strategy || !summary_card) {
-        return (
-            <div className="main-loading">
-                <div style={{ padding: '2rem', textAlign: 'center' }}>
-                    <h2>Loading TradeCortex...</h2>
-                    <p>Initializing trading platform...</p>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <>
             <div className='main'>
                 <div className='main__container main-content'>
-                    <Tabs active_index={validActiveTab} className='main__tabs' onTabItemClick={handleTabChange} top history={history}>
+                    <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
@@ -1466,54 +1423,58 @@ if __name__ == "__main__":
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
                         <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
 
-                            <div className="free-bots">
-                                <h2 className="free-bots__heading">{localize('Free Trading Bots')}</h2>
-                                <div className="free-bots__content-wrapper">
-                                    <div className="free-bots__content">
-                                        {bots.map((bot, index) => (
-                                            <div
-                                                key={index}
-                                                className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
-                                                onClick={() => handleBotClick(bot)}
-                                            >
-                                                <div className="free-bot-card__icon">
-                                                    <BotIcon />
-                                                </div>
-                                                <div className="free-bot-card__details">
-                                                    <h3 className="free-bot-card__title">{bot.title}</h3>
-                                                    <p className="free-bot-card__description">
-                                                        {bot.isPlaceholder
-                                                            ? 'This bot template is currently loading...'
-                                                            : 'Advanced trading strategy with built-in risk management and optimized entry/exit signals.'
-                                                        }
-                                                    </p>
-                                                    <p className="free-bot-card__action">
-                                                        {bot.isPlaceholder ? 'Please wait...' : 'Click to load into Bot Builder'}
-                                                    </p>
-                                                </div>
+<div className='free-bots-container'>
+                            <Tabs active_index={0} className='free-bots-tabs' top>
+                                <div label={<Localize i18n_default_text='Free Bots' />} id='id-free-bots-list'>
+                                    <div className='free-bots'>
+                                        <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
+                                        <div className='free-bots__content-wrapper'>
+                                            <div className='free-bots__content'>
+                                                {bots.map((bot, index) => (
+                                                    <div
+                                                        className={`free-bot-card ${bot.isPlaceholder ? 'free-bot-card--loading' : ''}`}
+                                                        key={index}
+                                                        onClick={() => {
+                                                            handleBotClick(bot);
+                                                        }}
+                                                        style={{
+                                                            cursor: 'pointer',
+                                                            opacity: bot.isPlaceholder ? 0.7 : 1
+                                                        }}
+                                                    >
+                                                        <div className='free-bot-card__icon'>
+                                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="#1976D2">
+                                                                <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
+                                                                <rect x="6" y="10" width="12" height="8" rx="2" fill="#1976D2"/>
+                                                                <circle cx="9" cy="13" r="1.5" fill="white"/>
+                                                                <circle cx="15" cy="13" r="1.5" fill="white"/>
+                                                                <rect x="10" y="15" width="4" height="1" rx="0.5" fill="white"/>
+                                                                <rect x="4" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
+                                                                <rect x="18" y="12" width="2" height="4" rx="1" fill="#1976D2"/>
+                                                            </svg>
+                                                        </div>
+                                                        <div className='free-bot-card__details'>
+                                                            <h3 className='free-bot-card__title'>{bot.title}</h3>
+                                                            <p className='free-bot-card__description'>{bot.description}</p>
+                                                            <p className='free-bot-card__action'>
+                                                                {bot.isPlaceholder ? 'Loading bot...' : 'Click to load this bot'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-
-                        </div>
-                        <div label={<><AITraderIcon /><Localize i18n_default_text='ML Trader' /></>} id='id-ml-trader'>
-                            <MLTrader />
-                        </div>
-                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Smart Trading' /></>} id='id-smart-trading'>
-                            <div className="auto-trades-container">
-                                <div className="auto-trades-tabs">
-                                    <Tabs history={history} top>
-                                        <div label={localize('Smart Trading')}>
-                                            <SmartTrader />
-                                        </div>
-                                        <div label={localize('Volatility Analyzer')}>
-                                            <VolatilityAnalyzer />
-                                        </div>
-                                    </Tabs>
+                                <div label={<Localize i18n_default_text='Smart Trading' />} id='smart-trading'>
+                                    <VolatilityAnalyzer />
                                 </div>
-                            </div>
+                                <div label={<Localize i18n_default_text='🤖 ML Trader' />} id='ml-trader'>
+                                    <MLTrader />
+                                </div>
+                            </Tabs>
+                        </div>
+
                         </div>
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
                             <div className={classNames('dashboard__chart-wrapper', {
@@ -1522,12 +1483,10 @@ if __name__ == "__main__":
                             })}>
                                 <Tabs
                                     className="analysis-tool-tabs"
-                                    active_icon_color="var(--brand-secondary)"
+                                    active_tab_icon_color="var(--brand-secondary)"
                                     background_color="var(--general-main-1)"
                                     single_tab_has_no_label
                                     should_update_hash={false}
-                                    history={history}
-                                    top
                                 >
                                     <div label={<Localize i18n_default_text='Technical Analysis' />} id='technical-analysis'>
                                         <AnalysistoolComponent />
