@@ -1438,11 +1438,23 @@ if __name__ == "__main__":
     const ai_trader_tab_ref = useRef<HTMLDivElement>(null);
 
 
+    // Early return if store is not ready
+    if (!dashboard || !run_panel || !quick_strategy || !summary_card) {
+        return (
+            <div className="main-loading">
+                <div style={{ padding: '2rem', textAlign: 'center' }}>
+                    <h2>Loading TradeCortex...</h2>
+                    <p>Initializing trading platform...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <>
             <div className='main'>
                 <div className='main__container main-content'>
-                    <Tabs active_index={active_tab} className='main__tabs' onTabItemClick={handleTabChange} top history={history}>
+                    <Tabs active_index={validActiveTab} className='main__tabs' onTabItemClick={handleTabChange} top history={history}>
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,

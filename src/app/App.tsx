@@ -19,20 +19,24 @@ const i18nInstance = initializeI18n({
     cdnUrl: `${TRANSLATIONS_CDN_URL}/${R2_PROJECT_NAME}/${CROWDIN_BRANCH_NAME}`,
 });
 
+const AppWithErrorBoundary = () => (
+    <TranslationProvider defaultLang='EN' i18nInstance={i18nInstance}>
+        <StoreProvider>
+            <RoutePromptDialog />
+            <CoreStoreProvider>
+                <Layout />
+            </CoreStoreProvider>
+        </StoreProvider>
+    </TranslationProvider>
+);
+
 const router = createBrowserRouter(
     createRoutesFromElements(
         <Route
             path='/'
             element={
                 <Suspense fallback={<ChunkLoader message={localize('Please wait while we connect to the server...')} />}>
-                    <TranslationProvider defaultLang='EN' i18nInstance={i18nInstance}>
-                        <StoreProvider>
-                            <RoutePromptDialog />
-                            <CoreStoreProvider>
-                                <Layout />
-                            </CoreStoreProvider>
-                        </StoreProvider>
-                    </TranslationProvider>
+                    <AppWithErrorBoundary />
                 </Suspense>
             }
         >
