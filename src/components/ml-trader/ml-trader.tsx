@@ -259,6 +259,9 @@ const MLTrader = observer(() => {
                             setLastDigit(digit.toString());
                             setTicksProcessed(prev => prev + 1);
                             setCurrentPrice(quote.toFixed(5));
+                            
+                            // Debug log for price updates
+                            console.log(`💰 Price updated for ${sym}:`, quote.toFixed(5));
                         }
 
                         // Update market analysis data for real-time tracking
@@ -283,8 +286,31 @@ const MLTrader = observer(() => {
             messageHandlerRef.current = onMsg;
             derivApiRef.current?.connection?.addEventListener('message', onMsg);
 
+            // Try to get the latest tick immediately
+            try {
+                const latestTickResponse = await derivApiRef.current.send({
+                    ticks_history: sym,
+                    count: 1,
+                    end: 'latest'
+                });
+                
+                if (latestTickResponse.history && latestTickResponse.history.prices && latestTickResponse.history.prices.length > 0) {
+                    const latestPrice = parseFloat(latestTickResponse.history.prices[0]);
+                    const digit = Number(String(latestPrice).slice(-1));
+                    
+                    if (sym === selectedVolatility) {
+                        setCurrentPrice(latestPrice.toFixed(5));
+                        setLastDigit(digit.toString());
+                        console.log(`💰 Initial price set for ${sym}:`, latestPrice.toFixed(5));
+                    }
+                }
+            } catch (historyError) {
+                console.warn('Failed to get latest tick:', historyError);
+            }
+
         } catch (e: any) {
             console.error('startTicks error', e);
+            throw e;
         }
     };
 
@@ -351,21 +377,28 @@ const MLTrader = observer(() => {
                 }
                 
                 setAvailableSymbols(volatilitySymbols);
-                if (!selectedVolatility && volatilitySymbols[0]?.symbol) {
-                    setSelectedVolatility(volatilitySymbols[0].symbol);
+                
+                // Set initial symbol and start getting price data immediately
+                const initialSymbol = selectedVolatility || volatilitySymbols[0]?.symbol;
+                if (initialSymbol && !selectedVolatility) {
+                    setSelectedVolatility(initialSymbol);
                 }
 
                 setConnectionStatus('Connected');
                 setStatusMessage('Loading market data...');
 
+                // Start ticks immediately for the selected symbol to get current price
+                if (initialSymbol) {
+                    await startTicks(initialSymbol);
+                    
+                    // Give some time for price data to arrive
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+
                 // Load historical data for all volatility markets
                 for (const symbolObj of volatilitySymbols) {
                     try {
                         await loadHistoricalData(symbolObj.symbol);
-                        // Start ticks for the initially selected symbol
-                        if (symbolObj.symbol === selectedVolatility) {
-                            startTicks(symbolObj.symbol);
-                        }
                     } catch (dataError) {
                         console.warn(`Failed to load data for ${symbolObj.symbol}:`, dataError);
                     }
@@ -593,9 +626,28 @@ const MLTrader = observer(() => {
                 return;
             }
             
-            if (!currentPrice || currentPrice === '-') {
-                setStatusMessage('Error: Current price not available. Please wait for price data.');
-                return;
+            if (!currentPrice || currentPrice === '-' || isNaN(parseFloat(currentPrice))) {
+                setStatusMessage('Error: Current price not available. Please wait for price data to load...');
+                
+                // Try to restart ticks to get price data
+                try {
+                    setStatusMessage('Attempting to get current price data...');
+                    await startTicks(selectedVolatility);
+                    
+                    // Wait a bit for price data
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    
+                    // Check again
+                    if (!currentPrice || currentPrice === '-' || isNaN(parseFloat(currentPrice))) {
+                        setStatusMessage('Error: Unable to get current price. Please try refreshing the page.');
+                        return;
+                    } else {
+                        setStatusMessage(`Price data loaded: ${currentPrice}. Starting trading...`);
+                    }
+                } catch (priceError) {
+                    setStatusMessage('Error: Failed to get price data. Please refresh the page.');
+                    return;
+                }
             }
         }
 
@@ -811,12 +863,19 @@ const MLTrader = observer(() => {
                                     <label>{localize('Volatility')}</label>
                                     <select 
                                         value={selectedVolatility} 
-                                        onChange={(e) => {
+                                        onChange={async (e) => {
                                             const newVolatility = e.target.value;
                                             setSelectedVolatility(newVolatility);
                                             if (derivApiRef.current && !isTrading) {
-                                                loadHistoricalData(newVolatility);
-                                                startTicks(newVolatility);
+                                                setStatusMessage('Loading data for ' + newVolatility + '...');
+                                                try {
+                                                    await startTicks(newVolatility);
+                                                    await loadHistoricalData(newVolatility);
+                                                    setStatusMessage('Ready to trade ' + newVolatility);
+                                                } catch (error) {
+                                                    console.error('Error changing symbol:', error);
+                                                    setStatusMessage('Error loading symbol data');
+                                                }
                                             }
                                         }}
                                         disabled={isTrading}
