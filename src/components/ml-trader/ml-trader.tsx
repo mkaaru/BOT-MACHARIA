@@ -15,13 +15,29 @@ const TRADE_TYPES = [
     { value: 'DIGITODD', label: 'Odd' },
     { value: 'DIGITMATCH', label: 'Matches' },
     { value: 'DIGITDIFF', label: 'Differs' },
-    // Rise/Fall Contracts (no barriers)
-    { value: 'CALLE', label: 'Rise' },
-    { value: 'PUTE', label: 'Fall' },
+    // Rise/Fall Contracts (standard - no barriers)
+    { value: 'RISE', label: 'Rise' },
+    { value: 'FALL', label: 'Fall' },
+    // Rise/Fall Contracts (allow equals - no barriers)
+    { value: 'RISE_EQUALS', label: 'Rise (Allow Equals)' },
+    { value: 'FALL_EQUALS', label: 'Fall (Allow Equals)' },
     // Higher/Lower Contracts (with barriers)
-    { value: 'CALL', label: 'Higher' },
-    { value: 'PUT', label: 'Lower' },
+    { value: 'HIGHER', label: 'Higher' },
+    { value: 'LOWER', label: 'Lower' },
 ];
+
+// Map our internal contract types to Deriv API contract types
+const getDerivContractType = (tradeType: string): string => {
+    switch (tradeType) {
+        case 'RISE': return 'PUT';
+        case 'FALL': return 'CALL';
+        case 'RISE_EQUALS': return 'PUTE';
+        case 'FALL_EQUALS': return 'CALLE';
+        case 'HIGHER': return 'CALL';
+        case 'LOWER': return 'PUT';
+        default: return tradeType; // For digit contracts, use as-is
+    }
+};
 
 // Volatility indices for digit trading
 const VOLATILITY_INDICES = [
@@ -312,13 +328,13 @@ const MLTrader = observer(() => {
 
     // Handle duration type changes for Higher/Lower contracts
     useEffect(() => {
-        if (['CALL', 'PUT'].includes(selectedTradeType)) {
+        if (['HIGHER', 'LOWER'].includes(selectedTradeType)) {
             // Higher/Lower contracts need time-based durations, not ticks
             if (durationType === 't') {
                 setDurationType('m');
                 setDuration(5); // 5 minutes default
             }
-        } else if (['CALLE', 'PUTE'].includes(selectedTradeType)) {
+        } else if (['RISE', 'FALL', 'RISE_EQUALS', 'FALL_EQUALS'].includes(selectedTradeType)) {
             // Rise/Fall contracts work with ticks
             if (durationType !== 't' && durationType !== 's' && durationType !== 'm') {
                 setDurationType('t');
@@ -561,7 +577,7 @@ const MLTrader = observer(() => {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? underPrediction : overPrediction);
         } else if (selectedTradeType === 'DIGITMATCH' || selectedTradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? underPrediction : overPrediction);
-        } else if (['CALL', 'PUT'].includes(selectedTradeType)) {
+        } else if (['HIGHER', 'LOWER'].includes(selectedTradeType)) {
             // For Higher/Lower contracts, use current spot price as barrier
             const currentSpot = await getCurrentSpotPrice();
             if (!currentSpot) {
@@ -573,14 +589,16 @@ const MLTrader = observer(() => {
             trade_option.barrier = formattedBarrier;
 
             console.log(`📊 ${selectedTradeType} contract barrier set to current price: ${formattedBarrier}`);
-        } else if (selectedTradeType === 'CALLE' || selectedTradeType === 'PUTE') {
-            // Rise/Fall contracts don't need barriers for basic contracts
+        } else if (['RISE', 'FALL', 'RISE_EQUALS', 'FALL_EQUALS'].includes(selectedTradeType)) {
+            // Rise/Fall contracts don't need barriers
         }
 
-        const buy_req = tradeOptionToBuy(selectedTradeType, trade_option);
+        // Map internal contract type to Deriv API contract type
+        const derivContractType = getDerivContractType(selectedTradeType);
+        const buy_req = tradeOptionToBuy(derivContractType, trade_option);
 
         // Debug logging for Higher/Lower contracts
-        if (['CALL', 'PUT'].includes(selectedTradeType)) {
+        if (['HIGHER', 'LOWER'].includes(selectedTradeType)) {
             console.log('📊 Higher/Lower Purchase Request:', {
                 contract_type: selectedTradeType,
                 barrier: buy_req.parameters.barrier,
@@ -593,7 +611,7 @@ const MLTrader = observer(() => {
         }
 
         // Validate the buy request before sending
-        if (['CALL', 'PUT'].includes(selectedTradeType)) {
+        if (['HIGHER', 'LOWER'].includes(selectedTradeType)) {
             if (!buy_req.parameters.barrier) {
                 throw new Error(`Barrier is required for ${selectedTradeType} contracts`);
             }
@@ -647,7 +665,7 @@ const MLTrader = observer(() => {
         }
 
         // Validate Higher/Lower contract settings
-        if (['CALL', 'PUT'].includes(selectedTradeType)) {
+        if (['HIGHER', 'LOWER'].includes(selectedTradeType)) {
             if (durationType === 't') {
                 setStatusMessage('Error: Higher/Lower contracts require time-based durations (minutes/hours), not ticks.');
                 return;
@@ -944,7 +962,7 @@ const MLTrader = observer(() => {
                                         disabled={isTrading}
                                     >
                                         {/* Higher/Lower contracts (CALL/PUT) require time-based durations */}
-                                        {['CALL', 'PUT'].includes(selectedTradeType) ? (
+                                        {['HIGHER', 'LOWER'].includes(selectedTradeType) ? (
                                             <>
                                                 <option value="m">{localize('Minutes')}</option>
                                                 <option value="h">{localize('Hours')}</option>
@@ -965,7 +983,7 @@ const MLTrader = observer(() => {
                                     <input
                                         type='number'
                                         min='1'
-                                        max={['CALL', 'PUT'].includes(selectedTradeType) ? '365' : '10'}
+                                        max={['HIGHER', 'LOWER'].includes(selectedTradeType) ? '365' : '10'}
                                         value={duration}
                                         onChange={(e) => setDuration(parseInt(e.target.value))}
                                         disabled={isTrading}
@@ -1030,17 +1048,17 @@ const MLTrader = observer(() => {
                                 )}
 
                                 {/* Higher/Lower contracts use current price as barrier automatically */}
-                                {['CALL', 'PUT'].includes(selectedTradeType) && (
+                                {['HIGHER', 'LOWER'].includes(selectedTradeType) && (
                                     <div className='ml-trader__predictions'>
                                         <div className='ml-trader__field'>
                                             <label>{localize('Barrier Info')}</label>
                                             <div style={{ padding: '8px', backgroundColor: '#f5f5f5', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }}>
                                                 <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>
-                                                    {selectedTradeType === 'CALL' ? 'Higher' : 'Lower'} Contract
+                                                    {selectedTradeType === 'HIGHER' ? 'Higher' : 'Lower'} Contract
                                                 </p>
                                                 <p style={{ margin: '0' }}>
                                                     Barrier = Current price at purchase time<br/>
-                                                    Win if exit spot is {selectedTradeType === 'CALL' ? 'higher' : 'lower'} than barrier
+                                                    Win if exit spot is {selectedTradeType === 'HIGHER' ? 'higher' : 'lower'} than barrier
                                                 </p>
                                             </div>
                                         </div>
@@ -1061,7 +1079,7 @@ const MLTrader = observer(() => {
                                 )}
 
                                 {/* Rise/Fall contracts only need Martingale */}
-                                {['CALLE', 'PUTE'].includes(selectedTradeType) && (
+                                {['RISE', 'FALL', 'RISE_EQUALS', 'FALL_EQUALS'].includes(selectedTradeType) && (
                                     <div className='ml-trader__predictions'>
                                         <div className='ml-trader__field'>
                                             <label>{localize('Martingale multiplier')}</label>
