@@ -168,13 +168,16 @@ const AppContent = observer(() => {
         const timeout = setTimeout(() => {
             setForceShowApp(true);
             setShowSplashScreen(false);
-        }, 5000); // Show app after 5 seconds regardless
+            setIsLoading(false); // Ensure loading stops after timeout
+        }, 3000); // Reduce timeout to 3 seconds
 
         return () => clearTimeout(timeout);
     }, []);
 
     const handleSplashScreenComplete = () => {
         setShowSplashScreen(false);
+        setIsLoading(false); // Stop loading when splash completes
+        setForceShowApp(true);
     };
 
     // Show splash screen first
