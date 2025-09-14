@@ -60,9 +60,11 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
 
     // Handle Higher/Lower contracts with barriers (CALL/PUT)
     if (['CALL', 'PUT'].includes(contract_type) && trade_option.barrier !== undefined) {
-        // Ensure barrier is properly formatted as string
-        const barrier = String(trade_option.barrier);
-        buy.parameters.barrier = barrier.startsWith('+') || barrier.startsWith('-') ? barrier : `+${barrier}`;
+        // For Higher/Lower contracts, barrier should be a relative offset
+        let barrier = String(trade_option.barrier);
+        // Ensure proper formatting - remove any existing + or - and add appropriate sign
+        barrier = barrier.replace(/^[+-]/, '');
+        buy.parameters.barrier = contract_type === 'CALL' ? `+${barrier}` : `-${barrier}`;
     }
 
     return buy;
@@ -496,18 +498,34 @@ const MLTrader = observer(() => {
             if (!higherBarrier || higherBarrier.trim() === '') {
                 throw new Error('Higher barrier is required for CALL contracts');
             }
-            trade_option.barrier = higherBarrier.trim();
+            // Remove any + or - prefix and use just the numeric value
+            const numericBarrier = higherBarrier.trim().replace(/^[+-]/, '');
+            trade_option.barrier = numericBarrier;
         } else if (selectedTradeType === 'PUT') {
             // For Lower contracts, use the lower barrier value  
             if (!lowerBarrier || lowerBarrier.trim() === '') {
                 throw new Error('Lower barrier is required for PUT contracts');
             }
-            trade_option.barrier = lowerBarrier.trim();
+            // Remove any + or - prefix and use just the numeric value
+            const numericBarrier = lowerBarrier.trim().replace(/^[+-]/, '');
+            trade_option.barrier = numericBarrier;
         } else if (selectedTradeType === 'CALLE' || selectedTradeType === 'PUTE') {
             // Rise/Fall contracts don't need barriers for basic contracts
         }
 
         const buy_req = tradeOptionToBuy(selectedTradeType, trade_option);
+        
+        // Debug logging for Higher/Lower contracts
+        if (['CALL', 'PUT'].includes(selectedTradeType)) {
+            console.log('📊 Higher/Lower Purchase Request:', {
+                contract_type: selectedTradeType,
+                barrier: buy_req.parameters.barrier,
+                duration: buy_req.parameters.duration,
+                duration_unit: buy_req.parameters.duration_unit,
+                symbol: selectedVolatility,
+                amount: buy_req.parameters.amount
+            });
+        }
         
         // Validate the buy request before sending
         if (['CALL', 'PUT'].includes(selectedTradeType)) {
@@ -516,6 +534,12 @@ const MLTrader = observer(() => {
             }
             if (buy_req.parameters.duration_unit === 't') {
                 throw new Error('Higher/Lower contracts cannot use tick-based durations');
+            }
+            
+            // Additional validation for barrier format
+            const barrier = buy_req.parameters.barrier;
+            if (!/^[+-]?\d*\.?\d+$/.test(barrier)) {
+                throw new Error(`Invalid barrier format: ${barrier}. Expected format: +0.1 or -0.1`);
             }
         }
 
