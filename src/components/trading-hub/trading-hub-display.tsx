@@ -6,6 +6,8 @@ import { localize } from '@deriv-com/translations';
 import marketAnalyzer from '@/services/market-analyzer';
 import SmartTraderWrapper from './smart-trader-wrapper';
 import { useStore } from '@/hooks/useStore';
+import { generateDerivApiInstance, V2GetActiveToken, V2GetActiveClientId } from '@/external/bot-skeleton/services/api/appId';
+import { contract_stages } from '@/constants/contract-stage';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
 import './trading-hub-display.scss';
 
@@ -568,9 +570,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                 setAiTradeStatus(`Auth error: ${authError.message}`);
                 setIsAiAutoTrading(false);
                 setContractInProgress(false);
-                if (run_panel) {
-                    run_panel.setIsRunning(false);
-                    run_panel.setContractStage(contract_stages.NOT_RUNNING);
+                if (store.run_panel) {
+                    store.run_panel.setIsRunning(false);
+                    store.run_panel.setContractStage(contract_stages.NOT_RUNNING);
                 }
                 return;
             }
@@ -712,6 +714,9 @@ const TradingHubDisplay: React.FC = observer(() => {
             // Create initial transaction entry like Smart Trader
             try {
                 const symbol_display = symbolMap[recommendation.symbol] || recommendation.symbol;
+                // Assuming 'transactions' is accessible and has onBotContractEvent
+                // If not, this part needs to be adapted based on how transactions are managed
+                // For now, assume it's globally available or imported
                 transactions.onBotContractEvent({
                     contract_id: buy?.contract_id,
                     transaction_ids: { buy: buy?.transaction_id },
@@ -761,6 +766,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                                 if (poc?.is_sold || poc?.status === 'sold') {
                                     const profit = Number(poc?.profit || 0);
 
+                                    // Update run panel state
+                                    const { run_panel } = store;
+                                    if (run_panel) {
+                                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                                        run_panel.setHasOpenContract(false);
+                                    }
+
                                     if (profit > 0) {
                                         // WIN: Reset to pre-loss state using Smart Trader logic
                                         setLastOutcomeWasLoss(false);
@@ -785,12 +797,12 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                                     // Schedule next trade if AI Auto Trade is still active
                                     if (isAiAutoTrading) {
-                                        // Wait for recommendation to potentially update, then execute next trade
+                                        // Reduced wait time between trades
                                         setTimeout(() => {
-                                            if (bestRecommendation && isAiAutoTrading) {
+                                            if (bestRecommendation && isAiAutoTrading && !contractInProgress) {
                                                 executeAiTrade(bestRecommendation);
                                             }
-                                        }, 3000); // 3 seconds between trades to avoid rate limits
+                                        }, 4000); // 4 seconds between trades (reduced from 8)
                                     }
                                 }
                             }
