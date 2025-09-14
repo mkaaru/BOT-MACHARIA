@@ -52,17 +52,17 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
             symbol: trade_option.symbol,
         },
     };
-    
+
     // Handle different contract types
     if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(contract_type) && trade_option.prediction !== undefined) {
         buy.parameters.barrier = trade_option.prediction;
     }
-    
+
     // Handle Higher/Lower contracts with barriers
     if (['CALLE', 'PUTE'].includes(contract_type) && trade_option.barrier !== undefined) {
         buy.parameters.barrier = trade_option.barrier;
     }
-    
+
     // Rise/Fall contracts don't need barriers
     return buy;
 };
@@ -575,8 +575,13 @@ const MLTrader = observer(() => {
                                         disabled={isTrading}
                                     >
                                         <option value="t">{localize('Ticks')}</option>
-                                        <option value="s">{localize('Seconds')}</option>
-                                        <option value="m">{localize('Minutes')}</option>
+                                        {/* Higher/Lower contracts typically only support ticks */}
+                                        {!['CALLE', 'PUTE'].includes(selectedTradeType) && (
+                                            <>
+                                                <option value="s">{localize('Seconds')}</option>
+                                                <option value="m">{localize('Minutes')}</option>
+                                            </>
+                                        )}
                                     </select>
                                 </div>
 
