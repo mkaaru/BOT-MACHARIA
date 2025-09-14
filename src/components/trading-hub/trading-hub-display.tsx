@@ -11,15 +11,6 @@ import { contract_stages } from '@/constants/contract-stage';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
 import './trading-hub-display.scss';
 
-// Assuming contract_stages and related stores are available
-// Mocking them here for completeness if they are not directly imported or available
-const contract_stages = {
-    STARTING: 'STARTING',
-    RUNNING: 'RUNNING',
-    ENDED: 'ENDED',
-    NOT_RUNNING: 'NOT_RUNNING',
-};
-
 interface ScanResult {
     symbol: string;
     displayName: string;
