@@ -35,6 +35,10 @@ waitForPort = 5000
 outputType = "webview"
 
 [[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
 localPort = 5001
 externalPort = 80
 
@@ -47,8 +51,8 @@ localPort = 5003
 externalPort = 3001
 
 [[ports]]
-localPort = 5000
-externalPort = 80
+localPort = 38855
+externalPort = 3002
 
 [agent]
 expertMode = true

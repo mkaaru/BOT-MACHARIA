@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
@@ -22,7 +22,7 @@ const HIGHER_LOWER_TYPES = [
 
 // Safe version of tradeOptionToBuy without Blockly dependencies
 const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
-    const buy: any = {
+    const buy = {
         buy: '1',
         price: trade_option.amount,
         parameters: {
