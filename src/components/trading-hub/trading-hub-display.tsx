@@ -792,14 +792,14 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                                     // Schedule next trade if AI Auto Trade is still active
                                     if (isAiAutoTrading) {
-                                        // Reduced wait time between trades
+                                        // Reduced wait time between trades for faster execution
                                         setTimeout(() => {
                                             if (bestRecommendation && isAiAutoTrading && !contractInProgress) {
                                                 executeAiTrade(bestRecommendation);
                                             } else {
                                                 console.log('🚫 AI Auto Trade: Next trade cancelled - AI Auto Trade stopped');
                                             }
-                                        }, 4000); // 4 seconds between trades (reduced from 8)
+                                        }, 2000); // 2 seconds between trades for faster execution
                                     }
                                 }
                             }
