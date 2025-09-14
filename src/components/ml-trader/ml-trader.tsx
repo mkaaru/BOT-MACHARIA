@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
+import { marketScanner, TradingRecommendation, ScannerStatus } from '@/services/market-scanner';
+import { VOLATILITY_SYMBOLS } from '@/services/tick-stream-manager';
+import { TrendAnalysis } from '@/services/trend-analysis-engine';
 import './ml-trader.scss';
 
 // Correct trade types for Deriv API
@@ -71,10 +74,19 @@ const MLTrader = observer(() => {
     const [is_running, setIsRunning] = useState(false);
     const stopFlagRef = useRef<boolean>(false);
 
+    // Enhanced states for trend analysis
+    const [scanner_status, setScannerStatus] = useState<ScannerStatus | null>(null);
+    const [recommendations, setRecommendations] = useState<TradingRecommendation[]>([]);
+    const [current_trend, setCurrentTrend] = useState<TrendAnalysis | null>(null);
+    const [is_scanner_initialized, setIsScannerInitialized] = useState(false);
+    const [auto_mode, setAutoMode] = useState(false);
+    const [show_trend_analysis, setShowTrendAnalysis] = useState(true);
+
     useEffect(() => {
         // Initialize API connection and fetch active symbols
         const api = generateDerivApiInstance();
         apiRef.current = api;
+        let scannerCleanup: (() => void) | null = null;
 
         const init = async () => {
             try {
@@ -89,8 +101,11 @@ const MLTrader = observer(() => {
                 setSymbols(syn);
                 if (!symbol && syn[0]?.symbol) {
                     setSymbol(syn[0].symbol);
-                    startTicks(syn[0].symbol);
+                    // Remove direct tick subscription - MarketScanner handles this now
                 }
+
+                // Initialize scanner and capture cleanup function
+                scannerCleanup = await initializeMarketScanner();
             } catch (e: any) {
                 console.error('MLTrader init error', e);
                 setStatus(e?.message || 'Failed to load symbols');
@@ -100,6 +115,12 @@ const MLTrader = observer(() => {
         init();
 
         return () => {
+            // Clean up scanner subscriptions first
+            if (scannerCleanup) {
+                scannerCleanup();
+                scannerCleanup = null;
+            }
+
             // Clean up streams and socket
             try {
                 if (tickStreamIdRef.current) {
@@ -120,6 +141,176 @@ const MLTrader = observer(() => {
             }
         };
     }, []);
+
+    // Initialize market scanner
+    const initializeMarketScanner = useCallback(async () => {
+        if (is_scanner_initialized) return;
+        
+        try {
+            setStatus('Initializing market scanner...');
+            
+            // Initialize the market scanner
+            await marketScanner.initialize();
+            
+            // Subscribe to scanner status updates
+            const statusUnsubscribe = marketScanner.onStatusChange((status) => {
+                setScannerStatus(status);
+            });
+            
+            // Subscribe to recommendation updates
+            const recommendationUnsubscribe = marketScanner.onRecommendationChange((recs) => {
+                setRecommendations(recs);
+                
+                // Auto-select best recommendation if auto mode is enabled
+                // Check both running state AND contract in progress to prevent race conditions
+                if (auto_mode && recs.length > 0 && !is_running && !contractInProgressRef.current) {
+                    applyRecommendation(recs[0]);
+                }
+            });
+            
+            setIsScannerInitialized(true);
+            setStatus('Market scanner initialized successfully');
+            
+            // Cleanup function stored in ref for unmount
+            return () => {
+                statusUnsubscribe();
+                recommendationUnsubscribe();
+            };
+            
+        } catch (error) {
+            console.error('Failed to initialize market scanner:', error);
+            setStatus(`Scanner initialization failed: ${error}`);
+        }
+    }, [is_scanner_initialized, auto_mode, is_running]);
+
+    // Get current price from shared services instead of direct subscription
+    const getCurrentPriceFromServices = useCallback((sym: string): number | null => {
+        try {
+            // Get current price from trend analysis or HMA calculator
+            const trend = marketScanner.getTrendAnalysis(sym);
+            return trend?.currentPrice || null;
+        } catch (error) {
+            console.warn(`Failed to get current price for ${sym} from services:`, error);
+            return null;
+        }
+    }, []);
+
+    // Integration verification function to check system health
+    const verifyIntegration = useCallback(() => {
+        const verificationResults = {
+            timestamp: new Date().toISOString(),
+            scannerInitialized: is_scanner_initialized,
+            recommendations: recommendations.length,
+            errors: [],
+            warnings: [],
+            hmaVerification: {
+                hma5: null as number | null,
+                hma40: null as number | null,
+                crossoverDetected: false,
+            },
+            subscriptionHealth: {
+                activeSymbols: 0,
+                duplicateSubscriptions: false,
+            }
+        };
+
+        try {
+            // Verify HMA calculations are working
+            if (symbol && is_scanner_initialized) {
+                const trend = marketScanner.getTrendAnalysis(symbol);
+                if (trend) {
+                    verificationResults.hmaVerification.hma5 = trend.hma5?.value || null;
+                    verificationResults.hmaVerification.hma40 = trend.hma40?.value || null;
+                    verificationResults.hmaVerification.crossoverDetected = 
+                        trend.signal === 'BUY' || trend.signal === 'SELL';
+                } else {
+                    verificationResults.warnings.push(`No trend analysis available for ${symbol}`);
+                }
+            }
+
+            // Verify subscription health
+            const scannerStatus = marketScanner.getStatus();
+            verificationResults.subscriptionHealth.activeSymbols = scannerStatus.connectedSymbols;
+
+            // Check for common issues
+            if (scannerStatus.errors.length > 0) {
+                verificationResults.errors.push(...scannerStatus.errors);
+            }
+
+            if (verificationResults.recommendations === 0 && is_scanner_initialized) {
+                verificationResults.warnings.push('No trading recommendations available');
+            }
+
+            // Integration health summary
+            const isHealthy = 
+                verificationResults.scannerInitialized &&
+                verificationResults.errors.length === 0 &&
+                verificationResults.subscriptionHealth.activeSymbols > 0;
+
+            console.log('🔍 ML Trader Integration Verification:', {
+                ...verificationResults,
+                isHealthy,
+                summary: isHealthy ? 'HEALTHY' : 'NEEDS ATTENTION'
+            });
+
+            return { ...verificationResults, isHealthy };
+
+        } catch (error) {
+            console.error('Integration verification failed:', error);
+            verificationResults.errors.push(`Verification failed: ${error}`);
+            return { ...verificationResults, isHealthy: false };
+        }
+    }, [symbol, is_scanner_initialized, recommendations]);
+
+    // Apply a trading recommendation with race condition protection
+    const applyRecommendation = useCallback((recommendation: TradingRecommendation) => {
+        // Prevent applying recommendations during active trading
+        if (is_running || contractInProgressRef.current) {
+            console.warn('Cannot apply recommendation: trading in progress');
+            setStatus('Cannot apply recommendation: trading in progress');
+            return;
+        }
+        
+        setSymbol(recommendation.symbol);
+        setContractType(recommendation.direction);
+        setDuration(recommendation.suggestedDuration);
+        setDurationUnit(recommendation.suggestedDurationUnit);
+        setStake(recommendation.suggestedStake);
+        
+        // Update trade mode based on recommendation
+        if (recommendation.direction === 'CALL' || recommendation.direction === 'PUT') {
+            setTradeMode('rise_fall');
+        }
+        
+        // Use current price from recommendation (already available from scanner)
+        setCurrentPrice(recommendation.currentPrice);
+        
+        setStatus(`Applied recommendation: ${recommendation.reason}`);
+    }, [is_running]);
+
+    // Update current trend analysis and price when symbol changes
+    useEffect(() => {
+        if (symbol && is_scanner_initialized) {
+            const trend = marketScanner.getTrendAnalysis(symbol);
+            setCurrentTrend(trend);
+            
+            // Update current price from shared services
+            const currentPrice = getCurrentPriceFromServices(symbol);
+            setCurrentPrice(currentPrice);
+        }
+    }, [symbol, is_scanner_initialized, getCurrentPriceFromServices]);
+
+    // Run verification automatically when scanner is initialized
+    useEffect(() => {
+        if (is_scanner_initialized && recommendations.length > 0) {
+            // Run verification after a short delay to ensure data is ready
+            const timer = setTimeout(() => {
+                verifyIntegration();
+            }, 3000);
+            
+            return () => clearTimeout(timer);
+        }
+    }, [is_scanner_initialized, recommendations.length, verifyIntegration]);
 
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
@@ -186,6 +377,11 @@ const MLTrader = observer(() => {
     };
 
     const purchaseContract = async () => {
+        // Check for race conditions before purchasing
+        if (contractInProgressRef.current) {
+            throw new Error('Contract already in progress. Cannot purchase multiple contracts simultaneously.');
+        }
+        
         await authorizeIfNeeded();
 
         if (!current_price && trade_mode === 'higher_lower') {
@@ -215,6 +411,7 @@ const MLTrader = observer(() => {
         const { buy, error } = await apiRef.current.buy(buy_req);
         if (error) throw error;
 
+        // Set contract in progress flag immediately after successful purchase
         contractInProgressRef.current = true;
         console.log(`✅ Purchase confirmed: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id})`);
 
@@ -224,6 +421,12 @@ const MLTrader = observer(() => {
     };
 
     const onRun = async () => {
+        // Prevent starting if already running or contract in progress
+        if (is_running || contractInProgressRef.current) {
+            setStatus('Trading already in progress');
+            return;
+        }
+        
         setStatus('');
         setIsRunning(true);
         stopFlagRef.current = false;
@@ -301,6 +504,9 @@ const MLTrader = observer(() => {
                                         const profit = Number(poc?.profit || 0);
                                         const result = profit > 0 ? 'WIN' : 'LOSS';
                                         console.log(`${result}: ${profit.toFixed(2)} ${account_currency}`);
+                                        
+                                        // Update status to reflect contract completion
+                                        setStatus(`Contract completed: ${result} ${profit.toFixed(2)} ${account_currency}`);
                                     }
                                 }
                             }
@@ -337,6 +543,7 @@ const MLTrader = observer(() => {
     const onStop = () => {
         stopFlagRef.current = true;
         setIsRunning(false);
+        contractInProgressRef.current = false; // Clear contract flag on manual stop
         stopTicks();
         run_panel.setIsRunning(false);
         run_panel.setHasOpenContract(false);
@@ -349,7 +556,77 @@ const MLTrader = observer(() => {
         }
     };
 
+    // Cleanup scanner on unmount
+    useEffect(() => {
+        return () => {
+            if (is_scanner_initialized) {
+                marketScanner.stop();
+            }
+        };
+    }, [is_scanner_initialized]);
+
     const current_trade_types = trade_mode === 'rise_fall' ? TRADE_TYPES : HIGHER_LOWER_TYPES;
+
+    // Render trend indicator
+    const renderTrendIndicator = (trend: TrendAnalysis) => {
+        const getColorClass = () => {
+            switch (trend.direction) {
+                case 'bullish': return 'trend-bullish';
+                case 'bearish': return 'trend-bearish';
+                default: return 'trend-neutral';
+            }
+        };
+        
+        const getIcon = () => {
+            switch (trend.direction) {
+                case 'bullish': return '📈';
+                case 'bearish': return '📉';
+                default: return '➡️';
+            }
+        };
+        
+        return (
+            <div className={`trend-indicator ${getColorClass()}`}>
+                <span className="trend-icon">{getIcon()}</span>
+                <div className="trend-details">
+                    <div className="trend-direction">{trend.direction.toUpperCase()}</div>
+                    <div className="trend-strength">{trend.strength} ({trend.confidence.toFixed(0)}%)</div>
+                    <div className="trend-score">Score: {trend.score.toFixed(1)}/100</div>
+                </div>
+            </div>
+        );
+    };
+
+    // Render recommendation card
+    const renderRecommendationCard = (rec: TradingRecommendation, index: number) => {
+        const isSelected = symbol === rec.symbol;
+        
+        return (
+            <div 
+                key={rec.symbol}
+                className={`recommendation-card ${isSelected ? 'selected' : ''} ${rec.direction.toLowerCase()}`}
+                onClick={() => applyRecommendation(rec)}
+            >
+                <div className="rec-header">
+                    <span className="rec-rank">#{index + 1}</span>
+                    <span className="rec-symbol">{rec.displayName}</span>
+                    <span className={`rec-direction ${rec.direction.toLowerCase()}`}>
+                        {rec.direction}
+                    </span>
+                </div>
+                <div className="rec-details">
+                    <div className="rec-score">{rec.score.toFixed(1)}/100</div>
+                    <div className="rec-confidence">{rec.confidence.toFixed(0)}% confidence</div>
+                    <div className="rec-strength">{rec.trendStrength}</div>
+                </div>
+                <div className="rec-params">
+                    <span>Stake: ${rec.suggestedStake}</span>
+                    <span>Duration: {rec.suggestedDuration}{rec.suggestedDurationUnit}</span>
+                </div>
+                <div className="rec-reason">{rec.reason}</div>
+            </div>
+        );
+    };
 
     return (
         <div className='ml-trader'>
@@ -365,7 +642,7 @@ const MLTrader = observer(() => {
                                     onChange={e => {
                                         const v = e.target.value;
                                         setSymbol(v);
-                                        startTicks(v);
+                                        // Price and trend updates handled by useEffect when symbol changes
                                     }}
                                 >
                                     {symbols.map(s => (
@@ -479,6 +756,70 @@ const MLTrader = observer(() => {
                             </div>
                         )}
 
+                        {/* Trend Analysis Display */}
+                        {show_trend_analysis && current_trend && (
+                            <div className='ml-trader__trend-analysis'>
+                                <div className='trend-section-header'>
+                                    <Text size='s' weight='bold' color='prominent'>
+                                        {localize('Trend Analysis')}
+                                    </Text>
+                                    <button 
+                                        className='toggle-trend-btn'
+                                        onClick={() => setShowTrendAnalysis(!show_trend_analysis)}
+                                    >
+                                        ↕️
+                                    </button>
+                                </div>
+                                {renderTrendIndicator(current_trend)}
+                                
+                                <div className='hma-values'>
+                                    <div className='hma-row'>
+                                        <span>HMA5: {current_trend.hma5?.toFixed(5) || 'N/A'}</span>
+                                        <span>HMA40: {current_trend.hma40?.toFixed(5) || 'N/A'}</span>
+                                    </div>
+                                    <div className='hma-slopes'>
+                                        <span>Slope5: {current_trend.hma5Slope?.toFixed(6) || 'N/A'}</span>
+                                        <span>Slope40: {current_trend.hma40Slope?.toFixed(6) || 'N/A'}</span>
+                                    </div>
+                                </div>
+                                
+                                {current_trend.crossover !== 0 && (
+                                    <div className={`crossover-alert ${current_trend.crossover > 0 ? 'bullish' : 'bearish'}`}>
+                                        🚨 {current_trend.crossover > 0 ? 'Bullish' : 'Bearish'} Crossover Detected!
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Scanner Status */}
+                        {scanner_status && (
+                            <div className='ml-trader__scanner-status'>
+                                <Text size='xs' color='general'>
+                                    Scanner: {scanner_status.connectedSymbols}/{scanner_status.totalSymbols} symbols
+                                    | Candles: {scanner_status.candlesGenerated}
+                                    | Trends: {scanner_status.trendsAnalyzed}
+                                </Text>
+                                {scanner_status.errors.length > 0 && (
+                                    <Text size='xs' color='loss-danger'>
+                                        Errors: {scanner_status.errors.length}
+                                    </Text>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Auto Mode Toggle */}
+                        <div className='ml-trader__auto-mode'>
+                            <label className='auto-mode-toggle'>
+                                <input
+                                    type='checkbox'
+                                    checked={auto_mode}
+                                    onChange={(e) => setAutoMode(e.target.checked)}
+                                    disabled={is_running}
+                                />
+                                <span>{localize('Auto-select best recommendations')}</span>
+                            </label>
+                        </div>
+
                         <div className='ml-trader__actions'>
                             <button
                                 className='ml-trader__run'
@@ -492,6 +833,13 @@ const MLTrader = observer(() => {
                                     {localize('Stop')}
                                 </button>
                             )}
+                            <button
+                                className='ml-trader__refresh'
+                                onClick={() => marketScanner.refresh()}
+                                disabled={!is_scanner_initialized}
+                            >
+                                {localize('Refresh Scanner')}
+                            </button>
                         </div>
 
                         {status && (
@@ -502,6 +850,25 @@ const MLTrader = observer(() => {
                             </div>
                         )}
                     </div>
+
+                    {/* Trading Recommendations */}
+                    {is_scanner_initialized && recommendations.length > 0 && (
+                        <div className='ml-trader__recommendations'>
+                            <div className='recommendations-header'>
+                                <Text size='s' weight='bold' color='prominent'>
+                                    {localize('Top Trading Opportunities')}
+                                </Text>
+                                <Text size='xs' color='general'>
+                                    Click on a recommendation to apply it
+                                </Text>
+                            </div>
+                            <div className='recommendations-grid'>
+                                {recommendations.slice(0, 6).map((rec, index) => 
+                                    renderRecommendationCard(rec, index)
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
