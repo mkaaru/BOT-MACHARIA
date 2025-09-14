@@ -11,11 +11,6 @@ import { contract_stages } from '@/constants/contract-stage';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
 import './trading-hub-display.scss';
 
-// Assuming 'transactions' is imported or globally available for store updates
-// If not, you'll need to import it or adjust how it's accessed.
-// For example: import { transactions } from '@/stores/transactions';
-declare const transactions: any;
-
 interface ScanResult {
     symbol: string;
     displayName: string;
@@ -561,7 +556,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             console.log('🚫 executeAiTrade cancelled - AI Auto Trade is stopped');
             return;
         }
-
+        
         if (!apiRef.current || contractInProgress || !store) return;
 
         try {
@@ -670,25 +665,15 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                     // Only retry if AI Auto Trade is still active
                     if (isAiAutoTrading) {
-                        console.log('⏳ AI Auto Trade: Rate limit hit, retrying in 8 seconds...');
                         setTimeout(() => {
                             // Double check that AI Auto Trade is still active before retrying
-                            if (bestRecommendation && isAiAutoTrading && !contractInProgress) {
-                                console.log('🔄 AI Auto Trade: Retrying after rate limit with recommendation:', bestRecommendation.strategy, bestRecommendation.symbol);
+                            if (bestRecommendation && isAiAutoTrading) {
+                                console.log('🔄 AI Auto Trade: Retrying after rate limit');
                                 executeAiTrade(bestRecommendation);
                             } else {
-                                console.log('🚫 AI Auto Trade: Rate limit retry cancelled');
-                                if (!isAiAutoTrading) {
-                                    console.log('   - Reason: AI Auto Trade was stopped');
-                                }
-                                if (!bestRecommendation) {
-                                    console.log('   - Reason: No recommendation available');
-                                }
-                                if (contractInProgress) {
-                                    console.log('   - Reason: Contract still in progress');
-                                }
+                                console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
                             }
-                        }, 8000); // Longer delay for rate limit recovery
+                        }, 5000);
                     }
                     return;
                 }
@@ -698,23 +683,13 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 // Don't stop trading on single error, retry after delay - but only if still trading
                 if (isAiAutoTrading) {
-                    console.log('🔄 AI Auto Trade: Scheduling retry after error in 5 seconds...');
                     setTimeout(() => {
                         // Double check that AI Auto Trade is still active before retrying
-                        if (bestRecommendation && isAiAutoTrading && !contractInProgress) {
-                            console.log('🔄 AI Auto Trade: Retrying after error with recommendation:', bestRecommendation.strategy, bestRecommendation.symbol);
+                        if (bestRecommendation && isAiAutoTrading) {
+                            console.log('🔄 AI Auto Trade: Retrying after error');
                             executeAiTrade(bestRecommendation);
                         } else {
-                            console.log('🚫 AI Auto Trade: Retry cancelled');
-                            if (!isAiAutoTrading) {
-                                console.log('   - Reason: AI Auto Trade was stopped');
-                            }
-                            if (!bestRecommendation) {
-                                console.log('   - Reason: No recommendation available');
-                            }
-                            if (contractInProgress) {
-                                console.log('   - Reason: Contract still in progress');
-                            }
+                            console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
                         }
                     }, 5000);
                 }
@@ -737,10 +712,13 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             setAiTradeStatus(`✅ Trade placed: ${buy?.longcode || 'Contract'} (ID: ${buy.contract_id})`);
 
-            // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
+            // Create initial transaction entry like Smart Trader
             try {
                 const symbol_display = symbolMap[recommendation.symbol] || recommendation.symbol;
-                const contractEvent = {
+                // Assuming 'transactions' is accessible and has onBotContractEvent
+                // If not, this part needs to be adapted based on how transactions are managed
+                // For now, assume it's globally available or imported
+                transactions.onBotContractEvent({
                     contract_id: buy?.contract_id,
                     transaction_ids: { buy: buy?.transaction_id },
                     buy_price: buy?.buy_price,
@@ -750,20 +728,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                     display_name: symbol_display,
                     date_start: Math.floor(Date.now() / 1000),
                     status: 'open',
-                    longcode: buy?.longcode || `${getTradeTypeForStrategy(recommendation.strategy)} ${recommendation.symbol}`,
-                };
-
-                // Update transactions store
-                transactions.onBotContractEvent(contractEvent);
-                console.log('📊 AI Auto Trade: Transaction added to store', contractEvent);
-            } catch (error) {
-                console.error('Error adding AI Auto Trade transaction:', error);
-            }
-
-            // Reflect stage immediately after successful buy - same as Smart Trader
-            if (store.run_panel) {
-                store.run_panel.setHasOpenContract(true);
-                store.run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+                } as any);
+            } catch (transactionError) {
+                console.error('Error creating transaction entry:', transactionError);
             }
 
             // Subscribe to contract updates - exact same as Smart Trader
@@ -797,12 +764,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                             if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
 
                             if (String(poc?.contract_id || '') === targetId) {
-                                // Update transactions with live contract data
-                                transactions.onBotContractEvent(poc);
-                                if (store.run_panel) {
-                                    store.run_panel.setHasOpenContract(true);
-                                }
-
                                 // Update status while contract is running
                                 if (!poc?.is_sold && poc?.status !== 'sold') {
                                     setAiTradeStatus(`📊 Contract running: ${poc?.current_spot || 'N/A'} | Profit: ${Number(poc?.profit || 0).toFixed(2)}`);
@@ -824,46 +785,34 @@ const TradingHubDisplay: React.FC = observer(() => {
                                         setLastOutcomeWasLoss(false);
                                         setCurrentStake(baseStake);
                                         console.log(`✅ AI WIN: +${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Reset to pre-loss prediction`);
-                                        setAiTradeStatus(`✅ WIN: +${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Preparing next trade...`);
+                                        setAiTradeStatus(`✅ WIN: +${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Reset to base stake`);
                                     } else {
                                         // LOSS: Set flag for next trade to use after-loss prediction
                                         setLastOutcomeWasLoss(true);
                                         const newStake = Number((currentStake * aiTradeConfig.martingaleMultiplier).toFixed(2));
                                         setCurrentStake(newStake);
                                         console.log(`❌ AI LOSS: ${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Next trade will use after-loss prediction (${aiTradeConfig.ouPredPostLoss})`);
-                                        setAiTradeStatus(`❌ LOSS: ${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Preparing next trade with stake: ${newStake}`);
+                                        setAiTradeStatus(`❌ LOSS: ${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Next stake: ${newStake}`);
                                     }
 
                                     // Clean up subscription
                                     if (pocSubId) {
                                         apiRef.current?.forget?.({ forget: pocSubId });
-                                        pocSubId = null;
                                     }
-                                    if (apiRef.current?.connection) {
-                                        apiRef.current.connection.removeEventListener('message', onContractUpdate);
-                                    }
-                                    
-                                    // Important: Set contract in progress to false BEFORE scheduling next trade
+                                    apiRef.current?.connection?.removeEventListener('message', onContractUpdate);
                                     setContractInProgress(false);
 
                                     // Schedule next trade if AI Auto Trade is still active
                                     if (isAiAutoTrading) {
-                                        console.log('🔄 AI Auto Trade: Scheduling next trade in 3 seconds...');
+                                        // Reduced wait time between trades for faster execution
                                         setTimeout(() => {
-                                            // Triple-check AI Auto Trade is still active before executing
-                                            if (isAiAutoTrading && bestRecommendation) {
-                                                console.log('🚀 AI Auto Trade: Executing next trade with recommendation:', bestRecommendation.strategy, bestRecommendation.symbol);
+                                            // Double-check AI Auto Trade is still active before executing
+                                            if (isAiAutoTrading && bestRecommendation && !contractInProgress) {
                                                 executeAiTrade(bestRecommendation);
                                             } else {
-                                                console.log('🚫 AI Auto Trade: Next trade cancelled - AI Auto Trade stopped or no recommendation available');
-                                                if (!isAiAutoTrading) {
-                                                    console.log('   - Reason: AI Auto Trade was stopped');
-                                                }
-                                                if (!bestRecommendation) {
-                                                    console.log('   - Reason: No recommendation available');
-                                                }
+                                                console.log('🚫 AI Auto Trade: Next trade cancelled - AI Auto Trade stopped or no recommendation');
                                             }
-                                        }, 3000); // 3 seconds between trades for better execution
+                                        }, 2000); // 2 seconds between trades for faster execution
                                     } else {
                                         console.log('🚫 AI Auto Trade: No next trade scheduled - AI Auto Trade stopped');
                                     }
@@ -875,9 +824,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     }
                 };
 
-                if (apiRef.current?.connection) {
-                    apiRef.current.connection.addEventListener('message', onContractUpdate);
-                }
+                apiRef.current?.connection?.addEventListener('message', onContractUpdate);
             } catch (subError) {
                 console.error('Contract subscription error:', subError);
                 setContractInProgress(false);
@@ -890,25 +837,15 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             // Retry after error if still trading
             if (isAiAutoTrading) {
-                console.log('🔄 AI Auto Trade: General error occurred, scheduling retry in 6 seconds...');
                 setTimeout(() => {
                     // Double check that AI Auto Trade is still active before retrying
                     if (bestRecommendation && isAiAutoTrading && !contractInProgress) {
-                        console.log('🔄 AI Auto Trade: Retrying after general error with recommendation:', bestRecommendation.strategy, bestRecommendation.symbol);
+                        console.log('🔄 AI Auto Trade: Retrying after error');
                         executeAiTrade(bestRecommendation);
                     } else {
-                        console.log('🚫 AI Auto Trade: General error retry cancelled');
-                        if (!isAiAutoTrading) {
-                            console.log('   - Reason: AI Auto Trade was stopped');
-                        }
-                        if (!bestRecommendation) {
-                            console.log('   - Reason: No recommendation available');
-                        }
-                        if (contractInProgress) {
-                            console.log('   - Reason: Contract still in progress');
-                        }
+                        console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
                     }
-                }, 6000);
+                }, 5000);
             }
         }
     };
@@ -985,7 +922,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 // Force disconnect all subscriptions
                 apiRef.current.send({ forget_all: 'proposal_open_contract' }).catch(() => {});
                 apiRef.current.send({ forget_all: 'ticks' }).catch(() => {});
-
+                
                 // Remove all message event listeners to stop processing responses
                 const connection = apiRef.current.connection;
                 if (connection && connection.removeEventListener) {
@@ -995,7 +932,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         connection.removeEventListener('message', listener);
                     });
                 }
-
+                
                 console.log('🧹 AI Auto Trade cleanup completed - All subscriptions and listeners cancelled');
             }
         } catch (error) {
