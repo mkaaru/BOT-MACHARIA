@@ -185,7 +185,8 @@ const AppContent = observer(() => {
         return <SplashScreen onComplete={handleSplashScreenComplete} />;
     }
 
-    if (common?.error) return null;
+    // Temporarily disable error null return to allow app to load during development
+    // if (common?.error) return null;
 
     return is_loading && !forceShowApp ? (
         <MatrixLoading message={localize('Initializing your account...')} show={true} />
