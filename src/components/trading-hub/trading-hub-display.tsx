@@ -11,6 +11,15 @@ import { contract_stages } from '@/constants/contract-stage';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
 import './trading-hub-display.scss';
 
+// Mock 'transactions' object if it's not globally available or imported elsewhere
+// In a real scenario, this should be properly imported or managed.
+const transactions = {
+    onBotContractEvent: (event: any) => {
+        console.log('Mock transactions.onBotContractEvent called with:', event);
+    }
+};
+
+
 interface ScanResult {
     symbol: string;
     displayName: string;
