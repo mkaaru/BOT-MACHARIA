@@ -6,7 +6,6 @@ import { localize } from '@deriv-com/translations';
 import marketAnalyzer from '@/services/market-analyzer';
 import SmartTraderWrapper from './smart-trader-wrapper';
 import { useStore } from '@/hooks/useStore';
-import { V2GetActiveToken, V2GetActiveClientId } from '@/external/bot-skeleton/services/api/appId';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
 import './trading-hub-display.scss';
 
@@ -666,13 +665,13 @@ const TradingHubDisplay: React.FC = observer(() => {
                     // Retry after delay
                     setTimeout(() => {
                         // Double check that AI Auto Trade is still active before retrying
-                        if (bestRecommendation && isAiAutoTrading && !contractInProgress) {
-                            console.log('🔄 AI Auto Trade: Retrying after rate limit');
+                        if (bestRecommendation && isAiAutoTrading) {
+                            console.log('🔄 AI Auto Trade: Retrying after error');
                             executeAiTrade(bestRecommendation);
                         } else {
                             console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
                         }
-                    }, 15000); // 15 seconds delay for rate limit retries
+                    }, 5000);
                     return;
                 }
 
@@ -680,15 +679,17 @@ const TradingHubDisplay: React.FC = observer(() => {
                 setContractInProgress(false);
 
                 // Don't stop trading on single error, retry after delay - but only if still trading
-                setTimeout(() => {
-                    // Double check that AI Auto Trade is still active before retrying
-                    if (bestRecommendation && isAiAutoTrading && !contractInProgress) {
-                        console.log('🔄 AI Auto Trade: Retrying after error');
-                        executeAiTrade(bestRecommendation);
-                    } else {
-                        console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
-                    }
-                }, 10000); // 10 seconds delay for error retries
+                if (isAiAutoTrading) {
+                    setTimeout(() => {
+                        // Double check that AI Auto Trade is still active before retrying
+                        if (bestRecommendation && isAiAutoTrading) {
+                            console.log('🔄 AI Auto Trade: Retrying after error');
+                            executeAiTrade(bestRecommendation);
+                        } else {
+                            console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
+                        }
+                    }, 5000);
+                }
                 return;
             }
 
@@ -761,7 +762,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     const profit = Number(poc?.profit || 0);
 
                                     if (profit > 0) {
-                                        // WIN: Reset progression using Smart Trader logic
+                                        // WIN: Reset to pre-loss state using Smart Trader logic
                                         setLastOutcomeWasLoss(false);
                                         setCurrentStake(baseStake);
                                         console.log(`✅ AI WIN: +${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Reset to pre-loss prediction`);
@@ -784,12 +785,12 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                                     // Schedule next trade if AI Auto Trade is still active
                                     if (isAiAutoTrading) {
-                                        // Reduced wait time between trades
+                                        // Wait for recommendation to potentially update, then execute next trade
                                         setTimeout(() => {
-                                            if (bestRecommendation && isAiAutoTrading && !contractInProgress) {
+                                            if (bestRecommendation && isAiAutoTrading) {
                                                 executeAiTrade(bestRecommendation);
                                             }
-                                        }, 4000); // 4 seconds between trades (reduced from 8)
+                                        }, 3000); // 3 seconds between trades to avoid rate limits
                                     }
                                 }
                             }
@@ -811,15 +812,17 @@ const TradingHubDisplay: React.FC = observer(() => {
             setContractInProgress(false);
 
             // Retry after error if still trading
-            setTimeout(() => {
-                // Double check that AI Auto Trade is still active before retrying
-                if (bestRecommendation && isAiAutoTrading && !contractInProgress) {
-                    console.log('🔄 AI Auto Trade: Retrying after error');
-                    executeAiTrade(bestRecommendation);
-                } else {
-                    console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
-                }
-            }, 10000); // 10 seconds delay for error retries
+            if (isAiAutoTrading) {
+                setTimeout(() => {
+                    // Double check that AI Auto Trade is still active before retrying
+                    if (bestRecommendation && isAiAutoTrading) {
+                        console.log('🔄 AI Auto Trade: Retrying after error');
+                        executeAiTrade(bestRecommendation);
+                    } else {
+                        console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
+                    }
+                }, 5000);
+            }
         }
     };
 
