@@ -720,6 +720,24 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             setAiTradeStatus(`✅ Trade placed: ${buy?.longcode || 'Contract'} (ID: ${buy.contract_id})`);
 
+            // Create initial transaction entry like Smart Trader
+            try {
+                const symbol_display = symbolMap[recommendation.symbol] || recommendation.symbol;
+                transactions.onBotContractEvent({
+                    contract_id: buy?.contract_id,
+                    transaction_ids: { buy: buy?.transaction_id },
+                    buy_price: buy?.buy_price,
+                    currency: authorize?.currency || 'USD',
+                    contract_type: getTradeTypeForStrategy(recommendation.strategy) as any,
+                    underlying: recommendation.symbol,
+                    display_name: symbol_display,
+                    date_start: Math.floor(Date.now() / 1000),
+                    status: 'open',
+                } as any);
+            } catch (transactionError) {
+                console.error('Error creating transaction entry:', transactionError);
+            }
+
             // Subscribe to contract updates - exact same as Smart Trader
             try {
                 const { subscription, error: subError } = await apiRef.current.send({
