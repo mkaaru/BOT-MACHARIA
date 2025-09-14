@@ -9,7 +9,7 @@
         "start": "rsbuild dev",
         "build": "rsbuild build",
         "watch": "rsbuild build --watch",
-        "serve": "live-server --port=5000 --host=0.0.0.0 dist",
+        "serve": "live-server --port=5002 --host=0.0.0.0 dist",
         "start:webpack": "webpack serve --open --config webpack.config.js",
         "build:webpack": "webpack --config webpack.config.js",
         "test:lint": "prettier --log-level silent --write . && eslint \"./src/**/*.?(js|jsx|ts|tsx)\"",
