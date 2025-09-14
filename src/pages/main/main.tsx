@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useState, useCallback } from 'react';
+import React, { lazy, Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -115,8 +115,26 @@ const AppWrapper = observer(() => {
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
+    
+    // Create mock history object for Tabs component
+    const history = {
+        location,
+        replace: (path: string) => {
+            navigate(path, { replace: true });
+        }
+    };
+    
+    // Normalize active_tab to prevent blank page from invalid indices
+    const validActiveTab = (active_tab >= 0 && active_tab <= 10) ? active_tab : TRADING_HUB;
+    
+    // Set valid active tab if current one is invalid
+    React.useEffect(() => {
+        if (active_tab < 0 || active_tab > 10) {
+            setActiveTab(TRADING_HUB);
+        }
+    }, [active_tab, setActiveTab]);
 
-    const [bots, setBots] = useState([]);
+    const [bots, setBots] = useState<any[]>([]);
     // Digits Trading Bot States
   const [selectedIndex, setSelectedIndex] = useState('R_100')
   const [contractType, setContractType] = useState('DIGITEVEN')
@@ -142,8 +160,8 @@ const AppWrapper = observer(() => {
   const [currentStreak, setCurrentStreak] = useState(0)
   const [websocket, setWebsocket] = useState<WebSocket | null>(null)
     const [pythonCode, setPythonCode] = useState('');
-    const [pythonOutput, setPythonOutput] = useState([]);
-    const [savedScripts, setSavedScripts] = useState([]);
+    const [pythonOutput, setPythonOutput] = useState<any[]>([]);
+    const [savedScripts, setSavedScripts] = useState<any[]>([]);
     const [isExecuting, setIsExecuting] = useState(false);
     // Add new state for analysis tool URL
 
@@ -1424,7 +1442,7 @@ if __name__ == "__main__":
         <>
             <div className='main'>
                 <div className='main__container main-content'>
-                    <Tabs active_index={active_tab} className='main__tabs' onTabItemChange={onEntered} onTabItemClick={handleTabChange} top>
+                    <Tabs active_index={active_tab} className='main__tabs' onTabItemClick={handleTabChange} top history={history}>
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
                             <div className={classNames('dashboard__chart-wrapper', {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
@@ -1474,7 +1492,7 @@ if __name__ == "__main__":
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Smart Trading' /></>} id='id-smart-trading'>
                             <div className="auto-trades-container">
                                 <div className="auto-trades-tabs">
-                                    <Tabs>
+                                    <Tabs history={history} top>
                                         <div label={localize('Smart Trading')}>
                                             <SmartTrader />
                                         </div>
@@ -1492,10 +1510,12 @@ if __name__ == "__main__":
                             })}>
                                 <Tabs
                                     className="analysis-tool-tabs"
-                                    active_tab_icon_color="var(--brand-secondary)"
+                                    active_icon_color="var(--brand-secondary)"
                                     background_color="var(--general-main-1)"
                                     single_tab_has_no_label
                                     should_update_hash={false}
+                                    history={history}
+                                    top
                                 >
                                     <div label={<Localize i18n_default_text='Technical Analysis' />} id='technical-analysis'>
                                         <AnalysistoolComponent />

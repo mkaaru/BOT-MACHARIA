@@ -24,6 +24,6 @@ export const DBOT_TABS = {
 
 export const MAX_STRATEGIES = 10;
 
-export const TAB_IDS = ['id-dbot-dashboard', 'id-bot-builder', 'id-charts', 'id-tutorials', 'id-trading-hub', 'id-free-bots', 'id-analysis-tool', 'id-signals'];
+export const TAB_IDS = ['id-trading-hub', 'id-bot-builder', 'id-free-bots', 'id-ml-trader', 'id-smart-trading', 'id-analysis-tool', 'id-signals', 'id-charts', 'id-tutorials', 'id-ai-trader', 'id-dbot-dashboard'];
 
 export const DEBOUNCE_INTERVAL_TIME = 500;
