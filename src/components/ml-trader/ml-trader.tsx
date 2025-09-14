@@ -15,12 +15,12 @@ const TRADE_TYPES = [
     { value: 'DIGITODD', label: 'Odd' },
     { value: 'DIGITMATCH', label: 'Matches' },
     { value: 'DIGITDIFF', label: 'Differs' },
-    // Rise/Fall Contracts
-    { value: 'CALL', label: 'Rise' },
-    { value: 'PUT', label: 'Fall' },
-    // Higher/Lower Contracts
-    { value: 'CALLE', label: 'Higher' },
-    { value: 'PUTE', label: 'Lower' },
+    // Rise/Fall Contracts (no barriers)
+    { value: 'CALLE', label: 'Rise' },
+    { value: 'PUTE', label: 'Fall' },
+    // Higher/Lower Contracts (with barriers)
+    { value: 'CALL', label: 'Higher' },
+    { value: 'PUT', label: 'Lower' },
 ];
 
 // Volatility indices for digit trading
@@ -58,12 +58,16 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
         buy.parameters.barrier = trade_option.prediction;
     }
 
-    // Handle Higher/Lower contracts with barriers
+    // Handle Higher/Lower contracts with barriers (CALL/PUT with barriers)
+    if (['CALL', 'PUT'].includes(contract_type) && trade_option.barrier !== undefined) {
+        buy.parameters.barrier = trade_option.barrier;
+    }
+
+    // Handle Higher/Lower contracts without barriers (CALLE/PUTE - Rise/Fall equal)
     if (['CALLE', 'PUTE'].includes(contract_type) && trade_option.barrier !== undefined) {
         buy.parameters.barrier = trade_option.barrier;
     }
 
-    // Rise/Fall contracts don't need barriers
     return buy;
 };
 
@@ -197,6 +201,23 @@ const MLTrader = observer(() => {
         }
     };
 
+    // Handle duration type changes for Higher/Lower contracts
+    useEffect(() => {
+        if (['CALL', 'PUT'].includes(selectedTradeType)) {
+            // Higher/Lower contracts need time-based durations, not ticks
+            if (durationType === 't') {
+                setDurationType('m');
+                setDuration(5); // 5 minutes default
+            }
+        } else if (['CALLE', 'PUTE'].includes(selectedTradeType)) {
+            // Rise/Fall contracts work with ticks
+            if (durationType !== 't' && durationType !== 's' && durationType !== 'm') {
+                setDurationType('t');
+                setDuration(1);
+            }
+        }
+    }, [selectedTradeType]);
+
     // Initialize connection and load historical data
     useEffect(() => {
         const initConnection = async () => {
@@ -328,9 +349,9 @@ const MLTrader = observer(() => {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? underPrediction : overPrediction);
         } else if (selectedTradeType === 'DIGITMATCH' || selectedTradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? underPrediction : overPrediction);
-        } else if (selectedTradeType === 'CALLE') {
+        } else if (selectedTradeType === 'CALL') {
             trade_option.barrier = higherBarrier;
-        } else if (selectedTradeType === 'PUTE') {
+        } else if (selectedTradeType === 'PUT') {
             trade_option.barrier = lowerBarrier;
         }
 
@@ -574,10 +595,16 @@ const MLTrader = observer(() => {
                                         onChange={(e) => setDurationType(e.target.value)}
                                         disabled={isTrading}
                                     >
-                                        <option value="t">{localize('Ticks')}</option>
-                                        {/* Higher/Lower contracts typically only support ticks */}
-                                        {!['CALLE', 'PUTE'].includes(selectedTradeType) && (
+                                        {/* Higher/Lower contracts (CALL/PUT) require time-based durations */}
+                                        {['CALL', 'PUT'].includes(selectedTradeType) ? (
                                             <>
+                                                <option value="m">{localize('Minutes')}</option>
+                                                <option value="h">{localize('Hours')}</option>
+                                                <option value="d">{localize('Days')}</option>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <option value="t">{localize('Ticks')}</option>
                                                 <option value="s">{localize('Seconds')}</option>
                                                 <option value="m">{localize('Minutes')}</option>
                                             </>
@@ -590,7 +617,7 @@ const MLTrader = observer(() => {
                                     <input
                                         type='number'
                                         min='1'
-                                        max='10'
+                                        max={['CALL', 'PUT'].includes(selectedTradeType) ? '365' : '10'}
                                         value={duration}
                                         onChange={(e) => setDuration(parseInt(e.target.value))}
                                         disabled={isTrading}
@@ -655,7 +682,7 @@ const MLTrader = observer(() => {
                                 )}
 
                                 {/* Barriers for Higher/Lower contracts */}
-                                {['CALLE', 'PUTE'].includes(selectedTradeType) && (
+                                {['CALL', 'PUT'].includes(selectedTradeType) && (
                                     <div className='ml-trader__predictions'>
                                         <div className='ml-trader__field'>
                                             <label>{localize('Higher barrier')}</label>
@@ -695,7 +722,7 @@ const MLTrader = observer(() => {
                                 )}
 
                                 {/* Rise/Fall contracts only need Martingale */}
-                                {['CALL', 'PUT'].includes(selectedTradeType) && (
+                                {['CALLE', 'PUTE'].includes(selectedTradeType) && (
                                     <div className='ml-trader__predictions'>
                                         <div className='ml-trader__field'>
                                             <label>{localize('Martingale multiplier')}</label>
@@ -746,9 +773,9 @@ const MLTrader = observer(() => {
                                 <Text size='s'>
                                     {localize('Current Price')}: {currentPrice}
                                 </Text>
-                                {['CALLE', 'PUTE'].includes(selectedTradeType) && (
+                                {['CALL', 'PUT'].includes(selectedTradeType) && (
                                     <Text size='s'>
-                                        {localize('Active Barrier')}: {selectedTradeType === 'CALLE' ? higherBarrier : lowerBarrier}
+                                        {localize('Active Barrier')}: {selectedTradeType === 'CALL' ? higherBarrier : lowerBarrier}
                                     </Text>
                                 )}
                             </div>
