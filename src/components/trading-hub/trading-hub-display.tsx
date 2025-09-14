@@ -564,14 +564,18 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             // Get store instance for Run Panel and Transactions integration
             const store = useStore();
-            const { run_panel, transactions } = store;
+            const run_panel = store?.run_panel; // Access run_panel safely
+            const { transactions } = store;
 
             // Set up Run Panel state like Smart Trader
-            run_panel.toggleDrawer(true);
-            run_panel.setActiveTabIndex(1); // Transactions tab
-            run_panel.run_id = `ai-auto-trade-${Date.now()}`;
-            run_panel.setIsRunning(true);
-            run_panel.setContractStage(contract_stages.STARTING);
+            if (run_panel) {
+                run_panel.toggleDrawer(true);
+                run_panel.setActiveTabIndex(1); // Transactions tab
+                run_panel.run_id = `ai-auto-trade-${Date.now()}`;
+                run_panel.setIsRunning(true);
+                run_panel.setContractStage(contract_stages.STARTING);
+            }
+
 
             // Authorize if needed
             const token = V2GetActiveToken();
@@ -579,8 +583,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                 setAiTradeStatus('Error: No authorization token found');
                 setIsAiAutoTrading(false);
                 setContractInProgress(false);
-                run_panel.setIsRunning(false);
-                run_panel.setContractStage(contract_stages.NOT_RUNNING);
+                if (run_panel) {
+                    run_panel.setIsRunning(false);
+                    run_panel.setContractStage(contract_stages.NOT_RUNNING);
+                }
                 return;
             }
 
@@ -589,8 +595,10 @@ const TradingHubDisplay: React.FC = observer(() => {
                 setAiTradeStatus(`Auth error: ${authError.message}`);
                 setIsAiAutoTrading(false);
                 setContractInProgress(false);
-                run_panel.setIsRunning(false);
-                run_panel.setContractStage(contract_stages.NOT_RUNNING);
+                if (run_panel) {
+                    run_panel.setIsRunning(false);
+                    run_panel.setContractStage(contract_stages.NOT_RUNNING);
+                }
                 return;
             }
 
@@ -650,7 +658,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                     currency: trade_option.currency,
                     duration: trade_option.duration,
                     duration_unit: trade_option.duration_unit,
-                    symbol: trade_option.symbol,
+                    symbol: recommendation.symbol,
                 },
             };
 
