@@ -85,6 +85,10 @@ const TradingHubDisplay: React.FC = observer(() => {
     const [currentStake, setCurrentStake] = useState(0.5);
     const [baseStake] = useState(0.5);
 
+    // Refs for managing active contract subscriptions and stop flag
+    const activeContractSubscriptionsRef = useRef<Set<string>>(new Set());
+    const aiAutoTradeStopFlagRef = useRef<boolean>(false);
+
     // AI Scanning Messages with Trading Truths
     const aiScanningMessages = {
         initializing: [
@@ -556,7 +560,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             console.log('🚫 executeAiTrade cancelled - AI Auto Trade is stopped');
             return;
         }
-        
+
         if (!apiRef.current || contractInProgress || !store) return;
 
         try {
@@ -750,11 +754,22 @@ const TradingHubDisplay: React.FC = observer(() => {
                 let pocSubId: string | null = subscription?.id || null;
                 const targetId = String(buy.contract_id);
 
+                // Track this subscription for cleanup
+                if (pocSubId) {
+                    activeContractSubscriptionsRef.current.add(pocSubId);
+                }
+
                 const onContractUpdate = (evt: MessageEvent) => {
                     try {
                         // Check if AI Auto Trade was stopped - if so, ignore all contract updates
-                        if (!isAiAutoTrading) {
+                        if (!isAiAutoTrading || aiAutoTradeStopFlagRef.current) {
                             console.log('🚫 Contract update ignored - AI Auto Trade is stopped');
+                            // Clean up this subscription immediately
+                            if (pocSubId) {
+                                apiRef.current?.forget?.({ forget: pocSubId });
+                                activeContractSubscriptionsRef.current.delete(pocSubId);
+                            }
+                            apiRef.current?.connection?.removeEventListener('message', onContractUpdate);
                             return;
                         }
 
@@ -781,7 +796,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     }
 
                                     if (profit > 0) {
-                                        // WIN: Reset to pre-loss state using Smart Trader logic
+                                        // WIN: Reset progression
                                         setLastOutcomeWasLoss(false);
                                         setCurrentStake(baseStake);
                                         console.log(`✅ AI WIN: +${profit.toFixed(2)} ${authorize?.currency || 'USD'} - Reset to pre-loss prediction`);
@@ -798,6 +813,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     // Clean up subscription
                                     if (pocSubId) {
                                         apiRef.current?.forget?.({ forget: pocSubId });
+                                        activeContractSubscriptionsRef.current.delete(pocSubId);
                                     }
                                     apiRef.current?.connection?.removeEventListener('message', onContractUpdate);
                                     setContractInProgress(false);
@@ -876,6 +892,8 @@ const TradingHubDisplay: React.FC = observer(() => {
         setCurrentStake(aiTradeConfig.stake);
         setLastOutcomeWasLoss(false); // Start fresh
         setContractInProgress(false);
+        aiAutoTradeStopFlagRef.current = false; // Reset stop flag
+        activeContractSubscriptionsRef.current.clear(); // Clear any old subscriptions
 
         console.log(`🤖 AI Auto Trade Started:`, {
             symbol: bestRecommendation.symbol,
@@ -900,7 +918,8 @@ const TradingHubDisplay: React.FC = observer(() => {
     const stopAiAutoTrade = () => {
         console.log(`🛑 AI Auto Trade Stopped`);
 
-        // Immediately set stop flag to prevent new trades
+        // Set stop flag and clear pending states immediately
+        aiAutoTradeStopFlagRef.current = true; // Set the stop flag
         setIsAiAutoTrading(false);
         setContractInProgress(false);
         setCurrentTradeSymbol('');
@@ -919,10 +938,12 @@ const TradingHubDisplay: React.FC = observer(() => {
         // Clean up API and cancel all active subscriptions immediately
         try {
             if (apiRef.current?.connection) {
-                // Force disconnect all subscriptions
-                apiRef.current.send({ forget_all: 'proposal_open_contract' }).catch(() => {});
-                apiRef.current.send({ forget_all: 'ticks' }).catch(() => {});
-                
+                // Force forget all active contract subscriptions
+                activeContractSubscriptionsRef.current.forEach(subId => {
+                    apiRef.current.send({ forget: subId }).catch(() => {});
+                });
+                activeContractSubscriptionsRef.current.clear(); // Clear the set
+
                 // Remove all message event listeners to stop processing responses
                 const connection = apiRef.current.connection;
                 if (connection && connection.removeEventListener) {
@@ -932,7 +953,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                         connection.removeEventListener('message', listener);
                     });
                 }
-                
                 console.log('🧹 AI Auto Trade cleanup completed - All subscriptions and listeners cancelled');
             }
         } catch (error) {
