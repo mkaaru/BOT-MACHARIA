@@ -10,7 +10,7 @@ deploymentTarget = "cloudrun"
 build = ["sh", "-c", "npm run build"]
 
 [workflows]
-runButton = "Project"
+runButton = "Development Server"
 
 [[workflows.workflow]]
 name = "Development Server"
@@ -21,22 +21,17 @@ mode = "sequential"
 task = "shell.exec"
 args = "npm run start"
 
-[[workflows.workflow]]
-name = "Development Server"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run start"
-waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
+[[ports]]
+localPort = 5001
+externalPort = 80
 
 [[ports]]
-localPort = 5000
-externalPort = 80
+localPort = 5002
+externalPort = 3000
+
+[[ports]]
+localPort = 5003
+externalPort = 3001
 
 [agent]
 expertMode = true
