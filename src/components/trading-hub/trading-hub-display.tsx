@@ -539,8 +539,10 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 // Execute trade with new recommendation after a short delay
                 setTimeout(() => {
-                    if (isAiAutoTrading && !contractInProgress) {
+                    if (isAiAutoTrading && !contractInProgress && bestRecommendation) {
                         executeAiTrade(bestRecommendation);
+                    } else {
+                        console.log('🚫 AI Auto Trade: New recommendation execution cancelled - AI Auto Trade stopped');
                     }
                 }, 2000);
             }
@@ -549,7 +551,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // AI Auto Trade execution using Smart Trader logic
     const executeAiTrade = async (recommendation: TradeRecommendation) => {
-        if (!apiRef.current || contractInProgress || !store) return;
+        if (!apiRef.current || contractInProgress || !store || !isAiAutoTrading) return;
 
         try {
             setContractInProgress(true);
@@ -655,16 +657,18 @@ const TradingHubDisplay: React.FC = observer(() => {
                     setAiTradeStatus('Rate limit hit. Waiting before retry...');
                     setContractInProgress(false);
 
-                    // Retry after delay
-                    setTimeout(() => {
-                        // Double check that AI Auto Trade is still active before retrying
-                        if (bestRecommendation && isAiAutoTrading) {
-                            console.log('🔄 AI Auto Trade: Retrying after error');
-                            executeAiTrade(bestRecommendation);
-                        } else {
-                            console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
-                        }
-                    }, 5000);
+                    // Only retry if AI Auto Trade is still active
+                    if (isAiAutoTrading) {
+                        setTimeout(() => {
+                            // Double check that AI Auto Trade is still active before retrying
+                            if (bestRecommendation && isAiAutoTrading) {
+                                console.log('🔄 AI Auto Trade: Retrying after rate limit');
+                                executeAiTrade(bestRecommendation);
+                            } else {
+                                console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
+                            }
+                        }, 5000);
+                    }
                     return;
                 }
 
@@ -792,6 +796,8 @@ const TradingHubDisplay: React.FC = observer(() => {
                                         setTimeout(() => {
                                             if (bestRecommendation && isAiAutoTrading && !contractInProgress) {
                                                 executeAiTrade(bestRecommendation);
+                                            } else {
+                                                console.log('🚫 AI Auto Trade: Next trade cancelled - AI Auto Trade stopped');
                                             }
                                         }, 4000); // 4 seconds between trades (reduced from 8)
                                     }
@@ -818,7 +824,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             if (isAiAutoTrading) {
                 setTimeout(() => {
                     // Double check that AI Auto Trade is still active before retrying
-                    if (bestRecommendation && isAiAutoTrading) {
+                    if (bestRecommendation && isAiAutoTrading && !contractInProgress) {
                         console.log('🔄 AI Auto Trade: Retrying after error');
                         executeAiTrade(bestRecommendation);
                     } else {
@@ -887,12 +893,19 @@ const TradingHubDisplay: React.FC = observer(() => {
         setCurrentStake(baseStake);
         setAiTradeStatus('🛑 AI Auto Trade stopped');
 
-        // Don't disconnect the API as it might be used by market analyzer
-        // Just clean up any pending subscriptions
+        // Update run panel state to stop immediately
+        if (store?.run_panel) {
+            store.run_panel.setIsRunning(false);
+            store.run_panel.setHasOpenContract(false);
+            store.run_panel.setContractStage(contract_stages.NOT_RUNNING);
+        }
+
+        // Clean up any pending subscriptions and forget all active subscriptions
         try {
             if (apiRef.current?.connection) {
-                // Let any ongoing contract subscriptions complete naturally
-                console.log('🧹 AI Auto Trade cleanup completed');
+                // Send forget_all to cancel all active subscriptions
+                apiRef.current.send({ forget_all: 'proposal_open_contract' }).catch(() => {});
+                console.log('🧹 AI Auto Trade cleanup completed - All subscriptions cancelled');
             }
         } catch (error) {
             console.error('Error during AI Auto Trade cleanup:', error);
