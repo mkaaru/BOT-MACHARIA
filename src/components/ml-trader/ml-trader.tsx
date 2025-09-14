@@ -244,6 +244,27 @@ const MLTrader = observer(() => {
         setCurrentPrice('-');
 
         try {
+            // Get immediate price data first
+            try {
+                const latestTickResponse = await derivApiRef.current.send({
+                    ticks_history: sym,
+                    count: 1,
+                    end: 'latest'
+                });
+
+                if (latestTickResponse.history && latestTickResponse.history.prices && latestTickResponse.history.prices.length > 0) {
+                    const latestPrice = parseFloat(latestTickResponse.history.prices[0]);
+                    const digit = Number(String(latestPrice).slice(-1));
+
+                    setCurrentPrice(latestPrice.toFixed(5));
+                    setLastDigit(digit.toString());
+                    console.log(`💰 Initial price set for ${sym}:`, latestPrice.toFixed(5));
+                }
+            } catch (historyError) {
+                console.warn('Failed to get latest tick:', historyError);
+            }
+
+            // Now subscribe to live ticks
             const { subscription, error } = await derivApiRef.current.send({ ticks: sym, subscribe: 1 });
             if (error) throw error;
             if (subscription?.id) tickStreamIdRef.current = subscription.id;
@@ -256,59 +277,32 @@ const MLTrader = observer(() => {
                         const quote = data.tick.quote;
                         const digit = Number(String(quote).slice(-1));
 
-                        // Update current symbol data
-                        if (sym === selectedVolatility) {
-                            setLastDigit(digit.toString());
-                            setTicksProcessed(prev => prev + 1);
-                            setCurrentPrice(quote.toFixed(5));
+                        // Always update price for the current symbol regardless of when the message was sent
+                        setLastDigit(digit.toString());
+                        setTicksProcessed(prev => prev + 1);
+                        setCurrentPrice(quote.toFixed(5));
 
-                            // Debug log for price updates
-                            console.log(`💰 Price updated for ${sym}:`, quote.toFixed(5));
-                        }
+                        // Debug log for price updates
+                        console.log(`💰 Live price updated for ${sym}:`, quote.toFixed(5));
 
                         // Update market analysis data for real-time tracking
-                        setMarketAnalysis(prev => {
-                            if (prev[sym]) {
-                                return {
-                                    ...prev,
-                                    [sym]: {
-                                        ...prev[sym],
-                                        currentPrice: quote.toFixed(5)
-                                    }
-                                };
+                        setMarketAnalysis(prev => ({
+                            ...prev,
+                            [sym]: {
+                                ...prev[sym],
+                                currentPrice: quote.toFixed(5)
                             }
-                            return prev;
-                        });
+                        }));
                     }
                     if (data?.forget?.id && data?.forget?.id === tickStreamIdRef.current) {
-                        // stopped
+                        console.log(`Tick stream stopped for ${sym}`);
                     }
-                } catch {}
+                } catch (parseError) {
+                    console.warn('Error parsing tick message:', parseError);
+                }
             };
             messageHandlerRef.current = onMsg;
             derivApiRef.current?.connection?.addEventListener('message', onMsg);
-
-            // Try to get the latest tick immediately
-            try {
-                const latestTickResponse = await derivApiRef.current.send({
-                    ticks_history: sym,
-                    count: 1,
-                    end: 'latest'
-                });
-
-                if (latestTickResponse.history && latestTickResponse.history.prices && latestTickResponse.history.prices.length > 0) {
-                    const latestPrice = parseFloat(latestTickResponse.history.prices[0]);
-                    const digit = Number(String(latestPrice).slice(-1));
-
-                    if (sym === selectedVolatility) {
-                        setCurrentPrice(latestPrice.toFixed(5));
-                        setLastDigit(digit.toString());
-                        console.log(`💰 Initial price set for ${sym}:`, latestPrice.toFixed(5));
-                    }
-                }
-            } catch (historyError) {
-                console.warn('Failed to get latest tick:', historyError);
-            }
 
         } catch (e: any) {
             console.error('startTicks error', e);
@@ -505,7 +499,15 @@ const MLTrader = observer(() => {
     // Get current spot price for Higher/Lower contracts
     const getCurrentSpotPrice = async () => {
         try {
-            // Try to get the latest tick first
+            // First check if we have a current price from the live stream
+            if (currentPrice && currentPrice !== '-' && !isNaN(parseFloat(currentPrice))) {
+                console.log(`💰 Using current streaming price: ${currentPrice}`);
+                return parseFloat(currentPrice);
+            }
+
+            console.log('🔍 No streaming price available, fetching latest tick...');
+            
+            // Try to get the latest tick if streaming price is not available
             const response = await derivApiRef.current.send({
                 ticks_history: selectedVolatility,
                 count: 1,
@@ -517,24 +519,21 @@ const MLTrader = observer(() => {
             }
 
             if (response.history && response.history.prices && response.history.prices.length > 0) {
-                return parseFloat(response.history.prices[0]);
+                const fetchedPrice = parseFloat(response.history.prices[0]);
+                console.log(`💰 Fetched latest price: ${fetchedPrice}`);
+                
+                // Update our current price state
+                setCurrentPrice(fetchedPrice.toFixed(5));
+                const digit = Number(String(fetchedPrice).slice(-1));
+                setLastDigit(digit.toString());
+                
+                return fetchedPrice;
             }
 
-            // Fallback to stored current price
-            if (currentPrice && currentPrice !== '-' && !isNaN(parseFloat(currentPrice))) {
-                return parseFloat(currentPrice);
-            }
-
-            throw new Error('No current price available');
-        } catch (error) {
-            console.warn('Failed to get current spot price:', error);
-            
-            // Final fallback to stored price
-            if (currentPrice && currentPrice !== '-' && !isNaN(parseFloat(currentPrice))) {
-                return parseFloat(currentPrice);
-            }
-            
-            return null;
+            throw new Error('No price data available from API');
+        } catch (error: any) {
+            console.error('Failed to get current spot price:', error);
+            throw new Error(`Price not available: ${error.message || 'Unknown error'}`);
         }
     };
 
@@ -883,16 +882,29 @@ const MLTrader = observer(() => {
                                         value={selectedVolatility} 
                                         onChange={async (e) => {
                                             const newVolatility = e.target.value;
+                                            console.log(`🔄 Changing volatility to: ${newVolatility}`);
+                                            
+                                            // Reset price display immediately
+                                            setCurrentPrice('-');
+                                            setLastDigit('-');
+                                            setTicksProcessed(0);
+                                            
                                             setSelectedVolatility(newVolatility);
                                             if (derivApiRef.current && !isTrading) {
-                                                setStatusMessage('Loading data for ' + newVolatility + '...');
+                                                setStatusMessage(`Switching to ${newVolatility}...`);
                                                 try {
+                                                    // Start ticks first for immediate price data
                                                     await startTicks(newVolatility);
-                                                    await loadHistoricalData(newVolatility);
-                                                    setStatusMessage('Ready to trade ' + newVolatility);
-                                                } catch (error) {
+                                                    
+                                                    // Load historical data in background
+                                                    loadHistoricalData(newVolatility).catch(error => {
+                                                        console.warn('Historical data loading failed:', error);
+                                                    });
+                                                    
+                                                    setStatusMessage(`Ready to trade ${availableSymbols.find(s => s.symbol === newVolatility)?.display_name || newVolatility}`);
+                                                } catch (error: any) {
                                                     console.error('Error changing symbol:', error);
-                                                    setStatusMessage('Error loading symbol data');
+                                                    setStatusMessage(`Error switching to ${newVolatility}: ${error.message || 'Connection failed'}`);
                                                 }
                                             }
                                         }}
