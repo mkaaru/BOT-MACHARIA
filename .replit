@@ -10,7 +10,7 @@ deploymentTarget = "cloudrun"
 build = ["sh", "-c", "npm run build"]
 
 [workflows]
-runButton = "Project"
+runButton = "Development Server"
 
 [[workflows.workflow]]
 name = "Development Server"
@@ -35,16 +35,16 @@ waitForPort = 5000
 outputType = "webview"
 
 [[ports]]
-localPort = 5000
+localPort = 5002
 externalPort = 80
+
+[[ports]]
+localPort = 5000
+externalPort = 3000
 
 [[ports]]
 localPort = 5001
-externalPort = 80
-
-[[ports]]
-localPort = 5002
-externalPort = 3000
+externalPort = 3001
 
 [[ports]]
 localPort = 5003
