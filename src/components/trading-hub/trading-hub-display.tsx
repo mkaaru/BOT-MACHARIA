@@ -11,6 +11,11 @@ import { contract_stages } from '@/constants/contract-stage';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
 import './trading-hub-display.scss';
 
+// Assuming 'transactions' is imported or globally available for store updates
+// If not, you'll need to import it or adjust how it's accessed.
+// For example: import { transactions } from '@/stores/transactions';
+declare const transactions: any;
+
 interface ScanResult {
     symbol: string;
     displayName: string;
@@ -556,7 +561,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             console.log('🚫 executeAiTrade cancelled - AI Auto Trade is stopped');
             return;
         }
-        
+
         if (!apiRef.current || contractInProgress || !store) return;
 
         try {
@@ -712,13 +717,10 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             setAiTradeStatus(`✅ Trade placed: ${buy?.longcode || 'Contract'} (ID: ${buy.contract_id})`);
 
-            // Create initial transaction entry like Smart Trader
+            // Seed an initial transaction row immediately so the UI shows a live row like Bot Builder
             try {
                 const symbol_display = symbolMap[recommendation.symbol] || recommendation.symbol;
-                // Assuming 'transactions' is accessible and has onBotContractEvent
-                // If not, this part needs to be adapted based on how transactions are managed
-                // For now, assume it's globally available or imported
-                transactions.onBotContractEvent({
+                const contractEvent = {
                     contract_id: buy?.contract_id,
                     transaction_ids: { buy: buy?.transaction_id },
                     buy_price: buy?.buy_price,
@@ -728,9 +730,20 @@ const TradingHubDisplay: React.FC = observer(() => {
                     display_name: symbol_display,
                     date_start: Math.floor(Date.now() / 1000),
                     status: 'open',
-                } as any);
-            } catch (transactionError) {
-                console.error('Error creating transaction entry:', transactionError);
+                    longcode: buy?.longcode || `${getTradeTypeForStrategy(recommendation.strategy)} ${recommendation.symbol}`,
+                };
+
+                // Update transactions store
+                transactions.onBotContractEvent(contractEvent);
+                console.log('📊 AI Auto Trade: Transaction added to store', contractEvent);
+            } catch (error) {
+                console.error('Error adding AI Auto Trade transaction:', error);
+            }
+
+            // Reflect stage immediately after successful buy - same as Smart Trader
+            if (store.run_panel) {
+                store.run_panel.setHasOpenContract(true);
+                store.run_panel.setContractStage(contract_stages.PURCHASE_SENT);
             }
 
             // Subscribe to contract updates - exact same as Smart Trader
@@ -764,6 +777,12 @@ const TradingHubDisplay: React.FC = observer(() => {
                             if (!pocSubId && data?.subscription?.id) pocSubId = data.subscription.id;
 
                             if (String(poc?.contract_id || '') === targetId) {
+                                // Update transactions with live contract data
+                                transactions.onBotContractEvent(poc);
+                                if (store.run_panel) {
+                                    store.run_panel.setHasOpenContract(true);
+                                }
+
                                 // Update status while contract is running
                                 if (!poc?.is_sold && poc?.status !== 'sold') {
                                     setAiTradeStatus(`📊 Contract running: ${poc?.current_spot || 'N/A'} | Profit: ${Number(poc?.profit || 0).toFixed(2)}`);
@@ -799,7 +818,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     if (pocSubId) {
                                         apiRef.current?.forget?.({ forget: pocSubId });
                                     }
-                                    apiRef.current?.connection?.removeEventListener('message', onContractUpdate);
+                                    if (apiRef.current?.connection) {
+                                        apiRef.current.connection.removeEventListener('message', onContractUpdate);
+                                    }
                                     setContractInProgress(false);
 
                                     // Schedule next trade if AI Auto Trade is still active
@@ -824,7 +845,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                     }
                 };
 
-                apiRef.current?.connection?.addEventListener('message', onContractUpdate);
+                if (apiRef.current?.connection) {
+                    apiRef.current.connection.addEventListener('message', onContractUpdate);
+                }
             } catch (subError) {
                 console.error('Contract subscription error:', subError);
                 setContractInProgress(false);
@@ -922,7 +945,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                 // Force disconnect all subscriptions
                 apiRef.current.send({ forget_all: 'proposal_open_contract' }).catch(() => {});
                 apiRef.current.send({ forget_all: 'ticks' }).catch(() => {});
-                
+
                 // Remove all message event listeners to stop processing responses
                 const connection = apiRef.current.connection;
                 if (connection && connection.removeEventListener) {
@@ -932,7 +955,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         connection.removeEventListener('message', listener);
                     });
                 }
-                
+
                 console.log('🧹 AI Auto Trade cleanup completed - All subscriptions and listeners cancelled');
             }
         } catch (error) {
