@@ -60,11 +60,9 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
 
     // Handle Higher/Lower contracts with barriers (CALL/PUT)
     if (['CALL', 'PUT'].includes(contract_type) && trade_option.barrier !== undefined) {
-        // For Higher/Lower contracts, barrier should be a relative offset
-        let barrier = String(trade_option.barrier);
-        // Ensure proper formatting - remove any existing + or - and add appropriate sign
-        barrier = barrier.replace(/^[+-]/, '');
-        buy.parameters.barrier = contract_type === 'CALL' ? `+${barrier}` : `-${barrier}`;
+        // For Higher/Lower contracts, use the current spot price as barrier directly
+        // The barrier represents the exact price level where the contract is determined
+        buy.parameters.barrier = String(trade_option.barrier);
     }
 
     return buy;
@@ -469,6 +467,26 @@ const MLTrader = observer(() => {
         }
     };
 
+    // Get current spot price for Higher/Lower contracts
+    const getCurrentSpotPrice = async () => {
+        try {
+            const response = await derivApiRef.current.send({
+                ticks: selectedVolatility,
+                end: 'latest',
+                count: 1
+            });
+            
+            if (response.error) {
+                throw new Error(response.error.message);
+            }
+            
+            return response.tick?.quote || parseFloat(currentPrice) || null;
+        } catch (error) {
+            console.warn('Failed to get current spot price, using stored price:', error);
+            return parseFloat(currentPrice) || null;
+        }
+    };
+
     // Purchase function
     const purchaseOnce = async () => {
         await authorizeIfNeeded();
@@ -493,22 +511,17 @@ const MLTrader = observer(() => {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? underPrediction : overPrediction);
         } else if (selectedTradeType === 'DIGITMATCH' || selectedTradeType === 'DIGITDIFF') {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? underPrediction : overPrediction);
-        } else if (selectedTradeType === 'CALL') {
-            // For Higher contracts, use the higher barrier value
-            if (!higherBarrier || higherBarrier.trim() === '') {
-                throw new Error('Higher barrier is required for CALL contracts');
+        } else if (['CALL', 'PUT'].includes(selectedTradeType)) {
+            // For Higher/Lower contracts, use current spot price as barrier
+            const currentSpot = await getCurrentSpotPrice();
+            if (!currentSpot) {
+                throw new Error('Unable to get current spot price for Higher/Lower contract');
             }
-            // Remove any + or - prefix and use just the numeric value
-            const numericBarrier = higherBarrier.trim().replace(/^[+-]/, '');
-            trade_option.barrier = numericBarrier;
-        } else if (selectedTradeType === 'PUT') {
-            // For Lower contracts, use the lower barrier value  
-            if (!lowerBarrier || lowerBarrier.trim() === '') {
-                throw new Error('Lower barrier is required for PUT contracts');
-            }
-            // Remove any + or - prefix and use just the numeric value
-            const numericBarrier = lowerBarrier.trim().replace(/^[+-]/, '');
-            trade_option.barrier = numericBarrier;
+            
+            // Use current spot price as the barrier
+            trade_option.barrier = currentSpot.toFixed(5);
+            
+            console.log(`📊 ${selectedTradeType} contract barrier set to current price: ${trade_option.barrier}`);
         } else if (selectedTradeType === 'CALLE' || selectedTradeType === 'PUTE') {
             // Rise/Fall contracts don't need barriers for basic contracts
         }
@@ -523,7 +536,8 @@ const MLTrader = observer(() => {
                 duration: buy_req.parameters.duration,
                 duration_unit: buy_req.parameters.duration_unit,
                 symbol: selectedVolatility,
-                amount: buy_req.parameters.amount
+                amount: buy_req.parameters.amount,
+                spot_price: trade_option.barrier
             });
         }
         
@@ -534,12 +548,6 @@ const MLTrader = observer(() => {
             }
             if (buy_req.parameters.duration_unit === 't') {
                 throw new Error('Higher/Lower contracts cannot use tick-based durations');
-            }
-            
-            // Additional validation for barrier format
-            const barrier = buy_req.parameters.barrier;
-            if (!/^[+-]?\d*\.?\d+$/.test(barrier)) {
-                throw new Error(`Invalid barrier format: ${barrier}. Expected format: +0.1 or -0.1`);
             }
         }
 
@@ -585,21 +593,8 @@ const MLTrader = observer(() => {
                 return;
             }
             
-            if (selectedTradeType === 'CALL' && (!higherBarrier || higherBarrier.trim() === '')) {
-                setStatusMessage('Error: Higher barrier is required for CALL contracts.');
-                return;
-            }
-            
-            if (selectedTradeType === 'PUT' && (!lowerBarrier || lowerBarrier.trim() === '')) {
-                setStatusMessage('Error: Lower barrier is required for PUT contracts.');
-                return;
-            }
-
-            // Validate barrier format
-            const barrierToCheck = selectedTradeType === 'CALL' ? higherBarrier : lowerBarrier;
-            const barrierNum = barrierToCheck.replace(/[+-]/, '');
-            if (isNaN(Number(barrierNum))) {
-                setStatusMessage('Error: Invalid barrier format. Use values like +0.1 or -0.1');
+            if (!currentPrice || currentPrice === '-') {
+                setStatusMessage('Error: Current price not available. Please wait for price data.');
                 return;
             }
         }
@@ -945,47 +940,20 @@ const MLTrader = observer(() => {
                                     </div>
                                 )}
 
-                                {/* Barriers for Higher/Lower contracts */}
+                                {/* Higher/Lower contracts use current price as barrier automatically */}
                                 {['CALL', 'PUT'].includes(selectedTradeType) && (
                                     <div className='ml-trader__predictions'>
                                         <div className='ml-trader__field'>
-                                            <label>{localize('Higher barrier (e.g., +0.1, +0.5)')}</label>
-                                            <input
-                                                type='text'
-                                                value={higherBarrier}
-                                                onChange={(e) => {
-                                                    let value = e.target.value.trim();
-                                                    // Validate and format barrier
-                                                    if (value && !value.startsWith('+') && !value.startsWith('-') && !isNaN(Number(value))) {
-                                                        value = '+' + value;
-                                                    }
-                                                    setHigherBarrier(value);
-                                                }}
-                                                disabled={isTrading}
-                                                placeholder='+0.1'
-                                                pattern="^[+-]?\d*\.?\d+$"
-                                                title="Enter a barrier value like +0.1 or +0.5"
-                                            />
-                                        </div>
-
-                                        <div className='ml-trader__field'>
-                                            <label>{localize('Lower barrier (e.g., -0.1, -0.5)')}</label>
-                                            <input
-                                                type='text'
-                                                value={lowerBarrier}
-                                                onChange={(e) => {
-                                                    let value = e.target.value.trim();
-                                                    // Validate and format barrier
-                                                    if (value && !value.startsWith('+') && !value.startsWith('-') && !isNaN(Number(value))) {
-                                                        value = '-' + value;
-                                                    }
-                                                    setLowerBarrier(value);
-                                                }}
-                                                disabled={isTrading}
-                                                placeholder='-0.1'
-                                                pattern="^[+-]?\d*\.?\d+$"
-                                                title="Enter a barrier value like -0.1 or -0.5"
-                                            />
+                                            <label>{localize('Barrier Info')}</label>
+                                            <div style={{ padding: '8px', backgroundColor: '#f5f5f5', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }}>
+                                                <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>
+                                                    {selectedTradeType === 'CALL' ? 'Higher' : 'Lower'} Contract
+                                                </p>
+                                                <p style={{ margin: '0' }}>
+                                                    Barrier = Current price at purchase time<br/>
+                                                    Win if exit spot is {selectedTradeType === 'CALL' ? 'higher' : 'lower'} than barrier
+                                                </p>
+                                            </div>
                                         </div>
 
                                         <div className='ml-trader__field'>
@@ -1057,8 +1025,8 @@ const MLTrader = observer(() => {
                                 </Text>
                                 {['CALL', 'PUT'].includes(selectedTradeType) && (
                                     <Text size='s'>
-                                        {localize('Active Barrier')}: {selectedTradeType === 'CALL' ? higherBarrier : lowerBarrier} 
-                                        ({selectedTradeType === 'CALL' ? 'Higher' : 'Lower'})
+                                        {localize('Barrier Type')}: Current Price at Purchase
+                                        ({selectedTradeType === 'CALL' ? 'Higher' : 'Lower'} than entry spot)
                                     </Text>
                                 )}
                             </div>
