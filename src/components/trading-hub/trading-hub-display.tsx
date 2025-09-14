@@ -551,7 +551,13 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // AI Auto Trade execution using Smart Trader logic
     const executeAiTrade = async (recommendation: TradeRecommendation) => {
-        if (!apiRef.current || contractInProgress || !store || !isAiAutoTrading) return;
+        // Immediate check - if AI Auto Trade was stopped, exit immediately
+        if (!isAiAutoTrading) {
+            console.log('🚫 executeAiTrade cancelled - AI Auto Trade is stopped');
+            return;
+        }
+        
+        if (!apiRef.current || contractInProgress || !store) return;
 
         try {
             setContractInProgress(true);
@@ -746,6 +752,12 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                 const onContractUpdate = (evt: MessageEvent) => {
                     try {
+                        // Check if AI Auto Trade was stopped - if so, ignore all contract updates
+                        if (!isAiAutoTrading) {
+                            console.log('🚫 Contract update ignored - AI Auto Trade is stopped');
+                            return;
+                        }
+
                         const data = JSON.parse(evt.data);
                         if (data?.msg_type === 'proposal_open_contract') {
                             const poc = data.proposal_open_contract;
@@ -794,12 +806,15 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     if (isAiAutoTrading) {
                                         // Reduced wait time between trades for faster execution
                                         setTimeout(() => {
-                                            if (bestRecommendation && isAiAutoTrading && !contractInProgress) {
+                                            // Double-check AI Auto Trade is still active before executing
+                                            if (isAiAutoTrading && bestRecommendation && !contractInProgress) {
                                                 executeAiTrade(bestRecommendation);
                                             } else {
-                                                console.log('🚫 AI Auto Trade: Next trade cancelled - AI Auto Trade stopped');
+                                                console.log('🚫 AI Auto Trade: Next trade cancelled - AI Auto Trade stopped or no recommendation');
                                             }
                                         }, 2000); // 2 seconds between trades for faster execution
+                                    } else {
+                                        console.log('🚫 AI Auto Trade: No next trade scheduled - AI Auto Trade stopped');
                                     }
                                 }
                             }
@@ -885,6 +900,7 @@ const TradingHubDisplay: React.FC = observer(() => {
     const stopAiAutoTrade = () => {
         console.log(`🛑 AI Auto Trade Stopped`);
 
+        // Immediately set stop flag to prevent new trades
         setIsAiAutoTrading(false);
         setContractInProgress(false);
         setCurrentTradeSymbol('');
@@ -900,16 +916,36 @@ const TradingHubDisplay: React.FC = observer(() => {
             store.run_panel.setContractStage(contract_stages.NOT_RUNNING);
         }
 
-        // Clean up any pending subscriptions and forget all active subscriptions
+        // Clean up API and cancel all active subscriptions immediately
         try {
             if (apiRef.current?.connection) {
-                // Send forget_all to cancel all active subscriptions
+                // Force disconnect all subscriptions
                 apiRef.current.send({ forget_all: 'proposal_open_contract' }).catch(() => {});
-                console.log('🧹 AI Auto Trade cleanup completed - All subscriptions cancelled');
+                apiRef.current.send({ forget_all: 'ticks' }).catch(() => {});
+                
+                // Remove all message event listeners to stop processing responses
+                const connection = apiRef.current.connection;
+                if (connection && connection.removeEventListener) {
+                    // Clone event listeners and remove them all
+                    const listeners = connection.listeners?.('message') || [];
+                    listeners.forEach(listener => {
+                        connection.removeEventListener('message', listener);
+                    });
+                }
+                
+                console.log('🧹 AI Auto Trade cleanup completed - All subscriptions and listeners cancelled');
             }
         } catch (error) {
             console.error('Error during AI Auto Trade cleanup:', error);
         }
+
+        // Clear any pending timeouts that might trigger new trades
+        // This ensures no delayed executions continue
+        const highestTimeoutId = setTimeout(() => {}, 0);
+        for (let i = 0; i < highestTimeoutId; i++) {
+            clearTimeout(i);
+        }
+        console.log('🧹 Cleared all pending timeouts to prevent delayed trade executions');
     };
 
     // Load trade settings to Smart Trader
