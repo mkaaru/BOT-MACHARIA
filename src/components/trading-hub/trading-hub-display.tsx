@@ -44,7 +44,7 @@ interface TradeSettings {
 const TradingHubDisplay: React.FC = observer(() => {
     // Get store instance at component level to avoid hook rule violations
     const store = useStore();
-    
+
     const [isScanning, setIsScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState(0);
     const [scanResults, setScanResults] = useState<ScanResult[]>([]);
@@ -197,7 +197,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                     // Update scan progress
                     const currentStats = stats || marketStats;
-                    const readySymbolsCount = Object.keys(currentStats).filter(symbol => 
+                    const readySymbolsCount = Object.keys(currentStats).filter(symbol =>
                         currentStats[symbol].isReady
                     ).length;
 
@@ -562,37 +562,8 @@ const TradingHubDisplay: React.FC = observer(() => {
             setContractInProgress(true);
             setAiTradeStatus(`Placing trade: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier}...`);
 
-            // Import necessary functions 
-            const { V2GetActiveToken, V2GetActiveClientId } = await import('@/external/bot-skeleton/services/api/appId');
-
-            // Use store from component level (no dynamic import needed)
-            const run_panel = store?.run_panel;
-            const { transactions } = store;
-
-            // Set up Run Panel state like Smart Trader
-            if (run_panel) {
-                run_panel.toggleDrawer(true);
-                run_panel.setActiveTabIndex(1); // Transactions tab
-                run_panel.run_id = `ai-auto-trade-${Date.now()}`;
-                run_panel.setIsRunning(true);
-                run_panel.setContractStage(contract_stages.STARTING);
-            }
-
-
-            // Authorize if needed
-            const token = V2GetActiveToken();
-            if (!token) {
-                setAiTradeStatus('Error: No authorization token found');
-                setIsAiAutoTrading(false);
-                setContractInProgress(false);
-                if (run_panel) {
-                    run_panel.setIsRunning(false);
-                    run_panel.setContractStage(contract_stages.NOT_RUNNING);
-                }
-                return;
-            }
-
-            const { authorize, error: authError } = await apiRef.current.authorize(token);
+            // Import necessary functions
+            const { authorize, error: authError } = await apiRef.current.authorize(V2GetActiveToken());
             if (authError) {
                 setAiTradeStatus(`Auth error: ${authError.message}`);
                 setIsAiAutoTrading(false);
@@ -693,8 +664,12 @@ const TradingHubDisplay: React.FC = observer(() => {
 
                     // Retry after delay
                     setTimeout(() => {
-                        if (isAiAutoTrading && bestRecommendation) {
+                        // Double check that AI Auto Trade is still active before retrying
+                        if (bestRecommendation && isAiAutoTrading) {
+                            console.log('🔄 AI Auto Trade: Retrying after error');
                             executeAiTrade(bestRecommendation);
+                        } else {
+                            console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
                         }
                     }, 5000);
                     return;
@@ -703,11 +678,15 @@ const TradingHubDisplay: React.FC = observer(() => {
                 setAiTradeStatus(`Trade error: ${error.message || error.code || 'Unknown error'}`);
                 setContractInProgress(false);
 
-                // Don't stop trading on single error, retry after delay
+                // Don't stop trading on single error, retry after delay - but only if still trading
                 if (isAiAutoTrading) {
                     setTimeout(() => {
+                        // Double check that AI Auto Trade is still active before retrying
                         if (bestRecommendation && isAiAutoTrading) {
+                            console.log('🔄 AI Auto Trade: Retrying after error');
                             executeAiTrade(bestRecommendation);
+                        } else {
+                            console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
                         }
                     }, 5000);
                 }
@@ -835,8 +814,12 @@ const TradingHubDisplay: React.FC = observer(() => {
             // Retry after error if still trading
             if (isAiAutoTrading) {
                 setTimeout(() => {
+                    // Double check that AI Auto Trade is still active before retrying
                     if (bestRecommendation && isAiAutoTrading) {
+                        console.log('🔄 AI Auto Trade: Retrying after error');
                         executeAiTrade(bestRecommendation);
+                    } else {
+                        console.log('🚫 AI Auto Trade: Retry cancelled - AI Auto Trade stopped');
                     }
                 }, 5000);
             }
@@ -985,7 +968,7 @@ const TradingHubDisplay: React.FC = observer(() => {
             // Main trading loop
             while (isAiAutoTradeActive) {
                 // Check if recommendation has changed and switch if better opportunity exists
-                if (bestRecommendation && 
+                if (bestRecommendation &&
                     bestRecommendation.symbol !== currentRecommendation.symbol &&
                     bestRecommendation.confidence > currentRecommendation.confidence + 5) {
 
@@ -1073,9 +1056,9 @@ const TradingHubDisplay: React.FC = observer(() => {
                 duration: 1,
                 duration_unit: 't',
                 symbol: recommendation.symbol,
-                ...(trade_option.prediction !== undefined && { 
+                ...(trade_option.prediction !== undefined && {
                     barrier: trade_option.prediction,
-                    selected_tick: trade_option.prediction 
+                    selected_tick: trade_option.prediction
                 })
             },
         };
