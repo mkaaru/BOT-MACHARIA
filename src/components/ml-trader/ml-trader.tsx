@@ -62,8 +62,9 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     if (['CALL', 'PUT'].includes(contract_type) && trade_option.barrier !== undefined) {
         // For Higher/Lower contracts, use the current spot price as barrier directly
         // The barrier represents the exact price level where the contract is determined
-        // Ensure barrier is formatted to max 3 decimal places
-        buy.parameters.barrier = parseFloat(trade_option.barrier).toFixed(3);
+        // Ensure barrier is formatted to max 3 decimal places and remove trailing zeros
+        const formattedBarrier = parseFloat(trade_option.barrier.toFixed(3));
+        buy.parameters.barrier = formattedBarrier.toString();
     }
 
     return buy;
@@ -504,20 +505,36 @@ const MLTrader = observer(() => {
     // Get current spot price for Higher/Lower contracts
     const getCurrentSpotPrice = async () => {
         try {
+            // Try to get the latest tick first
             const response = await derivApiRef.current.send({
-                ticks: selectedVolatility,
-                end: 'latest',
-                count: 1
+                ticks_history: selectedVolatility,
+                count: 1,
+                end: 'latest'
             });
 
             if (response.error) {
                 throw new Error(response.error.message);
             }
 
-            return response.tick?.quote || parseFloat(currentPrice) || null;
+            if (response.history && response.history.prices && response.history.prices.length > 0) {
+                return parseFloat(response.history.prices[0]);
+            }
+
+            // Fallback to stored current price
+            if (currentPrice && currentPrice !== '-' && !isNaN(parseFloat(currentPrice))) {
+                return parseFloat(currentPrice);
+            }
+
+            throw new Error('No current price available');
         } catch (error) {
-            console.warn('Failed to get current spot price, using stored price:', error);
-            return parseFloat(currentPrice) || null;
+            console.warn('Failed to get current spot price:', error);
+            
+            // Final fallback to stored price
+            if (currentPrice && currentPrice !== '-' && !isNaN(parseFloat(currentPrice))) {
+                return parseFloat(currentPrice);
+            }
+            
+            return null;
         }
     };
 
@@ -549,13 +566,14 @@ const MLTrader = observer(() => {
             // For Higher/Lower contracts, use current spot price as barrier
             const currentSpot = await getCurrentSpotPrice();
             if (!currentSpot) {
-                throw new Error('Unable to get current spot price for Higher/Lower contract');
+                throw new Error('Current price not available. Please wait for price data.');
             }
 
-            // Use current spot price as the barrier
-            trade_option.barrier = currentSpot.toFixed(5);
+            // Format barrier to max 3 decimal places as required by the API
+            const formattedBarrier = parseFloat(currentSpot.toFixed(3));
+            trade_option.barrier = formattedBarrier;
 
-            console.log(`📊 ${selectedTradeType} contract barrier set to current price: ${trade_option.barrier}`);
+            console.log(`📊 ${selectedTradeType} contract barrier set to current price: ${formattedBarrier}`);
         } else if (selectedTradeType === 'CALLE' || selectedTradeType === 'PUTE') {
             // Rise/Fall contracts don't need barriers for basic contracts
         }
@@ -588,7 +606,16 @@ const MLTrader = observer(() => {
         const { buy, error } = await derivApiRef.current.buy(buy_req);
         if (error) {
             console.error('Purchase error:', error);
-            throw new Error(error.message || 'Purchase failed');
+            
+            // Provide more specific error messages
+            let errorMessage = error.message || 'Purchase failed';
+            if (errorMessage.includes('barrier')) {
+                errorMessage = 'Barrier can only be up to 3 decimal places.';
+            } else if (errorMessage.includes('price')) {
+                errorMessage = 'Current price not available. Please wait for price data.';
+            }
+            
+            throw new Error(errorMessage);
         }
 
         setStatusMessage(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stake}`);
@@ -627,28 +654,18 @@ const MLTrader = observer(() => {
                 return;
             }
 
-            if (!currentPrice || currentPrice === '-' || isNaN(parseFloat(currentPrice))) {
-                setStatusMessage('Error: Current price not available. Please wait for price data to load...');
-
-                // Try to restart ticks to get price data
-                try {
-                    setStatusMessage('Attempting to get current price data...');
-                    await startTicks(selectedVolatility);
-
-                    // Wait a bit for price data
-                    await new Promise(resolve => setTimeout(resolve, 3000));
-
-                    // Check again
-                    if (!currentPrice || currentPrice === '-' || isNaN(parseFloat(currentPrice))) {
-                        setStatusMessage('Error: Unable to get current price. Please try refreshing the page.');
-                        return;
-                    } else {
-                        setStatusMessage(`Price data loaded: ${currentPrice}. Starting trading...`);
-                    }
-                } catch (priceError) {
-                    setStatusMessage('Error: Failed to get price data. Please refresh the page.');
+            // Test getting current price before starting
+            try {
+                setStatusMessage('Validating current price data...');
+                const testPrice = await getCurrentSpotPrice();
+                if (!testPrice) {
+                    setStatusMessage('Error: Current price not available. Please wait for price data.');
                     return;
                 }
+                setStatusMessage(`Price validation successful: ${testPrice.toFixed(3)}. Starting trading...`);
+            } catch (priceError: any) {
+                setStatusMessage(`Error: ${priceError.message || 'Unable to get current price'}. Please try refreshing the page.`);
+                return;
             }
         }
 
