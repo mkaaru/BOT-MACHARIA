@@ -111,7 +111,7 @@ const AppWrapper = observer(() => {
     const { is_dialog_open, dialog_options, onCancelButtonClick, onCloseDialog, onOkButtonClick, stopBot, is_drawer_open } = run_panel;
     const { cancel_button_text, ok_button_text, title, message } = dialog_options as { [key: string]: string };
     const { clear } = summary_card;
-    const { FREE_BOTS, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, DASHBOARD, AI_TRADER, TRADING_HUB } = DBOT_TABS;
+    const { FREE_BOTS, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, DASHBOARD, AI_TRADER, TRADING_HUB, ML_TRADER, SMART_TRADING, CHART, TUTORIAL } = DBOT_TABS;
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -407,7 +407,7 @@ const AppWrapper = observer(() => {
             }
 
             // First switch to Bot Builder tab
-            setActiveTab(DBOT_TABS.BOT_BUILDER);
+            setActiveTab(BOT_BUILDER);
 
             // Wait for the tab to load and workspace to be ready
             await new Promise(resolve => setTimeout(resolve, 300));
