@@ -114,66 +114,113 @@ const MLTrader = observer(() => {
     const authorizeIfNeeded = async () => {
         if (isAuthorized) return;
         
-        try {
-            const token = V2GetActiveToken();
-            if (!token) {
-                setStatusMessage('Please log in to your Deriv account first.');
-                throw new Error('No authentication token available');
-            }
-
-            setStatusMessage('Authorizing...');
-            
-            // Ensure we have a valid API connection
-            if (!derivApiRef.current || !derivApiRef.current.connection) {
-                setStatusMessage('Reconnecting to trading servers...');
-                const api = generateDerivApiInstance();
-                derivApiRef.current = api;
-                
-                // Wait a moment for connection to establish
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-
-            const response = await derivApiRef.current.authorize(token);
-            
-            if (response.error) {
-                const errorMsg = response.error.message || 'Authorization failed';
-                setStatusMessage(`Authorization error: ${errorMsg}`);
-                throw new Error(errorMsg);
-            }
-
-            const { authorize } = response;
-            if (!authorize) {
-                throw new Error('Invalid authorization response');
-            }
-
-            setIsAuthorized(true);
-            const loginid = authorize.loginid || V2GetActiveClientId();
-            setAccountCurrency(authorize.currency || 'USD');
-            
+        const maxRetries = 3;
+        let retries = 0;
+        
+        while (retries < maxRetries) {
             try {
-                // Sync ML Trader auth state into shared ClientStore
-                store?.client?.setLoginId?.(loginid || '');
-                store?.client?.setCurrency?.(authorize.currency || 'USD');
-                store?.client?.setIsLoggedIn?.(true);
-            } catch (syncError) {
-                console.warn('Failed to sync client state:', syncError);
-            }
+                const token = V2GetActiveToken();
+                if (!token) {
+                    setStatusMessage('Please log in to your Deriv account first.');
+                    throw new Error('No authentication token available');
+                }
 
-            setStatusMessage('Authorization successful');
-            
-        } catch (error: any) {
-            console.error('Authorization failed:', error);
-            setIsAuthorized(false);
-            
-            const errorMessage = error?.message || 'Authorization failed';
-            setStatusMessage(`Error: ${errorMessage}`);
-            
-            // If it's a network/connection error, suggest refresh
-            if (errorMessage.includes('network') || errorMessage.includes('connection')) {
-                setStatusMessage('Connection error. Please refresh the page and try again.');
+                setStatusMessage(`Authorizing... ${retries > 0 ? `(attempt ${retries + 1}/${maxRetries})` : ''}`);
+                
+                // Ensure we have a fresh API connection
+                if (!derivApiRef.current || derivApiRef.current.connection?.readyState !== WebSocket.OPEN) {
+                    setStatusMessage('Establishing connection...');
+                    const api = generateDerivApiInstance();
+                    derivApiRef.current = api;
+                    
+                    // Wait for connection to be ready
+                    await new Promise((resolve, reject) => {
+                        const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
+                        
+                        if (api.connection.readyState === WebSocket.OPEN) {
+                            clearTimeout(timeout);
+                            resolve(true);
+                        } else {
+                            const onOpen = () => {
+                                clearTimeout(timeout);
+                                api.connection.removeEventListener('open', onOpen);
+                                api.connection.removeEventListener('error', onError);
+                                resolve(true);
+                            };
+                            const onError = (error: any) => {
+                                clearTimeout(timeout);
+                                api.connection.removeEventListener('open', onOpen);
+                                api.connection.removeEventListener('error', onError);
+                                reject(error);
+                            };
+                            
+                            api.connection.addEventListener('open', onOpen);
+                            api.connection.addEventListener('error', onError);
+                        }
+                    });
+                }
+
+                // Add a small delay to ensure connection is stable
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                const response = await derivApiRef.current.authorize(token);
+                
+                if (response.error) {
+                    const errorMsg = response.error.message || 'Authorization failed';
+                    if (retries < maxRetries - 1) {
+                        console.warn(`Authorization attempt ${retries + 1} failed: ${errorMsg}, retrying...`);
+                        retries++;
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        continue;
+                    }
+                    setStatusMessage(`Authorization error: ${errorMsg}`);
+                    throw new Error(errorMsg);
+                }
+
+                const { authorize } = response;
+                if (!authorize) {
+                    throw new Error('Invalid authorization response');
+                }
+
+                setIsAuthorized(true);
+                const loginid = authorize.loginid || V2GetActiveClientId();
+                setAccountCurrency(authorize.currency || 'USD');
+                
+                try {
+                    // Sync ML Trader auth state into shared ClientStore
+                    store?.client?.setLoginId?.(loginid || '');
+                    store?.client?.setCurrency?.(authorize.currency || 'USD');
+                    store?.client?.setIsLoggedIn?.(true);
+                } catch (syncError) {
+                    console.warn('Failed to sync client state:', syncError);
+                }
+
+                setStatusMessage('Authorization successful');
+                return; // Success, exit the retry loop
+                
+            } catch (error: any) {
+                console.error(`Authorization attempt ${retries + 1} failed:`, error);
+                
+                if (retries < maxRetries - 1) {
+                    retries++;
+                    const delay = Math.min(1000 * Math.pow(2, retries), 5000); // Exponential backoff, max 5s
+                    setStatusMessage(`Authorization failed, retrying in ${delay/1000}s... (${retries}/${maxRetries})`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
+                }
+                
+                // Final failure
+                setIsAuthorized(false);
+                const errorMessage = error?.message || 'Authorization failed';
+                
+                if (errorMessage.includes('network') || errorMessage.includes('connection') || errorMessage.includes('timeout')) {
+                    setStatusMessage('Connection error. Please check your internet connection and try again.');
+                } else {
+                    setStatusMessage(`Authorization failed: ${errorMessage}. Please refresh the page and try again.`);
+                }
+                
+                throw error;
             }
-            
-            throw error;
         }
     };
 
@@ -455,25 +502,32 @@ const MLTrader = observer(() => {
         return buy;
     };
 
+    // Connection health check
+    const checkConnectionHealth = async () => {
+        if (!derivApiRef.current || derivApiRef.current.connection?.readyState !== WebSocket.OPEN) {
+            throw new Error('Connection not available');
+        }
+        
+        // Send a ping to verify the connection is working
+        try {
+            const pingResult = await derivApiRef.current.ping();
+            if (pingResult.error) {
+                throw new Error(`Ping failed: ${pingResult.error.message}`);
+            }
+        } catch (pingError) {
+            throw new Error('Connection health check failed');
+        }
+    };
+
     // Start trading handler with full run panel integration
     const handleStartTrading = useCallback(async () => {
         // Pre-flight checks
-        if (!derivApiRef.current) {
-            setStatusMessage('No connection available. Please refresh the page.');
-            return;
-        }
-
-        if (connectionStatus !== 'Connected') {
-            setStatusMessage('Not connected to trading servers. Please wait or refresh.');
-            return;
-        }
-
         if (!selectedVolatility || availableSymbols.length === 0) {
             setStatusMessage('No trading symbols available. Please refresh the page.');
             return;
         }
 
-        setStatusMessage('');
+        setStatusMessage('Performing connection health check...');
         setIsRunning(true);
         setIsTrading(true);
         stopFlagRef.current = false;
@@ -486,7 +540,10 @@ const MLTrader = observer(() => {
         run_panel.setContractStage(contract_stages.STARTING);
 
         try {
-            // Test authorization first
+            // Check connection health first
+            await checkConnectionHealth();
+            
+            // Test authorization
             await authorizeIfNeeded();
             
             setStatusMessage('Starting automated trading...');
@@ -500,6 +557,14 @@ const MLTrader = observer(() => {
             
             const errorMsg = authError?.message || 'Failed to start trading';
             setStatusMessage(`Error: ${errorMsg}`);
+            
+            // Offer to retry connection if it's a connection issue
+            if (errorMsg.includes('Connection') || errorMsg.includes('network') || errorMsg.includes('timeout')) {
+                setTimeout(() => {
+                    setStatusMessage(`${errorMsg} - Click "Start Trading" to retry.`);
+                }, 3000);
+            }
+            
             return;
         }
 
