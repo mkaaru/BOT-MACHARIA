@@ -53,14 +53,16 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
         },
     };
 
-    // Handle different contract types
+    // Handle digit prediction contracts
     if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(contract_type) && trade_option.prediction !== undefined) {
-        buy.parameters.barrier = trade_option.prediction;
+        buy.parameters.barrier = String(trade_option.prediction);
     }
 
-    // Handle Higher/Lower contracts with barriers (CALL/PUT with barriers)
+    // Handle Higher/Lower contracts with barriers (CALL/PUT)
     if (['CALL', 'PUT'].includes(contract_type) && trade_option.barrier !== undefined) {
-        buy.parameters.barrier = trade_option.barrier;
+        // Ensure barrier is properly formatted as string
+        const barrier = String(trade_option.barrier);
+        buy.parameters.barrier = barrier.startsWith('+') || barrier.startsWith('-') ? barrier : `+${barrier}`;
     }
 
     return buy;
@@ -469,6 +471,11 @@ const MLTrader = observer(() => {
     const purchaseOnce = async () => {
         await authorizeIfNeeded();
 
+        // Validate duration for Higher/Lower contracts
+        if (['CALL', 'PUT'].includes(selectedTradeType) && durationType === 't') {
+            throw new Error('Higher/Lower contracts require time-based durations (minutes/hours), not ticks');
+        }
+
         const trade_option: any = {
             amount: Number(stake),
             basis: 'stake',
@@ -486,19 +493,38 @@ const MLTrader = observer(() => {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? underPrediction : overPrediction);
         } else if (selectedTradeType === 'CALL') {
             // For Higher contracts, use the higher barrier value
-            trade_option.barrier = higherBarrier;
+            if (!higherBarrier || higherBarrier.trim() === '') {
+                throw new Error('Higher barrier is required for CALL contracts');
+            }
+            trade_option.barrier = higherBarrier.trim();
         } else if (selectedTradeType === 'PUT') {
             // For Lower contracts, use the lower barrier value  
-            trade_option.barrier = lowerBarrier;
+            if (!lowerBarrier || lowerBarrier.trim() === '') {
+                throw new Error('Lower barrier is required for PUT contracts');
+            }
+            trade_option.barrier = lowerBarrier.trim();
         } else if (selectedTradeType === 'CALLE' || selectedTradeType === 'PUTE') {
             // Rise/Fall contracts don't need barriers for basic contracts
-            // But if you want to use barriers for Rise/Fall Equal, uncomment below:
-            // trade_option.barrier = selectedTradeType === 'CALLE' ? higherBarrier : lowerBarrier;
         }
 
         const buy_req = tradeOptionToBuy(selectedTradeType, trade_option);
+        
+        // Validate the buy request before sending
+        if (['CALL', 'PUT'].includes(selectedTradeType)) {
+            if (!buy_req.parameters.barrier) {
+                throw new Error(`Barrier is required for ${selectedTradeType} contracts`);
+            }
+            if (buy_req.parameters.duration_unit === 't') {
+                throw new Error('Higher/Lower contracts cannot use tick-based durations');
+            }
+        }
+
         const { buy, error } = await derivApiRef.current.buy(buy_req);
-        if (error) throw error;
+        if (error) {
+            console.error('Purchase error:', error);
+            throw new Error(error.message || 'Purchase failed');
+        }
+        
         setStatusMessage(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stake}`);
         return buy;
     };
@@ -526,6 +552,32 @@ const MLTrader = observer(() => {
         if (!selectedVolatility || availableSymbols.length === 0) {
             setStatusMessage('No trading symbols available. Please refresh the page.');
             return;
+        }
+
+        // Validate Higher/Lower contract settings
+        if (['CALL', 'PUT'].includes(selectedTradeType)) {
+            if (durationType === 't') {
+                setStatusMessage('Error: Higher/Lower contracts require time-based durations (minutes/hours), not ticks.');
+                return;
+            }
+            
+            if (selectedTradeType === 'CALL' && (!higherBarrier || higherBarrier.trim() === '')) {
+                setStatusMessage('Error: Higher barrier is required for CALL contracts.');
+                return;
+            }
+            
+            if (selectedTradeType === 'PUT' && (!lowerBarrier || lowerBarrier.trim() === '')) {
+                setStatusMessage('Error: Lower barrier is required for PUT contracts.');
+                return;
+            }
+
+            // Validate barrier format
+            const barrierToCheck = selectedTradeType === 'CALL' ? higherBarrier : lowerBarrier;
+            const barrierNum = barrierToCheck.replace(/[+-]/, '');
+            if (isNaN(Number(barrierNum))) {
+                setStatusMessage('Error: Invalid barrier format. Use values like +0.1 or -0.1');
+                return;
+            }
         }
 
         setStatusMessage('Performing connection health check...');
@@ -878,15 +930,17 @@ const MLTrader = observer(() => {
                                                 type='text'
                                                 value={higherBarrier}
                                                 onChange={(e) => {
-                                                    let value = e.target.value;
-                                                    // Auto-add + for positive values if not present
-                                                    if (value && !value.startsWith('+') && !value.startsWith('-')) {
+                                                    let value = e.target.value.trim();
+                                                    // Validate and format barrier
+                                                    if (value && !value.startsWith('+') && !value.startsWith('-') && !isNaN(Number(value))) {
                                                         value = '+' + value;
                                                     }
                                                     setHigherBarrier(value);
                                                 }}
                                                 disabled={isTrading}
                                                 placeholder='+0.1'
+                                                pattern="^[+-]?\d*\.?\d+$"
+                                                title="Enter a barrier value like +0.1 or +0.5"
                                             />
                                         </div>
 
@@ -896,15 +950,17 @@ const MLTrader = observer(() => {
                                                 type='text'
                                                 value={lowerBarrier}
                                                 onChange={(e) => {
-                                                    let value = e.target.value;
-                                                    // Auto-add - for negative values if not present
-                                                    if (value && !value.startsWith('+') && !value.startsWith('-')) {
+                                                    let value = e.target.value.trim();
+                                                    // Validate and format barrier
+                                                    if (value && !value.startsWith('+') && !value.startsWith('-') && !isNaN(Number(value))) {
                                                         value = '-' + value;
                                                     }
                                                     setLowerBarrier(value);
                                                 }}
                                                 disabled={isTrading}
                                                 placeholder='-0.1'
+                                                pattern="^[+-]?\d*\.?\d+$"
+                                                title="Enter a barrier value like -0.1 or -0.5"
                                             />
                                         </div>
 
