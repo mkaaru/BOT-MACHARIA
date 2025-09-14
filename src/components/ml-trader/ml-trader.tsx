@@ -62,7 +62,8 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     if (['CALL', 'PUT'].includes(contract_type) && trade_option.barrier !== undefined) {
         // For Higher/Lower contracts, use the current spot price as barrier directly
         // The barrier represents the exact price level where the contract is determined
-        buy.parameters.barrier = String(trade_option.barrier);
+        // Ensure barrier is formatted to max 3 decimal places
+        buy.parameters.barrier = parseFloat(trade_option.barrier).toFixed(3);
     }
 
     return buy;
@@ -110,10 +111,10 @@ const MLTrader = observer(() => {
     // Authorization helper
     const authorizeIfNeeded = async () => {
         if (isAuthorized) return;
-        
+
         const maxRetries = 3;
         let retries = 0;
-        
+
         while (retries < maxRetries) {
             try {
                 const token = V2GetActiveToken();
@@ -123,17 +124,17 @@ const MLTrader = observer(() => {
                 }
 
                 setStatusMessage(`Authorizing... ${retries > 0 ? `(attempt ${retries + 1}/${maxRetries})` : ''}`);
-                
+
                 // Ensure we have a fresh API connection
                 if (!derivApiRef.current || derivApiRef.current.connection?.readyState !== WebSocket.OPEN) {
                     setStatusMessage('Establishing connection...');
                     const api = generateDerivApiInstance();
                     derivApiRef.current = api;
-                    
+
                     // Wait for connection to be ready
                     await new Promise((resolve, reject) => {
                         const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
-                        
+
                         if (api.connection.readyState === WebSocket.OPEN) {
                             clearTimeout(timeout);
                             resolve(true);
@@ -150,7 +151,7 @@ const MLTrader = observer(() => {
                                 api.connection.removeEventListener('error', onError);
                                 reject(error);
                             };
-                            
+
                             api.connection.addEventListener('open', onOpen);
                             api.connection.addEventListener('error', onError);
                         }
@@ -161,7 +162,7 @@ const MLTrader = observer(() => {
                 await new Promise(resolve => setTimeout(resolve, 500));
 
                 const response = await derivApiRef.current.authorize(token);
-                
+
                 if (response.error) {
                     const errorMsg = response.error.message || 'Authorization failed';
                     if (retries < maxRetries - 1) {
@@ -182,7 +183,7 @@ const MLTrader = observer(() => {
                 setIsAuthorized(true);
                 const loginid = authorize.loginid || V2GetActiveClientId();
                 setAccountCurrency(authorize.currency || 'USD');
-                
+
                 try {
                     // Sync ML Trader auth state into shared ClientStore
                     store?.client?.setLoginId?.(loginid || '');
@@ -194,10 +195,10 @@ const MLTrader = observer(() => {
 
                 setStatusMessage('Authorization successful');
                 return; // Success, exit the retry loop
-                
+
             } catch (error: any) {
                 console.error(`Authorization attempt ${retries + 1} failed:`, error);
-                
+
                 if (retries < maxRetries - 1) {
                     retries++;
                     const delay = Math.min(1000 * Math.pow(2, retries), 5000); // Exponential backoff, max 5s
@@ -205,17 +206,17 @@ const MLTrader = observer(() => {
                     await new Promise(resolve => setTimeout(resolve, delay));
                     continue;
                 }
-                
+
                 // Final failure
                 setIsAuthorized(false);
                 const errorMessage = error?.message || 'Authorization failed';
-                
+
                 if (errorMessage.includes('network') || errorMessage.includes('connection') || errorMessage.includes('timeout')) {
                     setStatusMessage('Connection error. Please check your internet connection and try again.');
                 } else {
                     setStatusMessage(`Authorization failed: ${errorMessage}. Please refresh the page and try again.`);
                 }
-                
+
                 throw error;
             }
         }
@@ -259,7 +260,7 @@ const MLTrader = observer(() => {
                             setLastDigit(digit.toString());
                             setTicksProcessed(prev => prev + 1);
                             setCurrentPrice(quote.toFixed(5));
-                            
+
                             // Debug log for price updates
                             console.log(`💰 Price updated for ${sym}:`, quote.toFixed(5));
                         }
@@ -293,11 +294,11 @@ const MLTrader = observer(() => {
                     count: 1,
                     end: 'latest'
                 });
-                
+
                 if (latestTickResponse.history && latestTickResponse.history.prices && latestTickResponse.history.prices.length > 0) {
                     const latestPrice = parseFloat(latestTickResponse.history.prices[0]);
                     const digit = Number(String(latestPrice).slice(-1));
-                    
+
                     if (sym === selectedVolatility) {
                         setCurrentPrice(latestPrice.toFixed(5));
                         setLastDigit(digit.toString());
@@ -337,14 +338,14 @@ const MLTrader = observer(() => {
             try {
                 setStatusMessage('Connecting to trading servers...');
                 setConnectionStatus('Connecting');
-                
+
                 const api = generateDerivApiInstance();
                 derivApiRef.current = api;
 
                 // Wait for connection to be established
                 await new Promise((resolve, reject) => {
                     const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
-                    
+
                     if (api.connection.readyState === WebSocket.OPEN) {
                         clearTimeout(timeout);
                         resolve(true);
@@ -361,7 +362,7 @@ const MLTrader = observer(() => {
                 });
 
                 setConnectionStatus('Loading symbols...');
-                
+
                 // Fetch active symbols (volatility indices)
                 const response = await api.send({ active_symbols: 'brief' });
                 if (response.error) {
@@ -371,13 +372,13 @@ const MLTrader = observer(() => {
                 const volatilitySymbols = (response.active_symbols || [])
                     .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol) || /1HZ.*V/.test(s.symbol))
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
-                
+
                 if (volatilitySymbols.length === 0) {
                     throw new Error('No volatility symbols available');
                 }
-                
+
                 setAvailableSymbols(volatilitySymbols);
-                
+
                 // Set initial symbol and start getting price data immediately
                 const initialSymbol = selectedVolatility || volatilitySymbols[0]?.symbol;
                 if (initialSymbol && !selectedVolatility) {
@@ -390,7 +391,7 @@ const MLTrader = observer(() => {
                 // Start ticks immediately for the selected symbol to get current price
                 if (initialSymbol) {
                     await startTicks(initialSymbol);
-                    
+
                     // Give some time for price data to arrive
                     await new Promise(resolve => setTimeout(resolve, 2000));
                 }
@@ -405,14 +406,14 @@ const MLTrader = observer(() => {
                 }
 
                 setStatusMessage('Ready to start trading');
-                
+
             } catch (error: any) {
                 console.error('Connection initialization failed:', error);
                 setConnectionStatus('Error');
-                
+
                 const errorMsg = error?.message || 'Connection failed';
                 setStatusMessage(`Connection error: ${errorMsg}. Please refresh the page.`);
-                
+
                 // Retry connection after 5 seconds
                 setTimeout(() => {
                     if (derivApiRef.current?.connection?.readyState !== WebSocket.OPEN) {
@@ -508,11 +509,11 @@ const MLTrader = observer(() => {
                 end: 'latest',
                 count: 1
             });
-            
+
             if (response.error) {
                 throw new Error(response.error.message);
             }
-            
+
             return response.tick?.quote || parseFloat(currentPrice) || null;
         } catch (error) {
             console.warn('Failed to get current spot price, using stored price:', error);
@@ -550,17 +551,17 @@ const MLTrader = observer(() => {
             if (!currentSpot) {
                 throw new Error('Unable to get current spot price for Higher/Lower contract');
             }
-            
+
             // Use current spot price as the barrier
             trade_option.barrier = currentSpot.toFixed(5);
-            
+
             console.log(`📊 ${selectedTradeType} contract barrier set to current price: ${trade_option.barrier}`);
         } else if (selectedTradeType === 'CALLE' || selectedTradeType === 'PUTE') {
             // Rise/Fall contracts don't need barriers for basic contracts
         }
 
         const buy_req = tradeOptionToBuy(selectedTradeType, trade_option);
-        
+
         // Debug logging for Higher/Lower contracts
         if (['CALL', 'PUT'].includes(selectedTradeType)) {
             console.log('📊 Higher/Lower Purchase Request:', {
@@ -573,7 +574,7 @@ const MLTrader = observer(() => {
                 spot_price: trade_option.barrier
             });
         }
-        
+
         // Validate the buy request before sending
         if (['CALL', 'PUT'].includes(selectedTradeType)) {
             if (!buy_req.parameters.barrier) {
@@ -589,7 +590,7 @@ const MLTrader = observer(() => {
             console.error('Purchase error:', error);
             throw new Error(error.message || 'Purchase failed');
         }
-        
+
         setStatusMessage(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stake}`);
         return buy;
     };
@@ -599,7 +600,7 @@ const MLTrader = observer(() => {
         if (!derivApiRef.current || derivApiRef.current.connection?.readyState !== WebSocket.OPEN) {
             throw new Error('Connection not available');
         }
-        
+
         // Send a ping to verify the connection is working
         try {
             const pingResult = await derivApiRef.current.ping();
@@ -625,18 +626,18 @@ const MLTrader = observer(() => {
                 setStatusMessage('Error: Higher/Lower contracts require time-based durations (minutes/hours), not ticks.');
                 return;
             }
-            
+
             if (!currentPrice || currentPrice === '-' || isNaN(parseFloat(currentPrice))) {
                 setStatusMessage('Error: Current price not available. Please wait for price data to load...');
-                
+
                 // Try to restart ticks to get price data
                 try {
                     setStatusMessage('Attempting to get current price data...');
                     await startTicks(selectedVolatility);
-                    
+
                     // Wait a bit for price data
                     await new Promise(resolve => setTimeout(resolve, 3000));
-                    
+
                     // Check again
                     if (!currentPrice || currentPrice === '-' || isNaN(parseFloat(currentPrice))) {
                         setStatusMessage('Error: Unable to get current price. Please try refreshing the page.');
@@ -666,29 +667,29 @@ const MLTrader = observer(() => {
         try {
             // Check connection health first
             await checkConnectionHealth();
-            
+
             // Test authorization
             await authorizeIfNeeded();
-            
+
             setStatusMessage('Starting automated trading...');
-            
+
         } catch (authError: any) {
             console.error('Failed to start trading:', authError);
             setIsRunning(false);
             setIsTrading(false);
             run_panel.setIsRunning(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
-            
+
             const errorMsg = authError?.message || 'Failed to start trading';
             setStatusMessage(`Error: ${errorMsg}`);
-            
+
             // Offer to retry connection if it's a connection issue
             if (errorMsg.includes('Connection') || errorMsg.includes('network') || errorMsg.includes('timeout')) {
                 setTimeout(() => {
                     setStatusMessage(`${errorMsg} - Click "Start Trading" to retry.`);
                 }, 3000);
             }
-            
+
             return;
         }
 
