@@ -435,38 +435,3 @@
     top: 0;
     z-index: 1000;
 }
-
-.app-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 1.6rem;
-    height: 100%;
-    background: var(--general-main-1);
-    border-bottom: 1px solid var(--border-normal);
-
-    @include mobile-or-tablet-screen {
-        padding: 0 0.8rem;
-        font-size: 0.75rem;
-    }
-
-    &__logo {
-        flex-shrink: 0;
-
-        @include mobile-or-tablet-screen {
-            transform: scale(0.7);
-            transform-origin: left center;
-        }
-    }
-
-    &__menu {
-        display: flex;
-        align-items: center;
-        gap: 2.4rem;
-
-        @include mobile-or-tablet-screen {
-            gap: 0.8rem;
-            font-size: 0.75rem;
-        }
-    }
-}

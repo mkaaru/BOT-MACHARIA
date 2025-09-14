@@ -7,7 +7,7 @@ import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import './ml-trader.scss';
 
-// Comprehensive trade types including Rise/Fall and Higher/Lower
+// Minimal trade types we will support initially
 const TRADE_TYPES = [
     { value: 'DIGITOVER', label: 'Digits Over' },
     { value: 'DIGITUNDER', label: 'Digits Under' },
@@ -15,12 +15,8 @@ const TRADE_TYPES = [
     { value: 'DIGITODD', label: 'Odd' },
     { value: 'DIGITMATCH', label: 'Matches' },
     { value: 'DIGITDIFF', label: 'Differs' },
-    // Rise/Fall Contracts (no barriers)
-    { value: 'CALLE', label: 'Rise' },
-    { value: 'PUTE', label: 'Fall' },
-    // Higher/Lower Contracts (with barriers)
-    { value: 'CALL', label: 'Higher' },
-    { value: 'PUT', label: 'Lower' },
+    // Rise/Fall Contracts
+    { value: 'RISEFALL', label: 'Rise/Fall' },
 ];
 
 // Volatility indices for digit trading
@@ -52,21 +48,12 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
             symbol: trade_option.symbol,
         },
     };
-
-    // Handle digit prediction contracts
-    if (['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(contract_type) && trade_option.prediction !== undefined) {
-        buy.parameters.barrier = String(trade_option.prediction);
+    if (trade_option.prediction !== undefined) {
+        buy.parameters.barrier = trade_option.prediction;
     }
-
-    // Handle Higher/Lower contracts with barriers (CALL/PUT)
-    if (['CALL', 'PUT'].includes(contract_type) && trade_option.barrier !== undefined) {
-        // For Higher/Lower contracts, use the current spot price as barrier directly
-        // The barrier represents the exact price level where the contract is determined
-        // Ensure barrier is formatted to max 3 decimal places and remove trailing zeros
-        const formattedBarrier = parseFloat(trade_option.barrier.toFixed(3));
-        buy.parameters.barrier = formattedBarrier.toString();
+    if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
+        buy.parameters.barrier = trade_option.prediction;
     }
-
     return buy;
 };
 
@@ -83,8 +70,6 @@ const MLTrader = observer(() => {
     const [baseStake, setBaseStake] = useState(0.5);
     const [overPrediction, setOverPrediction] = useState(5);
     const [underPrediction, setUnderPrediction] = useState(5);
-    const [higherBarrier, setHigherBarrier] = useState('+0.1');
-    const [lowerBarrier, setLowerBarrier] = useState('-0.1');
     const [martingaleMultiplier, setMartingaleMultiplier] = useState(1);
 
     // Trading state
@@ -112,115 +97,25 @@ const MLTrader = observer(() => {
     // Authorization helper
     const authorizeIfNeeded = async () => {
         if (isAuthorized) return;
-
-        const maxRetries = 3;
-        let retries = 0;
-
-        while (retries < maxRetries) {
-            try {
-                const token = V2GetActiveToken();
-                if (!token) {
-                    setStatusMessage('Please log in to your Deriv account first.');
-                    throw new Error('No authentication token available');
-                }
-
-                setStatusMessage(`Authorizing... ${retries > 0 ? `(attempt ${retries + 1}/${maxRetries})` : ''}`);
-
-                // Ensure we have a fresh API connection
-                if (!derivApiRef.current || derivApiRef.current.connection?.readyState !== WebSocket.OPEN) {
-                    setStatusMessage('Establishing connection...');
-                    const api = generateDerivApiInstance();
-                    derivApiRef.current = api;
-
-                    // Wait for connection to be ready
-                    await new Promise((resolve, reject) => {
-                        const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
-
-                        if (api.connection.readyState === WebSocket.OPEN) {
-                            clearTimeout(timeout);
-                            resolve(true);
-                        } else {
-                            const onOpen = () => {
-                                clearTimeout(timeout);
-                                api.connection.removeEventListener('open', onOpen);
-                                api.connection.removeEventListener('error', onError);
-                                resolve(true);
-                            };
-                            const onError = (error: any) => {
-                                clearTimeout(timeout);
-                                api.connection.removeEventListener('open', onOpen);
-                                api.connection.removeEventListener('error', onError);
-                                reject(error);
-                            };
-
-                            api.connection.addEventListener('open', onOpen);
-                            api.connection.addEventListener('error', onError);
-                        }
-                    });
-                }
-
-                // Add a small delay to ensure connection is stable
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                const response = await derivApiRef.current.authorize(token);
-
-                if (response.error) {
-                    const errorMsg = response.error.message || 'Authorization failed';
-                    if (retries < maxRetries - 1) {
-                        console.warn(`Authorization attempt ${retries + 1} failed: ${errorMsg}, retrying...`);
-                        retries++;
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                        continue;
-                    }
-                    setStatusMessage(`Authorization error: ${errorMsg}`);
-                    throw new Error(errorMsg);
-                }
-
-                const { authorize } = response;
-                if (!authorize) {
-                    throw new Error('Invalid authorization response');
-                }
-
-                setIsAuthorized(true);
-                const loginid = authorize.loginid || V2GetActiveClientId();
-                setAccountCurrency(authorize.currency || 'USD');
-
-                try {
-                    // Sync ML Trader auth state into shared ClientStore
-                    store?.client?.setLoginId?.(loginid || '');
-                    store?.client?.setCurrency?.(authorize.currency || 'USD');
-                    store?.client?.setIsLoggedIn?.(true);
-                } catch (syncError) {
-                    console.warn('Failed to sync client state:', syncError);
-                }
-
-                setStatusMessage('Authorization successful');
-                return; // Success, exit the retry loop
-
-            } catch (error: any) {
-                console.error(`Authorization attempt ${retries + 1} failed:`, error);
-
-                if (retries < maxRetries - 1) {
-                    retries++;
-                    const delay = Math.min(1000 * Math.pow(2, retries), 5000); // Exponential backoff, max 5s
-                    setStatusMessage(`Authorization failed, retrying in ${delay/1000}s... (${retries}/${maxRetries})`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    continue;
-                }
-
-                // Final failure
-                setIsAuthorized(false);
-                const errorMessage = error?.message || 'Authorization failed';
-
-                if (errorMessage.includes('network') || errorMessage.includes('connection') || errorMessage.includes('timeout')) {
-                    setStatusMessage('Connection error. Please check your internet connection and try again.');
-                } else {
-                    setStatusMessage(`Authorization failed: ${errorMessage}. Please refresh the page and try again.`);
-                }
-
-                throw error;
-            }
+        const token = V2GetActiveToken();
+        if (!token) {
+            setStatusMessage('No token found. Please log in and select an account.');
+            throw new Error('No token');
         }
+        const { authorize, error } = await derivApiRef.current.authorize(token);
+        if (error) {
+            setStatusMessage(`Authorization error: ${error.message || error.code}`);
+            throw error;
+        }
+        setIsAuthorized(true);
+        const loginid = authorize?.loginid || V2GetActiveClientId();
+        setAccountCurrency(authorize?.currency || 'USD');
+        try {
+            // Sync ML Trader auth state into shared ClientStore so Transactions store keys correctly by account
+            store?.client?.setLoginId?.(loginid || '');
+            store?.client?.setCurrency?.(authorize?.currency || 'USD');
+            store?.client?.setIsLoggedIn?.(true);
+        } catch {}
     };
 
     // Tick stream management
@@ -261,9 +156,6 @@ const MLTrader = observer(() => {
                             setLastDigit(digit.toString());
                             setTicksProcessed(prev => prev + 1);
                             setCurrentPrice(quote.toFixed(5));
-
-                            // Debug log for price updates
-                            console.log(`💰 Price updated for ${sym}:`, quote.toFixed(5));
                         }
 
                         // Update market analysis data for real-time tracking
@@ -288,140 +180,43 @@ const MLTrader = observer(() => {
             messageHandlerRef.current = onMsg;
             derivApiRef.current?.connection?.addEventListener('message', onMsg);
 
-            // Try to get the latest tick immediately
-            try {
-                const latestTickResponse = await derivApiRef.current.send({
-                    ticks_history: sym,
-                    count: 1,
-                    end: 'latest'
-                });
-
-                if (latestTickResponse.history && latestTickResponse.history.prices && latestTickResponse.history.prices.length > 0) {
-                    const latestPrice = parseFloat(latestTickResponse.history.prices[0]);
-                    const digit = Number(String(latestPrice).slice(-1));
-
-                    if (sym === selectedVolatility) {
-                        setCurrentPrice(latestPrice.toFixed(5));
-                        setLastDigit(digit.toString());
-                        console.log(`💰 Initial price set for ${sym}:`, latestPrice.toFixed(5));
-                    }
-                }
-            } catch (historyError) {
-                console.warn('Failed to get latest tick:', historyError);
-            }
-
         } catch (e: any) {
             console.error('startTicks error', e);
-            throw e;
         }
     };
-
-    // Handle duration type changes for Higher/Lower contracts
-    useEffect(() => {
-        if (['CALL', 'PUT'].includes(selectedTradeType)) {
-            // Higher/Lower contracts need time-based durations, not ticks
-            if (durationType === 't') {
-                setDurationType('m');
-                setDuration(5); // 5 minutes default
-            }
-        } else if (['CALLE', 'PUTE'].includes(selectedTradeType)) {
-            // Rise/Fall contracts work with ticks
-            if (durationType !== 't' && durationType !== 's' && durationType !== 'm') {
-                setDurationType('t');
-                setDuration(1);
-            }
-        }
-    }, [selectedTradeType]);
 
     // Initialize connection and load historical data
     useEffect(() => {
         const initConnection = async () => {
             try {
-                setStatusMessage('Connecting to trading servers...');
-                setConnectionStatus('Connecting');
-
                 const api = generateDerivApiInstance();
                 derivApiRef.current = api;
 
-                // Wait for connection to be established
-                await new Promise((resolve, reject) => {
-                    const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
-
-                    if (api.connection.readyState === WebSocket.OPEN) {
-                        clearTimeout(timeout);
-                        resolve(true);
-                    } else {
-                        api.connection.addEventListener('open', () => {
-                            clearTimeout(timeout);
-                            resolve(true);
-                        });
-                        api.connection.addEventListener('error', (error) => {
-                            clearTimeout(timeout);
-                            reject(error);
-                        });
-                    }
-                });
-
-                setConnectionStatus('Loading symbols...');
-
                 // Fetch active symbols (volatility indices)
-                const response = await api.send({ active_symbols: 'brief' });
-                if (response.error) {
-                    throw new Error(response.error.message || 'Failed to load trading symbols');
-                }
+                const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
+                if (asErr) throw asErr;
 
-                const volatilitySymbols = (response.active_symbols || [])
+                const volatilitySymbols = (active_symbols || [])
                     .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol) || /1HZ.*V/.test(s.symbol))
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
-
-                if (volatilitySymbols.length === 0) {
-                    throw new Error('No volatility symbols available');
-                }
-
                 setAvailableSymbols(volatilitySymbols);
-
-                // Set initial symbol and start getting price data immediately
-                const initialSymbol = selectedVolatility || volatilitySymbols[0]?.symbol;
-                if (initialSymbol && !selectedVolatility) {
-                    setSelectedVolatility(initialSymbol);
-                }
+                if (!selectedVolatility && volatilitySymbols[0]?.symbol) setSelectedVolatility(volatilitySymbols[0].symbol);
 
                 setConnectionStatus('Connected');
-                setStatusMessage('Loading market data...');
-
-                // Start ticks immediately for the selected symbol to get current price
-                if (initialSymbol) {
-                    await startTicks(initialSymbol);
-
-                    // Give some time for price data to arrive
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                }
 
                 // Load historical data for all volatility markets
                 for (const symbolObj of volatilitySymbols) {
-                    try {
-                        await loadHistoricalData(symbolObj.symbol);
-                    } catch (dataError) {
-                        console.warn(`Failed to load data for ${symbolObj.symbol}:`, dataError);
+                    await loadHistoricalData(symbolObj.symbol);
+                    // Start ticks for the initially selected symbol
+                    if (symbolObj.symbol === selectedVolatility) {
+                        startTicks(symbolObj.symbol);
                     }
                 }
 
                 setStatusMessage('Ready to start trading');
-
             } catch (error: any) {
-                console.error('Connection initialization failed:', error);
                 setConnectionStatus('Error');
-
-                const errorMsg = error?.message || 'Connection failed';
-                setStatusMessage(`Connection error: ${errorMsg}. Please refresh the page.`);
-
-                // Retry connection after 5 seconds
-                setTimeout(() => {
-                    if (derivApiRef.current?.connection?.readyState !== WebSocket.OPEN) {
-                        setStatusMessage('Retrying connection...');
-                        initConnection();
-                    }
-                }, 5000);
+                setStatusMessage(`Connection failed: ${error.message}`);
             }
         };
 
@@ -502,50 +297,9 @@ const MLTrader = observer(() => {
         }
     };
 
-    // Get current spot price for Higher/Lower contracts
-    const getCurrentSpotPrice = async () => {
-        try {
-            // Try to get the latest tick first
-            const response = await derivApiRef.current.send({
-                ticks_history: selectedVolatility,
-                count: 1,
-                end: 'latest'
-            });
-
-            if (response.error) {
-                throw new Error(response.error.message);
-            }
-
-            if (response.history && response.history.prices && response.history.prices.length > 0) {
-                return parseFloat(response.history.prices[0]);
-            }
-
-            // Fallback to stored current price
-            if (currentPrice && currentPrice !== '-' && !isNaN(parseFloat(currentPrice))) {
-                return parseFloat(currentPrice);
-            }
-
-            throw new Error('No current price available');
-        } catch (error) {
-            console.warn('Failed to get current spot price:', error);
-            
-            // Final fallback to stored price
-            if (currentPrice && currentPrice !== '-' && !isNaN(parseFloat(currentPrice))) {
-                return parseFloat(currentPrice);
-            }
-            
-            return null;
-        }
-    };
-
     // Purchase function
     const purchaseOnce = async () => {
         await authorizeIfNeeded();
-
-        // Validate duration for Higher/Lower contracts
-        if (['CALL', 'PUT'].includes(selectedTradeType) && durationType === 't') {
-            throw new Error('Higher/Lower contracts require time-based durations (minutes/hours), not ticks');
-        }
 
         const trade_option: any = {
             amount: Number(stake),
@@ -557,119 +311,26 @@ const MLTrader = observer(() => {
             symbol: selectedVolatility,
         };
 
-        // Choose prediction/barrier based on trade type and last outcome
+        // Choose prediction based on trade type and last outcome
         if (selectedTradeType === 'DIGITOVER' || selectedTradeType === 'DIGITUNDER') {
             trade_option.prediction = Number(lastOutcomeWasLossRef.current ? underPrediction : overPrediction);
-        } else if (selectedTradeType === 'DIGITMATCH' || selectedTradeType === 'DIGITDIFF') {
-            trade_option.prediction = Number(lastOutcomeWasLossRef.current ? underPrediction : overPrediction);
-        } else if (['CALL', 'PUT'].includes(selectedTradeType)) {
-            // For Higher/Lower contracts, use current spot price as barrier
-            const currentSpot = await getCurrentSpotPrice();
-            if (!currentSpot) {
-                throw new Error('Current price not available. Please wait for price data.');
-            }
-
-            // Format barrier to max 3 decimal places as required by the API
-            const formattedBarrier = parseFloat(currentSpot.toFixed(3));
-            trade_option.barrier = formattedBarrier;
-
-            console.log(`📊 ${selectedTradeType} contract barrier set to current price: ${formattedBarrier}`);
-        } else if (selectedTradeType === 'CALLE' || selectedTradeType === 'PUTE') {
-            // Rise/Fall contracts don't need barriers for basic contracts
         }
 
         const buy_req = tradeOptionToBuy(selectedTradeType, trade_option);
-
-        // Debug logging for Higher/Lower contracts
-        if (['CALL', 'PUT'].includes(selectedTradeType)) {
-            console.log('📊 Higher/Lower Purchase Request:', {
-                contract_type: selectedTradeType,
-                barrier: buy_req.parameters.barrier,
-                duration: buy_req.parameters.duration,
-                duration_unit: buy_req.parameters.duration_unit,
-                symbol: selectedVolatility,
-                amount: buy_req.parameters.amount,
-                spot_price: trade_option.barrier
-            });
-        }
-
-        // Validate the buy request before sending
-        if (['CALL', 'PUT'].includes(selectedTradeType)) {
-            if (!buy_req.parameters.barrier) {
-                throw new Error(`Barrier is required for ${selectedTradeType} contracts`);
-            }
-            if (buy_req.parameters.duration_unit === 't') {
-                throw new Error('Higher/Lower contracts cannot use tick-based durations');
-            }
-        }
-
         const { buy, error } = await derivApiRef.current.buy(buy_req);
-        if (error) {
-            console.error('Purchase error:', error);
-            
-            // Provide more specific error messages
-            let errorMessage = error.message || 'Purchase failed';
-            if (errorMessage.includes('barrier')) {
-                errorMessage = 'Barrier can only be up to 3 decimal places.';
-            } else if (errorMessage.includes('price')) {
-                errorMessage = 'Current price not available. Please wait for price data.';
-            }
-            
-            throw new Error(errorMessage);
-        }
-
+        if (error) throw error;
         setStatusMessage(`Purchased: ${buy?.longcode || 'Contract'} (ID: ${buy?.contract_id}) - Stake: ${stake}`);
         return buy;
     };
 
-    // Connection health check
-    const checkConnectionHealth = async () => {
-        if (!derivApiRef.current || derivApiRef.current.connection?.readyState !== WebSocket.OPEN) {
-            throw new Error('Connection not available');
-        }
-
-        // Send a ping to verify the connection is working
-        try {
-            const pingResult = await derivApiRef.current.ping();
-            if (pingResult.error) {
-                throw new Error(`Ping failed: ${pingResult.error.message}`);
-            }
-        } catch (pingError) {
-            throw new Error('Connection health check failed');
-        }
-    };
-
     // Start trading handler with full run panel integration
     const handleStartTrading = useCallback(async () => {
-        // Pre-flight checks
-        if (!selectedVolatility || availableSymbols.length === 0) {
-            setStatusMessage('No trading symbols available. Please refresh the page.');
+        if (!derivApiRef.current) {
+            setStatusMessage('No connection available');
             return;
         }
 
-        // Validate Higher/Lower contract settings
-        if (['CALL', 'PUT'].includes(selectedTradeType)) {
-            if (durationType === 't') {
-                setStatusMessage('Error: Higher/Lower contracts require time-based durations (minutes/hours), not ticks.');
-                return;
-            }
-
-            // Test getting current price before starting
-            try {
-                setStatusMessage('Validating current price data...');
-                const testPrice = await getCurrentSpotPrice();
-                if (!testPrice) {
-                    setStatusMessage('Error: Current price not available. Please wait for price data.');
-                    return;
-                }
-                setStatusMessage(`Price validation successful: ${testPrice.toFixed(3)}. Starting trading...`);
-            } catch (priceError: any) {
-                setStatusMessage(`Error: ${priceError.message || 'Unable to get current price'}. Please try refreshing the page.`);
-                return;
-            }
-        }
-
-        setStatusMessage('Performing connection health check...');
+        setStatusMessage('');
         setIsRunning(true);
         setIsTrading(true);
         stopFlagRef.current = false;
@@ -680,35 +341,6 @@ const MLTrader = observer(() => {
         run_panel.run_id = `ml-trader-${Date.now()}`;
         run_panel.setIsRunning(true);
         run_panel.setContractStage(contract_stages.STARTING);
-
-        try {
-            // Check connection health first
-            await checkConnectionHealth();
-
-            // Test authorization
-            await authorizeIfNeeded();
-
-            setStatusMessage('Starting automated trading...');
-
-        } catch (authError: any) {
-            console.error('Failed to start trading:', authError);
-            setIsRunning(false);
-            setIsTrading(false);
-            run_panel.setIsRunning(false);
-            run_panel.setContractStage(contract_stages.NOT_RUNNING);
-
-            const errorMsg = authError?.message || 'Failed to start trading';
-            setStatusMessage(`Error: ${errorMsg}`);
-
-            // Offer to retry connection if it's a connection issue
-            if (errorMsg.includes('Connection') || errorMsg.includes('network') || errorMsg.includes('timeout')) {
-                setTimeout(() => {
-                    setStatusMessage(`${errorMsg} - Click "Start Trading" to retry.`);
-                }, 3000);
-            }
-
-            return;
-        }
 
         try {
             let lossStreak = 0;
@@ -823,7 +455,7 @@ const MLTrader = observer(() => {
             run_panel.setHasOpenContract(false);
             run_panel.setContractStage(contract_stages.NOT_RUNNING);
         }
-    }, [selectedVolatility, selectedTradeType, duration, durationType, stake, baseStake, overPrediction, underPrediction, higherBarrier, lowerBarrier, martingaleMultiplier, accountCurrency, availableSymbols, run_panel, transactions]);
+    }, [selectedVolatility, selectedTradeType, duration, durationType, stake, baseStake, overPrediction, underPrediction, martingaleMultiplier, accountCurrency, availableSymbols, run_panel, transactions]);
 
     // Stop trading function
     const handleStopTrading = () => {
@@ -881,19 +513,12 @@ const MLTrader = observer(() => {
                                     <label>{localize('Volatility')}</label>
                                     <select 
                                         value={selectedVolatility} 
-                                        onChange={async (e) => {
+                                        onChange={(e) => {
                                             const newVolatility = e.target.value;
                                             setSelectedVolatility(newVolatility);
                                             if (derivApiRef.current && !isTrading) {
-                                                setStatusMessage('Loading data for ' + newVolatility + '...');
-                                                try {
-                                                    await startTicks(newVolatility);
-                                                    await loadHistoricalData(newVolatility);
-                                                    setStatusMessage('Ready to trade ' + newVolatility);
-                                                } catch (error) {
-                                                    console.error('Error changing symbol:', error);
-                                                    setStatusMessage('Error loading symbol data');
-                                                }
+                                                loadHistoricalData(newVolatility);
+                                                startTicks(newVolatility);
                                             }
                                         }}
                                         disabled={isTrading}
@@ -931,20 +556,9 @@ const MLTrader = observer(() => {
                                         onChange={(e) => setDurationType(e.target.value)}
                                         disabled={isTrading}
                                     >
-                                        {/* Higher/Lower contracts (CALL/PUT) require time-based durations */}
-                                        {['CALL', 'PUT'].includes(selectedTradeType) ? (
-                                            <>
-                                                <option value="m">{localize('Minutes')}</option>
-                                                <option value="h">{localize('Hours')}</option>
-                                                <option value="d">{localize('Days')}</option>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <option value="t">{localize('Ticks')}</option>
-                                                <option value="s">{localize('Seconds')}</option>
-                                                <option value="m">{localize('Minutes')}</option>
-                                            </>
-                                        )}
+                                        <option value="t">{localize('Ticks')}</option>
+                                        <option value="s">{localize('Seconds')}</option>
+                                        <option value="m">{localize('Minutes')}</option>
                                     </select>
                                 </div>
 
@@ -953,7 +567,7 @@ const MLTrader = observer(() => {
                                     <input
                                         type='number'
                                         min='1'
-                                        max={['CALL', 'PUT'].includes(selectedTradeType) ? '365' : '10'}
+                                        max='10'
                                         value={duration}
                                         onChange={(e) => setDuration(parseInt(e.target.value))}
                                         disabled={isTrading}
@@ -975,114 +589,44 @@ const MLTrader = observer(() => {
                                     />
                                 </div>
 
-                                {/* Digit Predictions for Over/Under, Match/Diff */}
-                                {['DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedTradeType) && (
-                                    <div className='ml-trader__predictions'>
-                                        <div className='ml-trader__field'>
-                                            <label>{localize('Digit prediction (pre-loss)')}</label>
-                                            <input
-                                                type='number'
-                                                min='0'
-                                                max='9'
-                                                value={overPrediction}
-                                                onChange={(e) => setOverPrediction(parseInt(e.target.value))}
-                                                disabled={isTrading}
-                                            />
-                                        </div>
-
-                                        <div className='ml-trader__field'>
-                                            <label>{localize('Digit prediction (after loss)')}</label>
-                                            <input
-                                                type='number'
-                                                min='0'
-                                                max='9'
-                                                value={underPrediction}
-                                                onChange={(e) => setUnderPrediction(parseInt(e.target.value))}
-                                                disabled={isTrading}
-                                            />
-                                        </div>
-
-                                        <div className='ml-trader__field'>
-                                            <label>{localize('Martingale multiplier')}</label>
-                                            <input
-                                                type='number'
-                                                step='0.1'
-                                                min='1'
-                                                max='3'
-                                                value={martingaleMultiplier}
-                                                onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value))}
-                                                disabled={isTrading}
-                                            />
-                                        </div>
+                                <div className='ml-trader__predictions'>
+                                    <div className='ml-trader__field'>
+                                        <label>{localize('Over/Under prediction (pre-loss)')}</label>
+                                        <input
+                                            type='number'
+                                            min='0'
+                                            max='9'
+                                            value={overPrediction}
+                                            onChange={(e) => setOverPrediction(parseInt(e.target.value))}
+                                            disabled={isTrading}
+                                        />
                                     </div>
-                                )}
 
-                                {/* Higher/Lower contracts use current price as barrier automatically */}
-                                {['CALL', 'PUT'].includes(selectedTradeType) && (
-                                    <div className='ml-trader__predictions'>
-                                        <div className='ml-trader__field'>
-                                            <label>{localize('Barrier Info')}</label>
-                                            <div style={{ padding: '8px', backgroundColor: '#f5f5f5', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }}>
-                                                <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>
-                                                    {selectedTradeType === 'CALL' ? 'Higher' : 'Lower'} Contract
-                                                </p>
-                                                <p style={{ margin: '0' }}>
-                                                    Barrier = Current price at purchase time<br/>
-                                                    Win if exit spot is {selectedTradeType === 'CALL' ? 'higher' : 'lower'} than barrier
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className='ml-trader__field'>
-                                            <label>{localize('Martingale multiplier')}</label>
-                                            <input
-                                                type='number'
-                                                step='0.1'
-                                                min='1'
-                                                max='3'
-                                                value={martingaleMultiplier}
-                                                onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value))}
-                                                disabled={isTrading}
-                                            />
-                                        </div>
+                                    <div className='ml-trader__field'>
+                                        <label>{localize('Over/Under prediction (after loss)')}</label>
+                                        <input
+                                            type='number'
+                                            min='0'
+                                            max='9'
+                                            value={underPrediction}
+                                            onChange={(e) => setUnderPrediction(parseInt(e.target.value))}
+                                            disabled={isTrading}
+                                        />
                                     </div>
-                                )}
 
-                                {/* Rise/Fall contracts only need Martingale */}
-                                {['CALLE', 'PUTE'].includes(selectedTradeType) && (
-                                    <div className='ml-trader__predictions'>
-                                        <div className='ml-trader__field'>
-                                            <label>{localize('Martingale multiplier')}</label>
-                                            <input
-                                                type='number'
-                                                step='0.1'
-                                                min='1'
-                                                max='3'
-                                                value={martingaleMultiplier}
-                                                onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value))}
-                                                disabled={isTrading}
-                                            />
-                                        </div>
+                                    <div className='ml-trader__field'>
+                                        <label>{localize('Martingale multiplier')}</label>
+                                        <input
+                                            type='number'
+                                            step='0.1'
+                                            min='1'
+                                            max='3'
+                                            value={martingaleMultiplier}
+                                            onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value))}
+                                            disabled={isTrading}
+                                        />
                                     </div>
-                                )}
-
-                                {/* Even/Odd contracts only need Martingale */}
-                                {['DIGITEVEN', 'DIGITODD'].includes(selectedTradeType) && (
-                                    <div className='ml-trader__predictions'>
-                                        <div className='ml-trader__field'>
-                                            <label>{localize('Martingale multiplier')}</label>
-                                            <input
-                                                type='number'
-                                                step='0.1'
-                                                min='1'
-                                                max='3'
-                                                value={martingaleMultiplier}
-                                                onChange={(e) => setMartingaleMultiplier(parseFloat(e.target.value))}
-                                                disabled={isTrading}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
+                                </div>
                             </div>
                         </div>
 
@@ -1092,20 +636,12 @@ const MLTrader = observer(() => {
                                 <Text size='s'>
                                     {localize('Ticks Processed')}: {ticksProcessed}
                                 </Text>
-                                {['DIGITOVER', 'DIGITUNDER', 'DIGITEVEN', 'DIGITODD', 'DIGITMATCH', 'DIGITDIFF'].includes(selectedTradeType) && (
-                                    <Text size='s'>
-                                        {localize('Last Digit')}: {lastDigit}
-                                    </Text>
-                                )}
+                                <Text size='s'>
+                                    {localize('Last Digit')}: {lastDigit}
+                                </Text>
                                 <Text size='s'>
                                     {localize('Current Price')}: {currentPrice}
                                 </Text>
-                                {['CALL', 'PUT'].includes(selectedTradeType) && (
-                                    <Text size='s'>
-                                        {localize('Barrier Type')}: Current Price at Purchase
-                                        ({selectedTradeType === 'CALL' ? 'Higher' : 'Lower'} than entry spot)
-                                    </Text>
-                                )}
                             </div>
                         </div>
 

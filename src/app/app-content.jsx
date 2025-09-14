@@ -30,6 +30,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
 
 import { SplashScreen } from '@/components/splash-screen';
+import ErrorBoundary from '@/components/error-boundary';
 
 const AppContent = observer(() => {
     const [is_api_initialized, setIsApiInitialized] = React.useState(false);
@@ -48,6 +49,16 @@ const AppContent = observer(() => {
     const { initTrackJS } = useTrackjs();
 
     initTrackJS(client.loginid);
+
+    // Start API connection immediately
+    React.useEffect(() => {
+        console.log('🚀 Starting API connection on app load...');
+        if (!api_base.api) {
+            api_base.init().catch(error => {
+                console.error('❌ Initial API connection failed:', error);
+            });
+        }
+    }, []);
 
     const livechat_client_information = {
         is_client_store_initialized: client?.is_logged_in ? !!client?.account_settings?.email : !!client,
@@ -70,10 +81,27 @@ const AppContent = observer(() => {
         if (connectionStatus === CONNECTION_STATUS.OPENED) {
             setIsApiInitialized(true);
             common.setSocketOpened(true);
-        } else if (connectionStatus !== CONNECTION_STATUS.OPENED) {
+            console.log('✅ API connection established successfully');
+        } else if (connectionStatus === CONNECTION_STATUS.CLOSED) {
             common.setSocketOpened(false);
+            setIsApiInitialized(false);
+            console.log('❌ API connection lost, attempting to reconnect...');
+            
+            // Attempt reconnection after a delay
+            const reconnectTimer = setTimeout(() => {
+                if (api_base && api_base.init) {
+                    api_base.init(true).catch(error => {
+                        console.error('API reconnection failed:', error);
+                    });
+                }
+            }, 3000);
+            
+            return () => clearTimeout(reconnectTimer);
+        } else if (connectionStatus === CONNECTION_STATUS.UNKNOWN) {
+            common.setSocketOpened(false);
+            console.log('⚠️ API connection status unknown');
         }
-    }, [common, connectionStatus]);
+    }, [common, connectionStatus, api_base]);
 
     const { current_language } = common;
     const html = document.documentElement;
@@ -105,9 +133,12 @@ const AppContent = observer(() => {
         // Check if api is initialized and then subscribe to the api messages
         // Also we should only subscribe to the messages once user is logged in
         // And is not already subscribed to the messages
-        if (!is_subscribed_to_msg_listener.current && client.is_logged_in && is_api_initialized && api_base?.api) {
+        if (!is_subscribed_to_msg_listener.current && client.is_logged_in && is_api_initialized && api_base?.api && typeof api_base.api.onMessage === 'function') {
             is_subscribed_to_msg_listener.current = true;
-            msg_listener.current = api_base.api.onMessage()?.subscribe(handleMessage);
+            const messageSubscription = api_base.api.onMessage();
+            if (messageSubscription && typeof messageSubscription.subscribe === 'function') {
+                msg_listener.current = messageSubscription.subscribe(handleMessage);
+            }
         }
         return () => {
             if (is_subscribed_to_msg_listener.current && msg_listener.current) {
@@ -140,14 +171,30 @@ const AppContent = observer(() => {
 
     React.useEffect(() => {
         if (is_api_initialized) {
+            console.log('API initialized, starting app initialization...');
             init();
             setIsLoading(true);
             if (!client.is_logged_in) {
                 changeActiveSymbolLoadingState();
             }
+        } else {
+            console.log('API not initialized, checking connection status...', connectionStatus);
+            
+            // Initialize API connection if not done yet
+            if (!api_base.api || connectionStatus === CONNECTION_STATUS.CLOSED || connectionStatus === CONNECTION_STATUS.UNKNOWN) {
+                console.log('🔄 Starting API initialization...');
+                api_base.init(true).catch(error => {
+                    console.error('❌ API initialization failed:', error);
+                    // Set a fallback to show the app even if API fails
+                    setTimeout(() => {
+                        setIsLoading(false);
+                        setForceShowApp(true);
+                    }, 5000);
+                });
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [is_api_initialized]);
+    }, [is_api_initialized, connectionStatus]);
 
     // use is_landing_company_loaded to know got details of accounts to identify should show an error or not
     React.useEffect(() => {
@@ -166,12 +213,22 @@ const AppContent = observer(() => {
     
      React.useEffect(() => {
         const timeout = setTimeout(() => {
+            console.log('⏰ Force showing app after 10 seconds due to initialization timeout');
             setForceShowApp(true);
             setShowSplashScreen(false);
-        }, 5000); // Show app after 5 seconds regardless
+            setIsLoading(false);
+        }, 10000); // Increased timeout to 10 seconds
 
         return () => clearTimeout(timeout);
     }, []);
+
+    // Add connection status monitoring
+    React.useEffect(() => {
+        console.log('🔌 Connection status changed:', connectionStatus);
+        console.log('📊 API initialized:', is_api_initialized);
+        console.log('👤 Client logged in:', client.is_logged_in);
+        console.log('🔄 Loading state:', is_loading);
+    }, [connectionStatus, is_api_initialized, client.is_logged_in, is_loading]);
 
     const handleSplashScreenComplete = () => {
         setShowSplashScreen(false);
@@ -182,12 +239,41 @@ const AppContent = observer(() => {
         return <SplashScreen onComplete={handleSplashScreenComplete} />;
     }
 
-    if (common?.error) return null;
+    // Handle critical errors with fallback UI
+    if (common?.error) {
+        return (
+            <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                height: '100vh',
+                padding: '20px',
+                textAlign: 'center'
+            }}>
+                <h2>Connection Error</h2>
+                <p>We're having trouble connecting to our servers.</p>
+                <button 
+                    onClick={() => window.location.reload()} 
+                    style={{
+                        padding: '10px 20px',
+                        backgroundColor: '#4CAF50',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Refresh Page
+                </button>
+            </div>
+        );
+    }
 
     return is_loading && !forceShowApp ? (
         <MatrixLoading message={localize('Initializing your account...')} show={true} />
     ) : (
-        <>
+        <ErrorBoundary>
             <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
                 <BlocklyLoading />
                 <div className='bot-dashboard bot' data-testid='dt_bot_dashboard'>
@@ -200,7 +286,7 @@ const AppContent = observer(() => {
                     <TncStatusUpdateModal />
                 </div>
             </ThemeProvider>
-        </>
+        </ErrorBoundary>
     );
 });
 

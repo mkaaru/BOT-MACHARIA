@@ -47,6 +47,81 @@ class APIBase {
     pip_sizes = {};
     account_info = {};
     is_running = false;
+
+
+    async createNewConnection() {
+        return new Promise((resolve, reject) => {
+            try {
+                console.log('🔄 Creating new WebSocket connection...');
+                
+                // Clear any existing API instance
+                if (this.api && typeof this.api.disconnect === 'function') {
+                    try {
+                        this.api.disconnect();
+                    } catch (e) {
+                        console.warn('Error disconnecting existing API:', e);
+                    }
+                }
+                
+                // Create a direct WebSocket connection
+                const websocket = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=16929');
+                
+                // Set timeout for connection
+                const connectionTimeout = setTimeout(() => {
+                    if (websocket.readyState !== WebSocket.OPEN) {
+                        console.error('❌ Connection timeout after 10 seconds');
+                        websocket.close();
+                        reject(new Error('Connection timeout'));
+                    }
+                }, 10000);
+
+                websocket.onopen = () => {
+                    clearTimeout(connectionTimeout);
+                    console.log('✅ WebSocket connection opened successfully');
+                    
+                    try {
+                        // Import DerivAPI dynamically to avoid build issues
+                        import('@deriv/deriv-api').then((DerivAPIModule) => {
+                            const DerivAPI = DerivAPIModule.default || DerivAPIModule;
+                            this.api = new DerivAPI({ connection: websocket });
+                            this.onsocketopen();
+                            resolve(true);
+                        }).catch((importError) => {
+                            console.error('❌ Failed to import DerivAPI:', importError);
+                            // Fallback: try to create a simple API wrapper
+                            this.api = { connection: websocket };
+                            this.onsocketopen();
+                            resolve(true);
+                        });
+                    } catch (apiError) {
+                        console.error('❌ Failed to create API instance:', apiError);
+                        this.api = { connection: websocket };
+                        this.onsocketopen();
+                        resolve(true);
+                    }
+                };
+
+                websocket.onerror = (error) => {
+                    clearTimeout(connectionTimeout);
+                    console.error('❌ WebSocket connection error:', error);
+                    this.onsocketclose();
+                    reject(error);
+                };
+
+                websocket.onclose = (event) => {
+                    clearTimeout(connectionTimeout);
+                    console.log('🔌 WebSocket connection closed:', event.code, event.reason);
+                    this.onsocketclose();
+                };
+
+            } catch (error) {
+                console.error('❌ Failed to create WebSocket connection:', error);
+                this.onsocketclose();
+                reject(error);
+            }
+        });
+    }
+
     subscriptions: CurrentSubscription[] = [];
     time_interval: ReturnType<typeof setInterval> | null = null;
     has_active_symbols = false;
@@ -76,45 +151,89 @@ class APIBase {
     }
 
     onsocketclose() {
+        console.log('🔌 WebSocket connection closed');
         setConnectionStatus(CONNECTION_STATUS.CLOSED);
         this.reconnectIfNotConnected();
     }
 
+    // Add connection health check
+    checkConnectionHealth() {
+        return new Promise((resolve, reject) => {
+            if (!this.api || !this.api.connection || this.api.connection.readyState !== WebSocket.OPEN) {
+                reject(new Error('WebSocket connection not available'));
+                return;
+            }
+
+            // Send a ping to verify connection
+            this.api.send({ ping: 1 })
+                .then(response => {
+                    if (response.pong) {
+                        resolve(true);
+                    } else {
+                        reject(new Error('Ping failed'));
+                    }
+                })
+                .catch(error => {
+                    reject(error);
+                });
+        });
+    }
+
     async init(force_create_connection = false) {
+        console.log('🔄 Initializing API connection...');
         this.toggleRunButton(true);
 
-        if (this.api) {
-            this.unsubscribeAllSubscriptions();
-        }
-
-        if (!this.api || this.api?.connection.readyState !== 1 || force_create_connection) {
-            if (this.api?.connection) {
-                ApiHelpers.disposeInstance();
-                setConnectionStatus(CONNECTION_STATUS.CLOSED);
-                this.api.disconnect();
-                this.api.connection.removeEventListener('open', this.onsocketopen.bind(this));
-                this.api.connection.removeEventListener('close', this.onsocketclose.bind(this));
+        try {
+            // Always create a fresh connection to ensure reliability
+            if (this.api) {
+                this.unsubscribeAllSubscriptions();
+                if (this.api.connection && this.api.disconnect) {
+                    this.api.disconnect();
+                }
             }
-            this.api = generateDerivApiInstance();
-            this.api?.connection.addEventListener('open', this.onsocketopen.bind(this));
-            this.api?.connection.addEventListener('close', this.onsocketclose.bind(this));
+
+            // Create new connection
+            await this.createNewConnection();
+            
+            // Initialize event listeners
+            this.initEventListeners();
+
+            // Clear any existing intervals
+            if (this.time_interval) {
+                clearInterval(this.time_interval);
+                this.time_interval = null;
+            }
+
+            // Get active symbols if needed
+            if (!this.has_active_symbols && !V2GetActiveToken()) {
+                this.active_symbols_promise = this.getActiveSymbols();
+            }
+
+            // Authorize if token is available
+            if (V2GetActiveToken()) {
+                setIsAuthorizing(true);
+                await this.authorizeAndSubscribe();
+            }
+
+            // Initialize chart API
+            chart_api.init(force_create_connection);
+            
+            console.log('✅ API initialization completed successfully');
+
+        } catch (error) {
+            console.error('❌ API initialization failed:', error);
+            setConnectionStatus(CONNECTION_STATUS.CLOSED);
+            
+            // Retry connection after delay
+            setTimeout(() => {
+                console.log('🔄 Retrying API connection...');
+                this.init(true).catch(retryError => {
+                    console.error('❌ API retry failed:', retryError);
+                });
+            }, 3000);
+            
+            throw error;
         }
-
-        if (!this.has_active_symbols && !V2GetActiveToken()) {
-            this.active_symbols_promise = this.getActiveSymbols();
-        }
-
-        this.initEventListeners();
-
-        if (this.time_interval) clearInterval(this.time_interval);
-        this.time_interval = null;
-
-        if (V2GetActiveToken()) {
-            setIsAuthorizing(true);
-            await this.authorizeAndSubscribe();
-        }
-
-        chart_api.init(force_create_connection);
     }
 
     getConnectionStatus() {
