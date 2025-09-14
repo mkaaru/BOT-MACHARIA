@@ -5,6 +5,7 @@ import Modal from '@/components/shared_ui/modal';
 import { localize } from '@deriv-com/translations';
 import marketAnalyzer from '@/services/market-analyzer';
 import SmartTraderWrapper from './smart-trader-wrapper';
+import { useStore } from '@/hooks/useStore';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
 import './trading-hub-display.scss';
 
@@ -41,6 +42,9 @@ interface TradeSettings {
 }
 
 const TradingHubDisplay: React.FC = observer(() => {
+    // Get store instance at component level to avoid hook rule violations
+    const store = useStore();
+    
     const [isScanning, setIsScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState(0);
     const [scanResults, setScanResults] = useState<ScanResult[]>([]);
@@ -552,19 +556,17 @@ const TradingHubDisplay: React.FC = observer(() => {
 
     // AI Auto Trade execution using Smart Trader logic
     const executeAiTrade = async (recommendation: TradeRecommendation) => {
-        if (!apiRef.current || contractInProgress) return;
+        if (!apiRef.current || contractInProgress || !store) return;
 
         try {
             setContractInProgress(true);
             setAiTradeStatus(`Placing trade: ${recommendation.strategy.toUpperCase()} ${recommendation.barrier}...`);
 
-            // Import necessary functions and stores
+            // Import necessary functions 
             const { V2GetActiveToken, V2GetActiveClientId } = await import('@/external/bot-skeleton/services/api/appId');
-            const { useStore } = await import('@/hooks/useStore');
 
-            // Get store instance for Run Panel and Transactions integration
-            const store = useStore();
-            const run_panel = store?.run_panel; // Access run_panel safely
+            // Use store from component level (no dynamic import needed)
+            const run_panel = store?.run_panel;
             const { transactions } = store;
 
             // Set up Run Panel state like Smart Trader
