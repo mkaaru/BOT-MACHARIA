@@ -113,25 +113,68 @@ const MLTrader = observer(() => {
     // Authorization helper
     const authorizeIfNeeded = async () => {
         if (isAuthorized) return;
-        const token = V2GetActiveToken();
-        if (!token) {
-            setStatusMessage('No token found. Please log in and select an account.');
-            throw new Error('No token');
-        }
-        const { authorize, error } = await derivApiRef.current.authorize(token);
-        if (error) {
-            setStatusMessage(`Authorization error: ${error.message || error.code}`);
+        
+        try {
+            const token = V2GetActiveToken();
+            if (!token) {
+                setStatusMessage('Please log in to your Deriv account first.');
+                throw new Error('No authentication token available');
+            }
+
+            setStatusMessage('Authorizing...');
+            
+            // Ensure we have a valid API connection
+            if (!derivApiRef.current || !derivApiRef.current.connection) {
+                setStatusMessage('Reconnecting to trading servers...');
+                const api = generateDerivApiInstance();
+                derivApiRef.current = api;
+                
+                // Wait a moment for connection to establish
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+            const response = await derivApiRef.current.authorize(token);
+            
+            if (response.error) {
+                const errorMsg = response.error.message || 'Authorization failed';
+                setStatusMessage(`Authorization error: ${errorMsg}`);
+                throw new Error(errorMsg);
+            }
+
+            const { authorize } = response;
+            if (!authorize) {
+                throw new Error('Invalid authorization response');
+            }
+
+            setIsAuthorized(true);
+            const loginid = authorize.loginid || V2GetActiveClientId();
+            setAccountCurrency(authorize.currency || 'USD');
+            
+            try {
+                // Sync ML Trader auth state into shared ClientStore
+                store?.client?.setLoginId?.(loginid || '');
+                store?.client?.setCurrency?.(authorize.currency || 'USD');
+                store?.client?.setIsLoggedIn?.(true);
+            } catch (syncError) {
+                console.warn('Failed to sync client state:', syncError);
+            }
+
+            setStatusMessage('Authorization successful');
+            
+        } catch (error: any) {
+            console.error('Authorization failed:', error);
+            setIsAuthorized(false);
+            
+            const errorMessage = error?.message || 'Authorization failed';
+            setStatusMessage(`Error: ${errorMessage}`);
+            
+            // If it's a network/connection error, suggest refresh
+            if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+                setStatusMessage('Connection error. Please refresh the page and try again.');
+            }
+            
             throw error;
         }
-        setIsAuthorized(true);
-        const loginid = authorize?.loginid || V2GetActiveClientId();
-        setAccountCurrency(authorize?.currency || 'USD');
-        try {
-            // Sync ML Trader auth state into shared ClientStore so Transactions store keys correctly by account
-            store?.client?.setLoginId?.(loginid || '');
-            store?.client?.setCurrency?.(authorize?.currency || 'USD');
-            store?.client?.setIsLoggedIn?.(true);
-        } catch {}
     };
 
     // Tick stream management
@@ -222,34 +265,84 @@ const MLTrader = observer(() => {
     useEffect(() => {
         const initConnection = async () => {
             try {
+                setStatusMessage('Connecting to trading servers...');
+                setConnectionStatus('Connecting');
+                
                 const api = generateDerivApiInstance();
                 derivApiRef.current = api;
 
-                // Fetch active symbols (volatility indices)
-                const { active_symbols, error: asErr } = await api.send({ active_symbols: 'brief' });
-                if (asErr) throw asErr;
+                // Wait for connection to be established
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
+                    
+                    if (api.connection.readyState === WebSocket.OPEN) {
+                        clearTimeout(timeout);
+                        resolve(true);
+                    } else {
+                        api.connection.addEventListener('open', () => {
+                            clearTimeout(timeout);
+                            resolve(true);
+                        });
+                        api.connection.addEventListener('error', (error) => {
+                            clearTimeout(timeout);
+                            reject(error);
+                        });
+                    }
+                });
 
-                const volatilitySymbols = (active_symbols || [])
+                setConnectionStatus('Loading symbols...');
+                
+                // Fetch active symbols (volatility indices)
+                const response = await api.send({ active_symbols: 'brief' });
+                if (response.error) {
+                    throw new Error(response.error.message || 'Failed to load trading symbols');
+                }
+
+                const volatilitySymbols = (response.active_symbols || [])
                     .filter((s: any) => /synthetic/i.test(s.market) || /^R_/.test(s.symbol) || /1HZ.*V/.test(s.symbol))
                     .map((s: any) => ({ symbol: s.symbol, display_name: s.display_name }));
+                
+                if (volatilitySymbols.length === 0) {
+                    throw new Error('No volatility symbols available');
+                }
+                
                 setAvailableSymbols(volatilitySymbols);
-                if (!selectedVolatility && volatilitySymbols[0]?.symbol) setSelectedVolatility(volatilitySymbols[0].symbol);
+                if (!selectedVolatility && volatilitySymbols[0]?.symbol) {
+                    setSelectedVolatility(volatilitySymbols[0].symbol);
+                }
 
                 setConnectionStatus('Connected');
+                setStatusMessage('Loading market data...');
 
                 // Load historical data for all volatility markets
                 for (const symbolObj of volatilitySymbols) {
-                    await loadHistoricalData(symbolObj.symbol);
-                    // Start ticks for the initially selected symbol
-                    if (symbolObj.symbol === selectedVolatility) {
-                        startTicks(symbolObj.symbol);
+                    try {
+                        await loadHistoricalData(symbolObj.symbol);
+                        // Start ticks for the initially selected symbol
+                        if (symbolObj.symbol === selectedVolatility) {
+                            startTicks(symbolObj.symbol);
+                        }
+                    } catch (dataError) {
+                        console.warn(`Failed to load data for ${symbolObj.symbol}:`, dataError);
                     }
                 }
 
                 setStatusMessage('Ready to start trading');
+                
             } catch (error: any) {
+                console.error('Connection initialization failed:', error);
                 setConnectionStatus('Error');
-                setStatusMessage(`Connection failed: ${error.message}`);
+                
+                const errorMsg = error?.message || 'Connection failed';
+                setStatusMessage(`Connection error: ${errorMsg}. Please refresh the page.`);
+                
+                // Retry connection after 5 seconds
+                setTimeout(() => {
+                    if (derivApiRef.current?.connection?.readyState !== WebSocket.OPEN) {
+                        setStatusMessage('Retrying connection...');
+                        initConnection();
+                    }
+                }, 5000);
             }
         };
 
@@ -364,8 +457,19 @@ const MLTrader = observer(() => {
 
     // Start trading handler with full run panel integration
     const handleStartTrading = useCallback(async () => {
+        // Pre-flight checks
         if (!derivApiRef.current) {
-            setStatusMessage('No connection available');
+            setStatusMessage('No connection available. Please refresh the page.');
+            return;
+        }
+
+        if (connectionStatus !== 'Connected') {
+            setStatusMessage('Not connected to trading servers. Please wait or refresh.');
+            return;
+        }
+
+        if (!selectedVolatility || availableSymbols.length === 0) {
+            setStatusMessage('No trading symbols available. Please refresh the page.');
             return;
         }
 
@@ -380,6 +484,24 @@ const MLTrader = observer(() => {
         run_panel.run_id = `ml-trader-${Date.now()}`;
         run_panel.setIsRunning(true);
         run_panel.setContractStage(contract_stages.STARTING);
+
+        try {
+            // Test authorization first
+            await authorizeIfNeeded();
+            
+            setStatusMessage('Starting automated trading...');
+            
+        } catch (authError: any) {
+            console.error('Failed to start trading:', authError);
+            setIsRunning(false);
+            setIsTrading(false);
+            run_panel.setIsRunning(false);
+            run_panel.setContractStage(contract_stages.NOT_RUNNING);
+            
+            const errorMsg = authError?.message || 'Failed to start trading';
+            setStatusMessage(`Error: ${errorMsg}`);
+            return;
+        }
 
         try {
             let lossStreak = 0;
