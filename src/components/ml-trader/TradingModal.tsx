@@ -121,8 +121,8 @@ const TradingModal: React.FC<TradingModalProps> = ({
 
         // Contract type mapping - map ML Trader types to Bot Builder types
         const contractTypeMapping: Record<string, string> = {
-            'CALL': trade_mode === 'rise_fall' ? 'CALL' : 'CALLE', // Rise for Rise/Fall, Higher for Higher/Lower
-            'PUT': trade_mode === 'rise_fall' ? 'PUT' : 'PUTE'     // Fall for Rise/Fall, Lower for Higher/Lower
+            'CALL': trade_mode === 'rise_fall' ? 'CALL' : 'CALL', // Rise for Rise/Fall, Higher for Higher/Lower
+            'PUT': trade_mode === 'rise_fall' ? 'PUT' : 'PUT'     // Fall for Rise/Fall, Lower for Higher/Lower
         };
 
         const mappedContractType = contractTypeMapping[contract_type] || 'CALL';
@@ -130,7 +130,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
         // Duration unit mapping
         const durationUnitMapping: Record<string, string> = {
             't': 't', // ticks
-            's': 's', // seconds  
+            's': 's', // seconds
             'm': 'm'  // minutes
         };
 
@@ -205,8 +205,10 @@ const TradingModal: React.FC<TradingModalProps> = ({
             };
 
             const tradeTypeCategory = trade_mode === 'higher_lower' ? 'highlow' : 'callput';
-            const tradeTypeList = trade_mode === 'higher_lower' ? 'touchnotouch' : 'risefall';
-            const contractTypeField = contract_type === 'CALL' ? (trade_mode === 'higher_lower' ? 'CALLE' : 'CALL') : (trade_mode === 'higher_lower' ? 'PUTE' : 'PUT');
+            // Adjusted to map 'Rise/Fall' to 'risefall' and 'Higher/Lower' to 'touchnotouch'
+            const tradeTypeList = trade_mode === 'rise_fall' ? 'risefall' : 'touchnotouch';
+            // Corrected contract type mapping for Bot Builder
+            const contractTypeField = contract_type === 'CALL' ? (trade_mode === 'rise_fall' ? 'CALL' : 'CALLE') : (trade_mode === 'rise_fall' ? 'PUT' : 'PUTE');
             const barrierOffsetValue = calculateBarrierOffset();
 
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
@@ -234,7 +236,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
             <field name="TRADETYPE_LIST">${tradeTypeList}</field>
             <next>
               <block type="trade_definition_contracttype" id="z1{e5E+47NIm}*%5/AoJ" deletable="false" movable="false">
-                <field name="TYPE_LIST">${contractTypeField.toLowerCase()}</field>
+                <field name="TYPE_LIST">${contractTypeField}</field>
                 <next>
                   <block type="trade_definition_candleinterval" id="?%X41!vudp91L1/W30?x" deletable="false" movable="false">
                     <field name="CANDLEINTERVAL_LIST">60</field>
