@@ -195,6 +195,20 @@ const TradingModal: React.FC<TradingModalProps> = ({
             console.log('🔄 Loading complete bot strategy to Bot Builder...');
             
             // Define the complete bot strategy XML content matching the Bot Builder template
+            // Calculate barrier offset based on contract type
+            const calculateBarrierOffset = () => {
+                if (trade_mode === 'higher_lower') {
+                    // For Higher/Lower, use the barrier offset from form
+                    return contract_type === 'CALL' ? `+${barrier_offset}` : `-${barrier_offset}`;
+                }
+                return '+0.35'; // Default offset for Rise/Fall
+            };
+
+            const tradeTypeCategory = trade_mode === 'higher_lower' ? 'highlow' : 'callput';
+            const tradeTypeList = trade_mode === 'higher_lower' ? 'touchnotouch' : 'risefall';
+            const contractTypeField = contract_type === 'CALL' ? (trade_mode === 'higher_lower' ? 'CALLE' : 'CALL') : (trade_mode === 'higher_lower' ? 'PUTE' : 'PUT');
+            const barrierOffsetValue = calculateBarrierOffset();
+
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id=":yGQ!WYKA[R_sO1MkSjL">tick1</variable>
@@ -216,11 +230,11 @@ const TradingModal: React.FC<TradingModalProps> = ({
         <field name="SYMBOL_LIST">${symbol}</field>
         <next>
           <block type="trade_definition_tradetype" id="F)ky6X[Pq]/Anl_CQ%)" deletable="false" movable="false">
-            <field name="TRADETYPECAT_LIST">digits</field>
-            <field name="TRADETYPE_LIST">overunder</field>
+            <field name="TRADETYPECAT_LIST">${tradeTypeCategory}</field>
+            <field name="TRADETYPE_LIST">${tradeTypeList}</field>
             <next>
               <block type="trade_definition_contracttype" id="z1{e5E+47NIm}*%5/AoJ" deletable="false" movable="false">
-                <field name="TYPE_LIST">both</field>
+                <field name="TYPE_LIST">${contractTypeField.toLowerCase()}</field>
                 <next>
                   <block type="trade_definition_candleinterval" id="?%X41!vudp91L1/W30?x" deletable="false" movable="false">
                     <field name="CANDLEINTERVAL_LIST">60</field>
@@ -315,7 +329,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
     <!-- Trade options -->
     <statement name="SUBMARKET">
       <block type="trade_definition_tradeoptions" id="QXj55FgjyN!H@HP]V6jI">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="${trade_mode === 'higher_lower' ? 'true' : 'false'}" has_second_barrier="false" has_prediction="false"></mutation>
         <field name="DURATIONTYPE_LIST">${duration_unit}</field>
         <value name="DURATION">
           <shadow type="math_number" id="9n#e|joMQv~[@p?0ZJ1w">
@@ -333,14 +347,13 @@ const TradingModal: React.FC<TradingModalProps> = ({
             <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
           </block>
         </value>
-        <value name="PREDICTION">
-          <shadow type="math_number_positive" id="aE)Ys,Aw=qX{^5%Ed%Kg">
-            <field name="NUM">1</field>
+        ${trade_mode === 'higher_lower' ? `
+        <value name="BARRIEROFFSET">
+          <shadow type="math_number" id="barrierOffsetBlock">
+            <field name="NUM">${barrier_offset}</field>
           </shadow>
-          <block type="variables_get" id="tOYIy}zQaIBu15p.C3*2">
-            <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
-          </block>
         </value>
+        <field name="BARRIEROFFSETTYPE_LIST">${contract_type === 'CALL' ? '+' : '-'}</field>` : ''}
       </block>
     </statement>
   </block>
@@ -361,7 +374,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
         </value>
         <next>
           <block type="purchase" id="it}Zt@Ou$Y97bED_*(nZ">
-            <field name="PURCHASE_LIST">DIGITOVER</field>
+            <field name="PURCHASE_LIST">${contractTypeField}</field>
           </block>
         </next>
       </block>
