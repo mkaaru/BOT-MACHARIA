@@ -143,27 +143,17 @@ const MLTrader = observer(() => {
             const statusUnsubscribe = marketScanner.onStatusChange((status) => {
                 setScannerStatus(status);
                 setScanningProgress((status.connectedSymbols / status.totalSymbols) * 100);
+                
+                // Force update trends when symbols are connected
+                if (status.connectedSymbols > 0) {
+                    updateTrendsFromScanner();
+                }
             });
 
             // Subscribe to recommendation updates
             const recommendationUnsubscribe = marketScanner.onRecommendationChange((recs) => {
                 setRecommendations(recs);
-
-                // Update market trends for all volatility symbols
-                const trendsMap = new Map<string, TrendAnalysis>();
-                ENHANCED_VOLATILITY_SYMBOLS.forEach(symbolInfo => {
-                    const trend = marketScanner.getTrendAnalysis(symbolInfo.symbol);
-                    if (trend) {
-                        trendsMap.set(symbolInfo.symbol, trend);
-                    }
-                });
-                setMarketTrends(trendsMap);
-                setVolatilityTrends(trendsMap);
-
-                // Mark initial scan as complete when we have trends for most symbols
-                if (trendsMap.size >= ENHANCED_VOLATILITY_SYMBOLS.length * 0.5) {
-                    setInitialScanComplete(true);
-                }
+                updateTrendsFromScanner();
 
                 // Auto-select best recommendation if auto mode is enabled
                 if (auto_mode && recs.length > 0 && !is_running && !contractInProgressRef.current) {
@@ -177,10 +167,22 @@ const MLTrader = observer(() => {
             // Start scanning immediately
             await startMarketScan();
 
+            // Set up periodic trend updates
+            const trendUpdateInterval = setInterval(() => {
+                updateTrendsFromScanner();
+            }, 5000); // Update every 5 seconds
+
+            // Mark as complete after a reasonable time for initial data collection
+            setTimeout(() => {
+                setInitialScanComplete(true);
+                setStatus('Market analysis ready');
+            }, 10000); // 10 seconds to allow for data collection
+
             // Cleanup function stored in ref for unmount
             return () => {
                 statusUnsubscribe();
                 recommendationUnsubscribe();
+                clearInterval(trendUpdateInterval);
             };
 
         } catch (error) {
@@ -189,17 +191,47 @@ const MLTrader = observer(() => {
         }
     }, [is_scanner_initialized, auto_mode, is_running]);
 
+    // Update trends from scanner
+    const updateTrendsFromScanner = useCallback(() => {
+        const trendsMap = new Map<string, TrendAnalysis>();
+        let hasData = false;
+
+        ENHANCED_VOLATILITY_SYMBOLS.forEach(symbolInfo => {
+            const trend = marketScanner.getTrendAnalysis(symbolInfo.symbol);
+            if (trend) {
+                trendsMap.set(symbolInfo.symbol, trend);
+                hasData = true;
+            }
+        });
+
+        if (hasData) {
+            setMarketTrends(trendsMap);
+            setVolatilityTrends(trendsMap);
+            
+            // Mark initial scan as complete when we have trends for at least 3 symbols
+            if (trendsMap.size >= 3 && !initial_scan_complete) {
+                setInitialScanComplete(true);
+            }
+        }
+    }, [initial_scan_complete]);
+
     // Start market scan
     const startMarketScan = useCallback(async () => {
         try {
             setStatus('Scanning volatility markets...');
             await marketScanner.refresh();
             setStatus('Market scan completed');
+            
+            // Force update trends after scan
+            setTimeout(() => {
+                updateTrendsFromScanner();
+            }, 2000);
+            
         } catch (error) {
             console.error('Market scan failed:', error);
             setStatus(`Market scan failed: ${error}`);
         }
-    }, []);
+    }, [updateTrendsFromScanner]);
 
     // Apply a trading recommendation
     const applyRecommendation = useCallback((recommendation: TradingRecommendation) => {
@@ -458,7 +490,12 @@ const MLTrader = observer(() => {
                                         ) : (
                                             <div className="loading-state">
                                                 <div className="loading-spinner"></div>
-                                                <Text size="xs" color="general">Loading trend data...</Text>
+                                                <Text size="xs" color="general">
+                                                    {is_scanner_initialized ? 
+                                                        'Collecting market data...' : 
+                                                        'Connecting to market feeds...'
+                                                    }
+                                                </Text>
                                             </div>
                                         )}
                                     </div>

@@ -133,15 +133,48 @@ export class TickStreamManager {
 
     async subscribeToAllVolatilities(): Promise<void> {
         console.log('Subscribing to all volatility indices...');
-        const subscriptionPromises = VOLATILITY_SYMBOLS.map(symbolInfo => 
-            this.subscribeToSymbol(symbolInfo.symbol).catch(error => {
+        
+        // Wait for connection to be ready
+        if (!this.isConnected) {
+            console.log('Waiting for WebSocket connection...');
+            await this.waitForConnection();
+        }
+
+        const subscriptionPromises = VOLATILITY_SYMBOLS.map(async (symbolInfo, index) => {
+            // Add small delay between subscriptions to avoid overwhelming the API
+            await new Promise(resolve => setTimeout(resolve, index * 100));
+            
+            return this.subscribeToSymbol(symbolInfo.symbol).catch(error => {
                 console.warn(`Failed to subscribe to ${symbolInfo.symbol}:`, error);
                 return null;
-            })
-        );
+            });
+        });
 
         await Promise.allSettled(subscriptionPromises);
         console.log(`Subscribed to ${this.subscriptions.size} volatility indices`);
+    }
+
+    private async waitForConnection(timeout: number = 10000): Promise<void> {
+        return new Promise((resolve, reject) => {
+            if (this.isConnected) {
+                resolve();
+                return;
+            }
+
+            const checkConnection = () => {
+                if (this.isConnected) {
+                    resolve();
+                } else {
+                    setTimeout(checkConnection, 100);
+                }
+            };
+
+            setTimeout(() => {
+                reject(new Error('WebSocket connection timeout'));
+            }, timeout);
+
+            checkConnection();
+        });
     }
 
     addTickCallback(symbol: string, callback: (tick: TickData) => void): void {

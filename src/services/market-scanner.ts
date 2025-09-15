@@ -89,14 +89,36 @@ export class MarketScanner {
             // Setup tick processing pipeline
             this.setupTickProcessingPipeline();
 
-            // Subscribe to all volatility indices
-            await tickStreamManager.subscribeToAllVolatilities();
+            // Subscribe to all volatility indices with retry logic
+            let retries = 3;
+            let subscribed = false;
+            
+            while (retries > 0 && !subscribed) {
+                try {
+                    await tickStreamManager.subscribeToAllVolatilities();
+                    subscribed = true;
+                    console.log('Successfully subscribed to volatility symbols');
+                } catch (error) {
+                    console.warn(`Subscription attempt failed, retries left: ${retries - 1}`, error);
+                    retries--;
+                    if (retries > 0) {
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+                }
+            }
 
-            // Wait a moment for initial data
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            if (!subscribed) {
+                throw new Error('Failed to subscribe to volatility symbols after retries');
+            }
+
+            // Wait for initial data collection
+            await new Promise(resolve => setTimeout(resolve, 3000));
 
             this.isInitialized = true;
             this.updateStatus();
+            
+            // Start periodic status updates
+            this.startStatusUpdates();
             
             console.log('Market Scanner initialized successfully');
             
@@ -107,6 +129,17 @@ export class MarketScanner {
             this.notifyStatusChange();
             throw error;
         }
+    }
+
+    /**
+     * Start periodic status updates
+     */
+    private startStatusUpdates(): void {
+        // Update status every 5 seconds
+        setInterval(() => {
+            this.updateStatus();
+            this.updateRecommendations();
+        }, 5000);
     }
 
     /**
