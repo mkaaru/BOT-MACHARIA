@@ -64,6 +64,10 @@ const MLTrader = observer(() => {
 
     const apiRef = useRef<any>(null);
     const contractInProgressRef = useRef(false);
+    const lastOutcomeWasLossRef = useRef<boolean>(false);
+    const baseStakeRef = useRef<number>(1.0); // Store the initial stake
+    const lossStreakRef = useRef<number>(0);
+    const stepRef = useRef<number>(0); // Current step in Martingale or other progression
 
     const [is_authorized, setIsAuthorized] = useState(false);
     const [account_currency, setAccountCurrency] = useState<string>('USD');
@@ -93,6 +97,33 @@ const MLTrader = observer(() => {
     const [selected_recommendation, setSelectedRecommendation] = useState<TradingRecommendation | null>(null);
     const [volatility_trends, setVolatilityTrends] = useState<Map<string, TrendAnalysis>>(new Map());
     const [initial_scan_complete, setInitialScanComplete] = useState(false);
+
+    // Super Elite Bot Logic Adaptation
+    const baseStake = baseStakeRef.current; // Use baseStake from ref for calculations
+    const lossStreak = lossStreakRef.current;
+    const step = stepRef.current;
+
+    // Placeholder for Super Elite's prediction logic
+    const ouPredPostLoss = 3; // Example: Super Elite uses 3 after a loss
+
+    const handleContractOutcome = useCallback((profit: number) => {
+        if (profit > 0) {
+            // WIN: Reset to pre-loss state
+            lastOutcomeWasLossRef.current = false;
+            lossStreakRef.current = 0;
+            stepRef.current = 0;
+            setStake(baseStake); // Reset stake to base stake
+            console.log(`✅ WIN: +${profit.toFixed(2)} ${account_currency} - Reset to pre-loss prediction`);
+        } else {
+            // LOSS: Set flag for next trade to use after-loss prediction and apply Martingale
+            lastOutcomeWasLossRef.current = true;
+            lossStreakRef.current++;
+            stepRef.current = Math.min(stepRef.current + 1, 10); // Increment step, cap at 10
+            const martingaleMultiplier = 2.2; // Super Elite's multiplier
+            setStake(prevStake => (prevStake * martingaleMultiplier).toFixed(2)); // Apply Martingale
+            console.log(`❌ LOSS: ${profit.toFixed(2)} ${account_currency} - Next trade will use after-loss prediction (${ouPredPostLoss})`);
+        }
+    }, [account_currency, baseStake, ouPredPostLoss]); // Add dependencies
 
     useEffect(() => {
         // Initialize API connection and market scanner
@@ -143,7 +174,7 @@ const MLTrader = observer(() => {
             const statusUnsubscribe = marketScanner.onStatusChange((status) => {
                 setScannerStatus(status);
                 setScanningProgress((status.connectedSymbols / status.totalSymbols) * 100);
-                
+
                 // Force update trends when symbols are connected
                 if (status.connectedSymbols > 0) {
                     updateTrendsFromScanner();
@@ -218,7 +249,7 @@ const MLTrader = observer(() => {
         if (hasData) {
             setMarketTrends(trendsMap);
             setVolatilityTrends(trendsMap);
-            
+
             // Mark initial scan as complete when we have trends for at least 2 symbols (reasonable with 5000 ticks)
             if (trendsMap.size >= 2 && !initial_scan_complete) {
                 console.log(`✅ ML Trader: Initial scan completed with ${trendsMap.size} symbols using historical data`);
@@ -231,7 +262,7 @@ const MLTrader = observer(() => {
                 // You can check if the candle reconstruction engine has data
                 return true; // For now, assume data is flowing based on console logs
             }).length;
-            
+
             if (symbolsWithCandles > 0) {
                 setStatus(`Building trend analysis... ${symbolsWithCandles}/10 symbols have data`);
                 setScanningProgress((symbolsWithCandles / ENHANCED_VOLATILITY_SYMBOLS.length) * 50); // 50% for having data
@@ -245,12 +276,12 @@ const MLTrader = observer(() => {
             setStatus('Scanning volatility markets...');
             await marketScanner.refresh();
             setStatus('Market scan completed');
-            
+
             // Force update trends after scan
             setTimeout(() => {
                 updateTrendsFromScanner();
             }, 2000);
-            
+
         } catch (error) {
             console.error('Market scan failed:', error);
             setStatus(`Market scan failed: ${error}`);
@@ -270,6 +301,7 @@ const MLTrader = observer(() => {
         setDuration(recommendation.suggestedDuration);
         setDurationUnit(recommendation.suggestedDurationUnit);
         setStake(recommendation.suggestedStake);
+        baseStakeRef.current = recommendation.suggestedStake; // Set the base stake
 
         // Update trade mode based on recommendation
         if (recommendation.direction === 'CALL' || recommendation.direction === 'PUT') {
@@ -326,8 +358,8 @@ const MLTrader = observer(() => {
 
         // Add barrier for Higher/Lower trades
         if (trade_mode === 'higher_lower' && current_price) {
-            const barrier_value = contract_type === 'CALL' 
-                ? current_price + barrier_offset 
+            const barrier_value = contract_type === 'CALL'
+                ? current_price + barrier_offset
                 : current_price - barrier_offset;
             trade_option.barrier = barrier_value.toFixed(5);
         }
@@ -377,11 +409,50 @@ const MLTrader = observer(() => {
 
             setStatus(`Contract purchased: ${buy?.longcode}`);
 
+            // Start monitoring the contract
+            const poc = await apiRef.current.proposal_open_contract({ contract_id: buy?.contract_id });
+            run_panel.setContractStage(contract_stages.PENDING);
+
+            let pocSubId: string | null = null;
+            const onMsg = (msg: any) => {
+                if (msg.event === 'proposal_open_contract' && msg.proposal_open_contract.contract_id === buy?.contract_id) {
+                    const pocUpdate = msg.proposal_open_contract;
+                    if (pocUpdate.is_sold || pocUpdate.status === 'sold') {
+                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                        run_panel.setHasOpenContract(false);
+                        if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
+                        apiRef.current?.connection?.removeEventListener('message', onMsg);
+
+                        contractInProgressRef.current = false;
+                        const profit = Number(pocUpdate?.profit || 0);
+
+                        // Apply Super Elite bot outcome logic
+                        handleContractOutcome(profit);
+
+                        setStatus(`Contract completed: ${profit > 0 ? 'WIN' : 'LOSS'} ${profit.toFixed(2)} ${account_currency}`);
+                    } else {
+                        run_panel.setContractStage(contract_stages.OPEN);
+                        // Update transaction status if needed
+                        transactions.onBotContractEvent({
+                            contract_id: pocUpdate.contract_id,
+                            status: 'open',
+                            profit: Number(pocUpdate.profit || 0),
+                            payout: Number(pocUpdate.final_price || 0),
+                            longcode: pocUpdate.longcode,
+                        } as any);
+                    }
+                }
+            };
+
+            apiRef.current?.connection?.addEventListener('message', onMsg);
+            pocSubId = await apiRef.current.subscribe({ proposal_open_contract: 1, contract_id: buy?.contract_id });
+
         } catch (error: any) {
             console.error('Purchase error:', error);
             setStatus(`Purchase failed: ${error.message}`);
             setIsRunning(false);
             run_panel.setIsRunning(false);
+            contractInProgressRef.current = false; // Ensure this is reset on error
         }
     };
 
@@ -427,8 +498,8 @@ const MLTrader = observer(() => {
                                 <Text as="h3">Market Scanner</Text>
                                 <div className="scanner-progress">
                                     <div className="progress-bar">
-                                        <div 
-                                            className="progress-fill" 
+                                        <div
+                                            className="progress-fill"
                                             style={{ width: `${scanning_progress}%` }}
                                         />
                                     </div>
@@ -450,8 +521,8 @@ const MLTrader = observer(() => {
                                     <Text size="xs" color="general">Analyzing market data...</Text>
                                     <div className="progress-indicator">
                                         <div className="progress-bar">
-                                            <div 
-                                                className="progress-fill" 
+                                            <div
+                                                className="progress-fill"
                                                 style={{ width: `${scanning_progress}%` }}
                                             />
                                         </div>
@@ -464,7 +535,7 @@ const MLTrader = observer(() => {
                         <div className="volatility-trends-grid">
                             {ENHANCED_VOLATILITY_SYMBOLS.map(symbolInfo => {
                                 const trend = volatility_trends.get(symbolInfo.symbol);
-                                
+
                                 return (
                                     <div key={symbolInfo.symbol} className={`volatility-trend-card ${trend ? 'has-data' : 'loading'}`}>
                                         <div className="trend-card-header">
@@ -479,7 +550,7 @@ const MLTrader = observer(() => {
                                             <>
                                                 <div className={`trend-direction ${trend.direction}`}>
                                                     <span className="trend-icon">
-                                                        {trend.direction === 'bullish' ? '📈' : 
+                                                        {trend.direction === 'bullish' ? '📈' :
                                                          trend.direction === 'bearish' ? '📉' : '➡️'}
                                                     </span>
                                                     <div className="trend-info">
@@ -492,8 +563,8 @@ const MLTrader = observer(() => {
                                                     <div className="metric">
                                                         <Text size="xs">Confidence</Text>
                                                         <div className="confidence-bar">
-                                                            <div 
-                                                                className="confidence-fill" 
+                                                            <div
+                                                                className="confidence-fill"
                                                                 style={{ width: `${trend.confidence}%` }}
                                                             />
                                                         </div>
@@ -512,7 +583,7 @@ const MLTrader = observer(() => {
                                                     </div>
                                                     <div className="hma-slopes">
                                                         <Text size="xs">
-                                                            Slope: {trend.hma5Slope ? (trend.hma5Slope > 0 ? '↗️' : '↘️') : '→'} 
+                                                            Slope: {trend.hma5Slope ? (trend.hma5Slope > 0 ? '↗️' : '↘️') : '→'}
                                                             {Math.abs(trend.hma5Slope || 0).toFixed(6)}
                                                         </Text>
                                                     </div>
@@ -526,8 +597,8 @@ const MLTrader = observer(() => {
                                             <div className="loading-state">
                                                 <div className="loading-spinner"></div>
                                                 <Text size="xs" color="general">
-                                                    {is_scanner_initialized ? 
-                                                        `Building trends... Need ${Math.max(0, 40 - Math.floor(Math.random() * 20))} more candles` : 
+                                                    {is_scanner_initialized ?
+                                                        `Building trends... Need ${Math.max(0, 40 - Math.floor(Math.random() * 20))} more candles` :
                                                         'Connecting to market feeds...'
                                                     }
                                                 </Text>
@@ -556,7 +627,7 @@ const MLTrader = observer(() => {
                                     const isSelected = selected_recommendation?.symbol === rec.symbol;
 
                                     return (
-                                        <div 
+                                        <div
                                             key={rec.symbol}
                                             className={`recommendation-card ${rec.direction.toLowerCase()} ${isSelected ? 'selected' : ''}`}
                                             onClick={() => applyRecommendation(rec)}
@@ -617,8 +688,8 @@ const MLTrader = observer(() => {
                                 <div className="form-row">
                                     <div className="form-field">
                                         <Text as="label">Asset</Text>
-                                        <select 
-                                            value={symbol} 
+                                        <select
+                                            value={symbol}
                                             onChange={(e) => setSymbol(e.target.value)}
                                             disabled={is_running}
                                         >
@@ -632,8 +703,8 @@ const MLTrader = observer(() => {
 
                                     <div className="form-field">
                                         <Text as="label">Trade Mode</Text>
-                                        <select 
-                                            value={trade_mode} 
+                                        <select
+                                            value={trade_mode}
                                             onChange={(e) => setTradeMode(e.target.value as any)}
                                             disabled={is_running}
                                         >
@@ -646,8 +717,8 @@ const MLTrader = observer(() => {
                                 <div className="form-row">
                                     <div className="form-field">
                                         <Text as="label">Contract Type</Text>
-                                        <select 
-                                            value={contract_type} 
+                                        <select
+                                            value={contract_type}
                                             onChange={(e) => setContractType(e.target.value)}
                                             disabled={is_running}
                                         >
@@ -661,9 +732,9 @@ const MLTrader = observer(() => {
 
                                     <div className="form-field">
                                         <Text as="label">Stake ({account_currency})</Text>
-                                        <input 
-                                            type="number" 
-                                            value={stake} 
+                                        <input
+                                            type="number"
+                                            value={stake}
                                             onChange={(e) => setStake(Number(e.target.value))}
                                             min="0.1"
                                             step="0.1"
@@ -675,9 +746,9 @@ const MLTrader = observer(() => {
                                 <div className="form-row">
                                     <div className="form-field">
                                         <Text as="label">Duration</Text>
-                                        <input 
-                                            type="number" 
-                                            value={duration} 
+                                        <input
+                                            type="number"
+                                            value={duration}
                                             onChange={(e) => setDuration(Number(e.target.value))}
                                             min="1"
                                             disabled={is_running}
@@ -686,8 +757,8 @@ const MLTrader = observer(() => {
 
                                     <div className="form-field">
                                         <Text as="label">Duration Unit</Text>
-                                        <select 
-                                            value={duration_unit} 
+                                        <select
+                                            value={duration_unit}
                                             onChange={(e) => setDurationUnit(e.target.value as any)}
                                             disabled={is_running}
                                         >
@@ -702,9 +773,9 @@ const MLTrader = observer(() => {
                                     <div className="form-row">
                                         <div className="form-field">
                                             <Text as="label">Barrier Offset</Text>
-                                            <input 
-                                                type="number" 
-                                                value={barrier_offset} 
+                                            <input
+                                                type="number"
+                                                value={barrier_offset}
                                                 onChange={(e) => setBarrierOffset(Number(e.target.value))}
                                                 step="0.001"
                                                 disabled={is_running}

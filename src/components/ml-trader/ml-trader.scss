@@ -637,4 +637,55 @@
             background: var(--general-main-2);
         }
     }
+
+    .readonly-field {
+        background-color: #f5f5f5;
+        color: #666;
+        cursor: not-allowed;
+    }
+
+    .checkbox-field {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+
+        input[type="checkbox"] {
+            margin: 0;
+        }
+    }
+
+    .super-elite-status {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+
+        h4 {
+            margin: 0 0 1rem 0;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .status-item {
+            text-align: center;
+
+            .loss {
+                color: #ff6b6b;
+                font-weight: bold;
+            }
+
+            .win {
+                color: #51cf66;
+                font-weight: bold;
+            }
+        }
+    }
 }
