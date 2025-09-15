@@ -338,8 +338,9 @@ const MLTrader = observer(() => {
             setModalDurationUnit((recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 't');
             setModalStake(recommendation.suggestedStake || 1.0);
             
-            // Set trade mode based on recommendation strategy
-            if (recommendation.strategy === 'call' || recommendation.strategy === 'put' || 
+            // Set trade mode based on recommendation strategy or direction
+            const strategy = recommendation.strategy || recommendation.direction || 'call';
+            if (strategy === 'call' || strategy === 'put' || 
                 recommendation.direction === 'CALL' || recommendation.direction === 'PUT') {
                 setModalTradeMode('rise_fall');
             } else {
@@ -363,7 +364,8 @@ const MLTrader = observer(() => {
             setIsModalOpen(true);
             
             const displayName = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === recommendation.symbol)?.display_name || recommendation.symbol;
-            setStatus(`Opened trading interface for ${displayName} - ${recommendation.strategy.toUpperCase()}`);
+            const strategyText = (recommendation.strategy || recommendation.direction || 'TRADE').toUpperCase();
+            setStatus(`Opened trading interface for ${displayName} - ${strategyText}`);
         } catch (error) {
             console.error('Error opening recommendation modal:', error);
             setStatus('Error opening trading interface');

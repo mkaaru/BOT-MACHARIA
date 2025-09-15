@@ -258,7 +258,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
                                 {localize('Symbol:')} {ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === recommendation.symbol)?.display_name || recommendation.symbol}
                             </Text>
                             <Text size="xs">
-                                {localize('Strategy:')} {recommendation.strategy.toUpperCase()}
+                                {localize('Strategy:')} {(recommendation.strategy || recommendation.direction || 'TRADE').toUpperCase()}
                             </Text>
                             <Text size="xs">
                                 {localize('Confidence:')} {recommendation.confidence.toFixed(1)}%
