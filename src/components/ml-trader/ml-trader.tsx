@@ -9,6 +9,9 @@ import { marketScanner, TradingRecommendation, ScannerStatus } from '@/services/
 import { TrendAnalysis } from '@/services/trend-analysis-engine';
 import './ml-trader.scss';
 
+// Import Modal components and related logic
+import TradingModal from './TradingModal'; // Assuming TradingModal.tsx or .jsx
+
 // Enhanced volatility symbols including 1-second indices
 const ENHANCED_VOLATILITY_SYMBOLS = [
     { symbol: 'R_10', display_name: 'Volatility 10 Index', is_1s: false },
@@ -73,14 +76,14 @@ const MLTrader = observer(() => {
     const [account_currency, setAccountCurrency] = useState<string>('USD');
     const [current_price, setCurrentPrice] = useState<number | null>(null);
 
-    // Form state
-    const [symbol, setSymbol] = useState<string>('');
-    const [trade_mode, setTradeMode] = useState<'rise_fall' | 'higher_lower'>('rise_fall');
-    const [contract_type, setContractType] = useState<string>('CALL');
-    const [duration, setDuration] = useState<number>(5);
-    const [duration_unit, setDurationUnit] = useState<'t' | 's' | 'm'>('t');
-    const [stake, setStake] = useState<number>(1.0);
-    const [barrier_offset, setBarrierOffset] = useState<number>(0.001);
+    // Form state for the trading interface
+    const [modal_symbol, setModalSymbol] = useState<string>('');
+    const [modal_trade_mode, setModalTradeMode] = useState<'rise_fall' | 'higher_lower'>('rise_fall');
+    const [modal_contract_type, setModalContractType] = useState<string>('CALL');
+    const [modal_duration, setModalDuration] = useState<number>(5);
+    const [modal_duration_unit, setModalDurationUnit] = useState<'t' | 's' | 'm'>('t');
+    const [modal_stake, setModalStake] = useState<number>(1.0);
+    const [modal_barrier_offset, setModalBarrierOffset] = useState<number>(0.001);
 
     const [status, setStatus] = useState<string>('');
     const [is_running, setIsRunning] = useState(false);
@@ -97,6 +100,10 @@ const MLTrader = observer(() => {
     const [selected_recommendation, setSelectedRecommendation] = useState<TradingRecommendation | null>(null);
     const [volatility_trends, setVolatilityTrends] = useState<Map<string, TrendAnalysis>>(new Map());
     const [initial_scan_complete, setInitialScanComplete] = useState(false);
+
+    // Modal state
+    const [is_modal_open, setIsModalOpen] = useState(false);
+    const [modal_recommendation, setModalRecommendation] = useState<TradingRecommendation | null>(null);
 
     // Super Elite Bot Logic Adaptation
     const baseStake = baseStakeRef.current; // Use baseStake from ref for calculations
@@ -288,7 +295,7 @@ const MLTrader = observer(() => {
         }
     }, [updateTrendsFromScanner]);
 
-    // Apply a trading recommendation
+    // Apply a trading recommendation to the trading interface (not modal)
     const applyRecommendation = useCallback((recommendation: TradingRecommendation) => {
         if (is_running || contractInProgressRef.current) {
             console.warn('Cannot apply recommendation: trading in progress');
@@ -311,6 +318,59 @@ const MLTrader = observer(() => {
         setCurrentPrice(recommendation.currentPrice);
         setStatus(`Applied recommendation: ${recommendation.reason}`);
     }, [is_running]);
+
+    // Open the modal with the selected recommendation
+    const openRecommendationModal = useCallback((recommendation: TradingRecommendation) => {
+        setModalRecommendation(recommendation);
+        // Pre-fill modal form with recommendation's data
+        setModalSymbol(recommendation.symbol);
+        setModalContractType(recommendation.direction);
+        setModalDuration(recommendation.suggestedDuration);
+        setModalDurationUnit(recommendation.suggestedDurationUnit);
+        setModalStake(recommendation.suggestedStake);
+        baseStakeRef.current = recommendation.suggestedStake; // Set base stake for modal
+
+        if (recommendation.direction === 'CALL' || recommendation.direction === 'PUT') {
+            setModalTradeMode('rise_fall');
+        }
+        setCurrentPrice(recommendation.currentPrice); // Set current price for modal context
+
+        setIsModalOpen(true);
+        setStatus(`Opened trading interface for ${recommendation.displayName}`);
+    }, []);
+
+    // Load settings from modal to the bot builder
+    const loadSettingsToBotBuilder = useCallback(() => {
+        if (!modal_recommendation) return;
+
+        // Here, you would typically interact with the Bot Builder's state or API
+        // to load these settings. For this example, we'll just log them.
+        console.log('Loading settings to Bot Builder:', {
+            symbol: modal_symbol,
+            trade_mode: modal_trade_mode,
+            contract_type: modal_contract_type,
+            duration: modal_duration,
+            duration_unit: modal_duration_unit,
+            stake: modal_stake,
+            barrier_offset: modal_barrier_offset,
+        });
+
+        // Example: If you have a way to update the Bot Builder state directly
+        // For instance, if Bot Builder is managed by another store or context:
+        // botBuilderStore.updateTradeParameters({
+        //     symbol: modal_symbol,
+        //     contract_type: modal_contract_type,
+        //     duration: modal_duration,
+        //     duration_unit: modal_duration_unit,
+        //     stake: modal_stake,
+        //     barrier_offset: modal_barrier_offset,
+        //     // ... other relevant parameters
+        // });
+
+        setStatus(`Settings loaded to Bot Builder for ${modal_recommendation.displayName}`);
+        setIsModalOpen(false); // Close the modal after loading
+    }, [modal_recommendation, modal_symbol, modal_trade_mode, modal_contract_type, modal_duration, modal_duration_unit, modal_stake, modal_barrier_offset]);
+
 
     const authorizeIfNeeded = async () => {
         if (is_authorized) return;
@@ -343,28 +403,28 @@ const MLTrader = observer(() => {
 
         await authorizeIfNeeded();
 
-        if (!current_price && trade_mode === 'higher_lower') {
+        if (!current_price && modal_trade_mode === 'higher_lower') {
             throw new Error('Current price not available');
         }
 
         const trade_option: any = {
-            amount: Number(stake),
+            amount: Number(modal_stake),
             basis: 'stake',
             currency: account_currency,
-            duration: Number(duration),
-            duration_unit,
-            symbol,
+            duration: Number(modal_duration),
+            duration_unit: modal_duration_unit,
+            symbol: modal_symbol,
         };
 
         // Add barrier for Higher/Lower trades
-        if (trade_mode === 'higher_lower' && current_price) {
-            const barrier_value = contract_type === 'CALL'
-                ? current_price + barrier_offset
-                : current_price - barrier_offset;
+        if (modal_trade_mode === 'higher_lower' && current_price) {
+            const barrier_value = modal_contract_type === 'CALL'
+                ? current_price + modal_barrier_offset
+                : current_price - modal_barrier_offset;
             trade_option.barrier = barrier_value.toFixed(5);
         }
 
-        const buy_req = tradeOptionToBuy(contract_type, trade_option);
+        const buy_req = tradeOptionToBuy(modal_contract_type, trade_option);
         const { buy, error } = await apiRef.current.buy(buy_req);
         if (error) throw error;
 
@@ -373,8 +433,8 @@ const MLTrader = observer(() => {
     };
 
     const onStart = async () => {
-        if (!selected_recommendation) {
-            setStatus('Please select a recommendation first');
+        if (!modal_recommendation) { // Use modal_recommendation here as it's the source after modal interaction
+            setStatus('Please select a recommendation and confirm settings');
             return;
         }
 
@@ -391,14 +451,14 @@ const MLTrader = observer(() => {
             const buy = await purchaseContract();
 
             // Add to transactions
-            const symbol_display = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === symbol)?.display_name || symbol;
+            const symbol_display = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === modal_symbol)?.display_name || modal_symbol;
             transactions.onBotContractEvent({
                 contract_id: buy?.contract_id,
                 transaction_ids: { buy: buy?.transaction_id },
                 buy_price: buy?.buy_price,
                 currency: account_currency,
-                contract_type: contract_type as any,
-                underlying: symbol,
+                contract_type: modal_contract_type as any,
+                underlying: modal_symbol,
                 display_name: symbol_display,
                 date_start: Math.floor(Date.now() / 1000),
                 status: 'open',
@@ -631,7 +691,7 @@ const MLTrader = observer(() => {
                                         <div
                                             key={rec.symbol}
                                             className={`recommendation-card ${rec.direction.toLowerCase()} ${isSelected ? 'selected' : ''}`}
-                                            onClick={() => applyRecommendation(rec)}
+                                            onClick={() => openRecommendationModal(rec)}
                                         >
                                             <div className="rec-header">
                                                 <div className="rec-rank">#{index + 1}</div>
@@ -683,8 +743,8 @@ const MLTrader = observer(() => {
                     </div>
 
                     <div className="ml-trader__side-content">
-                        {/* Trading Interface */}
-                        {selected_recommendation && (
+                        {/* Trading Interface - Only shows when a recommendation is selected directly */}
+                        {selected_recommendation && !is_modal_open && (
                             <div className="ml-trader__trading-interface">
                                 <Text as="h3">Trading Interface</Text>
 
@@ -693,8 +753,8 @@ const MLTrader = observer(() => {
                                         <div className="form-field">
                                             <Text as="label">Asset</Text>
                                             <select
-                                                value={symbol}
-                                                onChange={(e) => setSymbol(e.target.value)}
+                                                value={modal_symbol} // Use modal state here
+                                                onChange={(e) => setModalSymbol(e.target.value)}
                                                 disabled={is_running}
                                             >
                                                 {ENHANCED_VOLATILITY_SYMBOLS.map(s => (
@@ -708,8 +768,8 @@ const MLTrader = observer(() => {
                                         <div className="form-field">
                                             <Text as="label">Trade Mode</Text>
                                             <select
-                                                value={trade_mode}
-                                                onChange={(e) => setTradeMode(e.target.value as any)}
+                                                value={modal_trade_mode} // Use modal state here
+                                                onChange={(e) => setModalTradeMode(e.target.value as any)}
                                                 disabled={is_running}
                                             >
                                                 <option value="rise_fall">Rise/Fall</option>
@@ -722,11 +782,11 @@ const MLTrader = observer(() => {
                                         <div className="form-field">
                                             <Text as="label">Contract Type</Text>
                                             <select
-                                                value={contract_type}
-                                                onChange={(e) => setContractType(e.target.value)}
+                                                value={modal_contract_type} // Use modal state here
+                                                onChange={(e) => setModalContractType(e.target.value)}
                                                 disabled={is_running}
                                             >
-                                                {(trade_mode === 'rise_fall' ? TRADE_TYPES : HIGHER_LOWER_TYPES).map(type => (
+                                                {(modal_trade_mode === 'rise_fall' ? TRADE_TYPES : HIGHER_LOWER_TYPES).map(type => (
                                                     <option key={type.value} value={type.value}>
                                                         {type.label}
                                                     </option>
@@ -738,8 +798,8 @@ const MLTrader = observer(() => {
                                             <Text as="label">Stake ({account_currency})</Text>
                                             <input
                                                 type="number"
-                                                value={stake}
-                                                onChange={(e) => setStake(Number(e.target.value))}
+                                                value={modal_stake} // Use modal state here
+                                                onChange={(e) => setModalStake(Number(e.target.value))}
                                                 min="0.1"
                                                 step="0.1"
                                                 disabled={is_running}
@@ -752,8 +812,8 @@ const MLTrader = observer(() => {
                                             <Text as="label">Duration</Text>
                                             <input
                                                 type="number"
-                                                value={duration}
-                                                onChange={(e) => setDuration(Number(e.target.value))}
+                                                value={modal_duration} // Use modal state here
+                                                onChange={(e) => setModalDuration(Number(e.target.value))}
                                                 min="1"
                                                 disabled={is_running}
                                             />
@@ -762,8 +822,8 @@ const MLTrader = observer(() => {
                                         <div className="form-field">
                                             <Text as="label">Duration Unit</Text>
                                             <select
-                                                value={duration_unit}
-                                                onChange={(e) => setDurationUnit(e.target.value as any)}
+                                                value={modal_duration_unit} // Use modal state here
+                                                onChange={(e) => setModalDurationUnit(e.target.value as any)}
                                                 disabled={is_running}
                                             >
                                                 <option value="t">Ticks</option>
@@ -773,14 +833,14 @@ const MLTrader = observer(() => {
                                         </div>
                                     </div>
 
-                                    {trade_mode === 'higher_lower' && (
+                                    {modal_trade_mode === 'higher_lower' && (
                                         <div className="form-row">
                                             <div className="form-field">
                                                 <Text as="label">Barrier Offset</Text>
                                                 <input
                                                     type="number"
-                                                    value={barrier_offset}
-                                                    onChange={(e) => setBarrierOffset(Number(e.target.value))}
+                                                    value={modal_barrier_offset} // Use modal state here
+                                                    onChange={(e) => setModalBarrierOffset(Number(e.target.value))}
                                                     step="0.001"
                                                     disabled={is_running}
                                                 />
@@ -804,7 +864,7 @@ const MLTrader = observer(() => {
                                     <button
                                         className={`ml-trader__btn ${is_running ? 'ml-trader__btn--stop' : 'ml-trader__btn--start'}`}
                                         onClick={is_running ? onStop : onStart}
-                                        disabled={!selected_recommendation && !is_running}
+                                        disabled={!modal_recommendation && !is_running} // Disabled if no modal recommendation is set
                                     >
                                         {is_running ? 'Stop' : 'Start Trading'}
                                     </button>
@@ -822,6 +882,31 @@ const MLTrader = observer(() => {
                     </div>
                 </div>
             </div>
+
+            {/* Trading Modal */}
+            <TradingModal
+                isOpen={is_modal_open}
+                onClose={() => setIsModalOpen(false)}
+                recommendation={modal_recommendation}
+                account_currency={account_currency}
+                current_price={current_price}
+                onLoadSettings={loadSettingsToBotBuilder}
+                // Pass modal state and setters for form manipulation
+                symbol={modal_symbol}
+                setSymbol={setModalSymbol}
+                trade_mode={modal_trade_mode}
+                setTradeMode={setModalTradeMode}
+                contract_type={modal_contract_type}
+                setContractType={setModalContractType}
+                duration={modal_duration}
+                setDuration={setModalDuration}
+                duration_unit={modal_duration_unit}
+                setDurationUnit={setModalDurationUnit}
+                stake={modal_stake}
+                setStake={setModalStake}
+                barrier_offset={modal_barrier_offset}
+                setBarrierOffset={setModalBarrierOffset}
+            />
         </div>
     );
 });
