@@ -111,16 +111,16 @@ export class MarketScanner {
                 throw new Error('Failed to subscribe to volatility symbols after retries');
             }
 
-            // Wait for initial data collection
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Start periodic status updates immediately
+            this.startStatusUpdates();
+            
+            // Wait for initial data processing (reduced time since we get 5000 ticks immediately)
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
             this.isInitialized = true;
             this.updateStatus();
             
-            // Start periodic status updates
-            this.startStatusUpdates();
-            
-            console.log('Market Scanner initialized successfully');
+            console.log('Market Scanner initialized successfully with historical data');
             
         } catch (error) {
             console.error('Failed to initialize Market Scanner:', error);

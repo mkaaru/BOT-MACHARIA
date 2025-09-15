@@ -172,15 +172,15 @@ const MLTrader = observer(() => {
                 updateTrendsFromScanner();
             }, 5000); // Update every 5 seconds
 
-            // Mark as complete after a reasonable time for initial data collection
-            // HMA calculations need 40+ candles, so we need more time for meaningful analysis
+            // Mark as complete after initial data processing (reduced time with 5000 historical ticks)
+            // HMA calculations need 40+ candles, but with 5000 ticks we get immediate candle reconstruction
             setTimeout(() => {
                 if (!initial_scan_complete) {
-                    console.log('⏰ ML Trader: Forcing scan completion after timeout - partial data available');
+                    console.log('⏰ ML Trader: Forcing scan completion after timeout - historical data processed');
                     setInitialScanComplete(true);
-                    setStatus('Market analysis ready (partial data) - trends will improve with more data');
+                    setStatus('Market analysis ready - historical trends available');
                 }
-            }, 45000); // 45 seconds to allow for more candle data collection
+            }, 15000); // 15 seconds should be enough with 5000 historical ticks
 
             // Cleanup function stored in ref for unmount
             return () => {
@@ -219,11 +219,11 @@ const MLTrader = observer(() => {
             setMarketTrends(trendsMap);
             setVolatilityTrends(trendsMap);
             
-            // Mark initial scan as complete when we have trends for at least 1 symbol (lowered from 3)
-            if (trendsMap.size >= 1 && !initial_scan_complete) {
-                console.log(`✅ ML Trader: Initial scan completed with ${trendsMap.size} symbols`);
+            // Mark initial scan as complete when we have trends for at least 2 symbols (reasonable with 5000 ticks)
+            if (trendsMap.size >= 2 && !initial_scan_complete) {
+                console.log(`✅ ML Trader: Initial scan completed with ${trendsMap.size} symbols using historical data`);
                 setInitialScanComplete(true);
-                setStatus('Market analysis ready - generating more trends...');
+                setStatus(`Market analysis ready - ${trendsMap.size} symbols analyzed with historical trends`);
             }
         } else {
             // Check if we have any candle data at all

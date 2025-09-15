@@ -66,7 +66,28 @@ export class TickStreamManager {
             try {
                 const rawData = JSON.parse(evt.data);
                 
-                // Validate tick response with type guard
+                // Handle tick history response
+                if (rawData.msg_type === 'history' && rawData.history) {
+                    const symbol = rawData.echo_req.ticks_history;
+                    const times = rawData.history.times;
+                    const prices = rawData.history.prices;
+                    
+                    console.log(`Received history for ${symbol}: ${prices.length} ticks`);
+                    
+                    // Process historical ticks
+                    for (let i = 0; i < prices.length; i++) {
+                        const tickData: TickData = {
+                            symbol,
+                            epoch: times[i],
+                            quote: parseFloat(prices[i]),
+                            timestamp: new Date(times[i] * 1000),
+                        };
+                        this.notifyTickCallbacks(tickData);
+                    }
+                    return;
+                }
+                
+                // Handle real-time tick updates
                 if (isTickResponse(rawData)) {
                     const tickData: TickData = {
                         symbol: rawData.tick.symbol,
@@ -116,14 +137,42 @@ export class TickStreamManager {
         }
 
         try {
-            const response = await this.api.send({ ticks: symbol, subscribe: 1 });
-            if (response.error) {
-                throw new Error(`Failed to subscribe to ${symbol}: ${response.error.message}`);
+            // First, get historical ticks (last 5000 ticks) for immediate trend analysis
+            const historyResponse = await this.api.send({
+                ticks_history: symbol,
+                count: 5000,
+                end: 'latest',
+                style: 'ticks',
+                subscribe: 1
+            });
+
+            if (historyResponse.error) {
+                throw new Error(`Failed to get history for ${symbol}: ${historyResponse.error.message}`);
             }
 
-            if (response.subscription?.id) {
-                this.subscriptions.set(symbol, response.subscription.id);
-                console.log(`Successfully subscribed to ${symbol} with ID: ${response.subscription.id}`);
+            // Process historical ticks immediately
+            if (historyResponse.history && historyResponse.history.prices) {
+                const times = historyResponse.history.times;
+                const prices = historyResponse.history.prices;
+                
+                console.log(`Processing ${prices.length} historical ticks for ${symbol}`);
+                
+                // Process each historical tick
+                for (let i = 0; i < prices.length; i++) {
+                    const tickData: TickData = {
+                        symbol,
+                        epoch: times[i],
+                        quote: parseFloat(prices[i]),
+                        timestamp: new Date(times[i] * 1000),
+                    };
+                    this.notifyTickCallbacks(tickData);
+                }
+            }
+
+            // Store subscription ID for real-time updates
+            if (historyResponse.subscription?.id) {
+                this.subscriptions.set(symbol, historyResponse.subscription.id);
+                console.log(`Successfully subscribed to ${symbol} with ID: ${historyResponse.subscription.id} and processed ${historyResponse.history?.prices?.length || 0} historical ticks`);
             }
         } catch (error) {
             console.error(`Error subscribing to ${symbol}:`, error);

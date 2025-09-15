@@ -59,6 +59,29 @@ export class CandleReconstructionEngine {
         }
     }
 
+    /**
+     * Process historical ticks in batch for faster initialization
+     */
+    processHistoricalTicks(symbol: string, ticks: TickData[]): void {
+        console.log(`Processing ${ticks.length} historical ticks for ${symbol}`);
+        
+        // Sort ticks by epoch to ensure proper chronological order
+        const sortedTicks = ticks.sort((a, b) => a.epoch - b.epoch);
+        
+        // Process each tick
+        sortedTicks.forEach(tick => {
+            this.processTick(tick);
+        });
+        
+        // Force completion of any remaining buffer
+        const buffer = this.candleBuffers.get(symbol);
+        if (buffer && buffer.tickCount > 0) {
+            this.completeCandle(buffer);
+        }
+        
+        console.log(`Completed processing historical ticks for ${symbol}, generated ${this.getCandles(symbol).length} candles`);
+    }
+
     private getCandleStartTime(epoch: number): number {
         // Round down to the nearest minute
         return Math.floor(epoch / 60) * 60;
