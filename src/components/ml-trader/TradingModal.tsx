@@ -3,6 +3,7 @@ import Modal from '@/components/shared_ui/modal';
 import Text from '@/components/shared_ui/text';
 import Button from '@/components/shared_ui/button';
 import { localize } from '@deriv-com/translations';
+import { useStore } from '@/hooks/useStore';
 
 interface TradingRecommendation {
     symbol: string;
@@ -92,6 +93,9 @@ const TradingModal: React.FC<TradingModalProps> = ({
     barrier_offset,
     setBarrierOffset,
 }) => {
+    const store = useStore();
+    const { dashboard } = store;
+
     if (!isOpen || !recommendation) return null;
 
     const handleClose = () => {
@@ -186,56 +190,74 @@ const TradingModal: React.FC<TradingModalProps> = ({
     };
 
     // Load settings to Bot Builder
-    const handleLoadToBotBuilder = () => {
+    const handleLoadToBotBuilder = async () => {
         try {
-            // Import required dependencies
-            const { load } = require('@/external/bot-skeleton');
-            const { save_types } = require('@/external/bot-skeleton/constants/save-type');
-
+            console.log('🔄 Loading settings to Bot Builder...');
+            
             const xmlContent = generateBotBuilderXML();
+            console.log('📄 Generated XML:', xmlContent);
 
             // Close modal first
             onClose();
 
-            // Switch to Bot Builder tab
-            setTimeout(() => {
-                // Set active tab to Bot Builder (index 1)
-                if (window.location.hash !== '#bot_builder') {
-                    window.location.hash = '#bot_builder';
-                }
+            // Switch to Bot Builder tab (index 1)
+            dashboard.setActiveTab(1);
+            
+            // Wait for tab switch and workspace initialization
+            setTimeout(async () => {
+                try {
+                    // Import bot skeleton functions
+                    const { load } = await import('@/external/bot-skeleton');
+                    const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
 
-                // Load the strategy into Bot Builder
-                setTimeout(async () => {
+                    // Ensure workspace is ready
                     if (window.Blockly?.derivWorkspace) {
-                        try {
-                            await load({
-                                block_string: xmlContent,
-                                file_name: `ML_Recommendation_${recommendation?.symbol}_${Date.now()}`,
-                                workspace: window.Blockly.derivWorkspace,
-                                from: save_types.UNSAVED,
-                                drop_event: null,
-                                strategy_id: null,
-                                showIncompatibleStrategyDialog: null,
-                            });
+                        console.log('📦 Loading strategy to workspace...');
+                        
+                        await load({
+                            block_string: xmlContent,
+                            file_name: `ML_${symbol}_${contract_type}_${Date.now()}`,
+                            workspace: window.Blockly.derivWorkspace,
+                            from: save_types.UNSAVED,
+                            drop_event: null,
+                            strategy_id: null,
+                            showIncompatibleStrategyDialog: null,
+                        });
 
-                            // Center the workspace
-                            window.Blockly.derivWorkspace.scrollCenter();
-
-                            console.log('✅ Settings loaded to Bot Builder successfully');
-                        } catch (loadError) {
-                            console.error('Error loading strategy:', loadError);
-                            // Fallback to direct XML loading
-                            window.Blockly.derivWorkspace.clear();
-                            const xmlDoc = window.Blockly.utils.xml.textToDom(xmlContent);
-                            window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
-                            window.Blockly.derivWorkspace.scrollCenter();
-                        }
+                        // Center and focus workspace
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        console.log('✅ Strategy loaded successfully to Bot Builder');
+                        
+                    } else {
+                        console.warn('⚠️ Blockly workspace not ready, using fallback method');
+                        
+                        // Fallback: Direct XML loading
+                        setTimeout(() => {
+                            if (window.Blockly?.derivWorkspace) {
+                                window.Blockly.derivWorkspace.clear();
+                                const xmlDoc = window.Blockly.utils.xml.textToDom(xmlContent);
+                                window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                                window.Blockly.derivWorkspace.scrollCenter();
+                                console.log('✅ Strategy loaded using fallback method');
+                            }
+                        }, 500);
                     }
-                }, 100);
-            }, 100);
+                } catch (loadError) {
+                    console.error('❌ Error loading strategy:', loadError);
+                    
+                    // Final fallback
+                    if (window.Blockly?.derivWorkspace) {
+                        window.Blockly.derivWorkspace.clear();
+                        const xmlDoc = window.Blockly.utils.xml.textToDom(xmlContent);
+                        window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        console.log('✅ Strategy loaded using final fallback');
+                    }
+                }
+            }, 300);
+            
         } catch (error) {
-            console.error('Error loading settings to Bot Builder:', error);
-            onClose();
+            console.error('❌ Error in handleLoadToBotBuilder:', error);
         }
     };
 
@@ -245,139 +267,197 @@ const TradingModal: React.FC<TradingModalProps> = ({
             is_open={isOpen}
             toggleModal={handleClose}
             title={localize('Trading Interface - ML Recommendation')}
-            width="700px"
+            width="800px"
         >
             <div className="trading-modal__content">
                 <div className="trading-modal__recommendation-info">
                     <div className="recommendation-info-card">
-                        <Text size="sm" weight="bold" color="prominent">
-                            {localize('Selected Recommendation:')}
-                        </Text>
-                        <div className="recommendation-details">
-                            <Text size="xs">
-                                {localize('Symbol:')} {ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === recommendation.symbol)?.display_name || recommendation.symbol}
+                        <div className="recommendation-header">
+                            <Text size="sm" weight="bold" color="prominent">
+                                {localize('Selected Recommendation')}
                             </Text>
-                            <Text size="xs">
-                                {localize('Strategy:')} {(recommendation.strategy || recommendation.direction || 'TRADE').toUpperCase()}
-                            </Text>
-                            <Text size="xs">
-                                {localize('Confidence:')} {recommendation.confidence.toFixed(1)}%
-                            </Text>
-                            {recommendation.barrier && (
-                                <Text size="xs">
-                                    {localize('Barrier:')} {recommendation.barrier}
+                            <div className="recommendation-badge">
+                                <Text size="xs" weight="bold" color="profit-success">
+                                    {recommendation.confidence.toFixed(0)}% {localize('Confidence')}
                                 </Text>
+                            </div>
+                        </div>
+                        
+                        <div className="recommendation-details">
+                            <div className="detail-row">
+                                <div className="detail-item">
+                                    <Text size="xs" color="general">{localize('Symbol')}</Text>
+                                    <Text size="sm" weight="bold">
+                                        {ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === recommendation.symbol)?.display_name || recommendation.symbol}
+                                    </Text>
+                                </div>
+                                <div className="detail-item">
+                                    <Text size="xs" color="general">{localize('Strategy')}</Text>
+                                    <Text size="sm" weight="bold">
+                                        {(recommendation.strategy || recommendation.direction || 'TRADE').toUpperCase()}
+                                    </Text>
+                                </div>
+                            </div>
+                            
+                            {recommendation.barrier && (
+                                <div className="detail-row">
+                                    <div className="detail-item">
+                                        <Text size="xs" color="general">{localize('Barrier')}</Text>
+                                        <Text size="sm" weight="bold">{recommendation.barrier}</Text>
+                                    </div>
+                                    <div className="detail-item">
+                                        <Text size="xs" color="general">{localize('Current Price')}</Text>
+                                        <Text size="sm" weight="bold">{current_price?.toFixed(5) || 'Loading...'}</Text>
+                                    </div>
+                                </div>
                             )}
-                            <Text size="xs" color="general">
-                                {recommendation.reason}
-                            </Text>
+                            
+                            <div className="recommendation-reason">
+                                <Text size="xs" color="general">{localize('Analysis')}</Text>
+                                <Text size="xs" color="prominent">{recommendation.reason}</Text>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div className="trading-modal__trading-form">
-                    <Text as="h3" className="form-title">{localize('Trading Interface')}</Text>
+                    <div className="form-header">
+                        <Text as="h3" className="form-title">{localize('Trading Parameters')}</Text>
+                        <Text size="xs" color="general">{localize('Configure your trade settings')}</Text>
+                    </div>
 
                     <div className="form-grid">
-                        <div className="form-row">
-                            <div className="form-field">
-                                <label htmlFor="modal-asset">{localize('Asset')}</label>
-                                <select
-                                    id="modal-asset"
-                                    value={symbol}
-                                    onChange={(e) => setSymbol(e.target.value)}
-                                >
-                                    {ENHANCED_VOLATILITY_SYMBOLS.map(s => (
-                                        <option key={s.symbol} value={s.symbol}>
-                                            {s.display_name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                        <div className="form-section">
+                            <Text size="sm" weight="bold" color="prominent">{localize('Market Selection')}</Text>
+                            <div className="form-row">
+                                <div className="form-field">
+                                    <label htmlFor="modal-asset">{localize('Asset')}</label>
+                                    <select
+                                        id="modal-asset"
+                                        value={symbol}
+                                        onChange={(e) => setSymbol(e.target.value)}
+                                    >
+                                        {ENHANCED_VOLATILITY_SYMBOLS.map(s => (
+                                            <option key={s.symbol} value={s.symbol}>
+                                                {s.display_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                            <div className="form-field">
-                                <label htmlFor="modal-trade-mode">{localize('Trade Mode')}</label>
-                                <select
-                                    id="modal-trade-mode"
-                                    value={trade_mode}
-                                    onChange={(e) => setTradeMode(e.target.value as 'rise_fall' | 'higher_lower')}
-                                >
-                                    <option value="rise_fall">{localize('Rise/Fall')}</option>
-                                    <option value="higher_lower">{localize('Higher/Lower')}</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="form-row">
-                            <div className="form-field">
-                                <label htmlFor="modal-contract-type">{localize('Contract Type')}</label>
-                                <select
-                                    id="modal-contract-type"
-                                    value={contract_type}
-                                    onChange={(e) => setContractType(e.target.value)}
-                                >
-                                    {(trade_mode === 'rise_fall' ? TRADE_TYPES : HIGHER_LOWER_TYPES).map(type => (
-                                        <option key={type.value} value={type.value}>
-                                            {type.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="form-field">
-                                <label htmlFor="modal-stake">{localize('Stake')} ({account_currency})</label>
-                                <input
-                                    id="modal-stake"
-                                    type="number"
-                                    value={stake}
-                                    onChange={(e) => setStake(Number(e.target.value))}
-                                    min="0.35"
-                                    step="0.01"
-                                />
+                                <div className="form-field">
+                                    <label htmlFor="modal-trade-mode">{localize('Trade Mode')}</label>
+                                    <select
+                                        id="modal-trade-mode"
+                                        value={trade_mode}
+                                        onChange={(e) => setTradeMode(e.target.value as 'rise_fall' | 'higher_lower')}
+                                    >
+                                        <option value="rise_fall">{localize('Rise/Fall')}</option>
+                                        <option value="higher_lower">{localize('Higher/Lower')}</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="form-row">
-                            <div className="form-field">
-                                <label htmlFor="modal-duration">{localize('Duration')}</label>
-                                <input
-                                    id="modal-duration"
-                                    type="number"
-                                    value={duration}
-                                    onChange={(e) => setDuration(Number(e.target.value))}
-                                    min="1"
-                                />
-                            </div>
+                        <div className="form-section">
+                            <Text size="sm" weight="bold" color="prominent">{localize('Trade Parameters')}</Text>
+                            <div className="form-row">
+                                <div className="form-field">
+                                    <label htmlFor="modal-contract-type">{localize('Contract Type')}</label>
+                                    <select
+                                        id="modal-contract-type"
+                                        value={contract_type}
+                                        onChange={(e) => setContractType(e.target.value)}
+                                    >
+                                        {(trade_mode === 'rise_fall' ? TRADE_TYPES : HIGHER_LOWER_TYPES).map(type => (
+                                            <option key={type.value} value={type.value}>
+                                                {type.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                            <div className="form-field">
-                                <label htmlFor="modal-duration-unit">{localize('Duration Unit')}</label>
-                                <select
-                                    id="modal-duration-unit"
-                                    value={duration_unit}
-                                    onChange={(e) => setDurationUnit(e.target.value as 't' | 's' | 'm')}
-                                >
-                                    <option value="t">{localize('Ticks')}</option>
-                                    <option value="s">{localize('Seconds')}</option>
-                                    <option value="m">{localize('Minutes')}</option>
-                                </select>
+                                <div className="form-field">
+                                    <label htmlFor="modal-stake">{localize('Stake')} ({account_currency})</label>
+                                    <div className="input-with-currency">
+                                        <input
+                                            id="modal-stake"
+                                            type="number"
+                                            value={stake}
+                                            onChange={(e) => setStake(Number(e.target.value))}
+                                            min="0.35"
+                                            step="0.01"
+                                        />
+                                        <span className="currency-label">{account_currency}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="form-section">
+                            <Text size="sm" weight="bold" color="prominent">{localize('Duration Settings')}</Text>
+                            <div className="form-row">
+                                <div className="form-field">
+                                    <label htmlFor="modal-duration">{localize('Duration')}</label>
+                                    <input
+                                        id="modal-duration"
+                                        type="number"
+                                        value={duration}
+                                        onChange={(e) => setDuration(Number(e.target.value))}
+                                        min="1"
+                                    />
+                                </div>
+
+                                <div className="form-field">
+                                    <label htmlFor="modal-duration-unit">{localize('Duration Unit')}</label>
+                                    <select
+                                        id="modal-duration-unit"
+                                        value={duration_unit}
+                                        onChange={(e) => setDurationUnit(e.target.value as 't' | 's' | 'm')}
+                                    >
+                                        <option value="t">{localize('Ticks')}</option>
+                                        <option value="s">{localize('Seconds')}</option>
+                                        <option value="m">{localize('Minutes')}</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
                         {trade_mode === 'higher_lower' && (
-                            <div className="form-row">
-                                <div className="form-field">
-                                    <label htmlFor="modal-barrier-offset">{localize('Barrier Offset')}</label>
-                                    <input
-                                        id="modal-barrier-offset"
-                                        type="number"
-                                        value={barrier_offset}
-                                        onChange={(e) => setBarrierOffset(Number(e.target.value))}
-                                        step="0.001"
-                                    />
+                            <div className="form-section barrier-section">
+                                <Text size="sm" weight="bold" color="prominent">{localize('Barrier Settings')}</Text>
+                                <div className="form-row">
+                                    <div className="form-field">
+                                        <label htmlFor="modal-barrier-offset">{localize('Barrier Offset')}</label>
+                                        <input
+                                            id="modal-barrier-offset"
+                                            type="number"
+                                            value={barrier_offset}
+                                            onChange={(e) => setBarrierOffset(Number(e.target.value))}
+                                            step="0.001"
+                                        />
+                                    </div>
+                                    <div className="form-field">
+                                        <label>{localize('Current Price')}</label>
+                                        <div className="price-display">
+                                            <Text size="sm" weight="bold" color="prominent">
+                                                {current_price ? current_price.toFixed(5) : 'Loading...'}
+                                            </Text>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="form-field">
-                                    <label>{localize('Current Price')}</label>
-                                    <Text>{current_price ? current_price.toFixed(5) : 'Loading...'}</Text>
+                                <div className="barrier-preview">
+                                    <Text size="xs" color="general">
+                                        {localize('Calculated Barrier:')} {' '}
+                                        <Text size="xs" weight="bold" color="prominent">
+                                            {current_price ? 
+                                                (contract_type === 'CALL' ? 
+                                                    (current_price + barrier_offset).toFixed(5) : 
+                                                    (current_price - barrier_offset).toFixed(5)
+                                                ) : 'N/A'
+                                            }
+                                        </Text>
+                                    </Text>
                                 </div>
                             </div>
                         )}
@@ -385,18 +465,25 @@ const TradingModal: React.FC<TradingModalProps> = ({
                 </div>
 
                 <div className="trading-modal__actions">
-                    <Button
-                        className="modal-cancel-btn"
-                        onClick={handleClose}
-                        text={localize('Cancel')}
-                        secondary
-                    />
-                    <Button
-                        className="modal-load-btn"
-                        onClick={handleLoadToBotBuilder}
-                        text={localize('Load Settings')}
-                        primary
-                    />
+                    <div className="actions-info">
+                        <Text size="xs" color="general">
+                            {localize('Load settings to Bot Builder to customize or run the strategy')}
+                        </Text>
+                    </div>
+                    <div className="actions-buttons">
+                        <Button
+                            className="modal-cancel-btn"
+                            onClick={handleClose}
+                            text={localize('Cancel')}
+                            secondary
+                        />
+                        <Button
+                            className="modal-load-btn"
+                            onClick={handleLoadToBotBuilder}
+                            text={localize('Load Settings to Bot Builder')}
+                            primary
+                        />
+                    </div>
                 </div>
             </div>
         </Modal>
