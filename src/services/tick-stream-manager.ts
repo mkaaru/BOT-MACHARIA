@@ -29,13 +29,16 @@ export interface SymbolInfo {
     is_1s_volatility: boolean;
 }
 
-// Comprehensive list of volatility indices
+// Comprehensive list of volatility indices including all 1-second variants
 export const VOLATILITY_SYMBOLS: SymbolInfo[] = [
     // 1-second volatilities
     { symbol: '1HZ10V', display_name: 'Volatility 10 (1s) Index', is_1s_volatility: true },
+    { symbol: '1HZ15V', display_name: 'Volatility 15 (1s) Index', is_1s_volatility: true },
     { symbol: '1HZ25V', display_name: 'Volatility 25 (1s) Index', is_1s_volatility: true },
+    { symbol: '1HZ30V', display_name: 'Volatility 30 (1s) Index', is_1s_volatility: true },
     { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index', is_1s_volatility: true },
     { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index', is_1s_volatility: true },
+    { symbol: '1HZ90V', display_name: 'Volatility 90 (1s) Index', is_1s_volatility: true },
     { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index', is_1s_volatility: true },
     
     // Regular volatilities
