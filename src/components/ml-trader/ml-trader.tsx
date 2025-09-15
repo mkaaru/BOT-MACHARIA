@@ -554,26 +554,8 @@ const MLTrader = observer(() => {
   </block>
 
   <!-- Purchase conditions -->
-  <block type="before_purchase" id="m^:eB90FBG!Q9f85%x-K" deletable="false" x="267" y="544">
-    <statement name="BEFOREPURCHASE_STACK">
-      <block type="notify" id="^KrKto{h0?Oi5y!Uo!k">
-        <field name="NOTIFICATION_TYPE">success</field>
-        <field name="NOTIFICATION_SOUND">silent</field>
-        <value name="MESSAGE">
-          <shadow type="text" id="OGu:tW}VqV1el7}LlhgE">
-            <field name="TEXT">ML Strategy Executing...</field>
-          </shadow>
-          <block type="variables_get" id="DIO6HH*]Tf87lkH)]W1">
-            <field name="VAR" id="7S=JB!;S?@%x@F=5xFsK">tick 2</field>
-          </block>
-        </value>
-        <next>
-          <block type="purchase" id="it}Zt@Ou$Y97bED_*(nZ">
-            <field name="PURCHASE_LIST">${contractTypeField}</field>
-          </block>
-        </next>
-      </block>
-    </statement>
+  <block type="purchase" id="it}Zt@Ou$Y97bED_*(nZ">
+    <field name="PURCHASE_LIST">${contractTypeField}</field>
   </block>
 
   <!-- Restart trading conditions -->
@@ -753,7 +735,7 @@ const MLTrader = observer(() => {
                   </block>
                 </next>
               </block>
-            </statement>
+            </next>
           </block>
         </statement>
       </block>
