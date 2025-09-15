@@ -9,7 +9,7 @@ import { marketScanner, TradingRecommendation, ScannerStatus } from '@/services/
 import { TrendAnalysis } from '@/services/trend-analysis-engine';
 import './ml-trader.scss';
 
-// Direct Bot Builder loading - no modal needed
+// Direct Bot Builder loading - bypassing modal completely
 
 // Enhanced volatility symbols including 1-second indices
 const ENHANCED_VOLATILITY_SYMBOLS = [
@@ -100,8 +100,7 @@ const MLTrader = observer(() => {
     const [volatility_trends, setVolatilityTrends] = useState<Map<string, TrendAnalysis>>(new Map());
     const [initial_scan_complete, setInitialScanComplete] = useState(false);
 
-    // Modal state
-    const [is_modal_open, setIsModalOpen] = useState(false);
+    // Remove modal state - we bypass the modal completely
     const [modal_recommendation, setModalRecommendation] = useState<TradingRecommendation | null>(null);
 
     // Super Elite Bot Logic Adaptation
@@ -318,7 +317,7 @@ const MLTrader = observer(() => {
         setStatus(`Applied recommendation: ${recommendation.reason}`);
     }, [is_running]);
 
-    // Directly load recommendation to Bot Builder (bypass modal)
+    // Directly load recommendation to Bot Builder (completely bypass modal)
     const openRecommendationModal = useCallback(async (recommendation: TradingRecommendation) => {
         try {
             if (!recommendation) {
@@ -326,7 +325,7 @@ const MLTrader = observer(() => {
                 return;
             }
             
-            console.log('🚀 Loading recommendation directly to Bot Builder:', recommendation);
+            console.log('🚀 Bypassing modal - Loading recommendation directly to Bot Builder:', recommendation);
             
             // Set modal form data for generateBotBuilderXML function
             setModalRecommendation(recommendation);
@@ -1038,6 +1037,7 @@ const MLTrader = observer(() => {
                                             key={rec.symbol}
                                             className={`recommendation-card ${rec.direction.toLowerCase()} ${isSelected ? 'selected' : ''}`}
                                             onClick={() => openRecommendationModal(rec)}
+                                            style={{ cursor: 'pointer' }}
                                         >
                                             <div className="rec-header">
                                                 <div className="rec-rank">#{index + 1}</div>
@@ -1350,8 +1350,6 @@ const MLTrader = observer(() => {
                     </div>
                 </div>
             </div>
-
-            
         </div>
     );
 });
