@@ -1469,12 +1469,17 @@ if __name__ == "__main__":
                                 <div label={<Localize i18n_default_text='Smart Trading' />} id='smart-trading'>
                                     <VolatilityAnalyzer />
                                 </div>
-                                <div label={<Localize i18n_default_text='🤖 ML Trader' />} id='ml-trader'>
-                                    <MLTrader />
-                                </div>
                             </Tabs>
                         </div>
 
+                        </div>
+                        <div label={<><AITraderIcon /><Localize i18n_default_text='🤖 ML Trader' /></>} id='id-ml-trader'>
+                            <div className={classNames('dashboard__chart-wrapper', {
+                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
+                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
+                            })}>
+                                <MLTrader />
+                            </div>
                         </div>
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
                             <div className={classNames('dashboard__chart-wrapper', {
