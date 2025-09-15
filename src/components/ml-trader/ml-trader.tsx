@@ -91,6 +91,8 @@ const MLTrader = observer(() => {
     const [show_trend_analysis, setShowTrendAnalysis] = useState(true);
     const [scanning_progress, setScanningProgress] = useState(0);
     const [selected_recommendation, setSelectedRecommendation] = useState<TradingRecommendation | null>(null);
+    const [volatility_trends, setVolatilityTrends] = useState<Map<string, TrendAnalysis>>(new Map());
+    const [initial_scan_complete, setInitialScanComplete] = useState(false);
 
     useEffect(() => {
         // Initialize API connection and market scanner
@@ -147,15 +149,21 @@ const MLTrader = observer(() => {
             const recommendationUnsubscribe = marketScanner.onRecommendationChange((recs) => {
                 setRecommendations(recs);
 
-                // Update market trends
+                // Update market trends for all volatility symbols
                 const trendsMap = new Map<string, TrendAnalysis>();
-                recs.forEach(rec => {
-                    const trend = marketScanner.getTrendAnalysis(rec.symbol);
+                ENHANCED_VOLATILITY_SYMBOLS.forEach(symbolInfo => {
+                    const trend = marketScanner.getTrendAnalysis(symbolInfo.symbol);
                     if (trend) {
-                        trendsMap.set(rec.symbol, trend);
+                        trendsMap.set(symbolInfo.symbol, trend);
                     }
                 });
                 setMarketTrends(trendsMap);
+                setVolatilityTrends(trendsMap);
+
+                // Mark initial scan as complete when we have trends for most symbols
+                if (trendsMap.size >= ENHANCED_VOLATILITY_SYMBOLS.length * 0.5) {
+                    setInitialScanComplete(true);
+                }
 
                 // Auto-select best recommendation if auto mode is enabled
                 if (auto_mode && recs.length > 0 && !is_running && !contractInProgressRef.current) {
@@ -376,6 +384,88 @@ const MLTrader = observer(() => {
                             </Text>
                         </div>
                     )}
+
+                    {/* Volatility Trends Overview */}
+                    <div className="ml-trader__volatility-overview">
+                        <div className="volatility-overview-header">
+                            <Text as="h3">Volatility Indices - Live Trends & Strength</Text>
+                            {!initial_scan_complete && (
+                                <Text size="xs" color="general">Analyzing market data...</Text>
+                            )}
+                        </div>
+
+                        <div className="volatility-trends-grid">
+                            {ENHANCED_VOLATILITY_SYMBOLS.map(symbolInfo => {
+                                const trend = volatility_trends.get(symbolInfo.symbol);
+                                
+                                return (
+                                    <div key={symbolInfo.symbol} className={`volatility-trend-card ${trend ? 'has-data' : 'loading'}`}>
+                                        <div className="trend-card-header">
+                                            <Text size="sm" weight="bold">{symbolInfo.display_name}</Text>
+                                            <div className="symbol-badge">
+                                                {symbolInfo.is_1s && <span className="badge-1s">1s</span>}
+                                                <Text size="xs">{symbolInfo.symbol}</Text>
+                                            </div>
+                                        </div>
+
+                                        {trend ? (
+                                            <>
+                                                <div className={`trend-direction ${trend.direction}`}>
+                                                    <span className="trend-icon">
+                                                        {trend.direction === 'bullish' ? '📈' : 
+                                                         trend.direction === 'bearish' ? '📉' : '➡️'}
+                                                    </span>
+                                                    <div className="trend-info">
+                                                        <Text size="sm" weight="bold">{trend.direction.toUpperCase()}</Text>
+                                                        <Text size="xs">{trend.strength} strength</Text>
+                                                    </div>
+                                                </div>
+
+                                                <div className="trend-metrics">
+                                                    <div className="metric">
+                                                        <Text size="xs">Confidence</Text>
+                                                        <div className="confidence-bar">
+                                                            <div 
+                                                                className="confidence-fill" 
+                                                                style={{ width: `${trend.confidence}%` }}
+                                                            />
+                                                        </div>
+                                                        <Text size="xs" weight="bold">{trend.confidence.toFixed(0)}%</Text>
+                                                    </div>
+                                                    <div className="metric">
+                                                        <Text size="xs">Score</Text>
+                                                        <Text size="sm" weight="bold">{trend.score.toFixed(1)}/100</Text>
+                                                    </div>
+                                                </div>
+
+                                                <div className="hma-data">
+                                                    <div className="hma-row">
+                                                        <Text size="xs">HMA5: {trend.hma5?.toFixed(5) || 'N/A'}</Text>
+                                                        <Text size="xs">HMA40: {trend.hma40?.toFixed(5) || 'N/A'}</Text>
+                                                    </div>
+                                                    <div className="hma-slopes">
+                                                        <Text size="xs">
+                                                            Slope: {trend.hma5Slope ? (trend.hma5Slope > 0 ? '↗️' : '↘️') : '→'} 
+                                                            {Math.abs(trend.hma5Slope || 0).toFixed(6)}
+                                                        </Text>
+                                                    </div>
+                                                </div>
+
+                                                <div className={`recommendation-badge ${trend.recommendation.toLowerCase()}`}>
+                                                    <Text size="xs" weight="bold">{trend.recommendation}</Text>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="loading-state">
+                                                <div className="loading-spinner"></div>
+                                                <Text size="xs" color="general">Loading trend data...</Text>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
 
                     {/* Market Recommendations */}
                     {recommendations.length > 0 && (
