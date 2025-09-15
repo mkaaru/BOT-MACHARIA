@@ -189,13 +189,341 @@ const TradingModal: React.FC<TradingModalProps> = ({
         return xml;
     };
 
-    // Load settings to Bot Builder
+    // Load the specific bot XML content instead of generating new XML
     const handleLoadToBotBuilder = async () => {
         try {
-            console.log('🔄 Loading settings to Bot Builder...');
+            console.log('🔄 Loading bot skeleton to Bot Builder...');
             
-            const xmlContent = generateBotBuilderXML();
-            console.log('📄 Generated XML:', xmlContent);
+            // Define the bot skeleton XML content (the one from the attached file)
+            const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <variables>
+    <variable id=":yGQ!WYKA[R_sO1MkSjL">tick1</variable>
+    <variable id="y)BE|l7At6oT)ur0Dsw?">Stake</variable>
+    <variable id="jZ@oue8^bFSf$W^OcBHK">predict 3</variable>
+    <variable id="7S=JB!;S?@%x@F=5xFsK">tick 2</variable>
+    <variable id="qQ]^z(23IIrz6z~JnY#h">tick 3</variable>
+    <variable id="I4.{v(IzG;i#bX-6h(1#">win stake</variable>
+    <variable id=".5ELQ4[J.e4czk,qPqKM">Martingale split</variable>
+  </variables>
+  <block type="trade_definition" id="=;b|aw3,G(o+jI6HNU0_" deletable="false" x="0" y="60">
+    <statement name="TRADE_OPTIONS">
+      <block type="trade_definition_market" id="GrbKdLI=66(KGnSGl*=_" deletable="false" movable="false">
+        <field name="MARKET_LIST">synthetic_index</field>
+        <field name="SUBMARKET_LIST">random_index</field>
+        <field name="SYMBOL_LIST">${symbol}</field>
+        <next>
+          <block type="trade_definition_tradetype" id="F)\`ky6X[Pq]/Anl_CQ%)" deletable="false" movable="false">
+            <field name="TRADETYPECAT_LIST">digits</field>
+            <field name="TRADETYPE_LIST">overunder</field>
+            <next>
+              <block type="trade_definition_contracttype" id="z1{e5E+47NIm}*%5/AoJ" deletable="false" movable="false">
+                <field name="TYPE_LIST">both</field>
+                <next>
+                  <block type="trade_definition_candleinterval" id="?%X41!vudp91L1/W30?x" deletable="false" movable="false">
+                    <field name="CANDLEINTERVAL_LIST">60</field>
+                    <next>
+                      <block type="trade_definition_restartbuysell" id="Uw+CuacxzG/2-ktTeC|P" deletable="false" movable="false">
+                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                        <next>
+                          <block type="trade_definition_restartonerror" id=",Dtx3!}1;A5bX#kc%+@y" deletable="false" movable="false">
+                            <field name="RESTARTONERROR">TRUE</field>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="INITIALIZATION">
+      <block type="text_print" id="x4l[!tcMk5~9$g9tp)F.">
+        <value name="TEXT">
+          <shadow type="text" id="?#mD$Ejd%z^s]r*M(Co]">
+            <field name="TEXT">We are about to start Trading, be Ready</field>
+          </shadow>
+        </value>
+        <next>
+          <block type="text_print" id="H5S$R8eJ,8_xuO2;w07T">
+            <value name="TEXT">
+              <shadow type="text" id="-(O49Z%3:}onz_i%UInT">
+                <field name="TEXT">Thank you for trading with us</field>
+              </shadow>
+            </value>
+            <next>
+              <block type="variables_set" id="*k=Zh]oy^xkO%$_J}wmI">
+                <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+                <value name="VALUE">
+                  <block type="math_number" id="TDv/W;dNI84TFbp}8X8=">
+                    <field name="NUM">${stake}</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="a+aI}xH)h$*P-GA=;IJi">
+                    <field name="VAR" id="I4.{v(IzG;i#bX-6h(1#">win stake</field>
+                    <value name="VALUE">
+                      <block type="math_number" id="9Z%4%dmqCp;/sSt8wGv#">
+                        <field name="NUM">${stake}</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set" id="}RkgwZuqtMN[-O}zHU%8">
+                        <field name="VAR" id=".5ELQ4[J.e4czk,qPqKM">Martingale split</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="Ib,Krc\`nUJzn1KMo9)\`A">
+                            <field name="NUM">2.2</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="h!e/g.y@3xFBo0Q,Yz\`m">
+                            <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
+                            <value name="VALUE">
+                              <block type="math_random_int" id="i0NhB-KvY:?lj+^6ymZU">
+                                <value name="FROM">
+                                  <shadow type="math_number" id="$A^)*y7W0([+ckWE+BCo">
+                                    <field name="NUM">1</field>
+                                  </shadow>
+                                </value>
+                                <value name="TO">
+                                  <shadow type="math_number" id=",_;o3PUOp?^\`|_ffS^P8">
+                                    <field name="NUM">1</field>
+                                  </shadow>
+                                </value>
+                              </block>
+                            </value>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="SUBMARKET">
+      <block type="trade_definition_tradeoptions" id="QXj55FgjyN!H@HP]V6jI">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
+        <field name="DURATIONTYPE_LIST">${duration_unit}</field>
+        <value name="DURATION">
+          <shadow type="math_number" id="9n#e|joMQv~[@p?0ZJ1w">
+            <field name="NUM">${duration}</field>
+          </shadow>
+          <block type="math_number" id="*l8K~H:oQ)^=Cn,A^N~s">
+            <field name="NUM">${duration}</field>
+          </block>
+        </value>
+        <value name="AMOUNT">
+          <shadow type="math_number" id="ziEt8|we%%I_ac)[?0aT">
+            <field name="NUM">1</field>
+          </shadow>
+          <block type="variables_get" id="m3{*qF|69xv{GI:=Nr#R">
+            <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+          </block>
+        </value>
+        <value name="PREDICTION">
+          <shadow type="math_number_positive" id="aE)Ys,Aw=qX{^5%Ed%Kg">
+            <field name="NUM">1</field>
+          </shadow>
+          <block type="variables_get" id="tOYIy}zQaIBu15p.C3*2">
+            <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
+          </block>
+        </value>
+      </block>
+    </statement>
+  </block>
+  <block type="after_purchase" id="RSFi6b^1!S1=u5HT9ij5" x="891" y="60">
+    <statement name="AFTERPURCHASE_STACK">
+      <block type="controls_if" id="m~FN=}k/:4T0C|!9RWv7">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+        <value name="IF0">
+          <block type="contract_check_result" id="?#pF}/RWg,s)qyk6~Q4\`">
+            <field name="CHECK_RESULT">win</field>
+          </block>
+        </value>
+        <statement name="DO0">
+          <block type="variables_set" id="VCplk%:6-m~2N?w590V3">
+            <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
+            <value name="VALUE">
+              <block type="math_random_int" id="e!w*#f6#@(J=!\`w[e]aR">
+                <value name="FROM">
+                  <shadow type="math_number" id="|~+Cbgj^c]K~uP_)~88!">
+                    <field name="NUM">1</field>
+                  </shadow>
+                </value>
+                <value name="TO">
+                  <shadow type="math_number" id="]0rAYrYh#6);#j/=i}y=">
+                    <field name="NUM">1</field>
+                  </shadow>
+                </value>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id="ZPFx9h$~-#?hu({nP9br">
+                <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+                <value name="VALUE">
+                  <block type="variables_get" id="evk@V\`L!Cns23Tt-YO#i">
+                    <field name="VAR" id="I4.{v(IzG;i#bX-6h(1#">win stake</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="trade_again" id=".%j%jiw_Gz{$-9+tM1sE"></block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </statement>
+        <statement name="ELSE">
+          <block type="controls_if" id="[]}t.-zV3B}F{r_wuWIK">
+            <value name="IF0">
+              <block type="contract_check_result" id="d6I:nMCIu?M|p\`Zu?8Di">
+                <field name="CHECK_RESULT">loss</field>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="variables_set" id="yqjWT{JtZ.@glB=i+3kC">
+                <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
+                <value name="VALUE">
+                  <block type="math_random_int" id="Kbr]yzFaM7h==L/\`mxt_">
+                    <value name="FROM">
+                      <shadow type="math_number" id="rbI\`X\`a)*X_r-cy5S%Rw">
+                        <field name="NUM">3</field>
+                      </shadow>
+                    </value>
+                    <value name="TO">
+                      <shadow type="math_number" id="EgOTvfy4?jpKvYT{M6;8">
+                        <field name="NUM">3</field>
+                      </shadow>
+                    </value>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="H%Y3[M]r3F};XmOP/iSt">
+                    <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+                    <value name="VALUE">
+                      <block type="math_arithmetic" id="0(2SFhVd_f3.w;,4CdAW">
+                        <field name="OP">MULTIPLY</field>
+                        <value name="A">
+                          <shadow type="math_number" id=")X~,;|04N,b=v{cA?n:y">
+                            <field name="NUM">1</field>
+                          </shadow>
+                          <block type="variables_get" id="%#Fuv537r?g4g-8#ZNu7">
+                            <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <shadow type="math_number" id="D-kN(N|~hTit;*Q-HF3L">
+                            <field name="NUM">1</field>
+                          </shadow>
+                          <block type="variables_get" id="W;ZaB.*3OzGGyV2PDE$L">
+                            <field name="VAR" id=".5ELQ4[J.e4czk,qPqKM">Martingale split</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                  </block>
+                </next>
+              </block>
+            </statement>
+            <next>
+              <block type="trade_again" id="O0gyt$46u#i^LXu}0~SE"></block>
+            </next>
+          </block>
+        </statement>
+      </block>
+    </statement>
+  </block>
+  <block type="before_purchase" id="m^:eB90FBG!Q9f85%x-K" deletable="false" x="0" y="928">
+    <statement name="BEFOREPURCHASE_STACK">
+      <block type="notify" id="^KrKto{h0?O\`i5y!Uo!k">
+        <field name="NOTIFICATION_TYPE">success</field>
+        <field name="NOTIFICATION_SOUND">silent</field>
+        <value name="MESSAGE">
+          <shadow type="text" id="OGu:tW}VqV1el7}LlhgE">
+            <field name="TEXT">DUKE...>>>></field>
+          </shadow>
+          <block type="variables_get" id="DIO6HH*]Tf87l\`kH)]W1">
+            <field name="VAR" id="7S=JB!;S?@%x@F=5xFsK">tick 2</field>
+          </block>
+        </value>
+        <next>
+          <block type="purchase" id="it}Zt@Ou$Y97bED_*(nZ">
+            <field name="PURCHASE_LIST">DIGITOVER</field>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+  <block type="tick_analysis" id="C1)t(KjgV5)#c:5Fz2@_" collapsed="true" x="0" y="1594">
+    <statement name="TICKANALYSIS_STACK">
+      <block type="variables_set" id="/K_P8vj*(@v:6j]Bu~P=">
+        <field name="VAR" id=":yGQ!WYKA[R_sO1MkSjL">tick1</field>
+        <value name="VALUE">
+          <block type="lists_getIndex" id="XSu=~QE//2Y:]d~p=P/m">
+            <mutation xmlns="http://www.w3.org/1999/xhtml" statement="false" at="true"></mutation>
+            <field name="MODE">GET</field>
+            <field name="WHERE">FROM_END</field>
+            <value name="VALUE">
+              <block type="lastDigitList" id="}LYybI/S\`:cjI/Rcy1nY"></block>
+            </value>
+            <value name="AT">
+              <block type="math_number" id="[_Rkdo]\`;_P8]lF/%Gn^">
+                <field name="NUM">1</field>
+              </block>
+            </value>
+          </block>
+        </value>
+        <next>
+          <block type="variables_set" id="3.LXWq^5JH25~0J,AR2Z">
+            <field name="VAR" id="7S=JB!;S?@%x@F=5xFsK">tick 2</field>
+            <value name="VALUE">
+              <block type="lists_getIndex" id="rkKQ307@g~epO|6C0tAc">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" statement="false" at="true"></mutation>
+                <field name="MODE">GET</field>
+                <field name="WHERE">FROM_END</field>
+                <value name="VALUE">
+                  <block type="lastDigitList" id=".]BV8x.1c1)~p8t:NugU"></block>
+                </value>
+                <value name="AT">
+                  <block type="math_number" id="iY.UfnOo*u4[q]dYMoWD">
+                    <field name="NUM">2</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id=")$vS+D(;t!*)xtofGW9R">
+                <field name="VAR" id="qQ]^z(23IIrz6z~JnY#h">tick 3</field>
+                <value name="VALUE">
+                  <block type="lists_getIndex" id="Di!)G4xp1N#;_bQVq8LG">
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" statement="false" at="true"></mutation>
+                    <field name="MODE">GET</field>
+                    <field name="WHERE">FROM_END</field>
+                    <value name="VALUE">
+                      <block type="lastDigitList" id="E{if[4oW3+]]1Aq]d5!G"></block>
+                    </value>
+                    <value name="AT">
+                      <block type="math_number" id="#ULUAs[:gF)![)*!]8;j">
+                        <field name="NUM">3</field>
+                      </block>
+                    </value>
+                  </block>
+                </value>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+</xml>`;
+
+            console.log('📄 Loading bot skeleton XML with current settings...');
 
             // Close modal first
             onClose();
@@ -212,11 +540,11 @@ const TradingModal: React.FC<TradingModalProps> = ({
 
                     // Ensure workspace is ready
                     if (window.Blockly?.derivWorkspace) {
-                        console.log('📦 Loading strategy to workspace...');
+                        console.log('📦 Loading bot skeleton strategy to workspace...');
                         
                         await load({
-                            block_string: xmlContent,
-                            file_name: `ML_${symbol}_${contract_type}_${Date.now()}`,
+                            block_string: botSkeletonXML,
+                            file_name: `Bot_Skeleton_${symbol}_${Date.now()}`,
                             workspace: window.Blockly.derivWorkspace,
                             from: save_types.UNSAVED,
                             drop_event: null,
@@ -226,7 +554,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
 
                         // Center and focus workspace
                         window.Blockly.derivWorkspace.scrollCenter();
-                        console.log('✅ Strategy loaded successfully to Bot Builder');
+                        console.log('✅ Bot skeleton strategy loaded successfully to Bot Builder');
                         
                     } else {
                         console.warn('⚠️ Blockly workspace not ready, using fallback method');
@@ -235,23 +563,23 @@ const TradingModal: React.FC<TradingModalProps> = ({
                         setTimeout(() => {
                             if (window.Blockly?.derivWorkspace) {
                                 window.Blockly.derivWorkspace.clear();
-                                const xmlDoc = window.Blockly.utils.xml.textToDom(xmlContent);
+                                const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
                                 window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
                                 window.Blockly.derivWorkspace.scrollCenter();
-                                console.log('✅ Strategy loaded using fallback method');
+                                console.log('✅ Bot skeleton strategy loaded using fallback method');
                             }
                         }, 500);
                     }
                 } catch (loadError) {
-                    console.error('❌ Error loading strategy:', loadError);
+                    console.error('❌ Error loading bot skeleton strategy:', loadError);
                     
                     // Final fallback
                     if (window.Blockly?.derivWorkspace) {
                         window.Blockly.derivWorkspace.clear();
-                        const xmlDoc = window.Blockly.utils.xml.textToDom(xmlContent);
+                        const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
                         window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
                         window.Blockly.derivWorkspace.scrollCenter();
-                        console.log('✅ Strategy loaded using final fallback');
+                        console.log('✅ Bot skeleton strategy loaded using final fallback');
                     }
                 }
             }, 300);
