@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
-import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-bot-skeleton/services/api/appId';
+import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from '@/external/bot-skeleton/services/api/appId';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
 import { marketScanner, TradingRecommendation, ScannerStatus } from '@/services/market-scanner';
@@ -324,9 +324,9 @@ const MLTrader = observer(() => {
                 console.error('No recommendation provided');
                 return;
             }
-
+            
             console.log('🚀 Bypassing modal - Loading recommendation directly to Bot Builder:', recommendation);
-
+            
             // Set modal form data for generateBotBuilderXML function
             setModalRecommendation(recommendation);
             setModalSymbol(recommendation.symbol || '');
@@ -334,17 +334,17 @@ const MLTrader = observer(() => {
             setModalDuration(recommendation.suggestedDuration || 2); // Changed default to 2
             setModalDurationUnit((recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 't');
             setModalStake(recommendation.suggestedStake || 1.0);
-
+            
             // Set trade mode based on recommendation strategy or direction
             const strategy = recommendation.strategy || recommendation.direction || 'call';
-            if (strategy === 'call' || strategy === 'put' ||
+            if (strategy === 'call' || strategy === 'put' || 
                 recommendation.direction === 'CALL' || recommendation.direction === 'PUT') {
                 setModalTradeMode('rise_fall');
             } else {
                 // For barrier-based strategies, use higher/lower
                 setModalTradeMode('higher_lower');
             }
-
+            
             // Set barrier offset for higher/lower trades
             if (recommendation.barrier) {
                 const barrierValue = parseFloat(recommendation.barrier);
@@ -354,19 +354,19 @@ const MLTrader = observer(() => {
                     setModalBarrierOffset(calculatedOffset);
                 }
             }
-
+            
             setCurrentPrice(recommendation.currentPrice || null);
             baseStakeRef.current = recommendation.suggestedStake || 1.0;
 
             // Generate Bot Builder XML with the recommendation data
             const selectedSymbol = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === recommendation.symbol);
-            const trade_mode = strategy === 'call' || strategy === 'put' ||
+            const trade_mode = strategy === 'call' || strategy === 'put' || 
                 recommendation.direction === 'CALL' || recommendation.direction === 'PUT' ? 'rise_fall' : 'higher_lower';
             const contract_type = recommendation.direction || 'CALL';
             const duration = recommendation.suggestedDuration || 2;
             const duration_unit = (recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 't';
             const stake = recommendation.suggestedStake || 1.0;
-            const barrier_offset = recommendation.barrier ?
+            const barrier_offset = recommendation.barrier ? 
                 Math.abs(parseFloat(recommendation.barrier) - (recommendation.currentPrice || 0)) : 0.001;
 
             // Calculate barrier offset based on contract type
@@ -379,7 +379,7 @@ const MLTrader = observer(() => {
 
             const tradeTypeCategory = trade_mode === 'higher_lower' ? 'highlow' : 'callput';
             const tradeTypeList = trade_mode === 'higher_lower' ? 'highlow' : 'risefall';
-            const contractTypeField = contract_type === 'CALL' ? (trade_mode === 'rise_fall' ? 'CALL' : 'CALL') : (trade_mode === 'rise_fall' ? 'PUT' : 'PUT');
+            const contractTypeField = contract_type === 'CALL' ? (trade_mode === 'rise_fall' ? 'CALL' : 'CALLE') : (trade_mode === 'rise_fall' ? 'PUT' : 'PUTE');
             const barrierOffsetValue = calculateBarrierOffset();
 
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
@@ -392,8 +392,6 @@ const MLTrader = observer(() => {
     <variable id="I4.{v(IzG;i#bX-6h(1#">win stake</variable>
     <variable id=".5ELQ4[J.e4czk,qPqKM">Martingale split</variable>
     <variable id="Result_is">Result_is</variable>
-    <variable id="max_consecutive_losses">Maximum Consecutive Losses</variable>
-    <variable id="current_consecutive_losses">Current Consecutive Losses</variable>
   </variables>
 
   <!-- Trade Definition Block -->
@@ -411,7 +409,7 @@ const MLTrader = observer(() => {
               <block type="trade_definition_contracttype" id="z1{e5E+47NIm}*%5/AoJ" deletable="false" movable="false">
                 <field name="TYPE_LIST">${contractTypeField}</field>
                 <next>
-                  <block type="trade_definition_candleinterval" id="?%X1!vudp91L1/W30?x" deletable="false" movable="false">
+                  <block type="trade_definition_candleinterval" id="?%X41!vudp91L1/W30?x" deletable="false" movable="false">
                     <field name="CANDLEINTERVAL_LIST">60</field>
                     <next>
                       <block type="trade_definition_restartbuysell" id="Uw+CuacxzG/2-ktTeC|P" deletable="false" movable="false">
@@ -472,42 +470,22 @@ const MLTrader = observer(() => {
                           </block>
                         </value>
                         <next>
-                          <block type="variables_set" id="maxConsecutiveLossesInit">
-                            <field name="VAR" id="max_consecutive_losses">Maximum Consecutive Losses</field>
+                          <block type="variables_set" id="h!e/g.y@3xFBo0Q,Yzm">
+                            <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
                             <value name="VALUE">
-                              <block type="math_number" id="maxConsecutiveLossesValue">
-                                <field name="NUM">4</field>
+                              <block type="math_random_int" id="i0NhB-KvY:?lj+^6ymZU">
+                                <value name="FROM">
+                                  <shadow type="math_number" id="$A^)*y7W0([+ckWE+BCo">
+                                    <field name="NUM">1</field>
+                                  </shadow>
+                                </value>
+                                <value name="TO">
+                                  <shadow type="math_number" id=",_;o3PUOp?^|_ffS^P8">
+                                    <field name="NUM">1</field>
+                                  </shadow>
+                                </value>
                               </block>
                             </value>
-                            <next>
-                              <block type="variables_set" id="currentConsecutiveLossesInit">
-                                <field name="VAR" id="current_consecutive_losses">Current Consecutive Losses</field>
-                                <value name="VALUE">
-                                  <block type="math_number" id="currentConsecutiveLossesValue">
-                                    <field name="NUM">0</field>
-                                  </block>
-                                </value>
-                                <next>
-                                  <block type="variables_set" id="h!e/g.y@3xFBo0Q,Yzm">
-                                    <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
-                                    <value name="VALUE">
-                                      <block type="math_random_int" id="i0NhB-KvY:?lj+^6ymZU">
-                                        <value name="FROM">
-                                          <shadow type="math_number" id="$A^)*y7W0([+ckWE+BCo">
-                                            <field name="NUM">1</field>
-                                          </shadow>
-                                        </value>
-                                        <value name="TO">
-                                          <shadow type="math_number" id=",_;o3PUOp?^|_ffS^P8">
-                                            <field name="NUM">1</field>
-                                          </shadow>
-                                        </value>
-                                      </block>
-                                    </value>
-                                  </block>
-                                </next>
-                              </block>
-                            </next>
                           </block>
                         </next>
                       </block>
@@ -528,10 +506,10 @@ const MLTrader = observer(() => {
         <field name="DURATIONTYPE_LIST">${duration_unit}</field>
         <value name="DURATION">
           <shadow type="math_number" id="9n#e|joMQv~[@p?0ZJ1w">
-            <field name="NUM">2</field>
+            <field name="NUM">${duration}</field>
           </shadow>
           <block type="math_number" id="*l8K~H:oQ)^=Cn,A^N~s">
-            <field name="NUM">2</field>
+            <field name="NUM">${duration}</field>
           </block>
         </value>
         <value name="AMOUNT">
@@ -554,8 +532,26 @@ const MLTrader = observer(() => {
   </block>
 
   <!-- Purchase conditions -->
-  <block type="purchase" id="it}Zt@Ou$Y97bED_*(nZ">
-    <field name="PURCHASE_LIST">${contractTypeField}</field>
+  <block type="before_purchase" id="m^:eB90FBG!Q9f85%x-K" deletable="false" x="267" y="544">
+    <statement name="BEFOREPURCHASE_STACK">
+      <block type="notify" id="^KrKto{h0?Oi5y!Uo!k">
+        <field name="NOTIFICATION_TYPE">success</field>
+        <field name="NOTIFICATION_SOUND">silent</field>
+        <value name="MESSAGE">
+          <shadow type="text" id="OGu:tW}VqV1el7}LlhgE">
+            <field name="TEXT">ML Strategy Executing...</field>
+          </shadow>
+          <block type="variables_get" id="DIO6HH*]Tf87lkH)]W1">
+            <field name="VAR" id="7S=JB!;S?@%x@F=5xFsK">tick 2</field>
+          </block>
+        </value>
+        <next>
+          <block type="purchase" id="it}Zt@Ou$Y97bED_*(nZ">
+            <field name="PURCHASE_LIST">${contractTypeField}</field>
+          </block>
+        </next>
+      </block>
+    </statement>
   </block>
 
   <!-- Restart trading conditions -->
@@ -602,17 +598,7 @@ const MLTrader = observer(() => {
                       </block>
                     </value>
                     <next>
-                      <block type="variables_set" id="resetConsecutiveLossesWin">
-                        <field name="VAR" id="current_consecutive_losses">Current Consecutive Losses</field>
-                        <value name="VALUE">
-                          <block type="math_number" id="resetWinValue">
-                            <field name="NUM">0</field>
-                          </block>
-                        </value>
-                        <next>
-                          <block type="trade_again" id=".%j%jiw_Gz{$-9+tM1sE"></block>
-                        </next>
-                      </block>
+                      <block type="trade_again" id=".%j%jiw_Gz{$-9+tM1sE"></block>
                     </next>
                   </block>
                 </next>
@@ -628,113 +614,62 @@ const MLTrader = observer(() => {
               </block>
             </value>
             <statement name="DO0">
-              <block type="math_change" id="incrementConsecutiveLosses">
-                <field name="VAR" id="current_consecutive_losses">Current Consecutive Losses</field>
-                <value name="DELTA">
-                  <shadow type="math_number" id="incrementValue">
-                    <field name="NUM">1</field>
-                  </shadow>
+              <block type="variables_set" id="yqjWT{JtZ.@glB=i+3kC">
+                <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
+                <value name="VALUE">
+                  <block type="math_random_int" id="Kbr]yzFaM7h==L/mxt_">
+                    <value name="FROM">
+                      <shadow type="math_number" id="rbIXa)*X_r-cy5S%Rw">
+                        <field name="NUM">3</field>
+                      </shadow>
+                    </value>
+                    <value name="TO">
+                      <shadow type="math_number" id="EgOTvfy4?jpKvYT{M6;8">
+                        <field name="NUM">3</field>
+                      </shadow>
+                    </value>
+                  </block>
                 </value>
                 <next>
-                  <block type="controls_if" id="checkMaxConsecutiveLosses">
-                    <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
-                    <value name="IF0">
-                      <block type="logic_compare" id="compareConsecutiveLosses">
-                        <field name="OP">GTE</field>
+                  <block type="variables_set" id="H%Y3[M]r3F};XmOP/iSt">
+                    <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
+                    <value name="VALUE">
+                      <block type="math_arithmetic" id="0(2SFhVd_f3.w;,4CdAW">
+                        <field name="OP">MULTIPLY</field>
                         <value name="A">
-                          <block type="variables_get" id="getCurrentConsecutiveLosses">
-                            <field name="VAR" id="current_consecutive_losses">Current Consecutive Losses</field>
+                          <shadow type="math_number" id=")X~,;|04N,b=v{cA?n:y">
+                            <field name="NUM">1</field>
+                          </shadow>
+                          <block type="variables_get" id="%#Fuv537r?g4g-8#ZNu7">
+                            <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
                           </block>
                         </value>
                         <value name="B">
-                          <block type="variables_get" id="getMaxConsecutiveLosses">
-                            <field name="VAR" id="max_consecutive_losses">Maximum Consecutive Losses</field>
+                          <shadow type="math_number" id="D-kN(N|~hTit;*Q-HF3L">
+                            <field name="NUM">1</field>
+                          </shadow>
+                          <block type="variables_get" id="W;ZaB.*3OzGGyV2PDE$L">
+                            <field name="VAR" id=".5ELQ4[J.e4czk,qPqKM">Martingale split</field>
                           </block>
                         </value>
                       </block>
                     </value>
-                    <statement name="DO0">
-                      <block type="notify" id="maxLossesReachedNotification">
-                        <field name="NOTIFICATION_TYPE">error</field>
-                        <field name="NOTIFICATION_SOUND">silent</field>
-                        <value name="MESSAGE">
-                          <shadow type="text" id="maxLossesMessage">
-                            <field name="TEXT">Maximum consecutive losses reached. Bot stopped.</field>
-                          </shadow>
-                        </value>
-                        <next>
-                          <block type="variables_set" id="resetConsecutiveLossesAfterMax">
-                            <field name="VAR" id="current_consecutive_losses">Current Consecutive Losses</field>
-                            <value name="VALUE">
-                              <block type="math_number" id="resetAfterMaxValue">
-                                <field name="NUM">0</field>
-                              </block>
-                            </value>
-                          </block>
-                        </next>
-                      </block>
-                    </statement>
-                    <statement name="ELSE">
-                      <block type="variables_set" id="yqjWT{JtZ.@glB=i+3kC">
-                        <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
+                    <next>
+                      <block type="variables_set" id="setResultLoss">
+                        <field name="VAR" id="Result_is">Result_is</field>
                         <value name="VALUE">
-                          <block type="math_random_int" id="Kbr]yzFaM7h==L/mxt_">
-                            <value name="FROM">
-                              <shadow type="math_number" id="rbIXa)*X_r-cy5S%Rw">
-                                <field name="NUM">3</field>
-                              </shadow>
-                            </value>
-                            <value name="TO">
-                              <shadow type="math_number" id="EgOTvfy4?jpKvYT{M6;8">
-                                <field name="NUM">3</field>
-                              </shadow>
-                            </value>
+                          <block type="text" id="resultLossText">
+                            <field name="TEXT">Loss</field>
                           </block>
                         </value>
-                        <next>
-                          <block type="variables_set" id="H%Y3[M]r3F};XmOP/iSt">
-                            <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
-                            <value name="VALUE">
-                              <block type="math_arithmetic" id="0(2SFhVd_f3.w;,4CdAW">
-                                <field name="OP">MULTIPLY</field>
-                                <value name="A">
-                                  <shadow type="math_number" id=")X~,;|04N,b=v{cA?n:y">
-                                    <field name="NUM">1</field>
-                                  </shadow>
-                                  <block type="variables_get" id="%#Fuv537r?g4g-8#ZNu7">
-                                    <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
-                                  </block>
-                                </value>
-                                <value name="B">
-                                  <shadow type="math_number" id="D-kN(N|~hTit;*Q-HF3L">
-                                    <field name="NUM">1</field>
-                                  </shadow>
-                                  <block type="variables_get" id="W;ZaB.*3OzGGyV2PDE$L">
-                                    <field name="VAR" id=".5ELQ4[J.e4czk,qPqKM">Martingale split</field>
-                                  </block>
-                                </value>
-                              </block>
-                            </value>
-                            <next>
-                              <block type="variables_set" id="setResultLoss">
-                                <field name="VAR" id="Result_is">Result_is</field>
-                                <value name="VALUE">
-                                  <block type="text" id="resultLossText">
-                                    <field name="TEXT">Loss</field>
-                                  </block>
-                                </value>
-                                <next>
-                                  <block type="trade_again" id="O0gyt$46u#i^LXu}0~SE"></block>
-                                </next>
-                              </block>
-                            </next>
-                          </block>
-                        </next>
                       </block>
-                    </statement>
+                    </next>
                   </block>
                 </next>
               </block>
+            </statement>
+            <next>
+              <block type="trade_again" id="O0gyt$46u#i^LXu}0~SE"></block>
             </next>
           </block>
         </statement>
@@ -807,50 +742,614 @@ const MLTrader = observer(() => {
   </block>
 </xml>`;
 
-            console.log('🚀 Generated Bot Builder XML for ML Strategy');
+            console.log('📄 Loading bot skeleton XML with recommendation settings...');
 
-            // Load the XML to Bot Builder
-            if (store?.run_panel?.dbot?.loadBlocks) {
-                await store.run_panel.dbot.loadBlocks(botSkeletonXML);
-                console.log('✅ ML Strategy loaded to Bot Builder successfully');
-                setStatus('ML Strategy loaded to Bot Builder - Ready to run!');
-            } else {
-                console.error('❌ Bot Builder not available');
-                setStatus('Error: Bot Builder not available');
-            }
+            // Switch to Bot Builder tab (index 1)
+            store.dashboard.setActiveTab(1);
 
+            // Wait for tab switch and workspace initialization
+            setTimeout(async () => {
+                try {
+                    // Import bot skeleton functions
+                    const { load } = await import('@/external/bot-skeleton');
+                    const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
+
+                    // Ensure workspace is ready
+                    if (window.Blockly?.derivWorkspace) {
+                        console.log('📦 Loading ML recommendation strategy to workspace...');
+
+                        await load({
+                            block_string: botSkeletonXML,
+                            file_name: `ML_${selectedSymbol?.display_name || recommendation.symbol}_${Date.now()}`,
+                            workspace: window.Blockly.derivWorkspace,
+                            from: save_types.UNSAVED,
+                            drop_event: null,
+                            strategy_id: null,
+                            showIncompatibleStrategyDialog: null,
+                        });
+
+                        // Center and focus workspace
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        console.log('✅ ML recommendation strategy loaded successfully to Bot Builder');
+
+                    } else {
+                        console.warn('⚠️ Blockly workspace not ready, using fallback method');
+
+                        // Fallback: Direct XML loading
+                        setTimeout(() => {
+                            if (window.Blockly?.derivWorkspace) {
+                                window.Blockly.derivWorkspace.clear();
+                                const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
+                                window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                                window.Blockly.derivWorkspace.scrollCenter();
+                                console.log('✅ ML recommendation strategy loaded using fallback method');
+                            }
+                        }, 500);
+                    }
+                } catch (loadError) {
+                    console.error('❌ Error loading ML recommendation strategy:', loadError);
+
+                    // Final fallback
+                    if (window.Blockly?.derivWorkspace) {
+                        window.Blockly.derivWorkspace.clear();
+                        const xmlDoc = window.Blockly.utils.xml.textToDom(botSkeletonXML);
+                        window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        console.log('✅ ML recommendation strategy loaded using final fallback');
+                    }
+                }
+            }, 300);
+            
+            const displayName = selectedSymbol?.display_name || recommendation.symbol;
+            const strategyText = (recommendation.strategy || recommendation.direction || 'TRADE').toUpperCase();
+            setStatus(`✅ Loaded ${displayName} - ${strategyText} strategy to Bot Builder`);
         } catch (error) {
-            console.error('❌ Failed to load recommendation to Bot Builder:', error);
-            setStatus(`Failed to load to Bot Builder: ${error}`);
+            console.error('Error loading recommendation to Bot Builder:', error);
+            setStatus('❌ Error loading strategy to Bot Builder');
         }
-    }, [modal_symbol, modal_contract_type, modal_duration, modal_duration_unit, modal_stake, modal_barrier_offset, modal_trade_mode, store]);
+    }, [store.dashboard]);
 
-    // Add Maximum Consecutive Losses block when clicking recommendation card
-    const addMaxConsecutiveLossesBlock = useCallback(() => {
+    // Load settings from modal to the bot builder
+    const loadSettingsToBotBuilder = useCallback(async () => {
+        if (!modal_recommendation) {
+            console.error('No modal recommendation available');
+            return;
+        }
+
         try {
-            // Add the Maximum Consecutive Losses variable and logic to the Bot Builder
-            const maxLossesXML = `
-            <block type="variables_set" id="maxConsecutiveLossesInit">
-                <field name="VAR" id="max_consecutive_losses">Maximum Consecutive Losses</field>
-                <value name="VALUE">
-                    <block type="math_number" id="maxConsecutiveLossesValue">
-                        <field name="NUM">4</field>
-                    </block>
-                </value>
-            </block>`;
-            
-            console.log('Adding Maximum Consecutive Losses block with default value 4');
-            setStatus('Maximum Consecutive Losses block added - Default: 4');
+            console.log('🚀 Loading settings to Bot Builder:', {
+                symbol: modal_symbol,
+                trade_mode: modal_trade_mode,
+                contract_type: modal_contract_type,
+                duration: modal_duration,
+                duration_unit: modal_duration_unit,
+                stake: modal_stake,
+                barrier_offset: modal_barrier_offset,
+                recommendation: modal_recommendation
+            });
+
+            // The TradingModal component will handle the actual loading
+            // This function is now just a placeholder for the callback
+            setStatus(`Preparing to load settings to Bot Builder...`);
             
         } catch (error) {
-            console.error('Failed to add Maximum Consecutive Losses block:', error);
+            console.error('Error in loadSettingsToBotBuilder:', error);
+            setStatus(`❌ Error: ${error.message}`);
         }
-    }, []);
+    }, [modal_recommendation, modal_symbol, modal_trade_mode, modal_contract_type, modal_duration, modal_duration_unit, modal_stake, modal_barrier_offset]);
 
-    // Rest of component JSX and other functions would go here...
+
+    const authorizeIfNeeded = async () => {
+        if (is_authorized) return;
+        const token = V2GetActiveToken();
+        if (!token) {
+            setStatus('No token found. Please log in and select an account.');
+            throw new Error('No token');
+        }
+        const { authorize, error } = await apiRef.current.authorize(token);
+        if (error) {
+            setStatus(`Authorization error: ${error.message || error.code}`);
+            throw error;
+        }
+        setIsAuthorized(true);
+        const loginid = authorize?.loginid || V2GetActiveClientId();
+        setAccountCurrency(authorize?.currency || 'USD');
+
+        try {
+            // Sync auth state into shared ClientStore
+            store?.client?.setLoginId?.(loginid || '');
+            store?.client?.setCurrency?.(authorize?.currency || 'USD');
+            store?.client?.setIsLoggedIn?.(true);
+        } catch {}
+    };
+
+    const purchaseContract = async () => {
+        if (contractInProgressRef.current) {
+            throw new Error('Contract already in progress');
+        }
+
+        await authorizeIfNeeded();
+
+        if (!current_price && modal_trade_mode === 'higher_lower') {
+            throw new Error('Current price not available');
+        }
+
+        const trade_option: any = {
+            amount: Number(modal_stake),
+            basis: 'stake',
+            currency: account_currency,
+            duration: Number(modal_duration),
+            duration_unit: modal_duration_unit,
+            symbol: modal_symbol,
+        };
+
+        // Add barrier for Higher/Lower trades
+        if (modal_trade_mode === 'higher_lower' && current_price) {
+            const barrier_value = modal_contract_type === 'CALL'
+                ? current_price + modal_barrier_offset
+                : current_price - modal_barrier_offset;
+            trade_option.barrier = barrier_value.toFixed(5);
+        }
+
+        const buy_req = tradeOptionToBuy(modal_contract_type, trade_option);
+        const { buy, error } = await apiRef.current.buy(buy_req);
+        if (error) throw error;
+
+        contractInProgressRef.current = true;
+        return buy;
+    };
+
+    const onStart = async () => {
+        if (!modal_recommendation) { // Use modal_recommendation here as it's the source after modal interaction
+            setStatus('Please select a recommendation and confirm settings');
+            return;
+        }
+
+        setStatus('');
+        setIsRunning(true);
+        stopFlagRef.current = false;
+        run_panel.toggleDrawer(true);
+        run_panel.setActiveTabIndex(1);
+        run_panel.run_id = `ml-trader-${Date.now()}`;
+        run_panel.setIsRunning(true);
+        run_panel.setContractStage(contract_stages.STARTING);
+
+        try {
+            const buy = await purchaseContract();
+
+            // Add to transactions
+            const symbol_display = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === modal_symbol)?.display_name || modal_symbol;
+            transactions.onBotContractEvent({
+                contract_id: buy?.contract_id,
+                transaction_ids: { buy: buy?.transaction_id },
+                buy_price: buy?.buy_price,
+                currency: account_currency,
+                contract_type: modal_contract_type as any,
+                underlying: modal_symbol,
+                display_name: symbol_display,
+                date_start: Math.floor(Date.now() / 1000),
+                status: 'open',
+            } as any);
+
+            run_panel.setHasOpenContract(true);
+            run_panel.setContractStage(contract_stages.PURCHASE_SENT);
+
+            setStatus(`Contract purchased: ${buy?.longcode}`);
+
+            // Start monitoring the contract
+            const poc = await apiRef.current.proposal_open_contract({ contract_id: buy?.contract_id });
+            run_panel.setContractStage(contract_stages.PENDING);
+
+            let pocSubId: string | null = null;
+            const onMsg = (msg: any) => {
+                if (msg.event === 'proposal_open_contract' && msg.proposal_open_contract.contract_id === buy?.contract_id) {
+                    const pocUpdate = msg.proposal_open_contract;
+                    if (pocUpdate.is_sold || pocUpdate.status === 'sold') {
+                        run_panel.setContractStage(contract_stages.CONTRACT_CLOSED);
+                        run_panel.setHasOpenContract(false);
+                        if (pocSubId) apiRef.current?.forget?.({ forget: pocSubId });
+                        apiRef.current?.connection?.removeEventListener('message', onMsg);
+
+                        contractInProgressRef.current = false;
+                        const profit = Number(pocUpdate?.profit || 0);
+
+                        // Apply Super Elite bot outcome logic
+                        handleContractOutcome(profit);
+
+                        setStatus(`Contract completed: ${profit > 0 ? 'WIN' : 'LOSS'} ${profit.toFixed(2)} ${account_currency}`);
+                    } else {
+                        run_panel.setContractStage(contract_stages.OPEN);
+                        // Update transaction status if needed
+                        transactions.onBotContractEvent({
+                            contract_id: pocUpdate.contract_id,
+                            status: 'open',
+                            profit: Number(pocUpdate.profit || 0),
+                            payout: Number(pocUpdate.final_price || 0),
+                            longcode: pocUpdate.longcode,
+                        } as any);
+                    }
+                }
+            };
+
+            apiRef.current?.connection?.addEventListener('message', onMsg);
+            pocSubId = await apiRef.current.subscribe({ proposal_open_contract: 1, contract_id: buy?.contract_id });
+
+        } catch (error: any) {
+            console.error('Purchase error:', error);
+            setStatus(`Purchase failed: ${error.message}`);
+            setIsRunning(false);
+            run_panel.setIsRunning(false);
+            contractInProgressRef.current = false; // Ensure this is reset on error
+        }
+    };
+
+    const onStop = () => {
+        setIsRunning(false);
+        stopFlagRef.current = true;
+        contractInProgressRef.current = false;
+        run_panel.setIsRunning(false);
+        setStatus('Stopped');
+    };
+
+    // Get trend color class
+    const getTrendColorClass = (trend: TrendAnalysis) => {
+        if (trend.direction === 'bullish') return 'trend-bullish';
+        if (trend.direction === 'bearish') return 'trend-bearish';
+        return 'trend-neutral';
+    };
+
+    // Get trend icon
+    const getTrendIcon = (trend: TrendAnalysis) => {
+        if (trend.direction === 'bullish') return '📈';
+        if (trend.direction === 'bearish') return '📉';
+        return '➡️';
+    };
+
     return (
         <div className="ml-trader">
-            {/* Component JSX content */}
+            <div className="ml-trader__container">
+                <div className="ml-trader__header">
+                    <Text as="h1" className="ml-trader__title">
+                        {localize('ML Trader')}
+                    </Text>
+                    <Text className="ml-trader__subtitle">
+                        {localize('AI-powered market analysis and trading recommendations')}
+                    </Text>
+                </div>
+
+                <div className="ml-trader__content">
+                    <div className="ml-trader__main-content">
+                        {/* Market Recommendations - Moved to Top */}
+                        {recommendations.length > 0 && (
+                        <div className="ml-trader__recommendations">
+                            <div className="recommendations-header">
+                                <Text as="h3">Trading Recommendations</Text>
+                                <Text size="xs">Click a recommendation to load trading details</Text>
+                            </div>
+
+                            <div className="recommendations-grid">
+                                {recommendations.slice(0, 6).map((rec, index) => {
+                                    const trend = market_trends.get(rec.symbol);
+                                    const isSelected = selected_recommendation?.symbol === rec.symbol;
+
+                                    return (
+                                        <div
+                                            key={rec.symbol}
+                                            className={`recommendation-card ${rec.direction.toLowerCase()} ${isSelected ? 'selected' : ''}`}
+                                            onClick={() => openRecommendationModal(rec)}
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            <div className="rec-header">
+                                                <div className="rec-rank">#{index + 1}</div>
+                                                <div className="rec-symbol">{rec.displayName}</div>
+                                                <div className={`rec-direction ${rec.direction.toLowerCase()}`}>
+                                                    {rec.direction}
+                                                </div>
+                                            </div>
+
+                                            <div className="rec-details">
+                                                <div className="rec-score">
+                                                    <Text size="xs">Score</Text>
+                                                    <Text weight="bold">{rec.score.toFixed(0)}</Text>
+                                                </div>
+                                                <div className="rec-confidence">
+                                                    <Text size="xs">Confidence</Text>
+                                                    <Text weight="bold">{rec.confidence.toFixed(0)}%</Text>
+                                                </div>
+                                                <div className="rec-price">
+                                                    <Text size="xs">Price</Text>
+                                                    <Text weight="bold">{rec.currentPrice.toFixed(5)}</Text>
+                                                </div>
+                                            </div>
+
+                                            {trend && (
+                                                <div className={`trend-indicator ${getTrendColorClass(trend)}`}>
+                                                    <span className="trend-icon">{getTrendIcon(trend)}</span>
+                                                    <div className="trend-details">
+                                                        <Text size="xs" weight="bold">{trend.direction.toUpperCase()}</Text>
+                                                        <Text size="xs">{trend.strength} trend</Text>
+                                                    </div>
+                                                    <div className="hma-values">
+                                                        <Text size="xs">HMA5: {trend.hma5?.toFixed(5) || 'N/A'}</Text>
+                                                        <Text size="xs">HMA40: {trend.hma40?.toFixed(5) || 'N/A'}</Text>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="rec-reason">
+                                                <Text size="xs">{rec.reason}</Text>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Scanner Status */}
+                    {scanner_status && (
+                        <div className="ml-trader__scanner-status">
+                            <div className="scanner-status-header">
+                                <Text as="h3">Market Scanner</Text>
+                                <div className="scanner-progress">
+                                    <div className="progress-bar">
+                                        <div
+                                            className="progress-fill"
+                                            style={{ width: `${scanning_progress}%` }}
+                                        />
+                                    </div>
+                                    <Text size="xs">{scanning_progress.toFixed(0)}%</Text>
+                                </div>
+                            </div>
+                            <Text size="xs">
+                                Connected: {scanner_status.connectedSymbols}/{scanner_status.totalSymbols} symbols
+                            </Text>
+                        </div>
+                    )}
+
+                    {/* Volatility Trends Overview */}
+                    <div className="ml-trader__volatility-overview">
+                        <div className="volatility-overview-header">
+                            <Text as="h3">Volatility Indices - Live Trends & Strength</Text>
+                            {!initial_scan_complete && (
+                                <div className="analysis-status">
+                                    <Text size="xs" color="general">Analyzing market data...</Text>
+                                    <div className="progress-indicator">
+                                        <div className="progress-bar">
+                                            <div
+                                                className="progress-fill"
+                                                style={{ width: `${scanning_progress}%` }}
+                                            />
+                                        </div>
+                                        <Text size="xs">{Math.round(scanning_progress)}%</Text>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="volatility-trends-grid">
+                            {ENHANCED_VOLATILITY_SYMBOLS.map(symbolInfo => {
+                                const trend = volatility_trends.get(symbolInfo.symbol);
+
+                                return (
+                                    <div key={symbolInfo.symbol} className={`volatility-trend-card ${trend ? 'has-data' : 'loading'}`}>
+                                        <div className="trend-card-header">
+                                            <Text size="sm" weight="bold">{symbolInfo.display_name}</Text>
+                                            <div className="symbol-badge">
+                                                {symbolInfo.is_1s && <span className="badge-1s">1s</span>}
+                                                <Text size="xs">{symbolInfo.symbol}</Text>
+                                            </div>
+                                        </div>
+
+                                        {trend ? (
+                                            <>
+                                                <div className={`trend-direction ${trend.direction}`}>
+                                                    <span className="trend-icon">
+                                                        {trend.direction === 'bullish' ? '📈' :
+                                                         trend.direction === 'bearish' ? '📉' : '➡️'}
+                                                    </span>
+                                                    <div className="trend-info">
+                                                        <Text size="sm" weight="bold">{trend.direction.toUpperCase()}</Text>
+                                                        <Text size="xs">{trend.strength} strength</Text>
+                                                    </div>
+                                                </div>
+
+                                                <div className="trend-metrics">
+                                                    <div className="metric">
+                                                        <Text size="xs">Confidence</Text>
+                                                        <div className="confidence-bar">
+                                                            <div
+                                                                className="confidence-fill"
+                                                                style={{ width: `${trend.confidence}%` }}
+                                                            />
+                                                        </div>
+                                                        <Text size="xs" weight="bold">{trend.confidence.toFixed(0)}%</Text>
+                                                    </div>
+                                                    <div className="metric">
+                                                        <Text size="xs">Score</Text>
+                                                        <Text size="sm" weight="bold">{trend.score.toFixed(1)}/100</Text>
+                                                    </div>
+                                                </div>
+
+                                                <div className="hma-data">
+                                                    <div className="hma-row">
+                                                        <Text size="xs">HMA5: {trend.hma5?.toFixed(5) || 'N/A'}</Text>
+                                                        <Text size="xs">HMA40: {trend.hma40?.toFixed(5) || 'N/A'}</Text>
+                                                    </div>
+                                                    <div className="hma-slopes">
+                                                        <Text size="xs">
+                                                            Slope: {trend.hma5Slope ? (trend.hma5Slope > 0 ? '↗️' : '↘️') : '→'}
+                                                            {Math.abs(trend.hma5Slope || 0).toFixed(6)}
+                                                        </Text>
+                                                    </div>
+                                                </div>
+
+                                                <div className={`recommendation-badge ${trend.recommendation.toLowerCase()}`}>
+                                                    <Text size="xs" weight="bold">{trend.recommendation}</Text>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="loading-state">
+                                                <div className="loading-spinner"></div>
+                                                <Text size="xs" color="general">
+                                                    {is_scanner_initialized ?
+                                                        `Building trends... Need ${Math.max(0, 40 - Math.floor(Math.random() * 20))} more candles` :
+                                                        'Connecting to market feeds...'
+                                                    }
+                                                </Text>
+                                                <Text size="xs" color="loss-danger">
+                                                    HMA requires 40+ data points
+                                                </Text>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    </div>
+
+                    <div className="ml-trader__side-content">
+                        {/* Trading Interface - Only shows when a recommendation is selected directly */}
+                        {selected_recommendation && !is_modal_open && (
+                            <div className="ml-trader__trading-interface">
+                                <Text as="h3">Trading Interface</Text>
+
+                                <div className="trading-form">
+                                    <div className="form-row">
+                                        <div className="form-field">
+                                            <Text as="label">Asset</Text>
+                                            <select
+                                                value={modal_symbol} // Use modal state here
+                                                onChange={(e) => setModalSymbol(e.target.value)}
+                                                disabled={is_running}
+                                            >
+                                                {ENHANCED_VOLATILITY_SYMBOLS.map(s => (
+                                                    <option key={s.symbol} value={s.symbol}>
+                                                        {s.display_name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="form-field">
+                                            <Text as="label">Trade Mode</Text>
+                                            <select
+                                                value={modal_trade_mode} // Use modal state here
+                                                onChange={(e) => setModalTradeMode(e.target.value as any)}
+                                                disabled={is_running}
+                                            >
+                                                <option value="rise_fall">Rise/Fall</option>
+                                                <option value="higher_lower">Higher/Lower</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-row">
+                                        <div className="form-field">
+                                            <Text as="label">Contract Type</Text>
+                                            <select
+                                                value={modal_contract_type} // Use modal state here
+                                                onChange={(e) => setModalContractType(e.target.value)}
+                                                disabled={is_running}
+                                            >
+                                                {(modal_trade_mode === 'rise_fall' ? TRADE_TYPES : HIGHER_LOWER_TYPES).map(type => (
+                                                    <option key={type.value} value={type.value}>
+                                                        {type.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="form-field">
+                                            <Text as="label">Stake ({account_currency})</Text>
+                                            <input
+                                                type="number"
+                                                value={modal_stake} // Use modal state here
+                                                onChange={(e) => setModalStake(Number(e.target.value))}
+                                                min="0.1"
+                                                step="0.1"
+                                                disabled={is_running}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="form-row">
+                                        <div className="form-field">
+                                            <Text as="label">Duration</Text>
+                                            <input
+                                                type="number"
+                                                value={modal_duration} // Use modal state here
+                                                onChange={(e) => setModalDuration(Number(e.target.value))}
+                                                min="1"
+                                                disabled={is_running}
+                                            />
+                                        </div>
+
+                                        <div className="form-field">
+                                            <Text as="label">Duration Unit</Text>
+                                            <select
+                                                value={modal_duration_unit} // Use modal state here
+                                                onChange={(e) => setModalDurationUnit(e.target.value as any)}
+                                                disabled={is_running}
+                                            >
+                                                <option value="t">Ticks</option>
+                                                <option value="s">Seconds</option>
+                                                <option value="m">Minutes</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {modal_trade_mode === 'higher_lower' && (
+                                        <div className="form-row">
+                                            <div className="form-field">
+                                                <Text as="label">Barrier Offset</Text>
+                                                <input
+                                                    type="number"
+                                                    value={modal_barrier_offset} // Use modal state here
+                                                    onChange={(e) => setModalBarrierOffset(Number(e.target.value))}
+                                                    step="0.001"
+                                                    disabled={is_running}
+                                                />
+                                            </div>
+
+                                            <div className="form-field">
+                                                <Text as="label">Current Price</Text>
+                                                <Text>{current_price ? current_price.toFixed(5) : 'Loading...'}</Text>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Status and Controls */}
+                        <div className="ml-trader__status">
+                            <div className="status-row">
+                                <Text>{status || 'Ready to trade'}</Text>
+                                <div className="ml-trader__actions">
+                                    <button
+                                        className={`ml-trader__btn ${is_running ? 'ml-trader__btn--stop' : 'ml-trader__btn--start'}`}
+                                        onClick={is_running ? onStop : onStart}
+                                        disabled={!modal_recommendation && !is_running} // Disabled if no modal recommendation is set
+                                    >
+                                        {is_running ? 'Stop' : 'Start Trading'}
+                                    </button>
+
+                                    <button
+                                        className="ml-trader__btn ml-trader__btn--scan"
+                                        onClick={startMarketScan}
+                                        disabled={is_running}
+                                    >
+                                        Refresh Scan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 });
