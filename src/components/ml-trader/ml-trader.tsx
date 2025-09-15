@@ -174,9 +174,12 @@ const MLTrader = observer(() => {
 
             // Mark as complete after a reasonable time for initial data collection
             setTimeout(() => {
-                setInitialScanComplete(true);
-                setStatus('Market analysis ready');
-            }, 10000); // 10 seconds to allow for data collection
+                if (!initial_scan_complete) {
+                    console.log('⏰ ML Trader: Forcing scan completion after timeout');
+                    setInitialScanComplete(true);
+                    setStatus('Market analysis ready');
+                }
+            }, 5000); // 5 seconds to allow for data collection
 
             // Cleanup function stored in ref for unmount
             return () => {
@@ -204,12 +207,15 @@ const MLTrader = observer(() => {
             }
         });
 
+        console.log(`📊 ML Trader: Found trends for ${trendsMap.size}/${ENHANCED_VOLATILITY_SYMBOLS.length} symbols`);
+
         if (hasData) {
             setMarketTrends(trendsMap);
             setVolatilityTrends(trendsMap);
             
             // Mark initial scan as complete when we have trends for at least 3 symbols
             if (trendsMap.size >= 3 && !initial_scan_complete) {
+                console.log(`✅ ML Trader: Initial scan completed with ${trendsMap.size} symbols`);
                 setInitialScanComplete(true);
             }
         }
