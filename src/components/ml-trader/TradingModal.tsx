@@ -189,12 +189,12 @@ const TradingModal: React.FC<TradingModalProps> = ({
         return xml;
     };
 
-    // Load the specific bot XML content instead of generating new XML
+    // Load the complete bot strategy template including purchase conditions and restart logic
     const handleLoadToBotBuilder = async () => {
         try {
-            console.log('🔄 Loading bot skeleton to Bot Builder...');
+            console.log('🔄 Loading complete bot strategy to Bot Builder...');
             
-            // Define the bot skeleton XML content (the one from the attached file)
+            // Define the complete bot strategy XML content matching the Bot Builder template
             const botSkeletonXML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id=":yGQ!WYKA[R_sO1MkSjL">tick1</variable>
@@ -204,15 +204,18 @@ const TradingModal: React.FC<TradingModalProps> = ({
     <variable id="qQ]^z(23IIrz6z~JnY#h">tick 3</variable>
     <variable id="I4.{v(IzG;i#bX-6h(1#">win stake</variable>
     <variable id=".5ELQ4[J.e4czk,qPqKM">Martingale split</variable>
+    <variable id="Result_is">Result_is</variable>
   </variables>
+  
+  <!-- Trade Definition Block -->
   <block type="trade_definition" id="=;b|aw3,G(o+jI6HNU0_" deletable="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">
       <block type="trade_definition_market" id="GrbKdLI=66(KGnSGl*=_" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
-        <field name="SUBMARKET_LIST">random_index</field>
+        <field name="SUBMARKET_LIST">continuous_indices</field>
         <field name="SYMBOL_LIST">${symbol}</field>
         <next>
-          <block type="trade_definition_tradetype" id="F)\`ky6X[Pq]/Anl_CQ%)" deletable="false" movable="false">
+          <block type="trade_definition_tradetype" id="F)ky6X[Pq]/Anl_CQ%)" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">digits</field>
             <field name="TRADETYPE_LIST">overunder</field>
             <next>
@@ -239,6 +242,8 @@ const TradingModal: React.FC<TradingModalProps> = ({
         </next>
       </block>
     </statement>
+    
+    <!-- Run once at start -->
     <statement name="INITIALIZATION">
       <block type="text_print" id="x4l[!tcMk5~9$g9tp)F.">
         <value name="TEXT">
@@ -273,12 +278,12 @@ const TradingModal: React.FC<TradingModalProps> = ({
                       <block type="variables_set" id="}RkgwZuqtMN[-O}zHU%8">
                         <field name="VAR" id=".5ELQ4[J.e4czk,qPqKM">Martingale split</field>
                         <value name="VALUE">
-                          <block type="math_number" id="Ib,Krc\`nUJzn1KMo9)\`A">
+                          <block type="math_number" id="Ib,KrcnUJzn1KMo9)A">
                             <field name="NUM">2.2</field>
                           </block>
                         </value>
                         <next>
-                          <block type="variables_set" id="h!e/g.y@3xFBo0Q,Yz\`m">
+                          <block type="variables_set" id="h!e/g.y@3xFBo0Q,Yzm">
                             <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
                             <value name="VALUE">
                               <block type="math_random_int" id="i0NhB-KvY:?lj+^6ymZU">
@@ -288,7 +293,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
                                   </shadow>
                                 </value>
                                 <value name="TO">
-                                  <shadow type="math_number" id=",_;o3PUOp?^\`|_ffS^P8">
+                                  <shadow type="math_number" id=",_;o3PUOp?^|_ffS^P8">
                                     <field name="NUM">1</field>
                                   </shadow>
                                 </value>
@@ -306,6 +311,8 @@ const TradingModal: React.FC<TradingModalProps> = ({
         </next>
       </block>
     </statement>
+    
+    <!-- Trade options -->
     <statement name="SUBMARKET">
       <block type="trade_definition_tradeoptions" id="QXj55FgjyN!H@HP]V6jI">
         <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
@@ -337,12 +344,37 @@ const TradingModal: React.FC<TradingModalProps> = ({
       </block>
     </statement>
   </block>
-  <block type="after_purchase" id="RSFi6b^1!S1=u5HT9ij5" x="891" y="60">
+
+  <!-- Purchase conditions -->
+  <block type="before_purchase" id="m^:eB90FBG!Q9f85%x-K" deletable="false" x="267" y="544">
+    <statement name="BEFOREPURCHASE_STACK">
+      <block type="notify" id="^KrKto{h0?Oi5y!Uo!k">
+        <field name="NOTIFICATION_TYPE">success</field>
+        <field name="NOTIFICATION_SOUND">silent</field>
+        <value name="MESSAGE">
+          <shadow type="text" id="OGu:tW}VqV1el7}LlhgE">
+            <field name="TEXT">DUKE...>>>></field>
+          </shadow>
+          <block type="variables_get" id="DIO6HH*]Tf87lkH)]W1">
+            <field name="VAR" id="7S=JB!;S?@%x@F=5xFsK">tick 2</field>
+          </block>
+        </value>
+        <next>
+          <block type="purchase" id="it}Zt@Ou$Y97bED_*(nZ">
+            <field name="PURCHASE_LIST">DIGITOVER</field>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+
+  <!-- Restart trading conditions -->
+  <block type="after_purchase" id="RSFi6b^1!S1=u5HT9ij5" x="679" y="293">
     <statement name="AFTERPURCHASE_STACK">
       <block type="controls_if" id="m~FN=}k/:4T0C|!9RWv7">
         <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
         <value name="IF0">
-          <block type="contract_check_result" id="?#pF}/RWg,s)qyk6~Q4\`">
+          <block type="contract_check_result" id="?#pF}/RWg,s)qyk6~Q4">
             <field name="CHECK_RESULT">win</field>
           </block>
         </value>
@@ -350,7 +382,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
           <block type="variables_set" id="VCplk%:6-m~2N?w590V3">
             <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
             <value name="VALUE">
-              <block type="math_random_int" id="e!w*#f6#@(J=!\`w[e]aR">
+              <block type="math_random_int" id="e!w*#f6#@(J=!w[e]aR">
                 <value name="FROM">
                   <shadow type="math_number" id="|~+Cbgj^c]K~uP_)~88!">
                     <field name="NUM">1</field>
@@ -367,12 +399,22 @@ const TradingModal: React.FC<TradingModalProps> = ({
               <block type="variables_set" id="ZPFx9h$~-#?hu({nP9br">
                 <field name="VAR" id="y)BE|l7At6oT)ur0Dsw?">Stake</field>
                 <value name="VALUE">
-                  <block type="variables_get" id="evk@V\`L!Cns23Tt-YO#i">
+                  <block type="variables_get" id="evk@VL!Cns23Tt-YO#i">
                     <field name="VAR" id="I4.{v(IzG;i#bX-6h(1#">win stake</field>
                   </block>
                 </value>
                 <next>
-                  <block type="trade_again" id=".%j%jiw_Gz{$-9+tM1sE"></block>
+                  <block type="variables_set" id="setResultWin">
+                    <field name="VAR" id="Result_is">Result_is</field>
+                    <value name="VALUE">
+                      <block type="text" id="resultWinText">
+                        <field name="TEXT">Win</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="trade_again" id=".%j%jiw_Gz{$-9+tM1sE"></block>
+                    </next>
+                  </block>
                 </next>
               </block>
             </next>
@@ -381,7 +423,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
         <statement name="ELSE">
           <block type="controls_if" id="[]}t.-zV3B}F{r_wuWIK">
             <value name="IF0">
-              <block type="contract_check_result" id="d6I:nMCIu?M|p\`Zu?8Di">
+              <block type="contract_check_result" id="d6I:nMCIu?M|pZu?8Di">
                 <field name="CHECK_RESULT">loss</field>
               </block>
             </value>
@@ -389,9 +431,9 @@ const TradingModal: React.FC<TradingModalProps> = ({
               <block type="variables_set" id="yqjWT{JtZ.@glB=i+3kC">
                 <field name="VAR" id="jZ@oue8^bFSf$W^OcBHK">predict 3</field>
                 <value name="VALUE">
-                  <block type="math_random_int" id="Kbr]yzFaM7h==L/\`mxt_">
+                  <block type="math_random_int" id="Kbr]yzFaM7h==L/mxt_">
                     <value name="FROM">
-                      <shadow type="math_number" id="rbI\`X\`a)*X_r-cy5S%Rw">
+                      <shadow type="math_number" id="rbIXa)*X_r-cy5S%Rw">
                         <field name="NUM">3</field>
                       </shadow>
                     </value>
@@ -426,6 +468,16 @@ const TradingModal: React.FC<TradingModalProps> = ({
                         </value>
                       </block>
                     </value>
+                    <next>
+                      <block type="variables_set" id="setResultLoss">
+                        <field name="VAR" id="Result_is">Result_is</field>
+                        <value name="VALUE">
+                          <block type="text" id="resultLossText">
+                            <field name="TEXT">Loss</field>
+                          </block>
+                        </value>
+                      </block>
+                    </next>
                   </block>
                 </next>
               </block>
@@ -438,27 +490,8 @@ const TradingModal: React.FC<TradingModalProps> = ({
       </block>
     </statement>
   </block>
-  <block type="before_purchase" id="m^:eB90FBG!Q9f85%x-K" deletable="false" x="0" y="928">
-    <statement name="BEFOREPURCHASE_STACK">
-      <block type="notify" id="^KrKto{h0?O\`i5y!Uo!k">
-        <field name="NOTIFICATION_TYPE">success</field>
-        <field name="NOTIFICATION_SOUND">silent</field>
-        <value name="MESSAGE">
-          <shadow type="text" id="OGu:tW}VqV1el7}LlhgE">
-            <field name="TEXT">DUKE...>>>></field>
-          </shadow>
-          <block type="variables_get" id="DIO6HH*]Tf87l\`kH)]W1">
-            <field name="VAR" id="7S=JB!;S?@%x@F=5xFsK">tick 2</field>
-          </block>
-        </value>
-        <next>
-          <block type="purchase" id="it}Zt@Ou$Y97bED_*(nZ">
-            <field name="PURCHASE_LIST">DIGITOVER</field>
-          </block>
-        </next>
-      </block>
-    </statement>
-  </block>
+
+  <!-- Tick Analysis -->
   <block type="tick_analysis" id="C1)t(KjgV5)#c:5Fz2@_" collapsed="true" x="0" y="1594">
     <statement name="TICKANALYSIS_STACK">
       <block type="variables_set" id="/K_P8vj*(@v:6j]Bu~P=">
@@ -469,10 +502,10 @@ const TradingModal: React.FC<TradingModalProps> = ({
             <field name="MODE">GET</field>
             <field name="WHERE">FROM_END</field>
             <value name="VALUE">
-              <block type="lastDigitList" id="}LYybI/S\`:cjI/Rcy1nY"></block>
+              <block type="lastDigitList" id="}LYybI/S:cjI/Rcy1nY"></block>
             </value>
             <value name="AT">
-              <block type="math_number" id="[_Rkdo]\`;_P8]lF/%Gn^">
+              <block type="math_number" id="[_RkdoP8]lF/%Gn^">
                 <field name="NUM">1</field>
               </block>
             </value>
