@@ -193,7 +193,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
     const handleLoadToBotBuilder = async () => {
         try {
             console.log('🔄 Loading complete bot strategy to Bot Builder...');
-
+            
             // Define the complete bot strategy XML content matching the Bot Builder template
             // Calculate barrier offset based on contract type
             const calculateBarrierOffset = () => {
@@ -220,7 +220,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
     <variable id=".5ELQ4[J.e4czk,qPqKM">Martingale split</variable>
     <variable id="Result_is">Result_is</variable>
   </variables>
-
+  
   <!-- Trade Definition Block -->
   <block type="trade_definition" id="=;b|aw3,G(o+jI6HNU0_" deletable="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">
@@ -256,7 +256,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
         </next>
       </block>
     </statement>
-
+    
     <!-- Run once at start -->
     <statement name="INITIALIZATION">
       <block type="text_print" id="x4l[!tcMk5~9$g9tp)F.">
@@ -325,7 +325,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
         </next>
       </block>
     </statement>
-
+    
     <!-- Trade options -->
     <statement name="SUBMARKET">
       <block type="trade_definition_tradeoptions" id="QXj55FgjyN!H@HP]V6jI">
@@ -374,7 +374,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
         </value>
         <next>
           <block type="purchase" id="it}Zt@Ou$Y97bED_*(nZ">
-            <field name="PURCHASE_LIST">${mappedContractType}</field>
+            <field name="PURCHASE_LIST">${contractTypeField}</field>
           </block>
         </next>
       </block>
@@ -576,7 +576,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
 
             // Switch to Bot Builder tab (index 1)
             dashboard.setActiveTab(1);
-
+            
             // Wait for tab switch and workspace initialization
             setTimeout(async () => {
                 try {
@@ -587,7 +587,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
                     // Ensure workspace is ready
                     if (window.Blockly?.derivWorkspace) {
                         console.log('📦 Loading bot skeleton strategy to workspace...');
-
+                        
                         await load({
                             block_string: botSkeletonXML,
                             file_name: `Bot_Skeleton_${symbol}_${Date.now()}`,
@@ -601,10 +601,10 @@ const TradingModal: React.FC<TradingModalProps> = ({
                         // Center and focus workspace
                         window.Blockly.derivWorkspace.scrollCenter();
                         console.log('✅ Bot skeleton strategy loaded successfully to Bot Builder');
-
+                        
                     } else {
                         console.warn('⚠️ Blockly workspace not ready, using fallback method');
-
+                        
                         // Fallback: Direct XML loading
                         setTimeout(() => {
                             if (window.Blockly?.derivWorkspace) {
@@ -618,7 +618,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
                     }
                 } catch (loadError) {
                     console.error('❌ Error loading bot skeleton strategy:', loadError);
-
+                    
                     // Final fallback
                     if (window.Blockly?.derivWorkspace) {
                         window.Blockly.derivWorkspace.clear();
@@ -629,7 +629,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
                     }
                 }
             }, 300);
-
+            
         } catch (error) {
             console.error('❌ Error in handleLoadToBotBuilder:', error);
         }
@@ -656,7 +656,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
                                 </Text>
                             </div>
                         </div>
-
+                        
                         <div className="recommendation-details">
                             <div className="detail-row">
                                 <div className="detail-item">
@@ -672,7 +672,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
                                     </Text>
                                 </div>
                             </div>
-
+                            
                             {recommendation.barrier && (
                                 <div className="detail-row">
                                     <div className="detail-item">
@@ -685,7 +685,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
                                     </div>
                                 </div>
                             )}
-
+                            
                             <div className="recommendation-reason">
                                 <Text size="xs" color="general">{localize('Analysis')}</Text>
                                 <Text size="xs" color="prominent">{recommendation.reason}</Text>
