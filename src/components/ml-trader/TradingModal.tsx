@@ -670,7 +670,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
                                 <div className="detail-item">
                                     <Text size="xs" color="general">{localize('Strategy')}</Text>
                                     <Text size="sm" weight="bold">
-                                        {trade_mode === 'higher_lower' ? 
+                                        {trade_mode === 'higher_lower' ?
                                             (contract_type === 'CALL' ? 'HIGHER' : 'LOWER') :
                                             (recommendation.strategy || recommendation.direction || 'CALL').toUpperCase()
                                         }

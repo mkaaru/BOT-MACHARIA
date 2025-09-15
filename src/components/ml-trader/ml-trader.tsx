@@ -126,7 +126,7 @@ const MLTrader = observer(() => {
             lastOutcomeWasLossRef.current = true;
             lossStreakRef.current++;
             stepRef.current = Math.min(stepRef.current + 1, 10); // Increment step, cap at 10
-            const martingaleMultiplier = 2.2; // Super Elite's multiplier
+            const martingaleMultiplier = 1.5; // Updated multiplier
             setStake(prevStake => (prevStake * martingaleMultiplier).toFixed(2)); // Apply Martingale
             console.log(`❌ LOSS: ${profit.toFixed(2)} ${account_currency} - Next trade will use after-loss prediction (${ouPredPostLoss})`);
         }
