@@ -1,4 +1,3 @@
-
 import React from 'react';
 import Modal from '@/components/shared_ui/modal';
 import Text from '@/components/shared_ui/text';
@@ -94,7 +93,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
     setBarrierOffset,
 }) => {
     if (!isOpen || !recommendation) return null;
-    
+
     const handleClose = () => {
         try {
             onClose();
@@ -102,12 +101,141 @@ const TradingModal: React.FC<TradingModalProps> = ({
             console.error('Error closing modal:', error);
         }
     };
-    
+
     const handleLoadSettings = () => {
         try {
             onLoadSettings();
         } catch (error) {
             console.error('Error loading settings:', error);
+        }
+    };
+
+    // Generate Bot Builder XML for the settings
+    const generateBotBuilderXML = () => {
+        const selectedSymbol = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === symbol);
+        const symbolDisplay = selectedSymbol?.display_name || symbol;
+
+        // Contract type mapping - map ML Trader types to Bot Builder types
+        const contractTypeMapping: Record<string, string> = {
+            'CALL': trade_mode === 'rise_fall' ? 'CALL' : 'CALLE', // Rise for Rise/Fall, Higher for Higher/Lower
+            'PUT': trade_mode === 'rise_fall' ? 'PUT' : 'PUTE'     // Fall for Rise/Fall, Lower for Higher/Lower
+        };
+
+        const mappedContractType = contractTypeMapping[contract_type] || 'CALL';
+
+        // Duration unit mapping
+        const durationUnitMapping: Record<string, string> = {
+            't': 't', // ticks
+            's': 's', // seconds  
+            'm': 'm'  // minutes
+        };
+
+        const mappedDurationUnit = durationUnitMapping[duration_unit] || 't';
+
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<xml xmlns="https://developers.google.com/blockly/xml">
+  <variables>
+    <variable id="market">market</variable>
+    <variable id="submarket">submarket</variable>
+    <variable id="symbol">symbol</variable>
+    <variable id="tradetypecat">tradetypecat</variable>
+  </variables>
+  <block type="trade_definition" id="trade_definition" x="0" y="0">
+    <field name="MARKET_LIST">${selectedSymbol?.group || 'synthetic_index'}</field>
+    <field name="SUBMARKET_LIST">${selectedSymbol?.submarket || 'continuous_indices'}</field>
+    <field name="SYMBOL_LIST">${symbol}</field>
+    <field name="TRADETYPECAT_LIST">${trade_mode === 'rise_fall' ? 'callput' : 'highlow'}</field>
+    <field name="TRADETYPE_LIST">${mappedContractType}</field>
+    <value name="DURATION">
+      <shadow type="math_number">
+        <field name="NUM">${duration}</field>
+      </shadow>
+    </value>
+    <value name="DURATIONTYPE_LIST">
+      <shadow type="text">
+        <field name="TEXT">${mappedDurationUnit}</field>
+      </shadow>
+    </value>
+    <value name="AMOUNT">
+      <shadow type="math_number">
+        <field name="NUM">${stake}</field>
+      </shadow>
+    </value>
+    <value name="BARRIEROFFSETTYPE_LIST">
+      <shadow type="text">
+        <field name="TEXT">+</field>
+      </shadow>
+    </value>
+    ${trade_mode === 'higher_lower' ? `
+    <value name="BARRIEROFFSET">
+      <shadow type="math_number">
+        <field name="NUM">${barrier_offset}</field>
+      </shadow>
+    </value>` : ''}
+    <statement name="SUBMARKET_TRADEPARAMETERS">
+      <block type="trade_definition_market" id="trade_definition_market">
+        <field name="MARKET_LIST">${selectedSymbol?.group || 'synthetic_index'}</field>
+        <field name="SUBMARKET_LIST">${selectedSymbol?.submarket || 'continuous_indices'}</field>
+        <field name="SYMBOL_LIST">${symbol}</field>
+      </block>
+    </statement>
+  </block>
+</xml>`;
+
+        return xml;
+    };
+
+    // Load settings to Bot Builder
+    const handleLoadToBotBuilder = () => {
+        try {
+            // Import required dependencies
+            const { load } = require('@/external/bot-skeleton');
+            const { save_types } = require('@/external/bot-skeleton/constants/save-type');
+
+            const xmlContent = generateBotBuilderXML();
+
+            // Close modal first
+            onClose();
+
+            // Switch to Bot Builder tab
+            setTimeout(() => {
+                // Set active tab to Bot Builder (index 1)
+                if (window.location.hash !== '#bot_builder') {
+                    window.location.hash = '#bot_builder';
+                }
+
+                // Load the strategy into Bot Builder
+                setTimeout(async () => {
+                    if (window.Blockly?.derivWorkspace) {
+                        try {
+                            await load({
+                                block_string: xmlContent,
+                                file_name: `ML_Recommendation_${recommendation?.symbol}_${Date.now()}`,
+                                workspace: window.Blockly.derivWorkspace,
+                                from: save_types.UNSAVED,
+                                drop_event: null,
+                                strategy_id: null,
+                                showIncompatibleStrategyDialog: null,
+                            });
+
+                            // Center the workspace
+                            window.Blockly.derivWorkspace.scrollCenter();
+
+                            console.log('✅ Settings loaded to Bot Builder successfully');
+                        } catch (loadError) {
+                            console.error('Error loading strategy:', loadError);
+                            // Fallback to direct XML loading
+                            window.Blockly.derivWorkspace.clear();
+                            const xmlDoc = window.Blockly.utils.xml.textToDom(xmlContent);
+                            window.Blockly.Xml.domToWorkspace(xmlDoc, window.Blockly.derivWorkspace);
+                            window.Blockly.derivWorkspace.scrollCenter();
+                        }
+                    }
+                }, 100);
+            }, 100);
+        } catch (error) {
+            console.error('Error loading settings to Bot Builder:', error);
+            onClose();
         }
     };
 
@@ -149,7 +277,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
 
                 <div className="trading-modal__trading-form">
                     <Text as="h3" className="form-title">{localize('Trading Interface')}</Text>
-                    
+
                     <div className="form-grid">
                         <div className="form-row">
                             <div className="form-field">
@@ -265,7 +393,7 @@ const TradingModal: React.FC<TradingModalProps> = ({
                     />
                     <Button
                         className="modal-load-btn"
-                        onClick={handleLoadSettings}
+                        onClick={handleLoadToBotBuilder}
                         text={localize('Load Settings')}
                         primary
                     />

@@ -327,24 +327,43 @@ const MLTrader = observer(() => {
                 return;
             }
             
+            console.log('📋 Opening recommendation modal with:', recommendation);
+            
             setModalRecommendation(recommendation);
+            
             // Pre-fill modal form with recommendation's data
             setModalSymbol(recommendation.symbol || '');
             setModalContractType(recommendation.direction || 'CALL');
             setModalDuration(recommendation.suggestedDuration || 5);
             setModalDurationUnit((recommendation.suggestedDurationUnit as 't' | 's' | 'm') || 't');
             setModalStake(recommendation.suggestedStake || 1.0);
-            baseStakeRef.current = recommendation.suggestedStake || 1.0; // Set base stake for modal
-
-            if (recommendation.direction === 'CALL' || recommendation.direction === 'PUT') {
+            
+            // Set trade mode based on recommendation strategy
+            if (recommendation.strategy === 'call' || recommendation.strategy === 'put' || 
+                recommendation.direction === 'CALL' || recommendation.direction === 'PUT') {
                 setModalTradeMode('rise_fall');
+            } else {
+                // For barrier-based strategies, use higher/lower
+                setModalTradeMode('higher_lower');
             }
-            setCurrentPrice(recommendation.currentPrice || null); // Set current price for modal context
+            
+            // Set barrier offset for higher/lower trades
+            if (recommendation.barrier) {
+                const barrierValue = parseFloat(recommendation.barrier);
+                const currentPriceValue = recommendation.currentPrice || 0;
+                if (currentPriceValue > 0) {
+                    const calculatedOffset = Math.abs(barrierValue - currentPriceValue);
+                    setModalBarrierOffset(calculatedOffset);
+                }
+            }
+            
+            setCurrentPrice(recommendation.currentPrice || null);
+            baseStakeRef.current = recommendation.suggestedStake || 1.0;
 
             setIsModalOpen(true);
             
             const displayName = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === recommendation.symbol)?.display_name || recommendation.symbol;
-            setStatus(`Opened trading interface for ${displayName}`);
+            setStatus(`Opened trading interface for ${displayName} - ${recommendation.strategy.toUpperCase()}`);
         } catch (error) {
             console.error('Error opening recommendation modal:', error);
             setStatus('Error opening trading interface');
@@ -352,36 +371,106 @@ const MLTrader = observer(() => {
     }, []);
 
     // Load settings from modal to the bot builder
-    const loadSettingsToBotBuilder = useCallback(() => {
+    const loadSettingsToBotBuilder = useCallback(async () => {
         if (!modal_recommendation) return;
 
-        // Here, you would typically interact with the Bot Builder's state or API
-        // to load these settings. For this example, we'll just log them.
-        console.log('Loading settings to Bot Builder:', {
-            symbol: modal_symbol,
-            trade_mode: modal_trade_mode,
-            contract_type: modal_contract_type,
-            duration: modal_duration,
-            duration_unit: modal_duration_unit,
-            stake: modal_stake,
-            barrier_offset: modal_barrier_offset,
-        });
+        try {
+            const { load } = await import('@/external/bot-skeleton');
+            const { save_types } = await import('@/external/bot-skeleton/constants/save-type');
+            
+            console.log('🚀 Loading settings to Bot Builder:', {
+                symbol: modal_symbol,
+                trade_mode: modal_trade_mode,
+                contract_type: modal_contract_type,
+                duration: modal_duration,
+                duration_unit: modal_duration_unit,
+                stake: modal_stake,
+                barrier_offset: modal_barrier_offset,
+                recommendation: modal_recommendation
+            });
 
-        // Example: If you have a way to update the Bot Builder state directly
-        // For instance, if Bot Builder is managed by another store or context:
-        // botBuilderStore.updateTradeParameters({
-        //     symbol: modal_symbol,
-        //     contract_type: modal_contract_type,
-        //     duration: modal_duration,
-        //     duration_unit: modal_duration_unit,
-        //     stake: modal_stake,
-        //     barrier_offset: modal_barrier_offset,
-        //     // ... other relevant parameters
-        // });
+            // Switch to Bot Builder tab
+            store.dashboard.setActiveTab(1); // Bot Builder tab index
+            
+            setStatus(`Loading settings to Bot Builder for ${modal_recommendation.displayName || modal_symbol}...`);
+            setIsModalOpen(false); // Close the modal first
+            
+            // Wait for tab switch, then load the strategy
+            setTimeout(async () => {
+                try {
+                    // Generate XML for the Bot Builder
+                    const selectedSymbol = ENHANCED_VOLATILITY_SYMBOLS.find(s => s.symbol === modal_symbol);
+                    const contractTypeMapping: Record<string, string> = {
+                        'CALL': modal_trade_mode === 'rise_fall' ? 'CALL' : 'CALLE',
+                        'PUT': modal_trade_mode === 'rise_fall' ? 'PUT' : 'PUTE'
+                    };
+                    
+                    const mappedContractType = contractTypeMapping[modal_contract_type] || 'CALL';
+                    
+                    const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<xml xmlns="https://developers.google.com/blockly/xml">
+  <variables>
+    <variable id="market">market</variable>
+    <variable id="submarket">submarket</variable>
+    <variable id="symbol">symbol</variable>
+    <variable id="tradetypecat">tradetypecat</variable>
+  </variables>
+  <block type="trade_definition" id="trade_definition" x="0" y="0">
+    <field name="MARKET_LIST">synthetic_index</field>
+    <field name="SUBMARKET_LIST">continuous_indices</field>
+    <field name="SYMBOL_LIST">${modal_symbol}</field>
+    <field name="TRADETYPECAT_LIST">${modal_trade_mode === 'rise_fall' ? 'callput' : 'highlow'}</field>
+    <field name="TRADETYPE_LIST">${mappedContractType}</field>
+    <value name="DURATION">
+      <shadow type="math_number">
+        <field name="NUM">${modal_duration}</field>
+      </shadow>
+    </value>
+    <value name="DURATIONTYPE_LIST">
+      <shadow type="text">
+        <field name="TEXT">${modal_duration_unit}</field>
+      </shadow>
+    </value>
+    <value name="AMOUNT">
+      <shadow type="math_number">
+        <field name="NUM">${modal_stake}</field>
+      </shadow>
+    </value>
+    ${modal_trade_mode === 'higher_lower' ? `
+    <value name="BARRIEROFFSET">
+      <shadow type="math_number">
+        <field name="NUM">${modal_barrier_offset}</field>
+      </shadow>
+    </value>` : ''}
+  </block>
+</xml>`;
 
-        setStatus(`Settings loaded to Bot Builder for ${modal_recommendation.displayName}`);
-        setIsModalOpen(false); // Close the modal after loading
-    }, [modal_recommendation, modal_symbol, modal_trade_mode, modal_contract_type, modal_duration, modal_duration_unit, modal_stake, modal_barrier_offset]);
+                    // Load the strategy
+                    if (window.Blockly?.derivWorkspace) {
+                        await load({
+                            block_string: xmlContent,
+                            file_name: `ML_${modal_symbol}_${modal_contract_type}_${Date.now()}`,
+                            workspace: window.Blockly.derivWorkspace,
+                            from: save_types.UNSAVED,
+                            drop_event: null,
+                            strategy_id: null,
+                            showIncompatibleStrategyDialog: null,
+                        });
+                        
+                        window.Blockly.derivWorkspace.scrollCenter();
+                        setStatus(`✅ Settings loaded to Bot Builder successfully`);
+                    }
+                } catch (loadError) {
+                    console.error('Error loading to Bot Builder:', loadError);
+                    setStatus(`❌ Error loading to Bot Builder: ${loadError.message}`);
+                }
+            }, 500);
+            
+        } catch (error) {
+            console.error('Error in loadSettingsToBotBuilder:', error);
+            setStatus(`❌ Error: ${error.message}`);
+        }
+    }, [modal_recommendation, modal_symbol, modal_trade_mode, modal_contract_type, modal_duration, modal_duration_unit, modal_stake, modal_barrier_offset, store.dashboard]);
 
 
     const authorizeIfNeeded = async () => {
