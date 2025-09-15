@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import Modal from '@/components/shared_ui/modal';
-import Button from '@/components/shared_ui/button';
 import { localize } from '@deriv-com/translations';
 import marketAnalyzer from '@/services/market-analyzer';
 import SmartTraderWrapper from './smart-trader-wrapper';
@@ -10,7 +9,6 @@ import { useStore } from '@/hooks/useStore';
 import { generateDerivApiInstance, V2GetActiveToken, V2GetActiveClientId } from '@/external/bot-skeleton/services/api/appId';
 import { contract_stages } from '@/constants/contract-stage';
 import type { TradeRecommendation, MarketStats, O5U4Conditions } from '@/services/market-analyzer';
-import VolatilitySelectorModal from './volatility-selector-modal';
 import './trading-hub-display.scss';
 
 // Mock 'transactions' object if it's not globally available or imported elsewhere
@@ -99,35 +97,6 @@ const TradingHubDisplay: React.FC = observer(() => {
     // Refs for managing active contract subscriptions and stop flag
     const activeContractSubscriptionsRef = useRef<Set<string>>(new Set());
     const aiAutoTradeStopFlagRef = useRef<boolean>(false);
-
-    // State and handlers for the Volatility Selector Modal
-    const [showVolatilitySelector, setShowVolatilitySelector] = useState(false);
-    const [smartTraderConfig, setSmartTraderConfig] = useState<TradingSettings | null>(null);
-    const [configurationStatus, setConfigurationStatus] = useState<string>('');
-
-    const handleOpenVolatilitySelector = useCallback(() => {
-        setShowVolatilitySelector(true);
-    }, []);
-
-    const handleCloseVolatilitySelector = useCallback(() => {
-        setShowVolatilitySelector(false);
-    }, []);
-
-    const handleLoadSettings = useCallback((settings: TradeSettings) => {
-        setSmartTraderConfig(settings);
-        setActiveComponent('smart-trader');
-        setConfigurationStatus(`Configuration loaded: ${settings.symbol} - ${settings.contract_type} - $${settings.stake}`);
-
-        setTimeout(() => {
-            setConfigurationStatus('');
-        }, 5000);
-
-        console.log('🎯 Trading Hub: Settings loaded for Smart Trader:', settings);
-    }, []);
-
-    const handleSmartTraderConfigLoad = useCallback((config: any) => {
-        console.log('✅ Smart Trader: Configuration applied successfully:', config);
-    }, []);
 
     // AI Scanning Messages with Trading Truths
     const aiScanningMessages = {
@@ -756,7 +725,7 @@ const TradingHubDisplay: React.FC = observer(() => {
 
             setAiTradeStatus(`✅ Trade placed: ${buy?.longcode || 'Contract'} (ID: ${buy.contract_id})`);
 
-            // Create transaction entry like Smart Trader
+            // Create initial transaction entry like Smart Trader
             try {
                 const symbol_display = symbolMap[recommendation.symbol] || recommendation.symbol;
                 // Assuming 'transactions' is accessible and has onBotContractEvent
@@ -1289,7 +1258,7 @@ const TradingHubDisplay: React.FC = observer(() => {
                         <div key={index} className={`recommendation-item ${rec === bestRec ? 'best-recommendation' : ''}`}>
                             <div className="recommendation-content">
                                 <div className="strategy-badge">
-                                    <span className={`strategy-label ${rec === bestRec ? 'best-recommendation-label' : ''} strategy-label--${rec.strategy}`}>
+                                    <span className={`strategy-label strategy-label--${rec.strategy}`}>
                                         {rec.strategy.toUpperCase()} {rec.barrier}
                                     </span>
                                     <span className={`confidence-badge confidence-${getConfidenceLevel(rec.confidence)}`}>
@@ -1343,33 +1312,23 @@ const TradingHubDisplay: React.FC = observer(() => {
         setSelectedTradeSettings(null);
     };
 
-    const tabs = [
-        { id: 'smart-trader', label: 'Smart Trader', icon: '🤖' },
-        { id: 'volatility-analyzer', label: 'Volatility Analyzer', icon: '📊' },
-        { id: 'percentage-tool', label: 'Percentage Tool', icon: '📈' },
-        { id: 'ml-trader', label: 'ML Trader', icon: '🧠' },
-    ];
-
-    const components = {
-        'smart-trader': (
-            <SmartTraderWrapper
-                initialSettings={smartTraderConfig}
-                onClose={handleCloseModal}
-            />
-        ),
-        'volatility-analyzer': <VolatilityAnalyzer />,
-        'percentage-tool': <PercentageTool />,
-        'ml-trader': <MLTrader />,
-    };
-
     return (
         <div className="trading-hub-scanner">
-            {/* Volatility Selector Modal */}
-            <VolatilitySelectorModal
-                is_open={showVolatilitySelector}
-                onClose={handleCloseVolatilitySelector}
-                onLoadSettings={handleLoadSettings}
-            />
+            {/* Smart Trader Modal */}
+            <Modal
+                is_open={isSmartTraderModalOpen}
+                title={`Smart Trader - ${selectedTradeSettings ? symbolMap[selectedTradeSettings.symbol] || selectedTradeSettings.symbol : ''}`}
+                toggleModal={handleCloseModal}
+                width="900px"
+                height="auto"
+            >
+                {selectedTradeSettings && (
+                    <SmartTraderWrapper
+                        initialSettings={selectedTradeSettings}
+                        onClose={handleCloseModal}
+                    />
+                )}
+            </Modal>
 
             <div className="scanner-header">
                 <div className="scanner-title">
@@ -1385,36 +1344,35 @@ const TradingHubDisplay: React.FC = observer(() => {
                     </Text>
                 </div>
 
-                <div className="trading-hub-display__controls">
-                    <div className="control-tabs">
-                        {tabs.map((tab) => (
-                            <button
-                                key={tab.id}
-                                className={`control-tab ${activeComponent === tab.id ? 'active' : ''}`}
-                                onClick={() => setActiveComponent(tab.id)}
-                                disabled={isScanning || connectionStatus === 'error'}
-                            >
-                                <span className="tab-icon">{tab.icon}</span>
-                                <span className="tab-label">{tab.label}</span>
-                            </button>
-                        ))}
+                <div className="scanner-controls">
+                    <div className="trade-type-filter">
+                        <label>Filter by trade type:</label>
+                        <select
+                            value={selectedTradeType}
+                            onChange={(e) => setSelectedTradeType(e.target.value)}
+                            className="trade-type-select"
+                        >
+                            {tradeTypes.map(type => (
+                                <option key={type.value} value={type.value}>
+                                    {type.label}
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
-                    <div className="trading-actions">
-                        <Button
-                            primary
-                            onClick={handleOpenVolatilitySelector}
-                            text={localize('Configure Super Elite Bot')}
-                            className="configure-bot-btn"
-                        />
-                        {configurationStatus && (
-                            <div className="configuration-status">
-                                <Text size="xs" color="profit-success">
-                                    ✅ {configurationStatus}
-                                </Text>
+                    {isScanning && (
+                        <div className="scan-progress">
+                            <div className="progress-bar">
+                                <div
+                                    className="progress-fill"
+                                    style={{ width: `${scanProgress}%` }}
+                                ></div>
                             </div>
-                        )}
-                    </div>
+                            <Text size="xs" color="general">
+                                {symbolsAnalyzed}/{totalSymbols} markets analyzed
+                            </Text>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1582,7 +1540,21 @@ const TradingHubDisplay: React.FC = observer(() => {
                     </div>
                 )}
 
-                <div className="scanner-content">
+                <div className="scanner-results">
+                    {connectionStatus === 'error' && (
+                        <div className="scanner-error">
+                            <div className="error-icon">⚠️</div>
+                            <Text size="s" color="prominent">Connection Error</Text>
+                            <Text size="xs" color="general">{statusMessage}</Text>
+                            <button
+                                className="retry-btn"
+                                onClick={() => window.location.reload()}
+                            >
+                                Retry Connection
+                            </button>
+                        </div>
+                    )}
+
                     {(connectionStatus === 'connecting' || connectionStatus === 'scanning') && (
                         <div className="scanner-loading">
                             <div className="ai-scanning-display">
@@ -1648,20 +1620,6 @@ const TradingHubDisplay: React.FC = observer(() => {
                                     </Text>
                                 </div>
                             </div>
-                        </div>
-                    )}
-
-                    {connectionStatus === 'error' && (
-                        <div className="scanner-error">
-                            <div className="error-icon">⚠️</div>
-                            <Text size="s" color="prominent">Connection Error</Text>
-                            <Text size="xs" color="general">{statusMessage}</Text>
-                            <button
-                                className="retry-btn"
-                                onClick={() => window.location.reload()}
-                            >
-                                Retry Connection
-                            </button>
                         </div>
                     )}
 

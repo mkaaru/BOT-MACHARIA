@@ -42,20 +42,7 @@ const tradeOptionToBuy = (contract_type: string, trade_option: any) => {
     return buy;
 };
 
-interface SmartTraderProps {
-    externalConfig?: {
-        symbol?: string;
-        trade_mode?: 'rise_fall' | 'higher_lower';
-        contract_type?: string;
-        stake?: number;
-        duration?: number;
-        duration_unit?: 't' | 's' | 'm';
-        barrier_offset?: number;
-    };
-    onConfigurationLoad?: (config: any) => void;
-}
-
-const SmartTrader = observer(({ externalConfig, onConfigurationLoad }: SmartTraderProps = {}) => {
+const SmartTrader = observer(() => {
     const store = useStore();
     const { run_panel, transactions } = store;
 
@@ -71,17 +58,12 @@ const SmartTrader = observer(({ externalConfig, onConfigurationLoad }: SmartTrad
     const [account_currency, setAccountCurrency] = useState<string>('USD');
     const [symbols, setSymbols] = useState<Array<{ symbol: string; display_name: string }>>([]);
 
-    // Form state - initialize with external config if provided
-    const [symbol, setSymbol] = useState<string>(externalConfig?.symbol || '');
-    const [tradeType, setTradeType] = useState<string>(() => {
-        if (externalConfig?.contract_type) {
-            return externalConfig.contract_type;
-        }
-        return 'DIGITOVER';
-    });
-    const [ticks, setTicks] = useState<number>(externalConfig?.duration || 1);
-    const [stake, setStake] = useState<number>(externalConfig?.stake || 0.5);
-    const [baseStake, setBaseStake] = useState<number>(externalConfig?.stake || 0.5);
+    // Form state
+    const [symbol, setSymbol] = useState<string>('');
+    const [tradeType, setTradeType] = useState<string>('DIGITOVER');
+    const [ticks, setTicks] = useState<number>(1);
+    const [stake, setStake] = useState<number>(0.5);
+    const [baseStake, setBaseStake] = useState<number>(0.5);
 
     // Predictions - key improvement for Over/Under after loss logic
     const [ouPredPreLoss, setOuPredPreLoss] = useState<number>(5);
@@ -126,26 +108,6 @@ const SmartTrader = observer(({ externalConfig, onConfigurationLoad }: SmartTrad
         }
         return '';
     };
-
-    // Handle external configuration updates
-    useEffect(() => {
-        if (externalConfig) {
-            if (externalConfig.symbol) setSymbol(externalConfig.symbol);
-            if (externalConfig.contract_type) setTradeType(externalConfig.contract_type);
-            if (externalConfig.duration) setTicks(externalConfig.duration);
-            if (externalConfig.stake) {
-                setStake(externalConfig.stake);
-                setBaseStake(externalConfig.stake);
-            }
-            
-            // Notify parent component that configuration was loaded
-            if (onConfigurationLoad) {
-                onConfigurationLoad(externalConfig);
-            }
-            
-            console.log('🔧 Smart Trader: External configuration loaded:', externalConfig);
-        }
-    }, [externalConfig, onConfigurationLoad]);
 
     useEffect(() => {
         // Initialize API connection and fetch active symbols
@@ -666,4 +628,3 @@ const SmartTrader = observer(({ externalConfig, onConfigurationLoad }: SmartTrad
 });
 
 export default SmartTrader;
-export type { SmartTraderProps };
