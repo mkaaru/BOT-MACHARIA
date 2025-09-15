@@ -582,29 +582,95 @@ const MLTrader = observer(() => {
 
                 <div className="ml-trader__content">
                     <div className="ml-trader__main-content">
-                        {/* Scanner Status */}
-                        {scanner_status && (
-                            <div className="ml-trader__scanner-status">
-                                <div className="scanner-status-header">
-                                    <Text as="h3">Market Scanner</Text>
-                                    <div className="scanner-progress">
-                                        <div className="progress-bar">
-                                            <div
-                                                className="progress-fill"
-                                                style={{ width: `${scanning_progress}%` }}
-                                            />
-                                        </div>
-                                        <Text size="xs">{scanning_progress.toFixed(0)}%</Text>
-                                    </div>
-                                </div>
-                                <Text size="xs">
-                                    Connected: {scanner_status.connectedSymbols}/{scanner_status.totalSymbols} symbols
-                                </Text>
+                        {/* Market Recommendations - Moved to Top */}
+                        {recommendations.length > 0 && (
+                        <div className="ml-trader__recommendations">
+                            <div className="recommendations-header">
+                                <Text as="h3">Trading Recommendations</Text>
+                                <Text size="xs">Click a recommendation to load trading details</Text>
                             </div>
-                        )}
 
-                        {/* Volatility Trends Overview */}
-                        <div className="ml-trader__volatility-overview">
+                            <div className="recommendations-grid">
+                                {recommendations.slice(0, 6).map((rec, index) => {
+                                    const trend = market_trends.get(rec.symbol);
+                                    const isSelected = selected_recommendation?.symbol === rec.symbol;
+
+                                    return (
+                                        <div
+                                            key={rec.symbol}
+                                            className={`recommendation-card ${rec.direction.toLowerCase()} ${isSelected ? 'selected' : ''}`}
+                                            onClick={() => openRecommendationModal(rec)}
+                                        >
+                                            <div className="rec-header">
+                                                <div className="rec-rank">#{index + 1}</div>
+                                                <div className="rec-symbol">{rec.displayName}</div>
+                                                <div className={`rec-direction ${rec.direction.toLowerCase()}`}>
+                                                    {rec.direction}
+                                                </div>
+                                            </div>
+
+                                            <div className="rec-details">
+                                                <div className="rec-score">
+                                                    <Text size="xs">Score</Text>
+                                                    <Text weight="bold">{rec.score.toFixed(0)}</Text>
+                                                </div>
+                                                <div className="rec-confidence">
+                                                    <Text size="xs">Confidence</Text>
+                                                    <Text weight="bold">{rec.confidence.toFixed(0)}%</Text>
+                                                </div>
+                                                <div className="rec-price">
+                                                    <Text size="xs">Price</Text>
+                                                    <Text weight="bold">{rec.currentPrice.toFixed(5)}</Text>
+                                                </div>
+                                            </div>
+
+                                            {trend && (
+                                                <div className={`trend-indicator ${getTrendColorClass(trend)}`}>
+                                                    <span className="trend-icon">{getTrendIcon(trend)}</span>
+                                                    <div className="trend-details">
+                                                        <Text size="xs" weight="bold">{trend.direction.toUpperCase()}</Text>
+                                                        <Text size="xs">{trend.strength} trend</Text>
+                                                    </div>
+                                                    <div className="hma-values">
+                                                        <Text size="xs">HMA5: {trend.hma5?.toFixed(5) || 'N/A'}</Text>
+                                                        <Text size="xs">HMA40: {trend.hma40?.toFixed(5) || 'N/A'}</Text>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="rec-reason">
+                                                <Text size="xs">{rec.reason}</Text>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Scanner Status */}
+                    {scanner_status && (
+                        <div className="ml-trader__scanner-status">
+                            <div className="scanner-status-header">
+                                <Text as="h3">Market Scanner</Text>
+                                <div className="scanner-progress">
+                                    <div className="progress-bar">
+                                        <div
+                                            className="progress-fill"
+                                            style={{ width: `${scanning_progress}%` }}
+                                        />
+                                    </div>
+                                    <Text size="xs">{scanning_progress.toFixed(0)}%</Text>
+                                </div>
+                            </div>
+                            <Text size="xs">
+                                Connected: {scanner_status.connectedSymbols}/{scanner_status.totalSymbols} symbols
+                            </Text>
+                        </div>
+                    )}
+
+                    {/* Volatility Trends Overview */}
+                    <div className="ml-trader__volatility-overview">
                         <div className="volatility-overview-header">
                             <Text as="h3">Volatility Indices - Live Trends & Strength</Text>
                             {!initial_scan_complete && (
@@ -703,72 +769,6 @@ const MLTrader = observer(() => {
                             })}
                         </div>
                     </div>
-
-                    {/* Market Recommendations */}
-                    {recommendations.length > 0 && (
-                        <div className="ml-trader__recommendations">
-                            <div className="recommendations-header">
-                                <Text as="h3">Trading Recommendations</Text>
-                                <Text size="xs">Click a recommendation to load trading details</Text>
-                            </div>
-
-                            <div className="recommendations-grid">
-                                {recommendations.slice(0, 6).map((rec, index) => {
-                                    const trend = market_trends.get(rec.symbol);
-                                    const isSelected = selected_recommendation?.symbol === rec.symbol;
-
-                                    return (
-                                        <div
-                                            key={rec.symbol}
-                                            className={`recommendation-card ${rec.direction.toLowerCase()} ${isSelected ? 'selected' : ''}`}
-                                            onClick={() => openRecommendationModal(rec)}
-                                        >
-                                            <div className="rec-header">
-                                                <div className="rec-rank">#{index + 1}</div>
-                                                <div className="rec-symbol">{rec.displayName}</div>
-                                                <div className={`rec-direction ${rec.direction.toLowerCase()}`}>
-                                                    {rec.direction}
-                                                </div>
-                                            </div>
-
-                                            <div className="rec-details">
-                                                <div className="rec-score">
-                                                    <Text size="xs">Score</Text>
-                                                    <Text weight="bold">{rec.score.toFixed(0)}</Text>
-                                                </div>
-                                                <div className="rec-confidence">
-                                                    <Text size="xs">Confidence</Text>
-                                                    <Text weight="bold">{rec.confidence.toFixed(0)}%</Text>
-                                                </div>
-                                                <div className="rec-price">
-                                                    <Text size="xs">Price</Text>
-                                                    <Text weight="bold">{rec.currentPrice.toFixed(5)}</Text>
-                                                </div>
-                                            </div>
-
-                                            {trend && (
-                                                <div className={`trend-indicator ${getTrendColorClass(trend)}`}>
-                                                    <span className="trend-icon">{getTrendIcon(trend)}</span>
-                                                    <div className="trend-details">
-                                                        <Text size="xs" weight="bold">{trend.direction.toUpperCase()}</Text>
-                                                        <Text size="xs">{trend.strength} trend</Text>
-                                                    </div>
-                                                    <div className="hma-values">
-                                                        <Text size="xs">HMA5: {trend.hma5?.toFixed(5) || 'N/A'}</Text>
-                                                        <Text size="xs">HMA40: {trend.hma40?.toFixed(5) || 'N/A'}</Text>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            <div className="rec-reason">
-                                                <Text size="xs">{rec.reason}</Text>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
 
                     </div>
 
