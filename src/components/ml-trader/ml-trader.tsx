@@ -491,29 +491,30 @@ const MLTrader = observer(() => {
                 </div>
 
                 <div className="ml-trader__content">
-                    {/* Scanner Status */}
-                    {scanner_status && (
-                        <div className="ml-trader__scanner-status">
-                            <div className="scanner-status-header">
-                                <Text as="h3">Market Scanner</Text>
-                                <div className="scanner-progress">
-                                    <div className="progress-bar">
-                                        <div
-                                            className="progress-fill"
-                                            style={{ width: `${scanning_progress}%` }}
-                                        />
+                    <div className="ml-trader__main-content">
+                        {/* Scanner Status */}
+                        {scanner_status && (
+                            <div className="ml-trader__scanner-status">
+                                <div className="scanner-status-header">
+                                    <Text as="h3">Market Scanner</Text>
+                                    <div className="scanner-progress">
+                                        <div className="progress-bar">
+                                            <div
+                                                className="progress-fill"
+                                                style={{ width: `${scanning_progress}%` }}
+                                            />
+                                        </div>
+                                        <Text size="xs">{scanning_progress.toFixed(0)}%</Text>
                                     </div>
-                                    <Text size="xs">{scanning_progress.toFixed(0)}%</Text>
                                 </div>
+                                <Text size="xs">
+                                    Connected: {scanner_status.connectedSymbols}/{scanner_status.totalSymbols} symbols
+                                </Text>
                             </div>
-                            <Text size="xs">
-                                Connected: {scanner_status.connectedSymbols}/{scanner_status.totalSymbols} symbols
-                            </Text>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Volatility Trends Overview */}
-                    <div className="ml-trader__volatility-overview">
+                        {/* Volatility Trends Overview */}
+                        <div className="ml-trader__volatility-overview">
                         <div className="volatility-overview-header">
                             <Text as="h3">Volatility Indices - Live Trends & Strength</Text>
                             {!initial_scan_complete && (
@@ -679,139 +680,143 @@ const MLTrader = observer(() => {
                         </div>
                     )}
 
-                    {/* Trading Interface */}
-                    {selected_recommendation && (
-                        <div className="ml-trader__trading-interface">
-                            <Text as="h3">Trading Interface</Text>
+                    </div>
 
-                            <div className="trading-form">
-                                <div className="form-row">
-                                    <div className="form-field">
-                                        <Text as="label">Asset</Text>
-                                        <select
-                                            value={symbol}
-                                            onChange={(e) => setSymbol(e.target.value)}
-                                            disabled={is_running}
-                                        >
-                                            {ENHANCED_VOLATILITY_SYMBOLS.map(s => (
-                                                <option key={s.symbol} value={s.symbol}>
-                                                    {s.display_name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
+                    <div className="ml-trader__side-content">
+                        {/* Trading Interface */}
+                        {selected_recommendation && (
+                            <div className="ml-trader__trading-interface">
+                                <Text as="h3">Trading Interface</Text>
 
-                                    <div className="form-field">
-                                        <Text as="label">Trade Mode</Text>
-                                        <select
-                                            value={trade_mode}
-                                            onChange={(e) => setTradeMode(e.target.value as any)}
-                                            disabled={is_running}
-                                        >
-                                            <option value="rise_fall">Rise/Fall</option>
-                                            <option value="higher_lower">Higher/Lower</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div className="form-row">
-                                    <div className="form-field">
-                                        <Text as="label">Contract Type</Text>
-                                        <select
-                                            value={contract_type}
-                                            onChange={(e) => setContractType(e.target.value)}
-                                            disabled={is_running}
-                                        >
-                                            {(trade_mode === 'rise_fall' ? TRADE_TYPES : HIGHER_LOWER_TYPES).map(type => (
-                                                <option key={type.value} value={type.value}>
-                                                    {type.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="form-field">
-                                        <Text as="label">Stake ({account_currency})</Text>
-                                        <input
-                                            type="number"
-                                            value={stake}
-                                            onChange={(e) => setStake(Number(e.target.value))}
-                                            min="0.1"
-                                            step="0.1"
-                                            disabled={is_running}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="form-row">
-                                    <div className="form-field">
-                                        <Text as="label">Duration</Text>
-                                        <input
-                                            type="number"
-                                            value={duration}
-                                            onChange={(e) => setDuration(Number(e.target.value))}
-                                            min="1"
-                                            disabled={is_running}
-                                        />
-                                    </div>
-
-                                    <div className="form-field">
-                                        <Text as="label">Duration Unit</Text>
-                                        <select
-                                            value={duration_unit}
-                                            onChange={(e) => setDurationUnit(e.target.value as any)}
-                                            disabled={is_running}
-                                        >
-                                            <option value="t">Ticks</option>
-                                            <option value="s">Seconds</option>
-                                            <option value="m">Minutes</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                {trade_mode === 'higher_lower' && (
+                                <div className="trading-form">
                                     <div className="form-row">
                                         <div className="form-field">
-                                            <Text as="label">Barrier Offset</Text>
+                                            <Text as="label">Asset</Text>
+                                            <select
+                                                value={symbol}
+                                                onChange={(e) => setSymbol(e.target.value)}
+                                                disabled={is_running}
+                                            >
+                                                {ENHANCED_VOLATILITY_SYMBOLS.map(s => (
+                                                    <option key={s.symbol} value={s.symbol}>
+                                                        {s.display_name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="form-field">
+                                            <Text as="label">Trade Mode</Text>
+                                            <select
+                                                value={trade_mode}
+                                                onChange={(e) => setTradeMode(e.target.value as any)}
+                                                disabled={is_running}
+                                            >
+                                                <option value="rise_fall">Rise/Fall</option>
+                                                <option value="higher_lower">Higher/Lower</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-row">
+                                        <div className="form-field">
+                                            <Text as="label">Contract Type</Text>
+                                            <select
+                                                value={contract_type}
+                                                onChange={(e) => setContractType(e.target.value)}
+                                                disabled={is_running}
+                                            >
+                                                {(trade_mode === 'rise_fall' ? TRADE_TYPES : HIGHER_LOWER_TYPES).map(type => (
+                                                    <option key={type.value} value={type.value}>
+                                                        {type.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="form-field">
+                                            <Text as="label">Stake ({account_currency})</Text>
                                             <input
                                                 type="number"
-                                                value={barrier_offset}
-                                                onChange={(e) => setBarrierOffset(Number(e.target.value))}
-                                                step="0.001"
+                                                value={stake}
+                                                onChange={(e) => setStake(Number(e.target.value))}
+                                                min="0.1"
+                                                step="0.1"
+                                                disabled={is_running}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="form-row">
+                                        <div className="form-field">
+                                            <Text as="label">Duration</Text>
+                                            <input
+                                                type="number"
+                                                value={duration}
+                                                onChange={(e) => setDuration(Number(e.target.value))}
+                                                min="1"
                                                 disabled={is_running}
                                             />
                                         </div>
 
                                         <div className="form-field">
-                                            <Text as="label">Current Price</Text>
-                                            <Text>{current_price ? current_price.toFixed(5) : 'Loading...'}</Text>
+                                            <Text as="label">Duration Unit</Text>
+                                            <select
+                                                value={duration_unit}
+                                                onChange={(e) => setDurationUnit(e.target.value as any)}
+                                                disabled={is_running}
+                                            >
+                                                <option value="t">Ticks</option>
+                                                <option value="s">Seconds</option>
+                                                <option value="m">Minutes</option>
+                                            </select>
                                         </div>
                                     </div>
-                                )}
+
+                                    {trade_mode === 'higher_lower' && (
+                                        <div className="form-row">
+                                            <div className="form-field">
+                                                <Text as="label">Barrier Offset</Text>
+                                                <input
+                                                    type="number"
+                                                    value={barrier_offset}
+                                                    onChange={(e) => setBarrierOffset(Number(e.target.value))}
+                                                    step="0.001"
+                                                    disabled={is_running}
+                                                />
+                                            </div>
+
+                                            <div className="form-field">
+                                                <Text as="label">Current Price</Text>
+                                                <Text>{current_price ? current_price.toFixed(5) : 'Loading...'}</Text>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Status and Controls */}
-                    <div className="ml-trader__status">
-                        <div className="status-row">
-                            <Text>{status || 'Ready to trade'}</Text>
-                            <div className="ml-trader__actions">
-                                <button
-                                    className={`ml-trader__btn ${is_running ? 'ml-trader__btn--stop' : 'ml-trader__btn--start'}`}
-                                    onClick={is_running ? onStop : onStart}
-                                    disabled={!selected_recommendation && !is_running}
-                                >
-                                    {is_running ? 'Stop' : 'Start Trading'}
-                                </button>
+                        {/* Status and Controls */}
+                        <div className="ml-trader__status">
+                            <div className="status-row">
+                                <Text>{status || 'Ready to trade'}</Text>
+                                <div className="ml-trader__actions">
+                                    <button
+                                        className={`ml-trader__btn ${is_running ? 'ml-trader__btn--stop' : 'ml-trader__btn--start'}`}
+                                        onClick={is_running ? onStop : onStart}
+                                        disabled={!selected_recommendation && !is_running}
+                                    >
+                                        {is_running ? 'Stop' : 'Start Trading'}
+                                    </button>
 
-                                <button
-                                    className="ml-trader__btn ml-trader__btn--scan"
-                                    onClick={startMarketScan}
-                                    disabled={is_running}
-                                >
-                                    Refresh Scan
-                                </button>
+                                    <button
+                                        className="ml-trader__btn ml-trader__btn--scan"
+                                        onClick={startMarketScan}
+                                        disabled={is_running}
+                                    >
+                                        Refresh Scan
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
