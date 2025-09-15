@@ -1,0 +1,156 @@
+rend Analysis for R_10: NEUTRAL (moderate) - Score: 44.0 - Recommendation: HOLD
+candle-reconstruction-engine.ts:117 Completed 1-min candle for R_10: OHLC(5925.66900, 5926.07000, 5924.93600, 5925.48800) with 30 ticks
+efficient-hma-calculator.ts:162 Efficient HMA5 for R_100: 1145.09800 (O(1) calculation)
+efficient-hma-calculator.ts:162 Efficient HMA40 for R_100: 1149.15506 (O(1) calculation)
+trend-analysis-engine.ts:107 Trend Analysis for R_100: BEARISH (strong) - Score: 83.0 - Recommendation: SELL
+candle-reconstruction-engine.ts:117 Completed 1-min candle for R_100: OHLC(1146.42000, 1146.97000, 1144.90000, 1145.24000) with 30 ticks
+ml-trader.tsx:330 📋 Opening recommendation modal with: Object
+ml-trader.tsx:368  Error opening recommendation modal: TypeError: Cannot read properties of undefined (reading 'toUpperCase')
+    at ml-trader.tsx:366:1
+    at onClick (ml-trader.tsx:795:1)
+    at HTMLUnknownElement.callCallback (react-dom.development.js:4164:1)
+    at Object.invokeGuardedCallbackDev (react-dom.development.js:4213:1)
+    at invokeGuardedCallback (react-dom.development.js:4277:1)
+    at invokeGuardedCallbackAndCatchFirstError (react-dom.development.js:4291:1)
+    at executeDispatch (react-dom.development.js:9041:1)
+    at processDispatchQueueItemsInOrder (react-dom.development.js:9073:1)
+    at processDispatchQueue (react-dom.development.js:9086:1)
+    at dispatchEventsForPlugins (react-dom.development.js:9097:1)
+(anonymous) @ ml-trader.tsx:368
+2TradingModal.tsx:261  Uncaught TypeError: Cannot read properties of undefined (reading 'toUpperCase')
+    at TradingModal (TradingModal.tsx:261:1)
+    at renderWithHooks (react-dom.development.js:15486:1)
+    at updateFunctionComponent (react-dom.development.js:19617:1)
+    at beginWork (react-dom.development.js:21640:1)
+    at HTMLUnknownElement.callCallback (react-dom.development.js:4164:1)
+    at Object.invokeGuardedCallbackDev (react-dom.development.js:4213:1)
+    at invokeGuardedCallback (react-dom.development.js:4277:1)
+    at beginWork$1 (react-dom.development.js:27490:1)
+    at performUnitOfWork (react-dom.development.js:26596:1)
+    at workLoopSync (react-dom.development.js:26505:1)
+react-dom.development.js:18704  The above error occurred in the <TradingModal> component:
+
+    at TradingModal (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:8917:11)
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:21206:11)
+    at div
+    at div
+    at div
+    at Tabs (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-content_jsx-src_components_shared_ui_popover_popover_scss.js:21206:11)
+    at div
+    at div
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at div
+    at j (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/vendors-node_modules_datadog_browser-rum_esm_entries_main_js-node_modules_deriv_deriv-charts_-ccdc9f.js:43304:13)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4515:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4372:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23370:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
+logCapturedError @ react-dom.development.js:18704
+react-dom.development.js:86  Warning: findDOMNode is deprecated and will be removed in the next major release. Instead, add a ref directly to the element you want to reference. Learn more about using refs safely here: https://reactjs.org/link/strict-mode-find-node
+    at Transition (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:59697:30)
+    at CSSTransition (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:59252:35)
+    at Modal (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_shared_ui_modal_index_ts-src_hooks_useHover_ts.js:360:11)
+    at ErrorModal (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:617:11)
+    at PageErrorContainer (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:772:11)
+    at ErrorComponent (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:416:11)
+    at ErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:357:9)
+    at Suspense
+    at AppRoot (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_app_app-root_tsx-src_components_shared_ui_div100vh-container_div100vh-container_scss-src_-e480e3.js:212:76)
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at Outlet (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7788:26)
+    at div
+    at MainBody (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4515:11)
+    at div
+    at Layout (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/async/src_components_layout_index_tsx-src_components_shared_ui_modal_modal_scss-src_components_shar-72dd17.js:4372:84)
+    at https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:29622:73
+    at StoreProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:23370:11)
+    at p (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73480:11)
+    at P (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-a317e3.js:73494:16)
+    at Suspense
+    at RenderedRoute (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7174:5)
+    at RenderErrorBoundary (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7121:5)
+    at DataRoutes (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5745:5)
+    at Router (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:7809:15)
+    at RouterProvider (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/lib-router.js:5529:5)
+    at App (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1390:53)
+    at AuthWrapper (https://89e8b7ae-5458-44ed-8288-f6be265f8b22-00-2v3k6mos8k0wa.pike.replit.dev/static/js/index.js:1551:94)
+printWarning @ react-dom.development.js:86
+api-base.ts:148 connection state:  3
+api-base.ts:151 Info: Connection to the server was closed, trying to reconnect.
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+config.ts:75  ⚠️ App ID is invalid, forcing correct App ID...
+getAppId @ config.ts:75
+config.ts:80 🔍 [config.ts] Using App ID: 75771
+chart-api.js:35 chart connection state:  0
+ml-trader.tsx:217 ⏰ ML Trader: Forcing scan completion after timeout - historical data processed
+content_script.js:7165 Content limit: 612032839.68
+api-base.ts:148 connection state:  1
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+3api-base.ts:148 connection state:  1
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+[NEW] Explain Console errors by using Copilot in Edge: click
+         
+         to explain an error. 
+        Learn more
+        Don't show again
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ15V: BULLISH (moderate) - Score: 67.0 - Recommendation: BUY
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ10V: BULLISH (moderate) - Score: 55.0 - Recommendation: HOLD
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ25V: BULLISH (strong) - Score: 77.0 - Recommendation: BUY
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ30V: BULLISH (strong) - Score: 67.1 - Recommendation: HOLD
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ50V: BULLISH (strong) - Score: 68.5 - Recommendation: HOLD
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ75V: BEARISH (strong) - Score: 83.0 - Recommendation: SELL
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ90V: BULLISH (strong) - Score: 83.0 - Recommendation: BUY
+trend-analysis-engine.ts:107 Trend Analysis for R_25: NEUTRAL (moderate) - Score: 40.0 - Recommendation: HOLD
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ100V: NEUTRAL (strong) - Score: 50.0 - Recommendation: HOLD
+trend-analysis-engine.ts:107 Trend Analysis for R_10: NEUTRAL (moderate) - Score: 44.0 - Recommendation: HOLD
+trend-analysis-engine.ts:107 Trend Analysis for R_50: NEUTRAL (moderate) - Score: 40.0 - Recommendation: HOLD
+trend-analysis-engine.ts:107 Trend Analysis for R_75: BULLISH (strong) - Score: 83.0 - Recommendation: BUY
+trend-analysis-engine.ts:107 Trend Analysis for R_100: BEARISH (strong) - Score: 83.0 - Recommendation: SELL
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ15V: BULLISH (moderate) - Score: 67.0 - Recommendation: BUY
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ10V: BULLISH (moderate) - Score: 55.0 - Recommendation: HOLD
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ25V: BULLISH (strong) - Score: 77.0 - Recommendation: BUY
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ30V: BULLISH (strong) - Score: 67.1 - Recommendation: HOLD
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ50V: BULLISH (strong) - Score: 68.5 - Recommendation: HOLD
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ75V: BEARISH (strong) - Score: 83.0 - Recommendation: SELL
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ90V: BULLISH (strong) - Score: 83.0 - Recommendation: BUY
+trend-analysis-engine.ts:107 Trend Analysis for R_25: NEUTRAL (moderate) - Score: 40.0 - Recommendation: HOLD
+trend-analysis-engine.ts:107 Trend Analysis for 1HZ100V: NEUTRAL (strong) - Score: 50.0 - Recommendation: HOLD
+trend-analysis-engine.ts:107 Trend Analysis for R_10: NEUTRAL (moderate) - Score: 44.0 - Recommendation: HOLD
+trend-analysis-engine.ts:107 Trend Analysis for R_50: NEUTRAL (moderate) - Score: 40.0 - Recommendation: HOLD
+trend-analysis-engine.ts:107 Trend Analysis for R_75: BULLISH (strong) - Score: 83.0 - Recommendation: BUY
+trend-analysis-engine.ts:107 Trend Analysis for R_100: BEARISH (strong) - Score: 83.0 - Recommendation: SELL
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
+content_script.js:7165 Content limit: 612032839.68
